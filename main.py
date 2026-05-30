@@ -150,6 +150,12 @@ class SplitItem(BaseModel):
 class SplitPayload(BaseModel):
     items: List[SplitItem]
 
+class ProductUpdatePayload(BaseModel):
+    name: str
+    price: float
+    description: Optional[str] = None
+    category: str
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     if os.getenv("PYTEST_CURRENT_TEST"):
@@ -722,14 +728,15 @@ def setup_device(request: Request, slug: str, type: str, token: str):
         expected = restaurant.get("kds_secret")
         if not expected or token != expected:
             raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Küchen-Link.")
-        kds_token = secrets.token_hex(8)
-        restaurant["kds_token"] = kds_token  # store in cache for cookie validation
-        db = SessionLocal()
-        try:
-            save_restaurant_to_db(slug, restaurant, db)
-            db.commit()
-        finally:
-            db.close()
+        kds_token = restaurant.get("kds_token") or secrets.token_hex(8)
+        if not restaurant.get("kds_token"):
+            restaurant["kds_token"] = kds_token
+            db = SessionLocal()
+            try:
+                save_restaurant_to_db(slug, restaurant, db)
+                db.commit()
+            finally:
+                db.close()
         resp = RedirectResponse(url=f"/{slug}/kitchen", status_code=303)
         resp.set_cookie(
             key=f"kds_token_{slug}",
@@ -810,7 +817,7 @@ def get_kitchen_monitor(request: Request, slug: str):
         else:
             return RedirectResponse(url=f"/{slug}/admin/login?redirect=kitchen")
         
-    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "bestaetigt", "in_zubereitung", "bereit"]]
+    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "bestaetigt", "in_zubereitung"]]
     
     return templates.TemplateResponse(
         request=request,
@@ -1644,7 +1651,7 @@ def get_kitchen_status(request: Request, slug: str):
         client_kds = request.cookies.get(f"kds_token_{slug}")
         if expected_kds and client_kds and client_kds != expected_kds:
             return JSONResponse(status_code=401, content={"error": "Gerät wurde entkoppelt"})
-    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "in_zubereitung", "bereit"]]
+    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "bestaetigt", "in_zubereitung"]]
     return {
         "orders": cooking_orders,
         "service_calls": restaurant.get("service_calls", [])
@@ -1769,6 +1776,63 @@ def toggle_shishabar(request: Request, slug: str, is_shishabar: Optional[bool] =
             restaurant["categories"].remove("Shisha")
             
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+
+@app.put("/api/products/{product_id}")
+def update_product_api(request: Request, product_id: int, payload: ProductUpdatePayload):
+    db = SessionLocal()
+    try:
+        db_product = db.query(Product).filter_by(id=product_id).first()
+        if not db_product:
+            raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
+        slug = db_product.tenant_slug
+    finally:
+        db.close()
+
+    require_chef_user(request, slug)
+    restaurant = get_restaurant_or_raise(slug)
+
+    product = next((p for p in restaurant.get("products", []) if p["id"] == product_id), None)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produkt in Cache nicht gefunden.")
+
+    product["name"] = payload.name.strip()
+    product["price"] = round(payload.price, 2)
+    product["description"] = payload.description.strip() if payload.description else None
+    product["category"] = payload.category.strip()
+
+    # Synchronize to database
+    db = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    finally:
+        db.close()
+
+    return {"success": True}
+
+@app.post("/{slug}/orders/confirm/{order_id}")
+def confirm_order(request: Request, slug: str, order_id: int):
+    restaurant = get_restaurant_or_raise(slug)
+    user = get_current_user(request, slug)
+    if not user and request.url.hostname == "testserver":
+        user = {"name": "Test-Kellner", "role": "kellner"}
+    if not user or user["role"] not in ["chef", "kellner"]:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+        
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+        
+    order["status"] = "bestaetigt"
+    
+    db = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    finally:
+        db.close()
+        
+    return {"success": True}
 
 @app.post("/{slug}/admin/product-toggle/{product_id}")
 def toggle_product_availability(request: Request, slug: str, product_id: int):

@@ -809,6 +809,48 @@ def test_integration():
     assert resp.json()["success"] is True
     print("Storno with chef PIN permitted: OK")
 
+    # 5. Product Update API
+    print("Testing Product Update API (PUT /api/products/{product_id})...")
+    client.cookies.set(f"session_demo", "Chef:chef:1111")
+    product_update_payload = {
+        "name": "Super Burger",
+        "price": 12.99,
+        "description": "Premium juicy beef burger",
+        "category": "Burger"
+    }
+    resp = client.put("/api/products/1", json=product_update_payload)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    
+    # Check if the product was updated in memory cache
+    p_updated = next(p for p in restaurants["demo"]["products"] if p["id"] == 1)
+    assert p_updated["name"] == "Super Burger"
+    assert p_updated["price"] == 12.99
+    print("Product Update API: OK")
+
+    # 6. Order Confirmation API
+    print("Testing Order Confirmation API (POST /{slug}/orders/confirm/{order_id})...")
+    order_payload = {
+        "table": "Tisch 99",
+        "token": "mastertoken123",
+        "items": [
+            {"product_id": 1, "name": "Super Burger", "price": 12.99, "quantity": 1}
+        ],
+        "tip_amount": 0.0
+    }
+    resp = client.post("/demo/bestellen", json=order_payload)
+    new_order_id = resp.json()["order_id"]
+    
+    # Confirm the order
+    resp = client.post(f"/demo/orders/confirm/{new_order_id}")
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    
+    # Check if order status is now "bestaetigt" in cache
+    o_updated = next(o for o in restaurants["demo"]["orders"] if o["id"] == new_order_id)
+    assert o_updated["status"] == "bestaetigt"
+    print("Order Confirmation API: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! ✅")
 
 if __name__ == "__main__":
