@@ -7,7 +7,7 @@ import secrets
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -48,6 +48,16 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 def health_check_early():
     """Lightweight liveness probe – always returns 200 when the app is up."""
     return JSONResponse({"status": "ok"})
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/images/digigastrologo.jpeg")
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+@app.get("/apple-touch-icon-120x120.png", include_in_schema=False)
+async def apple_touch_icon():
+    return FileResponse("static/images/digigastrologo.jpeg")
 
 # Custom Exception for suspended tenants
 class TenantSuspendedException(Exception):
@@ -417,6 +427,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             db_table = next((t for t in tables_list if str(t.get("number")) == active_table_num), None)
             
             # Check if all orders for this table are paid or storniert
+            force_reset_session = False
             table_orders = [o for o in restaurant.get("orders", []) if o.get("table") in [f"Tisch {active_table_num}", active_table_num]]
             if table_orders:
                 open_orders = [o for o in table_orders if o.get("status") not in ["bezahlt", "storniert"]]
@@ -427,29 +438,33 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                         import secrets
                         new_table_tok = secrets.token_hex(4)
                         db_table["security_token"] = new_table_tok
-                    reset_session = True
+                        # Override active_token and query_token so they seamlessly start a fresh session!
+                        active_token = new_table_tok
+                        query_token = new_table_tok
+                        force_reset_session = True
             
             table_tok = db_table.get("security_token") if db_table else None
             
             # Re-read token validity against potentially rotated token
             is_token_valid = (active_token and ((table_tok and active_token == table_tok) or (master_token and active_token == master_token)))
             
-            if not is_token_valid or reset_session:
+            if not is_token_valid or force_reset_session:
                 if query_token and ((table_tok and query_token == table_tok) or (master_token and query_token == master_token)):
                     table = active_table_num
                     token = query_token
                     set_session_cookie = True
-                    reset_session = False
                 else:
-                    if active_token:
+                    if active_token and not force_reset_session:
                         return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
                     token_error = True
                     is_readonly = True
-                    reset_session = True
+                    force_reset_session = True
             else:
                 table = active_table_num
                 token = active_token
                 set_session_cookie = True
+                
+            reset_session = force_reset_session
         else:
             is_readonly = True
 
@@ -900,10 +915,16 @@ def update_cooking_status(request: Request, slug: str, order_id: int, status: st
 @app.post("/{slug}/tablet/bezahlen/{order_id}")
 def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0)):
     restaurant = get_restaurant_or_raise(slug)
-    user = get_current_user(request, slug)
-    if not user and request.url.hostname == "testserver":
-        user = {"name": "Test-Kellner", "role": "kellner"}
-    if not user or user["role"] not in ["chef", "kellner"]:
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
         
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
@@ -932,10 +953,16 @@ def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[st
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
 def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPayload):
     restaurant = get_restaurant_or_raise(slug)
-    user = get_current_user(request, slug)
-    if not user and request.url.hostname == "testserver":
-        user = {"name": "Test-Kellner", "role": "kellner"}
-    if not user or user["role"] not in ["chef", "kellner"]:
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
         
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
@@ -1012,10 +1039,16 @@ def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...
 @app.post("/{slug}/service-erledigt/{ruf_id}")
 def service_erledigt(request: Request, slug: str, ruf_id: int):
     restaurant = get_restaurant_or_raise(slug)
-    user = get_current_user(request, slug)
-    if not user and request.url.hostname == "testserver":
-        user = {"name": "Test-Kellner", "role": "kellner"}
-    if not user or user["role"] not in ["chef", "kellner", "zubereiter"]:
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner", "zubereiter"]:
+            is_auth = True
+    if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
         
     calls = restaurant.get("service_calls", [])

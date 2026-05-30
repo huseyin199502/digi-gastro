@@ -2,7 +2,7 @@
 <html class="dark" lang="de">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>{{ restaurant.name }} - Speisekarte</title>
     <!-- Tailwind and FontAwesome / Material Symbols -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -80,7 +80,7 @@
     {% else %}
 
     <!-- Top Navigation Bar / Header -->
-    <header class="flex justify-between items-center px-6 h-16 w-full fixed top-0 z-50 bg-background/90 backdrop-blur-md border-b border-outline-variant">
+    <header class="flex justify-between items-center px-6 h-16 w-full relative z-50 bg-background/90 border-b border-outline-variant">
         <div class="text-xl font-black tracking-tight text-on-surface">
             {% if restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="h-8 w-auto object-contain" src="{{ restaurant.branding.logo_url }}">
@@ -100,14 +100,14 @@
 
     <!-- Top Alert Banner for Token/Table missing -->
     {% if token_error %}
-    <div class="bg-red-950/80 border-b border-red-900/40 text-red-200 py-3 px-4 text-center text-xs fixed top-16 left-0 right-0 z-40 backdrop-blur-md flex items-center justify-center space-x-2">
+    <div class="bg-red-950/80 border-b border-red-900/40 text-red-200 py-3 px-4 text-center text-xs backdrop-blur-md flex items-center justify-center space-x-2">
         <span class="material-symbols-outlined text-[18px] text-red-400">error</span>
         <span data-translate="token_error">Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie den Barcode neu.</span>
     </div>
     {% endif %}
 
     <!-- Main Dynamic Content Canvas -->
-    <main class="flex-grow w-full max-w-4xl mx-auto {% if token_error %}mt-28{% else %}mt-16{% endif %} px-4 flex flex-col">
+    <main class="flex-grow w-full max-w-4xl mx-auto px-4 flex flex-col">
         
         <!-- Compact Welcome Area -->
         <div class="py-6 text-center border-b border-outline-variant/40 mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -144,7 +144,7 @@
             </div>
 
             <!-- Category Pills (Horizontal scrolling) -->
-            <div class="sticky {% if not table or token_error %}top-28{% else %}top-16{% endif %} z-40 bg-black/85 backdrop-blur-md py-3 border-b border-outline-variant -mx-4 px-4">
+            <div class="sticky top-0 z-40 bg-black/85 backdrop-blur-md py-3 border-b border-outline-variant -mx-4 px-4">
                 <div id="category-pills" class="flex gap-2 overflow-x-auto scrollbar-none">
                     {% for cat in restaurant.categories %}
                     <button onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all {% if loop.first %}bg-primary text-black font-extrabold shadow-lg shadow-primary/20 scale-105{% else %}bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white{% endif %}">
@@ -163,9 +163,14 @@
                          data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
                          data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                     
-                    {% if product.image_url %}
-                    <div class="relative w-full aspect-video rounded-xl overflow-hidden mb-4 bg-black/40">
+                    <div class="relative w-full aspect-video rounded-xl overflow-hidden mb-4 bg-surface-container-high/40 flex items-center justify-center border border-outline-variant">
+                        {% if product.image_url %}
                         <img alt="{{ product.name }}" class="w-full h-full object-cover" src="{{ product.image_url }}">
+                        {% else %}
+                        <div class="flex flex-col items-center justify-center text-on-surface-variant/40">
+                            <span class="material-symbols-outlined text-3xl">restaurant</span>
+                        </div>
+                        {% endif %}
                         {% if not is_avail %}
                         <div class="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-center p-3 backdrop-blur-xs">
                             <span class="material-symbols-outlined text-red-500 text-3xl mb-1">block</span>
@@ -174,7 +179,6 @@
                         </div>
                         {% endif %}
                     </div>
-                    {% endif %}
                     
                     <div class="flex flex-col justify-between flex-grow">
                         <div>
