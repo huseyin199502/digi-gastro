@@ -42,6 +42,38 @@
                 display: none !important;
             }
         }
+        
+        @keyframes blinkRed {
+            0%, 100% {
+                background-color: rgba(239, 68, 68, 0.05);
+                border-color: rgba(239, 68, 68, 0.4);
+                box-shadow: 0 0 10px rgba(239, 68, 68, 0.05);
+            }
+            50% {
+                background-color: rgba(239, 68, 68, 0.25);
+                border-color: rgba(239, 68, 68, 1);
+                box-shadow: 0 0 25px rgba(239, 68, 68, 0.5);
+            }
+        }
+        .blinking-red-card {
+            animation: blinkRed 1.2s infinite;
+        }
+
+        @keyframes blinkOrange {
+            0%, 100% {
+                background-color: rgba(245, 158, 11, 0.05);
+                border-color: rgba(245, 158, 11, 0.4);
+                box-shadow: 0 0 10px rgba(245, 158, 11, 0.05);
+            }
+            50% {
+                background-color: rgba(245, 158, 11, 0.25);
+                border-color: rgba(245, 158, 11, 1);
+                box-shadow: 0 0 25px rgba(245, 158, 11, 0.5);
+            }
+        }
+        .blinking-orange-card {
+            animation: blinkOrange 1.2s infinite;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -127,12 +159,11 @@
             <span>{{ "%.2f"|format(order.total) }}</span>
         {% endfor %}
     </div>
-
-    <!-- Main Content Area -->
+    <!-- Main Content Area -->
     <main class="flex-grow flex flex-col md:flex-row h-screen md:ml-64 p-6 gap-6 overflow-hidden">
         
-        <!-- LEFT COLUMN: PINNED Service Calls & Complete Table Kacheln Grid -->
-        <section class="w-full md:w-7/12 flex flex-col h-full overflow-y-auto pr-2 space-y-6" style="scrollbar-width: none;">
+        <!-- FULL WIDTH COLUMN: PINNED Service Calls & Complete Table Kacheln Grid -->
+        <section class="w-full flex flex-col h-full overflow-y-auto pr-2 space-y-6" style="scrollbar-width: none;">
             
             <!-- 1. PINNED SERVICE CALLS -->
             <div class="bg-[#1a1a1a]/85 border-2 border-red-500/30 p-4 rounded-2xl space-y-3">
@@ -189,76 +220,84 @@
             </div>
         </section>
 
-        <!-- RIGHT COLUMN: ORDER DETAILS AND PAYMENT COMPONENT -->
-        <section id="details-pane" class="hidden md:flex flex-col fixed inset-0 z-50 md:relative md:inset-auto flex-grow md:w-5/12 bg-zinc-950 md:bg-[#1a1a1a] border-t md:border-t-0 border-outline-variant md:rounded-2xl overflow-hidden h-full">
-            <div class="p-6 border-b border-outline-variant bg-black/30 flex justify-between items-center flex-wrap gap-4">
-                <div class="flex items-center gap-3 flex-wrap">
-                    <div>
-                        <span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Abrechnung & Bonierung</span>
-                        <h2 id="detail-table-name" class="text-2xl font-black text-white">Tisch --</h2>
+        <!-- FULLSCREEN OVERLAY MODAL: ORDER DETAILS AND PAYMENT COMPONENT -->
+        <section id="details-pane" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden animate-fade-in">
+            <div class="bg-[#141414] border border-outline-variant rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+                
+                <div class="p-6 border-b border-outline-variant bg-black/30 flex justify-between items-center flex-wrap gap-4">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Abrechnung & Bonierung</span>
+                            <h2 id="detail-table-name" class="text-2xl font-black text-white">Tisch --</h2>
+                        </div>
+                        <button id="btn-take-order" onclick="openOrderModal()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 shrink-0">
+                            <span class="material-symbols-outlined text-base">add_circle</span>
+                            <span>Bestellung aufnehmen</span>
+                        </button>
                     </div>
-                    <button id="btn-take-order" onclick="openOrderModal()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 shrink-0">
-                        <span class="material-symbols-outlined text-base">add_circle</span>
-                        <span>Bestellung aufnehmen</span>
-                    </button>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="text-right shrink-0">
-                        <span id="detail-order-id" class="text-xs font-mono text-on-surface-variant">Bon #--</span>
-                    </div>
-                    <!-- Close button for mobile -->
-                    <button onclick="closeDetailsPane()" class="md:hidden text-on-surface-variant hover:text-white p-2 rounded-lg bg-surface border border-outline-variant flex items-center justify-center">
-                        <span class="material-symbols-outlined text-xl">close</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Items list inside order -->
-            <div id="detail-item-list" class="flex-grow overflow-y-auto p-6 space-y-4" style="scrollbar-width: thin;"></div>
-
-            <!-- Totals and interactive checkout controls -->
-            <div class="p-6 border-t border-outline-variant bg-black/40 space-y-4">
-                <div class="flex justify-between items-center">
-                    <span id="label-total-price" class="text-sm font-bold text-on-surface-variant">Gesamtbetrag (Brutto):</span>
-                    <span id="detail-total-price" class="text-2xl font-black text-primary">0,00 €</span>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Gegebener Betrag</label>
-                        <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="w-full bg-background border border-outline-variant focus:border-primary rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right text-white">
-                    </div>
-                    <div id="change-row" class="hidden">
-                        <span class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Rückgeld</span>
-                        <div id="detail-change-amount" class="text-xl font-black text-[#deff9a] mt-2 font-mono">0,00 €</div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-right shrink-0">
+                            <span id="detail-order-id" class="text-xs font-mono text-on-surface-variant">Bon #--</span>
+                        </div>
+                        <!-- Close button -->
+                        <button onclick="closeDetailsPane()" class="text-on-surface-variant hover:text-white p-2 rounded-lg bg-surface border border-outline-variant flex items-center justify-center transition active:scale-95">
+                            <span class="material-symbols-outlined text-xl">close</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Controls grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                    <button id="btn-normal-pay" onclick="processPayment()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md">
-                        💳 Bezahlen / Paid
-                    </button>
-                    <button id="btn-start-split" onclick="startSplitMode()" class="bg-surface border border-outline-variant text-xs text-white hover:border-primary font-bold py-3.5 rounded-xl transition">
-                        ✂️ Teilzahlung
-                    </button>
-                    <button onclick="triggerStornoPrompt()" class="bg-red-950/40 border border-red-500/20 hover:bg-red-500 hover:text-black text-red-400 font-bold text-xs py-3.5 rounded-xl transition">
-                        🚫 Bon Stornieren
-                    </button>
-                </div>
+                <!-- Items list inside order -->
+                <div id="detail-item-list" class="flex-grow overflow-y-auto p-6 space-y-4" style="scrollbar-width: thin;"></div>
 
-                <!-- Hidden inputs/actions for partial invoice splitting -->
-                <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-outline-variant mt-2">
-                    <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition">
-                        Teilbetrag Bar verbuchen
+                <!-- Totals and interactive checkout controls -->
+                <div class="p-6 border-t border-outline-variant bg-black/40 space-y-4">
+                    <!-- Confirm guest order button -->
+                    <button id="btn-confirm-order" onclick="confirmActiveOrder()" class="hidden w-full bg-amber-500 hover:bg-amber-400 text-black font-black text-sm py-4 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95 mb-2">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        <span>Bestellung bestätigen & buchen</span>
                     </button>
-                    <button onclick="cancelSplitMode()" class="bg-surface border border-outline-variant text-xs py-3.5 px-4 rounded-xl font-bold text-white transition">
-                        Abbrechen
-                    </button>
+
+                    <div class="flex justify-between items-center">
+                        <span id="label-total-price" class="text-sm font-bold text-on-surface-variant">Gesamtbetrag (Brutto):</span>
+                        <span id="detail-total-price" class="text-2xl font-black text-primary">0,00 €</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Gegebener Betrag</label>
+                            <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="w-full bg-background border border-outline-variant focus:border-primary rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right text-white">
+                        </div>
+                        <div id="change-row" class="hidden">
+                            <span class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Rückgeld</span>
+                            <div id="detail-change-amount" class="text-xl font-black text-[#deff9a] mt-2 font-mono">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <!-- Controls grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <button id="btn-normal-pay" onclick="processPayment()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md">
+                            💳 Bezahlen / Paid
+                        </button>
+                        <button id="btn-start-split" onclick="startSplitMode()" class="bg-surface border border-outline-variant text-xs text-white hover:border-primary font-bold py-3.5 rounded-xl transition">
+                            ✂️ Teilzahlung
+                        </button>
+                        <button onclick="triggerStornoPrompt()" class="bg-red-950/40 border border-red-500/20 hover:bg-red-500 hover:text-black text-red-400 font-bold text-xs py-3.5 rounded-xl transition">
+                            🚫 Bon Stornieren
+                        </button>
+                    </div>
+
+                    <!-- Hidden inputs/actions for partial invoice splitting -->
+                    <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-outline-variant mt-2">
+                        <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition">
+                            Teilbetrag Bar verbuchen
+                        </button>
+                        <button onclick="cancelSplitMode()" class="bg-surface border border-outline-variant text-xs py-3.5 px-4 rounded-xl font-bold text-white transition">
+                            Abbrechen
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
-
     </main>
 
     <!-- BottomNavBar for Mobile -->
@@ -326,6 +365,16 @@
             document.getElementById('amount-given').value = '';
             document.getElementById('change-row').classList.add('hidden');
 
+            // Show/hide confirm order button based on status
+            const confirmBtn = document.getElementById('btn-confirm-order');
+            if (confirmBtn) {
+                if (order.status === "eingegangen") {
+                    confirmBtn.classList.remove('hidden');
+                } else {
+                    confirmBtn.classList.add('hidden');
+                }
+            }
+
             // Enable action buttons
             const payBtn = document.getElementById('btn-normal-pay');
             if (payBtn) {
@@ -374,6 +423,11 @@
             document.getElementById('detail-total-price').textContent = `0,00 €`;
             document.getElementById('amount-given').value = '';
             document.getElementById('change-row').classList.add('hidden');
+
+            const confirmBtn = document.getElementById('btn-confirm-order');
+            if (confirmBtn) {
+                confirmBtn.classList.add('hidden');
+            }
 
             // Disable action buttons
             const payBtn = document.getElementById('btn-normal-pay');
@@ -504,6 +558,58 @@
             } else {
                 document.getElementById("change-row").classList.add("hidden");
             }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement("div");
+            toast.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full text-xs font-extrabold shadow-2xl backdrop-blur-md transition-all duration-300 transform translate-y-4 opacity-0 flex items-center gap-2 border ${
+                type === 'success' ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400' : 'bg-red-950/80 border-red-500/30 text-red-400'
+            }`;
+            toast.innerHTML = `
+                <span class="material-symbols-outlined text-[16px]">${type === 'success' ? 'check_circle' : 'error'}</span>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 50);
+            setTimeout(() => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function confirmActiveOrder() {
+            if (!activeOrderId) return;
+            const confirmBtn = document.getElementById('btn-confirm-order');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = "Übertrage...";
+            }
+            fetch(`/{{ slug }}/orders/confirm/${activeOrderId}`, {
+                method: 'POST'
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast("Bestellung erfolgreich bestätigt und gebucht!", "success");
+                    // Dynamic status poll to update UI instantly without full page refresh!
+                    pollTabletStatus();
+                    // Close the billing modal on success
+                    closeDetailsPane();
+                } else {
+                    showToast("Fehler beim Bestätigen der Bestellung.", "error");
+                }
+            })
+            .catch(err => {
+                console.error("Fehler beim Bestätigen:", err);
+                showToast("Fehler bei der Signalübertragung.", "error");
+            })
+            .finally(() => {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> <span>Bestellung bestätigen & buchen</span>`;
+                }
+            });
         }
 
         function processPayment() {
@@ -921,8 +1027,17 @@
                     let clickAction = "";
 
                     if (hasServiceCall) {
-                        tileClass = "bg-rose-500/10 border-rose-500 text-rose-400 animate-pulse border-2 shadow-[0_0_15px_rgba(239,68,68,0.25)] hover:bg-rose-500/20";
+                        tileClass = "blinking-red-card border-rose-500 text-rose-400 border-2 shadow-[0_0_15px_rgba(239,68,68,0.25)] hover:bg-rose-500/20";
                         statusHtml = `<span class="text-[9px] uppercase tracking-wider font-extrabold text-rose-500 animate-bounce">🚨 RUF AKTIV</span>`;
+                    } else if (activeOrder && activeOrder.status === "eingegangen") {
+                        const isSelected = activeOrder.id === activeOrderId;
+                        const borderStyle = isSelected ? "border-amber-500 border-2 shadow-[0_0_25px_rgba(245,158,11,0.5)] bg-amber-500/30" : "blinking-orange-card border-amber-500 border text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:bg-amber-500/20";
+                        tileClass = `${borderStyle} text-amber-400 font-bold`;
+                        statusHtml = `
+                            <span class="text-[9px] uppercase tracking-wider font-extrabold text-amber-500 animate-bounce">🆕 NEUE BESTELLUNG</span>
+                            <div class="text-[10px] text-zinc-300 font-mono mt-1">Bon #${activeOrder.id}</div>
+                            <div class="text-xs text-white font-black font-mono mt-0.5">${activeOrder.total.toFixed(2)} €</div>
+                        `;
                     } else if (activeOrder) {
                         const isSelected = activeOrder.id === activeOrderId;
                         const borderStyle = isSelected ? "border-primary border-2 shadow-[0_0_20px_rgba(222,255,154,0.3)] bg-primary/20" : "border-primary/50 border bg-primary/10 shadow-[0_0_10px_rgba(222,255,154,0.1)] hover:bg-primary/20";

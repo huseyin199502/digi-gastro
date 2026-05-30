@@ -810,7 +810,7 @@ def get_kitchen_monitor(request: Request, slug: str):
         else:
             return RedirectResponse(url=f"/{slug}/admin/login?redirect=kitchen")
         
-    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "in_zubereitung", "bereit"]]
+    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "bestaetigt", "in_zubereitung", "bereit"]]
     
     return templates.TemplateResponse(
         request=request,
@@ -1694,19 +1694,47 @@ def delete_staff(request: Request, slug: str, pin_code: str):
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/branding")
-def update_branding(request: Request, slug: str, logo_url: Optional[str] = Form(None), address: Optional[str] = Form(None), instagram: Optional[str] = Form(None), facebook: Optional[str] = Form(None)):
+def update_branding(
+    request: Request,
+    slug: str,
+    logo_file: Optional[UploadFile] = File(None),
+    logo_url: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    instagram: Optional[str] = Form(None),
+    facebook: Optional[str] = Form(None)
+):
     require_chef_user(request, slug)
     restaurant = get_restaurant_or_raise(slug)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
+    final_logo_url = logo_url.strip() if logo_url else restaurant.get("branding", {}).get("logo_url", "")
+    
+    # Process logo file upload if present
+    if logo_file and logo_file.filename:
+        import time
+        logos_dir = os.path.join(UPLOAD_DIR, "logos")
+        os.makedirs(logos_dir, exist_ok=True)
+        
+        # Generate clean secure unique name
+        filename = f"{slug}_logo_{int(time.time())}_{logo_file.filename}"
+        filename = "".join(c for c in filename if c.isalnum() or c in "._-")
+        file_path = os.path.join(logos_dir, filename)
+        
+        content = logo_file.file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        final_logo_url = f"/uploads/logos/{filename}"
+        restaurant["logo_path"] = final_logo_url
+
     restaurant["branding"] = {
-        "logo_url": logo_url.strip() if logo_url else "",
+        "logo_url": final_logo_url,
         "address": address.strip() if address else "",
         "instagram": instagram.strip() if instagram else "",
         "facebook": facebook.strip() if facebook else ""
     }
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url=f"/{slug}/admin?tab=config", status_code=303)
 
 @app.post("/{slug}/admin/happy-hour")
 def update_happy_hour(request: Request, slug: str, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...)):
