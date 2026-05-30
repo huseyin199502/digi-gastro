@@ -81,34 +81,58 @@
 
     <!-- Web Audio API Acoustic notification synthesizer -->
     <script>
-        function playNotificationSound() {
+        function playOrderSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High A
+                osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.15); // Slide up to E
+                
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.6);
+            } catch (e) {
+                console.warn("AudioContext blockiert", e);
+            }
+        }
+
+        function playServiceSound() {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
+                // Beep 1
                 const osc1 = audioCtx.createOscillator();
                 const gain1 = audioCtx.createGain();
-                osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
-                gain1.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                osc1.type = 'square'; // slightly buzzy for urgency
+                osc1.frequency.setValueAtTime(660, audioCtx.currentTime);
+                gain1.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
                 osc1.connect(gain1);
                 gain1.connect(audioCtx.destination);
                 osc1.start();
-                osc1.stop(audioCtx.currentTime + 0.4);
+                osc1.stop(audioCtx.currentTime + 0.15);
 
+                // Beep 2 (delayed)
                 setTimeout(() => {
                     const osc2 = audioCtx.createOscillator();
                     const gain2 = audioCtx.createGain();
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(1109.73, audioCtx.currentTime);
-                    gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                    osc2.type = 'square';
+                    osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
                     osc2.connect(gain2);
                     gain2.connect(audioCtx.destination);
                     osc2.start();
-                    osc2.stop(audioCtx.currentTime + 0.5);
-                }, 120);
-
+                    osc2.stop(audioCtx.currentTime + 0.15);
+                }, 180);
             } catch (e) {
                 console.warn("AudioContext blockiert", e);
             }
@@ -855,8 +879,9 @@
         }
 
         // Polling-System für Echtzeit-Updates
-        let previousServiceCallsCount = null;
-        let previousOrdersCount = null;
+        const playedOrderSounds = new Set();
+        const playedServiceSounds = new Set();
+        let initialPollDone = false;
 
         function startPolling() {
             // Erstes Mal direkt ausführen
@@ -883,15 +908,22 @@
                 if (connStatus) connStatus.classList.add("hidden");
 
                 // 1. Check for notifications (Audio cue)
-                if (previousServiceCallsCount !== null && data.service_calls.length > previousServiceCallsCount) {
-                    playNotificationSound();
-                }
-                if (previousOrdersCount !== null && data.orders.length > previousOrdersCount) {
-                    playNotificationSound();
+                if (initialPollDone) {
+                    const hasNewOrder = data.orders.some(o => o.status === "eingegangen" && !playedOrderSounds.has(o.id));
+                    const hasNewServiceCall = data.service_calls.some(c => !playedServiceSounds.has(c.id));
+                    
+                    if (hasNewOrder) {
+                        playOrderSound();
+                    }
+                    if (hasNewServiceCall) {
+                        playServiceSound();
+                    }
                 }
                 
-                previousServiceCallsCount = data.service_calls.length;
-                previousOrdersCount = data.orders.length;
+                // Populate sets
+                data.orders.forEach(o => playedOrderSounds.add(o.id));
+                data.service_calls.forEach(c => playedServiceSounds.add(c.id));
+                initialPollDone = true;
 
                 // 2. Synchronize allOrders array for checkout functions
                 allOrdersLocal = data.orders;

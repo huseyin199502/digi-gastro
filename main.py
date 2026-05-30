@@ -376,9 +376,11 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     is_readonly = False
     set_session_cookie = False
     token_error = False
+    reset_session = False
 
     # Check query parameters first (support both 'table' and 'tisch')
-    query_table = table or request.query_params.get("tisch")
+    query_table = table or request.query_params.get("tisch") or request.query_params.get("table")
+    query_token = token or request.query_params.get("token")
     master_token = restaurant.get("security_token")
 
     # ── Admin preview bypass ──
@@ -392,38 +394,62 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         is_readonly = False
         table = "Vorschau"
         token = "preview"
-    elif query_table is not None:
-        table_num = str(query_table).strip()
-        tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
-        
-        table_tok = db_table.get("security_token") if db_table else None
-        is_token_valid = (token and ((table_tok and token == table_tok) or (master_token and token == master_token)))
-        
-        if not is_token_valid:
-            token_error = True
-            return RedirectResponse(url=f"/{slug}/sitz-expired")
-        else:
-            set_session_cookie = True
-            table = query_table
     else:
-        # Check guest_session cookie
+        active_table_num = None
+        active_token = None
+        
         cookie_name = f"guest_session_{slug}"
         session_val = request.cookies.get(cookie_name)
-        if session_val:
+        
+        if query_table is not None:
+            active_table_num = str(query_table).strip()
+            active_token = query_token
+        elif session_val:
             try:
                 c_table, c_token = session_val.split(":", 1)
-                tables_list = restaurant.get("tables", [])
-                db_table = next((t for t in tables_list if str(t.get("number")) == str(c_table).strip()), None)
-                table_tok = db_table.get("security_token") if db_table else None
-                is_token_valid = (c_token and ((table_tok and c_token == table_tok) or (master_token and c_token == master_token)))
-                if is_token_valid:
-                    table = c_table
-                    token = c_token
-                else:
-                    is_readonly = True
+                active_table_num = str(c_table).strip()
+                active_token = c_token
             except Exception:
-                is_readonly = True
+                pass
+                
+        if active_table_num:
+            tables_list = restaurant.get("tables", [])
+            db_table = next((t for t in tables_list if str(t.get("number")) == active_table_num), None)
+            
+            # Check if all orders for this table are paid or storniert
+            table_orders = [o for o in restaurant.get("orders", []) if o.get("table") in [f"Tisch {active_table_num}", active_table_num]]
+            if table_orders:
+                open_orders = [o for o in table_orders if o.get("status") not in ["bezahlt", "storniert"]]
+                if not open_orders:
+                    # All previous orders are paid/storniert!
+                    # Rotate the table's security token in the backend to dissolve the old session
+                    if db_table:
+                        import secrets
+                        new_table_tok = secrets.token_hex(4)
+                        db_table["security_token"] = new_table_tok
+                    reset_session = True
+            
+            table_tok = db_table.get("security_token") if db_table else None
+            
+            # Re-read token validity against potentially rotated token
+            is_token_valid = (active_token and ((table_tok and active_token == table_tok) or (master_token and active_token == master_token)))
+            
+            if not is_token_valid or reset_session:
+                if query_token and ((table_tok and query_token == table_tok) or (master_token and query_token == master_token)):
+                    table = active_table_num
+                    token = query_token
+                    set_session_cookie = True
+                    reset_session = False
+                else:
+                    if active_token:
+                        return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
+                    token_error = True
+                    is_readonly = True
+                    reset_session = True
+            else:
+                table = active_table_num
+                token = active_token
+                set_session_cookie = True
         else:
             is_readonly = True
 
@@ -470,7 +496,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "token": token,
             "token_error": token_error,
             "is_readonly": is_readonly,
-            "products": processed_products
+            "products": processed_products,
+            "reset_session": reset_session
         }
     )
     
@@ -479,8 +506,12 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             key=f"guest_session_{slug}",
             value=f"{table}:{token}",
             httponly=True,
-            max_age=14400
+            max_age=14400,
+            path="/"
         )
+        
+    if reset_session:
+        response.delete_cookie(key=f"guest_session_{slug}", path="/")
         
     return response
 
@@ -888,6 +919,14 @@ def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[st
         restaurant["tagesumsatz"] += order["total"]
         restaurant["bestellungen_gesamt"] += 1
         
+        # Rotate table security token upon payment to clear session
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        tables_list = restaurant.get("tables", [])
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        if db_table:
+            import secrets
+            db_table["security_token"] = secrets.token_hex(4)
+        
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
@@ -1074,7 +1113,7 @@ def admin_impersonate(request: Request, slug: str, table_number: str):
     table_token = db_table.get("security_token") or restaurant.get("security_token")
     
     # Redirect to customer menu and set session cookie
-    resp = RedirectResponse(url=f"/{slug}?table={table_num}&token={table_token}", status_code=303)
+    resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}", status_code=303)
     resp.set_cookie(
         key=f"guest_session_{slug}",
         value=f"{table_num}:{table_token}",

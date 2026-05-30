@@ -18,6 +18,7 @@
                 "on-surface": "#e5e2e1",
                 "outline-variant": "#262626",
                 "primary": "#deff9a",
+                "accent": "#deff9a",
                 "background": "#0a0a0a",
                 "surface": "#141313",
                 "surface-container-high": "#2b2a2a",
@@ -38,6 +39,24 @@
             display: none;
         }
         .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        .slide-up-modal {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-none {
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
@@ -125,10 +144,10 @@
             </div>
 
             <!-- Category Pills (Horizontal scrolling) -->
-            <div class="sticky {% if not table or token_error %}top-28{% else %}top-16{% endif %} z-30 bg-background py-3 border-b border-outline-variant -mx-4 px-4">
-                <div id="category-pills" class="flex gap-2 overflow-x-auto no-scrollbar">
+            <div class="sticky {% if not table or token_error %}top-28{% else %}top-16{% endif %} z-40 bg-black/85 backdrop-blur-md py-3 border-b border-outline-variant -mx-4 px-4">
+                <div id="category-pills" class="flex gap-2 overflow-x-auto scrollbar-none">
                     {% for cat in restaurant.categories %}
-                    <button onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all {% if loop.first %}bg-primary text-black{% else %}bg-surface text-on-surface-variant border border-outline-variant hover:bg-surface-container-high{% endif %}">
+                    <button onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all {% if loop.first %}bg-primary text-black font-extrabold shadow-lg shadow-primary/20 scale-105{% else %}bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white{% endif %}">
                         {{ cat }}
                     </button>
                     {% endfor %}
@@ -165,7 +184,9 @@
                                 <span class="text-[10px] text-on-surface-variant font-mono">[{{ product.allergens | join(',') }}]</span>
                                 {% endif %}
                             </h3>
+                            {% if product.description %}
                             <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed line-clamp-2">{{ product.description }}</p>
+                            {% endif %}
                         </div>
 
                         <div class="flex justify-between items-end mt-4">
@@ -205,13 +226,11 @@
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
-    <!-- Floating Basket Trigger -->
-    <div id="cart-floating-bar" class="fixed left-0 right-0 z-40 flex justify-center px-4 bottom-6 pointer-events-none hidden">
-        <button onclick="openCartModal()" class="pointer-events-auto bg-primary text-black font-extrabold px-6 py-3.5 rounded-full flex items-center space-x-3 shadow-2xl hover:scale-105 active:scale-95 transition-all">
-            <span class="material-symbols-outlined">shopping_basket</span>
-            <span id="cart-count">0 Artikel</span>
-            <span class="w-1.5 h-1.5 rounded-full bg-black"></span>
-            <span id="cart-total">0,00 €</span>
+    <!-- Floating Basket Trigger (Premium Bottom-Right FAB) -->
+    <div id="cart-floating-bar" class="fixed bottom-6 right-6 z-50 pointer-events-none hidden">
+        <button onclick="openCartModal()" class="pointer-events-auto bg-accent text-black w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all relative">
+            <span class="material-symbols-outlined text-2xl">shopping_basket</span>
+            <div id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black animate-pulse">0</div>
         </button>
     </div>
 
@@ -234,7 +253,7 @@
 
     <!-- CHECKOUT MODAL (BASKET) -->
     <div id="cart-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="bg-surface border border-outline-variant rounded-2xl w-full max-w-md p-6 relative flex flex-col max-h-[90vh]">
+        <div id="cart-modal-inner" class="bg-surface border border-outline-variant rounded-2xl w-full max-w-md p-6 relative flex flex-col max-h-[90vh]">
             <button onclick="closeCartModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
@@ -416,8 +435,8 @@
             // Sync highlight on pills
             {% for cat in restaurant.categories %}
             document.getElementById("btn-{{ cat }}").className = (category === "{{ cat }}") ? 
-                "whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all bg-primary text-black" : 
-                "whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all bg-surface text-on-surface-variant border border-outline-variant hover:bg-surface-container-high";
+                "whitespace-nowrap px-5 py-2 rounded-full text-sm font-extrabold shadow-lg shadow-primary/20 scale-105 transition-all bg-primary text-black" : 
+                "whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white";
             {% endfor %}
 
             applyAllCategorizedFilters();
@@ -451,13 +470,14 @@
 
         function updateCartFloatingBar() {
             const totalItems = cart.reduce((acc, i) => acc + i.quantity, 0);
-            const subtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
 
             const bar = document.getElementById("cart-floating-bar");
+            const badge = document.getElementById("cart-badge");
             if (totalItems > 0) {
                 bar.classList.remove("hidden");
-                document.getElementById("cart-count").textContent = `${totalItems} im Warenkorb`;
-                document.getElementById("cart-total").textContent = subtotal.toFixed(2) + " €";
+                if (badge) {
+                    badge.textContent = totalItems;
+                }
             } else {
                 bar.classList.add("hidden");
             }
@@ -465,11 +485,19 @@
 
         function openCartModal() {
             document.getElementById("cart-modal").classList.remove("hidden");
+            const inner = document.getElementById("cart-modal-inner");
+            if (inner) {
+                inner.classList.add("slide-up-modal");
+            }
             renderCartModalItems();
         }
 
         function closeCartModal() {
             document.getElementById("cart-modal").classList.add("hidden");
+            const inner = document.getElementById("cart-modal-inner");
+            if (inner) {
+                inner.classList.remove("slide-up-modal");
+            }
         }
 
         function renderCartModalItems() {
@@ -512,6 +540,11 @@
             renderCartModalItems();
         }
 
+        function getTableFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('tisch') || urlParams.get('table') || '';
+        }
+
         // Psychological Tipping features
         function recalcTotals() {
             const subtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
@@ -520,7 +553,7 @@
 
         // Order submission
         function submitOrder() {
-            const table = "{{ table }}";
+            const table = getTableFromUrl() || "{{ table }}";
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token') || '{{ token }}' || '';
 
@@ -579,7 +612,7 @@
 
         // Call Service requests
         function requestService(type) {
-            const table = "{{ table }}";
+            const table = getTableFromUrl() || "{{ table }}";
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token') || '{{ token }}' || '';
 
@@ -636,7 +669,7 @@
         let selectedPaymentType = 'zahlen_bar';
 
         function openServiceModal() {
-            const table = "{{ table }}";
+            const table = getTableFromUrl() || "{{ table }}";
             if (!table) {
                 showToast(translations[currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
                 return;
@@ -738,7 +771,7 @@
         }
 
         function openPaymentModal() {
-            const table = "{{ table }}";
+            const table = getTableFromUrl() || "{{ table }}";
             if (!table) {
                 showToast("Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
                 return;
@@ -771,12 +804,17 @@
                 .then(res => res.json())
                 .then(data => {
                     let unpaidSum = 0.0;
+                    let hasUnpaid = false;
                     if (data && data.orders) {
                         data.orders.forEach(o => {
                             if (o.status !== 'bezahlt' && o.status !== 'storniert') {
                                 unpaidSum += o.total;
+                                hasUnpaid = true;
                             }
                         });
+                    }
+                    if (data && data.orders && data.orders.length > 0 && !hasUnpaid) {
+                        localStorage.removeItem(`dl_orders_{{ slug }}`);
                     }
                     if (unpaidSum > 0) {
                         currentPaymentSubtotal = unpaidSum;
@@ -824,7 +862,7 @@
         }
 
         function sendServiceRequestAPI(type) {
-            const table = "{{ table }}";
+            const table = getTableFromUrl() || "{{ table }}";
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token') || '{{ token }}' || '';
 
@@ -890,8 +928,15 @@
             }, 4000);
         }
 
-        // Initialize default category
+        // Initialize default category and check for session reset
         document.addEventListener("DOMContentLoaded", () => {
+            const resetSession = {% if reset_session %}true{% else %}false{% endif %};
+            if (resetSession) {
+                localStorage.removeItem(`dl_orders_{{ slug }}`);
+                cart = [];
+                updateCartFloatingBar();
+            }
+
             const firstCategory = "{{ restaurant.categories[0] if restaurant.categories else '' }}";
             if (firstCategory) {
                 filterCategory(firstCategory);
