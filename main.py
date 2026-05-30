@@ -549,7 +549,7 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload):
     tables_list = restaurant.get("tables", [])
     db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
     
-    tok = payload.token
+    tok = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
     if not tok:
         cookie_name = f"guest_session_{slug}"
         session_val = request.cookies.get(cookie_name)
@@ -564,9 +564,19 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload):
     master_token = restaurant.get("security_token")
     table_token = db_table.get("security_token") if db_table else None
     
-    is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
-    if not is_token_valid:
-        raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
+    # ── Staff / POS trusted device bypass ──
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_staff:
+        session = request.cookies.get(f"session_{slug}")
+        if session:
+            is_staff = True
+            
+    if not is_staff:
+        is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
+        if not is_token_valid:
+            raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
         
     if "service_calls" not in restaurant:
         restaurant["service_calls"] = []
@@ -1572,7 +1582,7 @@ def api_call_service(request: Request, slug: str, payload: CallServicePayload):
     tables_list = restaurant.get("tables", [])
     db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
     
-    tok = payload.token
+    tok = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
     if not tok:
         cookie_name = f"guest_session_{slug}"
         session_val = request.cookies.get(cookie_name)
@@ -1587,9 +1597,19 @@ def api_call_service(request: Request, slug: str, payload: CallServicePayload):
     master_token = restaurant.get("security_token")
     table_token = db_table.get("security_token") if db_table else None
     
-    is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
-    if not is_token_valid:
-        raise HTTPException(status_code=403, detail="Ungültiger Tisch-Code.")
+    # ── Staff / POS trusted device bypass ──
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_staff:
+        session = request.cookies.get(f"session_{slug}")
+        if session:
+            is_staff = True
+            
+    if not is_staff:
+        is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
+        if not is_token_valid:
+            raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
             
     if "service_calls" not in restaurant:
         restaurant["service_calls"] = []

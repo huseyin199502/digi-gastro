@@ -104,7 +104,7 @@
                 <td>{{ o.table }}</td>
                 <td>{{ o.waiter_id or 'System-Kasse' }}</td>
                 <td>
-                    {% for item in o.items %}
+                    {% for item in o.get('items', []) %}
                         {{ item.quantity }}x {{ item.name }} (Je {{ "%.2f"|format(item.price) }} €)<br>
                     {% endfor %}
                 </td>
@@ -112,7 +112,7 @@
                 <!-- Simple approximation of split VAT on order level -->
                 {% set food_total = [] %}
                 {% set drinks_total = [] %}
-                {% for item in o.items %}
+                {% for item in o.get('items', []) %}
                     {% if item.category_type == 'küche' %}
                         {% set _ = food_total.append(item.price * item.quantity) %}
                     {% else %}

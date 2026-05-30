@@ -255,6 +255,7 @@ def test_integration():
 
     # A. Test Service Call placement with invalid token (expect 403)
     print("Testing service calls with invalid token (expect 403)...")
+    client.cookies.clear() # Clear any admin/POS bypass cookies for guest simulation
     bad_call_payload = {"type": "kellner", "table": "Tisch 5", "token": "wrong_token"}
     resp = client.post("/demo/service-ruf", json=bad_call_payload)
     assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"

@@ -41,8 +41,6 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -92,35 +90,26 @@
     <!-- Main Dynamic Content Canvas -->
     <main class="flex-grow w-full max-w-4xl mx-auto {% if token_error %}mt-28{% else %}mt-16{% endif %} px-4 flex flex-col">
         
-        <!-- ================= WELCOME TAB (DEFAULT SCREEN AFTER SCAN) ================= -->
-        <div id="tab-welcome" class="tab-content active py-12 px-6 flex flex-col items-center justify-center text-center space-y-8 flex-grow">
-            <!-- Large Tenant Logo -->
-            {% if restaurant.branding and restaurant.branding.logo_url %}
-                <img alt="{{ restaurant.name }} Logo" class="w-32 h-32 object-contain rounded-2xl shadow-xl bg-surface/50 p-2 border border-outline-variant animate-pulse" src="{{ restaurant.branding.logo_url }}">
-            {% else %}
-                <div class="w-24 h-24 bg-primary/10 text-primary rounded-3xl flex items-center justify-center text-5xl font-black border border-primary/20 shadow-lg">
-                    {{ restaurant.name[0] }}
-                </div>
-            {% endif %}
-            
-            <div class="space-y-4 max-w-md">
-                <h1 class="text-3xl font-black tracking-tight text-white">Herzlich Willkommen!</h1>
-                <p class="text-sm sm:text-base text-on-surface-variant leading-relaxed font-medium">
-                    Schön, dass Sie unser Gast sind.<br>
-                    Vielen Dank für Ihren Besuch.
-                </p>
+        <!-- Compact Welcome Area -->
+        <div class="py-6 text-center border-b border-outline-variant/40 mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div class="text-left">
+                <h1 class="text-2xl font-black text-white">Willkommen im {{ restaurant.name }}!</h1>
+                <p class="text-xs text-on-surface-variant mt-1">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
             </div>
-            
-            <!-- Sleek visual divider -->
-            <div class="w-12 h-1 bg-primary/20 rounded-full"></div>
-            
-            <p class="text-[10px] uppercase font-bold text-zinc-600 tracking-widest animate-bounce">
-                Wählen Sie unten einen Tab, um zu starten
-            </p>
+            <div class="flex gap-2 justify-center">
+                <button onclick="openServiceModal()" class="bg-surface border border-outline-variant text-xs text-white hover:text-primary font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 active:scale-95">
+                    <span class="material-symbols-outlined text-base">notifications_active</span>
+                    <span data-translate="nav_service">Service</span>
+                </button>
+                <button onclick="openPaymentModal()" class="bg-surface border border-outline-variant text-xs text-white hover:text-primary font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 active:scale-95">
+                    <span class="material-symbols-outlined text-base">receipt_long</span>
+                    <span data-translate="nav_bill">Rechnung</span>
+                </button>
+            </div>
         </div>
 
-        <!-- ================= SPEISEKARTE TAB ================= -->
-        <div id="tab-speisekarte" class="tab-content py-6">
+        <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
+        <div id="tab-speisekarte" class="py-2">
             
             <!-- Quick filters: Vegan and Glutenfree Toggles -->
             <div class="flex items-center space-x-3 mb-6 bg-surface p-3 rounded-xl border border-outline-variant">
@@ -137,7 +126,7 @@
 
             <!-- Category Pills (Horizontal scrolling) -->
             <div class="sticky {% if not table or token_error %}top-28{% else %}top-16{% endif %} z-30 bg-background py-3 border-b border-outline-variant -mx-4 px-4">
-                <div class="flex gap-2 overflow-x-auto no-scrollbar">
+                <div id="category-pills" class="flex gap-2 overflow-x-auto no-scrollbar">
                     {% for cat in restaurant.categories %}
                     <button onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all {% if loop.first %}bg-primary text-black{% else %}bg-surface text-on-surface-variant border border-outline-variant hover:bg-surface-container-high{% endif %}">
                         {{ cat }}
@@ -146,46 +135,32 @@
                 </div>
             </div>
 
-            <!-- Product Bento/Card Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 py-6" id="product-grid">
+            <!-- Products Grid -->
+            <div id="product-grid-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4 py-6">
                 {% for product in products %}
                 {% set is_avail = product.get('is_available', True) %}
-                <article data-category="{{ product.category }}" 
-                         data-vegan="{{ 'true' if product.is_vegan or product.vegan else 'false' }}" 
-                         data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}" 
-                         class="product-item bg-surface rounded-2xl border border-outline-variant overflow-hidden flex flex-col justify-between transition-all hover:border-primary/40 {% if not is_avail %}opacity-50 grayscale{% endif %}">
+                <article class="product-card product-item bg-surface rounded-2xl p-4 flex flex-col justify-between border border-outline-variant shadow-md relative overflow-hidden transition-all duration-200 hover:scale-[1.01] {% if not is_avail %}opacity-50 grayscale{% endif %}" 
+                         data-category="{{ product.category }}" 
+                         data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
+                         data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                     
-                    <div class="aspect-video w-full relative overflow-hidden bg-slate-900">
-                        <!-- Dietary badging -->
-                        <div class="absolute top-3 right-3 flex space-x-1.5 z-10">
-                            {% if product.is_vegan or product.vegan %}
-                            <span class="bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded">Vegan</span>
-                            {% endif %}
-                            {% if product.is_glutenfree %}
-                            <span class="bg-amber-950/80 border border-amber-500/30 text-amber-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded">Glutenfree</span>
-                            {% endif %}
-                        </div>
-
-                        <!-- Happy Hour badge countdown -->
-                        {% if product.is_hh_active %}
-                        <div class="absolute bottom-3 left-3 bg-rose-600 border border-rose-500 text-white font-black text-xs px-2.5 py-1 rounded-md shadow-md animate-pulse">
-                            🔥 HAPPY HOUR Price!
-                        </div>
-                        {% endif %}
-
+                    {% if product.image_url %}
+                    <div class="relative w-full aspect-video rounded-xl overflow-hidden mb-4 bg-black/40">
+                        <img alt="{{ product.name }}" class="w-full h-full object-cover" src="{{ product.image_url }}">
                         {% if not is_avail %}
-                        <div class="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-                            <span class="bg-red-600 text-white font-black uppercase text-sm tracking-widest px-4 py-2 rounded-lg" data-translate="ausverkauft_badge">Ausverkauft</span>
+                        <div class="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-center p-3 backdrop-blur-xs">
+                            <span class="material-symbols-outlined text-red-500 text-3xl mb-1">block</span>
+                            <span class="text-xs font-black uppercase text-red-400 tracking-wider" data-translate="sold_out">Ausverkauft</span>
+                            <span class="text-[10px] text-zinc-500 mt-0.5" data-translate="sold_out_desc">In Kürze wieder da</span>
                         </div>
                         {% endif %}
-
-                        <img alt="{{ product.name }}" class="w-full h-full object-cover opacity-80" src="{{ product.image }}">
                     </div>
-
-                    <div class="p-5 flex-grow flex flex-col justify-between">
+                    {% endif %}
+                    
+                    <div class="flex flex-col justify-between flex-grow">
                         <div>
-                            <h3 class="text-base font-black text-white flex items-center justify-between">
-                                <span>{{ product.name }}</span>
+                            <h3 class="font-extrabold text-sm text-white flex items-center justify-between gap-2">
+                                <span class="truncate">{{ product.name }}</span>
                                 {% if product.allergens %}
                                 <span class="text-[10px] text-on-surface-variant font-mono">[{{ product.allergens | join(',') }}]</span>
                                 {% endif %}
@@ -204,7 +179,7 @@
                             </div>
 
                             {% if is_avail %}
-                            <button onclick="addToCartAndSuggest({{ product.id }}, '{{ product.name }}', {{ product.display_price }}, '{{ product.category_type }}')" class="w-10 h-10 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+                            <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.display_price }}, '{{ product.category_type }}')" class="w-10 h-10 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
                                 <span class="material-symbols-outlined font-black">add</span>
                             </button>
                             {% else %}
@@ -218,58 +193,6 @@
                 {% endfor %}
             </div>
         </div>
-
-        <!-- ================= SERVICE TAB ================= -->
-        <div id="tab-service" class="tab-content py-6">
-            <div class="bg-surface rounded-2xl p-6 border border-outline-variant space-y-6">
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
-                        <i class="fas fa-bell-concierge"></i>
-                    </div>
-                    <h2 class="text-xl font-bold" data-translate="service_header">Service anfordern</h2>
-                    <p class="text-xs text-on-surface-variant mt-1" data-translate="service_desc">Teilen Sie uns direkt mit, wie wir Ihnen helfen können.</p>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <button onclick="requestService('karte')" class="bg-background hover:bg-surface-container-high border border-outline-variant rounded-xl p-4 flex items-center space-x-4 transition">
-                        <span class="text-2xl">💳</span>
-                        <div class="text-left">
-                            <span class="font-bold text-sm block" data-translate="pay_card">Mit Karte zahlen</span>
-                            <span class="text-[10px] text-on-surface-variant" data-translate="pay_card_desc">EC, Visa, Mastercard</span>
-                        </div>
-                    </button>
-
-                    <button onclick="requestService('bar')" class="bg-background hover:bg-surface-container-high border border-outline-variant rounded-xl p-4 flex items-center space-x-4 transition">
-                        <span class="text-2xl">💵</span>
-                        <div class="text-left">
-                            <span class="font-bold text-sm block" data-translate="pay_cash">Bar zahlen</span>
-                            <span class="text-[10px] text-on-surface-variant" data-translate="pay_cash_desc">Bargeld bereithalten</span>
-                        </div>
-                    </button>
-
-                    <button onclick="requestService('abräumen')" class="bg-background hover:bg-surface-container-high border border-outline-variant rounded-xl p-4 flex items-center space-x-4 transition">
-                        <span class="text-2xl">🍽️</span>
-                        <div class="text-left">
-                            <span class="font-bold text-sm block" data-translate="clear_table">Tisch abräumen</span>
-                            <span class="text-[10px] text-on-surface-variant" data-translate="clear_table_desc">Leeres Geschirr abholen</span>
-                        </div>
-                    </button>
-
-                    {% if restaurant.is_shishabar %}
-                    <button onclick="requestService('kohle')" class="bg-background hover:bg-surface-container-high border border-outline-variant rounded-xl p-4 flex items-center space-x-4 transition">
-                        <span class="text-2xl">🔥</span>
-                        <div class="text-left">
-                            <span class="font-bold text-sm block" data-translate="refill_coal">Kohle nachlegen</span>
-                            <span class="text-[10px] text-on-surface-variant" data-translate="refill_coal_desc">Für frischen Shisha-Genuss</span>
-                        </div>
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-
-
     </main>
 
     <!-- Slender Legal Footer inside clean container -->
@@ -282,22 +205,8 @@
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
-    <!-- Smart Upselling Popup Toast -->
-    <div id="upsell-popup" class="fixed bottom-24 right-4 left-4 sm:left-auto sm:max-w-md bg-surface border-2 border-primary rounded-2xl p-4 shadow-2xl z-50 transform translate-y-32 opacity-0 pointer-events-none transition-all duration-300">
-        <div class="flex items-center space-x-3">
-            <div class="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center text-xl">💡</div>
-            <div class="flex-grow">
-                <span class="text-xs font-bold text-primary block" data-translate="upsell_tag">Dazu passt perfekt...</span>
-                <span id="upsell-item-name" class="font-bold text-sm text-white">Fritz Kola</span>
-                <span class="text-xs text-on-surface-variant block"><span data-translate="upsell_only">Nur für</span> <span id="upsell-item-price">3.50 €</span></span>
-            </div>
-            <button onclick="acceptUpsell()" class="bg-primary text-black font-extrabold text-xs px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95" data-translate="upsell_add">Hinzufügen</button>
-            <button onclick="closeUpsell()" class="text-on-surface-variant hover:text-white"><i class="fas fa-times"></i></button>
-        </div>
-    </div>
-
     <!-- Floating Basket Trigger -->
-    <div id="cart-floating-bar" class="fixed left-0 right-0 z-40 flex justify-center px-4 bottom-20 pointer-events-none hidden">
+    <div id="cart-floating-bar" class="fixed left-0 right-0 z-40 flex justify-center px-4 bottom-6 pointer-events-none hidden">
         <button onclick="openCartModal()" class="pointer-events-auto bg-primary text-black font-extrabold px-6 py-3.5 rounded-full flex items-center space-x-3 shadow-2xl hover:scale-105 active:scale-95 transition-all">
             <span class="material-symbols-outlined">shopping_basket</span>
             <span id="cart-count">0 Artikel</span>
@@ -305,22 +214,6 @@
             <span id="cart-total">0,00 €</span>
         </button>
     </div>
-
-    <!-- Sticky Bottom Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#0e0e0e] border-t border-outline-variant py-2 flex justify-around items-center">
-        <button onclick="switchTab('speisekarte')" id="nav-speisekarte" class="flex flex-col items-center space-y-0.5 text-on-surface-variant hover:text-white transition">
-            <span class="material-symbols-outlined">restaurant_menu</span>
-            <span class="text-[10px] font-bold" data-translate="nav_menu">Speisekarte</span>
-        </button>
-        <button onclick="switchTab('service'); openServiceModal();" id="nav-service" class="flex flex-col items-center space-y-0.5 text-on-surface-variant hover:text-white transition">
-            <span class="material-symbols-outlined">notifications_active</span>
-            <span class="text-[10px] font-bold" data-translate="nav_service">Service</span>
-        </button>
-        <button onclick="openPaymentModal();" id="nav-rechnung" class="flex flex-col items-center space-y-0.5 text-on-surface-variant hover:text-white transition">
-            <span class="material-symbols-outlined">receipt_long</span>
-            <span class="text-[10px] font-bold" data-translate="nav_bill">Rechnung</span>
-        </button>
-    </nav>
 
         <!-- Hidden Legal Contents to prevent JS escaping issues -->
     <div id="impressum-content-data" class="hidden">{{ restaurant.impressum_content }}</div>
@@ -409,12 +302,8 @@
                 refill_coal: "Kohle nachlegen",
                 refill_coal_desc: "Für frischen Shisha-Genuss",
 
-                nav_menu: "Speisekarte",
                 nav_service: "Service",
                 nav_bill: "Rechnung",
-                upsell_tag: "Dazu passt perfekt...",
-                upsell_only: "Nur für",
-                upsell_add: "Hinzufügen",
                 your_cart: "Ihr Warenkorb",
                 tip_question: "Trinkgeld für den Service?",
                 tip_custom: "Eigener",
@@ -446,12 +335,8 @@
                 refill_coal: "Replenish Shisha Coal",
                 refill_coal_desc: "For fresh waterpipe coals",
 
-                nav_menu: "Menu",
                 nav_service: "Service",
                 nav_bill: "Bill Tracking",
-                upsell_tag: "Pairs perfectly with...",
-                upsell_only: "Only for",
-                upsell_add: "Add to Cart",
                 your_cart: "Your Basket",
                 tip_question: "Leave a tip for the staff?",
                 tip_custom: "Custom",
@@ -483,18 +368,6 @@
                     el.textContent = translations[lang][key];
                 }
             });
-        }
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.getElementById('tab-' + tabId).classList.add('active');
-
-            document.querySelectorAll('nav button').forEach(btn => {
-                btn.className = "flex flex-col items-center space-y-0.5 text-on-surface-variant hover:text-white transition";
-            });
-            document.getElementById('nav-' + tabId).className = "flex flex-col items-center space-y-0.5 text-primary";
-
-
         }
 
         // Dietary / Allergen toggle filters
@@ -565,10 +438,8 @@
             });
         }
 
-        // Cart management with Smart Upselling Popup trigger
-        let itemToUpsell = null;
-        function addToCartAndSuggest(id, name, price, categoryType) {
-            // Standard add to cart
+        // Cart management
+        function addToCart(id, name, price, categoryType) {
             const existing = cart.find(i => i.id === id);
             if (existing) {
                 existing.quantity++;
@@ -576,38 +447,6 @@
                 cart.push({ id, name, price, quantity: 1, category_type: categoryType });
             }
             updateCartFloatingBar();
-
-            // Trigger upselling popup only if they added a food/burger, and Fritz Kola isn't in cart
-            const hasKola = cart.some(i => i.id === 4);
-            if (categoryType === 'küche' && !hasKola) {
-                itemToUpsell = { id: 4, name: "Fritz Kola", price: 3.50, category_type: "bar" };
-                document.getElementById("upsell-item-name").textContent = "Fritz Kola";
-                document.getElementById("upsell-item-price").textContent = "3.50 €";
-                
-                const popup = document.getElementById("upsell-popup");
-                popup.classList.remove("translate-y-32", "opacity-0", "pointer-events-none");
-                // Auto dismiss after 6 seconds
-                setTimeout(closeUpsell, 6000);
-            }
-        }
-
-        function acceptUpsell() {
-            if (itemToUpsell) {
-                const existing = cart.find(i => i.id === itemToUpsell.id);
-                if (existing) {
-                    existing.quantity++;
-                } else {
-                    cart.push({ ...itemToUpsell, quantity: 1 });
-                }
-                updateCartFloatingBar();
-                closeUpsell();
-            }
-        }
-
-        function closeUpsell() {
-            const popup = document.getElementById("upsell-popup");
-            popup.classList.add("translate-y-32", "opacity-0", "pointer-events-none");
-            itemToUpsell = null;
         }
 
         function updateCartFloatingBar() {
@@ -755,9 +594,12 @@
                 token: token
             };
 
-            fetch('/{{ slug }}/service-ruf', {
+            fetch('/{{ slug }}/service-ruf?token=' + encodeURIComponent(token), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Token': token
+                },
                 body: JSON.stringify(payload)
             })
             .then(res => {
@@ -993,9 +835,12 @@
                 tip_amount: (type === 'zahlen_bar' || type === 'zahlen_karte') ? paymentTipVal : 0.0
             };
 
-            fetch('/api/{{ slug }}/call-service', {
+            fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Token': token
+                },
                 body: JSON.stringify(payload)
             })
             .then(res => {
