@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>SaaS Control Center - digi-gastro</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+        .card-surface {
+            background-color: #1a1a1a;
+            border: 1px solid #262626;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-background text-on-surface antialiased font-body-md min-h-screen flex flex-col">
+    <!-- TopAppBar -->
+    <header class="flex justify-between items-center px-margin-mobile h-16 w-full fixed top-0 z-50 bg-background/80 backdrop-blur-md border-b border-outline-variant">
+        <div class="text-headline-md font-headline-md font-bold tracking-tight text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-[#deff9a] text-3xl">hub</span>
+            <span>digi-gastro SaaS <span class="text-xs text-[#deff9a] border border-[#deff9a]/30 px-2 py-0.5 rounded-full uppercase tracking-wider">Platform Owner</span></span>
+        </div>
+        <div class="flex gap-4 items-center">
+            <a href="/digi-gastro-admin/logout" class="text-xs text-red-400 border border-red-900/50 hover:border-red-500 hover:text-red-300 px-3 py-1.5 rounded-full flex items-center gap-1 transition-all">
+                <span class="material-symbols-outlined text-[14px]">logout</span>
+                Plattform Verlassen
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content Canvas -->
+    <main class="flex-1 w-full mt-20 p-margin-mobile max-w-max-width mx-auto pb-24">
+        <!-- Header Section -->
+        <div class="mb-xl flex justify-between items-end flex-wrap gap-4">
+            <div>
+                <p class="text-label-md font-label-md text-on-surface-variant mb-2">Angemeldet als: admin@digi-gastro.de</p>
+                <h2 class="text-display-lg font-display-lg text-on-surface">Global Control Center</h2>
+            </div>
+            <div class="flex gap-3 flex-wrap">
+                <!-- Trigger button for modal -->
+                <button onclick="openModal()" class="bg-[#deff9a] text-[#0a0a0a] hover:bg-[#c9e88b] active:scale-95 transition-all duration-150 rounded-xl px-5 py-3 font-bold flex items-center gap-2 text-sm shadow-[0_4px_20px_rgba(222,255,154,0.15)]">
+                    <span class="material-symbols-outlined font-black">add_circle</span>
+                    Schnell-Anlage
+                </button>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="mb-6 p-4 bg-red-950/40 border border-red-900/30 rounded-xl flex items-start gap-3 text-red-300 text-xs">
+            <span class="material-symbols-outlined text-[18px] text-red-400">error</span>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="mb-6 p-4 bg-green-950/40 border border-green-900/30 rounded-xl flex items-start gap-3 text-green-300 text-xs">
+            <span class="material-symbols-outlined text-[18px] text-green-400">check_circle</span>
+            <span>{{ success | safe }}</span>
+        </div>
+        {% endif %}
+
+        <!-- Statistics Row (Bento Grid Style) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-xl">
+            <!-- Stat Card 1: Restaurants count -->
+            <div class="bg-[#1a1a1a] border border-[#262626] rounded-xl p-lg flex flex-col justify-between relative overflow-hidden group hover:border-[#deff9a]/30 transition-colors duration-300">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-[#deff9a]/5 rounded-full blur-2xl"></div>
+                <div class="flex items-center gap-2 mb-4 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[#deff9a]">storefront</span>
+                    <span class="text-label-md font-label-md">Restaurants (Tenants)</span>
+                </div>
+                <div class="text-headline-lg font-headline-lg text-[#deff9a] tracking-tight">
+                    {{ total_restaurants }}
+                </div>
+            </div>
+            
+            <!-- Stat Card 2: Combined revenue -->
+            <div class="bg-[#1a1a1a] border border-[#262626] rounded-xl p-lg flex flex-col justify-between relative overflow-hidden group hover:border-[#deff9a]/30 transition-colors duration-300">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-[#deff9a]/5 rounded-full blur-2xl"></div>
+                <div class="flex items-center gap-2 mb-4 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[#deff9a]">payments</span>
+                    <span class="text-label-md font-label-md">Globaler Gesamtumsatz</span>
+                </div>
+                <div class="text-headline-lg font-headline-lg text-on-surface tracking-tight">
+                    {{ "%.2f"|format(total_revenue) }} €
+                </div>
+            </div>
+
+            <!-- Stat Card 3: Active tables worldwide -->
+            <div class="bg-[#1a1a1a] border border-[#262626] rounded-xl p-lg flex flex-col justify-between relative overflow-hidden group hover:border-[#deff9a]/30 transition-colors duration-300">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-[#deff9a]/5 rounded-full blur-2xl"></div>
+                <div class="flex items-center gap-2 mb-4 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[#deff9a]">table_restaurant</span>
+                    <span class="text-label-md font-label-md">Aktive Tische weltweit</span>
+                </div>
+                <div class="text-headline-lg font-headline-lg text-on-surface tracking-tight">
+                    {{ active_tables }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Master List Table -->
+        <section class="bg-[#1a1a1a] border border-[#262626] rounded-xl p-lg">
+            <h3 class="text-headline-md font-headline-md text-on-surface mb-6 border-b border-[#262626] pb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#deff9a]">database</span>
+                Plattform Master-Liste
+            </h3>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-[#262626] text-on-surface-variant text-xs uppercase tracking-wider">
+                            <th class="py-4 px-3">Restaurant Name</th>
+                            <th class="py-4 px-3">URL-Slug</th>
+                            <th class="py-4 px-3">Umsatz</th>
+                            <th class="py-4 px-3">Bestellungen</th>
+                            <th class="py-4 px-3">Modus</th>
+                            <th class="py-4 px-3 text-center">System-Status & Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#262626] text-sm">
+                        {% for slug_key, tenant in tenants.items() %}
+                        <tr class="hover:bg-background/50 transition-colors">
+                            <td class="py-4 px-3 font-semibold text-on-surface">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full {% if tenant.get('active', True) %}bg-green-500{% else %}bg-red-500{% endif %}"></span>
+                                    <span>{{ tenant.name }}</span>
+                                    <button onclick="openEditModal('{{ slug_key }}', '{{ tenant.name }}')" class="text-neutral-400 hover:text-[#deff9a] transition-colors ml-1" title="Name bearbeiten">
+                                        <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                    </button>
+                                </span>
+                            </td>
+                            <td class="py-4 px-3">
+                                <a href="/{{ slug_key }}" target="_blank" class="text-[#deff9a] hover:underline flex items-center gap-1 text-xs">
+                                    /{{ slug_key }}
+                                    <span class="material-symbols-outlined text-[12px]">open_in_new</span>
+                                </a>
+                            </td>
+                            <td class="py-4 px-3 font-medium text-on-surface">
+                                {{ "%.2f"|format(tenant.tagesumsatz) }} €
+                            </td>
+                            <td class="py-4 px-3 text-on-surface-variant">
+                                {{ tenant.bestellungen_gesamt }}
+                            </td>
+                            <td class="py-4 px-3 text-xs">
+                                {% if tenant.is_shishabar %}
+                                <span class="bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-1 rounded-md">Shisha-Bar</span>
+                                {% else %}
+                                <span class="bg-[#262626] text-on-surface-variant px-2 py-1 rounded-md">Standard</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-4 px-3">
+                                <div class="flex items-center justify-center gap-2">
+                                    <form action="/digi-gastro-admin/tenant-toggle/{{ slug_key }}" method="POST" class="inline">
+                                        <button type="submit" class="px-3.5 py-1.5 rounded-full text-xs font-bold border flex items-center gap-1.5 transition-all
+                                            {% if tenant.get('active', True) %}
+                                            bg-green-500/10 text-green-300 border-green-500/30 hover:bg-green-500/20
+                                            {% else %}
+                                            bg-red-500/10 text-red-300 border-red-500/30 hover:bg-red-500/20
+                                            {% endif %}">
+                                            <span class="material-symbols-outlined text-[14px]">
+                                                {% if tenant.get('active', True) %}lock_open{% else %}lock{% endif %}
+                                            </span>
+                                            <span>{% if tenant.get('active', True) %}Aktiv{% else %}Gesperrt{% endif %}</span>
+                                        </button>
+                                    </form>
+
+                                    <form action="/digi-gastro-admin/tenant-reset-password/{{ slug_key }}" method="POST" class="inline" onsubmit="return confirm('Passwort für {{ tenant.name }} wirklich zurücksetzen?')">
+                                        <button type="submit" class="px-3.5 py-1.5 rounded-full text-xs font-bold border border-yellow-500/30 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20 transition-all flex items-center gap-1.5" title="Passwort zurücksetzen">
+                                            <i class="fa-solid fa-key text-[12px]"></i>
+                                            <span>PW Reset</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Create Tenant Modal -->
+    <div id="create-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-[#1a1a1a] border border-[#262626] rounded-2xl w-full max-w-md p-6 relative flex flex-col">
+            <!-- Close Button -->
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            
+            <h3 class="text-xl font-bold text-on-surface mb-6 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#deff9a]">domain_add</span>
+                Neues Restaurant
+            </h3>
+            
+            <form action="/digi-gastro-admin/tenant-erstellen" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2" for="tenant-name">Name des Restaurants</label>
+                    <input class="w-full bg-background border border-[#262626] rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:border-[#deff9a] focus:ring-1 focus:ring-[#deff9a] transition-all" id="tenant-name" name="name" placeholder="z.B. Luna Bar" type="text" oninput="generateSlug(this.value)" required>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2" for="tenant-slug">URL-Slug (Kleinbuchstaben, keine Sonderzeichen)</label>
+                    <div class="relative flex items-center">
+                        <span class="absolute left-4 text-xs text-on-surface-variant">/</span>
+                        <input class="w-full bg-background border border-[#262626] rounded-xl pl-6 pr-4 py-3 text-sm text-[#deff9a] placeholder:text-on-surface-variant/40 focus:outline-none focus:border-[#deff9a] focus:ring-1 focus:ring-[#deff9a] transition-all" id="tenant-slug" name="slug" placeholder="lunabar" type="text" required>
+                    </div>
+                    <p class="text-[10px] text-on-surface-variant mt-1.5 leading-normal">
+                        Der Gast erreicht die Speisekarte über http://localhost:8000/slug. Das System legt ein neues, sauberes Restaurant-Konto mit unberührten Daten an.
+                    </p>
+                </div>
+                
+                <div class="pt-4">
+                    <button class="bg-[#deff9a] text-[#0a0a0a] hover:bg-[#c9e88b] active:scale-95 transition-all duration-150 rounded-xl py-3.5 font-bold flex items-center justify-center gap-2 w-full text-sm" type="submit">
+                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+                        Tenant anlegen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal() {
+            document.getElementById('create-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('create-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function generateSlug(text) {
+            const slug = text.trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '') // Remove all non-alphanumeric except spaces & hyphens
+                .replace(/\s+/g, '-')        // Replace spaces with hyphens
+                .replace(/-+/g, '-');        // Remove duplicates
+            document.getElementById('tenant-slug').value = slug;
+        }
+
+        function openEditModal(slug, name) {
+            document.getElementById('edit-form').action = `/digi-gastro-admin/tenant-edit-name/${slug}`;
+            document.getElementById('edit-name').value = name;
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    </script>
+
+    <!-- Edit Tenant Name Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-[#1a1a1a] border border-[#262626] rounded-2xl w-full max-w-md p-6 relative flex flex-col">
+            <!-- Close Button -->
+            <button onclick="closeEditModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            
+            <h3 class="text-xl font-bold text-on-surface mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-[#deff9a]"></i>
+                Name bearbeiten
+            </h3>
+            
+            <form id="edit-form" action="" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2" for="edit-name">Anzeigename des Restaurants</label>
+                    <input class="w-full bg-background border border-[#262626] rounded-xl px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[#deff9a] focus:ring-1 focus:ring-[#deff9a] transition-all" id="edit-name" name="name" type="text" required>
+                </div>
+                
+                <div class="pt-4">
+                    <button class="bg-[#deff9a] text-[#0a0a0a] hover:bg-[#c9e88b] active:scale-95 transition-all duration-150 rounded-xl py-3.5 font-bold flex items-center justify-center gap-2 w-full text-sm" type="submit">
+                        Speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

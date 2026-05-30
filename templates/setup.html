@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Erst-Einrichtung - {{ restaurant.name }}</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #050505;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 20px rgba(222, 255, 154, 0.2);
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
+    <!-- Ambient Blur Background -->
+    <div class="absolute -left-40 -top-40 w-96 h-96 bg-[#deff9a]/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -right-40 -bottom-40 w-96 h-96 bg-[#deff9a]/5 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-xl bg-[#111111] border border-[#222222] rounded-3xl p-8 relative z-10 shadow-[0_10px_50px_rgba(0,0,0,0.8)] transition-all duration-300">
+        <!-- Logo Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#deff9a]/10 mb-4">
+                <span class="material-symbols-outlined text-[#deff9a] text-4xl">rocket_launch</span>
+            </div>
+            <h1 class="text-2xl font-black tracking-tight text-white mb-2">Willkommen bei digi-gastro!</h1>
+            <p class="text-sm text-neutral-400">Richten wir Ihr Restaurant <span class="text-[#deff9a] font-semibold">{{ restaurant.name }}</span> in wenigen Schritten ein.</p>
+        </div>
+
+        <!-- Setup Form -->
+        <div class="space-y-6">
+            <!-- STEP 1: Logo Upload (AJAX) -->
+            <div>
+                <label class="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">Schritt 1: Restaurant-Logo hochladen</label>
+                <div id="drop-zone" class="border-2 border-dashed border-[#333333] hover:border-[#deff9a]/50 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 bg-[#161616] relative overflow-hidden group">
+                    <input type="file" id="logo-file" class="hidden" accept="image/*">
+                    <div id="upload-prompt" class="space-y-3">
+                        <span class="material-symbols-outlined text-neutral-400 group-hover:text-[#deff9a] text-4xl transition-colors">cloud_upload</span>
+                        <div class="text-sm text-neutral-200 font-medium">Drag & Drop oder <span class="text-[#deff9a] underline">Datei auswählen</span></div>
+                        <div class="text-xs text-neutral-500">PNG, JPG oder WEBP (Quadratisch empfohlen)</div>
+                    </div>
+                    <!-- Live Preview Area -->
+                    <div id="logo-preview-container" class="hidden flex flex-col items-center justify-center space-y-3">
+                        <img id="logo-preview" src="" alt="Logo Vorschau" class="w-24 h-24 rounded-2xl object-cover border border-[#333333]">
+                        <span class="text-xs text-green-400 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">check_circle</span>
+                            Logo erfolgreich hochgeladen!
+                        </span>
+                    </div>
+                    <!-- Uploading Spinner -->
+                    <div id="upload-loading" class="hidden py-4 flex flex-col items-center justify-center space-y-2">
+                        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#deff9a]"></div>
+                        <span class="text-xs text-neutral-400">Hochladen...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Config Form -->
+            <form action="/{{ slug }}/admin/setup-complete" method="POST" class="space-y-6">
+                <!-- STEP 2: Operation Modes -->
+                <div class="space-y-4">
+                    <label class="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">Schritt 2: Betriebs-Modus wählen</label>
+                    
+                    <!-- Switch 1: Kitchen Mode -->
+                    <label class="flex items-center justify-between p-4 rounded-2xl bg-[#161616] border border-[#222222] cursor-pointer hover:border-[#deff9a]/30 transition-all select-none">
+                        <div class="flex items-start gap-3">
+                            <span class="material-symbols-outlined text-[#deff9a] text-2xl mt-0.5">restaurant</span>
+                            <div>
+                                <div class="font-bold text-white text-sm">Küchen-Display aktivieren</div>
+                                <div class="text-xs text-neutral-500 mt-0.5">Bestellungen werden direkt an einen Küchen-Monitor übertragen.</div>
+                            </div>
+                        </div>
+                        <div class="relative inline-flex items-center">
+                            <input type="checkbox" name="has_kitchen" value="true" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-[#262626] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-[#888888] after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#deff9a] peer-checked:after:bg-[#0a0a0a]"></div>
+                        </div>
+                    </label>
+
+                    <!-- Switch 2: Shisha Mode -->
+                    <label class="flex items-center justify-between p-4 rounded-2xl bg-[#161616] border border-[#222222] cursor-pointer hover:border-[#deff9a]/30 transition-all select-none">
+                        <div class="flex items-start gap-3">
+                            <span class="material-symbols-outlined text-[#deff9a] text-2xl mt-0.5">mode_fan</span>
+                            <div>
+                                <div class="font-bold text-white text-sm">Shisha-Modus aktivieren</div>
+                                <div class="text-xs text-neutral-500 mt-0.5">Spezieller Kohle- und Tabak-Bestellfluss für Shisha-Bars.</div>
+                            </div>
+                        </div>
+                        <div class="relative inline-flex inline-flex items-center">
+                            <input type="checkbox" name="is_shishabar" value="true" class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#262626] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-[#888888] after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#deff9a] peer-checked:after:bg-[#0a0a0a]"></div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Action Button -->
+                <div class="pt-4 border-t border-[#222222]">
+                    <button type="submit" class="w-full bg-[#deff9a] hover:bg-[#c9e88b] text-[#050505] font-black py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all duration-150 shadow-[0_4px_25px_rgba(222,255,154,0.2)] glow-hover">
+                        <span class="material-symbols-outlined font-black">task_alt</span>
+                        Einrichtung abschließen
+                    </button>
+                    <p class="text-center text-[10px] text-neutral-600 mt-3 leading-normal">
+                        Mit Klick auf "Einrichtung abschließen" wird Ihr System finalisiert und Ihr persönliches Dashboard freigeschaltet.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Logic for Drag & Drop and Instant Upload -->
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const logoFile = document.getElementById('logo-file');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const previewContainer = document.getElementById('logo-preview-container');
+        const previewImg = document.getElementById('logo-preview');
+        const uploadLoading = document.getElementById('upload-loading');
+
+        // Click triggers file selector
+        dropZone.addEventListener('click', () => logoFile.click());
+
+        // Drag events
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-[#deff9a]');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-[#deff9a]');
+            }, false);
+        });
+
+        // Handle drop file
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleLogoUpload(files[0]);
+            }
+        });
+
+        // Handle select file
+        logoFile.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleLogoUpload(e.target.files[0]);
+            }
+        });
+
+        // AJAX File Upload
+        function handleLogoUpload(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Bitte wählen Sie ein gültiges Bild aus.');
+                return;
+            }
+
+            uploadPrompt.classList.add('hidden');
+            previewContainer.classList.add('hidden');
+            uploadLoading.classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/{{ slug }}/admin/upload-logo', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                uploadLoading.classList.add('hidden');
+                if (data.success) {
+                    previewImg.src = data.logo_url;
+                    previewContainer.classList.remove('hidden');
+                } else {
+                    uploadPrompt.classList.remove('hidden');
+                    alert('Upload fehlgeschlagen.');
+                }
+            })
+            .catch(error => {
+                uploadLoading.classList.add('hidden');
+                uploadPrompt.classList.remove('hidden');
+                console.error('Error uploading logo:', error);
+                alert('Fehler beim Upload des Logos.');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KDS - Digital Kitchen Display System - {{ restaurant.name }}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @keyframes pulse-red {
+            0%, 100% { border-color: rgb(239, 68, 68); box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.4); }
+            50% { border-color: rgb(220, 38, 38); box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.2); }
+        }
+        .warn-border {
+            animation: pulse-red 2s infinite;
+            border-width: 4px !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+    <!-- Top Status Bar -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 bg-rose-600 rounded-lg flex items-center justify-center text-white text-xl font-bold">
+                <i class="fas fa-desktop"></i>
+            </div>
+            <div>
+                <span class="text-xs text-rose-500 font-bold uppercase tracking-wider">Kitchen Display System (KDS)</span>
+                <h1 class="text-lg font-black leading-tight">
+                    {% if restaurant.has_kitchen %}
+                        👨‍🍳 Küchen- & Bar-Monitor
+                    {% else %}
+                        🍹 Reiner Getränke- & Shisha-Monitor
+                    {% endif %}
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <div class="text-right">
+                <div class="text-sm font-semibold">{{ current_user.name }} ({{ current_user.role | title }})</div>
+                <div class="text-xs text-slate-400">Tenant: <span class="text-indigo-400">{{ restaurant.name }}</span></div>
+            </div>
+            <!-- Station Selector for Dynamic KDS Workstation Filtering -->
+            <div class="relative inline-block text-left">
+                <select id="kds-station-select" onchange="changeKdsStation(this.value)" class="bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-100 text-xs font-bold rounded-xl px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-rose-500 cursor-pointer">
+                    <option value="all">👨‍🍳 Alle Stationen</option>
+                    <option value="küche">🍔 Warme Küche (Food)</option>
+                    <option value="bar">🍹 Bar (Getränke)</option>
+                    <option value="shisha">💨 Shisha-Bereich</option>
+                </select>
+            </div>
+            <!-- KDS hat keinen Admin-Link (Säule 4: Role Isolation) -->
+            <span id="conn-status-kds" class="hidden bg-red-900/50 text-red-400 border border-red-700 text-xs font-bold px-3 py-1.5 rounded-lg">
+                ⚠️ Verbindung verloren
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-grow p-6 overflow-y-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {% for o in orders %}
+                <!-- Filter order items client-side/server-side based on kitchen status -->
+                {% set filtered_items = [] %}
+                {% for item in o['items'] %}
+                    {% if restaurant.has_kitchen or item.category_type != 'küche' %}
+                        {% set _ = filtered_items.append(item) %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if filtered_items | length > 0 %}
+                <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl flex flex-col justify-between transition" id="ticket-{{ o.id }}" data-timestamp="{{ o.timestamp }}">
+                    <!-- Ticket Header -->
+                    <div class="bg-slate-700/80 p-4 border-b border-slate-700 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-slate-400 font-mono">{{ o.timestamp[11:16] }} Uhr</span>
+                            <div class="text-lg font-black text-white">{{ o.table }}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="bg-indigo-900/50 text-indigo-300 border border-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                #{{ o.id }}
+                            </span>
+                            <!-- Live timer badge -->
+                            <div class="text-xs font-mono font-bold mt-1 text-slate-300" id="timer-{{ o.id }}">0 Min.</div>
+                        </div>
+                    </div>
+
+                    <!-- Ticket Items -->
+                    <div class="p-4 flex-grow space-y-2">
+                        {% for item in filtered_items %}
+                        <div class="kds-item flex items-start justify-between p-2 hover:bg-slate-700/40 rounded-lg cursor-pointer transition-all duration-150 select-none" data-category-type="{{ item.category_type }}" onclick="toggleItemCheckoff(this)">
+                            <div class="flex space-x-2">
+                                <span class="bg-rose-500/10 text-rose-400 font-black px-2 py-0.5 rounded text-sm shrink-0">
+                                    {{ item.quantity }}x
+                                </span>
+                                <div>
+                                    <span class="font-bold text-sm text-slate-100 item-name">{{ item.name }}</span>
+                                    {% if item.category_type == 'shisha' %}
+                                        <span class="block text-[10px] text-amber-500 uppercase font-extrabold"><i class="fas fa-wind mr-1"></i>Shisha Head</span>
+                                    {% elif item.category_type == 'bar' %}
+                                        <span class="block text-[10px] text-sky-400 uppercase font-extrabold"><i class="fas fa-glass-water mr-1"></i>Drink</span>
+                                    {% else %}
+                                        <span class="block text-[10px] text-rose-400 uppercase font-extrabold"><i class="fas fa-burger mr-1"></i>Kitchen Food</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Ticket Footer Action buttons -->
+                    <div class="p-4 bg-slate-800/50 border-t border-slate-700/60 flex items-center justify-between gap-2">
+                        <!-- Current Status Badge -->
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Status</span>
+                            <div class="text-xs font-extrabold text-amber-400 uppercase" id="status-text-{{ o.id }}">{{ o.status }}</div>
+                        </div>
+
+                        <!-- Action Triggers -->
+                        <div class="flex space-x-1">
+                            {% if o.status == 'eingegangen' %}
+                            <button onclick="updateStatus({{ o.id }}, 'in_zubereitung')" class="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition">
+                                <i class="fas fa-play mr-1"></i> Starten
+                            </button>
+                            {% elif o.status == 'in_zubereitung' %}
+                            <button onclick="updateStatus({{ o.id }}, 'bereit')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition animate-pulse">
+                                <i class="fas fa-check-double mr-1"></i> Fertig
+                            </button>
+                            {% else %}
+                            <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                                <i class="fas fa-circle-check mr-1"></i> Bereit zum Servieren
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="col-span-full py-16 text-center text-slate-500">
+                    <i class="fas fa-check-circle text-5xl mb-4 text-slate-600"></i>
+                    <p class="font-bold text-lg">Keine offenen KDS Tickets vorhanden!</p>
+                    <p class="text-xs mt-1 text-slate-600">Sobald Gäste bestellen, tauchen die Bons hier in Echtzeit auf.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 border-t border-slate-700 py-3 px-6 text-center text-xs text-slate-500">
+        &copy; 2026 digi-gastro Premium Kitchen System. Auto-reload is active.
+    </footer>
+
+    <!-- Interactive script for status updating & timers -->
+    <script>
+        const slug = "{{ slug }}";
+        // ── Polling-based auto-refresh (replaces naive location.reload())
+        // On 401/403: the pos/kds token was rotated → redirect to decoupled page.
+        function pollKitchenStatus() {
+            fetch(`/api/{{ slug }}/kitchen-status`)
+            .then(res => {
+                if (res.status === 401 || res.status === 403) {
+                    window.location.href = `/{{ slug }}/device-decoupled`;
+                    return null;
+                }
+                if (!res.ok) {
+                    document.getElementById('conn-status-kds').classList.remove('hidden');
+                    return null;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                document.getElementById('conn-status-kds').classList.add('hidden');
+                // Full page reload only when order count changes (bandwidth-friendly)
+                const newCount = data.orders.length;
+                if (window._lastKdsOrderCount !== undefined && window._lastKdsOrderCount !== newCount) {
+                    location.reload();
+                }
+                window._lastKdsOrderCount = newCount;
+            })
+            .catch(() => {
+                document.getElementById('conn-status-kds').classList.remove('hidden');
+            });
+        }
+
+        // Start polling every 8 seconds
+        pollKitchenStatus();
+        setInterval(pollKitchenStatus, 8000);
+
+        // Live timers calculation
+        function updateTimers() {
+            const tickets = document.querySelectorAll('[id^="ticket-"]');
+            tickets.forEach(ticket => {
+                const id = ticket.id.replace("ticket-", "");
+                const tsStr = ticket.getAttribute("data-timestamp"); // e.g. "2026-05-29 11:20:00"
+                if (!tsStr) return;
+
+                // Parse standard datetime string
+                const orderTime = new Date(tsStr.replace(/-/g, "/"));
+                const now = new Date();
+
+                const diffMs = now - orderTime;
+                const diffMins = Math.floor(diffMs / 1000 / 60);
+
+                const timerEl = document.getElementById("timer-" + id);
+                if (timerEl) {
+                    timerEl.textContent = diffMins + " Min.";
+                    
+                    // Flash red warning after 12 minutes
+                    if (diffMins >= 12) {
+                        ticket.classList.add("warn-border");
+                        timerEl.className = "text-xs font-mono font-bold mt-1 text-red-500 animate-pulse";
+                    }
+                }
+            });
+        }
+
+        // Run immediately and every second
+        updateTimers();
+        setInterval(updateTimers, 1000);
+
+        // Update ticket status via POST
+        async function updateStatus(orderId, newStatus) {
+            const formData = new FormData();
+            formData.append("status", newStatus);
+
+            try {
+                const response = await fetch(`/{{ slug }}/kitchen/status/${orderId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert("Status-Update fehlgeschlagen.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Fehler beim Senden.");
+            }
+        }
+
+        // ── Station/Arbeitsplatz Filtering Logic ──
+        function changeKdsStation(val) {
+            document.cookie = `device_role_{{ slug }}=${val}; path=/; max-age=31536000; samesite=lax`;
+            applyKdsFiltering();
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        function applyKdsFiltering() {
+            const activeStation = getCookie("device_role_{{ slug }}") || "all";
+            
+            const selectEl = document.getElementById("kds-station-select");
+            if (selectEl) {
+                selectEl.value = activeStation;
+            }
+
+            const tickets = document.querySelectorAll('[id^="ticket-"]');
+            let visibleTicketsCount = 0;
+
+            tickets.forEach(ticket => {
+                const kdsItems = ticket.querySelectorAll('.kds-item');
+                let hasVisibleItems = false;
+
+                kdsItems.forEach(item => {
+                    const catType = item.getAttribute('data-category-type');
+                    if (activeStation === 'all' || catType === activeStation) {
+                        item.style.display = 'flex';
+                        hasVisibleItems = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                if (hasVisibleItems) {
+                    ticket.style.display = 'flex';
+                    visibleTicketsCount++;
+                } else {
+                    ticket.style.display = 'none';
+                }
+            });
+
+            // If zero tickets are visible for this station, show a clean message or badge update
+            const mainGrid = document.querySelector('main > div');
+            let emptyMsg = document.getElementById("kds-empty-message");
+            
+            if (visibleTicketsCount === 0) {
+                if (!emptyMsg) {
+                    emptyMsg = document.createElement("div");
+                    emptyMsg.id = "kds-empty-message";
+                    emptyMsg.className = "col-span-full py-16 text-center text-slate-500";
+                    emptyMsg.innerHTML = `
+                        <i class="fas fa-check-circle text-5xl mb-4 text-slate-600"></i>
+                        <p class="font-bold text-lg">Keine offenen Tickets für diese Station!</p>
+                        <p class="text-xs mt-1 text-slate-600">Sobald passende Bestellungen eingehen, erscheinen sie hier.</p>
+                    `;
+                    if (mainGrid) mainGrid.appendChild(emptyMsg);
+                } else {
+                    emptyMsg.style.display = 'block';
+                }
+            } else {
+                if (emptyMsg) {
+                    emptyMsg.style.display = 'none';
+                }
+            }
+        }
+
+        // ── Micro-Interaction Checkoff Logic ──
+        function toggleItemCheckoff(element) {
+            const nameEl = element.querySelector('.item-name');
+            const qtyEl = element.querySelector('span');
+            if (nameEl) {
+                if (nameEl.classList.contains('line-through')) {
+                    nameEl.classList.remove('line-through', 'text-slate-500');
+                    nameEl.classList.add('text-slate-100');
+                    if (qtyEl) qtyEl.classList.remove('opacity-40');
+                } else {
+                    nameEl.classList.add('line-through', 'text-slate-500');
+                    nameEl.classList.remove('text-slate-100');
+                    if (qtyEl) qtyEl.classList.add('opacity-40');
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', applyKdsFiltering);
+    </script>
+</body>
+</html>

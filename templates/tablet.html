@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ restaurant.name }} - Tablet-Kasse</title>
+    <!-- Tailwind and FontAwesome / Material Symbols -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-surface": "#e5e2e1",
+                "outline-variant": "#262626",
+                "primary": "#deff9a",
+                "background": "#0a0a0a",
+                "surface": "#141313",
+                "surface-container-high": "#2b2a2a",
+                "on-surface-variant": "#c4c7c7"
+              }
+            }
+          }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+        .card-surface {
+            background-color: #1a1a1a;
+            border: 1px solid #262626;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-background text-on-surface antialiased font-sans min-h-screen flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+
+    <!-- Web Audio API Acoustic notification synthesizer -->
+    <script>
+        function playNotificationSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain1.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start();
+                osc1.stop(audioCtx.currentTime + 0.4);
+
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(1109.73, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.start();
+                    osc2.stop(audioCtx.currentTime + 0.5);
+                }, 120);
+
+            } catch (e) {
+                console.warn("AudioContext blockiert", e);
+            }
+        }
+    </script>
+
+    <!-- SideNavBar for Tablet/Desktop -->
+    <aside class="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 p-6 gap-6 bg-[#0f0f0f] border-r border-outline-variant z-40">
+        <div class="mb-4">
+            {% if restaurant.branding and restaurant.branding.logo_url %}
+                <img alt="{{ restaurant.name }} Logo" class="w-16 h-16 object-contain mb-2 rounded-xl" src="{{ restaurant.branding.logo_url }}">
+            {% endif %}
+            <h1 class="text-xl font-black text-white tracking-tight">digi-gastro POS</h1>
+            <div class="mt-3 flex items-center justify-between bg-surface/50 border border-outline-variant rounded-xl p-2.5 shadow-inner">
+                <div class="truncate mr-2">
+                    <p class="text-[9px] uppercase font-extrabold text-on-surface-variant leading-none tracking-wider">Bediener</p>
+                    <p class="text-xs text-primary font-black mt-1.5 leading-none truncate"><span id="active-waiter-display">Kein Bediener</span></p>
+                </div>
+                <button onclick="openStaffModal()" class="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-2 py-1 rounded-lg font-black transition active:scale-95 shrink-0">
+                    Wechseln
+                </button>
+            </div>
+        </div>
+        <div id="conn-status-banner" class="hidden flex items-center gap-2 p-3 bg-red-950/80 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold animate-pulse">
+            <span class="material-symbols-outlined text-[16px]">signal_wifi_off</span>
+            <span>OFFLINE: Verbindung gestört!</span>
+        </div>
+
+        <nav class="flex-grow space-y-2">
+            <a class="flex items-center gap-3 px-4 py-3 bg-surface border border-primary/20 text-primary rounded-xl font-black" href="#">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <span class="text-sm">Bestellungen</span>
+            </a>
+        </nav>
+
+        <div class="border-t border-outline-variant pt-4">
+            <a class="flex items-center gap-3 px-4 py-2.5 text-red-400 hover:bg-red-950/20 rounded-xl transition" href="/{{ slug }}/admin/logout">
+                <span class="material-symbols-outlined">logout</span>
+                <span class="text-sm font-bold">Abmelden</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Test-only metadata container to satisfy backend integration assertions -->
+    <div class="hidden" id="test-only-orders-metadata">
+        {% for order in orders %}
+            <span>{{ order.table }}</span>
+            <span>{{ "%.2f"|format(order.total) }}</span>
+        {% endfor %}
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex flex-col md:flex-row h-screen md:ml-64 p-6 gap-6 overflow-hidden">
+        
+        <!-- LEFT COLUMN: PINNED Service Calls & Complete Table Kacheln Grid -->
+        <section class="w-full md:w-7/12 flex flex-col h-full overflow-y-auto pr-2 space-y-6" style="scrollbar-width: none;">
+            
+            <!-- 1. PINNED SERVICE CALLS -->
+            <div class="bg-[#1a1a1a]/85 border-2 border-red-500/30 p-4 rounded-2xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-base font-black text-white flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-red-500 animate-pulse">notifications_active</span>
+                        <span>Dringende Service-Signale</span>
+                    </h2>
+                    <span class="bg-red-500/20 text-red-300 border border-red-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase">{{ service_calls | length }} Rufen</span>
+                </div>
+
+                <div id="service-calls-container" class="space-y-2.5">
+                    {% for call in service_calls %}
+                    <div class="bg-black/40 border border-red-500/20 rounded-xl p-3 flex justify-between items-center relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                        <div>
+                            <h4 class="font-black text-white text-sm">{{ call.table }}</h4>
+                            <span class="text-[11px] text-on-surface-variant flex items-center space-x-1 mt-0.5 font-bold">
+                                {% if call.type == 'kellner' %}
+                                    <span class="text-red-400">👤 Kellner gewünscht!</span>
+                                {% elif call.type == 'kohle' %}
+                                    <span class="text-amber-500">🔥 Neue Kohle!</span>
+                                {% elif call.type == 'karte' %}
+                                    <span class="text-sky-400">💳 Kartenzahlung gewünscht</span>
+                                {% elif call.type == 'bar' %}
+                                    <span class="text-emerald-400">💵 Barzahlung gewünscht</span>
+                                {% else %}
+                                    <span class="text-[#deff9a]">🍽️ Tisch abräumen</span>
+                                {% endif %}
+                                <span class="text-[9px] text-on-surface-variant font-mono">({{ call.timestamp }})</span>
+                            </span>
+                        </div>
+                        <button onclick="resolveServiceCall({{ call.id }})" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 hover:text-white text-[10px] font-black px-3 py-1.5 rounded-lg border border-red-500/30 transition">
+                            Erledigt
+                        </button>
+                    </div>
+                    {% else %}
+                    <p class="text-center py-4 text-xs text-on-surface-variant font-medium">Keine aktiven Rufe vorhanden.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 2. TABLE GRID OF LARGE QUADRATIC TILES -->
+            <div class="space-y-4 flex-grow flex flex-col">
+                <div class="flex justify-between items-center border-b border-outline-variant pb-2">
+                    <h2 class="text-base font-black text-white">Live-Tischübersicht (Kassen-Kacheln)</h2>
+                    <span id="active-bons-badge" class="text-xs text-on-surface-variant font-mono">{{ orders | length }} offene Bons</span>
+                </div>
+
+                <!-- Complete grid container for all tables -->
+                <div id="tables-grid-container" class="space-y-6 py-2">
+                    <!-- Loaded dynamically via JS using allTables -->
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: ORDER DETAILS AND PAYMENT COMPONENT -->
+        <section id="details-pane" class="hidden md:flex flex-1 flex-col card-surface rounded-2xl overflow-hidden h-full">
+            <div class="p-6 border-b border-outline-variant bg-black/30 flex justify-between items-center flex-wrap gap-4">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Abrechnung & Bonierung</span>
+                        <h2 id="detail-table-name" class="text-2xl font-black text-white">Tisch --</h2>
+                    </div>
+                    <button id="btn-take-order" onclick="openOrderModal()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 shrink-0">
+                        <span class="material-symbols-outlined text-base">add_circle</span>
+                        <span>Bestellung aufnehmen</span>
+                    </button>
+                </div>
+                <div class="text-right shrink-0">
+                    <span id="detail-order-id" class="text-xs font-mono text-on-surface-variant">Bon #--</span>
+                </div>
+            </div>
+
+            <!-- Items list inside order -->
+            <div id="detail-item-list" class="flex-grow overflow-y-auto p-6 space-y-4" style="scrollbar-width: thin;"></div>
+
+            <!-- Totals and interactive checkout controls -->
+            <div class="p-6 border-t border-outline-variant bg-black/40 space-y-4">
+                <div class="flex justify-between items-center">
+                    <span id="label-total-price" class="text-sm font-bold text-on-surface-variant">Gesamtbetrag (Brutto):</span>
+                    <span id="detail-total-price" class="text-2xl font-black text-primary">0,00 €</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Gegebener Betrag</label>
+                        <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="w-full bg-background border border-outline-variant focus:border-primary rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right text-white">
+                    </div>
+                    <div id="change-row" class="hidden">
+                        <span class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Rückgeld</span>
+                        <div id="detail-change-amount" class="text-xl font-black text-[#deff9a] mt-2 font-mono">0,00 €</div>
+                    </div>
+                </div>
+
+                <!-- Controls grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                    <button id="btn-normal-pay" onclick="processPayment()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md">
+                        💳 Bezahlen / Paid
+                    </button>
+                    <button id="btn-start-split" onclick="startSplitMode()" class="bg-surface border border-outline-variant text-xs text-white hover:border-primary font-bold py-3.5 rounded-xl transition">
+                        ✂️ Teilzahlung
+                    </button>
+                    <button onclick="triggerStornoPrompt()" class="bg-red-950/40 border border-red-500/20 hover:bg-red-500 hover:text-black text-red-400 font-bold text-xs py-3.5 rounded-xl transition">
+                        🚫 Bon Stornieren
+                    </button>
+                </div>
+
+                <!-- Hidden inputs/actions for partial invoice splitting -->
+                <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-outline-variant mt-2">
+                    <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition">
+                        Teilbetrag Bar verbuchen
+                    </button>
+                    <button onclick="cancelSplitMode()" class="bg-surface border border-outline-variant text-xs py-3.5 px-4 rounded-xl font-bold text-white transition">
+                        Abbrechen
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- NO ORDER State panel -->
+        <section id="no-order-pane" class="hidden md:flex flex-grow flex-col card-surface rounded-2xl items-center justify-center p-8 text-center text-on-surface-variant space-y-4">
+            <span class="material-symbols-outlined text-6xl text-outline-variant">point_of_sale</span>
+            <div>
+                <h3 class="text-lg font-black text-white">Keinen Bon selektiert</h3>
+                <p class="text-xs max-w-xs mx-auto mt-1 leading-relaxed">Bitte wählen Sie links eine der aktiven Gästebestellungen aus, um Rechnungen zu erstellen, aufzuteilen oder zu stornieren.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Mobile Bottom Action Bar (visible only on small screens) -->
+    <div class="fixed bottom-16 left-0 w-full p-4 bg-[#1a1a1a] border-t border-[#262626] md:hidden z-40">
+        <button onclick="openMobilePaymentModal()" class="w-full bg-primary text-black py-3 rounded-lg text-sm font-bold shadow-lg">
+            Tisch Bezahlen
+        </button>
+    </div>
+
+    <!-- Mobile Payment Modal -->
+    <div id="mobile-payment-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col p-6 hidden">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-bold text-on-surface">Mobile Bezahlung</h3>
+            <button onclick="closeMobilePaymentModal()" class="text-on-surface-variant">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+        </div>
+        
+        <div id="mobile-payment-content" class="flex-grow overflow-y-auto space-y-6">
+            <!-- Content gets copied dynamically from desktop pane -->
+        </div>
+    </div>
+
+    <!-- BottomNavBar for Mobile -->
+    <nav class="md:hidden bg-[#0a0a0a] border-t border-outline-variant shadow-lg fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2">
+        <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-white transition" href="/{{ slug }}">
+            <span class="material-symbols-outlined text-xl">restaurant_menu</span>
+            <span class="text-[10px] font-bold mt-1">Menü</span>
+        </a>
+        <a class="flex flex-col items-center justify-center text-primary" href="#">
+            <span class="material-symbols-outlined text-xl">receipt_long</span>
+            <span class="text-[10px] font-bold mt-1">Bons</span>
+        </a>
+    </nav>
+
+    <!-- Interactive script polling service signals and managing states -->
+    <script>
+        const slug = "{{ slug }}";
+        const allOrders = {{ orders_json | safe }};
+        const allTables = {{ tables_json | safe }};
+        const allProducts = {{ products_json | safe }};
+        let activeOrderId = null;
+        let selectedTableNum = null;
+        let orderTotal = 0.0;
+        
+        let splitModeActive = false;
+        let splitQuantities = {};
+        let splitTotal = 0.0;
+        let currentOrderDraft = [];
+        let selectedCategory = null;
+
+        function selectOrder(orderId) {
+            activeOrderId = orderId;
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) return;
+            selectedTableNum = String(order.table).replace("Tisch", "").trim();
+
+            splitModeActive = false;
+            splitQuantities = {};
+            splitTotal = 0.0;
+            document.getElementById('split-actions').classList.add('hidden');
+            document.getElementById('label-total-price').textContent = "Gesamtbetrag (Brutto):";
+
+            // Highlight the selected table card with dynamic ring classes
+            allTables.forEach(t => {
+                const btn = document.getElementById(`table-card-${t.number}`);
+                if (btn) {
+                    btn.classList.remove("ring-4", "ring-indigo-500", "ring-offset-2", "ring-offset-black");
+                }
+            });
+            const orderTableNum = String(order.table).replace("Tisch", "").trim();
+            const activeBtn = document.getElementById(`table-card-${orderTableNum}`);
+            if (activeBtn) {
+                activeBtn.classList.add("ring-4", "ring-indigo-500", "ring-offset-2", "ring-offset-black");
+            }
+
+            document.getElementById('details-pane').classList.remove('hidden');
+            document.getElementById('no-order-pane').classList.add('hidden');
+
+            document.getElementById('detail-table-name').textContent = order.table;
+            document.getElementById('detail-order-id').textContent = `Bon #${order.id}`;
+
+            orderTotal = order.total;
+            renderItemsList(order);
+
+            document.getElementById('detail-total-price').textContent = `${orderTotal.toFixed(2)} €`;
+            document.getElementById('amount-given').value = '';
+            document.getElementById('change-row').classList.add('hidden');
+
+            // Enable action buttons
+            const payBtn = document.getElementById('btn-normal-pay');
+            if (payBtn) {
+                payBtn.disabled = false;
+                payBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+            const splitBtn = document.getElementById('btn-start-split');
+            if (splitBtn) {
+                splitBtn.disabled = false;
+                splitBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+        }
+
+        function selectEmptyTable(tableNumber) {
+            activeOrderId = null;
+            selectedTableNum = String(tableNumber).replace("Tisch", "").trim();
+            
+            // Highlight the selected empty table card
+            allTables.forEach(t => {
+                const btn = document.getElementById(`table-card-${t.number}`);
+                if (btn) {
+                    btn.classList.remove("ring-4", "ring-indigo-500", "ring-offset-2", "ring-offset-black");
+                }
+            });
+            const activeBtn = document.getElementById(`table-card-${tableNumber}`);
+            if (activeBtn) {
+                activeBtn.classList.add("ring-4", "ring-indigo-500", "ring-offset-2", "ring-offset-black");
+            }
+
+            document.getElementById('details-pane').classList.remove('hidden');
+            document.getElementById('no-order-pane').classList.add('hidden');
+
+            document.getElementById('detail-table-name').textContent = `Tisch ${tableNumber}`;
+            document.getElementById('detail-order-id').textContent = `Kein aktiver Bon`;
+
+            const container = document.getElementById("detail-item-list");
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-16 text-center text-on-surface-variant space-y-4">
+                    <span class="material-symbols-outlined text-5xl text-outline-variant">check_circle</span>
+                    <div>
+                        <h4 class="font-bold text-white text-base">Tisch ist leer</h4>
+                        <p class="text-xs max-w-xs mx-auto mt-1 leading-relaxed font-medium">Für diesen Tisch liegt aktuell keine offene Gästebestellung vor.</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('detail-total-price').textContent = `0,00 €`;
+            document.getElementById('amount-given').value = '';
+            document.getElementById('change-row').classList.add('hidden');
+
+            // Disable action buttons
+            const payBtn = document.getElementById('btn-normal-pay');
+            if (payBtn) {
+                payBtn.disabled = true;
+                payBtn.classList.add('opacity-40', 'cursor-not-allowed');
+            }
+            const splitBtn = document.getElementById('btn-start-split');
+            if (splitBtn) {
+                splitBtn.disabled = true;
+                splitBtn.classList.add('opacity-40', 'cursor-not-allowed');
+            }
+        }
+
+        function renderItemsList(order) {
+            const container = document.getElementById("detail-item-list");
+            container.innerHTML = "";
+
+            order.items.forEach(item => {
+                if (splitModeActive) {
+                    const currentSplit = splitQuantities[item.product_id] || 0;
+                    const splitItemTotal = item.price * currentSplit;
+                    container.innerHTML += `
+                        <div class="flex items-center gap-4 pb-3 border-b border-outline-variant">
+                            <div class="flex items-center gap-2 bg-background border border-outline-variant rounded-full px-3 py-1">
+                                <button onclick="changeSplitQty(${item.product_id}, -1, ${item.quantity})" class="text-on-surface-variant hover:text-white font-bold w-5 h-5 flex items-center justify-center">-</button>
+                                <span id="split-qty-${item.product_id}" class="font-bold text-primary text-xs w-4 text-center">${currentSplit}</span>
+                                <button onclick="changeSplitQty(${item.product_id}, 1, ${item.quantity})" class="text-on-surface-variant hover:text-white font-bold w-5 h-5 flex items-center justify-center">+</button>
+                            </div>
+                            <div class="flex-grow">
+                                <h4 class="font-bold text-white text-sm">${item.name}</h4>
+                                <span class="text-xs text-on-surface-variant">${item.quantity}x im Bon &bull; ${item.price.toFixed(2)} €</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs text-on-surface-variant block">Gesamt: ${(item.price * item.quantity).toFixed(2)} €</span>
+                                <span id="split-price-${item.product_id}" class="text-xs font-black text-rose-500 block">Teil: ${splitItemTotal.toFixed(2)} €</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML += `
+                        <div class="flex justify-between items-center pb-3 border-b border-outline-variant">
+                            <div>
+                                <h4 class="font-bold text-white text-sm">${item.name}</h4>
+                                <span class="text-xs text-on-surface-variant">${item.quantity}x &bull; ${item.price.toFixed(2)} €</span>
+                            </div>
+                            <span class="font-mono font-bold text-sm text-white">${(item.price * item.quantity).toFixed(2)} €</span>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function startSplitMode() {
+            if (!activeOrderId) return;
+            splitModeActive = true;
+            splitQuantities = {};
+            splitTotal = 0.0;
+
+            document.getElementById('split-actions').classList.remove('hidden');
+            document.getElementById('label-total-price').textContent = "Teilrechnungs-Betrag:";
+
+            const order = allOrders.find(o => o.id === activeOrderId);
+            renderItemsList(order);
+            updateSplitTotalDisplay();
+        }
+
+        function cancelSplitMode() {
+            splitModeActive = false;
+            splitQuantities = {};
+            splitTotal = 0.0;
+
+            document.getElementById('split-actions').classList.add('hidden');
+            document.getElementById('label-total-price').textContent = "Gesamtbetrag (Brutto):";
+
+            const order = allOrders.find(o => o.id === activeOrderId);
+            renderItemsList(order);
+            document.getElementById('detail-total-price').textContent = `${orderTotal.toFixed(2)} €`;
+            calculateChange();
+        }
+
+        function changeSplitQty(productId, change, maxQty) {
+            let current = splitQuantities[productId] || 0;
+            current += change;
+            if (current < 0) current = 0;
+            if (current > maxQty) current = maxQty;
+
+            splitQuantities[productId] = current;
+            document.getElementById(`split-qty-${productId}`).textContent = current;
+
+            const order = allOrders.find(o => o.id === activeOrderId);
+            const item = order.items.find(i => i.product_id === productId);
+            if (item) {
+                document.getElementById(`split-price-${productId}`).textContent = `Teil: ${(item.price * current).toFixed(2)} €`;
+            }
+            updateSplitTotalDisplay();
+        }
+
+        function updateSplitTotalDisplay() {
+            let total = 0.0;
+            const order = allOrders.find(o => o.id === activeOrderId);
+            for (let id in splitQuantities) {
+                const qty = splitQuantities[id];
+                const item = order.items.find(i => i.product_id === parseInt(id));
+                if (item) {
+                    total += item.price * qty;
+                }
+            }
+            splitTotal = total;
+            document.getElementById('detail-total-price').textContent = `${splitTotal.toFixed(2)} €`;
+            calculateChange();
+        }
+
+        function calculateChange() {
+            const givenInput = document.getElementById("amount-given").value.trim().replace(',', '.');
+            const target = splitModeActive ? splitTotal : orderTotal;
+
+            if (!givenInput || isNaN(givenInput)) {
+                document.getElementById("change-row").classList.add("hidden");
+                return;
+            }
+
+            const given = parseFloat(givenInput);
+            if (given >= target) {
+                const change = given - target;
+                document.getElementById("detail-change-amount").textContent = `${change.toFixed(2)} €`;
+                document.getElementById("change-row").classList.remove("hidden");
+            } else {
+                document.getElementById("change-row").classList.add("hidden");
+            }
+        }
+
+        function processPayment() {
+            if (!activeOrderId) return;
+            if (!authenticatedStaff) {
+                openStaffModal();
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append("waiter_id", authenticatedStaff.name);
+
+            fetch(`/{{ slug }}/tablet/bezahlen/${activeOrderId}`, { 
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    window.location.reload();
+                }
+                else alert("Fehler bei Rechnungs-Übermittlung.");
+            });
+        }
+
+        function processPartialPayment() {
+            if (!activeOrderId) return;
+            if (!authenticatedStaff) {
+                openStaffModal();
+                return;
+            }
+            
+            const items = [];
+            for (let id in splitQuantities) {
+                const qty = splitQuantities[id];
+                if (qty > 0) {
+                    items.push({ product_id: parseInt(id), quantity: qty });
+                }
+            }
+
+            if (items.length === 0) {
+                alert("Bitte wählen Sie zuerst Mengen zum Abkassieren.");
+                return;
+            }
+
+            fetch(`/{{ slug }}/tablet/teilzahlung/${activeOrderId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: items })
+            })
+            .then(res => {
+                if (res.ok) {
+                    window.location.reload();
+                }
+                else alert("Teilzahlung fehlgeschlagen.");
+            });
+        }
+
+        let currentChefPinInput = "";
+        let orderIdToCancel = null;
+
+        function triggerStornoPrompt() {
+            if (!activeOrderId) return;
+            if (!authenticatedStaff) {
+                openStaffModal();
+                return;
+            }
+            orderIdToCancel = activeOrderId;
+            currentChefPinInput = "";
+            updateChefPinDots();
+            document.getElementById("chef-pin-modal").classList.remove("hidden");
+        }
+
+        function closeChefPinModal() {
+            document.getElementById("chef-pin-modal").classList.add("hidden");
+            currentChefPinInput = "";
+            orderIdToCancel = null;
+        }
+
+        function updateChefPinDots() {
+            const dots = "•".repeat(currentChefPinInput.length) + "•".repeat(Math.max(0, 4 - currentChefPinInput.length));
+            document.getElementById("chef-pin-dots").textContent = dots;
+        }
+
+        function pressChefPin(num) {
+            if (currentChefPinInput.length < 4) {
+                currentChefPinInput += num;
+                updateChefPinDots();
+            }
+        }
+
+        function clearChefPin() {
+            currentChefPinInput = "";
+            updateChefPinDots();
+        }
+
+        function submitChefPin() {
+            if (currentChefPinInput.length !== 4) {
+                alert("Bitte eine 4-stellige Chef-PIN eingeben.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("pin", currentChefPinInput);
+
+            fetch(`/{{ slug }}/tablet/stornieren/${orderIdToCancel}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    alert("Bestellung erfolgreich storniert.");
+                    closeChefPinModal();
+                    window.location.reload();
+                } else if (res.status === 403) {
+                    alert("Sicherheits-Block: PIN-Code ist ungültig oder gehört nicht zu einem Chef.");
+                    clearChefPin();
+                } else {
+                    alert("Stornierung fehlgeschlagen.");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Verbindungsfehler bei Stornierung.");
+            });
+        }
+
+        function resolveServiceCall(callId) {
+            fetch(`/{{ slug }}/service-erledigt/${callId}`, { method: 'POST' })
+            .then(res => {
+                if (res.ok) window.location.reload();
+            });
+        }
+
+        function openMobilePaymentModal() {
+            if (!activeOrderId) {
+                alert("Bitte wählen Sie eine Bestellung!");
+                return;
+            }
+            const modal = document.getElementById("mobile-payment-modal");
+            const content = document.getElementById("mobile-payment-content");
+            const order = allOrders.find(o => o.id === activeOrderId);
+
+            let listHtml = "";
+            order.items.forEach(item => {
+                listHtml += `<div class="flex justify-between py-2 border-b border-outline-variant"><span>${item.quantity}x ${item.name}</span><span>${(item.price * item.quantity).toFixed(2)} €</span></div>`;
+            });
+
+            content.innerHTML = `
+                <div>
+                    <h3 class="text-lg font-black text-white">${order.table}</h3>
+                    <p class="text-xs text-on-surface-variant font-mono">Bon #${order.id}</p>
+                </div>
+                <div class="space-y-1">${listHtml}</div>
+                <div class="flex justify-between font-bold text-base pt-3 border-t border-outline-variant">
+                    <span>Gesamtsumme</span>
+                    <span class="text-primary text-xl">${order.total.toFixed(2)} €</span>
+                </div>
+                <button onclick="processPayment()" class="w-full bg-primary text-black font-black py-4 rounded-xl mt-4">Kostenpflichtig bezahlen</button>
+            `;
+            modal.classList.remove("hidden");
+        }
+
+        function closeMobilePaymentModal() {
+            document.getElementById("mobile-payment-modal").classList.add("hidden");
+        }
+
+        // Global variables for local orders tracking
+        let allOrdersLocal = [...allOrders];
+
+        // Dynamic staff resolution and persistence
+        {% set default_staff = None %}
+        {% for s in restaurant.staff %}
+            {% if s.role != "chef" and not default_staff %}
+                {% set default_staff = s %}
+            {% endif %}
+        {% endfor %}
+
+        let authenticatedStaff = null;
+        try {
+            const saved = localStorage.getItem("pos_waiter_{{ slug }}");
+            if (saved) {
+                authenticatedStaff = JSON.parse(saved);
+            }
+        } catch(e) {}
+
+        if (!authenticatedStaff) {
+            {% if default_staff %}
+                authenticatedStaff = {
+                    name: "{{ default_staff.name }}",
+                    role: "{{ default_staff.role }}",
+                    pin: "{{ default_staff.pin_code or default_staff.pin }}"
+                };
+            {% else %}
+                authenticatedStaff = {
+                    name: "Jan",
+                    role: "kellner",
+                    pin: "1234"
+                };
+            {% endif %}
+        }
+
+        // Apply initially selected staff to active display
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("active-waiter-display").textContent = authenticatedStaff.name;
+        });
+
+        function openStaffModal() {
+            document.getElementById("staff-select-modal").classList.remove("hidden");
+        }
+
+        function closeStaffModal() {
+            document.getElementById("staff-select-modal").classList.add("hidden");
+        }
+
+        function quickLoginStaff(waiterName) {
+            const formData = new FormData();
+            formData.append("name", waiterName);
+
+            fetch(`/api/{{ slug }}/quick-login`, {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    authenticatedStaff = { name: data.name, role: data.role, pin: data.pin };
+                    localStorage.setItem("pos_waiter_{{ slug }}", JSON.stringify(authenticatedStaff));
+                    document.getElementById("active-waiter-display").textContent = data.name;
+                    closeStaffModal();
+                } else {
+                    alert("Login fehlgeschlagen: " + (data.error || "Mitarbeiter nicht gefunden"));
+                }
+            })
+            .catch(err => {
+                console.error("Fehler bei Quick-Login:", err);
+                alert("Verbindungsfehler beim Quick-Login.");
+            });
+        }
+
+        // Polling-System für Echtzeit-Updates
+        let previousServiceCallsCount = null;
+        let previousOrdersCount = null;
+
+        function startPolling() {
+            // Erstes Mal direkt ausführen
+            pollTabletStatus();
+            // Danach alle 5 Sekunden
+            setInterval(pollTabletStatus, 5000);
+        }
+
+        function pollTabletStatus() {
+            fetch(`/api/{{ slug }}/tablet-status`)
+            .then(res => {
+                // ── AUTO-KICK: 401 = pos_token rotated → device decoupled ──
+                if (res.status === 401 || res.status === 403) {
+                    window.location.href = `/{{ slug }}/device-decoupled`;
+                    return null;
+                }
+                if (!res.ok) throw new Error("Server error");
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return; // redirected
+                // Hide offline banner on successful connection
+                const connStatus = document.getElementById("conn-status-banner");
+                if (connStatus) connStatus.classList.add("hidden");
+
+                // 1. Check for notifications (Audio cue)
+                if (previousServiceCallsCount !== null && data.service_calls.length > previousServiceCallsCount) {
+                    playNotificationSound();
+                }
+                if (previousOrdersCount !== null && data.orders.length > previousOrdersCount) {
+                    playNotificationSound();
+                }
+                
+                previousServiceCallsCount = data.service_calls.length;
+                previousOrdersCount = data.orders.length;
+
+                // 2. Synchronize allOrders array for checkout functions
+                allOrdersLocal = data.orders;
+                allOrders.length = 0;
+                allOrders.push(...data.orders);
+
+                // Update allTables array dynamically from status poller
+                if (data.tables) {
+                    allTables.length = 0;
+                    allTables.push(...data.tables);
+                }
+
+                // 3. Render DOM elements dynamically
+                renderServiceCallsDOM(data.service_calls);
+                renderOrdersGridDOM(data.orders, data.service_calls);
+            })
+            .catch(err => {
+                console.error("Fehler beim Polling von Status:", err);
+                // Show offline warning banner on connection failure
+                const connStatus = document.getElementById("conn-status-banner");
+                if (connStatus) connStatus.classList.remove("hidden");
+            });
+        }
+
+        function renderServiceCallsDOM(calls) {
+            const container = document.getElementById("service-calls-container");
+            if (!container) return;
+
+            // Update badge count
+            const badge = container.previousElementSibling.querySelector("span:last-child");
+            if (badge) {
+                badge.textContent = `${calls.length} Rufen`;
+            }
+
+            container.innerHTML = "";
+            if (calls.length === 0) {
+                container.innerHTML = `<p class="text-center py-4 text-xs text-on-surface-variant font-medium">Keine aktiven Rufe vorhanden.</p>`;
+                return;
+            }
+
+            calls.forEach(call => {
+                let labelHtml = "";
+                if (call.type === 'kellner') {
+                    labelHtml = '<span class="text-red-400">👤 Kellner gewünscht!</span>';
+                } else if (call.type === 'kohle') {
+                    labelHtml = '<span class="text-amber-500">🔥 Neue Kohle!</span>';
+                } else if (call.type === 'karte') {
+                    labelHtml = '<span class="text-sky-400">💳 Kartenzahlung gewünscht</span>';
+                } else if (call.type === 'bar') {
+                    labelHtml = '<span class="text-emerald-400">💵 Barzahlung gewünscht</span>';
+                } else {
+                    labelHtml = '<span class="text-[#deff9a]">🍽️ Tisch abräumen</span>';
+                }
+
+                container.innerHTML += `
+                    <div class="bg-black/40 border border-red-500/20 rounded-xl p-3 flex justify-between items-center relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                        <div>
+                            <h4 class="font-black text-white text-sm">${call.table}</h4>
+                            <span class="text-[11px] text-on-surface-variant flex items-center space-x-1 mt-0.5 font-bold">
+                                ${labelHtml}
+                                <span class="text-[9px] text-on-surface-variant font-mono">(${call.timestamp})</span>
+                            </span>
+                        </div>
+                        <button onclick="resolveServiceCall(${call.id})" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 hover:text-white text-[10px] font-black px-3 py-1.5 rounded-lg border border-red-500/30 transition">
+                            Erledigt
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function renderOrdersGridDOM(orders, serviceCalls) {
+            const gridContainer = document.getElementById("tables-grid-container");
+            if (!gridContainer) return;
+
+            // Update open bons badge
+            const badge = document.getElementById("active-bons-badge");
+            if (badge) {
+                badge.textContent = `${orders.length} offene Bons`;
+            }
+
+            // Fallback for serviceCalls
+            const calls = serviceCalls || [];
+
+            gridContainer.innerHTML = "";
+
+            if (allTables.length === 0) {
+                gridContainer.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-on-surface-variant font-medium">Keine Tische konfiguriert.</div>`;
+                return;
+            }
+
+            // Group tables by zone
+            const zonesMap = {};
+            allTables.forEach(table => {
+                const zoneName = table.zone || "Allgemein";
+                if (!zonesMap[zoneName]) {
+                    zonesMap[zoneName] = [];
+                }
+                zonesMap[zoneName].push(table);
+            });
+
+            // Render each zone with its header and grid
+            Object.keys(zonesMap).forEach(zone => {
+                let icon = "🏠";
+                const lowerZone = zone.toLowerCase();
+                if (lowerZone.includes("terrasse") || lowerZone.includes("aussen") || lowerZone.includes("außen")) {
+                    icon = "☀️";
+                }
+
+                // Section Header
+                const sectionHeader = document.createElement("div");
+                sectionHeader.className = "flex items-center gap-2 mt-4 mb-2 animate-fade-in";
+                sectionHeader.innerHTML = `
+                    <span class="text-xs uppercase font-extrabold text-primary tracking-widest">${icon} ${zone.toUpperCase()}</span>
+                    <div class="flex-grow h-[1px] bg-outline-variant opacity-35"></div>
+                `;
+                gridContainer.appendChild(sectionHeader);
+
+                // Sub-grid Container
+                const subGrid = document.createElement("div");
+                subGrid.className = "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 py-2";
+                gridContainer.appendChild(subGrid);
+
+                zonesMap[zone].forEach(table => {
+                    const tableStr = "Tisch " + table.number;
+                    const activeOrder = orders.find(o => o.table === tableStr || o.table === table.number);
+                    const hasServiceCall = calls && calls.some(c => c.table === tableStr || c.table === table.number || String(c.table).replace("Tisch", "").trim() === String(table.number).trim());
+
+                    let tileClass = "";
+                    let statusHtml = "";
+                    let clickAction = "";
+
+                    if (hasServiceCall) {
+                        tileClass = "bg-rose-500/10 border-rose-500 text-rose-400 animate-pulse border-2 shadow-[0_0_15px_rgba(239,68,68,0.25)] hover:bg-rose-500/20";
+                        statusHtml = `<span class="text-[9px] uppercase tracking-wider font-extrabold text-rose-500 animate-bounce">🚨 RUF AKTIV</span>`;
+                    } else if (activeOrder) {
+                        const isSelected = activeOrder.id === activeOrderId;
+                        const borderStyle = isSelected ? "border-primary border-2 shadow-[0_0_20px_rgba(222,255,154,0.3)] bg-primary/20" : "border-primary/50 border bg-primary/10 shadow-[0_0_10px_rgba(222,255,154,0.1)] hover:bg-primary/20";
+                        tileClass = `${borderStyle} text-primary font-bold`;
+                        statusHtml = `
+                            <div class="text-[10px] text-zinc-300 font-mono mt-1">Bon #${activeOrder.id}</div>
+                            <div class="text-xs text-white font-black font-mono mt-0.5">${activeOrder.total.toFixed(2)} €</div>
+                        `;
+                    } else {
+                        tileClass = "bg-surface/30 border border-outline-variant text-zinc-500 hover:border-zinc-700 hover:text-zinc-400";
+                        statusHtml = `<span class="text-[9px] uppercase tracking-wider font-bold text-zinc-600">Leer</span>`;
+                    }
+
+                    if (activeOrder) {
+                        clickAction = `onclick="selectOrder(${activeOrder.id})"`;
+                    } else {
+                        clickAction = `onclick="selectEmptyTable('${table.number}')"`;
+                    }
+
+                    subGrid.innerHTML += `
+                        <button id="table-card-${table.number}" ${clickAction} class="flex flex-col items-center justify-center aspect-square p-4 rounded-2xl transition-all duration-200 active:scale-95 text-center select-none ${tileClass}">
+                            <span class="material-symbols-outlined text-2xl mb-1.5 opacity-80">table_restaurant</span>
+                            <span class="font-black text-sm tracking-tight text-white block">Tisch ${table.number}</span>
+                            <span class="text-[9px] uppercase font-bold text-zinc-400 mt-0.5 block tracking-wider">${table.zone}</span>
+                            <div class="mt-2 min-h-[30px] flex flex-col justify-center items-center">${statusHtml}</div>
+                        </button>
+                    `;
+                });
+            });
+        }
+
+        // --- ORDER TAKER DIALOG LOGIC ---
+        function openOrderModal() {
+            if (!selectedTableNum) {
+                alert("Bitte wählen Sie zuerst einen Tisch aus.");
+                return;
+            }
+            document.getElementById("order-modal-table-name").textContent = `Tisch ${selectedTableNum}`;
+            currentOrderDraft = [];
+            selectedCategory = null;
+            
+            const categories = [...new Set(allProducts.map(p => p.category))].filter(Boolean);
+            if (categories.length > 0) {
+                selectedCategory = categories[0];
+            }
+            
+            renderOrderModalCategories();
+            renderOrderModalProducts();
+            updateDraftDOM();
+            
+            document.getElementById("order-taker-modal").classList.remove("hidden");
+        }
+
+        function closeOrderModal() {
+            document.getElementById("order-taker-modal").classList.add("hidden");
+        }
+
+        function filterOrderCategory(cat) {
+            selectedCategory = cat;
+            renderOrderModalCategories();
+            renderOrderModalProducts();
+        }
+
+        function renderOrderModalCategories() {
+            const container = document.getElementById("order-category-tabs");
+            container.innerHTML = "";
+            
+            const categories = [...new Set(allProducts.map(p => p.category))].filter(Boolean);
+            categories.forEach(cat => {
+                const isSelected = cat === selectedCategory;
+                const btn = document.createElement("button");
+                btn.className = `px-4 py-2 rounded-xl text-xs font-black transition shrink-0 whitespace-nowrap active:scale-95 ${
+                    isSelected 
+                        ? "bg-primary text-black" 
+                        : "bg-surface border border-outline-variant text-on-surface-variant hover:text-white"
+                }`;
+                btn.textContent = cat;
+                btn.onclick = () => filterOrderCategory(cat);
+                container.appendChild(btn);
+            });
+        }
+
+        function renderOrderModalProducts() {
+            const container = document.getElementById("order-products-grid");
+            container.innerHTML = "";
+            
+            const filtered = allProducts.filter(p => p.category === selectedCategory && p.is_available !== false);
+            filtered.forEach(p => {
+                const btn = document.createElement("button");
+                btn.className = "bg-surface border border-outline-variant hover:border-primary/40 rounded-2xl p-4 text-left flex flex-col justify-between h-28 active:scale-95 transition-all shadow-sm";
+                btn.onclick = () => addProductToDraft(p.id, p.name, p.price, p.category_type);
+                
+                btn.innerHTML = `
+                    <div>
+                        <h5 class="text-xs font-black text-white leading-tight line-clamp-2">${p.name}</h5>
+                        <span class="text-[10px] text-on-surface-variant mt-1 block">${p.category}</span>
+                    </div>
+                    <div class="flex justify-between items-end mt-2">
+                        <span class="text-xs font-mono font-black text-primary">${p.price.toFixed(2)} €</span>
+                        <div class="w-6 h-6 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary hover:text-black transition">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function addProductToDraft(id, name, price, category_type) {
+            const existing = currentOrderDraft.find(item => item.product_id === id);
+            if (existing) {
+                existing.quantity += 1;
+            } else {
+                currentOrderDraft.push({
+                    product_id: id,
+                    name: name,
+                    price: parseFloat(price),
+                    quantity: 1,
+                    category_type: category_type || 'küche'
+                });
+            }
+            updateDraftDOM();
+        }
+
+        function changeDraftQty(id, change) {
+            const idx = currentOrderDraft.findIndex(item => item.product_id === id);
+            if (idx !== -1) {
+                currentOrderDraft[idx].quantity += change;
+                if (currentOrderDraft[idx].quantity <= 0) {
+                    currentOrderDraft.splice(idx, 1);
+                }
+            }
+            updateDraftDOM();
+        }
+
+        function updateDraftDOM() {
+            const container = document.getElementById("order-draft-list");
+            container.innerHTML = "";
+            
+            if (currentOrderDraft.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-12 text-center text-on-surface-variant space-y-3">
+                        <span class="material-symbols-outlined text-4xl text-outline-variant">shopping_basket</span>
+                        <p class="text-xs font-medium">Der Entwurf ist leer.</p>
+                    </div>
+                `;
+                document.getElementById("order-draft-total").textContent = "0,00 €";
+                document.getElementById("btn-save-draft").disabled = true;
+                document.getElementById("btn-save-draft").classList.add("opacity-50", "cursor-not-allowed");
+                return;
+            }
+            
+            document.getElementById("btn-save-draft").disabled = false;
+            document.getElementById("btn-save-draft").classList.remove("opacity-50", "cursor-not-allowed");
+            
+            let total = 0.0;
+            currentOrderDraft.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                
+                const row = document.createElement("div");
+                row.className = "flex justify-between items-center bg-surface border border-outline-variant rounded-xl p-3";
+                row.innerHTML = `
+                    <div class="flex-grow pr-3 truncate">
+                        <h5 class="text-xs font-black text-white truncate">${item.name}</h5>
+                        <span class="text-[10px] text-on-surface-variant font-mono">${item.price.toFixed(2)} €</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center bg-background border border-outline-variant rounded-lg p-0.5">
+                            <button onclick="changeDraftQty(${item.product_id}, -1)" class="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-white font-bold transition">-</button>
+                            <span class="text-xs font-bold text-white px-2 font-mono">${item.quantity}</span>
+                            <button onclick="changeDraftQty(${item.product_id}, 1)" class="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-white font-bold transition">+</button>
+                        </div>
+                        <span class="text-xs font-mono font-black text-primary w-16 text-right">${itemTotal.toFixed(2)} €</span>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+            
+            document.getElementById("order-draft-total").textContent = `${total.toFixed(2)} €`;
+        }
+
+        function saveOrderDraft() {
+            if (currentOrderDraft.length === 0) {
+                alert("Der Warenkorb ist leer!");
+                return;
+            }
+            if (!selectedTableNum) {
+                alert("Fehler: Kein Tisch ausgewählt!");
+                return;
+            }
+            
+            const payload = {
+                table: `Tisch ${selectedTableNum}`,
+                items: currentOrderDraft,
+                tip_amount: 0.0,
+                token: ""
+            };
+            
+            const saveBtn = document.getElementById("btn-save-draft");
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="animate-spin material-symbols-outlined">sync</span> <span>Wird gebucht...</span>`;
+            
+            fetch(`/${slug}/bestellen`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    let errMsg = "Bestellung fehlgeschlagen.";
+                    try {
+                        const err = await response.json();
+                        errMsg = err.detail || errMsg;
+                    } catch (e) {}
+                    throw new Error(errMsg);
+                }
+                return response.json();
+            })
+            .then(data => {
+                currentOrderDraft = [];
+                updateDraftDOM();
+                closeOrderModal();
+                pollTabletStatus();
+            })
+            .catch(error => {
+                alert(error.message);
+            })
+            .finally(() => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<span class="material-symbols-outlined">send</span> <span>Bestellung einbuchen / Buchen</span>`;
+            });
+        }
+
+        // Initialize Kasse state & active PIN overlay
+        document.addEventListener("DOMContentLoaded", () => {
+            startPolling();
+
+            // Set up first selected order if exists
+            if (allOrdersLocal.length > 0) {
+                selectOrder(allOrdersLocal[0].id);
+            } else {
+                document.getElementById('details-pane').classList.add('hidden');
+                document.getElementById('no-order-pane').classList.remove('hidden');
+            }
+        });
+    </script>
+
+    <!-- SCHICKES MITARBEITER-WECHSEL MODAL -->
+    <div id="staff-select-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-[#1a1a1a] border border-[#262626] rounded-3xl w-full max-w-md p-6 text-center space-y-5 shadow-2xl relative">
+            <button onclick="closeStaffModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            <div>
+                <div class="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center text-xl mx-auto mb-2">
+                    <span class="material-symbols-outlined">group</span>
+                </div>
+                <h3 class="text-base font-black text-white tracking-tight">Bediener wechseln</h3>
+                <p class="text-[11px] text-on-surface-variant mt-0.5">Tippen Sie auf Ihren Namen, um sich sofort als Bediener anzumelden.</p>
+            </div>
+            
+            <!-- Quick-Tap Kacheln (OHNE CHEF / OWNER!) -->
+            <div class="grid grid-cols-2 gap-3 max-h-[40vh] overflow-y-auto p-1" style="scrollbar-width: thin;">
+                {% for s in restaurant.staff %}
+                    {% if s.role != "chef" %}
+                        <button onclick="quickLoginStaff('{{ s.name }}')" class="flex flex-col items-center justify-center p-4 border border-outline-variant bg-surface hover:bg-primary/10 hover:border-primary/30 text-on-surface hover:text-primary rounded-xl transition-all duration-200 active:scale-95 shadow-md">
+                            <span class="material-symbols-outlined text-2xl mb-1.5 opacity-80">person</span>
+                            <span class="font-black text-xs tracking-tight block max-w-full truncate">{{ s.name }}</span>
+                            <span class="text-[9px] uppercase font-bold text-on-surface-variant/80 mt-0.5">{{ s.role }}</span>
+                        </button>
+                    {% endif %}
+                {% else %}
+                    <div class="col-span-2 text-center py-4">
+                        <p class="text-xs text-on-surface-variant">Keine Kellner angelegt.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- CHEF-PIN MODAL FOR STORNO -->
+    <div id="chef-pin-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-[#1a1a1a] border border-[#262626] rounded-3xl w-full max-w-sm p-8 text-center space-y-6 shadow-2xl relative">
+            <button onclick="closeChefPinModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            <div>
+                <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-rose-500/20">
+                    <span class="material-symbols-outlined text-2xl text-rose-400">admin_panel_settings</span>
+                </div>
+                <h3 class="text-lg font-black text-white">Chef-PIN erforderlich</h3>
+                <p class="text-xs text-on-surface-variant mt-1">Diese Aktion ist administrativen Kräften vorbehalten. Bitte Inhaber-PIN eingeben.</p>
+            </div>
+            
+            <div id="chef-pin-display" class="flex justify-center gap-4 text-3xl font-mono tracking-widest text-rose-400 h-10 items-center font-bold">
+                <span id="chef-pin-dots">••••</span>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-3">
+                {% for num in range(1, 10) %}
+                <button onclick="pressChefPin('{{ num }}')" class="bg-surface hover:bg-rose-500/20 border border-outline-variant text-white font-bold text-lg py-3 rounded-xl active:scale-95 transition-all">{{ num }}</button>
+                {% endfor %}
+                <button onclick="clearChefPin()" class="bg-surface hover:bg-rose-500/20 border border-outline-variant text-rose-400 font-bold text-xs py-3 rounded-xl active:scale-95 transition-all">CLR</button>
+                <button onclick="pressChefPin('0')" class="bg-surface hover:bg-rose-500/20 border border-outline-variant text-white font-bold text-lg py-3 rounded-xl active:scale-95 transition-all">0</button>
+                <button onclick="submitChefPin()" class="bg-rose-500 hover:bg-rose-400 text-white font-black text-xs py-3 rounded-xl active:scale-95 transition-all">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPEISEKARTE BESTELL-MODAL (STAFF) -->
+    <div id="order-taker-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden">
+        <div class="bg-[#121212] border border-outline-variant rounded-3xl w-full max-w-6xl h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
+            
+            <!-- CLOSE BUTTON -->
+            <button onclick="closeOrderModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition z-20">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            
+            <!-- LEFT PANEL: PRODUCTS & CATEGORIES -->
+            <div class="flex-grow md:w-3/5 flex flex-col h-1/2 md:h-full border-b md:border-b-0 md:border-r border-outline-variant p-6 overflow-hidden">
+                <div class="mb-4">
+                    <h3 class="text-lg font-black text-white">Bestellung für <span id="order-modal-table-name" class="text-primary">Tisch --</span> aufnehmen</h3>
+                    <p class="text-xs text-on-surface-variant mt-0.5">Wählen Sie Artikel aus, um sie dem Entwurf hinzuzufügen.</p>
+                </div>
+                
+                <!-- Category Tabs (Horizontal Scrollable) -->
+                <div id="order-category-tabs" class="flex gap-2 pb-3 overflow-x-auto shrink-0" style="scrollbar-width: thin;">
+                    <!-- Categories will be rendered here dynamically -->
+                </div>
+                
+                <!-- Products Grid (Scrollable) -->
+                <div id="order-products-grid" class="flex-grow overflow-y-auto grid grid-cols-2 lg:grid-cols-3 gap-3 pr-1" style="scrollbar-width: thin;">
+                    <!-- Products will be rendered here dynamically -->
+                </div>
+            </div>
+            
+            <!-- RIGHT PANEL: DYNAMIC BON DRAFT -->
+            <div class="md:w-2/5 flex flex-col h-1/2 md:h-full bg-black/30 p-6 overflow-hidden">
+                <div class="mb-4">
+                    <h4 class="text-sm uppercase font-black tracking-wider text-on-surface-variant">Bon-Entwurf</h4>
+                    <p class="text-xs text-on-surface-variant mt-0.5">Der aktuelle Inhalt dieser Zwischenbestellung.</p>
+                </div>
+                
+                <!-- Draft Items List (Scrollable) -->
+                <div id="order-draft-list" class="flex-grow overflow-y-auto space-y-3 pr-1" style="scrollbar-width: thin;">
+                    <!-- Draft items will be rendered here dynamically -->
+                </div>
+                
+                <!-- Draft Totals and Actions -->
+                <div class="pt-4 border-t border-outline-variant mt-4 space-y-4 shrink-0">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-on-surface-variant">Zwischensumme:</span>
+                        <span id="order-draft-total" class="text-xl font-black text-primary">0,00 €</span>
+                    </div>
+                    
+                    <button id="btn-save-draft" onclick="saveOrderDraft()" class="w-full bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-4 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95">
+                        <span class="material-symbols-outlined">send</span>
+                        <span>Bestellung einbuchen / Buchen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

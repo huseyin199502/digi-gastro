@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html class="dark" lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Demo Lounge - Admin Login</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "background": "#0a0a0a",
+                        "surface": "#141313",
+                        "surface-container": "#201f1f",
+                        "primary": "#deff9a",
+                        "on-primary": "#0a0a0a",
+                        "on-surface": "#e5e2e1",
+                        "on-surface-variant": "#c4c7c7",
+                        "outline-variant": "#262626"
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 bg-background">
+    <div class="w-full max-w-md bg-[#1a1a1a] border border-outline-variant rounded-xl p-8 shadow-2xl">
+        <div class="text-center mb-8">
+            <img alt="digi-gastro logo" class="h-12 mx-auto mb-4 object-contain rounded-lg" src="/static/images/digigastrologo.jpeg">
+            <h2 class="text-2xl font-bold text-on-surface">Admin Login</h2>
+            <p class="text-sm text-on-surface-variant mt-2">{{ restaurant_name }} Management Panel</p>
+        </div>
+
+        {% if error %}
+        <div class="mb-4 bg-red-900/30 border border-red-500/50 rounded-lg p-4 text-red-200 text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined text-red-400">error</span>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form action="/{{ slug }}/admin/login" method="POST" class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-on-surface-variant mb-2" for="email">E-Mail Adresse</label>
+                <input class="w-full bg-background border border-outline-variant rounded-lg px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-on-surface-variant mb-2" for="password">Passwort</label>
+                <input class="w-full bg-background border border-outline-variant rounded-lg px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="password" name="password" type="password" placeholder="••••••••" required>
+            </div>
+
+            <button class="bg-primary text-on-primary hover:bg-[#c9e88b] active:scale-95 transition-all duration-150 rounded-lg py-3 font-semibold flex items-center justify-center gap-2 w-full" type="submit">
+                <span class="material-symbols-outlined">login</span>
+                Einloggen
+            </button>
+        </form>
+
+        <div class="mt-6 pt-6 border-t border-outline-variant text-center text-xs text-on-surface-variant/50">
+            digi-gastro Admin Panel
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,70 @@
+# ──────────────────────────────────────────────────────────────────
+# digi-gastro – Local Docker Stack
+#
+# Usage:
+#   docker compose up --build        # first run / after code changes
+#   docker compose up -d             # start in background
+#   docker compose logs -f web       # stream app logs
+#   docker compose down              # stop & remove containers
+#   docker compose down -v           # stop + wipe all volumes (fresh start)
+# ──────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL database ────────────────────────────────────────
+  db:
+    image: postgres:16-alpine          # small, stable, production-grade
+    container_name: digi_gastro_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       digi_gastro
+      POSTGRES_USER:     gastro_user
+      POSTGRES_PASSWORD: gastro_secret   # change before going to prod!
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # named volume → survives restarts
+    ports:
+      - "5432:5432"                      # expose locally for psql / DBeaver
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gastro_user -d digi_gastro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── FastAPI application ────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digi_gastro_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy     # wait until Postgres is truly ready
+    environment:
+      # ── Database ──────────────────────────────────────────────
+      DATABASE_URL: postgresql://gastro_user:gastro_secret@db:5432/digi_gastro
+
+      # ── Persistent upload directory (mounted as volume below) ─
+      UPLOAD_DIR: /app/data/uploads
+
+      # ── App tuning ────────────────────────────────────────────
+      PYTHONUNBUFFERED: "1"
+      PORT: "8000"
+    volumes:
+      - uploads:/app/data              # logos & images survive rebuilds
+    ports:
+      - "8000:8000"                    # → http://localhost:8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+# ── Named volumes (managed by Docker) ──────────────────────────
+volumes:
+  pgdata:
+    driver: local          # Postgres data
+  uploads:
+    driver: local          # Tenant logos & product images
