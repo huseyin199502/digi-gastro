@@ -268,22 +268,7 @@
             </div>
         </div>
 
-        <!-- ================= RECHNUNG / BILL TAB ================= -->
-        <div id="tab-rechnung" class="tab-content py-6">
-            <div class="bg-surface rounded-2xl p-6 border border-outline-variant space-y-6">
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                    </div>
-                    <h2 class="text-xl font-bold" data-translate="bill_header">Bestell-Verfolgung & Beleg</h2>
-                    <p class="text-xs text-on-surface-variant mt-1" data-translate="bill_desc">Verfolgen Sie Ihre getätigten Bestellungen live am Tisch.</p>
-                </div>
 
-                <div id="bill-orders-container" class="space-y-4">
-                    <!-- Loaded dynamically via localStorage -->
-                </div>
-            </div>
-        </div>
 
     </main>
 
@@ -331,7 +316,7 @@
             <span class="material-symbols-outlined">notifications_active</span>
             <span class="text-[10px] font-bold" data-translate="nav_service">Service</span>
         </button>
-        <button onclick="switchTab('rechnung'); openPaymentModal();" id="nav-rechnung" class="flex flex-col items-center space-y-0.5 text-on-surface-variant hover:text-white transition">
+        <button onclick="openPaymentModal();" id="nav-rechnung" class="flex flex-col items-center space-y-0.5 text-on-surface-variant hover:text-white transition">
             <span class="material-symbols-outlined">receipt_long</span>
             <span class="text-[10px] font-bold" data-translate="nav_bill">Rechnung</span>
         </button>
@@ -423,8 +408,7 @@
                 clear_table_desc: "Leeres Geschirr abholen",
                 refill_coal: "Kohle nachlegen",
                 refill_coal_desc: "Für frischen Shisha-Genuss",
-                bill_header: "Bestell-Verfolgung & Beleg",
-                bill_desc: "Verfolgen Sie Ihre getätigten Bestellungen live am Tisch.",
+
                 nav_menu: "Speisekarte",
                 nav_service: "Service",
                 nav_bill: "Rechnung",
@@ -461,8 +445,7 @@
                 clear_table_desc: "Request plate/glass removal",
                 refill_coal: "Replenish Shisha Coal",
                 refill_coal_desc: "For fresh waterpipe coals",
-                bill_header: "Order Tracker & Receipt",
-                bill_desc: "Track your orders real-time right at your table.",
+
                 nav_menu: "Menu",
                 nav_service: "Service",
                 nav_bill: "Bill Tracking",
@@ -511,9 +494,7 @@
             });
             document.getElementById('nav-' + tabId).className = "flex flex-col items-center space-y-0.5 text-primary";
 
-            if (tabId === 'rechnung') {
-                loadBillOrders();
-            }
+
         }
 
         // Dietary / Allergen toggle filters
@@ -702,7 +683,7 @@
         function submitOrder() {
             const table = "{{ table }}";
             const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || '';
+            const token = urlParams.get('token') || '{{ token }}' || '';
 
             const subtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
 
@@ -755,71 +736,13 @@
             document.getElementById("thankyou-overlay").classList.add("hidden");
         }
 
-        // Live Order tracker loader for Bill tracking tab
-        function loadBillOrders() {
-            const container = document.getElementById("bill-orders-container");
-            const myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
-            
-            if (myOrders.length === 0) {
-                container.innerHTML = `<p class="text-center py-8 text-on-surface-variant text-xs">Noch keine Bestellungen über dieses Gerät gesendet.</p>`;
-                return;
-            }
 
-            // Fetch latest real-time status of orders
-            fetch(`/{{ slug }}/orders/status?ids=${myOrders.join(',')}`)
-            .then(res => res.json())
-            .then(data => {
-                container.innerHTML = "";
-                if (data.orders.length === 0) {
-                    container.innerHTML = `<p class="text-center py-8 text-on-surface-variant text-xs">Keine aktiven Bestellungen gefunden.</p>`;
-                    return;
-                }
-
-                data.orders.forEach(o => {
-                    let statusColor = "text-amber-400";
-                    let statusLabel = o.status;
-
-                    if (o.status === 'eingegangen') {
-                        statusLabel = "Eingegangen / Warteschlange";
-                    } else if (o.status === 'in_zubereitung') {
-                        statusLabel = "🍳 In Zubereitung";
-                        statusColor = "text-orange-400 font-bold animate-pulse";
-                    } else if (o.status === 'bereit') {
-                        statusLabel = "🛎️ Servierbereit / Abholbereit";
-                        statusColor = "text-emerald-400 font-extrabold";
-                    } else if (o.status === 'serviert') {
-                        statusLabel = "🍽️ Serviert & Genossen";
-                        statusColor = "text-sky-400";
-                    } else if (o.status === 'bezahlt') {
-                        statusLabel = "✅ Bezahlt & Abgeschlossen";
-                        statusColor = "text-emerald-500 font-bold";
-                    } else if (o.status === 'storniert') {
-                        statusLabel = "🚫 Storniert / Abgelehnt";
-                        statusColor = "text-red-500 font-mono";
-                    }
-
-                    container.innerHTML += `
-                        <div class="bg-background border border-outline-variant p-4 rounded-xl flex justify-between items-center text-sm">
-                            <div>
-                                <span class="font-bold text-xs text-on-surface-variant block">Bestellung #${o.id}</span>
-                                <span class="text-xs font-mono text-slate-400">${o.timestamp}</span>
-                                <div class="text-xs font-black mt-2">Summe: <span class="text-primary">${o.total.toFixed(2)} €</span></div>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[10px] uppercase font-bold text-on-surface-variant block">Status</span>
-                                <span class="text-xs ${statusColor}">${statusLabel}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-            });
-        }
 
         // Call Service requests
         function requestService(type) {
             const table = "{{ table }}";
             const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || '';
+            const token = urlParams.get('token') || '{{ token }}' || '';
 
             if (!table) {
                 showToast(translations[currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
@@ -1061,7 +984,7 @@
         function sendServiceRequestAPI(type) {
             const table = "{{ table }}";
             const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || '';
+            const token = urlParams.get('token') || '{{ token }}' || '';
 
             const payload = {
                 type: type,

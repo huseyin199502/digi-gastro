@@ -116,21 +116,21 @@
                         {% endfor %}
 
                         {% if active_call %}
-                        <div class="blinking-red-card rounded-xl p-4 flex flex-col justify-between h-28 border border-red-500 text-center text-red-200">
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="blinking-red-card rounded-xl p-4 flex flex-col justify-between h-28 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block">
                             <span class="font-black text-lg">Tisch {{ t.number }}</span>
                             <span class="text-[10px] font-bold uppercase tracking-wider animate-pulse">⚠️ {{ active_call[0].type | upper }} RUF!</span>
-                        </div>
+                        </a>
                         {% elif active_order %}
-                        <div class="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-4 flex flex-col justify-between h-28 text-center text-amber-400">
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-4 flex flex-col justify-between h-28 text-center text-amber-400 hover:bg-amber-500/20 hover:scale-[1.02] transition block">
                             <span class="font-black text-lg">Tisch {{ t.number }}</span>
                             <span class="text-[10px] font-bold block">{{ active_order | length }} Bon(s)</span>
                             <span class="text-xs font-black">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
-                        </div>
+                        </a>
                         {% else %}
-                        <div class="bg-surface border border-outline-variant rounded-xl p-4 flex flex-col justify-center items-center h-28 text-center">
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface border border-outline-variant hover:border-primary/50 hover:bg-zinc-900 rounded-xl p-4 flex flex-col justify-center items-center h-28 text-center hover:scale-[1.02] transition block">
                             <span class="font-black text-lg text-on-surface-variant">Tisch {{ t.number }}</span>
                             <span class="text-[10px] text-on-surface-variant/50 uppercase font-bold mt-1">Frei</span>
-                        </div>
+                        </a>
                         {% endif %}
                     {% endif %}
                     {% else %}
@@ -161,21 +161,21 @@
                         {% endfor %}
 
                         {% if active_call %}
-                        <div class="blinking-red-card rounded-xl p-4 flex flex-col justify-between h-28 border border-red-500 text-center text-red-200">
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="blinking-red-card rounded-xl p-4 flex flex-col justify-between h-28 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block">
                             <span class="font-black text-lg">Tisch {{ t.number }}</span>
                             <span class="text-[10px] font-bold uppercase tracking-wider animate-pulse">⚠️ {{ active_call[0].type | upper }} RUF!</span>
-                        </div>
+                        </a>
                         {% elif active_order %}
-                        <div class="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-4 flex flex-col justify-between h-28 text-center text-amber-400">
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-4 flex flex-col justify-between h-28 text-center text-amber-400 hover:bg-amber-500/20 hover:scale-[1.02] transition block">
                             <span class="font-black text-lg">Tisch {{ t.number }}</span>
                             <span class="text-[10px] font-bold block">{{ active_order | length }} Bon(s)</span>
                             <span class="text-xs font-black">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
-                        </div>
+                        </a>
                         {% else %}
-                        <div class="bg-surface border border-outline-variant rounded-xl p-4 flex flex-col justify-center items-center h-28 text-center">
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface border border-outline-variant hover:border-primary/50 hover:bg-zinc-900 rounded-xl p-4 flex flex-col justify-center items-center h-28 text-center hover:scale-[1.02] transition block">
                             <span class="font-black text-lg text-on-surface-variant">Tisch {{ t.number }}</span>
                             <span class="text-[10px] text-on-surface-variant/50 uppercase font-bold mt-1">Frei</span>
-                        </div>
+                        </a>
                         {% endif %}
                     {% endif %}
                     {% else %}
@@ -618,11 +618,12 @@
                                 <div class="text-[10px] text-on-surface-variant uppercase tracking-wider">Kellner-Tablet</div>
                             </div>
                         </div>
+                        {% if restaurant.pos_secret %}
                         <!-- Magic Link display -->
                         <div class="bg-[#0f0f0f] border border-outline-variant/50 rounded-lg p-3 flex items-center gap-2">
                             <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
                             <code class="text-xs text-[#deff9a] break-all leading-tight flex-1" id="pos-magic-link">
-                                /{{ slug }}/setup-device?type=pos&amp;token={{ restaurant.pos_secret or 'nicht gesetzt' }}
+                                /{{ slug }}/setup-device?type=pos&amp;token={{ restaurant.pos_secret }}
                             </code>
                             <button onclick="copyMagicLink('pos-magic-link')" title="Link kopieren"
                                     class="text-on-surface-variant hover:text-white transition flex-shrink-0">
@@ -630,7 +631,7 @@
                             </button>
                         </div>
                         <div class="flex gap-2">
-                            <a href="/{{ slug }}/setup-device?type=pos&token={{ restaurant.pos_secret or '' }}"
+                            <a href="/{{ slug }}/setup-device?type=pos&token={{ restaurant.pos_secret }}"
                                target="_blank"
                                class="flex-1 bg-primary hover:bg-[#c9e88b] text-black font-black text-xs py-2.5 rounded-xl text-center transition">
                                 🔗 Link öffnen / testen
@@ -644,6 +645,16 @@
                                 </button>
                             </form>
                         </div>
+                        {% else %}
+                        <div class="bg-[#0f0f0f] border border-dashed border-outline-variant rounded-lg p-4 text-center">
+                            <p class="text-xs text-on-surface-variant mb-3">Noch kein Magic Link generiert. Das Kassen-Terminal kann erst nach Generierung gekoppelt werden.</p>
+                            <form action="/{{ slug }}/admin/renew-pos-secret" method="POST">
+                                <button type="submit" class="bg-primary hover:bg-[#c9e88b] text-black font-black text-xs py-2.5 px-4 rounded-xl transition active:scale-95">
+                                    ✨ Magic Link generieren
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <!-- KDS Kitchen Display -->
@@ -657,11 +668,12 @@
                                 <div class="text-[10px] text-on-surface-variant uppercase tracking-wider">Kitchen Display System</div>
                             </div>
                         </div>
+                        {% if restaurant.kds_secret %}
                         <!-- Magic Link display -->
                         <div class="bg-[#0f0f0f] border border-outline-variant/50 rounded-lg p-3 flex items-center gap-2">
                             <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
                             <code class="text-xs text-rose-400 break-all leading-tight flex-1" id="kds-magic-link">
-                                /{{ slug }}/setup-device?type=kds&amp;token={{ restaurant.kds_secret or 'nicht gesetzt' }}
+                                /{{ slug }}/setup-device?type=kds&amp;token={{ restaurant.kds_secret }}
                             </code>
                             <button onclick="copyMagicLink('kds-magic-link')" title="Link kopieren"
                                     class="text-on-surface-variant hover:text-white transition flex-shrink-0">
@@ -669,7 +681,7 @@
                             </button>
                         </div>
                         <div class="flex gap-2">
-                            <a href="/{{ slug }}/setup-device?type=kds&token={{ restaurant.kds_secret or '' }}"
+                            <a href="/{{ slug }}/setup-device?type=kds&token={{ restaurant.kds_secret }}"
                                target="_blank"
                                class="flex-1 bg-rose-700 hover:bg-rose-600 text-white font-black text-xs py-2.5 rounded-xl text-center transition">
                                 🔗 Link öffnen / testen
@@ -683,6 +695,16 @@
                                 </button>
                             </form>
                         </div>
+                        {% else %}
+                        <div class="bg-[#0f0f0f] border border-dashed border-outline-variant rounded-lg p-4 text-center">
+                            <p class="text-xs text-on-surface-variant mb-3">Noch kein Magic Link generiert. Das Küchen-Display kann erst nach Generierung gekoppelt werden.</p>
+                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST">
+                                <button type="submit" class="bg-rose-700 hover:bg-rose-600 text-white font-black text-xs py-2.5 px-4 rounded-xl transition active:scale-95">
+                                    ✨ Magic Link generieren
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 <!-- Security note -->

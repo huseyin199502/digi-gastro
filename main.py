@@ -565,7 +565,8 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload):
     if "service_calls" not in restaurant:
         restaurant["service_calls"] = []
         
-    new_id = len(restaurant["service_calls"]) + 1
+    existing_calls = restaurant.get("service_calls", [])
+    new_id = max([c.get("id", 0) for c in existing_calls] + [0]) + 1
     new_call = {
         "id": new_id,
         "table": payload.table,
@@ -1020,10 +1021,7 @@ def post_onboarding(
         categories.append("Shisha")
     restaurant["categories"] = categories
     
-    if auto_tables:
-        restaurant["tables"] = [{"number": str(i), "zone": "innen"} for i in range(1, 6)]
-    else:
-        restaurant["tables"] = []
+    restaurant["tables"] = []
         
     restaurant["staff"] = [
         {"name": chef_name, "role": "chef", "pin": chef_pin, "pin_code": chef_pin}
@@ -1042,6 +1040,32 @@ def get_admin_root(request: Request, slug: str):
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup")
     return RedirectResponse(url=f"/{slug}/admin/dashboard")
+
+@app.get("/{slug}/admin/impersonate/{table_number}")
+def admin_impersonate(request: Request, slug: str, table_number: str):
+    # Server-side auth check: strictly require chef
+    require_chef_user(request, slug)
+    restaurant = get_restaurant_or_raise(slug)
+    
+    table_num = str(table_number).strip()
+    tables_list = restaurant.get("tables", [])
+    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+    
+    if not db_table:
+        raise HTTPException(status_code=404, detail="Tisch nicht gefunden.")
+        
+    table_token = db_table.get("security_token") or restaurant.get("security_token")
+    
+    # Redirect to customer menu and set session cookie
+    resp = RedirectResponse(url=f"/{slug}?table={table_num}&token={table_token}", status_code=303)
+    resp.set_cookie(
+        key=f"guest_session_{slug}",
+        value=f"{table_num}:{table_token}",
+        httponly=True,
+        max_age=14400,
+        path="/"
+    )
+    return resp
 
 @app.get("/{slug}/admin/dashboard", response_class=HTMLResponse)
 def get_admin(request: Request, slug: str, period: str = "heute"):
@@ -1572,8 +1596,10 @@ def api_call_service(request: Request, slug: str, payload: CallServicePayload):
     if payload.tip_amount and payload.tip_amount > 0:
         service_type = f"{service_type} (Trinkgeld: {payload.tip_amount:.2f} €)"
         
+    existing_calls = restaurant.get("service_calls", [])
+    new_id = max([c.get("id", 0) for c in existing_calls] + [0]) + 1
     new_call = {
-        "id": 0,
+        "id": new_id,
         "table": payload.table,
         "type": service_type,
         "timestamp": datetime.now().strftime("%H:%M:%S")
@@ -1865,9 +1891,9 @@ def post_setup_complete(
         categories.append("Shisha")
     restaurant["categories"] = categories
     
-    # Set up tables if empty
-    if not restaurant.get("tables"):
-        restaurant["tables"] = [{"number": str(i), "zone": "innen"} for i in range(1, 6)]
+    # Ensure tables is initialized if not present
+    if "tables" not in restaurant or restaurant["tables"] is None:
+        restaurant["tables"] = []
         
     # Set up Chef staff if empty
     if not restaurant.get("staff"):

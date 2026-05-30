@@ -37,6 +37,11 @@
             background-color: #1a1a1a;
             border: 1px solid #262626;
         }
+        @media (max-width: 767px) {
+            .hidden-mobile {
+                display: none !important;
+            }
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -185,7 +190,7 @@
         </section>
 
         <!-- RIGHT COLUMN: ORDER DETAILS AND PAYMENT COMPONENT -->
-        <section id="details-pane" class="hidden md:flex flex-1 flex-col card-surface rounded-2xl overflow-hidden h-full">
+        <section id="details-pane" class="hidden md:flex flex-col fixed inset-0 z-50 md:relative md:inset-auto flex-grow md:w-5/12 bg-zinc-950 md:bg-[#1a1a1a] border-t md:border-t-0 border-outline-variant md:rounded-2xl overflow-hidden h-full">
             <div class="p-6 border-b border-outline-variant bg-black/30 flex justify-between items-center flex-wrap gap-4">
                 <div class="flex items-center gap-3 flex-wrap">
                     <div>
@@ -197,8 +202,14 @@
                         <span>Bestellung aufnehmen</span>
                     </button>
                 </div>
-                <div class="text-right shrink-0">
-                    <span id="detail-order-id" class="text-xs font-mono text-on-surface-variant">Bon #--</span>
+                <div class="flex items-center gap-2">
+                    <div class="text-right shrink-0">
+                        <span id="detail-order-id" class="text-xs font-mono text-on-surface-variant">Bon #--</span>
+                    </div>
+                    <!-- Close button for mobile -->
+                    <button onclick="closeDetailsPane()" class="md:hidden text-on-surface-variant hover:text-white p-2 rounded-lg bg-surface border border-outline-variant flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl">close</span>
+                    </button>
                 </div>
             </div>
 
@@ -248,37 +259,7 @@
             </div>
         </section>
 
-        <!-- NO ORDER State panel -->
-        <section id="no-order-pane" class="hidden md:flex flex-grow flex-col card-surface rounded-2xl items-center justify-center p-8 text-center text-on-surface-variant space-y-4">
-            <span class="material-symbols-outlined text-6xl text-outline-variant">point_of_sale</span>
-            <div>
-                <h3 class="text-lg font-black text-white">Keinen Bon selektiert</h3>
-                <p class="text-xs max-w-xs mx-auto mt-1 leading-relaxed">Bitte wählen Sie links eine der aktiven Gästebestellungen aus, um Rechnungen zu erstellen, aufzuteilen oder zu stornieren.</p>
-            </div>
-        </section>
-
     </main>
-
-    <!-- Mobile Bottom Action Bar (visible only on small screens) -->
-    <div class="fixed bottom-16 left-0 w-full p-4 bg-[#1a1a1a] border-t border-[#262626] md:hidden z-40">
-        <button onclick="openMobilePaymentModal()" class="w-full bg-primary text-black py-3 rounded-lg text-sm font-bold shadow-lg">
-            Tisch Bezahlen
-        </button>
-    </div>
-
-    <!-- Mobile Payment Modal -->
-    <div id="mobile-payment-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col p-6 hidden">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-bold text-on-surface">Mobile Bezahlung</h3>
-            <button onclick="closeMobilePaymentModal()" class="text-on-surface-variant">
-                <span class="material-symbols-outlined text-2xl">close</span>
-            </button>
-        </div>
-        
-        <div id="mobile-payment-content" class="flex-grow overflow-y-auto space-y-6">
-            <!-- Content gets copied dynamically from desktop pane -->
-        </div>
-    </div>
 
     <!-- BottomNavBar for Mobile -->
     <nav class="md:hidden bg-[#0a0a0a] border-t border-outline-variant shadow-lg fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2">
@@ -334,7 +315,6 @@
             }
 
             document.getElementById('details-pane').classList.remove('hidden');
-            document.getElementById('no-order-pane').classList.add('hidden');
 
             document.getElementById('detail-table-name').textContent = order.table;
             document.getElementById('detail-order-id').textContent = `Bon #${order.id}`;
@@ -376,7 +356,6 @@
             }
 
             document.getElementById('details-pane').classList.remove('hidden');
-            document.getElementById('no-order-pane').classList.add('hidden');
 
             document.getElementById('detail-table-name').textContent = `Tisch ${tableNumber}`;
             document.getElementById('detail-order-id').textContent = `Kein aktiver Bon`;
@@ -658,37 +637,43 @@
             });
         }
 
-        function openMobilePaymentModal() {
-            if (!activeOrderId) {
-                alert("Bitte wählen Sie eine Bestellung!");
-                return;
-            }
-            const modal = document.getElementById("mobile-payment-modal");
-            const content = document.getElementById("mobile-payment-content");
-            const order = allOrders.find(o => o.id === activeOrderId);
-
-            let listHtml = "";
-            order.items.forEach(item => {
-                listHtml += `<div class="flex justify-between py-2 border-b border-outline-variant"><span>${item.quantity}x ${item.name}</span><span>${(item.price * item.quantity).toFixed(2)} €</span></div>`;
+        function closeDetailsPane() {
+            document.getElementById('details-pane').classList.add('hidden');
+            allTables.forEach(t => {
+                const btn = document.getElementById(`table-card-${t.number}`);
+                if (btn) {
+                    btn.classList.remove("ring-4", "ring-indigo-500", "ring-offset-2", "ring-offset-black");
+                }
             });
-
-            content.innerHTML = `
-                <div>
-                    <h3 class="text-lg font-black text-white">${order.table}</h3>
-                    <p class="text-xs text-on-surface-variant font-mono">Bon #${order.id}</p>
-                </div>
-                <div class="space-y-1">${listHtml}</div>
-                <div class="flex justify-between font-bold text-base pt-3 border-t border-outline-variant">
-                    <span>Gesamtsumme</span>
-                    <span class="text-primary text-xl">${order.total.toFixed(2)} €</span>
-                </div>
-                <button onclick="processPayment()" class="w-full bg-primary text-black font-black py-4 rounded-xl mt-4">Kostenpflichtig bezahlen</button>
-            `;
-            modal.classList.remove("hidden");
+            activeOrderId = null;
+            selectedTableNum = null;
         }
 
-        function closeMobilePaymentModal() {
-            document.getElementById("mobile-payment-modal").classList.add("hidden");
+        function switchOrderMobileTab(tab) {
+            const prodTab = document.getElementById('order-mobile-tab-products');
+            const draftTab = document.getElementById('order-mobile-tab-draft');
+            const prodPanel = document.getElementById('order-modal-products-panel');
+            const draftPanel = document.getElementById('order-modal-draft-panel');
+            
+            if (!prodTab || !draftTab || !prodPanel || !draftPanel) return;
+            
+            if (tab === 'products') {
+                prodTab.classList.add('bg-primary', 'text-black');
+                prodTab.classList.remove('bg-surface', 'text-zinc-400', 'border', 'border-outline-variant');
+                draftTab.classList.remove('bg-primary', 'text-black');
+                draftTab.classList.add('bg-surface', 'text-zinc-400', 'border', 'border-outline-variant');
+                
+                prodPanel.classList.remove('hidden-mobile');
+                draftPanel.classList.add('hidden-mobile');
+            } else {
+                draftTab.classList.add('bg-primary', 'text-black');
+                draftTab.classList.remove('bg-surface', 'text-zinc-400', 'border', 'border-outline-variant');
+                prodTab.classList.remove('bg-primary', 'text-black');
+                prodTab.classList.add('bg-surface', 'text-zinc-400', 'border', 'border-outline-variant');
+                
+                prodPanel.classList.add('hidden-mobile');
+                draftPanel.classList.remove('hidden-mobile');
+            }
         }
 
         // Global variables for local orders tracking
@@ -987,6 +972,7 @@
             renderOrderModalCategories();
             renderOrderModalProducts();
             updateDraftDOM();
+            switchOrderMobileTab('products');
             
             document.getElementById("order-taker-modal").classList.remove("hidden");
         }
@@ -1118,6 +1104,11 @@
             });
             
             document.getElementById("order-draft-total").textContent = `${total.toFixed(2)} €`;
+            const totalCount = currentOrderDraft.reduce((sum, item) => sum + item.quantity, 0);
+            const countBadge = document.getElementById("mobile-draft-count");
+            if (countBadge) {
+                countBadge.textContent = totalCount;
+            }
         }
 
         function saveOrderDraft() {
@@ -1178,12 +1169,15 @@
         document.addEventListener("DOMContentLoaded", () => {
             startPolling();
 
-            // Set up first selected order if exists
-            if (allOrdersLocal.length > 0) {
+            // Set up first selected order or first table as empty if on desktop
+            if (allOrdersLocal.length > 0 && window.innerWidth >= 768) {
                 selectOrder(allOrdersLocal[0].id);
+            } else if (window.innerWidth >= 768) {
+                if (allTables.length > 0) {
+                    selectEmptyTable(allTables[0].number);
+                }
             } else {
                 document.getElementById('details-pane').classList.add('hidden');
-                document.getElementById('no-order-pane').classList.remove('hidden');
             }
         });
     </script>
@@ -1259,8 +1253,18 @@
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
+            <!-- Mobile Tab Switcher (visible only on mobile) -->
+            <div class="flex md:hidden bg-zinc-900 border-b border-outline-variant p-2 shrink-0 gap-2 mt-12 w-full">
+                <button id="order-mobile-tab-products" onclick="switchOrderMobileTab('products')" class="flex-grow py-2.5 text-xs font-black rounded-xl bg-primary text-black transition">
+                    🛍️ Produkte
+                </button>
+                <button id="order-mobile-tab-draft" onclick="switchOrderMobileTab('draft')" class="flex-grow py-2.5 text-xs font-black rounded-xl bg-surface border border-outline-variant text-zinc-400 transition">
+                    📝 Entwurf (<span id="mobile-draft-count">0</span>)
+                </button>
+            </div>
+            
             <!-- LEFT PANEL: PRODUCTS & CATEGORIES -->
-            <div class="flex-grow md:w-3/5 flex flex-col h-1/2 md:h-full border-b md:border-b-0 md:border-r border-outline-variant p-6 overflow-hidden">
+            <div id="order-modal-products-panel" class="flex-grow md:w-3/5 flex flex-col h-full md:h-full border-b md:border-b-0 md:border-r border-outline-variant p-6 overflow-hidden">
                 <div class="mb-4">
                     <h3 class="text-lg font-black text-white">Bestellung für <span id="order-modal-table-name" class="text-primary">Tisch --</span> aufnehmen</h3>
                     <p class="text-xs text-on-surface-variant mt-0.5">Wählen Sie Artikel aus, um sie dem Entwurf hinzuzufügen.</p>
@@ -1278,7 +1282,7 @@
             </div>
             
             <!-- RIGHT PANEL: DYNAMIC BON DRAFT -->
-            <div class="md:w-2/5 flex flex-col h-1/2 md:h-full bg-black/30 p-6 overflow-hidden">
+            <div id="order-modal-draft-panel" class="md:w-2/5 flex flex-col h-full md:h-full bg-black/30 p-6 overflow-hidden hidden-mobile">
                 <div class="mb-4">
                     <h4 class="text-sm uppercase font-black tracking-wider text-on-surface-variant">Bon-Entwurf</h4>
                     <p class="text-xs text-on-surface-variant mt-0.5">Der aktuelle Inhalt dieser Zwischenbestellung.</p>

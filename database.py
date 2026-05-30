@@ -736,8 +736,8 @@ def get_restaurant(slug: str, create_if_missing: bool = False):
             ),
             "security_token": f"{slug_lower}2026",
             "pos_token": None,
-            "pos_secret": __import__("secrets").token_urlsafe(24),  # Magic Link secret for POS tablet
-            "kds_secret": __import__("secrets").token_urlsafe(24),  # Magic Link secret for KDS display
+            "pos_secret": None,  # Magic Link secret for POS tablet
+            "kds_secret": None,  # Magic Link secret for KDS display
             "service_calls": [],
             "categories": ["Drinks", "Desserts"],
             "products": copy.deepcopy(STANDARD_PRODUCTS),

@@ -620,7 +620,7 @@ def test_integration():
     assert luna_db["is_onboarded"] is True
     assert luna_db["has_kitchen"] is True
     assert luna_db["is_shishabar"] is False
-    assert len(luna_db["tables"]) == 5
+    assert len(luna_db["tables"]) == 0
     assert any(s["name"] == "Chef" and s["role"] == "chef" for s in luna_db["staff"])
     assert "Burger" in luna_db["categories"]
     assert "Shisha" not in luna_db["categories"]
