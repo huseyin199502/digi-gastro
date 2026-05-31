@@ -853,7 +853,7 @@ def test_integration():
     assert o_updated["status"] == "bestaetigt"
     print("Order Confirmation API: OK")
 
-    print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! ✅")
+    print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":
     try:

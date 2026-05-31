@@ -6,6 +6,7 @@
     <title>{{ restaurant.name }} - Speisekarte</title>
     <!-- Tailwind and FontAwesome / Material Symbols -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     
@@ -63,7 +64,7 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="flex flex-col min-h-screen bg-background {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+<body x-data="menuState()" class="flex flex-col min-h-screen bg-background {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
 
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
@@ -238,13 +239,32 @@
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
-    <!-- Floating Basket Trigger (Premium Bottom-Right FAB) -->
-    <div id="cart-floating-bar" class="fixed bottom-6 right-6 z-50 pointer-events-none hidden">
-        <button onclick="openCartModal()" class="pointer-events-auto bg-accent text-black w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all relative">
-            <span class="material-symbols-outlined text-2xl">shopping_basket</span>
-            <div id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black animate-pulse">0</div>
+    <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
+    {% if not is_readonly and table and not token_error %}
+    <div id="cart-floating-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
+        <!-- Left Side: Thumb-Zone Service & Payment Callers -->
+        <div class="flex items-center gap-2">
+            <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" title="Service Rufen">
+                <span class="material-symbols-outlined text-xl">notifications_active</span>
+            </button>
+            <button onclick="openPaymentModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" title="Rechnung Anfordern">
+                <span class="material-symbols-outlined text-xl">receipt_long</span>
+            </button>
+        </div>
+        
+        <!-- Right Side: Unified Cart Trigger and Total -->
+        <button onclick="openCartModal()" class="flex-grow ml-3 bg-primary text-black font-extrabold h-11 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
+            <div class="flex items-center gap-2">
+                <div class="relative">
+                    <span class="material-symbols-outlined text-xl font-black">shopping_basket</span>
+                    <span id="cart-badge" class="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
+                </div>
+                <span class="text-xs font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
+            </div>
+            <span id="total-val-sticky" class="text-xs font-black bg-black/10 px-2 py-1 rounded-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
         </button>
     </div>
+    {% endif %}
 
         <!-- Hidden Legal Contents to prevent JS escaping issues -->
     <div id="impressum-content-data" class="hidden">{{ restaurant.impressum_content }}</div>
@@ -263,41 +283,64 @@
         </div>
     </div>
 
-    <!-- CHECKOUT MODAL (BASKET) -->
-    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div id="cart-modal-inner" class="bg-surface border border-outline-variant rounded-2xl w-full max-w-md p-6 relative flex flex-col max-h-[90vh]">
-            <button onclick="closeCartModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white">
+    <!-- CHECKOUT MODAL (BASKET BOTTOM-SHEET) -->
+    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end justify-center hidden" onclick="if(event.target === this) closeCartModal()">
+        <div id="cart-modal-inner" class="bg-surface border-t border-x border-outline-variant rounded-t-3xl w-full max-w-md p-6 relative flex flex-col max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-8">
+            
+            <!-- Drag Handle Indicator -->
+            <div class="w-12 h-1 bg-zinc-800 rounded-full mx-auto mb-4 shrink-0"></div>
+
+            <button onclick="closeCartModal()" class="absolute top-6 right-6 text-on-surface-variant hover:text-white">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
-            <h3 class="text-lg font-bold mb-4 flex items-center space-x-2">
+            <h3 class="text-lg font-bold mb-4 flex items-center space-x-2 shrink-0">
                 <span class="material-symbols-outlined text-primary">shopping_cart</span>
                 <span data-translate="your_cart">Ihr Warenkorb</span>
             </h3>
 
             <!-- Cart Items -->
-            <div id="cart-modal-items" class="flex-1 overflow-y-auto space-y-3 mb-4 pr-1"></div>
+            <div id="cart-modal-items" class="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+                <template x-if="cart.length === 0">
+                    <div class="text-center py-6 text-on-surface-variant text-sm" x-text="translations[currentLang].empty_cart">Ihr Warenkorb ist leer.</div>
+                </template>
+                <template x-for="item in cart" :key="item.id">
+                    <div class="flex items-center justify-between bg-background border border-outline-variant p-3.5 rounded-xl text-sm">
+                        <div>
+                            <span class="font-bold text-white block" x-text="item.name"></span>
+                            <span class="text-[10px] text-on-surface-variant" x-text="item.price.toFixed(2) + ' €'"></span>
+                        </div>
+                        <div class="flex items-center space-x-2.5">
+                            <button @click="changeQty(item.id, -1)" class="w-7 h-7 bg-surface-container-high rounded-full flex items-center justify-center font-bold text-sm text-white hover:bg-white/10">-</button>
+                            <span class="font-bold font-mono text-white text-xs w-4 text-center" x-text="item.quantity"></span>
+                            <button @click="changeQty(item.id, 1)" class="w-7 h-7 bg-surface-container-high rounded-full flex items-center justify-center font-bold text-sm text-white hover:bg-white/10">+</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
 
             <!-- Total display -->
-            <div class="space-y-1 mb-6 text-sm">
+            <div class="space-y-1 mb-6 text-sm shrink-0">
                 <div class="flex justify-between text-base font-black text-white pt-2">
                     <span data-translate="basket_total">Gesamtsumme:</span>
-                    <span id="total-val" class="text-primary text-lg">0,00 €</span>
+                    <span id="total-val" class="text-primary text-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
                 </div>
             </div>
 
             <!-- Checkout actions -->
-            {% if table and not token_error %}
-                <button onclick="submitOrder()" class="bg-primary text-black font-extrabold py-4 rounded-xl flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-95 transition-all">
-                    <span class="material-symbols-outlined text-base">send</span>
-                    <span data-translate="order_pay">Bestellen</span>
-                </button>
-            {% else %}
-                <button disabled class="bg-surface-container-high text-on-surface-variant/40 py-4 rounded-xl flex items-center justify-center space-x-2 cursor-not-allowed">
-                    <span class="material-symbols-outlined">block</span>
-                    <span data-translate="order_locked">Bestellung gesperrt (Tisch scannen)</span>
-                </button>
-            {% endif %}
+            <div class="shrink-0">
+                {% if table and not token_error %}
+                    <button onclick="submitOrder()" class="w-full bg-primary text-black font-extrabold py-4 rounded-xl flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-95 transition-all">
+                        <span class="material-symbols-outlined text-base">send</span>
+                        <span data-translate="order_pay">Bestellen</span>
+                    </button>
+                {% else %}
+                    <button disabled class="w-full bg-surface-container-high text-on-surface-variant/40 py-4 rounded-xl flex items-center justify-center space-x-2 cursor-not-allowed">
+                        <span class="material-symbols-outlined">block</span>
+                        <span data-translate="order_locked">Bestellung gesperrt (Tisch scannen)</span>
+                    </button>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -311,7 +354,6 @@
         </div>
     </div>
 
-    <!-- Javascript translations, dynamic UI and operations -->
     <script>
         const slug = "{{ slug }}";
         const translations = {
@@ -383,529 +425,6 @@
             }
         };
 
-        let currentLang = 'de';
-        let cart = [];
-        let activeFilters = { vegan: false, glutenfree: false };
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            document.getElementById('lang-de-btn').className = lang === 'de' ? "px-2 py-0.5 rounded-full text-xs font-bold transition bg-primary text-black" : "px-2 py-0.5 rounded-full text-xs font-bold transition text-on-surface-variant";
-            document.getElementById('lang-en-btn').className = lang === 'en' ? "px-2 py-0.5 rounded-full text-xs font-bold transition bg-primary text-black" : "px-2 py-0.5 rounded-full text-xs font-bold transition text-on-surface-variant";
-
-            // Translate elements
-            document.querySelectorAll('[data-translate]').forEach(el => {
-                const key = el.getAttribute('data-translate');
-                if (translations[lang] && translations[lang][key]) {
-                    el.textContent = translations[lang][key];
-                }
-            });
-        }
-
-        // Dietary / Allergen toggle filters
-        function toggleDietaryFilter(type) {
-            activeFilters[type] = !activeFilters[type];
-            const btn = document.getElementById(`filter-${type}-btn`);
-            if (activeFilters[type]) {
-                btn.classList.add("bg-primary", "text-black");
-            } else {
-                btn.classList.remove("bg-primary", "text-black");
-            }
-            applyFilters();
-        }
-
-        function applyFilters() {
-            const products = document.querySelectorAll('.product-item');
-            products.forEach(item => {
-                const isVegan = item.getAttribute('data-vegan') === 'true';
-                const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
-                
-                let matches = true;
-                if (activeFilters.vegan && !isVegan) matches = false;
-                if (activeFilters.glutenfree && !isGlutenfree) matches = false;
-
-                if (matches) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-
-        // Dynamic category filters
-        function filterCategory(category) {
-            const pills = document.querySelectorAll('#category-pills button');
-            // Quick categories selection
-            const products = document.querySelectorAll('.product-item');
-            products.forEach(item => {
-                if (item.getAttribute('data-category') === category) {
-                    item.setAttribute('data-visible-cat', 'true');
-                } else {
-                    item.setAttribute('data-visible-cat', 'false');
-                }
-            });
-            
-            // Sync highlight on pills
-            {% for cat in restaurant.categories %}
-            document.getElementById("btn-{{ cat }}").className = (category === "{{ cat }}") ? 
-                "whitespace-nowrap px-5 py-2 rounded-full text-sm font-extrabold shadow-lg shadow-primary/20 scale-105 transition-all bg-primary text-black" : 
-                "whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white";
-            {% endfor %}
-
-            applyAllCategorizedFilters();
-        }
-
-        function applyAllCategorizedFilters() {
-            const products = document.querySelectorAll('.product-item');
-            products.forEach(item => {
-                const visibleCat = item.getAttribute('data-visible-cat') !== 'false';
-                const isVegan = item.getAttribute('data-vegan') === 'true';
-                const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
-
-                let matches = visibleCat;
-                if (activeFilters.vegan && !isVegan) matches = false;
-                if (activeFilters.glutenfree && !isGlutenfree) matches = false;
-
-                item.style.display = matches ? 'flex' : 'none';
-            });
-        }
-
-        // Cart management
-        function addToCart(id, name, price, categoryType) {
-            const existing = cart.find(i => i.id === id);
-            if (existing) {
-                existing.quantity++;
-            } else {
-                cart.push({ id, name, price, quantity: 1, category_type: categoryType });
-            }
-            updateCartFloatingBar();
-        }
-
-        function updateCartFloatingBar() {
-            const totalItems = cart.reduce((acc, i) => acc + i.quantity, 0);
-
-            const bar = document.getElementById("cart-floating-bar");
-            const badge = document.getElementById("cart-badge");
-            if (totalItems > 0) {
-                bar.classList.remove("hidden");
-                if (badge) {
-                    badge.textContent = totalItems;
-                }
-            } else {
-                bar.classList.add("hidden");
-            }
-        }
-
-        function openCartModal() {
-            document.getElementById("cart-modal").classList.remove("hidden");
-            const inner = document.getElementById("cart-modal-inner");
-            if (inner) {
-                inner.classList.add("slide-up-modal");
-            }
-            renderCartModalItems();
-        }
-
-        function closeCartModal() {
-            document.getElementById("cart-modal").classList.add("hidden");
-            const inner = document.getElementById("cart-modal-inner");
-            if (inner) {
-                inner.classList.remove("slide-up-modal");
-            }
-        }
-
-        function renderCartModalItems() {
-            const container = document.getElementById("cart-modal-items");
-            container.innerHTML = "";
-            
-            if (cart.length === 0) {
-                container.innerHTML = `<div class="text-center py-6 text-on-surface-variant text-sm">${translations[currentLang].empty_cart}</div>`;
-                recalcTotals();
-                return;
-            }
-
-            cart.forEach(item => {
-                container.innerHTML += `
-                    <div class="flex items-center justify-between bg-background border border-outline-variant p-3.5 rounded-xl text-sm">
-                        <div>
-                            <span class="font-bold text-white block">${item.name}</span>
-                            <span class="text-[10px] text-on-surface-variant">${item.price.toFixed(2)} €</span>
-                        </div>
-                        <div class="flex items-center space-x-2.5">
-                            <button onclick="changeQty(${item.id}, -1)" class="w-7 h-7 bg-surface-container-high rounded-full flex items-center justify-center font-bold text-sm text-white hover:bg-white/10">-</button>
-                            <span class="font-bold font-mono text-white text-xs w-4 text-center">${item.quantity}</span>
-                            <button onclick="changeQty(${item.id}, 1)" class="w-7 h-7 bg-surface-container-high rounded-full flex items-center justify-center font-bold text-sm text-white hover:bg-white/10">+</button>
-                        </div>
-                    </div>
-                `;
-            });
-            recalcTotals();
-        }
-
-        function changeQty(id, delta) {
-            const item = cart.find(i => i.id === id);
-            if (item) {
-                item.quantity += delta;
-                if (item.quantity <= 0) {
-                    cart = cart.filter(i => i.id !== id);
-                }
-            }
-            updateCartFloatingBar();
-            renderCartModalItems();
-        }
-
-        function getTableFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('tisch') || urlParams.get('table') || '';
-        }
-
-        // Psychological Tipping features
-        function recalcTotals() {
-            const subtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-            document.getElementById("total-val").textContent = subtotal.toFixed(2) + " €";
-        }
-
-        // Order submission
-        function submitOrder() {
-            const table = getTableFromUrl() || "{{ table }}";
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || '{{ token }}' || '';
-
-            const subtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-
-            const payload = {
-                table: "Tisch " + table,
-                token: token,
-                items: cart.map(i => ({
-                    product_id: i.id,
-                    name: i.name,
-                    price: i.price,
-                    quantity: i.quantity
-                })),
-                tip_amount: 0.0
-            };
-
-            fetch('/{{ slug }}/bestellen', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    return res.json();
-                } else if (res.status === 403) {
-                    showToast("Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.", "error");
-                    throw new Error("Expired session");
-                } else {
-                    showToast("Übertragungsfehler bei der Bestellung.", "error");
-                    throw new Error("Network error");
-                }
-            })
-            .then(data => {
-                // Save order ID to localStorage for tracker tab
-                let myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
-                myOrders.push(data.order_id);
-                localStorage.setItem(`dl_orders_{{ slug }}`, JSON.stringify(myOrders));
-
-                // Clear basket
-                cart = [];
-                updateCartFloatingBar();
-                closeCartModal();
-
-                // Show Thank you screen
-                document.getElementById("thankyou-overlay").classList.remove("hidden");
-            })
-            .catch(err => console.error(err));
-        }
-
-        function closeThankYou() {
-            document.getElementById("thankyou-overlay").classList.add("hidden");
-        }
-
-
-
-        // Call Service requests
-        function requestService(type) {
-            const table = getTableFromUrl() || "{{ table }}";
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || '{{ token }}' || '';
-
-            if (!table) {
-                showToast(translations[currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
-                return;
-            }
-
-            const payload = {
-                type: type,
-                table: "Tisch " + table,
-                token: token
-            };
-
-            fetch('/{{ slug }}/service-ruf?token=' + encodeURIComponent(token), {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-Token': token
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    showToast("Signal erfolgreich an das Personal gesendet! Vielen Dank.", "success");
-                } else {
-                    showToast("Signal-Übertragung fehlgeschlagen.", "error");
-                }
-            });
-        }
-
-        // Legal texts dynamic modals
-        function openLegalModal(type) {
-            const modal = document.getElementById("legal-modal");
-            const title = document.getElementById("legal-modal-title");
-            const body = document.getElementById("legal-modal-body");
-
-            if (type === 'impressum') {
-                title.textContent = "Impressum";
-                body.textContent = document.getElementById("impressum-content-data").textContent;
-            } else {
-                title.textContent = "Datenschutzerklärung";
-                body.textContent = document.getElementById("datenschutz-content-data").textContent;
-            }
-            modal.classList.remove("hidden");
-        }
-
-        function closeLegalModal() {
-            document.getElementById("legal-modal").classList.add("hidden");
-        }
-
-        // Modals Management für Service und Bezahlen
-        let selectedServiceType = 'kellner';
-        let selectedPaymentType = 'zahlen_bar';
-
-        function openServiceModal() {
-            const table = getTableFromUrl() || "{{ table }}";
-            if (!table) {
-                showToast(translations[currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
-                return;
-            }
-            selectServiceOption('kellner');
-            document.getElementById("service-modal").classList.remove("hidden");
-        }
-
-        function closeServiceModal() {
-            document.getElementById("service-modal").classList.add("hidden");
-        }
-
-        function selectServiceOption(type) {
-            selectedServiceType = type;
-            const isShisha = {% if restaurant.is_shishabar %}true{% else %}false{% endif %};
-            
-            const btnKellner = document.getElementById("opt-service-kellner");
-            const btnKohle = document.getElementById("opt-service-kohle");
-            
-            if (type === 'kellner') {
-                btnKellner.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
-                btnKellner.querySelector('span.material-symbols-outlined').classList.remove('opacity-0');
-                
-                if (isShisha && btnKohle) {
-                    btnKohle.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
-                    btnKohle.querySelector('span.material-symbols-outlined').classList.add('opacity-0');
-                }
-            } else if (type === 'kohle' && btnKohle) {
-                btnKellner.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
-                btnKellner.querySelector('span.material-symbols-outlined').classList.add('opacity-0');
-                
-                btnKohle.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
-                btnKohle.querySelector('span.material-symbols-outlined').classList.remove('opacity-0');
-            }
-        }
-
-        function confirmServiceRequest() {
-            sendServiceRequestAPI(selectedServiceType);
-            closeServiceModal();
-        }
-
-        let currentPaymentSubtotal = 0.0;
-        let selectedPaymentTipPercent = 0;
-        let customPaymentTipAmount = 0;
-        let paymentTipVal = 0.0;
-
-        function selectPaymentTip(percent) {
-            selectedPaymentTipPercent = percent;
-            customPaymentTipAmount = 0;
-            document.getElementById("payment-custom-tip-container").classList.add("hidden");
-            
-            // Highlight button
-            [5, 10, 15, 'custom'].forEach(t => {
-                const btn = document.getElementById("pay-tip-" + t);
-                if (btn) {
-                    btn.className = (t === percent) ? 
-                        "border border-primary text-xs font-bold py-2 rounded-xl bg-primary text-black transition" :
-                        "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
-                }
-            });
-            recalcPaymentTip();
-        }
-
-        function selectPaymentCustomTip() {
-            selectedPaymentTipPercent = 0;
-            document.getElementById("payment-custom-tip-container").classList.remove("hidden");
-            
-            // Highlight custom button
-            [5, 10, 15].forEach(t => {
-                const btn = document.getElementById("pay-tip-" + t);
-                if (btn) {
-                    btn.className = "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
-                }
-            });
-            document.getElementById("pay-tip-custom").className = "border border-primary text-[10px] font-bold py-2 rounded-xl bg-primary text-black transition";
-            recalcPaymentTip();
-        }
-
-        function calculatePaymentCustomTip() {
-            const input = document.getElementById("payment-custom-tip-input");
-            customPaymentTipAmount = parseFloat(input.value) || 0.0;
-            recalcPaymentTip();
-        }
-
-        function recalcPaymentTip() {
-            let tip = 0.0;
-            if (selectedPaymentTipPercent > 0) {
-                tip = currentPaymentSubtotal * (selectedPaymentTipPercent / 100.0);
-            } else if (customPaymentTipAmount > 0) {
-                tip = customPaymentTipAmount;
-            }
-            paymentTipVal = tip;
-            
-            const total = currentPaymentSubtotal + paymentTipVal;
-            
-            document.getElementById("payment-subtotal-val").textContent = currentPaymentSubtotal.toFixed(2) + " €";
-            document.getElementById("payment-tip-val").textContent = paymentTipVal.toFixed(2) + " €";
-            document.getElementById("payment-total-val").textContent = total.toFixed(2) + " €";
-        }
-
-        function openPaymentModal() {
-            const table = getTableFromUrl() || "{{ table }}";
-            if (!table) {
-                showToast("Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
-                return;
-            }
-            
-            // Default reset
-            selectedPaymentTipPercent = 0;
-            customPaymentTipAmount = 0;
-            paymentTipVal = 0.0;
-            
-            // Highlight reset
-            [5, 10, 15, 'custom'].forEach(t => {
-                const btn = document.getElementById("pay-tip-" + t);
-                if (btn) {
-                    btn.className = "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
-                }
-            });
-            const customInput = document.getElementById("payment-custom-tip-input");
-            if (customInput) customInput.value = "";
-            document.getElementById("payment-custom-tip-container").classList.add("hidden");
-
-            // Calculate current cart total as fallback
-            const cartSubtotal = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-            currentPaymentSubtotal = cartSubtotal;
-            
-            // Try fetching live unpaid balance of table
-            const myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
-            if (myOrders.length > 0) {
-                fetch(`/{{ slug }}/orders/status?ids=${myOrders.join(',')}`)
-                .then(res => res.json())
-                .then(data => {
-                    let unpaidSum = 0.0;
-                    let hasUnpaid = false;
-                    if (data && data.orders) {
-                        data.orders.forEach(o => {
-                            if (o.status !== 'bezahlt' && o.status !== 'storniert') {
-                                unpaidSum += o.total;
-                                hasUnpaid = true;
-                            }
-                        });
-                    }
-                    if (data && data.orders && data.orders.length > 0 && !hasUnpaid) {
-                        localStorage.removeItem(`dl_orders_{{ slug }}`);
-                    }
-                    if (unpaidSum > 0) {
-                        currentPaymentSubtotal = unpaidSum;
-                    }
-                    recalcPaymentTip();
-                })
-                .catch(err => {
-                    console.error("Fehler beim Abrufen der Bestellungen", err);
-                    recalcPaymentTip();
-                });
-            } else {
-                recalcPaymentTip();
-            }
-
-            selectPaymentOption('zahlen_bar');
-            document.getElementById("payment-modal").classList.remove("hidden");
-        }
-
-        function closePaymentModal() {
-            document.getElementById("payment-modal").classList.add("hidden");
-        }
-
-        function selectPaymentOption(type) {
-            selectedPaymentType = type;
-            const btnBar = document.getElementById("opt-pay-bar");
-            const btnKarte = document.getElementById("opt-pay-karte");
-            const tipSection = document.getElementById("payment-tip-section");
-            
-            if (type === 'zahlen_bar') {
-                btnBar.className = "bg-background border border-primary text-primary rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-                btnKarte.className = "bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-            } else {
-                btnBar.className = "bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-                btnKarte.className = "bg-background border border-primary text-primary rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-            }
-
-            if (tipSection) {
-                tipSection.classList.remove("hidden");
-            }
-        }
-
-        function confirmPaymentRequest() {
-            sendServiceRequestAPI(selectedPaymentType);
-            closePaymentModal();
-        }
-
-        function sendServiceRequestAPI(type) {
-            const table = getTableFromUrl() || "{{ table }}";
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token') || '{{ token }}' || '';
-
-            const payload = {
-                type: type,
-                table: "Tisch " + table,
-                token: token,
-                tip_amount: (type === 'zahlen_bar' || type === 'zahlen_karte') ? paymentTipVal : 0.0
-            };
-
-            fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-Token': token
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    showToast("Anfrage erfolgreich an das Personal gesendet!", "success");
-                } else {
-                    showToast("Übertragung fehlgeschlagen.", "error");
-                }
-            })
-            .catch(err => {
-                console.error("Fehler bei Service-Ruf", err);
-                showToast("Übertragungsfehler.", "error");
-            });
-        }
-
         // Beautiful glassmorphic Toast-Notification helper
         function showToast(message, type = 'info') {
             const container = document.getElementById("toast-container");
@@ -940,18 +459,487 @@
             }, 4000);
         }
 
+        function getTableFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('tisch') || urlParams.get('table') || '';
+        }
+
+        function menuState() {
+            return {
+                cart: [],
+                currentLang: 'de',
+                activeFilters: { vegan: false, glutenfree: false },
+                currentCategory: '',
+                selectedServiceType: 'kellner',
+                selectedPaymentType: 'zahlen_bar',
+                selectedPaymentTipPercent: 0,
+                customPaymentTipAmount: 0,
+                paymentTipVal: 0,
+                currentPaymentSubtotal: 0,
+                translations: translations,
+
+                init() {
+                    const resetSession = {% if reset_session %}true{% else %}false{% endif %};
+                    if (resetSession) {
+                        localStorage.removeItem(`dl_orders_{{ slug }}`);
+                        this.cart = [];
+                    }
+
+                    const firstCategory = "{{ restaurant.categories[0] if restaurant.categories else '' }}";
+                    if (firstCategory) {
+                        this.filterCategory(firstCategory);
+                    }
+
+                    // Expose functions on the window object for 100% legacy/DOM event compatibility
+                    window.addToCart = (id, name, price, categoryType) => this.addToCart(id, name, price, categoryType);
+                    window.openCartModal = () => this.openCartModal();
+                    window.closeCartModal = () => this.closeCartModal();
+                    window.openServiceModal = () => this.openServiceModal();
+                    window.closeServiceModal = () => this.closeServiceModal();
+                    window.openPaymentModal = () => this.openPaymentModal();
+                    window.closePaymentModal = () => this.closePaymentModal();
+                    window.requestService = (type) => this.requestService(type);
+                    window.openLegalModal = (type) => this.openLegalModal(type);
+                    window.closeLegalModal = () => this.closeLegalModal();
+                    window.setLanguage = (lang) => this.setLanguage(lang);
+                    window.toggleDietaryFilter = (type) => this.toggleDietaryFilter(type);
+                    window.filterCategory = (cat) => this.filterCategory(cat);
+                    window.submitOrder = () => this.submitOrder();
+                    window.closeThankYou = () => this.closeThankYou();
+                },
+
+                get cartTotal() {
+                    return this.cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                },
+
+                get cartCount() {
+                    return this.cart.reduce((acc, i) => acc + i.quantity, 0);
+                },
+
+                setLanguage(lang) {
+                    this.currentLang = lang;
+                    document.getElementById('lang-de-btn').className = lang === 'de' ? "px-2 py-0.5 rounded-full text-xs font-bold transition bg-primary text-black" : "px-2 py-0.5 rounded-full text-xs font-bold transition text-on-surface-variant";
+                    document.getElementById('lang-en-btn').className = lang === 'en' ? "px-2 py-0.5 rounded-full text-xs font-bold transition bg-primary text-black" : "px-2 py-0.5 rounded-full text-xs font-bold transition text-on-surface-variant";
+
+                    // Translate elements
+                    document.querySelectorAll('[data-translate]').forEach(el => {
+                        const key = el.getAttribute('data-translate');
+                        if (translations[lang] && translations[lang][key]) {
+                            el.textContent = translations[lang][key];
+                        }
+                    });
+                },
+
+                toggleDietaryFilter(type) {
+                    this.activeFilters[type] = !this.activeFilters[type];
+                    const btn = document.getElementById(`filter-${type}-btn`);
+                    if (this.activeFilters[type]) {
+                        btn.classList.add("bg-primary", "text-black");
+                    } else {
+                        btn.classList.remove("bg-primary", "text-black");
+                    }
+                    this.applyAllFilters();
+                },
+
+                filterCategory(category) {
+                    this.currentCategory = category;
+                    const products = document.querySelectorAll('.product-item');
+                    products.forEach(item => {
+                        if (item.getAttribute('data-category') === category) {
+                            item.setAttribute('data-visible-cat', 'true');
+                        } else {
+                            item.setAttribute('data-visible-cat', 'false');
+                        }
+                    });
+                    
+                    // Sync highlight on category pills
+                    {% for cat in restaurant.categories %}
+                    const pillBtn = document.getElementById("btn-{{ cat }}");
+                    if (pillBtn) {
+                        pillBtn.className = (category === "{{ cat }}") ? 
+                            "whitespace-nowrap px-5 py-2 rounded-full text-sm font-extrabold shadow-lg shadow-primary/20 scale-105 transition-all bg-primary text-black" : 
+                            "whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white";
+                    }
+                    {% endfor %}
+
+                    this.applyAllFilters();
+                },
+
+                applyAllFilters() {
+                    const products = document.querySelectorAll('.product-item');
+                    products.forEach(item => {
+                        const visibleCat = item.getAttribute('data-visible-cat') !== 'false';
+                        const isVegan = item.getAttribute('data-vegan') === 'true';
+                        const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
+
+                        let matches = visibleCat;
+                        if (this.activeFilters.vegan && !isVegan) matches = false;
+                        if (this.activeFilters.glutenfree && !isGlutenfree) matches = false;
+
+                        item.style.display = matches ? 'flex' : 'none';
+                    });
+                },
+
+                addToCart(id, name, price, categoryType) {
+                    const existing = this.cart.find(i => i.id === id);
+                    if (existing) {
+                        existing.quantity++;
+                    } else {
+                        this.cart.push({ id, name, price, quantity: 1, category_type: categoryType });
+                    }
+                    showToast(name + " hinzugefügt", "success");
+                },
+
+                changeQty(id, delta) {
+                    const item = this.cart.find(i => i.id === id);
+                    if (item) {
+                        item.quantity += delta;
+                        if (item.quantity <= 0) {
+                            this.cart = this.cart.filter(i => i.id !== id);
+                        }
+                    }
+                },
+
+                openCartModal() {
+                    const modal = document.getElementById("cart-modal");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        setTimeout(() => {
+                            const inner = document.getElementById("cart-modal-inner");
+                            if (inner) {
+                                inner.classList.remove("translate-y-full");
+                                inner.classList.add("translate-y-0");
+                            }
+                        }, 10);
+                    }
+                },
+
+                closeCartModal() {
+                    const inner = document.getElementById("cart-modal-inner");
+                    if (inner) {
+                        inner.classList.remove("translate-y-0");
+                        inner.classList.add("translate-y-full");
+                        setTimeout(() => {
+                            const modal = document.getElementById("cart-modal");
+                            if (modal) modal.classList.add("hidden");
+                        }, 300);
+                    }
+                },
+
+                openServiceModal() {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    if (!table) {
+                        showToast(translations[this.currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+                        return;
+                    }
+                    this.selectServiceOption('kellner');
+                    const modal = document.getElementById("service-modal");
+                    if (modal) modal.classList.remove("hidden");
+                },
+
+                closeServiceModal() {
+                    const modal = document.getElementById("service-modal");
+                    if (modal) modal.classList.add("hidden");
+                },
+
+                selectServiceOption(type) {
+                    this.selectedServiceType = type;
+                    const isShisha = {% if restaurant.is_shishabar %}true{% else %}false{% endif %};
+                    
+                    const btnKellner = document.getElementById("opt-service-kellner");
+                    const btnKohle = document.getElementById("opt-service-kohle");
+                    
+                    if (type === 'kellner' && btnKellner) {
+                        btnKellner.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
+                        const chk = btnKellner.querySelector('span.material-symbols-outlined');
+                        if (chk) chk.classList.remove('opacity-0');
+                        
+                        if (isShisha && btnKohle) {
+                            btnKohle.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
+                            const chk2 = btnKohle.querySelector('span.material-symbols-outlined');
+                            if (chk2) chk2.classList.add('opacity-0');
+                        }
+                    } else if (type === 'kohle' && btnKohle) {
+                        if (btnKellner) {
+                            btnKellner.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
+                            const chk = btnKellner.querySelector('span.material-symbols-outlined');
+                            if (chk) chk.classList.add('opacity-0');
+                        }
+                        
+                        btnKohle.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
+                        const chk2 = btnKohle.querySelector('span.material-symbols-outlined');
+                        if (chk2) chk2.classList.remove('opacity-0');
+                    }
+                },
+
+                confirmServiceRequest() {
+                    this.sendServiceRequestAPI(this.selectedServiceType);
+                    this.closeServiceModal();
+                },
+
+                openPaymentModal() {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    if (!table) {
+                        showToast("Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+                        return;
+                    }
+                    
+                    this.selectedPaymentTipPercent = 0;
+                    this.customPaymentTipAmount = 0;
+                    this.paymentTipVal = 0.0;
+                    
+                    [5, 10, 15, 'custom'].forEach(t => {
+                        const btn = document.getElementById("pay-tip-" + t);
+                        if (btn) {
+                            btn.className = "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
+                        }
+                    });
+                    const customInput = document.getElementById("payment-custom-tip-input");
+                    if (customInput) customInput.value = "";
+                    const customContainer = document.getElementById("payment-custom-tip-container");
+                    if (customContainer) customContainer.classList.add("hidden");
+
+                    this.currentPaymentSubtotal = this.cartTotal;
+                    
+                    const myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
+                    if (myOrders.length > 0) {
+                        fetch(`/{{ slug }}/orders/status?ids=${myOrders.join(',')}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            let unpaidSum = 0.0;
+                            let hasUnpaid = false;
+                            if (data && data.orders) {
+                                data.orders.forEach(o => {
+                                    if (o.status !== 'bezahlt' && o.status !== 'storniert') {
+                                        unpaidSum += o.total;
+                                        hasUnpaid = true;
+                                    }
+                                });
+                            }
+                            if (data && data.orders && data.orders.length > 0 && !hasUnpaid) {
+                                localStorage.removeItem(`dl_orders_{{ slug }}`);
+                            }
+                            if (unpaidSum > 0) {
+                                this.currentPaymentSubtotal = unpaidSum;
+                            }
+                            this.recalcPaymentTip();
+                        })
+                        .catch(err => {
+                            console.error("Fehler beim Abrufen der Bestellungen", err);
+                            this.recalcPaymentTip();
+                        });
+                    } else {
+                        this.recalcPaymentTip();
+                    }
+
+                    this.selectPaymentOption('zahlen_bar');
+                    const modal = document.getElementById("payment-modal");
+                    if (modal) modal.classList.remove("hidden");
+                },
+
+                closePaymentModal() {
+                    const modal = document.getElementById("payment-modal");
+                    if (modal) modal.classList.add("hidden");
+                },
+
+                selectPaymentOption(type) {
+                    this.selectedPaymentType = type;
+                    const btnBar = document.getElementById("opt-pay-bar");
+                    const btnKarte = document.getElementById("opt-pay-karte");
+                    const tipSection = document.getElementById("payment-tip-section");
+                    
+                    if (type === 'zahlen_bar') {
+                        if (btnBar) btnBar.className = "bg-background border border-primary text-primary rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
+                        if (btnKarte) btnKarte.className = "bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
+                    } else {
+                        if (btnBar) btnBar.className = "bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
+                        if (btnKarte) btnKarte.className = "bg-background border border-primary text-primary rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
+                    }
+
+                    if (tipSection) {
+                        tipSection.classList.remove("hidden");
+                    }
+                },
+
+                selectPaymentTip(percent) {
+                    this.selectedPaymentTipPercent = percent;
+                    this.customPaymentTipAmount = 0;
+                    const customContainer = document.getElementById("payment-custom-tip-container");
+                    if (customContainer) customContainer.classList.add("hidden");
+                    
+                    [5, 10, 15, 'custom'].forEach(t => {
+                        const btn = document.getElementById("pay-tip-" + t);
+                        if (btn) {
+                            btn.className = (t === percent) ? 
+                                "border border-primary text-xs font-bold py-2 rounded-xl bg-primary text-black transition" :
+                                "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
+                        }
+                    });
+                    this.recalcPaymentTip();
+                },
+
+                selectPaymentCustomTip() {
+                    this.selectedPaymentTipPercent = 0;
+                    const customContainer = document.getElementById("payment-custom-tip-container");
+                    if (customContainer) customContainer.classList.remove("hidden");
+                    
+                    [5, 10, 15].forEach(t => {
+                        const btn = document.getElementById("pay-tip-" + t);
+                        if (btn) {
+                            btn.className = "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
+                        }
+                    });
+                    const customBtn = document.getElementById("pay-tip-custom");
+                    if (customBtn) customBtn.className = "border border-primary text-[10px] font-bold py-2 rounded-xl bg-primary text-black transition";
+                    this.recalcPaymentTip();
+                },
+
+                calculatePaymentCustomTip() {
+                    const input = document.getElementById("payment-custom-tip-input");
+                    if (input) {
+                        this.customPaymentTipAmount = parseFloat(input.value) || 0.0;
+                    }
+                    this.recalcPaymentTip();
+                },
+
+                recalcPaymentTip() {
+                    let tip = 0.0;
+                    if (this.selectedPaymentTipPercent > 0) {
+                        tip = this.currentPaymentSubtotal * (this.selectedPaymentTipPercent / 100.0);
+                    } else if (this.customPaymentTipAmount > 0) {
+                        tip = this.customPaymentTipAmount;
+                    }
+                    this.paymentTipVal = tip;
+                    
+                    const total = this.currentPaymentSubtotal + this.paymentTipVal;
+                    
+                    const subtotalEl = document.getElementById("payment-subtotal-val");
+                    if (subtotalEl) subtotalEl.textContent = this.currentPaymentSubtotal.toFixed(2) + " €";
+                    
+                    const tipEl = document.getElementById("payment-tip-val");
+                    if (tipEl) tipEl.textContent = this.paymentTipVal.toFixed(2) + " €";
+                    
+                    const totalEl = document.getElementById("payment-total-val");
+                    if (totalEl) totalEl.textContent = total.toFixed(2) + " €";
+                },
+
+                confirmPaymentRequest() {
+                    this.sendServiceRequestAPI(this.selectedPaymentType);
+                    this.closePaymentModal();
+                },
+
+                sendServiceRequestAPI(type) {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const token = urlParams.get('token') || '{{ token }}' || '';
+
+                    const payload = {
+                        type: type,
+                        table: "Tisch " + table,
+                        token: token,
+                        tip_amount: (type === 'zahlen_bar' || type === 'zahlen_karte') ? this.paymentTipVal : 0.0
+                    };
+
+                    fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-Token': token
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => {
+                        if (res.ok) {
+                            showToast("Anfrage erfolgreich an das Personal gesendet!", "success");
+                        } else {
+                            showToast("Übertragung fehlgeschlagen.", "error");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Fehler bei Service-Ruf", err);
+                        showToast("Übertragungsfehler.", "error");
+                    });
+                },
+
+                submitOrder() {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const token = urlParams.get('token') || '{{ token }}' || '';
+
+                    const payload = {
+                        table: "Tisch " + table,
+                        token: token,
+                        items: this.cart.map(i => ({
+                            product_id: i.id,
+                            name: i.name,
+                            price: i.price,
+                            quantity: i.quantity
+                        })),
+                        tip_amount: 0.0
+                    };
+
+                    fetch('/{{ slug }}/bestellen', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => {
+                        if (res.ok) {
+                            return res.json();
+                        } else if (res.status === 403) {
+                            showToast("Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.", "error");
+                            throw new Error("Expired session");
+                        } else {
+                            showToast("Übertragungsfehler bei der Bestellung.", "error");
+                            throw new Error("Network error");
+                        }
+                    })
+                    .then(data => {
+                        let myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
+                        myOrders.push(data.order_id);
+                        localStorage.setItem(`dl_orders_{{ slug }}`, JSON.stringify(myOrders));
+
+                        this.cart = [];
+                        this.closeCartModal();
+
+                        const thankyou = document.getElementById("thankyou-overlay");
+                        if (thankyou) thankyou.classList.remove("hidden");
+                    })
+                    .catch(err => console.error(err));
+                },
+
+                closeThankYou() {
+                    const thankyou = document.getElementById("thankyou-overlay");
+                    if (thankyou) thankyou.classList.add("hidden");
+                },
+
+                openLegalModal(type) {
+                    const modal = document.getElementById("legal-modal");
+                    const title = document.getElementById("legal-modal-title");
+                    const body = document.getElementById("legal-modal-body");
+
+                    if (type === 'impressum') {
+                        if (title) title.textContent = "Impressum";
+                        if (body) body.textContent = document.getElementById("impressum-content-data").textContent;
+                    } else {
+                        if (title) title.textContent = "Datenschutzerklärung";
+                        if (body) body.textContent = document.getElementById("datenschutz-content-data").textContent;
+                    }
+                    if (modal) modal.classList.remove("hidden");
+                },
+
+                closeLegalModal() {
+                    const modal = document.getElementById("legal-modal");
+                    if (modal) modal.classList.add("hidden");
+                }
+            };
+        }
+
         // Initialize default category and check for session reset
         document.addEventListener("DOMContentLoaded", () => {
             const resetSession = {% if reset_session %}true{% else %}false{% endif %};
             if (resetSession) {
                 localStorage.removeItem(`dl_orders_{{ slug }}`);
-                cart = [];
-                updateCartFloatingBar();
-            }
-
-            const firstCategory = "{{ restaurant.categories[0] if restaurant.categories else '' }}";
-            if (firstCategory) {
-                filterCategory(firstCategory);
             }
         });
     </script>

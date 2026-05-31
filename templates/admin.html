@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>{{ restaurant.name }} - Unified Admin Dashboard OS</title>
-    <!-- Tailwind and FontAwesome / Material Symbols -->
+    <!-- Tailwind and FontAwesome / Material Symbols / Alpine.js -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -47,38 +48,85 @@
         }
     </style>
 </head>
-<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col pb-24">
+<body class="bg-background text-on-surface antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
 
-    <!-- Header -->
-    <header class="flex justify-between items-center px-6 h-16 w-full fixed top-0 z-50 bg-background/90 backdrop-blur-md border-b border-outline-variant">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-black font-black text-sm">OS</div>
-            <div class="text-base font-black tracking-tight text-white flex items-center gap-2">
-                {{ restaurant.name }} <span class="text-xs text-primary font-bold bg-primary/10 px-2 py-0.5 rounded border border-primary/20">Admin Dashboard</span>
+    <!-- Hamburger button for mobile -->
+    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden fixed top-4 left-4 z-50 bg-[#141313] border border-outline-variant p-2 rounded-xl text-white flex items-center justify-center">
+        <span class="material-symbols-outlined">menu</span>
+    </button>
+
+    <!-- Sidebar Left -->
+    <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 w-64 bg-[#0c0c0e] border-r border-[#1f1f23] z-40 transform md:translate-x-0 transition-transform duration-300 flex flex-col justify-between">
+        <div class="p-6 space-y-6">
+            <!-- Brand Logo -->
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-black font-black text-sm">OS</div>
+                <div class="text-base font-black tracking-tight text-white flex flex-col leading-none">
+                    <span class="text-sm font-black">{{ restaurant.name }}</span>
+                    <span class="text-[10px] text-primary font-bold mt-0.5">Enterprise OS</span>
+                </div>
             </div>
-        </div>
-        <div class="flex items-center space-x-4">
-            <a href="/{{ slug }}?preview=true" class="text-xs text-on-surface-variant hover:text-primary transition flex items-center space-x-1">
-                <span class="material-symbols-outlined text-base">restaurant_menu</span>
-                <span class="hidden sm:inline">Vorschau</span>
-            </a>
-            <a href="/{{ slug }}/admin/logout" class="text-xs text-red-400 border border-red-950 px-3 py-1.5 rounded-full hover:border-red-500 transition-all">
-                Logout
-            </a>
-        </div>
-    </header>
 
-    <!-- Main Board -->
-    <main class="flex-grow w-full max-w-6xl mx-auto mt-20 px-6 space-y-6">
-        
-        <!-- Tab navigation bar -->
-        <nav class="flex border-b border-outline-variant overflow-x-auto no-scrollbar gap-2">
-            <button onclick="switchAdminTab('live')" id="tab-btn-live" class="whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-white transition">🎯 Live-Tische</button>
-            <button onclick="switchAdminTab('finanzen')" id="tab-btn-finanzen" class="whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-white transition">📈 Finanzen & Logs</button>
-            <button onclick="switchAdminTab('speisekarte')" id="tab-btn-speisekarte" class="whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-white transition">⏱️ Speisekarten-Steuerung</button>
-            <button onclick="switchAdminTab('personal')" id="tab-btn-personal" class="whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-white transition">👥 Personal & Profil</button>
-            <button onclick="switchAdminTab('konfiguration')" id="tab-btn-konfiguration" class="whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-white transition">⚙️ Konfiguration</button>
-        </nav>
+            <!-- Module Navigation -->
+            <nav class="space-y-1">
+                <button onclick="switchAdminTab('live')" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                    <span class="material-symbols-outlined text-lg">dashboard</span>
+                    <span>🎯 Live-Tische</span>
+                </button>
+                <button onclick="switchAdminTab('finanzen')" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                    <span class="material-symbols-outlined text-lg">analytics</span>
+                    <span>📈 Finanzen & Logs</span>
+                </button>
+                <button onclick="switchAdminTab('speisekarte')" id="tab-btn-speisekarte" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                    <span class="material-symbols-outlined text-lg">restaurant_menu</span>
+                    <span>⏱️ Speisekarte</span>
+                </button>
+                <button onclick="switchAdminTab('personal')" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                    <span class="material-symbols-outlined text-lg">badge</span>
+                    <span>👥 Personal & Profil</span>
+                </button>
+                <button onclick="switchAdminTab('konfiguration')" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                    <span class="material-symbols-outlined text-lg">settings</span>
+                    <span>⚙️ Konfiguration</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="p-6 border-t border-[#1f1f23] space-y-3">
+            <div class="flex items-center space-x-2 text-xs text-on-surface-variant bg-surface/50 border border-outline-variant p-2 rounded-xl">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="font-bold">System Status: Online</span>
+            </div>
+            <a href="/{{ slug }}/admin/logout" class="w-full flex items-center justify-center space-x-2 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-black transition-all">
+                <span class="material-symbols-outlined text-sm">logout</span>
+                <span>System Abmelden</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Content Wrapper container -->
+    <div class="flex-grow md:pl-64 flex flex-col min-w-0">
+
+        <!-- Topbar Header -->
+        <header class="flex justify-between items-center px-8 h-16 fixed top-0 left-0 md:left-64 right-0 z-30 bg-[#09090b]/80 backdrop-blur-md border-b border-[#1f1f23] pl-16 md:pl-8">
+            <!-- Breadcrumbs -->
+            <div class="flex items-center space-x-2 text-xs font-medium text-on-surface-variant">
+                <span>System</span>
+                <span class="material-symbols-outlined text-sm">chevron_right</span>
+                <span class="text-white font-bold" id="breadcrumb-current">🎯 Live-Tische</span>
+            </div>
+
+            <div class="flex items-center space-x-6">
+                <a href="/{{ slug }}?preview=true" class="text-xs text-on-surface-variant hover:text-primary transition flex items-center space-x-2 bg-[#141313] border border-outline-variant px-3 py-1.5 rounded-lg shadow-sm">
+                    <span class="material-symbols-outlined text-base">visibility</span>
+                    <span>Vorschau-Modus</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Board -->
+        <main class="flex-grow w-full max-w-6xl mx-auto mt-20 md:mt-24 px-6 md:px-8 space-y-6">
 
         <!-- ================= TAB: LIVE TISCHE ================= -->
         <div id="admin-tab-live" class="admin-tab-content space-y-6">
@@ -879,6 +927,7 @@
     </div>
 
     </main>
+    </div> <!-- Close Content Wrapper -->
 
 
 
@@ -887,12 +936,25 @@
         const slug = "{{ slug }}";
         function switchAdminTab(tabId) {
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('nav button').forEach(btn => {
-                btn.className = "whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-on-surface-variant hover:text-white transition";
+            document.querySelectorAll('aside nav button').forEach(btn => {
+                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent text-on-surface-variant text-left";
             });
 
             document.getElementById('admin-tab-' + tabId).classList.add('active');
-            document.getElementById('tab-btn-' + tabId).className = "whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 border-primary text-primary transition";
+            document.getElementById('tab-btn-' + tabId).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition bg-surface border-l-2 border-primary text-primary text-left";
+            
+            // Dynamically update Topbar Breadcrumbs
+            const tabNames = {
+                'live': '🎯 Live-Tische',
+                'finanzen': '📈 Finanzen & Logs',
+                'speisekarte': '⏱️ Speisekarte',
+                'personal': '👥 Personal & Profil',
+                'konfiguration': '⚙️ Konfiguration'
+            };
+            const breadcrumb = document.getElementById('breadcrumb-current');
+            if (breadcrumb) {
+                breadcrumb.textContent = tabNames[tabId] || tabId;
+            }
             
             sessionStorage.setItem('dl_admin_active_tab', tabId);
         }

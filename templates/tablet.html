@@ -258,82 +258,135 @@
             </div>
         </section>
 
-        <!-- FULLSCREEN OVERLAY MODAL: ORDER DETAILS AND PAYMENT COMPONENT -->
-        <section id="details-pane" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden animate-fade-in">
-            <div class="bg-[#141414] border border-outline-variant rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+        <!-- FULLSCREEN OVERLAY MODAL: UNIFIED ENTERPRISE POS SPLIT-SCREEN WORKSTATION -->
+        <section id="details-pane" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden animate-fade-in">
+            <div class="bg-[#121214] border border-outline-variant rounded-3xl w-full max-w-7xl h-[92vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
                 
-                <div class="p-6 border-b border-outline-variant bg-black/30 flex justify-between items-center flex-wrap gap-4">
-                    <div class="flex items-center gap-3 flex-wrap">
+                <!-- LEFT PANEL: TOUCH PRODUCT CATALOG (60% width on Desktop) -->
+                <div class="w-full md:w-3/5 flex flex-col h-1/2 md:h-full border-b md:border-b-0 md:border-r border-[#1f1f23] p-6 overflow-hidden">
+                    <div class="mb-4 flex justify-between items-center">
                         <div>
-                            <span class="text-[10px] uppercase font-bold text-on-surface-variant block mb-0.5">Abrechnung & Bonierung</span>
-                            <h2 id="detail-table-name" class="text-2xl font-black text-white">Tisch --</h2>
+                            <h3 class="text-base font-black text-white flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary text-xl">restaurant_menu</span>
+                                <span>Speisekarte / Produktkatalog</span>
+                            </h3>
+                            <p class="text-[11px] text-on-surface-variant mt-0.5">Tippen Sie auf Artikel, um sie dem Bon hinzuzufügen.</p>
                         </div>
-                        <button id="btn-take-order" onclick="openOrderModal()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5 active:scale-95 shrink-0">
-                            <span class="material-symbols-outlined text-base">add_circle</span>
-                            <span>Bestellung aufnehmen</span>
-                        </button>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <div class="text-right shrink-0">
-                            <span id="detail-order-id" class="text-xs font-mono text-on-surface-variant">Bon #--</span>
+                    
+                    <!-- Category Tabs (Horizontal Scrollable) -->
+                    <div id="details-category-tabs" class="flex gap-2 pb-3 overflow-x-auto shrink-0 no-scrollbar" style="scrollbar-width: none;">
+                        <!-- Categories will be rendered here dynamically -->
+                    </div>
+                    
+                    <!-- Products Grid (Scrollable) -->
+                    <div id="details-products-grid" class="flex-grow overflow-y-auto grid grid-cols-2 lg:grid-cols-3 gap-3 pr-1" style="scrollbar-width: thin;">
+                        <!-- Products will be rendered here dynamically -->
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: CHECKOUT, CART & ACTIVE ORDER (40% width on Desktop) -->
+                <div class="w-full md:w-2/5 flex flex-col h-1/2 md:h-full bg-black/35 overflow-hidden">
+                    <!-- Right Panel Header -->
+                    <div class="p-6 border-b border-[#1f1f23] bg-black/20 flex justify-between items-center shrink-0">
+                        <div>
+                            <span class="text-[9px] uppercase font-extrabold text-primary tracking-wider" id="detail-order-id">Bon #--</span>
+                            <h2 id="detail-table-name" class="text-xl font-black text-white">Tisch --</h2>
                         </div>
                         <!-- Close button -->
-                        <button onclick="closeDetailsPane()" class="text-on-surface-variant hover:text-white p-2 rounded-lg bg-surface border border-outline-variant flex items-center justify-center transition active:scale-95">
-                            <span class="material-symbols-outlined text-xl">close</span>
+                        <button onclick="closeDetailsPane()" class="text-on-surface-variant hover:text-white p-2.5 rounded-xl bg-[#141313] border border-outline-variant flex items-center justify-center transition active:scale-95">
+                            <span class="material-symbols-outlined text-lg">close</span>
                         </button>
                     </div>
-                </div>
 
-                <!-- Items list inside order -->
-                <div id="detail-item-list" class="flex-grow overflow-y-auto p-6 space-y-4" style="scrollbar-width: thin;"></div>
-
-                <!-- Totals and interactive checkout controls -->
-                <div class="p-6 border-t border-outline-variant bg-black/40 space-y-4">
-                    <!-- Confirm guest order button -->
-                    <button id="btn-confirm-order" onclick="confirmActiveOrder()" class="hidden w-full bg-amber-500 hover:bg-amber-400 text-black font-black text-sm py-4 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95 mb-2">
-                        <span class="material-symbols-outlined">check_circle</span>
-                        <span>Bestellung bestätigen & buchen</span>
-                    </button>
-
-                    <div class="flex justify-between items-center">
-                        <span id="label-total-price" class="text-sm font-bold text-on-surface-variant">Gesamtbetrag (Brutto):</span>
-                        <span id="detail-total-price" class="text-2xl font-black text-primary">0,00 €</span>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Gegebener Betrag</label>
-                            <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="w-full bg-background border border-outline-variant focus:border-primary rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right text-white">
+                    <!-- Right Panel Content: Active Items + Draft Items (Scrollable) -->
+                    <div class="flex-grow overflow-y-auto p-6 space-y-6" style="scrollbar-width: thin;">
+                        <!-- 1. Active (Already Booked) Items -->
+                        <div class="space-y-3">
+                            <h4 class="text-[10px] uppercase font-black tracking-wider text-on-surface-variant flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>Gebuchte Artikel</span>
+                            </h4>
+                            <div id="detail-item-list" class="space-y-2"></div>
                         </div>
-                        <div id="change-row" class="hidden">
-                            <span class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Rückgeld</span>
-                            <div id="detail-change-amount" class="text-xl font-black text-[#deff9a] mt-2 font-mono">0,00 €</div>
+
+                        <!-- 2. Draft (New Pending) Items -->
+                        <div id="details-draft-section" class="space-y-3 hidden">
+                            <h4 class="text-[10px] uppercase font-black tracking-wider text-amber-500 flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span>Neue Entwürfe (Ungebucht)</span>
+                            </h4>
+                            <div id="order-draft-list" class="space-y-2"></div>
                         </div>
                     </div>
 
-                    <!-- Controls grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                        <button id="btn-normal-pay" onclick="processPayment()" class="bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md">
-                            💳 Bezahlen / Paid
-                        </button>
-                        <button id="btn-start-split" onclick="startSplitMode()" class="bg-surface border border-outline-variant text-xs text-white hover:border-primary font-bold py-3.5 rounded-xl transition">
-                            ✂️ Teilzahlung
-                        </button>
-                        <button onclick="triggerStornoPrompt()" class="bg-red-950/40 border border-red-500/20 hover:bg-red-500 hover:text-black text-red-400 font-bold text-xs py-3.5 rounded-xl transition">
-                            🚫 Bon Stornieren
-                        </button>
-                    </div>
+                    <!-- Right Panel Footer: Totals & Checkout Actions -->
+                    <div class="p-6 border-t border-[#1f1f23] bg-black/40 space-y-4 shrink-0">
+                        <!-- Totals Row -->
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-on-surface-variant">Gesamtbetrag (Brutto):</span>
+                            <span id="detail-total-price" class="text-2xl font-black text-primary">0,00 €</span>
+                        </div>
 
-                    <!-- Hidden inputs/actions for partial invoice splitting -->
-                    <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-outline-variant mt-2">
-                        <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition">
-                            Teilbetrag Bar verbuchen
+                        <!-- Draft totals display (only visible when draft items exist) -->
+                        <div id="details-draft-total-row" class="hidden flex justify-between items-center text-xs text-amber-500 font-bold border-t border-dashed border-[#1f1f23] pt-2">
+                            <span>Ungebuchter Entwurf:</span>
+                            <span id="order-draft-total">0,00 €</span>
+                        </div>
+
+                        <!-- Confirm Guest Order button (for newly received orders) -->
+                        <button id="btn-confirm-order" onclick="confirmActiveOrder()" class="hidden w-full bg-amber-500 hover:bg-amber-400 text-black font-black text-sm py-3.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95">
+                            <span class="material-symbols-outlined">check_circle</span>
+                            <span>Gast-Bestellung bestätigen</span>
                         </button>
-                        <button onclick="cancelSplitMode()" class="bg-surface border border-outline-variant text-xs py-3.5 px-4 rounded-xl font-bold text-white transition">
-                            Abbrechen
+
+                        <!-- Save Draft Button (Buchen) - for newly added staff items -->
+                        <button id="btn-save-draft" onclick="saveOrderDraft()" class="hidden w-full bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95">
+                            <span class="material-symbols-outlined text-sm">send</span>
+                            <span>Neue Artikel buchen</span>
                         </button>
+
+                        <!-- Regular Checkout Form & Inputs -->
+                        <div id="checkout-payment-form" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[9px] uppercase font-bold text-on-surface-variant mb-1">Gegeben</label>
+                                    <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="w-full bg-[#0a0a0a] border border-[#1f1f23] focus:border-primary rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right text-white">
+                                </div>
+                                <div id="change-row" class="hidden">
+                                    <span class="block text-[9px] uppercase font-bold text-on-surface-variant mb-1">Rückgeld</span>
+                                    <div id="detail-change-amount" class="text-lg font-black text-primary mt-2 font-mono">0,00 €</div>
+                                </div>
+                            </div>
+
+                            <!-- Payment action buttons -->
+                            <div class="grid grid-cols-3 gap-2">
+                                <button id="btn-normal-pay" onclick="processPayment()" class="col-span-2 bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md active:scale-95">
+                                    💳 Bezahlen
+                                </button>
+                                <button id="btn-start-split" onclick="startSplitMode()" class="bg-[#141313] border border-outline-variant hover:border-primary/40 text-xs text-white font-bold py-3.5 rounded-xl transition active:scale-95">
+                                    ✂️ Split
+                                </button>
+                            </div>
+                            
+                            <!-- Storno button -->
+                            <button onclick="triggerStornoPrompt()" class="w-full bg-red-950/20 border border-red-500/10 hover:bg-red-500 hover:text-black text-red-400 font-bold text-xs py-2.5 rounded-xl transition active:scale-95">
+                                🚫 Bon Stornieren
+                            </button>
+                        </div>
+
+                        <!-- Split Payment Mode Controls -->
+                        <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-outline-variant">
+                            <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition active:scale-95">
+                                Teilbetrag verbuchen
+                            </button>
+                            <button onclick="cancelSplitMode()" class="bg-[#141313] border border-outline-variant text-xs py-3.5 px-4 rounded-xl font-bold text-white transition active:scale-95">
+                                Abbrechen
+                            </button>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </section>
     </main>
@@ -424,6 +477,17 @@
                 splitBtn.disabled = false;
                 splitBtn.classList.remove('opacity-40', 'cursor-not-allowed');
             }
+
+            // Load touch product catalog on the left of details-pane
+            currentOrderDraft = [];
+            selectedCategory = null;
+            const categories = [...new Set(allProducts.map(p => p.category))].filter(Boolean);
+            if (categories.length > 0) {
+                selectedCategory = categories[0];
+            }
+            renderDetailsCategories();
+            renderDetailsProducts();
+            updateDraftDOM();
         }
 
         function selectEmptyTable(tableNumber) {
@@ -478,6 +542,17 @@
                 splitBtn.disabled = true;
                 splitBtn.classList.add('opacity-40', 'cursor-not-allowed');
             }
+
+            // Load touch product catalog on the left of details-pane
+            currentOrderDraft = [];
+            selectedCategory = null;
+            const categories = [...new Set(allProducts.map(p => p.category))].filter(Boolean);
+            if (categories.length > 0) {
+                selectedCategory = categories[0];
+            }
+            renderDetailsCategories();
+            renderDetailsProducts();
+            updateDraftDOM();
         }
 
         function renderItemsList(order) {
@@ -1216,23 +1291,26 @@
 
         function updateDraftDOM() {
             const container = document.getElementById("order-draft-list");
+            if (!container) return;
             container.innerHTML = "";
             
+            const draftSection = document.getElementById("details-draft-section");
+            const draftTotalRow = document.getElementById("details-draft-total-row");
+            const saveDraftBtn = document.getElementById("btn-save-draft");
+            const checkoutForm = document.getElementById("checkout-payment-form");
+            
             if (currentOrderDraft.length === 0) {
-                container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center py-12 text-center text-on-surface-variant space-y-3">
-                        <span class="material-symbols-outlined text-4xl text-outline-variant">shopping_basket</span>
-                        <p class="text-xs font-medium">Der Entwurf ist leer.</p>
-                    </div>
-                `;
-                document.getElementById("order-draft-total").textContent = "0,00 €";
-                document.getElementById("btn-save-draft").disabled = true;
-                document.getElementById("btn-save-draft").classList.add("opacity-50", "cursor-not-allowed");
+                if (draftSection) draftSection.classList.add("hidden");
+                if (draftTotalRow) draftTotalRow.classList.add("hidden");
+                if (saveDraftBtn) saveDraftBtn.classList.add("hidden");
+                if (checkoutForm) checkoutForm.classList.remove("hidden");
                 return;
             }
             
-            document.getElementById("btn-save-draft").disabled = false;
-            document.getElementById("btn-save-draft").classList.remove("opacity-50", "cursor-not-allowed");
+            if (draftSection) draftSection.classList.remove("hidden");
+            if (draftTotalRow) draftTotalRow.classList.remove("hidden");
+            if (saveDraftBtn) saveDraftBtn.classList.remove("hidden");
+            if (checkoutForm) checkoutForm.classList.add("hidden");
             
             let total = 0.0;
             currentOrderDraft.forEach(item => {
@@ -1240,7 +1318,7 @@
                 total += itemTotal;
                 
                 const row = document.createElement("div");
-                row.className = "flex justify-between items-center bg-surface border border-outline-variant rounded-xl p-3";
+                row.className = "flex justify-between items-center bg-[#1e1e21] border border-outline-variant rounded-xl p-3";
                 row.innerHTML = `
                     <div class="flex-grow pr-3 truncate">
                         <h5 class="text-xs font-black text-white truncate">${item.name}</h5>
@@ -1248,11 +1326,10 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="flex items-center bg-background border border-outline-variant rounded-lg p-0.5">
-                            <button onclick="changeDraftQty(${item.product_id}, -1)" class="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-white font-bold transition">-</button>
-                            <span class="text-xs font-bold text-white px-2 font-mono">${item.quantity}</span>
-                            <button onclick="changeDraftQty(${item.product_id}, 1)" class="w-5 h-5 flex items-center justify-center text-on-surface-variant hover:text-white font-bold transition">+</button>
+                            <button onclick="changeDraftQty(${item.product_id}, -1)" class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-white rounded active:scale-95 font-bold transition">-</button>
+                            <span class="px-2 text-xs font-black text-white font-mono min-w-[20px] text-center">${item.quantity}</span>
+                            <button onclick="changeDraftQty(${item.product_id}, 1)" class="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-white rounded active:scale-95 font-bold transition">+</button>
                         </div>
-                        <span class="text-xs font-mono font-black text-primary w-16 text-right">${itemTotal.toFixed(2)} €</span>
                     </div>
                 `;
                 container.appendChild(row);
@@ -1264,6 +1341,57 @@
             if (countBadge) {
                 countBadge.textContent = totalCount;
             }
+        }
+
+        function renderDetailsCategories() {
+            const container = document.getElementById("details-category-tabs");
+            if (!container) return;
+            container.innerHTML = "";
+            
+            const categories = [...new Set(allProducts.map(p => p.category))].filter(Boolean);
+            categories.forEach(cat => {
+                const isSelected = cat === selectedCategory;
+                const btn = document.createElement("button");
+                btn.className = `px-4 py-2 rounded-xl text-xs font-black transition shrink-0 whitespace-nowrap active:scale-95 ${
+                    isSelected 
+                        ? "bg-primary text-black" 
+                        : "bg-surface border border-outline-variant text-on-surface-variant hover:text-white"
+                }`;
+                btn.textContent = cat;
+                btn.onclick = () => {
+                    selectedCategory = cat;
+                    renderDetailsCategories();
+                    renderDetailsProducts();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderDetailsProducts() {
+            const container = document.getElementById("details-products-grid");
+            if (!container) return;
+            container.innerHTML = "";
+            
+            const filtered = allProducts.filter(p => p.category === selectedCategory && p.is_available !== false);
+            filtered.forEach(p => {
+                const btn = document.createElement("button");
+                btn.className = "bg-surface border border-outline-variant hover:border-primary/40 rounded-2xl p-4 text-left flex flex-col justify-between h-28 active:scale-95 transition-all shadow-sm";
+                btn.onclick = () => addProductToDraft(p.id, p.name, p.price, p.category_type);
+                
+                btn.innerHTML = `
+                    <div>
+                        <h5 class="text-xs font-black text-white leading-tight line-clamp-2">${p.name}</h5>
+                        <span class="text-[10px] text-on-surface-variant mt-1 block">${p.category}</span>
+                    </div>
+                    <div class="flex justify-between items-end mt-2">
+                        <span class="text-xs font-mono font-black text-primary">${p.price.toFixed(2)} €</span>
+                        <div class="w-6 h-6 bg-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary hover:text-black transition">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(btn);
+            });
         }
 
         function saveOrderDraft() {
