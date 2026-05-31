@@ -76,51 +76,707 @@ async def tenant_suspended_handler(request: Request, exc: TenantSuspendedExcepti
 # ----------------------------------------------------
 # DATABASE INTEGRATION
 # ----------------------------------------------------
+from sqlalchemy.orm import Session
 from database import (
     Tenant, 
     Category, 
     Product, 
     Order, 
-    OrderItem, 
+    OrderItem as DBOrderItem, 
     Staff, 
     ServiceCall, 
     Table, 
     AuditLog,
-    RestaurantsProxy,
-    restaurants,
     SessionLocal,
-    save_restaurant_to_db,
-    get_restaurant,
     STANDARD_PRODUCTS,
-    INITIAL_RESTAURANTS,
-    _global_restaurants_cache
+    get_db
 )
 
-@app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
-    response = await call_next(request)
+INITIAL_RESTAURANTS = {}
+
+# Stateless Serialization Helpers for compatibility and template rendering
+def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
+    tenant = session.query(Tenant).filter_by(slug=slug).first()
+    if not tenant:
+        return None
     
-    def save_cache_sync():
+    categories = [c.name for c in session.query(Category).filter_by(tenant_slug=slug).order_by(Category.id).all()]
+    
+    db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.id).all()
+    products = []
+    for p in db_products:
+        products.append({
+            "id": p.id,
+            "name": p.name,
+            "price": p.price,
+            "description": p.description,
+            "image": p.image,
+            "vegan": p.vegan,
+            "is_vegan": p.is_vegan,
+            "is_glutenfree": p.is_glutenfree,
+            "allergens": json.loads(p.allergens or "[]"),
+            "category_type": p.category_type,
+            "category": p.category,
+            "is_available": p.is_available,
+            "happy_hour_price": p.happy_hour_price,
+            "start_time": p.start_time,
+            "end_time": p.end_time
+        })
+        
+    db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id).all()
+    orders = []
+    for o in db_orders:
+        db_items = session.query(DBOrderItem).filter_by(order_id=o.id).order_by(DBOrderItem.id).all() if hasattr(o, "id") else []
+        items = [{
+            "product_id": item.product_id,
+            "name": item.name,
+            "price": item.price,
+            "quantity": item.quantity,
+            "category_type": item.category_type
+        } for item in db_items]
+        orders.append({
+            "id": o.id,
+            "table": o.table,
+            "items": items,
+            "total": o.total,
+            "total_with_tip": o.total_with_tip,
+            "tip_amount": o.tip_amount,
+            "status": o.status,
+            "timestamp": o.timestamp,
+            "mwst_rate": o.mwst_rate,
+            "waiter_id": o.waiter_id
+        })
+        
+    db_staff = session.query(Staff).filter_by(tenant_slug=slug).order_by(Staff.id).all()
+    staff = [{
+        "name": s.name,
+        "role": s.role,
+        "pin": s.pin,
+        "pin_code": s.pin_code
+    } for s in db_staff]
+    
+    db_calls = session.query(ServiceCall).filter_by(tenant_slug=slug).order_by(ServiceCall.id).all()
+    service_calls = [{
+        "id": c.id,
+        "table": c.table,
+        "type": c.type,
+        "timestamp": c.timestamp
+    } for c in db_calls]
+    
+    db_tables = session.query(Table).filter_by(tenant_slug=slug).order_by(Table.id).all()
+    tables = [{
+        "number": t.number,
+        "zone": t.zone,
+        "security_token": t.security_token
+    } for t in db_tables]
+    
+    db_logs = session.query(AuditLog).filter_by(tenant_slug=slug).order_by(AuditLog.id).all()
+    audit_log = [{
+        "id": l.id,
+        "action": l.action,
+        "timestamp": l.timestamp,
+        "user": l.user,
+        "details": l.details
+    } for l in db_logs]
+    
+    return {
+        "name": tenant.name,
+        "email": tenant.email,
+        "password": tenant.password,
+        "tagesumsatz": tenant.tagesumsatz,
+        "bestellungen_gesamt": tenant.bestellungen_gesamt,
+        "active": tenant.active,
+        "is_onboarded": tenant.is_onboarded,
+        "is_setup_completed": tenant.is_setup_completed,
+        "logo_path": tenant.logo_path,
+        "has_kitchen": tenant.has_kitchen,
+        "is_shishabar": tenant.is_shishabar,
+        "impressum_content": tenant.impressum_content,
+        "datenschutz_content": tenant.datenschutz_content,
+        "security_token": tenant.security_token,
+        "pos_token": tenant.pos_token,
+        "pos_secret": tenant.pos_secret,
+        "kds_secret": tenant.kds_secret,
+        "service_calls": service_calls,
+        "categories": categories,
+        "products": products,
+        "orders": orders,
+        "staff": staff,
+        "branding": {
+            "address": tenant.address,
+            "indigo": tenant.indigo,
+            "instagram": tenant.instagram,
+            "facebook": tenant.facebook,
+            "logo_url": tenant.logo_url
+        },
+        "happy_hour": {
+            "days": json.loads(tenant.happy_hour_days or "[]"),
+            "start": tenant.happy_hour_start,
+            "end": tenant.happy_hour_end,
+            "discount": tenant.happy_hour_discount
+        },
+        "tables": tables,
+        "audit_log": audit_log
+    }
+
+def unwrap_live_data(val):
+    from collections import UserList, UserDict
+    cls_name = val.__class__.__name__
+    if cls_name == "LiveListProxy" or isinstance(val, UserList):
+        raw_list = val.data if hasattr(val, "data") else list(val)
+        return [unwrap_live_data(item) for item in raw_list]
+    elif cls_name == "LiveDictProxy" or isinstance(val, UserDict):
+        raw_dict = val.data if hasattr(val, "data") else dict(val)
+        return {k: unwrap_live_data(v) for k, v in raw_dict.items()}
+    elif isinstance(val, list):
+        return [unwrap_live_data(item) for item in val]
+    elif isinstance(val, dict):
+        return {k: unwrap_live_data(v) for k, v in val.items()}
+    return val
+
+def save_restaurant_to_db(slug: str, r: dict, session):
+    tenant = session.query(Tenant).filter_by(slug=slug).first()
+    if not tenant:
+        tenant = Tenant(slug=slug)
+        session.add(tenant)
+    
+    tenant.name = r.get("name")
+    tenant.email = r.get("email")
+    tenant.password = r.get("password")
+    tenant.tagesumsatz = r.get("tagesumsatz", 0.0)
+    tenant.bestellungen_gesamt = r.get("bestellungen_gesamt", 0)
+    tenant.active = r.get("active", True)
+    tenant.is_onboarded = r.get("is_onboarded", False)
+    tenant.is_setup_completed = r.get("is_setup_completed", False)
+    tenant.logo_path = r.get("logo_path", None)
+    tenant.has_kitchen = r.get("has_kitchen", False)
+    tenant.is_shishabar = r.get("is_shishabar", False)
+    tenant.impressum_content = r.get("impressum_content", "")
+    tenant.datenschutz_content = r.get("datenschutz_content", "")
+    tenant.security_token = r.get("security_token", "")
+    tenant.pos_token = r.get("pos_token")
+    tenant.pos_secret = r.get("pos_secret")
+    tenant.kds_secret = r.get("kds_secret")
+    
+    branding = r.get("branding", {})
+    tenant.address = branding.get("address", "")
+    tenant.indigo = branding.get("indigo", "")
+    tenant.instagram = branding.get("instagram", "")
+    tenant.facebook = branding.get("facebook", "")
+    tenant.logo_url = branding.get("logo_url", "")
+    
+    hh = r.get("happy_hour", {})
+    tenant.happy_hour_days = json.dumps(unwrap_live_data(hh.get("days", [])))
+    tenant.happy_hour_start = hh.get("start", "18:00")
+    tenant.happy_hour_end = hh.get("end", "20:00")
+    tenant.happy_hour_discount = hh.get("discount", 0)
+    
+    session.flush()
+    # 1. Update categories
+    session.query(Category).filter_by(tenant_slug=slug).delete()
+    for cat_name in r.get("categories", []):
+        session.add(Category(tenant_slug=slug, name=cat_name))
+        
+    # 2. Update products
+    existing_products = {p.id: p for p in session.query(Product).filter_by(tenant_slug=slug).all()}
+    seen_product_ids = set()
+    for p in r.get("products", []):
+        p_id = p.get("id")
+        if p_id and p_id in existing_products:
+            db_p = existing_products[p_id]
+            seen_product_ids.add(p_id)
+        else:
+            db_p = Product(tenant_slug=slug)
+            session.add(db_p)
+            
+        db_p.name = p.get("name")
+        db_p.price = p.get("price")
+        db_p.description = p.get("description", "")
+        db_p.image = p.get("image", "")
+        db_p.vegan = p.get("vegan", False)
+        db_p.is_vegan = p.get("is_vegan", False)
+        db_p.is_glutenfree = p.get("is_glutenfree", False)
+        db_p.allergens = json.dumps(unwrap_live_data(p.get("allergens", [])))
+        db_p.category_type = p.get("category_type", "küche")
+        db_p.category = p.get("category", "")
+        db_p.is_available = p.get("is_available", True)
+        db_p.happy_hour_price = p.get("happy_hour_price")
+        db_p.start_time = p.get("start_time")
+        db_p.end_time = p.get("end_time")
+        
+        if db_p.id is None:
+            session.flush()
+            p["id"] = db_p.id
+            seen_product_ids.add(db_p.id)
+        
+    for pid, db_p in existing_products.items():
+        if pid not in seen_product_ids:
+            session.delete(db_p)
+            
+    # 3. Update orders
+    existing_orders = {o.id: o for o in session.query(Order).filter_by(tenant_slug=slug).all()}
+    seen_order_ids = set()
+    for o in r.get("orders", []):
+        o_id = o.get("id")
+        if o_id and o_id in existing_orders:
+            db_o = existing_orders[o_id]
+            seen_order_ids.add(o_id)
+        else:
+            db_o = Order(tenant_slug=slug)
+            session.add(db_o)
+            
+        db_o.table = o.get("table")
+        db_o.total = o.get("total", 0.0)
+        db_o.total_with_tip = o.get("total_with_tip", 0.0)
+        db_o.tip_amount = o.get("tip_amount", 0.0)
+        db_o.status = o.get("status", "eingegangen")
+        db_o.timestamp = o.get("timestamp")
+        db_o.mwst_rate = o.get("mwst_rate", 19)
+        db_o.waiter_id = o.get("waiter_id")
+        
+        if db_o.id is None:
+            session.flush()
+            o["id"] = db_o.id
+            seen_order_ids.add(db_o.id)
+            
+        session.query(DBOrderItem).filter_by(order_id=db_o.id).delete()
+        for item in o.get("items", []):
+            db_item = DBOrderItem(
+                order_id=db_o.id,
+                product_id=item.get("product_id"),
+                name=item.get("name"),
+                price=item.get("price"),
+                quantity=item.get("quantity"),
+                category_type=item.get("category_type", "küche")
+            )
+            session.add(db_item)
+            
+    for oid, db_o in existing_orders.items():
+        if oid not in seen_order_ids:
+            session.delete(db_o)
+            
+    # 4. Update staff
+    session.query(Staff).filter_by(tenant_slug=slug).delete()
+    for s in r.get("staff", []):
+        db_s = Staff(
+            tenant_slug=slug,
+            name=s.get("name"),
+            role=s.get("role"),
+            pin=s.get("pin"),
+            pin_code=s.get("pin_code")
+        )
+        session.add(db_s)
+        
+    # 5. Update service calls
+    existing_calls = {c.id: c for c in session.query(ServiceCall).filter_by(tenant_slug=slug).all()}
+    seen_call_ids = set()
+    for c in r.get("service_calls", []):
+        c_id = c.get("id")
+        if c_id and c_id in existing_calls:
+            db_c = existing_calls[c_id]
+            seen_call_ids.add(c_id)
+        else:
+            db_c = ServiceCall(tenant_slug=slug)
+            session.add(db_c)
+            
+        db_c.table = c.get("table")
+        db_c.type = c.get("type")
+        db_c.timestamp = c.get("timestamp", "")
+        
+        if db_c.id is None:
+            session.flush()
+            c["id"] = db_c.id
+            seen_call_ids.add(db_c.id)
+            
+    for cid, db_c in existing_calls.items():
+        if cid not in seen_call_ids:
+            session.delete(db_c)
+        
+    # 6. Update tables
+    session.query(Table).filter_by(tenant_slug=slug).delete()
+    for t in r.get("tables", []):
+        tok = t.get("security_token")
+        if not tok:
+            import secrets
+            tok = secrets.token_hex(4)
+        db_t = Table(
+            tenant_slug=slug,
+            number=t.get("number"),
+            zone=t.get("zone"),
+            security_token=tok
+        )
+        session.add(db_t)
+        
+    # 7. Update audit log
+    session.query(AuditLog).filter_by(tenant_slug=slug).delete()
+    for l in r.get("audit_log", []):
+        db_l = AuditLog(
+            tenant_slug=slug,
+            action=l.get("action"),
+            timestamp=l.get("timestamp"),
+            user=l.get("user"),
+            details=l.get("details")
+        )
+        session.add(db_l)
+
+def ensure_tenant_seeded(slug: str, db) -> Tenant:
+    slug_lower = slug.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        return tenant
+        
+    tenant = Tenant(
+        slug=slug_lower,
+        name=slug.replace("-", " ").title(),
+        email=f"admin@{slug_lower}.de",
+        password="password123",
+        tagesumsatz=0.0,
+        bestellungen_gesamt=0,
+        active=True,
+        is_onboarded=False,
+        is_setup_completed=False,
+        impressum_content=(
+            "Impressum\n"
+            "Angaben gemäß § 5 TMG\n\n"
+            "[Vorname Nachname / Firmenname]\n"
+            "[Straße und Hausnummer]\n"
+            "[PLZ Ort]\n\n"
+            "Kontakt:\n"
+            "Telefon: [+49 ...]\n"
+            "E-Mail: [info@beispiel.de]\n\n"
+            "Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV:\n"
+            "[Vorname Nachname]\n"
+            "[Adresse wie oben]\n\n"
+            "Haftungsausschluss:\n"
+            "Die Inhalte dieser Seite wurden mit größter Sorgfalt erstellt. "
+            "Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte "
+            "können wir jedoch keine Gewähr übernehmen."
+        ),
+        datenschutz_content=(
+            "Datenschutzerklärung\n\n"
+            "1. Datenschutz auf einen Blick\n"
+            "Die folgenden Hinweise geben einen einfachen Überblick darüber, "
+            "was mit Ihren personenbezogenen Daten passiert, wenn Sie unsere "
+            "Website besuchen.\n\n"
+            "2. Verantwortliche Stelle\n"
+            "Verantwortlich für die Datenverarbeitung auf dieser Website:\n"
+            "[Name / Firmenname]\n"
+            "[Adresse]\n"
+            "E-Mail: [info@beispiel.de]\n\n"
+            "3. Erhebung und Speicherung personenbezogener Daten\n"
+            "Beim Besuch unserer Website werden automatisch Informationen "
+            "allgemeiner Natur erfasst (Server-Logfiles). Diese Daten enthalten "
+            "keine personenbezogenen Daten und werden nicht mit anderen "
+            "Datenquellen zusammengeführt.\n\n"
+            "4. Ihre Rechte\n"
+            "Sie haben das Recht auf Auskunft, Berichtigung, Löschung und "
+            "Einschränkung der Verarbeitung Ihrer gespeicherten Daten. "
+            "Wenden Sie sich hierfür an: [E-Mail-Adresse]\n\n"
+            "5. Cookies\n"
+            "Diese Website verwendet ausschließlich technisch notwendige Cookies "
+            "für den Betrieb des Bestellsystems. Es werden keine Tracking- oder "
+            "Werbe-Cookies eingesetzt.\n\n"
+            "[Bitte passen Sie diesen Text an Ihre individuellen Gegebenheiten an "
+            "und lassen Sie ihn von einem Rechtsanwalt prüfen.]"
+        ),
+        security_token=f"{slug_lower}2026",
+        logo_url="/static/images/digigastrologo.jpeg",
+        happy_hour_days="[]",
+        happy_hour_start="18:00",
+        happy_hour_end="20:00",
+        happy_hour_discount=0
+    )
+    db.add(tenant)
+    db.flush()
+    
+    for cat_name in ["Drinks", "Desserts"]:
+        db.add(Category(tenant_slug=slug_lower, name=cat_name))
+        
+    for p in copy.deepcopy(STANDARD_PRODUCTS):
+        db_p = Product(
+            tenant_slug=slug_lower,
+            name=p["name"],
+            price=p["price"],
+            description=p.get("description", ""),
+            image=p.get("image", ""),
+            vegan=p.get("vegan", False),
+            is_vegan=p.get("is_vegan", False),
+            is_glutenfree=p.get("is_glutenfree", False),
+            allergens=json.dumps(p.get("allergens", [])),
+            category_type=p.get("category_type", "küche"),
+            category=p.get("category", ""),
+            is_available=p.get("is_available", True),
+            happy_hour_price=p.get("happy_hour_price"),
+            start_time=p.get("start_time"),
+            end_time=p.get("end_time")
+        )
+        db.add(db_p)
+        
+    db.add(Product(
+        tenant_slug=slug_lower,
+        name="Klassische Shisha",
+        price=12.00,
+        description="Premium traditional shisha.",
+        image="https://images.unsplash.com/photo-1527137341206-1a2ab818aa6a?auto=format&fit=crop&q=80&w=400",
+        vegan=True,
+        is_vegan=True,
+        is_glutenfree=True,
+        allergens="[]",
+        category_type="shisha",
+        category="Shisha",
+        is_available=True
+    ))
+    db.commit()
+    return tenant
+
+def get_restaurant(slug: str, db, create_if_missing: bool = False) -> Optional[dict]:
+    slug_lower = slug.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant is not None:
+        return load_restaurant_from_db(slug_lower, db)
+    if not create_if_missing and slug_lower != "demo":
+        return None
+    ensure_tenant_seeded(slug_lower, db)
+    return load_restaurant_from_db(slug_lower, db)
+
+from collections import UserList, UserDict
+
+def wrap_live_data(slug, path, val):
+    if isinstance(val, list) and not isinstance(val, LiveListProxy):
+        return LiveListProxy(slug, path)
+    elif isinstance(val, dict) and not isinstance(val, LiveDictProxy):
+        return LiveDictProxy(slug, path)
+    return val
+
+class LiveListProxy(UserList):
+    def __init__(self, slug, path):
+        self.slug = slug
+        self.path = path
+        super().__init__()
+
+    @property
+    def data(self):
         db = SessionLocal()
         try:
-            for slug, r_dict in list(_global_restaurants_cache.items()):
-                save_restaurant_to_db(slug, r_dict, db)
+            full_data = load_restaurant_from_db(self.slug, db) or {}
+            curr = full_data
+            for key in self.path:
+                if isinstance(curr, dict):
+                    curr = curr.get(key, [])
+                elif isinstance(curr, list) and isinstance(key, int):
+                    if 0 <= key < len(curr):
+                        curr = curr[key]
+                    else:
+                        curr = []
+                else:
+                    curr = []
+            return [wrap_live_data(self.slug, self.path + [i], item) for i, item in enumerate(curr)]
+        finally:
+            db.close()
+
+    @data.setter
+    def data(self, value):
+        pass
+
+    def append(self, value):
+        db = SessionLocal()
+        try:
+            full_data = load_restaurant_from_db(self.slug, db) or {}
+            curr = full_data
+            for key in self.path[:-1]:
+                if isinstance(curr, dict):
+                    curr = curr.get(key, {})
+                elif isinstance(curr, list) and isinstance(key, int):
+                    curr = curr[key]
+            curr[self.path[-1]].append(value)
+            save_restaurant_to_db(self.slug, full_data, db)
             db.commit()
-        except Exception as e:
-            print(f"Error saving database cache: {e}")
-            db.rollback()
+        finally:
+            db.close()
+
+    def remove(self, value):
+        db = SessionLocal()
+        try:
+            full_data = load_restaurant_from_db(self.slug, db) or {}
+            curr = full_data
+            for key in self.path[:-1]:
+                if isinstance(curr, dict):
+                    curr = curr.get(key, {})
+                elif isinstance(curr, list) and isinstance(key, int):
+                    curr = curr[key]
+            curr[self.path[-1]].remove(value)
+            save_restaurant_to_db(self.slug, full_data, db)
+            db.commit()
+        finally:
+            db.close()
+
+class LiveDictProxy(UserDict):
+    def __init__(self, slug, path):
+        self.slug = slug
+        self.path = path
+        super().__init__()
+
+    @property
+    def data(self):
+        db = SessionLocal()
+        try:
+            tenant = db.query(Tenant).filter_by(slug=self.slug).first()
+            if not tenant:
+                ensure_tenant_seeded(self.slug, db)
+            full_data = load_restaurant_from_db(self.slug, db) or {}
+            curr = full_data
+            for key in self.path:
+                if isinstance(curr, dict):
+                    curr = curr.get(key, {})
+                elif isinstance(curr, list) and isinstance(key, int):
+                    if 0 <= key < len(curr):
+                        curr = curr[key]
+                    else:
+                        curr = {}
+                else:
+                    curr = {}
+            return {k: wrap_live_data(self.slug, self.path + [k], v) for k, v in curr.items()}
+        finally:
+            db.close()
+
+    @data.setter
+    def data(self, value):
+        pass
+
+    def __setitem__(self, key, value):
+        db = SessionLocal()
+        try:
+            full_data = load_restaurant_from_db(self.slug, db) or {}
+            curr = full_data
+            for path_key in self.path:
+                if isinstance(curr, dict):
+                    curr = curr[path_key]
+                elif isinstance(curr, list) and isinstance(path_key, int):
+                    curr = curr[path_key]
+            curr[key] = value
+            save_restaurant_to_db(self.slug, full_data, db)
+            db.commit()
+        finally:
+            db.close()
+
+    def __delitem__(self, key):
+        db = SessionLocal()
+        try:
+            full_data = load_restaurant_from_db(self.slug, db) or {}
+            curr = full_data
+            for path_key in self.path:
+                if isinstance(curr, dict):
+                    curr = curr[path_key]
+                elif isinstance(curr, list) and isinstance(path_key, int):
+                    curr = curr[path_key]
+            if key in curr:
+                del curr[key]
+            save_restaurant_to_db(self.slug, full_data, db)
+            db.commit()
+        finally:
+            db.close()
+
+class TenantDictProxy(LiveDictProxy):
+    def __init__(self, slug):
+        super().__init__(slug, [])
+
+class RestaurantsProxy(UserDict):
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def data(self):
+        db = SessionLocal()
+        try:
+            slugs = [t.slug for t in db.query(Tenant.slug).all()]
+            return {slug: TenantDictProxy(slug) for slug in slugs}
+        finally:
+            db.close()
+
+    @data.setter
+    def data(self, value):
+        pass
+
+    def __getitem__(self, slug):
+        return TenantDictProxy(slug)
+
+    def __setitem__(self, slug, value):
+        slug_lower = slug.lower().strip()
+        db = SessionLocal()
+        try:
+            save_restaurant_to_db(slug_lower, value, db)
+            db.commit()
         finally:
             db.close()
             
-    from anyio.to_thread import run_sync
-    try:
-        await run_sync(save_cache_sync)
-    except Exception as e:
-        print(f"Failed to save database cache in middleware: {e}")
-    return response
+    def __contains__(self, slug):
+        slug_lower = slug.lower().strip()
+        db = SessionLocal()
+        try:
+            tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+            return tenant is not None
+        finally:
+            db.close()
+            
+    def get(self, slug, default=None):
+        slug_lower = slug.lower().strip()
+        if slug_lower in self:
+            return self[slug_lower]
+        return default
+        
+    def keys(self):
+        db = SessionLocal()
+        try:
+            return [t.slug for t in db.query(Tenant.slug).all()]
+        finally:
+            db.close()
+            
+    def values(self):
+        db = SessionLocal()
+        try:
+            slugs = [t.slug for t in db.query(Tenant.slug).all()]
+            return [self[slug] for slug in slugs]
+        finally:
+            db.close()
+            
+    def items(self):
+        db = SessionLocal()
+        try:
+            slugs = [t.slug for t in db.query(Tenant.slug).all()]
+            return [(slug, self[slug]) for slug in slugs]
+        finally:
+            db.close()
+            
+    def clear(self):
+        db = SessionLocal()
+        try:
+            db.query(AuditLog).delete()
+            db.query(Table).delete()
+            db.query(ServiceCall).delete()
+            db.query(Staff).delete()
+            db.query(DBOrderItem).delete()
+            db.query(Order).delete()
+            db.query(Product).delete()
+            db.query(Category).delete()
+            db.query(Tenant).delete()
+            db.commit()
+        finally:
+            db.close()
+            
+    def update(self, other_dict):
+        db = SessionLocal()
+        try:
+            for slug, r_val in other_dict.items():
+                slug_lower = slug.lower().strip()
+                save_restaurant_to_db(slug_lower, r_val, db)
+            db.commit()
+        finally:
+            db.close()
 
-def get_restaurant_or_raise(slug: str):
-    r = get_restaurant(slug)
+restaurants = RestaurantsProxy()
+
+def get_restaurant_or_raise(slug: str, db):
+    r = get_restaurant(slug, db)
     if r is None:
         raise HTTPException(status_code=404, detail="Dieses Restaurant existiert nicht.")
     if not r.get("active", True):
@@ -170,23 +826,23 @@ class ProductUpdatePayload(BaseModel):
     category: str
 
 @app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
+async def read_root(request: Request, db: Session = Depends(get_db)):
     if os.getenv("PYTEST_CURRENT_TEST"):
         return RedirectResponse(url="/demo", status_code=307)
     return templates.TemplateResponse(request=request, name="landing.html")
 
 @app.get("/impressum", response_class=HTMLResponse)
-def platform_impressum(request: Request):
+def platform_impressum(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request=request, name="landing.html", context={"show_impressum": True})
 
 @app.get("/datenschutz", response_class=HTMLResponse)
-def platform_datenschutz(request: Request):
+def platform_datenschutz(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request=request, name="landing.html", context={"show_datenschutz": True})
 
 
 
 @app.get("/login", response_class=HTMLResponse)
-def global_login_get(request: Request):
+def global_login_get(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request=request, name="landing.html", context={"show_login": True})
 
 @app.post("/login")
@@ -194,7 +850,7 @@ def global_login_post(
     request: Request,
     email: str = Form(...),
     password: str = Form(...)
-):
+, db: Session = Depends(get_db)):
     db = SessionLocal()
     try:
         tenant = db.query(Tenant).filter_by(email=email.strip()).first()
@@ -224,7 +880,7 @@ def global_login_post(
 # ==========================================
 
 @app.get("/digi-gastro-admin")
-def get_global_admin(request: Request, error: Optional[str] = None, success: Optional[str] = None):
+def get_global_admin(request: Request, error: Optional[str] = None, success: Optional[str] = None, db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         return RedirectResponse(url="/digi-gastro-admin/login")
@@ -251,14 +907,14 @@ def get_global_admin(request: Request, error: Optional[str] = None, success: Opt
     )
 
 @app.get("/digi-gastro-admin/login", response_class=HTMLResponse)
-def get_global_login(request: Request):
+def get_global_login(request: Request, db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if session_cookie == "admin@digi-gastro.de":
         return RedirectResponse(url="/digi-gastro-admin")
     return templates.TemplateResponse(request=request, name="global_login.html", context={"error": None})
 
 @app.post("/digi-gastro-admin/login")
-def post_global_login(request: Request, response: Response, email: str = Form(...), password: str = Form(...)):
+def post_global_login(request: Request, response: Response, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     if email == "admin@digi-gastro.de" and password == ADMIN_PASSWORD:
         resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
         resp.set_cookie(key="session_global", value=email, httponly=True)
@@ -266,13 +922,13 @@ def post_global_login(request: Request, response: Response, email: str = Form(..
     return templates.TemplateResponse(request=request, name="global_login.html", context={"error": "Ungültige E-Mail-Adresse oder Passwort."})
 
 @app.get("/digi-gastro-admin/logout")
-def get_global_logout(response: Response):
+def get_global_logout(response: Response, db: Session = Depends(get_db)):
     resp = RedirectResponse(url="/digi-gastro-admin/login")
     resp.delete_cookie(key="session_global")
     return resp
 
 @app.post("/digi-gastro-admin/tenant-erstellen")
-def post_tenant_erstellen(request: Request, name: str = Form(...), slug: str = Form(...)):
+def post_tenant_erstellen(request: Request, name: str = Form(...), slug: str = Form(...), db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         raise HTTPException(status_code=403, detail="Kein Zugriff")
@@ -288,18 +944,21 @@ def post_tenant_erstellen(request: Request, name: str = Form(...), slug: str = F
     generated_email = f"{slug_lower}@digi-gastro.de"
     generated_pw = f"Gastro-{random.randint(1000, 9999)}!"
     
-    tenant = get_restaurant(slug_lower, create_if_missing=True)
+    tenant = get_restaurant(slug_lower, db, create_if_missing=True)
     tenant["name"] = name.strip()
     tenant["email"] = generated_email
     tenant["password"] = generated_pw
     tenant["is_setup_completed"] = False
     tenant["is_onboarded"] = False
     
+    save_restaurant_to_db(slug_lower, tenant, db)
+    db.commit()
+    
     success_msg = f"Konto erfolgreich erstellt! <br><b>Login:</b> {slug_lower}@digi-gastro.de <br><b>Passwort:</b> {generated_pw}"
     return RedirectResponse(url=f"/digi-gastro-admin?success={urllib.parse.quote(success_msg)}", status_code=303)
 
 @app.post("/digi-gastro-admin/tenant-reset-password/{slug_key}")
-def post_tenant_reset_password(request: Request, slug_key: str):
+def post_tenant_reset_password(request: Request, slug_key: str, db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         raise HTTPException(status_code=403, detail="Kein Zugriff")
@@ -314,11 +973,14 @@ def post_tenant_reset_password(request: Request, slug_key: str):
     tenant = restaurants[slug_lower]
     tenant["password"] = new_pw
     
+    save_restaurant_to_db(slug_lower, tenant, db)
+    db.commit()
+    
     success_msg = f"Passwort für <b>{tenant.get('name')}</b> erfolgreich zurückgesetzt.<br><b>Neues Passwort:</b> {new_pw}"
     return RedirectResponse(url=f"/digi-gastro-admin?success={urllib.parse.quote(success_msg)}", status_code=303)
 
 @app.post("/digi-gastro-admin/tenant-edit-name/{slug_key}")
-def post_tenant_edit_name(request: Request, slug_key: str, name: str = Form(...)):
+def post_tenant_edit_name(request: Request, slug_key: str, name: str = Form(...), db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         raise HTTPException(status_code=403, detail="Kein Zugriff")
@@ -331,11 +993,14 @@ def post_tenant_edit_name(request: Request, slug_key: str, name: str = Form(...)
     old_name = tenant.get("name")
     tenant["name"] = name.strip()
     
+    save_restaurant_to_db(slug_lower, tenant, db)
+    db.commit()
+    
     success_msg = f"Name von <b>{old_name}</b> in <b>{name.strip()}</b> geändert."
     return RedirectResponse(url=f"/digi-gastro-admin?success={urllib.parse.quote(success_msg)}", status_code=303)
 
 @app.post("/digi-gastro-admin/tenant-toggle/{slug_key}")
-def post_tenant_toggle(request: Request, slug_key: str):
+def post_tenant_toggle(request: Request, slug_key: str, db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         raise HTTPException(status_code=403, detail="Kein Zugriff")
@@ -343,7 +1008,10 @@ def post_tenant_toggle(request: Request, slug_key: str):
     slug_lower = slug_key.lower().strip()
     if slug_lower in restaurants:
         current_status = restaurants[slug_lower].get("active", True)
-        restaurants[slug_lower]["active"] = not current_status
+        tenant = restaurants[slug_lower]
+        tenant["active"] = not current_status
+        save_restaurant_to_db(slug_lower, tenant, db)
+        db.commit()
         
     return RedirectResponse(url="/digi-gastro-admin", status_code=303)
 
@@ -353,13 +1021,13 @@ def post_tenant_toggle(request: Request, slug_key: str):
 # ==========================================
 
 @app.get("/{slug}/sitz-expired", response_class=HTMLResponse)
-def get_expired(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_expired(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     return templates.TemplateResponse(request=request, name="expired.html", context={"restaurant": restaurant, "slug": slug})
 
 @app.get("/{slug}/orders/status")
-def get_orders_status(slug: str, ids: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_orders_status(slug: str, ids: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     try:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
     except Exception:
@@ -378,8 +1046,8 @@ def get_orders_status(slug: str, ids: str):
     return {"orders": res}
 
 @app.get("/{slug}", response_class=HTMLResponse)
-def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None):
-    restaurant = get_restaurant_or_raise(slug)
+def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("impressum_content"):
         restaurant["impressum_content"] = f"Impressum\nAngaben gemäß § 5 TMG:\n{restaurant['name']} Gastro GmbH\nInhaber: Chef\n{restaurant.get('branding', {}).get('address', 'Musterstraße 1, 80331 München')}"
@@ -577,8 +1245,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     return response
 
 @app.post("/{slug}/bestellen")
-def create_order(request: Request, slug: str, payload: OrderPayload):
-    restaurant = get_restaurant_or_raise(slug)
+def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").strip()
     tables_list = restaurant.get("tables", [])
@@ -631,11 +1299,13 @@ def create_order(request: Request, slug: str, payload: OrderPayload):
     }
     
     restaurant["orders"].append(new_order)
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True, "order_id": new_id}
 
 @app.post("/{slug}/service-ruf")
-def service_ruf(request: Request, slug: str, payload: ServiceRufPayload):
-    restaurant = get_restaurant_or_raise(slug)
+def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").strip()
     tables_list = restaurant.get("tables", [])
@@ -690,6 +1360,8 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload):
     finally:
         db.close()
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True, "call_id": new_id}
 
 
@@ -698,8 +1370,8 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload):
 # ==========================================
 
 @app.get("/{slug}/tablet", response_class=HTMLResponse)
-def get_tablet(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_tablet(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup")
@@ -751,8 +1423,8 @@ def authorize_tablet(
     slug: str,
     email: str = Form(...),
     password: str = Form(...)
-):
-    restaurant = get_restaurant_or_raise(slug)
+, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     if email.strip() == restaurant["email"] and password.strip() == restaurant["password"]:
         pos_token = restaurant.get("pos_token")
@@ -778,6 +1450,8 @@ def authorize_tablet(
         )
         return resp
     else:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
         return templates.TemplateResponse(
             request=request,
             name="pos_auth.html",
@@ -796,9 +1470,9 @@ def authorize_tablet(
 # and redirects to the correct display (tablet or kitchen).
 # ──────────────────────────────────────────────────────────────────
 @app.get("/{slug}/setup-device")
-def setup_device(request: Request, slug: str, type: str, token: str):
+def setup_device(request: Request, slug: str, type: str, token: str, db: Session = Depends(get_db)):
     """Magic Link provisioning: validate secret, set cookie, redirect to device UI."""
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     type = type.lower().strip()
 
     if type == "pos":
@@ -866,10 +1540,10 @@ def setup_device(request: Request, slug: str, type: str, token: str):
 # TOKEN ROTATION – Renew device secrets (invalidates all paired devices)
 # ──────────────────────────────────────────────────────────────────
 @app.post("/{slug}/admin/renew-pos-secret")
-def renew_pos_secret(request: Request, slug: str):
+def renew_pos_secret(request: Request, slug: str, db: Session = Depends(get_db)):
     """Rotate POS pairing secret. Kicks all paired POS tablets on next status poll."""
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     new_secret = secrets.token_urlsafe(24)
     restaurant["pos_secret"] = new_secret
     # Also invalidate the pos_token so existing tablets get 401 on next poll
@@ -880,14 +1554,16 @@ def renew_pos_secret(request: Request, slug: str):
         db.commit()
     finally:
         db.close()
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin/dashboard?tab=config", status_code=303)
 
 
 @app.post("/{slug}/admin/renew-kds-secret")
-def renew_kds_secret(request: Request, slug: str):
+def renew_kds_secret(request: Request, slug: str, db: Session = Depends(get_db)):
     """Rotate KDS pairing secret. Kicks all paired kitchen displays on next status poll."""
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     new_secret = secrets.token_urlsafe(24)
     restaurant["kds_secret"] = new_secret
     # Also invalidate kds_token so existing KDS devices get 401 on next poll
@@ -898,11 +1574,13 @@ def renew_kds_secret(request: Request, slug: str):
         db.commit()
     finally:
         db.close()
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin/dashboard?tab=config", status_code=303)
 
 @app.get("/{slug}/kitchen", response_class=HTMLResponse)
-def get_kitchen_monitor(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_kitchen_monitor(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup")
@@ -933,13 +1611,13 @@ def get_kitchen_monitor(request: Request, slug: str):
     )
 
 @app.get("/{slug}/kds", response_class=HTMLResponse)
-def get_kds_alias(request: Request, slug: str):
+def get_kds_alias(request: Request, slug: str, db: Session = Depends(get_db)):
     """Alias endpoint for /{slug}/kitchen to support native /kds requests directly."""
     return get_kitchen_monitor(request, slug)
 
 @app.post("/{slug}/kitchen/status/{order_id}")
-def update_cooking_status(request: Request, slug: str, order_id: int, status: str = Form(...)):
-    restaurant = get_restaurant_or_raise(slug)
+def update_cooking_status(request: Request, slug: str, order_id: int, status: str = Form(...), db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     user = get_current_user(request, slug)
     if not user and request.url.hostname == "testserver":
         user = {"name": "Test-Zubereiter", "role": "zubereiter"}
@@ -956,11 +1634,13 @@ def update_cooking_status(request: Request, slug: str, order_id: int, status: st
             restaurant["tagesumsatz"] += order.get("total", 0.0)
             restaurant["bestellungen_gesamt"] += 1
             
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True, "new_status": order["status"]}
 
 @app.post("/{slug}/tablet/bezahlen/{order_id}")
-def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0)):
-    restaurant = get_restaurant_or_raise(slug)
+def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0), db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
@@ -1004,11 +1684,13 @@ def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[st
     finally:
         db.close()
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
-def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPayload):
-    restaurant = get_restaurant_or_raise(slug)
+def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPayload, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
@@ -1076,6 +1758,8 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     finally:
         db.close()
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {
         "success": True,
         "remaining_items_count": len(order["items"]),
@@ -1084,8 +1768,8 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     }
 
 @app.post("/{slug}/tablet/stornieren/{order_id}")
-def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...)):
-    restaurant = get_restaurant_or_raise(slug)
+def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...), db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(pin).strip()), None)
     if not employee or employee["role"] != "chef":
@@ -1108,11 +1792,13 @@ def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...
         restaurant["audit_log"] = []
     restaurant["audit_log"].append(log_entry)
     
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True}
 
 @app.post("/{slug}/service-erledigt/{ruf_id}")
-def service_erledigt(request: Request, slug: str, ruf_id: int):
-    restaurant = get_restaurant_or_raise(slug)
+def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
@@ -1135,6 +1821,8 @@ def service_erledigt(request: Request, slug: str, ruf_id: int):
     finally:
         db.close()
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True}
 
 
@@ -1143,8 +1831,8 @@ def service_erledigt(request: Request, slug: str, ruf_id: int):
 # ==========================================
 
 @app.get("/{slug}/admin/onboarding", response_class=HTMLResponse)
-def get_onboarding(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_onboarding(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     if restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin")
     return templates.TemplateResponse(request=request, name="onboarding.html", context={"restaurant": restaurant, "slug": slug})
@@ -1159,8 +1847,8 @@ def post_onboarding(
     auto_tables: Optional[bool] = Form(False),
     chef_name: str = Form("Chef"),
     chef_pin: str = Form("1111")
-):
-    restaurant = get_restaurant_or_raise(slug)
+, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     restaurant["is_setup_completed"] = True
     restaurant["has_kitchen"] = bool(has_kitchen)
@@ -1192,11 +1880,13 @@ def post_onboarding(
     
     resp = RedirectResponse(url=f"/{slug}/admin", status_code=303)
     resp.set_cookie(key=f"session_{slug}", value=f"{chef_name}:chef:{chef_pin}", httponly=True)
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return resp
 
 @app.get("/{slug}/admin")
-def get_admin_root(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_admin_root(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     user = get_current_user(request, slug)
     if not user or user["role"] != "chef":
         return RedirectResponse(url=f"/{slug}/admin/login")
@@ -1205,10 +1895,10 @@ def get_admin_root(request: Request, slug: str):
     return RedirectResponse(url=f"/{slug}/admin/dashboard")
 
 @app.get("/{slug}/admin/impersonate/{table_number}")
-def admin_impersonate(request: Request, slug: str, table_number: str):
+def admin_impersonate(request: Request, slug: str, table_number: str, db: Session = Depends(get_db)):
     # Server-side auth check: strictly require chef
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(table_number).strip()
     tables_list = restaurant.get("tables", [])
@@ -1231,8 +1921,8 @@ def admin_impersonate(request: Request, slug: str, table_number: str):
     return resp
 
 @app.get("/{slug}/admin/dashboard", response_class=HTMLResponse)
-def get_admin(request: Request, slug: str, period: str = "heute"):
-    restaurant = get_restaurant_or_raise(slug)
+def get_admin(request: Request, slug: str, period: str = "heute", db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup")
@@ -1343,8 +2033,8 @@ def get_admin(request: Request, slug: str, period: str = "heute"):
     )
 
 @app.get("/{slug}/admin/login", response_class=HTMLResponse)
-def get_login(request: Request, slug: str, redirect: Optional[str] = None):
-    restaurant = get_restaurant_or_raise(slug)
+def get_login(request: Request, slug: str, redirect: Optional[str] = None, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     session_cookie = request.cookies.get(f"session_{slug}")
     if session_cookie:
@@ -1381,8 +2071,8 @@ def post_login(
     password: Optional[str] = Form(None),
     pin: Optional[str] = Form(None),
     redirect: Optional[str] = None
-):
-    restaurant = get_restaurant_or_raise(slug)
+, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     target_url = f"/{slug}/admin"
     if redirect == "tablet":
@@ -1463,7 +2153,7 @@ def post_login(
     )
 
 @app.get("/{slug}/admin/logout")
-def get_logout(slug: str):
+def get_logout(slug: str, db: Session = Depends(get_db)):
     resp = RedirectResponse(url=f"/{slug}/admin/login")
     resp.delete_cookie(key=f"session_{slug}")
     return resp
@@ -1476,9 +2166,9 @@ def profile_update(
     is_shishabar: Optional[bool] = Form(False),
     impressum_content: Optional[str] = Form(""),
     datenschutz_content: Optional[str] = Form("")
-):
+, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1509,12 +2199,14 @@ def profile_update(
             
     restaurant["categories"] = categories
     
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/table-erstellen")
-def create_table(request: Request, slug: str, number: str = Form(...), zone: str = Form(...)):
+def create_table(request: Request, slug: str, number: str = Form(...), zone: str = Form(...), db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1526,23 +2218,27 @@ def create_table(request: Request, slug: str, number: str = Form(...), zone: str
     if not any(t["number"] == table_num for t in restaurant["tables"]):
         restaurant["tables"].append({"number": table_num, "zone": zone})
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/table-loeschen/{table_num}")
-def delete_table(request: Request, slug: str, table_num: str):
+def delete_table(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
     if "tables" in restaurant:
         restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/kategorie-erstellen")
-def create_category(request: Request, slug: str, category_name: str = Form(None, alias="category-name")):
+def create_category(request: Request, slug: str, category_name: str = Form(None, alias="category-name"), db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1552,6 +2248,8 @@ def create_category(request: Request, slug: str, category_name: str = Form(None,
     cat = category_name.strip()
     if cat and cat not in restaurant["categories"]:
         restaurant["categories"].append(cat)
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 # Helper für Admin-Rechteprüfung
@@ -1586,9 +2284,9 @@ async def post_produkt_erstellen(
     image_file: Optional[UploadFile] = File(None),
     is_vegan: Optional[bool] = Form(False),
     is_glutenfree: Optional[bool] = Form(False)
-):
+, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
 
     cat_name = kategorie.strip()
     if cat_name and cat_name not in restaurant["categories"]:
@@ -1652,6 +2350,8 @@ async def post_produkt_erstellen(
     finally:
         db.close()
 
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin/dashboard", status_code=303)
 
 
@@ -1660,10 +2360,10 @@ def delete_produkt(
     request: Request,
     slug: str,
     product_id: int
-):
+, db: Session = Depends(get_db)):
     """Sicher löschen: nur eingeloggte Chef-User, strikt Tenant-isoliert."""
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
 
     original_len = len(restaurant["products"])
     restaurant["products"] = [
@@ -1681,6 +2381,8 @@ def delete_produkt(
     finally:
         db.close()
 
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 
@@ -1689,10 +2391,10 @@ def delete_kategorie(
     request: Request,
     slug: str,
     kategorie_name: str = Form(...)
-):
+, db: Session = Depends(get_db)):
     """Kategorie sicher löschen (inkl. Tenant-Check). Produkte bleiben erhalten."""
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
 
     cat_name = kategorie_name.strip()
     if cat_name not in restaurant["categories"]:
@@ -1711,6 +2413,8 @@ def delete_kategorie(
     finally:
         db.close()
 
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 # API Models
@@ -1721,8 +2425,8 @@ class CallServicePayload(BaseModel):
     tip_amount: Optional[float] = 0.0
 
 @app.post("/api/{slug}/call-service")
-def api_call_service(request: Request, slug: str, payload: CallServicePayload):
-    restaurant = get_restaurant_or_raise(slug)
+def api_call_service(request: Request, slug: str, payload: CallServicePayload, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").strip()
     tables_list = restaurant.get("tables", [])
@@ -1791,8 +2495,8 @@ def api_call_service(request: Request, slug: str, payload: CallServicePayload):
     return {"success": True, "call_id": actual_id}
 
 @app.get("/api/{slug}/tablet-status")
-def get_tablet_status(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_tablet_status(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     # ── Auto-kick: if pos_token was rotated, return 401 so tablet JS redirects to decoupled page
     is_test = request.url.hostname == "testserver"
     if not is_test:
@@ -1808,8 +2512,8 @@ def get_tablet_status(request: Request, slug: str):
     }
 
 @app.get("/api/{slug}/kitchen-status")
-def get_kitchen_status(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_kitchen_status(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     # ── Auto-kick: if kds_token was rotated, return 401 so kitchen JS redirects
     is_test = request.url.hostname == "testserver"
     if not is_test:
@@ -1824,8 +2528,8 @@ def get_kitchen_status(request: Request, slug: str):
     }
 
 @app.post("/api/{slug}/quick-login")
-def api_quick_login(slug: str, name: str = Form(...)):
-    restaurant = get_restaurant_or_raise(slug)
+def api_quick_login(slug: str, name: str = Form(...), db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     # Trim + case-insensitive match so minor whitespace / casing never breaks login
     name_str = name.strip().lower()
 
@@ -1840,9 +2544,9 @@ def api_quick_login(slug: str, name: str = Form(...)):
     return {"success": False, "error": "Mitarbeiter nicht gefunden"}
 
 @app.post("/{slug}/admin/staff")
-def add_staff(request: Request, slug: str, staff_name: str = Form(...), role: str = Form(...), pin: str = Form(...)):
+def add_staff(request: Request, slug: str, staff_name: str = Form(...), role: str = Form(...), pin: str = Form(...), db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1854,16 +2558,20 @@ def add_staff(request: Request, slug: str, staff_name: str = Form(...), role: st
         "pin": pin_str,
         "pin_code": pin_str
     })
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/staff-loeschen/{pin_code}")
-def delete_staff(request: Request, slug: str, pin_code: str):
+def delete_staff(request: Request, slug: str, pin_code: str, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
     restaurant["staff"] = [s for s in restaurant.get("staff", []) if str(s.get("pin_code")) != str(pin_code).strip()]
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/branding")
@@ -1875,9 +2583,9 @@ def update_branding(
     address: Optional[str] = Form(None),
     instagram: Optional[str] = Form(None),
     facebook: Optional[str] = Form(None)
-):
+, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1907,12 +2615,14 @@ def update_branding(
         "instagram": instagram.strip() if instagram else "",
         "facebook": facebook.strip() if facebook else ""
     }
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin?tab=config", status_code=303)
 
 @app.post("/{slug}/admin/happy-hour")
-def update_happy_hour(request: Request, slug: str, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...)):
+def update_happy_hour(request: Request, slug: str, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...), db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1922,12 +2632,14 @@ def update_happy_hour(request: Request, slug: str, days: List[str] = Form(defaul
         "end": end,
         "discount": discount
     }
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/shishabar-toggle")
-def toggle_shishabar(request: Request, slug: str, is_shishabar: Optional[bool] = Form(None)):
+def toggle_shishabar(request: Request, slug: str, is_shishabar: Optional[bool] = Form(None), db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -1941,10 +2653,12 @@ def toggle_shishabar(request: Request, slug: str, is_shishabar: Optional[bool] =
         if "Shisha" in restaurant["categories"]:
             restaurant["categories"].remove("Shisha")
             
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.put("/api/products/{product_id}")
-def update_product_api(request: Request, product_id: int, payload: ProductUpdatePayload):
+def update_product_api(request: Request, product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
     db = SessionLocal()
     try:
         db_product = db.query(Product).filter_by(id=product_id).first()
@@ -1955,7 +2669,7 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
         db.close()
 
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
 
     product = next((p for p in restaurant.get("products", []) if p["id"] == product_id), None)
     if not product:
@@ -1974,11 +2688,13 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
     finally:
         db.close()
 
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True}
 
 @app.post("/{slug}/orders/confirm/{order_id}")
-def confirm_order(request: Request, slug: str, order_id: int):
-    restaurant = get_restaurant_or_raise(slug)
+def confirm_order(request: Request, slug: str, order_id: int, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
@@ -2004,12 +2720,14 @@ def confirm_order(request: Request, slug: str, order_id: int):
     finally:
         db.close()
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True}
 
 @app.post("/{slug}/admin/product-toggle/{product_id}")
-def toggle_product_availability(request: Request, slug: str, product_id: int):
+def toggle_product_availability(request: Request, slug: str, product_id: int, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -2017,6 +2735,8 @@ def toggle_product_availability(request: Request, slug: str, product_id: int):
     if not product:
         raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
     product["is_available"] = not product.get("is_available", True)
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/product-hh")
@@ -2027,9 +2747,9 @@ def update_product_hh(
     hh_price: Optional[float] = Form(None, alias="happy_hour_price"),
     start_time: Optional[str] = Form(None),
     end_time: Optional[str] = Form(None)
-):
+, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
         
@@ -2040,22 +2760,26 @@ def update_product_hh(
     product["happy_hour_price"] = hh_price if hh_price is not None else None
     product["start_time"] = start_time if start_time else None
     product["end_time"] = end_time if end_time else None
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.post("/{slug}/admin/token-rotieren")
-def token_rotieren(request: Request, slug: str):
+def token_rotieren(request: Request, slug: str, db: Session = Depends(get_db)):
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
          
     new_token = secrets.token_hex(4)
     restaurant["security_token"] = new_token
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin", status_code=303)
 
 @app.get("/{slug}/admin/gobd-export", response_class=HTMLResponse)
-def gobd_export(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def gobd_export(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url=f"/{slug}/admin/setup")
         
@@ -2082,8 +2806,8 @@ def gobd_export(request: Request, slug: str):
 # ==========================================
 
 @app.get("/{slug}/admin/setup", response_class=HTMLResponse)
-def get_setup(request: Request, slug: str):
-    restaurant = get_restaurant_or_raise(slug)
+def get_setup(request: Request, slug: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     user = get_current_user(request, slug)
     if not user or user["role"] != "chef":
         return RedirectResponse(url=f"/{slug}/admin/login?redirect=setup")
@@ -2100,8 +2824,8 @@ def get_setup(request: Request, slug: str):
     )
 
 @app.post("/{slug}/admin/upload-logo")
-async def upload_logo(slug: str, file: UploadFile = File(...)):
-    restaurant = get_restaurant_or_raise(slug)
+async def upload_logo(slug: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
 
     # Use the persistent uploads directory (env-configured)
     os.makedirs(UPLOAD_LOGOS_DIR, exist_ok=True)
@@ -2126,6 +2850,8 @@ async def upload_logo(slug: str, file: UploadFile = File(...)):
         restaurant["branding"] = {}
     restaurant["branding"]["logo_url"] = logo_relative_path
 
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True, "logo_url": logo_relative_path}
 
 @app.post("/{slug}/admin/setup-complete")
@@ -2134,8 +2860,8 @@ def post_setup_complete(
     slug: str,
     has_kitchen: Optional[bool] = Form(False),
     is_shishabar: Optional[bool] = Form(False)
-):
-    restaurant = get_restaurant_or_raise(slug)
+, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
     user = get_current_user(request, slug)
     if not user or user["role"] != "chef":
          raise HTTPException(status_code=403, detail="Kein Zugriff")
@@ -2165,6 +2891,8 @@ def post_setup_complete(
             {"name": user["name"], "role": "chef", "pin": user["pin"], "pin_code": user["pin"]}
         ]
         
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return RedirectResponse(url=f"/{slug}/admin/dashboard", status_code=303)
 
 
@@ -2172,10 +2900,10 @@ def post_setup_complete(
 # QR-CODE PRINT GENERATOR – all tables for a tenant in one A4 grid
 # ──────────────────────────────────────────────────────────────────
 @app.get("/{slug}/admin/qr-print")
-def get_qr_print(request: Request, slug: str):
+def get_qr_print(request: Request, slug: str, db: Session = Depends(get_db)):
     """Renders a printable A4 overview with a QR code block per table."""
     require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug)
+    restaurant = get_restaurant_or_raise(slug, db)
     tables = restaurant.get("tables", [])
     base_url = str(request.base_url).rstrip("/")
     return templates.TemplateResponse(
@@ -2194,11 +2922,11 @@ def get_qr_print(request: Request, slug: str):
 # DEVICE DECOUPLED – shown when a device's token was rotated
 # ──────────────────────────────────────────────────────────────────
 @app.get("/{slug}/device-decoupled", response_class=HTMLResponse)
-def device_decoupled(request: Request, slug: str):
+def device_decoupled(request: Request, slug: str, db: Session = Depends(get_db)):
     """Shown to a POS or KDS device after its pairing token was rotated."""
     # Try to get restaurant name for display; if missing fallback gracefully
     try:
-        restaurant = get_restaurant_or_raise(slug)
+        restaurant = get_restaurant_or_raise(slug, db)
         restaurant_name = restaurant.get("name", slug)
     except Exception:
         restaurant_name = slug
