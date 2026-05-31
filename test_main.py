@@ -76,7 +76,8 @@ def test_integration():
             {"number": "4", "zone": "innen"},
             {"number": "5", "zone": "innen"},
             {"number": "11", "zone": "terrasse"},
-            {"number": "12", "zone": "terrasse"}
+            {"number": "12", "zone": "terrasse"},
+            {"number": "99", "zone": "innen"}
         ],
         "audit_log": []
     }
