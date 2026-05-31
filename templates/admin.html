@@ -440,6 +440,10 @@
                                     <span class="material-symbols-outlined" style="font-size:12px">edit</span>
                                     Bearbeiten
                                 </button>
+                                <button type="button" onclick="toggleHHForm({{ p.id }})" class="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg border bg-[#1a1a1a] text-primary border-primary/20 hover:bg-zinc-800 transition flex items-center gap-1">
+                                    <span class="material-symbols-outlined" style="font-size:12px">settings</span>
+                                    Konfigurieren
+                                </button>
                                 <form action="/{{ slug }}/admin/produkt-loeschen/{{ p.id }}" method="POST" onsubmit="return confirm('Produkt \'{{ p.name }}\' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
                                     <button type="submit" class="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg border bg-red-950 text-red-400 border-red-500/20 hover:bg-red-900 transition flex items-center gap-1">
                                         <span class="material-symbols-outlined" style="font-size:12px">delete</span>
@@ -451,7 +455,7 @@
                     </div>
 
                     <!-- Individual Happy Hour Setup Form -->
-                    <div class="border-t border-outline-variant/60 pt-3">
+                    <div id="hh-form-{{ p.id }}" class="border-t border-outline-variant/60 pt-3 hidden">
                         <span class="text-[10px] uppercase font-black text-on-surface-variant block mb-2">⚡ Produktbezogene Happy-Hour</span>
                         <form action="/{{ slug }}/admin/product-hh" method="POST" class="grid grid-cols-3 gap-2.5 items-end">
                             <input type="hidden" name="product_id" value="{{ p.id }}">
@@ -908,6 +912,13 @@
             document.getElementById('edit-product-description').value = description;
             document.getElementById('edit-product-category').value = category;
             document.getElementById('edit-product-modal').classList.remove('hidden');
+        }
+
+        function toggleHHForm(productId) {
+            const form = document.getElementById('hh-form-' + productId);
+            if (form) {
+                form.classList.toggle('hidden');
+            }
         }
 
         function closeEditProductModal() {

@@ -144,7 +144,7 @@
             </div>
 
             <!-- Category Pills (Horizontal scrolling) -->
-            <div class="sticky top-0 z-40 bg-black/85 backdrop-blur-md py-3 border-b border-outline-variant -mx-4 px-4">
+            <div class="sticky top-0 z-40 bg-black/85 backdrop-blur-md overflow-x-auto whitespace-nowrap scrollbar-none py-3 border-b border-outline-variant -mx-4 px-4">
                 <div id="category-pills" class="flex gap-2 overflow-x-auto scrollbar-none">
                     {% for cat in restaurant.categories %}
                     <button onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all {% if loop.first %}bg-primary text-black font-extrabold shadow-lg shadow-primary/20 scale-105{% else %}bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white{% endif %}">
@@ -164,8 +164,8 @@
                          data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                     
                     <div class="relative w-full aspect-video rounded-xl overflow-hidden mb-4 bg-surface-container-high/40 flex items-center justify-center border border-outline-variant">
-                        {% if product.image_url %}
-                        <img alt="{{ product.name }}" class="w-full h-full object-cover" src="{{ product.image_url }}">
+                        {% if product.image %}
+                        <img alt="{{ product.name }}" class="w-full h-full object-cover" src="{{ product.image }}">
                         {% else %}
                         <div class="flex flex-col items-center justify-center text-on-surface-variant/40">
                             <span class="material-symbols-outlined text-3xl">restaurant</span>

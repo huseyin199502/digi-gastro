@@ -113,7 +113,10 @@ async def db_session_middleware(request: Request, call_next):
             db.close()
             
     from anyio.to_thread import run_sync
-    await run_sync(save_cache_sync)
+    try:
+        await run_sync(save_cache_sync)
+    except Exception as e:
+        print(f"Failed to save database cache in middleware: {e}")
     return response
 
 def get_restaurant_or_raise(slug: str):
@@ -948,6 +951,16 @@ def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[st
             import secrets
             db_table["security_token"] = secrets.token_hex(4)
         
+    db = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zahlung: {e}")
+    finally:
+        db.close()
+        
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
@@ -1001,6 +1014,16 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     if not order["items"]:
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] += 1
+        
+    db = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Teilzahlung: {e}")
+    finally:
+        db.close()
         
     return {
         "success": True,
@@ -1578,7 +1601,7 @@ async def post_produkt_erstellen(
     finally:
         db.close()
 
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url=f"/{slug}/admin/dashboard", status_code=303)
 
 
 @app.post("/{slug}/admin/produkt-loeschen/{product_id}")
@@ -1905,10 +1928,16 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
 @app.post("/{slug}/orders/confirm/{order_id}")
 def confirm_order(request: Request, slug: str, order_id: int):
     restaurant = get_restaurant_or_raise(slug)
-    user = get_current_user(request, slug)
-    if not user and request.url.hostname == "testserver":
-        user = {"name": "Test-Kellner", "role": "kellner"}
-    if not user or user["role"] not in ["chef", "kellner"]:
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
         
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
