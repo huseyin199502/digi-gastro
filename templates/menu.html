@@ -161,7 +161,7 @@
     {% endif %}
 
     <!-- Main Dynamic Content Canvas -->
-    <main class="flex-grow w-full max-w-4xl mx-auto px-4 flex flex-col relative z-30">
+    <main class="flex-grow w-full max-w-4xl mx-auto px-4">
         
         <!-- Compact Welcome Area -->
         <div class="py-8 text-center border-b border-outline-variant mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -186,24 +186,11 @@
             
 
             <!-- Category Wrapper (Sticky) -->
-            <div class="sticky top-[80px] z-49 bg-background/95 backdrop-blur-md py-4 border-b border-outline-variant -mx-4 px-4 select-none">
+            <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: #0a0a0a !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
                 <!-- Category Pills (Horizontal scrolling) -->
                 <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
                     {% for cat in restaurant.categories %}
-                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="flex-shrink-0 min-w-[125px] h-[74px] rounded-2xl text-xs md:text-sm font-black transition-all duration-300 font-display select-none flex flex-col items-center justify-center gap-1.5 {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
-                        <span class="material-symbols-outlined text-xl md:text-2xl">
-                            {% if cat.lower() in ['burger', 'essen', 'food', 'salate', 'salads', 'pizza', 'snacks', 'hauptgericht'] %}
-                                burger
-                            {% elif cat.lower() in ['drinks', 'getränke', 'bar', 'cocktails', 'softdrinks', 'alkohol'] %}
-                                local_bar
-                            {% elif cat.lower() in ['desserts', 'nachtisch', 'süßes', 'eis', 'eiscreme'] %}
-                                cake
-                            {% elif cat.lower() in ['shisha', 'hookah', 'rauch', 'köpfe'] %}
-                                wind
-                            {% else %}
-                                restaurant
-                            {% endif %}
-                        </span>
+                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider{% endif %}">
                         <span>{{ cat }}</span>
                     </button>
                     {% endfor %}
@@ -211,15 +198,15 @@
             </div>
 
             <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
-            <div id="product-grid-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 py-6">
+            <div id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3.5 py-6">
                 {% for product in products %}
                 {% set is_avail = product.get('is_available', True) %}
-                <article class="product-card product-item glass-card hover-lift rounded-2xl p-3.5 flex flex-col justify-between border border-outline-variant relative overflow-hidden z-0 {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
+                <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-2.5 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
                          data-category="{{ product.category }}" 
                          data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
                          data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                     
-                    <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-3 bg-background flex items-center justify-center border border-outline-variant/60">
+                    <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-background flex items-center justify-center border border-outline-variant/60">
                         {% if product.image %}
                         <img alt="{{ product.name }}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
                         {% else %}
@@ -237,22 +224,22 @@
                     
                     <div class="flex flex-col justify-between flex-grow">
                         <div>
-                            <div class="flex items-start justify-between gap-1.5">
-                                <h3 class="font-extrabold text-sm text-white font-display truncate product-name" data-name-de="{{ product.name | replace('"', '&quot;') }}" data-name-en="{{ (product.name_en or product.name) | replace('"', '&quot;') }}">{{ product.name }}</h3>
+                            <div class="flex items-start justify-between gap-1">
+                                <h3 class="font-extrabold text-xs sm:text-sm text-white font-display truncate product-name" data-name-de="{{ product.name | replace('"', '&quot;') }}" data-name-en="{{ (product.name_en or product.name) | replace('"', '&quot;') }}">{{ product.name }}</h3>
                                 {% if product.allergens %}
                                 <span class="text-[8px] text-on-surface-variant bg-surface px-1 py-0.5 rounded border border-outline-variant font-mono uppercase">{{ product.allergens | join(',') }}</span>
                                 {% endif %}
                             </div>
-                            <p class="text-[11px] text-on-surface-variant mt-1.5 leading-relaxed line-clamp-2 product-desc" data-desc-de="{{ (product.description or '') | replace('"', '&quot;') }}" data-desc-en="{{ (product.description_en or product.description or '') | replace('"', '&quot;') }}">{{ product.description }}</p>
+                            <p class="text-[10px] sm:text-[11px] text-on-surface-variant mt-1 leading-normal line-clamp-2 product-desc" data-desc-de="{{ (product.description or '') | replace('"', '&quot;') }}" data-desc-en="{{ (product.description_en or product.description or '') | replace('"', '&quot;') }}">{{ product.description }}</p>
                         </div>
 
-                        <div class="flex justify-between items-end mt-4">
+                        <div class="flex justify-between items-end mt-3">
                             <div>
                                 {% if product.is_hh_active %}
-                                    <span class="text-[10px] line-through text-on-surface-variant/50 mr-1">{{ "%.2f"|format(product.price) }} €</span>
-                                    <span class="text-sm font-black text-rose-500 glow-text-primary">{{ "%.2f"|format(product.display_price) }} €</span>
+                                    <span class="text-[9px] line-through text-on-surface-variant/50 mr-1">{{ "%.2f"|format(product.price) }} €</span>
+                                    <span class="text-xs sm:text-sm font-black text-rose-500 glow-text-primary">{{ "%.2f"|format(product.display_price) }} €</span>
                                 {% else %}
-                                    <span class="text-sm font-black text-primary glow-text-primary">{{ "%.2f"|format(product.price) }} €</span>
+                                    <span class="text-xs sm:text-sm font-black text-primary glow-text-primary">{{ "%.2f"|format(product.price) }} €</span>
                                 {% endif %}
                             </div>
 
@@ -353,7 +340,7 @@
                     <div class="bg-background/50 border border-outline-variant/80 p-4 rounded-2xl text-sm space-y-2">
                         <div class="flex items-center justify-between">
                             <div>
-                                <span class="font-extrabold text-white block text-sm" x-text="item.name"></span>
+                                <span class="font-extrabold text-white block text-sm" style="color: #ffffff !important;" x-text="item.name"></span>
                                 <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
                             </div>
                             <div class="flex items-center space-x-3.5">
@@ -788,8 +775,8 @@
                     pills.forEach(pillBtn => {
                         const isCurrent = pillBtn.id === `btn-${category}`;
                         pillBtn.className = isCurrent ? 
-                            "whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display bg-primary text-black shadow-lg shadow-primary/10 scale-105" : 
-                            "whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white";
+                            "flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider" : 
+                            "flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider";
                     });
 
                     this.applyAllFilters();
