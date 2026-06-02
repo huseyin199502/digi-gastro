@@ -186,11 +186,11 @@
             
 
             <!-- Category Wrapper (Sticky) -->
-            <div class="sticky top-[80px] z-45 bg-[#050507]/90 backdrop-blur-md py-4 border-b border-outline-variant -mx-4 px-4 select-none">
+            <div class="sticky top-[80px] z-49 bg-background/95 backdrop-blur-md py-4 border-b border-outline-variant -mx-4 px-4 select-none">
                 <!-- Category Pills (Horizontal scrolling) -->
                 <div id="category-pills" class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
                     {% for cat in restaurant.categories %}
-                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display select-none {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
+                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-7 py-3 rounded-full text-sm md:text-base font-extrabold transition-all duration-300 font-display select-none {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
                         {{ cat }}
                     </button>
                     {% endfor %}
