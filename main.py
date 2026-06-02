@@ -2759,12 +2759,6 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
     db_table = next((t for t in tables_list if str(t.get("number")) == active_table_num), None)
     active_session_tok = db_table.get("active_session_token") if db_table else None
     
-    table_orders = [o for o in restaurant.get("orders", []) if o.get("table") in [f"Tisch {active_table_num}", active_table_num]]
-    open_orders = [o for o in table_orders if o.get("status") not in ["bezahlt", "storniert"]]
-    
-    if not open_orders:
-        return {"active": False}
-        
     master_token = restaurant.get("security_token")
     is_token_valid = (active_token and ((active_session_tok and active_token == active_session_tok) or (master_token and active_token == master_token)))
     return {"active": bool(is_token_valid)}
