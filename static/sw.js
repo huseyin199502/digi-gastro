@@ -1,4 +1,4 @@
-const CACHE_NAME = 'digi-gastro-v2';
+const CACHE_NAME = 'digi-gastro-v3';
 const STATIC_ASSETS = [
   '/',
   '/static/css/design_system.css',

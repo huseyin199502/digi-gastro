@@ -371,13 +371,13 @@
             <!-- Checkout actions -->
             <div class="shrink-0 font-display">
                 {% if table and not token_error %}
-                    <button onclick="submitOrder()" class="btn-premium btn-premium-primary w-full py-4.5 rounded-2xl flex items-center justify-center space-x-2 text-sm font-bold shadow-lg shadow-primary/20">
-                        <span class="material-symbols-outlined text-base">send</span>
+                    <button onclick="submitOrder()" class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-lg">send</span>
                         <span data-translate="order_pay">Jetzt bestellen</span>
                     </button>
                 {% else %}
-                    <button disabled class="w-full bg-surface-container-high text-on-surface-variant/20 py-4.5 rounded-2xl flex items-center justify-center space-x-2 cursor-not-allowed border border-outline-variant">
-                        <span class="material-symbols-outlined">block</span>
+                    <button disabled class="w-full bg-surface-container-high text-on-surface-variant/20 h-[78px] rounded-2xl flex items-center justify-center space-x-2 cursor-not-allowed border border-outline-variant text-sm md:text-base font-black uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-lg">block</span>
                         <span data-translate="order_locked">Bestellung gesperrt (Tisch scannen)</span>
                     </button>
                 {% endif %}
@@ -857,6 +857,7 @@
                     const modal = document.getElementById("cart-modal");
                     if (modal) {
                         modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
                         setTimeout(() => {
                             const inner = document.getElementById("cart-modal-inner");
                             if (inner) {
@@ -874,7 +875,10 @@
                         inner.classList.add("translate-y-full");
                         setTimeout(() => {
                             const modal = document.getElementById("cart-modal");
-                            if (modal) modal.classList.add("hidden");
+                            if (modal) {
+                                modal.classList.add("hidden");
+                                document.body.style.overflow = '';
+                            }
                         }, 300);
                     }
                 },
@@ -887,12 +891,18 @@
                     }
                     this.selectServiceOption('kellner');
                     const modal = document.getElementById("service-modal");
-                    if (modal) modal.classList.remove("hidden");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                    }
                 },
 
                 closeServiceModal() {
                     const modal = document.getElementById("service-modal");
-                    if (modal) modal.classList.add("hidden");
+                    if (modal) {
+                        modal.classList.add("hidden");
+                        document.body.style.overflow = '';
+                    }
                 },
 
                 selectServiceOption(type) {
@@ -968,12 +978,18 @@
 
                     this.selectPaymentOption('zahlen_bar');
                     const modal = document.getElementById("payment-modal");
-                    if (modal) modal.classList.remove("hidden");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                    }
                 },
 
                 closePaymentModal() {
                     const modal = document.getElementById("payment-modal");
-                    if (modal) modal.classList.add("hidden");
+                    if (modal) {
+                        modal.classList.add("hidden");
+                        document.body.style.overflow = '';
+                    }
                 },
 
                 selectPaymentOption(type) {
@@ -1135,12 +1151,18 @@
                         if (title) title.textContent = "Datenschutzerklärung";
                         if (body) body.textContent = document.getElementById("datenschutz-content-data").textContent;
                     }
-                    if (modal) modal.classList.remove("hidden");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                    }
                 },
 
                 closeLegalModal() {
                     const modal = document.getElementById("legal-modal");
-                    if (modal) modal.classList.add("hidden");
+                    if (modal) {
+                        modal.classList.add("hidden");
+                        document.body.style.overflow = '';
+                    }
                 }
             };
         }
