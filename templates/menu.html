@@ -31,6 +31,9 @@
         }
     </script>
     <style>
+        html, body {
+            touch-action: manipulation;
+        }
         body {
             background-color: #0a0a0a;
             color: #e5e2e1;
@@ -62,6 +65,35 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        .select-none {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        @keyframes cartPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-cart-pulse {
+            animation: cartPulse 0.3s ease-in-out;
+        }
+        @keyframes badgePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+        .animate-badge-pulse {
+            animation: badgePulse 0.3s ease-in-out;
+        }
+        @keyframes btnSuccessPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-btn-success {
+            animation: btnSuccessPulse 0.3s ease-in-out;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -70,13 +102,20 @@
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
     <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-md p-10 text-center space-y-6 shadow-2xl relative z-50">
-        <div class="w-24 h-24 bg-primary/10 text-primary rounded-full flex items-center justify-center text-5xl mx-auto mb-6 pulse-green">
-            <span class="material-symbols-outlined text-5xl">qr_code_scanner</span>
+        <div class="flex justify-end -mt-4 -mr-4">
+            <!-- Compact Language Selection for Read-only -->
+            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner scale-90">
+                <button onclick="setLanguage('de')" id="lang-de-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display">DE</button>
+                <button onclick="setLanguage('en')" id="lang-en-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display">EN</button>
+            </div>
         </div>
-        <h2 class="text-3xl font-extrabold text-white tracking-tight font-display">QR-Code Scan erforderlich</h2>
-        <p class="text-sm text-on-surface-variant leading-relaxed">
-            Willkommen bei <strong class="text-white">{{ restaurant.name }}</strong>!<br><br>
-            Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.
+        <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
+            <span class="material-symbols-outlined text-4xl">qr_code_scanner</span>
+        </div>
+        <h2 class="text-2xl font-extrabold text-white tracking-tight font-display" data-translate="scan_required_header">QR-Code Scan erforderlich</h2>
+        <p class="text-xs text-on-surface-variant leading-relaxed">
+            <span data-translate="scan_required_welcome">Willkommen bei</span> <strong class="text-white">{{ restaurant.name }}</strong>!<br><br>
+            <span data-translate="scan_required_desc">Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.</span>
         </p>
     </div>
     {% else %}
@@ -121,9 +160,9 @@
         
         <!-- Compact Welcome Area -->
         <div class="py-8 text-center border-b border-outline-variant mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <div class="text-left">
-                <h1 class="text-3xl font-extrabold text-white tracking-tight font-display">Willkommen im {{ restaurant.name }}!</h1>
-                <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
+            <div class="text-left font-display">
+                <h1 class="text-3xl font-extrabold text-white tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
+                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="welcome_desc">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
             </div>
             <div class="flex gap-3 justify-center sm:justify-end">
                 <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
@@ -154,10 +193,10 @@
             </div>
 
             <!-- Category Pills (Horizontal scrolling) -->
-            <div class="sticky top-20 z-45 bg-[#050507]/90 backdrop-blur-md overflow-x-auto whitespace-nowrap scrollbar-none py-4 border-b border-outline-variant -mx-4 px-4 scroll-indicator">
-                <div id="category-pills" class="flex gap-2.5 overflow-x-auto scrollbar-none">
+            <div class="sticky top-20 z-45 bg-[#050507]/90 backdrop-blur-md overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none py-4 border-b border-outline-variant -mx-4 px-4 scroll-indicator select-none" style="touch-action: pan-x;" ondragstart="return false;">
+                <div id="category-pills" class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none" style="touch-action: pan-x;" ondragstart="return false;">
                     {% for cat in restaurant.categories %}
-                    <button onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
+                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display select-none {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
                         {{ cat }}
                     </button>
                     {% endfor %}
@@ -214,7 +253,7 @@
                             </div>
 
                             {% if is_avail %}
-                            <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.display_price }}, '{{ product.category_type }}')" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
+                            <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
                                 <span class="material-symbols-outlined font-black">add</span>
                             </button>
                             {% else %}
@@ -234,9 +273,9 @@
     <!-- Slender Legal Footer inside clean container -->
     <footer class="py-12 bg-black border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-3">
         <div class="flex justify-center space-x-4">
-            <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline">Impressum</button>
+            <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline" data-translate="impressum">Impressum</button>
             <span>&bull;</span>
-            <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline">Datenschutz</button>
+            <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline" data-translate="datenschutz">Datenschutz</button>
         </div>
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
@@ -246,10 +285,10 @@
     <div id="cart-floating-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-2">
-            <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" title="Service Rufen">
+            <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
                 <span class="material-symbols-outlined text-xl">notifications_active</span>
             </button>
-            <button onclick="openPaymentModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" title="Rechnung Anfordern">
+            <button onclick="openPaymentModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
                 <span class="material-symbols-outlined text-xl">receipt_long</span>
             </button>
         </div>
@@ -286,8 +325,8 @@
     </div>
 
     <!-- CHECKOUT MODAL (BASKET BOTTOM-SHEET) -->
-    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end justify-center hidden" onclick="if(event.target === this) closeCartModal()">
-        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant rounded-t-[2.5rem] w-full max-w-md p-8 relative flex flex-col max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-10">
+    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end justify-center hidden" onclick="if(event.target === this) closeCartModal()">
+        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant rounded-t-[2.5rem] w-full max-w-md p-8 relative flex flex-col h-[94vh] max-h-[94vh] shadow-2xl transition-transform duration-300 translate-y-full pb-10">
             
             <!-- Drag Handle Indicator -->
             <div class="w-16 h-1 bg-zinc-800 rounded-full mx-auto mb-6 shrink-0"></div>
@@ -322,6 +361,7 @@
                         <input
                             type="text"
                             x-model="item.note"
+                            data-translate-placeholder="cart_item_note"
                             placeholder="Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)"
                             class="w-full bg-background border border-outline-variant/60 text-white text-xs rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
                         />
@@ -365,6 +405,17 @@
     </div>
 
     <script>
+        // Prevent pinch-to-zoom on iOS devices globally
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('gesturechange', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('gestureend', function(e) {
+            e.preventDefault();
+        });
+
         const slug = "{{ slug }}";
         const translations = {
             de: {
@@ -385,20 +436,53 @@
                 refill_coal: "Kohle nachlegen",
                 refill_coal_desc: "Für frischen Shisha-Genuss",
 
-                nav_service: "Service",
-                nav_bill: "Rechnung",
+                nav_service: "Service Rufen",
+                nav_bill: "Rechnung Anfordern",
                 your_cart: "Ihr Warenkorb",
                 tip_question: "Trinkgeld für den Service?",
                 tip_custom: "Eigener",
                 basket_subtotal: "Zwischensumme:",
                 basket_tip: "Trinkgeld:",
                 basket_total: "Gesamtsumme:",
-                order_pay: "Bestellen",
+                order_pay: "Jetzt bestellen",
                 order_locked: "Bestellung gesperrt (Tisch scannen)",
                 thank_you: "Bestellung erhalten!",
                 thank_you_desc: "Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.",
                 close: "Schließen",
-                empty_cart: "Ihr Warenkorb ist leer."
+                empty_cart: "Ihr Warenkorb ist leer.",
+
+                service_header_modal: "Was benötigst du?",
+                service_desc_modal: "Wähle eine Option und unser Service-Team kommt zu dir.",
+                btn_kellner: "🛎️ Kellner rufen",
+                btn_kohle: "💨 Kohle bestellen",
+                btn_send_request: "Anfrage senden",
+                payment_header_modal: "Rechnung anfordern",
+                payment_desc_modal: "Wie möchtest du deine Rechnung begleichen?",
+                pay_bar: "Bar zahlen",
+                btn_pay_confirm: "Abschließen & Bezahlen",
+                cart_item_note: "Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)",
+                
+                // Added translation keys
+                sold_out: "Ausverkauft",
+                sold_out_desc: "In Kürze wieder da",
+                impressum: "Impressum",
+                datenschutz: "Datenschutz",
+                cookie_header: "Datenschutz & Cookies",
+                cookie_desc: "Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen. Ohne diese Cookies kann der Dienst nicht angeboten werden.",
+                cookie_privacy: "Datenschutzerklärung",
+                cookie_btn: "Einverstanden",
+                welcome_title: "Willkommen im",
+                welcome_desc: "Schön, dass Sie unser Gast sind. Guten Appetit!",
+                toast_added: "hinzugefügt",
+                toast_read_only: "Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.",
+                toast_request_success: "Anfrage erfolgreich an das Personal gesendet!",
+                toast_request_failed: "Übertragung fehlgeschlagen.",
+                toast_request_error: "Übertragungsfehler.",
+                toast_token_error: "Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.",
+                toast_order_error: "Übertragungsfehler bei der Bestellung.",
+                scan_required_header: "QR-Code Scan erforderlich",
+                scan_required_welcome: "Willkommen bei",
+                scan_required_desc: "Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch."
             },
             en: {
                 token_error: "Invalid or expired table code. Please rescan the barcode.",
@@ -418,20 +502,53 @@
                 refill_coal: "Replenish Shisha Coal",
                 refill_coal_desc: "For fresh waterpipe coals",
 
-                nav_service: "Service",
-                nav_bill: "Bill Tracking",
+                nav_service: "Call Service",
+                nav_bill: "Request Bill",
                 your_cart: "Your Basket",
                 tip_question: "Leave a tip for the staff?",
                 tip_custom: "Custom",
                 basket_subtotal: "Subtotal:",
                 basket_tip: "Tip amount:",
                 basket_total: "Grand Total:",
-                order_pay: "Order",
+                order_pay: "Order Now",
                 order_locked: "Ordering locked (scan table)",
                 thank_you: "Order Received!",
                 thank_you_desc: "Your meal is being freshly prepared. Payment is settled with the waiter later.",
                 close: "Close",
-                empty_cart: "Your basket is empty."
+                empty_cart: "Your basket is empty.",
+
+                service_header_modal: "What do you need?",
+                service_desc_modal: "Select an option and our service team will come to you.",
+                btn_kellner: "🛎️ Call Waiter",
+                btn_kohle: "💨 Order Shisha Coal",
+                btn_send_request: "Send Request",
+                payment_header_modal: "Request Bill",
+                payment_desc_modal: "How would you like to settle your bill?",
+                pay_bar: "Pay Cash",
+                btn_pay_confirm: "Complete & Pay",
+                cart_item_note: "Note (e.g. no onions, medium, extra spicy…)",
+
+                // Added translation keys
+                sold_out: "Sold Out",
+                sold_out_desc: "Back soon",
+                impressum: "Legal Notice",
+                datenschutz: "Privacy Policy",
+                cookie_header: "Privacy & Cookies",
+                cookie_desc: "We only use technically essential session cookies to enable table assignment, ordering, and logins. Without these cookies, the service cannot be provided.",
+                cookie_privacy: "Privacy Policy",
+                cookie_btn: "I Agree",
+                welcome_title: "Welcome to",
+                welcome_desc: "Nice to have you as our guest. Enjoy your meal!",
+                toast_added: "added",
+                toast_read_only: "Read-only mode: Please scan a table QR code first.",
+                toast_request_success: "Request successfully sent to staff!",
+                toast_request_failed: "Transmission failed.",
+                toast_request_error: "Transmission error.",
+                toast_token_error: "Invalid or expired table code. Please scan again.",
+                toast_order_error: "Transmission error during order.",
+                scan_required_header: "QR Code Scan Required",
+                scan_required_welcome: "Welcome to",
+                scan_required_desc: "To view our menu and place orders directly, please scan the QR code at your table."
             }
         };
 
@@ -490,7 +607,7 @@
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
-                    window.addToCart = (id, name, price, categoryType) => this.addToCart(id, name, price, categoryType);
+                    window.addToCart = (id, name, price, categoryType, btnElement) => this.addToCart(id, name, price, categoryType, btnElement);
                     window.openCartModal = () => this.openCartModal();
                     window.closeCartModal = () => this.closeCartModal();
                     window.openServiceModal = () => this.openServiceModal();
@@ -505,6 +622,13 @@
                     window.filterCategory = (cat) => this.filterCategory(cat);
                     window.submitOrder = () => this.submitOrder();
                     window.closeThankYou = () => this.closeThankYou();
+                    window.selectServiceOption = (type) => this.selectServiceOption(type);
+                    window.confirmServiceRequest = () => this.confirmServiceRequest();
+                    window.selectPaymentOption = (type) => this.selectPaymentOption(type);
+                    window.selectPaymentTip = (percent) => this.selectPaymentTip(percent);
+                    window.selectPaymentCustomTip = () => this.selectPaymentCustomTip();
+                    window.calculatePaymentCustomTip = () => this.calculatePaymentCustomTip();
+                    window.confirmPaymentRequest = () => this.confirmPaymentRequest();
 
                     const resetSession = {% if reset_session %}true{% else %}false{% endif %};
                     if (resetSession) {
@@ -528,14 +652,54 @@
 
                 setLanguage(lang) {
                     this.currentLang = lang;
-                    document.getElementById('lang-de-btn').className = lang === 'de' ? "px-2 py-0.5 rounded-full text-xs font-bold transition bg-primary text-black" : "px-2 py-0.5 rounded-full text-xs font-bold transition text-on-surface-variant";
-                    document.getElementById('lang-en-btn').className = lang === 'en' ? "px-2 py-0.5 rounded-full text-xs font-bold transition bg-primary text-black" : "px-2 py-0.5 rounded-full text-xs font-bold transition text-on-surface-variant";
+                    
+                    const deBtn = document.getElementById('lang-de-btn');
+                    if (deBtn) deBtn.className = lang === 'de' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
+                    const enBtn = document.getElementById('lang-en-btn');
+                    if (enBtn) enBtn.className = lang === 'en' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
+                    
+                    const deBtnRo = document.getElementById('lang-de-btn-ro');
+                    if (deBtnRo) deBtnRo.className = lang === 'de' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+                    const enBtnRo = document.getElementById('lang-en-btn-ro');
+                    if (enBtnRo) enBtnRo.className = lang === 'en' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
 
                     // Translate elements
                     document.querySelectorAll('[data-translate]').forEach(el => {
                         const key = el.getAttribute('data-translate');
                         if (translations[lang] && translations[lang][key]) {
                             el.textContent = translations[lang][key];
+                        }
+                    });
+
+                    // Translate placeholders
+                    document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+                        const key = el.getAttribute('data-translate-placeholder');
+                        if (translations[lang] && translations[lang][key]) {
+                            el.placeholder = translations[lang][key];
+                        }
+                    });
+
+                    // Translate titles
+                    document.querySelectorAll('[data-translate-title]').forEach(el => {
+                        const key = el.getAttribute('data-translate-title');
+                        if (translations[lang] && translations[lang][key]) {
+                            el.title = translations[lang][key];
+                        }
+                    });
+
+                    // Translate dynamic categories
+                    const categoryMapping = {
+                        'Burger': { de: 'Burger', en: 'Burgers' },
+                        'Drinks': { de: 'Getränke', en: 'Drinks' },
+                        'Desserts': { de: 'Desserts', en: 'Desserts' },
+                        'Salads': { de: 'Salate', en: 'Salads' },
+                        'Shisha': { de: 'Shisha', en: 'Shisha' },
+                        'Spezialitäten': { de: 'Spezialitäten', en: 'Specialties' }
+                    };
+                    document.querySelectorAll('[id^="btn-"]').forEach(el => {
+                        const originalText = el.id.replace('btn-', '');
+                        if (categoryMapping[originalText]) {
+                            el.textContent = categoryMapping[originalText][lang];
                         }
                     });
                 },
@@ -589,14 +753,49 @@
                     });
                 },
 
-                addToCart(id, name, price, categoryType) {
+                addToCart(id, name, price, categoryType, btnElement = null) {
                     const existing = this.cart.find(i => i.id === id);
                     if (existing) {
                         existing.quantity++;
                     } else {
                         this.cart.push({ id, name, price, quantity: 1, category_type: categoryType, note: null });
                     }
-                    showToast(name + " hinzugefügt", "success");
+                    
+                    const addedMsg = translations[this.currentLang].toast_added || "hinzugefügt";
+                    showToast(name + " " + addedMsg, "success");
+
+                    // Bounce animation on floating cart bar
+                    const floatingBar = document.getElementById("cart-floating-bar");
+                    if (floatingBar) {
+                        floatingBar.classList.remove("animate-cart-pulse");
+                        void floatingBar.offsetWidth; // Trigger reflow
+                        floatingBar.classList.add("animate-cart-pulse");
+                    }
+                    
+                    // Bounce animation on cart badge
+                    const cartBadge = document.getElementById("cart-badge");
+                    if (cartBadge) {
+                        cartBadge.classList.remove("animate-badge-pulse");
+                        void cartBadge.offsetWidth; // Trigger reflow
+                        cartBadge.classList.add("animate-badge-pulse");
+                    }
+
+                    // Clicked button animation to green checkmark
+                    if (btnElement) {
+                        const iconEl = btnElement.querySelector('span.material-symbols-outlined');
+                        if (iconEl && iconEl.textContent === "add") {
+                            btnElement.classList.remove("bg-primary", "text-black");
+                            btnElement.classList.add("bg-green-500", "text-white");
+                            iconEl.textContent = "check";
+                            btnElement.classList.add("animate-btn-success");
+                            
+                            setTimeout(() => {
+                                iconEl.textContent = "add";
+                                btnElement.classList.remove("bg-green-500", "text-white", "animate-btn-success");
+                                btnElement.classList.add("bg-primary", "text-black");
+                            }, 800);
+                        }
+                    }
                 },
 
                 changeQty(id, delta) {
@@ -689,7 +888,7 @@
                 openPaymentModal() {
                     const table = getTableFromUrl() || "{{ table }}";
                     if (!table) {
-                        showToast("Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+                        showToast(translations[this.currentLang].toast_read_only || "Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
                         return;
                     }
                     
@@ -697,12 +896,6 @@
                     this.customPaymentTipAmount = 0;
                     this.paymentTipVal = 0.0;
                     
-                    [5, 10, 15, 'custom'].forEach(t => {
-                        const btn = document.getElementById("pay-tip-" + t);
-                        if (btn) {
-                            btn.className = "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
-                        }
-                    });
                     const customInput = document.getElementById("payment-custom-tip-input");
                     if (customInput) customInput.value = "";
                     const customContainer = document.getElementById("payment-custom-tip-container");
@@ -740,18 +933,7 @@
 
                 selectPaymentOption(type) {
                     this.selectedPaymentType = type;
-                    const btnBar = document.getElementById("opt-pay-bar");
-                    const btnKarte = document.getElementById("opt-pay-karte");
                     const tipSection = document.getElementById("payment-tip-section");
-                    
-                    if (type === 'zahlen_bar') {
-                        if (btnBar) btnBar.className = "bg-background border border-primary text-primary rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-                        if (btnKarte) btnKarte.className = "bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-                    } else {
-                        if (btnBar) btnBar.className = "bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-                        if (btnKarte) btnKarte.className = "bg-background border border-primary text-primary rounded-xl p-4 flex flex-col items-center gap-2 transition-all";
-                    }
-
                     if (tipSection) {
                         tipSection.classList.remove("hidden");
                     }
@@ -762,31 +944,19 @@
                     this.customPaymentTipAmount = 0;
                     const customContainer = document.getElementById("payment-custom-tip-container");
                     if (customContainer) customContainer.classList.add("hidden");
-                    
-                    [5, 10, 15, 'custom'].forEach(t => {
-                        const btn = document.getElementById("pay-tip-" + t);
-                        if (btn) {
-                            btn.className = (t === percent) ? 
-                                "border border-primary text-xs font-bold py-2 rounded-xl bg-primary text-black transition" :
-                                "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
-                        }
-                    });
                     this.recalcPaymentTip();
                 },
 
                 selectPaymentCustomTip() {
                     this.selectedPaymentTipPercent = 0;
                     const customContainer = document.getElementById("payment-custom-tip-container");
-                    if (customContainer) customContainer.classList.remove("hidden");
-                    
-                    [5, 10, 15].forEach(t => {
-                        const btn = document.getElementById("pay-tip-" + t);
-                        if (btn) {
-                            btn.className = "border border-outline-variant hover:border-primary text-xs font-bold py-2 rounded-xl bg-background text-white transition";
+                    if (customContainer) {
+                        customContainer.classList.remove("hidden");
+                        const input = document.getElementById("payment-custom-tip-input");
+                        if (input) {
+                            this.customPaymentTipAmount = parseFloat(input.value) || 0.0;
                         }
-                    });
-                    const customBtn = document.getElementById("pay-tip-custom");
-                    if (customBtn) customBtn.className = "border border-primary text-[10px] font-bold py-2 rounded-xl bg-primary text-black transition";
+                    }
                     this.recalcPaymentTip();
                 },
 
@@ -826,8 +996,7 @@
 
                 sendServiceRequestAPI(type) {
                     const table = getTableFromUrl() || "{{ table }}";
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const token = urlParams.get('token') || '{{ token }}' || '';
+                    const token = '{{ token }}' || '';
 
                     const payload = {
                         type: type,
@@ -859,8 +1028,7 @@
 
                 submitOrder() {
                     const table = getTableFromUrl() || "{{ table }}";
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const token = urlParams.get('token') || '{{ token }}' || '';
+                    const token = '{{ token }}' || '';
 
                     const payload = {
                         table: "Tisch " + table,
@@ -952,25 +1120,27 @@
                 <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
                     <span class="material-symbols-outlined text-4xl text-primary">notifications_active</span>
                 </div>
-                <h3 class="text-2xl font-extrabold text-white font-display">Was benötigst du?</h3>
-                <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Wähle eine Option und unser Service-Team kommt zu dir.</p>
+                <h3 class="text-2xl font-extrabold text-white font-display" data-translate="service_header_modal">Was benötigst du?</h3>
+                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="service_desc_modal">Wähle eine Option und unser Service-Team kommt zu dir.</p>
             </div>
             
-            <div class="space-y-3">
-                <button onclick="selectServiceOption('kellner')" id="opt-service-kellner" class="w-full bg-background/50 border border-primary text-primary rounded-2xl p-4 flex items-center justify-between transition-all font-display hover:bg-primary/5 active:scale-98">
-                    <span class="font-bold text-sm flex items-center gap-3">🛎️ Kellner rufen</span>
-                    <span class="material-symbols-outlined text-xl text-primary">check_circle</span>
+            <div class="space-y-3 font-display">
+                <button @click="selectedServiceType = 'kellner'" id="opt-service-kellner" 
+                        :class="selectedServiceType === 'kellner' ? 'w-full bg-background border border-primary text-primary rounded-2xl p-4 flex items-center justify-between transition-all' : 'w-full bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/5 active:scale-98'">
+                    <span class="font-bold text-sm flex items-center gap-3" data-translate="btn_kellner">🛎️ Kellner rufen</span>
+                    <span class="material-symbols-outlined text-xl text-primary transition-opacity" :class="selectedServiceType === 'kellner' ? 'opacity-100' : 'opacity-0'">check_circle</span>
                 </button>
                 
                 {% if restaurant.is_shishabar %}
-                <button onclick="selectServiceOption('kohle')" id="opt-service-kohle" class="w-full bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex items-center justify-between transition-all font-display hover:bg-white/5 active:scale-98">
-                    <span class="font-bold text-sm flex items-center gap-3">💨 Kohle bestellen</span>
-                    <span class="material-symbols-outlined text-xl text-primary opacity-0 transition-opacity">check_circle</span>
+                <button @click="selectedServiceType = 'kohle'" id="opt-service-kohle" 
+                        :class="selectedServiceType === 'kohle' ? 'w-full bg-background border border-primary text-primary rounded-2xl p-4 flex items-center justify-between transition-all' : 'w-full bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/5 active:scale-98'">
+                    <span class="font-bold text-sm flex items-center gap-3" data-translate="btn_kohle">💨 Kohle bestellen</span>
+                    <span class="material-symbols-outlined text-xl text-primary transition-opacity" :class="selectedServiceType === 'kohle' ? 'opacity-100' : 'opacity-0'">check_circle</span>
                 </button>
                 {% endif %}
             </div>
             
-            <button onclick="confirmServiceRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20">
+            <button onclick="confirmServiceRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20" data-translate="btn_send_request">
                 Anfrage senden
             </button>
         </div>
@@ -987,19 +1157,21 @@
                 <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
                     <span class="material-symbols-outlined text-4xl text-primary">payments</span>
                 </div>
-                <h3 class="text-2xl font-extrabold text-white font-display">Rechnung anfordern</h3>
-                <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Wie möchtest du deine Rechnung begleichen?</p>
+                <h3 class="text-2xl font-extrabold text-white font-display" data-translate="payment_header_modal">Rechnung anfordern</h3>
+                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
             </div>
             
             <div class="grid grid-cols-2 gap-4 shrink-0">
-                <button onclick="selectPaymentOption('zahlen_bar')" id="opt-pay-bar" class="bg-background/50 border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-primary/5 active:scale-98">
+                <button @click="selectPaymentOption('zahlen_bar')" id="opt-pay-bar" 
+                        :class="selectedPaymentType === 'zahlen_bar' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
                     <span class="text-3xl mb-1">💵</span>
-                    <span class="font-extrabold text-xs">Bar zahlen</span>
+                    <span class="font-extrabold text-xs" data-translate="pay_bar">Bar zahlen</span>
                 </button>
                 
-                <button onclick="selectPaymentOption('zahlen_karte')" id="opt-pay-karte" class="bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98">
+                <button @click="selectPaymentOption('zahlen_karte')" id="opt-pay-karte" 
+                        :class="selectedPaymentType === 'zahlen_karte' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-[#11131a]/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
                     <span class="text-3xl mb-1">💳</span>
-                    <span class="font-extrabold text-xs">Mit Karte zahlen</span>
+                    <span class="font-extrabold text-xs" data-translate="pay_card">Mit Karte zahlen</span>
                 </button>
             </div>
 
@@ -1007,10 +1179,14 @@
             <div id="payment-tip-section" class="border-t border-outline-variant/60 pt-5 text-left hidden">
                 <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3 font-display" data-translate="tip_question">Trinkgeld für den Service?</label>
                 <div class="grid grid-cols-4 gap-2 font-display">
-                    <button onclick="selectPaymentTip(5)" id="pay-tip-5" class="border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95">5%</button>
-                    <button onclick="selectPaymentTip(10)" id="pay-tip-10" class="border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95">10%</button>
-                    <button onclick="selectPaymentTip(15)" id="pay-tip-15" class="border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95">15%</button>
-                    <button onclick="selectPaymentCustomTip()" id="pay-tip-custom" class="border border-outline-variant hover:border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95" data-translate="tip_custom">Eigener</button>
+                    <button @click="selectPaymentTip(5)" id="pay-tip-5" 
+                            :class="selectedPaymentTipPercent === 5 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'">5%</button>
+                    <button @click="selectPaymentTip(10)" id="pay-tip-10" 
+                            :class="selectedPaymentTipPercent === 10 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'">10%</button>
+                    <button @click="selectPaymentTip(15)" id="pay-tip-15" 
+                            :class="selectedPaymentTipPercent === 15 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'">15%</button>
+                    <button @click="selectPaymentCustomTip()" id="pay-tip-custom" 
+                            :class="(selectedPaymentTipPercent === 0 && customPaymentTipAmount > 0) ? 'border border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'" data-translate="tip_custom">Eigener</button>
                 </div>
                 <div id="payment-custom-tip-container" class="mt-3 hidden">
                     <input type="number" id="payment-custom-tip-input" oninput="calculatePaymentCustomTip()" step="0.50" min="0" placeholder="0.00" class="input-premium w-full text-sm font-semibold text-center font-display focus:border-primary">
@@ -1032,7 +1208,7 @@
                 </div>
             </div>
             
-            <button onclick="confirmPaymentRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20 shrink-0">
+            <button onclick="confirmPaymentRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20 shrink-0" data-translate="btn_pay_confirm">
                 Abschließen & Bezahlen
             </button>
         </div>
@@ -1053,15 +1229,15 @@
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-white font-extrabold text-sm font-display">Datenschutz & Cookies</h3>
-                    <p class="text-on-surface-variant text-xs mt-1.5 leading-relaxed font-medium">
+                    <h3 class="text-white font-extrabold text-sm font-display" data-translate="cookie_header">Datenschutz & Cookies</h3>
+                    <p class="text-on-surface-variant text-xs mt-1.5 leading-relaxed font-medium" data-translate="cookie_desc">
                         Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen. Ohne diese Cookies kann der Dienst nicht angeboten werden.
                     </p>
                 </div>
             </div>
             <div class="flex items-center justify-between gap-4 mt-2 font-display">
-                <button onclick="openLegalModal('datenschutz')" class="text-xs text-primary hover:text-primary-hover underline font-bold transition-colors">Datenschutzerklärung</button>
-                <button onclick="acceptCookies()" class="btn-premium btn-premium-primary text-xs px-5 py-2.5 rounded-xl font-bold active:scale-95 shadow-md shadow-primary/10">Einverstanden</button>
+                <button onclick="openLegalModal('datenschutz')" class="text-xs text-primary hover:text-primary-hover underline font-bold transition-colors" data-translate="cookie_privacy">Datenschutzerklärung</button>
+                <button onclick="acceptCookies()" class="btn-premium btn-premium-primary text-xs px-5 py-2.5 rounded-xl font-bold active:scale-95 shadow-md shadow-primary/10" data-translate="cookie_btn">Einverstanden</button>
             </div>
         </div>
     </div>
