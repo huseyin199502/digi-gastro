@@ -1175,7 +1175,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     is_readonly = False
     set_session_cookie = False
     token_error = False
-    reset_session = False
+    reset_session = (request.query_params.get("reset") == "true")
 
     # Check query parameters first (support both 'table' and 'tisch')
     query_table = table or request.query_params.get("tisch") or request.query_params.get("table")
@@ -1242,7 +1242,6 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                     
                 table = str(query_table).strip()
                 token = new_session_tok
-                set_session_cookie = True
                 reset_session = True
             else:
                 # Table is NOT free (active session). Join session.
@@ -1259,7 +1258,27 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                         db.close()
                 table = str(query_table).strip()
                 token = active_session_tok
-                set_session_cookie = True
+                reset_session = False
+
+            # Set cookie and REDIRECT to clean URL!
+            cookie_name = f"guest_session_{slug}"
+            cookie_val = f"{table}:{token}"
+            
+            if reset_session:
+                redirect_url = f"/{slug}?reset=true"
+            else:
+                redirect_url = f"/{slug}"
+                
+            response = RedirectResponse(url=redirect_url, status_code=303)
+            response.set_cookie(
+                key=cookie_name,
+                value=cookie_val,
+                max_age=14400, # 4 hours
+                httponly=False,
+                samesite="lax",
+                secure=False
+            )
+            return response
         elif session_val:
             try:
                 c_table, c_token = session_val.split(":", 1)
@@ -1273,23 +1292,6 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 tables_list = restaurant.get("tables", [])
                 db_table = next((t for t in tables_list if str(t.get("number")) == active_table_num), None)
                 active_session_tok = db_table.get("active_session_token") if db_table else None
-                
-                # Check if all orders for this table are paid or storniert
-                table_orders = [o for o in restaurant.get("orders", []) if o.get("table") in [f"Tisch {active_table_num}", active_table_num]]
-                open_orders = [o for o in table_orders if o.get("status") not in ["bezahlt", "storniert"]]
-                
-                if not open_orders:
-                    # Session finished! Let's rotate active session token in the background and redirect to seat expired
-                    if db_table:
-                        import secrets
-                        db_table["active_session_token"] = secrets.token_hex(4)
-                        db = SessionLocal()
-                        try:
-                            save_restaurant_to_db(slug, restaurant, db)
-                            db.commit()
-                        finally:
-                            db.close()
-                    return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
                 
                 is_token_valid = (active_token and ((active_session_tok and active_token == active_session_tok) or (master_token and active_token == master_token)))
                 if not is_token_valid:

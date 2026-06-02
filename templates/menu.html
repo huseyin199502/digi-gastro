@@ -1323,6 +1323,13 @@
                     });
             });
         }
+
+        // Clean up address bar query parameters to hide ?reset=true or any other params
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
     </script>
     <!-- Toast Container for Premium UI feedback -->
     <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-[90%] max-w-sm pointer-events-none"></div>
