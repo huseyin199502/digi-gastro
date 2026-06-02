@@ -1283,7 +1283,27 @@ def create_order(request: Request, slug: str, payload: OrderPayload, db: Session
         
     total = sum(item.price * item.quantity for item in payload.items)
     total_with_tip = total + (payload.tip_amount or 0.0)
-    
+
+    # Look up any active (unpaid) order for this table to merge items
+    active_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")) == str(payload.table) and o.get("status") not in ["bezahlt", "storniert"]), None)
+    if active_order:
+        for new_item in payload.items:
+            # Check if same product is already in the order
+            existing_item = next((item for item in active_order["items"] if item.get("product_id") == new_item.product_id), None)
+            if existing_item:
+                existing_item["quantity"] += new_item.quantity
+            else:
+                active_order["items"].append(new_item.model_dump())
+        active_order["total"] = round(active_order["total"] + total, 2)
+        active_order["total_with_tip"] = round(active_order["total_with_tip"] + total_with_tip, 2)
+        active_order["tip_amount"] = round(active_order["tip_amount"] + (payload.tip_amount or 0.0), 2)
+        active_order["status"] = "eingegangen"  # Mark as eingegangen so it blinks orange again
+        active_order["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+        return {"success": True, "order_id": active_order["id"]}
+
     new_id = len(restaurant["orders"]) + 1
     new_order = {
         "id": new_id,
@@ -1360,8 +1380,6 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Ses
     finally:
         db.close()
         
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return {"success": True, "call_id": new_id}
 
 
@@ -1402,6 +1420,9 @@ def get_tablet(request: Request, slug: str, db: Session = Depends(get_db)):
     tables_json = json.dumps(restaurant.get("tables", []))
     products_json = json.dumps(restaurant.get("products", []))
     
+    # Extract owner/chef staff employee
+    default_staff = next((s for s in restaurant.get("staff", []) if s.get("role") == "chef"), None)
+    
     return templates.TemplateResponse(
         request=request,
         name="tablet.html",
@@ -1413,7 +1434,8 @@ def get_tablet(request: Request, slug: str, db: Session = Depends(get_db)):
             "tables_json": tables_json,
             "products_json": products_json,
             "service_calls": restaurant.get("service_calls", []),
-            "current_user": user
+            "current_user": user,
+            "default_staff": default_staff
         }
     )
 
@@ -1554,8 +1576,6 @@ def renew_pos_secret(request: Request, slug: str, db: Session = Depends(get_db))
         db.commit()
     finally:
         db.close()
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return RedirectResponse(url=f"/{slug}/admin/dashboard?tab=config", status_code=303)
 
 
@@ -1574,8 +1594,6 @@ def renew_kds_secret(request: Request, slug: str, db: Session = Depends(get_db))
         db.commit()
     finally:
         db.close()
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return RedirectResponse(url=f"/{slug}/admin/dashboard?tab=config", status_code=303)
 
 @app.get("/{slug}/kitchen", response_class=HTMLResponse)
@@ -1684,8 +1702,6 @@ def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[st
     finally:
         db.close()
         
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
@@ -1758,8 +1774,6 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     finally:
         db.close()
         
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return {
         "success": True,
         "remaining_items_count": len(order["items"]),
@@ -1821,8 +1835,6 @@ def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Dep
     finally:
         db.close()
         
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return {"success": True}
 
 

@@ -118,6 +118,8 @@
                         <tr class="border-b border-[#262626] text-on-surface-variant text-xs uppercase tracking-wider">
                             <th class="py-4 px-3">Restaurant Name</th>
                             <th class="py-4 px-3">URL-Slug</th>
+                            <th class="py-4 px-3">E-Mail-Login</th>
+                            <th class="py-4 px-3">Passwort</th>
                             <th class="py-4 px-3">Umsatz</th>
                             <th class="py-4 px-3">Bestellungen</th>
                             <th class="py-4 px-3">Modus</th>
@@ -141,6 +143,12 @@
                                     /{{ slug_key }}
                                     <span class="material-symbols-outlined text-[12px]">open_in_new</span>
                                 </a>
+                            </td>
+                            <td class="py-4 px-3 font-medium text-xs text-on-surface-variant">
+                                {{ tenant.email }}
+                            </td>
+                            <td class="py-4 px-3 font-mono text-xs text-on-surface-variant">
+                                {{ tenant.password }}
                             </td>
                             <td class="py-4 px-3 font-medium text-on-surface">
                                 {{ "%.2f"|format(tenant.tagesumsatz) }} €

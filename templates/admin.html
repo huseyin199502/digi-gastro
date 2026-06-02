@@ -82,8 +82,8 @@
                     <span>⏱️ Speisekarte</span>
                 </button>
                 <button onclick="switchAdminTab('personal')" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
-                    <span class="material-symbols-outlined text-lg">badge</span>
-                    <span>👥 Personal & Profil</span>
+                    <span class="material-symbols-outlined text-lg">storefront</span>
+                    <span>👤 Profil & Einstellungen</span>
                 </button>
                 <button onclick="switchAdminTab('konfiguration')" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
                     <span class="material-symbols-outlined text-lg">settings</span>
@@ -529,9 +529,9 @@
             </div>
         </div>
 
-        <!-- ================= TAB: STAFF & PROFILE ================= -->
+        <!-- ================= TAB: PROFILE & SETTINGS ================= -->
         <div id="admin-tab-personal" class="admin-tab-content space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="max-w-2xl">
                 <!-- Profile / Onboarding -->
                 <div class="bg-surface border border-outline-variant p-6 rounded-2xl space-y-5">
                     <div>
@@ -577,71 +577,6 @@
                             Profil & Rechtstexte sichern
                         </button>
                     </form>
-                </div>
-
-                <!-- Personal management -->
-                <div class="bg-surface border border-outline-variant p-6 rounded-2xl space-y-6">
-                    <div>
-                        <h3 class="text-base font-black text-white flex items-center space-x-2">
-                            <span class="material-symbols-outlined text-primary">badge</span>
-                            <span>Mitarbeiter & Berechtigungen</span>
-                        </h3>
-                        <p class="text-xs text-on-surface-variant mt-0.5">Erstellen und sperren Sie Mitarbeiterzugänge über 4-stellige Sicherheits-PINs.</p>
-                    </div>
-
-                    <!-- Add Staff Form -->
-                    <form action="/{{ slug }}/admin/staff" method="POST" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">Mitarbeiter Name</label>
-                            <input type="text" name="staff_name" placeholder="z.B. Max Mustermann" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-xs text-white focus:outline-none focus:border-primary" required>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">System Rolle</label>
-                                <select name="role" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-xs text-white focus:outline-none focus:border-primary">
-                                    <option value="chef">Chef / Inhaber</option>
-                                    <option value="kellner">Kellner / Service</option>
-                                    <option value="zubereiter">Zubereiter / KDS</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">4-stellige PIN</label>
-                                <input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" placeholder="z.B. 1234" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-xs text-center font-mono tracking-widest text-white focus:outline-none focus:border-primary" required>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="w-full bg-primary hover:bg-[#c9e88b] text-black text-xs font-black uppercase py-3.5 rounded-xl transition">
-                            Mitarbeiter hinzufügen
-                        </button>
-                    </form>
-
-                    <!-- Staff List -->
-                    <div class="border-t border-outline-variant/60 pt-4 space-y-3">
-                        <span class="text-xs font-bold text-on-surface-variant block">Aktive Systemzugänge</span>
-                        <div class="space-y-2">
-                            {% for s in restaurant.staff %}
-                            <div class="bg-background border border-outline-variant p-3 rounded-xl flex justify-between items-center text-xs">
-                                <div class="flex items-center space-x-2.5">
-                                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                        {{ s.name[0] | upper }}
-                                    </div>
-                                    <div>
-                                        <span class="font-bold text-white block">{{ s.name }}</span>
-                                        <span class="text-[10px] text-on-surface-variant font-mono uppercase tracking-wider">{{ s.role }}</span>
-                                    </div>
-                                </div>
-                                <div class="flex items-center space-x-3">
-                                    <span class="font-mono text-primary font-bold bg-surface border border-outline-variant px-2 py-1 rounded text-[10px] tracking-wider">PIN: {{ s.pin_code or s.pin }}</span>
-                                    <form action="/{{ slug }}/admin/staff-loeschen/{{ s.pin_code or s.pin }}" method="POST">
-                                        <button type="submit" class="text-rose-400 hover:text-rose-300 transition" title="Mitarbeiter entfernen">
-                                            <span class="material-symbols-outlined text-sm">delete</span>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -948,7 +883,7 @@
                 'live': '🎯 Live-Tische',
                 'finanzen': '📈 Finanzen & Logs',
                 'speisekarte': '⏱️ Speisekarte',
-                'personal': '👥 Personal & Profil',
+                'personal': '👤 Profil & Einstellungen',
                 'konfiguration': '⚙️ Konfiguration'
             };
             const breadcrumb = document.getElementById('breadcrumb-current');

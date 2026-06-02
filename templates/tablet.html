@@ -81,75 +81,85 @@
 
     <!-- Web Audio API Acoustic notification synthesizer -->
     <script>
+        let globalAudioCtx = null;
+
+        function initAudio() {
+            if (!globalAudioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    globalAudioCtx = new AudioContextClass();
+                }
+            }
+            if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+                globalAudioCtx.resume().catch(e => console.warn("Failed to resume AudioContext:", e));
+            }
+        }
+
+        // Bind events to body to auto-resume the context on first user interaction
+        document.addEventListener('click', initAudio, { once: false });
+        document.addEventListener('touchstart', initAudio, { once: false });
+
         function playOrderSound() {
             try {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContextClass) return;
-                const audioCtx = new AudioContextClass();
+                initAudio();
+                const ctx = globalAudioCtx;
+                if (!ctx) return;
                 
-                audioCtx.resume().then(() => {
-                    const osc = audioCtx.createOscillator();
-                    const gainNode = audioCtx.createGain();
-                    
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High A
-                    osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.15); // Slide up to E
-                    
-                    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
-                    
-                    osc.connect(gainNode);
-                    gainNode.connect(audioCtx.destination);
-                    
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.6);
-                }).catch(e => {
-                    console.warn("Autoplay blockiert", e);
-                });
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // High A
+                osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15); // Slide up to E
+                
+                gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+                
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + 0.6);
             } catch (e) {
-                console.warn("AudioContext Fehler", e);
+                console.warn("AudioContext playOrderSound Fehler", e);
             }
         }
 
         function playServiceSound() {
             try {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContextClass) return;
-                const audioCtx = new AudioContextClass();
+                initAudio();
+                const ctx = globalAudioCtx;
+                if (!ctx) return;
                 
-                audioCtx.resume().then(() => {
-                    // Beep 1
-                    const osc1 = audioCtx.createOscillator();
-                    const gain1 = audioCtx.createGain();
-                    osc1.type = 'square'; // slightly buzzy for urgency
-                    osc1.frequency.setValueAtTime(660, audioCtx.currentTime);
-                    gain1.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-                    osc1.connect(gain1);
-                    gain1.connect(audioCtx.destination);
-                    osc1.start();
-                    osc1.stop(audioCtx.currentTime + 0.15);
+                // Beep 1
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'square'; // slightly buzzy for urgency
+                osc1.frequency.setValueAtTime(660, ctx.currentTime);
+                gain1.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start();
+                osc1.stop(ctx.currentTime + 0.15);
 
-                    // Beep 2 (delayed)
-                    setTimeout(() => {
-                        try {
-                            const osc2 = audioCtx.createOscillator();
-                            const gain2 = audioCtx.createGain();
-                            osc2.type = 'square';
-                            osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
-                            gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                            gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-                            osc2.connect(gain2);
-                            gain2.connect(audioCtx.destination);
-                            osc2.start();
-                            osc2.stop(audioCtx.currentTime + 0.15);
-                        } catch(err) {}
-                    }, 180);
-                }).catch(e => {
-                    console.warn("Autoplay blockiert", e);
-                });
+                // Beep 2 (delayed)
+                setTimeout(() => {
+                    try {
+                        const osc2 = ctx.createOscillator();
+                        const gain2 = ctx.createGain();
+                        osc2.type = 'square';
+                        osc2.frequency.setValueAtTime(880, ctx.currentTime);
+                        gain2.gain.setValueAtTime(0.1, ctx.currentTime);
+                        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                        osc2.connect(gain2);
+                        gain2.connect(ctx.destination);
+                        osc2.start();
+                        osc2.stop(ctx.currentTime + 0.15);
+                    } catch(err) {}
+                }, 180);
             } catch (e) {
-                console.warn("AudioContext Fehler", e);
+                console.warn("AudioContext playServiceSound Fehler", e);
             }
         }
     </script>
@@ -164,11 +174,8 @@
             <div class="mt-3 flex items-center justify-between bg-surface/50 border border-outline-variant rounded-xl p-2.5 shadow-inner">
                 <div class="truncate mr-2">
                     <p class="text-[9px] uppercase font-extrabold text-on-surface-variant leading-none tracking-wider">Bediener</p>
-                    <p class="text-xs text-primary font-black mt-1.5 leading-none truncate"><span id="active-waiter-display">Kein Bediener</span></p>
+                    <p class="text-xs text-primary font-black mt-1.5 leading-none truncate"><span id="active-waiter-display">{% if default_staff %}{{ default_staff.name }}{% else %}Besitzer{% endif %}</span></p>
                 </div>
-                <button onclick="openStaffModal()" class="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-2 py-1 rounded-lg font-black transition active:scale-95 shrink-0">
-                    Wechseln
-                </button>
             </div>
         </div>
         <div id="conn-status-banner" class="hidden flex items-center gap-2 p-3 bg-red-950/80 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold animate-pulse">
@@ -780,65 +787,29 @@
             });
         }
 
-        let currentChefPinInput = "";
-        let orderIdToCancel = null;
-
         function triggerStornoPrompt() {
             if (!activeOrderId) return;
-            if (!authenticatedStaff) {
-                openStaffModal();
+            if (!authenticatedStaff || !authenticatedStaff.pin) {
+                alert("Kein Inhaber/Chef konfiguriert. Stornierung nicht möglich.");
                 return;
             }
-            orderIdToCancel = activeOrderId;
-            currentChefPinInput = "";
-            updateChefPinDots();
-            document.getElementById("chef-pin-modal").classList.remove("hidden");
-        }
-
-        function closeChefPinModal() {
-            document.getElementById("chef-pin-modal").classList.add("hidden");
-            currentChefPinInput = "";
-            orderIdToCancel = null;
-        }
-
-        function updateChefPinDots() {
-            const dots = "•".repeat(currentChefPinInput.length) + "•".repeat(Math.max(0, 4 - currentChefPinInput.length));
-            document.getElementById("chef-pin-dots").textContent = dots;
-        }
-
-        function pressChefPin(num) {
-            if (currentChefPinInput.length < 4) {
-                currentChefPinInput += num;
-                updateChefPinDots();
-            }
-        }
-
-        function clearChefPin() {
-            currentChefPinInput = "";
-            updateChefPinDots();
-        }
-
-        function submitChefPin() {
-            if (currentChefPinInput.length !== 4) {
-                alert("Bitte eine 4-stellige Chef-PIN eingeben.");
+            if (!confirm("Bestellung wirklich stornieren?")) {
                 return;
             }
-
+            
             const formData = new FormData();
-            formData.append("pin", currentChefPinInput);
+            formData.append("pin", authenticatedStaff.pin);
 
-            fetch(`/{{ slug }}/tablet/stornieren/${orderIdToCancel}`, {
+            fetch(`/{{ slug }}/tablet/stornieren/${activeOrderId}`, {
                 method: 'POST',
                 body: formData
             })
             .then(res => {
                 if (res.ok) {
                     alert("Bestellung erfolgreich storniert.");
-                    closeChefPinModal();
                     window.location.reload();
                 } else if (res.status === 403) {
                     alert("Sicherheits-Block: PIN-Code ist ungültig oder gehört nicht zu einem Chef.");
-                    clearChefPin();
                 } else {
                     alert("Stornierung fehlgeschlagen.");
                 }
@@ -898,78 +869,19 @@
         // Global variables for local orders tracking
         let allOrdersLocal = [...allOrders];
 
-        // Dynamic staff resolution and persistence
-        {% set default_staff = None %}
-        {% for s in restaurant.staff %}
-            {% if s.role != "chef" and not default_staff %}
-                {% set default_staff = s %}
-            {% endif %}
-        {% endfor %}
-
-        let authenticatedStaff = null;
-        try {
-            const saved = localStorage.getItem("pos_waiter_{{ slug }}");
-            if (saved) {
-                authenticatedStaff = JSON.parse(saved);
-            }
-        } catch(e) {}
-
-        if (!authenticatedStaff) {
-            {% if default_staff %}
-                authenticatedStaff = {
-                    name: "{{ default_staff.name }}",
-                    role: "{{ default_staff.role }}",
-                    pin: "{{ default_staff.pin_code or default_staff.pin }}"
-                };
-            {% else %}
-                authenticatedStaff = {
-                    name: "Jan",
-                    role: "kellner",
-                    pin: "1234"
-                };
-            {% endif %}
-        }
+        let authenticatedStaff = {
+            name: "{{ default_staff.name if default_staff else 'Besitzer' }}",
+            role: "chef",
+            pin: "{{ (default_staff.pin_code or default_staff.pin) if default_staff else '1111' }}"
+        };
 
         // Apply initially selected staff to active display
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("active-waiter-display").textContent = authenticatedStaff.name;
         });
 
-        function openStaffModal() {
-            document.getElementById("staff-select-modal").classList.remove("hidden");
-        }
-
-        function closeStaffModal() {
-            document.getElementById("staff-select-modal").classList.add("hidden");
-        }
-
-        function quickLoginStaff(waiterName) {
-            const formData = new FormData();
-            formData.append("name", waiterName);
-
-            fetch(`/api/{{ slug }}/quick-login`, {
-                method: "POST",
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    authenticatedStaff = { name: data.name, role: data.role, pin: data.pin };
-                    localStorage.setItem("pos_waiter_{{ slug }}", JSON.stringify(authenticatedStaff));
-                    document.getElementById("active-waiter-display").textContent = data.name;
-                    closeStaffModal();
-                } else {
-                    alert("Login fehlgeschlagen: " + (data.error || "Mitarbeiter nicht gefunden"));
-                }
-            })
-            .catch(err => {
-                console.error("Fehler bei Quick-Login:", err);
-                alert("Verbindungsfehler beim Quick-Login.");
-            });
-        }
-
         // Polling-System für Echtzeit-Updates
-        const playedOrderSounds = new Set();
+        const playedOrderTimestamps = new Map(); // orderId -> timestamp
         const playedServiceSounds = new Set();
         let initialPollDone = false;
 
@@ -999,7 +911,10 @@
 
                 // 1. Check for notifications (Audio cue)
                 if (initialPollDone) {
-                    const hasNewOrder = data.orders.some(o => o.status === "eingegangen" && !playedOrderSounds.has(o.id));
+                    const hasNewOrder = data.orders.some(o => {
+                        const prevTimestamp = playedOrderTimestamps.get(o.id);
+                        return o.status === "eingegangen" && (prevTimestamp === undefined || prevTimestamp !== o.timestamp);
+                    });
                     const hasNewServiceCall = data.service_calls.some(c => !playedServiceSounds.has(c.id));
                     
                     if (hasNewOrder) {
@@ -1010,8 +925,8 @@
                     }
                 }
                 
-                // Populate sets
-                data.orders.forEach(o => playedOrderSounds.add(o.id));
+                // Populate sets/maps
+                data.orders.forEach(o => playedOrderTimestamps.set(o.id, o.timestamp));
                 data.service_calls.forEach(c => playedServiceSounds.add(c.id));
                 initialPollDone = true;
 
@@ -1465,67 +1380,7 @@
         });
     </script>
 
-    <!-- SCHICKES MITARBEITER-WECHSEL MODAL -->
-    <div id="staff-select-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="bg-[#1a1a1a] border border-[#262626] rounded-3xl w-full max-w-md p-6 text-center space-y-5 shadow-2xl relative">
-            <button onclick="closeStaffModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition">
-                <span class="material-symbols-outlined text-2xl">close</span>
-            </button>
-            <div>
-                <div class="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center text-xl mx-auto mb-2">
-                    <span class="material-symbols-outlined">group</span>
-                </div>
-                <h3 class="text-base font-black text-white tracking-tight">Bediener wechseln</h3>
-                <p class="text-[11px] text-on-surface-variant mt-0.5">Tippen Sie auf Ihren Namen, um sich sofort als Bediener anzumelden.</p>
-            </div>
-            
-            <!-- Quick-Tap Kacheln (OHNE CHEF / OWNER!) -->
-            <div class="grid grid-cols-2 gap-3 max-h-[40vh] overflow-y-auto p-1" style="scrollbar-width: thin;">
-                {% for s in restaurant.staff %}
-                    {% if s.role != "chef" %}
-                        <button onclick="quickLoginStaff('{{ s.name }}')" class="flex flex-col items-center justify-center p-4 border border-outline-variant bg-surface hover:bg-primary/10 hover:border-primary/30 text-on-surface hover:text-primary rounded-xl transition-all duration-200 active:scale-95 shadow-md">
-                            <span class="material-symbols-outlined text-2xl mb-1.5 opacity-80">person</span>
-                            <span class="font-black text-xs tracking-tight block max-w-full truncate">{{ s.name }}</span>
-                            <span class="text-[9px] uppercase font-bold text-on-surface-variant/80 mt-0.5">{{ s.role }}</span>
-                        </button>
-                    {% endif %}
-                {% else %}
-                    <div class="col-span-2 text-center py-4">
-                        <p class="text-xs text-on-surface-variant">Keine Kellner angelegt.</p>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
 
-    <!-- CHEF-PIN MODAL FOR STORNO -->
-    <div id="chef-pin-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="bg-[#1a1a1a] border border-[#262626] rounded-3xl w-full max-w-sm p-8 text-center space-y-6 shadow-2xl relative">
-            <button onclick="closeChefPinModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white">
-                <span class="material-symbols-outlined text-2xl">close</span>
-            </button>
-            <div>
-                <div class="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3 border border-rose-500/20">
-                    <span class="material-symbols-outlined text-2xl text-rose-400">admin_panel_settings</span>
-                </div>
-                <h3 class="text-lg font-black text-white">Chef-PIN erforderlich</h3>
-                <p class="text-xs text-on-surface-variant mt-1">Diese Aktion ist administrativen Kräften vorbehalten. Bitte Inhaber-PIN eingeben.</p>
-            </div>
-            
-            <div id="chef-pin-display" class="flex justify-center gap-4 text-3xl font-mono tracking-widest text-rose-400 h-10 items-center font-bold">
-                <span id="chef-pin-dots">••••</span>
-            </div>
-            
-            <div class="grid grid-cols-3 gap-3">
-                {% for num in range(1, 10) %}
-                <button onclick="pressChefPin('{{ num }}')" class="bg-surface hover:bg-rose-500/20 border border-outline-variant text-white font-bold text-lg py-3 rounded-xl active:scale-95 transition-all">{{ num }}</button>
-                {% endfor %}
-                <button onclick="clearChefPin()" class="bg-surface hover:bg-rose-500/20 border border-outline-variant text-rose-400 font-bold text-xs py-3 rounded-xl active:scale-95 transition-all">CLR</button>
-                <button onclick="pressChefPin('0')" class="bg-surface hover:bg-rose-500/20 border border-outline-variant text-white font-bold text-lg py-3 rounded-xl active:scale-95 transition-all">0</button>
-                <button onclick="submitChefPin()" class="bg-rose-500 hover:bg-rose-400 text-white font-black text-xs py-3 rounded-xl active:scale-95 transition-all">OK</button>
-            </div>
-        </div>
-    </div>
 
     <!-- SPEISEKARTE BESTELL-MODAL (STAFF) -->
     <div id="order-taker-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden">
