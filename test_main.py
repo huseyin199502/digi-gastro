@@ -962,6 +962,54 @@ def test_integration():
     assert guest_cookie_val_2 != guest_cookie_val
     print("Printed QR Code scan-to-re-login: OK")
 
+    # 9. PWA Tests
+    print("Testing PWA routes...")
+    resp = client.get("/manifest.json")
+    assert resp.status_code == 200
+    assert resp.json()["short_name"] == "digi-gastro"
+    
+    resp = client.get("/sw.js")
+    assert resp.status_code == 200
+    assert "CACHE_NAME" in resp.text
+    print("PWA routes: OK")
+
+    # 10. WebSocket Route Check
+    print("Testing WebSocket endpoint...")
+    guest_cookies_active = {"guest_session_demo": guest_cookie_val_2}
+    with client.websocket_connect("/ws/demo") as websocket:
+        # Trigger service call which broadcasts to websockets
+        resp = client.post("/demo/service-ruf", json={"type": "service", "table": "Tisch 3"}, cookies=guest_cookies_active)
+        assert resp.status_code == 200
+        # Receive websocket broadcast
+        data = websocket.receive_json()
+        assert data == {"type": "update"}
+    print("WebSocket endpoint and broadcast: OK")
+
+    # 11. Multilingual product updates and details tests
+    print("Testing Multilingual product fields...")
+    # Update product 7 ("Klassische Shisha") to have English name and description
+    update_payload = {
+        "name": "Klassische Shisha",
+        "price": 12.00,
+        "description": "Klassische Shisha mit intensivem Geschmack",
+        "category": "Shisha",
+        "name_en": "Classic Shisha",
+        "description_en": "Classic shisha with intense flavor"
+    }
+    resp = client.put("/api/products/7", json=update_payload, cookies=dl_cookies)
+    assert resp.status_code == 200
+    
+    # Get products and check if English fields are stored
+    from database import SessionLocal, Product
+    db = SessionLocal()
+    try:
+        prod = db.query(Product).filter_by(id=7).first()
+        assert prod.name_en == "Classic Shisha"
+        assert prod.description_en == "Classic shisha with intense flavor"
+    finally:
+        db.close()
+    print("Multilingual product database storage: OK")
+ 
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":

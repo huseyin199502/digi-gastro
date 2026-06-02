@@ -6,7 +6,7 @@ import urllib.parse
 import secrets
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -16,6 +16,45 @@ app = FastAPI(title="digi-gastro High-End Gastronomy OS")
 # Setup Jinja2 Templates
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, List[WebSocket]] = {}
+
+    async def connect(self, slug: str, websocket: WebSocket):
+        await websocket.accept()
+        if slug not in self.active_connections:
+            self.active_connections[slug] = []
+        self.active_connections[slug].append(websocket)
+
+    def disconnect(self, slug: str, websocket: WebSocket):
+        if slug in self.active_connections:
+            if websocket in self.active_connections[slug]:
+                self.active_connections[slug].remove(websocket)
+            if not self.active_connections[slug]:
+                del self.active_connections[slug]
+
+    async def broadcast(self, slug: str, message: dict):
+        if slug in self.active_connections:
+            for connection in self.active_connections[slug]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/{slug}")
+async def websocket_endpoint(websocket: WebSocket, slug: str):
+    await manager.connect(slug, websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(slug, websocket)
+    except Exception:
+        manager.disconnect(slug, websocket)
+
 
 # ──────────────────────────────────────────────────────────────────
 # UPLOAD DIRECTORY – persistent volume for logos / product images
@@ -58,6 +97,14 @@ async def favicon():
 @app.get("/apple-touch-icon-120x120.png", include_in_schema=False)
 async def apple_touch_icon():
     return FileResponse("static/images/digigastrologo.jpeg")
+
+@app.get("/manifest.json", include_in_schema=False)
+async def manifest():
+    return FileResponse("static/manifest.json")
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    return FileResponse("static/sw.js")
 
 # Custom Exception for suspended tenants
 class TenantSuspendedException(Exception):
@@ -128,7 +175,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "is_available": p.is_available,
             "happy_hour_price": p.happy_hour_price,
             "start_time": p.start_time,
-            "end_time": p.end_time
+            "end_time": p.end_time,
+            "name_en": p.name_en,
+            "description_en": p.description_en
         })
         
     db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id).all()
@@ -313,6 +362,9 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         db_p.happy_hour_price = p.get("happy_hour_price")
         db_p.start_time = p.get("start_time")
         db_p.end_time = p.get("end_time")
+        db_p.name_en = p.get("name_en")
+        db_p.description_en = p.get("description_en")
+
         
         if db_p.id is None:
             session.flush()
@@ -838,6 +890,9 @@ class ProductUpdatePayload(BaseModel):
     price: float
     description: Optional[str] = None
     category: str
+    name_en: Optional[str] = None
+    description_en: Optional[str] = None
+
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, db: Session = Depends(get_db)):
@@ -1319,7 +1374,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     return response
 
 @app.post("/{slug}/bestellen")
-def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
+async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").strip()
@@ -1382,6 +1437,7 @@ def create_order(request: Request, slug: str, payload: OrderPayload, db: Session
         
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
+        await manager.broadcast(slug, {"type": "update"})
         return {"success": True, "order_id": active_order["id"]}
 
     new_id = len(restaurant["orders"]) + 1
@@ -1401,10 +1457,11 @@ def create_order(request: Request, slug: str, payload: OrderPayload, db: Session
     restaurant["orders"].append(new_order)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True, "order_id": new_id}
 
 @app.post("/{slug}/service-ruf")
-def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
+async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").strip()
@@ -1460,6 +1517,7 @@ def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Ses
     finally:
         db.close()
         
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True, "call_id": new_id}
 
 
@@ -1737,7 +1795,7 @@ def update_cooking_status(request: Request, slug: str, order_id: int, status: st
     return {"success": True, "new_status": order["status"]}
 
 @app.post("/{slug}/tablet/bezahlen/{order_id}")
-def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0), db: Session = Depends(get_db)):
+async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -1782,10 +1840,11 @@ def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[st
     finally:
         db.close()
         
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
-def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPayload, db: Session = Depends(get_db)):
+async def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -1862,6 +1921,7 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     finally:
         db.close()
         
+    await manager.broadcast(slug, {"type": "update"})
     return {
         "success": True,
         "remaining_items_count": len(order["items"]),
@@ -1870,7 +1930,7 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     }
 
 @app.post("/{slug}/tablet/tische-zusammenfuehren")
-def merge_tables(request: Request, slug: str, source_table: str = Form(...), target_table: str = Form(...), db: Session = Depends(get_db)):
+async def merge_tables(request: Request, slug: str, source_table: str = Form(...), target_table: str = Form(...), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -1945,10 +2005,11 @@ def merge_tables(request: Request, slug: str, source_table: str = Form(...), tar
     finally:
         db.close()
         
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/tablet/stornieren/{order_id}")
-def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...), db: Session = Depends(get_db)):
+async def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
     employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(pin).strip()), None)
@@ -1974,10 +2035,11 @@ def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...
     
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/service-erledigt/{ruf_id}")
-def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Depends(get_db)):
+async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -2001,6 +2063,7 @@ def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Dep
     finally:
         db.close()
         
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 
@@ -2458,6 +2521,8 @@ async def post_produkt_erstellen(
     preis: float = Form(...),
     kategorie: str = Form(...),
     description: Optional[str] = Form(""),
+    name_en: Optional[str] = Form(""),
+    description_en: Optional[str] = Form(""),
     image_url: Optional[str] = Form(""),
     image_file: Optional[UploadFile] = File(None),
     is_vegan: Optional[bool] = Form(False),
@@ -2517,7 +2582,9 @@ async def post_produkt_erstellen(
         "is_available": True,
         "happy_hour_price": None,
         "start_time": None,
-        "end_time": None
+        "end_time": None,
+        "name_en": name_en.strip() if name_en else "",
+        "description_en": description_en.strip() if description_en else ""
     }
 
     restaurant["products"].append(new_product)
@@ -2604,7 +2671,7 @@ class CallServicePayload(BaseModel):
     tip_amount: Optional[float] = 0.0
 
 @app.post("/api/{slug}/call-service")
-def api_call_service(request: Request, slug: str, payload: CallServicePayload, db: Session = Depends(get_db)):
+async def api_call_service(request: Request, slug: str, payload: CallServicePayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").strip()
@@ -2671,6 +2738,7 @@ def api_call_service(request: Request, slug: str, payload: CallServicePayload, d
         db.close()
         
     actual_id = restaurant["service_calls"][-1]["id"]
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True, "call_id": actual_id}
 
 @app.get("/api/{slug}/tablet-status")
@@ -2871,6 +2939,9 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
     product["price"] = round(payload.price, 2)
     product["description"] = payload.description.strip() if payload.description else None
     product["category"] = payload.category.strip()
+    product["name_en"] = payload.name_en.strip() if payload.name_en else ""
+    product["description_en"] = payload.description_en.strip() if payload.description_en else ""
+
 
     # Synchronize to database
     db = SessionLocal()
@@ -2885,7 +2956,7 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
     return {"success": True}
 
 @app.post("/{slug}/orders/confirm/{order_id}")
-def confirm_order(request: Request, slug: str, order_id: int, db: Session = Depends(get_db)):
+async def confirm_order(request: Request, slug: str, order_id: int, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -2914,6 +2985,7 @@ def confirm_order(request: Request, slug: str, order_id: int, db: Session = Depe
         
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/admin/product-toggle/{product_id}")

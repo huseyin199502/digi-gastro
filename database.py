@@ -129,6 +129,9 @@ class Product(Base):
     happy_hour_price = Column(Float, nullable=True)
     start_time = Column(String, nullable=True)
     end_time = Column(String, nullable=True)
+    name_en = Column(String, nullable=True)
+    description_en = Column(Text, nullable=True)
+
 
 class Order(Base):
     __tablename__ = 'orders'
@@ -240,6 +243,21 @@ def _migrate_database():
                 conn.execute(sa.text("ALTER TABLE tables ADD COLUMN active_session_token VARCHAR"))
             except Exception:
                 pass
+
+    # Migrate 'products' table
+    product_columns = [c['name'] for c in inspector.get_columns('products')]
+    with engine.begin() as conn:
+        if 'name_en' not in product_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE products ADD COLUMN name_en VARCHAR"))
+            except Exception:
+                pass
+        if 'description_en' not in product_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE products ADD COLUMN description_en TEXT"))
+            except Exception:
+                pass
+
 
 try:
     _migrate_database()

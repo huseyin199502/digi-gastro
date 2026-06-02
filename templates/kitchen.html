@@ -206,8 +206,64 @@
             }
         }
 
-        // ── Polling-based auto-refresh (replaces naive location.reload())
+        // ── Polling-based and WebSocket auto-refresh (replaces naive location.reload())
         // On 401/403: the pos/kds token was rotated → redirect to decoupled page.
+        let ws = null;
+        let pollInterval = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${protocol}//${window.location.host}/ws/{{ slug }}`;
+            
+            console.log("KDS connecting to WebSocket at", wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log("KDS WebSocket connected!");
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                document.getElementById('conn-status-kds').classList.add('hidden');
+                pollKitchenStatus();
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "update") {
+                        pollKitchenStatus();
+                    }
+                } catch (e) {
+                    console.error("Failed to parse KDS websocket message:", e);
+                }
+            };
+            
+            ws.onclose = (event) => {
+                console.warn("KDS WebSocket closed. Attempting reconnect / falling back to polling...", event.reason);
+                ws = null;
+                startFallbackPolling();
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onerror = (err) => {
+                console.error("KDS WebSocket error:", err);
+                ws.close();
+            };
+        }
+
+        function startFallbackPolling() {
+            if (!pollInterval) {
+                console.log("Starting KDS fallback polling interval (8s)");
+                pollInterval = setInterval(pollKitchenStatus, 8000);
+            }
+        }
+
+        function startPolling() {
+            pollKitchenStatus();
+            connectWebSocket();
+        }
+
         function pollKitchenStatus() {
             fetch(`/api/{{ slug }}/kitchen-status`)
             .then(res => {
@@ -262,9 +318,8 @@
             });
         }
 
-        // Start polling every 8 seconds
-        pollKitchenStatus();
-        setInterval(pollKitchenStatus, 8000);
+        // Start polling/WebSocket connection
+        startPolling();
 
         // Live timers calculation
         function updateTimers() {

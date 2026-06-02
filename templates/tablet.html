@@ -942,16 +942,63 @@
             document.getElementById("active-waiter-display").textContent = authenticatedStaff.name;
         });
 
-        // Polling-System für Echtzeit-Updates
+        // Polling-System und WebSockets für Echtzeit-Updates
         const playedOrderTimestamps = new Map(); // orderId -> timestamp
         const playedServiceSounds = new Set();
         let initialPollDone = false;
+        let ws = null;
+        let pollInterval = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${protocol}//${window.location.host}/ws/{{ slug }}`;
+            
+            console.log("Connecting to WebSocket at", wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log("WebSocket connected!");
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                pollTabletStatus();
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "update") {
+                        pollTabletStatus();
+                    }
+                } catch (e) {
+                    console.error("Failed to parse websocket message:", e);
+                }
+            };
+            
+            ws.onclose = (event) => {
+                console.warn("WebSocket closed. Attempting reconnect / falling back to polling...", event.reason);
+                ws = null;
+                startFallbackPolling();
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onerror = (err) => {
+                console.error("WebSocket error:", err);
+                ws.close();
+            };
+        }
+
+        function startFallbackPolling() {
+            if (!pollInterval) {
+                console.log("Starting fallback polling interval (5s)");
+                pollInterval = setInterval(pollTabletStatus, 5000);
+            }
+        }
 
         function startPolling() {
-            // Erstes Mal direkt ausführen
             pollTabletStatus();
-            // Danach alle 5 Sekunden
-            setInterval(pollTabletStatus, 5000);
+            connectWebSocket();
         }
 
         function pollTabletStatus() {

@@ -570,10 +570,14 @@
                     <span>Neues Produkt hinzufügen</span>
                 </h3>
                 <form action="/{{ slug }}/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="space-y-6 font-display">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
                         <div class="space-y-1.5">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Name des Produkts</label>
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Name des Produkts (DE)</label>
                             <input type="text" name="name" placeholder="z.B. Premium Burger" class="input-premium w-full text-sm focus:border-primary" required>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Name (EN - optional)</label>
+                            <input type="text" name="name_en" placeholder="z.B. Premium Burger (EN)" class="input-premium w-full text-sm focus:border-primary">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Preis (EUR)</label>
@@ -589,12 +593,16 @@
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Beschreibung (optional)</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div class="space-y-1.5 col-span-1">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Beschreibung (DE - optional)</label>
                             <textarea name="description" rows="3" placeholder="z.B. Saftiges Rindfleisch, Cheddar, hausgemachte Sauce..." class="input-premium w-full text-sm focus:border-primary resize-none"></textarea>
                         </div>
-                        <div class="space-y-4">
+                        <div class="space-y-1.5 col-span-1">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Beschreibung (EN - optional)</label>
+                            <textarea name="description_en" rows="3" placeholder="e.g. Prime beef patty, aged cheddar, signature sauce..." class="input-premium w-full text-sm focus:border-primary resize-none"></textarea>
+                        </div>
+                        <div class="space-y-4 col-span-1">
                             <div class="space-y-1.5">
                                 <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">📁 Bild hochladen (empfohlen)</label>
                                 <input type="file" name="image_file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white focus:outline-none focus:border-primary cursor-pointer file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-black hover:file:bg-primary/90">
@@ -664,7 +672,7 @@
 
                     <div class="flex justify-between items-center border-t border-outline-variant/60 pt-4 font-display">
                         <div class="flex gap-2">
-                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}')" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
+                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}', '{{ (p.name_en or '') | replace("'", "\\'") }}', '{{ (p.description_en or '') | replace("'", "\\'") }}')" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
                                 <span class="material-symbols-outlined text-sm">edit</span>
                                 Bearbeiten
                             </button>
@@ -888,9 +896,15 @@
             <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="space-y-4">
                 <input type="hidden" id="edit-product-id">
 
-                <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Produkt-Name</label>
-                    <input type="text" id="edit-product-name" class="input-premium w-full text-sm focus:border-primary" required>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Produkt-Name (DE)</label>
+                        <input type="text" id="edit-product-name" class="input-premium w-full text-sm focus:border-primary" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Name (EN - optional)</label>
+                        <input type="text" id="edit-product-name-en" class="input-premium w-full text-sm focus:border-primary">
+                    </div>
                 </div>
 
                 <div>
@@ -907,9 +921,15 @@
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung</label>
-                    <textarea id="edit-product-description" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung (DE)</label>
+                        <textarea id="edit-product-description" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung (EN - optional)</label>
+                        <textarea id="edit-product-description-en" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
+                    </div>
                 </div>
 
                 <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg">
@@ -959,8 +979,62 @@
             switchAdminTab(activeTab);
         });
 
-        // Real-time Live-Tische Monitor Poller
+        // Real-time Live-Tische Monitor Poller and WebSockets
         let lastLiveTischeHash = null;
+        let ws = null;
+        let pollInterval = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${protocol}//${window.location.host}/ws/${slug}`;
+            
+            console.log("Admin connecting to WebSocket at", wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log("Admin WebSocket connected!");
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                checkLiveTischeUpdates();
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "update") {
+                        checkLiveTischeUpdates();
+                    }
+                } catch (e) {
+                    console.error("Failed to parse admin websocket message:", e);
+                }
+            };
+            
+            ws.onclose = (event) => {
+                console.warn("Admin WebSocket closed. Attempting reconnect / falling back to polling...", event.reason);
+                ws = null;
+                startFallbackPolling();
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onerror = (err) => {
+                console.error("Admin WebSocket error:", err);
+                ws.close();
+            };
+        }
+
+        function startFallbackPolling() {
+            if (!pollInterval) {
+                console.log("Starting admin fallback polling interval (5s)");
+                pollInterval = setInterval(checkLiveTischeUpdates, 5000);
+            }
+        }
+
+        function startPolling() {
+            checkLiveTischeUpdates();
+            connectWebSocket();
+        }
 
         function checkLiveTischeUpdates() {
             // Only run check if we are on the 'live' tab
@@ -997,21 +1071,21 @@
                 .catch(err => console.warn("Live status polling error:", err));
         }
 
-        // Poll every 5 seconds
-        setInterval(checkLiveTischeUpdates, 5000);
-        // Run first check after DOM content loaded
+        // Run first check after DOM content loaded, initializing websocket
         document.addEventListener("DOMContentLoaded", () => {
-            setTimeout(checkLiveTischeUpdates, 1500);
+            setTimeout(startPolling, 1500);
         });
 
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }
         function closeQRGenerator()     { /* legacy */ }
 
-        function openEditProductModal(id, name, price, description, category) {
+        function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '') {
             document.getElementById('edit-product-id').value = id;
             document.getElementById('edit-product-name').value = name;
+            document.getElementById('edit-product-name-en').value = nameEn;
             document.getElementById('edit-product-price').value = price;
             document.getElementById('edit-product-description').value = description;
+            document.getElementById('edit-product-description-en').value = descriptionEn;
             document.getElementById('edit-product-category').value = category;
             document.getElementById('edit-product-modal').classList.remove('hidden');
         }
@@ -1034,7 +1108,9 @@
                 name: document.getElementById('edit-product-name').value,
                 price: parseFloat(document.getElementById('edit-product-price').value),
                 description: document.getElementById('edit-product-description').value,
-                category: document.getElementById('edit-product-category').value
+                category: document.getElementById('edit-product-category').value,
+                name_en: document.getElementById('edit-product-name-en').value,
+                description_en: document.getElementById('edit-product-description-en').value
             };
 
             fetch(`/api/products/${id}`, {

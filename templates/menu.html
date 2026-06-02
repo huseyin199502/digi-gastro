@@ -4,6 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>{{ restaurant.name }} - Speisekarte</title>
+    <!-- PWA settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f43f5e">
+    <link rel="manifest" href="/manifest.json">
     <!-- Tailwind and FontAwesome / Material Symbols -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -179,18 +184,6 @@
         <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
         <div id="tab-speisekarte" class="py-2">
             
-            <!-- Quick filters: Vegan and Glutenfree Toggles -->
-            <div class="flex items-center space-x-3 mb-6 bg-surface/50 p-3 rounded-2xl border border-outline-variant backdrop-blur-md">
-                <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider pl-1 font-display" data-translate="filters_label">Filter:</span>
-                <button onclick="toggleDietaryFilter('vegan')" id="filter-vegan-btn" class="flex items-center space-x-1.5 px-4 py-1.5 border border-outline-variant hover:border-primary text-xs rounded-full transition-all bg-background text-on-surface-variant">
-                    <span class="material-symbols-outlined text-emerald-400 text-sm">eco</span>
-                    <span data-translate="filter_vegan" class="font-medium">Vegan</span>
-                </button>
-                <button onclick="toggleDietaryFilter('glutenfree')" id="filter-glutenfree-btn" class="flex items-center space-x-1.5 px-4 py-1.5 border border-outline-variant hover:border-primary text-xs rounded-full transition-all bg-background text-on-surface-variant">
-                    <span class="material-symbols-outlined text-amber-400 text-sm">eco_food</span>
-                    <span data-translate="filter_glutenfree" class="font-medium">Glutenfrei</span>
-                </button>
-            </div>
 
             <!-- Category Pills (Horizontal scrolling) -->
             <div class="sticky top-20 z-45 bg-[#050507]/90 backdrop-blur-md overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none py-4 border-b border-outline-variant -mx-4 px-4 scroll-indicator select-none" style="touch-action: pan-x;" ondragstart="return false;">
@@ -232,14 +225,12 @@
                     <div class="flex flex-col justify-between flex-grow">
                         <div>
                             <div class="flex items-start justify-between gap-2">
-                                <h3 class="font-extrabold text-base text-white font-display truncate">{{ product.name }}</h3>
+                                <h3 class="font-extrabold text-base text-white font-display truncate product-name" data-name-de="{{ product.name | replace('"', '&quot;') }}" data-name-en="{{ (product.name_en or product.name) | replace('"', '&quot;') }}">{{ product.name }}</h3>
                                 {% if product.allergens %}
                                 <span class="text-[9px] text-on-surface-variant bg-surface px-1.5 py-0.5 rounded border border-outline-variant font-mono uppercase">{{ product.allergens | join(',') }}</span>
                                 {% endif %}
                             </div>
-                            {% if product.description %}
-                            <p class="text-xs text-on-surface-variant mt-2 leading-relaxed line-clamp-2">{{ product.description }}</p>
-                            {% endif %}
+                            <p class="text-xs text-on-surface-variant mt-2 leading-relaxed line-clamp-2 product-desc" data-desc-de="{{ (product.description or '') | replace('"', '&quot;') }}" data-desc-en="{{ (product.description_en or product.description or '') | replace('"', '&quot;') }}">{{ product.description }}</p>
                         </div>
 
                         <div class="flex justify-between items-end mt-5">
@@ -253,7 +244,7 @@
                             </div>
 
                             {% if is_avail %}
-                            <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
+                            <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
                                 <span class="material-symbols-outlined font-black">add</span>
                             </button>
                             {% else %}
@@ -607,7 +598,7 @@
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
-                    window.addToCart = (id, name, price, categoryType, btnElement) => this.addToCart(id, name, price, categoryType, btnElement);
+                    window.addToCart = (id, nameDe, nameEn, price, categoryType, btnElement) => this.addToCart(id, nameDe, nameEn, price, categoryType, btnElement);
                     window.openCartModal = () => this.openCartModal();
                     window.closeCartModal = () => this.closeCartModal();
                     window.openServiceModal = () => this.openServiceModal();
@@ -702,6 +693,21 @@
                             el.textContent = categoryMapping[originalText][lang];
                         }
                     });
+
+                    // Translate product names and descriptions in the DOM dynamically
+                    document.querySelectorAll('.product-name').forEach(el => {
+                        el.textContent = lang === 'en' ? el.getAttribute('data-name-en') : el.getAttribute('data-name-de');
+                    });
+                    document.querySelectorAll('.product-desc').forEach(el => {
+                        el.textContent = lang === 'en' ? el.getAttribute('data-desc-en') : el.getAttribute('data-desc-de');
+                    });
+                    
+                    // Translate cart items
+                    if (this.cart) {
+                        this.cart.forEach(item => {
+                            item.name = lang === 'en' ? item.name_en : item.name_de;
+                        });
+                    }
                 },
 
                 toggleDietaryFilter(type) {
@@ -753,12 +759,13 @@
                     });
                 },
 
-                addToCart(id, name, price, categoryType, btnElement = null) {
+                addToCart(id, nameDe, nameEn, price, categoryType, btnElement = null) {
+                    const name = this.currentLang === 'en' ? nameEn : nameDe;
                     const existing = this.cart.find(i => i.id === id);
                     if (existing) {
                         existing.quantity++;
                     } else {
-                        this.cart.push({ id, name, price, quantity: 1, category_type: categoryType, note: null });
+                        this.cart.push({ id, name, name_de: nameDe, name_en: nameEn, price, quantity: 1, category_type: categoryType, note: null });
                     }
                     
                     const addedMsg = translations[this.currentLang].toast_added || "hinzugefügt";
@@ -1035,7 +1042,7 @@
                         token: token,
                         items: this.cart.map(i => ({
                             product_id: i.id,
-                            name: i.name,
+                            name: i.name_de || i.name,
                             price: i.price,
                             quantity: i.quantity,
                             note: i.note || null
@@ -1263,6 +1270,19 @@
                 banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
                 banner.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
             }
+        }
+
+        // Register PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(err => {
+                        console.error('Service Worker registration failed:', err);
+                    });
+            });
         }
     </script>
     <!-- Toast Container for Premium UI feedback -->
