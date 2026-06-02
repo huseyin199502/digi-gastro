@@ -829,6 +829,31 @@ class ProductUpdatePayload(BaseModel):
 async def read_root(request: Request, db: Session = Depends(get_db)):
     if os.getenv("PYTEST_CURRENT_TEST"):
         return RedirectResponse(url="/demo", status_code=307)
+        
+    session_global = request.cookies.get("session_global")
+    if session_global == "admin@digi-gastro.de":
+        return RedirectResponse(url="/digi-gastro-admin")
+        
+    for cookie_key, cookie_val in request.cookies.items():
+        if cookie_key.startswith("session_") and cookie_key != "session_global":
+            slug = cookie_key.replace("session_", "").strip()
+            tenant = db.query(Tenant).filter_by(slug=slug).first()
+            if tenant:
+                try:
+                    parts = cookie_val.split(":")
+                    if len(parts) == 3:
+                        role = parts[1]
+                        if role == "chef":
+                            if not tenant.is_setup_completed:
+                                return RedirectResponse(url=f"/{slug}/admin/setup")
+                            return RedirectResponse(url=f"/{slug}/admin/dashboard")
+                        elif role == "kellner":
+                            return RedirectResponse(url=f"/{slug}/tablet")
+                        elif role == "zubereiter":
+                            return RedirectResponse(url=f"/{slug}/kitchen")
+                except Exception:
+                    pass
+                    
     return templates.TemplateResponse(request=request, name="landing.html")
 
 @app.get("/impressum", response_class=HTMLResponse)
@@ -843,6 +868,30 @@ def platform_datenschutz(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/login", response_class=HTMLResponse)
 def global_login_get(request: Request, db: Session = Depends(get_db)):
+    session_global = request.cookies.get("session_global")
+    if session_global == "admin@digi-gastro.de":
+        return RedirectResponse(url="/digi-gastro-admin")
+        
+    for cookie_key, cookie_val in request.cookies.items():
+        if cookie_key.startswith("session_") and cookie_key != "session_global":
+            slug = cookie_key.replace("session_", "").strip()
+            tenant = db.query(Tenant).filter_by(slug=slug).first()
+            if tenant:
+                try:
+                    parts = cookie_val.split(":")
+                    if len(parts) == 3:
+                        role = parts[1]
+                        if role == "chef":
+                            if not tenant.is_setup_completed:
+                                return RedirectResponse(url=f"/{slug}/admin/setup")
+                            return RedirectResponse(url=f"/{slug}/admin/dashboard")
+                        elif role == "kellner":
+                            return RedirectResponse(url=f"/{slug}/tablet")
+                        elif role == "zubereiter":
+                            return RedirectResponse(url=f"/{slug}/kitchen")
+                except Exception:
+                    pass
+
     return templates.TemplateResponse(request=request, name="landing.html", context={"show_login": True})
 
 @app.post("/login")
