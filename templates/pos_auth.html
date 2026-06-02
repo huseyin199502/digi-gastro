@@ -5,33 +5,33 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Kasse autorisieren - {{ restaurant_name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design_system.css">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <style>
         body {
-            background: radial-gradient(circle at center, #111 0%, #000 100%);
-            color: #e5e2e1;
-            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-obsidian);
+            color: #f3f4f6;
+            font-family: var(--font-sans);
         }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen p-4">
+<body class="flex flex-col items-center justify-center min-h-screen p-4 grid-bg radial-glow">
 
-    <div class="w-full max-w-md bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    <div class="w-full max-w-md glass-panel rounded-3xl p-8 shadow-2xl border border-white/10 relative z-10 space-y-6">
         
         <!-- Icon & Header -->
         <div class="text-center space-y-2">
-            <div class="w-16 h-16 bg-lime-400/10 text-lime-400 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-lime-400/20">
-                <span class="material-symbols-outlined text-3xl">tablet_mac</span>
+            <div class="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-primary/20 shadow-inner">
+                <span class="material-symbols-outlined text-3xl text-primary">tablet_mac</span>
             </div>
-            <h2 class="text-2xl font-black text-white tracking-tight">Gerät autorisieren</h2>
+            <h2 class="text-2xl font-black text-white tracking-tight font-display">Gerät autorisieren</h2>
             <p class="text-xs text-zinc-400">
-                Geben Sie Ihre Restaurant-Admin-Zugangsdaten ein, um dieses Gerät dauerhaft als <strong>Trusted POS Kasse</strong> freizuschalten.
+                Geben Sie Ihre Restaurant-Admin-Zugangsdaten ein, um dieses Gerät dauerhaft als <strong class="text-white">Trusted POS Kasse</strong> freizuschalten.
             </p>
         </div>
 
         {% if error %}
-        <div class="bg-rose-950/50 border border-rose-800/40 text-rose-200 py-3 px-4 rounded-xl text-xs flex items-center space-x-2">
+        <div class="bg-rose-500/10 border border-rose-500/25 text-rose-300 py-3.5 px-4 rounded-xl text-xs flex items-center space-x-2 font-display">
             <span class="material-symbols-outlined text-rose-400 text-lg">error</span>
             <span>{{ error }}</span>
         </div>
@@ -40,23 +40,23 @@
         <!-- Form -->
         <form action="/{{ slug }}/tablet/autorisieren" method="POST" class="space-y-4">
             <div>
-                <label class="block text-[10px] font-black uppercase text-zinc-400 tracking-wider mb-1.5">Admin E-Mail</label>
-                <input type="email" name="email" required placeholder="chef@meinrestaurant.de" class="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 focus:border-lime-400 text-white placeholder-zinc-600 transition">
+                <label class="block text-[10px] font-bold uppercase text-zinc-500 tracking-wider mb-2 pl-0.5 font-display">Admin E-Mail</label>
+                <input type="email" name="email" required placeholder="chef@meinrestaurant.de" class="input-premium w-full text-sm py-3 focus:border-primary">
             </div>
 
             <div>
-                <label class="block text-[10px] font-black uppercase text-zinc-400 tracking-wider mb-1.5">Inhaber Passwort</label>
-                <input type="password" name="password" required placeholder="••••••••" class="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-lime-400 focus:border-lime-400 text-white placeholder-zinc-600 transition">
+                <label class="block text-[10px] font-bold uppercase text-zinc-500 tracking-wider mb-2 pl-0.5 font-display">Inhaber Passwort</label>
+                <input type="password" name="password" required placeholder="••••••••" class="input-premium w-full text-sm py-3 focus:border-primary">
             </div>
 
-            <button type="submit" class="w-full bg-lime-400 hover:bg-lime-300 text-black font-black py-4 rounded-xl text-sm transition-all shadow-lg hover:shadow-lime-400/10 active:scale-[0.98] flex items-center justify-center space-x-2">
+            <button type="submit" class="w-full btn-premium btn-premium-primary py-4 rounded-xl text-sm transition-all flex items-center justify-center space-x-2">
                 <span class="material-symbols-outlined text-sm font-black">lock_open</span>
                 <span>Gerät als Kasse registrieren</span>
             </button>
         </form>
 
         <div class="text-center pt-2">
-            <a href="/{{ slug }}" class="text-xs text-zinc-500 hover:text-white transition underline">Zurück zur Speisekarte</a>
+            <a href="/{{ slug }}" class="text-xs text-zinc-500 hover:text-white transition-all underline">Zurück zur Speisekarte</a>
         </div>
     </div>
 

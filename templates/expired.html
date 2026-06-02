@@ -1,60 +1,79 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sitzung abgelaufen - {{ restaurant.name }}</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome for Premium Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design_system.css">
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-surface": "#f3f4f6",
+                "outline-variant": "#1f1f23",
+                "primary": "#10b981",
+                "accent": "#f59e0b",
+                "background": "#050507",
+                "surface": "#0b0c10",
+                "surface-container-high": "#11131a",
+                "on-surface-variant": "#9ca3af"
+              }
+            }
+          }
+        }
+    </script>
 </head>
-<body class="bg-gray-50 font-sans min-h-screen flex flex-col justify-between">
+<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col justify-between grid-bg radial-glow">
 
-    <!-- Red Warning banner at top -->
-    <div class="bg-red-600 text-white text-center py-4 px-4 font-semibold shadow-md">
-        <i class="fas fa-triangle-exclamation mr-2 animate-pulse"></i>
-        Ihre Sitzung ist leider abgelaufen. Scannen Sie bitte erneut Ihren Barcode.
+    <!-- Warning banner at top -->
+    <div class="bg-red-950/40 border-b border-red-500/20 text-red-200 text-center py-4 px-4 font-semibold shadow-md flex items-center justify-center gap-2 relative z-50">
+        <span class="material-symbols-outlined text-[20px] text-red-400 animate-pulse">error</span>
+        <span class="font-display text-sm">Deine Sitzung ist abgelaufen. Scanne bitte erneut deinen Barcode.</span>
     </div>
 
-    <!-- Centered Restaurant Info with Logo -->
-    <main class="flex-grow flex items-center justify-center p-6">
-        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-md w-full p-8 text-center space-y-6">
+    <!-- Centered Card -->
+    <main class="flex-grow flex items-center justify-center p-6 relative z-30">
+        <div class="glass-panel border border-outline-variant rounded-3xl max-w-md w-full p-10 text-center space-y-8 shadow-2xl">
             
             <!-- Restaurant Logo -->
             {% if restaurant.branding.logo_url %}
             <div class="flex justify-center">
-                <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }} Logo" class="h-24 object-contain rounded-xl max-w-full">
+                <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }} Logo" class="h-20 object-contain rounded-xl max-w-full">
             </div>
             {% else %}
-            <div class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mx-auto">
-                <i class="fas fa-store"></i>
+            <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto pulse-green">
+                <span class="material-symbols-outlined text-4xl">storefront</span>
             </div>
             {% endif %}
 
-            <!-- Restaurant Name and Welcoming message -->
-            <div>
-                <h2 class="text-2xl font-black text-gray-800">{{ restaurant.name }}</h2>
-                <p class="text-gray-500 mt-2 text-sm leading-relaxed">
-                    Vielen Dank für Ihren Besuch bei uns! Zur Sicherheit Ihrer Bestellung und Daten sperren wir Sitzungen nach einer gewissen Inaktivität oder einem Token-Wechsel.
+            <!-- Message -->
+            <div class="space-y-3">
+                <h2 class="text-3xl font-extrabold text-white tracking-tight font-display">{{ restaurant.name }}</h2>
+                <p class="text-on-surface-variant text-xs leading-relaxed font-semibold">
+                    Zur Sicherheit deiner Bestellung und Daten sperren wir Sitzungen nach längerer Inaktivität oder einem Token-Wechsel auf deinem Tisch.
                 </p>
             </div>
 
-            <!-- Helpful notice box -->
-            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start text-left space-x-3">
-                <i class="fas fa-qrcode text-amber-500 text-lg mt-0.5"></i>
-                <div class="text-xs text-amber-800">
-                    <span class="font-bold block">So geht es weiter:</span>
-                    Rufen Sie einfach einen Kellner über das Service-Signal oder scannen Sie den QR-Code auf Ihrem Tisch erneut ein, um fortzufahren.
+            <!-- Notice Box -->
+            <div class="bg-primary/5 border border-primary/20 rounded-2xl p-5 flex items-start text-left space-x-4">
+                <span class="material-symbols-outlined text-primary text-2xl mt-0.5">qr_code_scanner</span>
+                <div class="text-xs text-primary font-display font-medium">
+                    <span class="font-black block text-white text-sm mb-1">So geht es weiter:</span>
+                    Scanne einfach den QR-Code auf deinem Tisch erneut ein, um ein neues Ticket zu öffnen.
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Secure Footer at bottom -->
-    <footer class="py-6 bg-white border-t border-gray-100 text-center text-xs text-gray-400 space-y-1">
-        <div class="font-semibold text-gray-500">&copy; 2026 {{ restaurant.name }} Gastro-Service.</div>
-        <div class="flex justify-center space-x-3">
+    <!-- Footer -->
+    <footer class="py-8 bg-[#050507]/90 border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-2 font-display relative z-30">
+        <div class="font-extrabold text-white">&copy; 2026 {{ restaurant.name }} Gastro-Service.</div>
+        <div class="flex justify-center space-x-3 text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
             <span>Sicher verschlüsselt</span>
             <span>&bull;</span>
             <span>SaaS powered by digi-gastro</span>

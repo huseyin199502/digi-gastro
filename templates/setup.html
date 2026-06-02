@@ -5,59 +5,53 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>Erst-Einrichtung - {{ restaurant.name }}</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design_system.css">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #050505;
-            color: #e5e2e1;
-            font-family: 'Inter', sans-serif;
-        }
-        .glow-hover:hover {
-            box-shadow: 0 0 20px rgba(222, 255, 154, 0.2);
+            background-color: var(--bg-obsidian);
+            color: #f3f4f6;
+            font-family: var(--font-sans);
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
-    <!-- Ambient Blur Background -->
-    <div class="absolute -left-40 -top-40 w-96 h-96 bg-[#deff9a]/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -right-40 -bottom-40 w-96 h-96 bg-[#deff9a]/5 rounded-full blur-3xl pointer-events-none"></div>
+<body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden grid-bg radial-glow">
 
-    <div class="w-full max-w-xl bg-[#111111] border border-[#222222] rounded-3xl p-8 relative z-10 shadow-[0_10px_50px_rgba(0,0,0,0.8)] transition-all duration-300">
+    <div class="w-full max-w-xl glass-panel border border-white/10 rounded-3xl p-8 relative z-10 shadow-[0_10px_50px_rgba(0,0,0,0.8)] transition-all duration-300">
         <!-- Logo Header -->
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#deff9a]/10 mb-4">
-                <span class="material-symbols-outlined text-[#deff9a] text-4xl">rocket_launch</span>
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4 shadow-inner">
+                <span class="material-symbols-outlined text-primary text-4xl">rocket_launch</span>
             </div>
-            <h1 class="text-2xl font-black tracking-tight text-white mb-2">Willkommen bei digi-gastro!</h1>
-            <p class="text-sm text-neutral-400">Richten wir Ihr Restaurant <span class="text-[#deff9a] font-semibold">{{ restaurant.name }}</span> in wenigen Schritten ein.</p>
+            <h1 class="text-2xl font-black tracking-tight text-white mb-2 font-display">Willkommen bei digi-gastro!</h1>
+            <p class="text-sm text-neutral-400 font-display">Richten wir Ihr Restaurant <span class="text-primary font-bold">{{ restaurant.name }}</span> in wenigen Schritten ein.</p>
         </div>
 
         <!-- Setup Form -->
         <div class="space-y-6">
             <!-- STEP 1: Logo Upload (AJAX) -->
             <div>
-                <label class="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">Schritt 1: Restaurant-Logo hochladen</label>
-                <div id="drop-zone" class="border-2 border-dashed border-[#333333] hover:border-[#deff9a]/50 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 bg-[#161616] relative overflow-hidden group">
+                <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3 pl-0.5 font-display">Schritt 1: Restaurant-Logo hochladen</label>
+                <div id="drop-zone" class="border-2 border-dashed border-white/10 hover:border-primary/50 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 bg-black/30 relative overflow-hidden group">
                     <input type="file" id="logo-file" class="hidden" accept="image/*">
                     <div id="upload-prompt" class="space-y-3">
-                        <span class="material-symbols-outlined text-neutral-400 group-hover:text-[#deff9a] text-4xl transition-colors">cloud_upload</span>
-                        <div class="text-sm text-neutral-200 font-medium">Drag & Drop oder <span class="text-[#deff9a] underline">Datei auswählen</span></div>
+                        <span class="material-symbols-outlined text-neutral-400 group-hover:text-primary text-4xl transition-colors">cloud_upload</span>
+                        <div class="text-sm text-neutral-200 font-medium">Drag & Drop oder <span class="text-primary underline">Datei auswählen</span></div>
                         <div class="text-xs text-neutral-500">PNG, JPG oder WEBP (Quadratisch empfohlen)</div>
                     </div>
                     <!-- Live Preview Area -->
                     <div id="logo-preview-container" class="hidden flex flex-col items-center justify-center space-y-3">
-                        <img id="logo-preview" src="" alt="Logo Vorschau" class="w-24 h-24 rounded-2xl object-cover border border-[#333333]">
-                        <span class="text-xs text-green-400 flex items-center gap-1">
+                        <img id="logo-preview" src="" alt="Logo Vorschau" class="w-24 h-24 rounded-2xl object-cover border border-white/15 p-1 bg-black/40">
+                        <span class="text-xs text-emerald-400 flex items-center gap-1 font-semibold">
                             <span class="material-symbols-outlined text-sm">check_circle</span>
                             Logo erfolgreich hochgeladen!
                         </span>
                     </div>
                     <!-- Uploading Spinner -->
                     <div id="upload-loading" class="hidden py-4 flex flex-col items-center justify-center space-y-2">
-                        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#deff9a]"></div>
-                        <span class="text-xs text-neutral-400">Hochladen...</span>
+                        <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                        <span class="text-xs text-neutral-450">Hochladen...</span>
                     </div>
                 </div>
             </div>
@@ -66,46 +60,46 @@
             <form action="/{{ slug }}/admin/setup-complete" method="POST" class="space-y-6">
                 <!-- STEP 2: Operation Modes -->
                 <div class="space-y-4">
-                    <label class="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">Schritt 2: Betriebs-Modus wählen</label>
+                    <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-0.5 font-display">Schritt 2: Betriebs-Modus wählen</label>
                     
                     <!-- Switch 1: Kitchen Mode -->
-                    <label class="flex items-center justify-between p-4 rounded-2xl bg-[#161616] border border-[#222222] cursor-pointer hover:border-[#deff9a]/30 transition-all select-none">
+                    <label class="flex items-center justify-between p-4 rounded-2xl bg-black/20 border border-white/5 cursor-pointer hover:border-primary/30 transition-all select-none">
                         <div class="flex items-start gap-3">
-                            <span class="material-symbols-outlined text-[#deff9a] text-2xl mt-0.5">restaurant</span>
+                            <span class="material-symbols-outlined text-primary text-2xl mt-0.5">restaurant</span>
                             <div>
                                 <div class="font-bold text-white text-sm">Küchen-Display aktivieren</div>
-                                <div class="text-xs text-neutral-500 mt-0.5">Bestellungen werden direkt an einen Küchen-Monitor übertragen.</div>
+                                <div class="text-xs text-neutral-400 mt-1 leading-relaxed">Bestellungen werden direkt an einen Küchen-Monitor übertragen.</div>
                             </div>
                         </div>
                         <div class="relative inline-flex items-center">
                             <input type="checkbox" name="has_kitchen" value="true" class="sr-only peer" checked>
-                            <div class="w-11 h-6 bg-[#262626] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-[#888888] after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#deff9a] peer-checked:after:bg-[#0a0a0a]"></div>
+                            <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-black after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-zinc-500 after:border-zinc-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-black"></div>
                         </div>
                     </label>
 
                     <!-- Switch 2: Shisha Mode -->
-                    <label class="flex items-center justify-between p-4 rounded-2xl bg-[#161616] border border-[#222222] cursor-pointer hover:border-[#deff9a]/30 transition-all select-none">
+                    <label class="flex items-center justify-between p-4 rounded-2xl bg-black/20 border border-white/5 cursor-pointer hover:border-primary/30 transition-all select-none">
                         <div class="flex items-start gap-3">
-                            <span class="material-symbols-outlined text-[#deff9a] text-2xl mt-0.5">mode_fan</span>
+                            <span class="material-symbols-outlined text-primary text-2xl mt-0.5">mode_fan</span>
                             <div>
                                 <div class="font-bold text-white text-sm">Shisha-Modus aktivieren</div>
-                                <div class="text-xs text-neutral-500 mt-0.5">Spezieller Kohle- und Tabak-Bestellfluss für Shisha-Bars.</div>
+                                <div class="text-xs text-neutral-400 mt-1 leading-relaxed">Spezieller Kohle- und Tabak-Bestellfluss für Shisha-Bars.</div>
                             </div>
                         </div>
-                        <div class="relative inline-flex inline-flex items-center">
+                        <div class="relative inline-flex items-center">
                             <input type="checkbox" name="is_shishabar" value="true" class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#262626] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-[#888888] after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#deff9a] peer-checked:after:bg-[#0a0a0a]"></div>
+                            <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-black after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-zinc-500 after:border-zinc-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-checked:after:bg-black"></div>
                         </div>
                     </label>
                 </div>
 
                 <!-- Action Button -->
-                <div class="pt-4 border-t border-[#222222]">
-                    <button type="submit" class="w-full bg-[#deff9a] hover:bg-[#c9e88b] text-[#050505] font-black py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all duration-150 shadow-[0_4px_25px_rgba(222,255,154,0.2)] glow-hover">
-                        <span class="material-symbols-outlined font-black">task_alt</span>
+                <div class="pt-4 border-t border-white/5 font-display">
+                    <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg">
+                        <span class="material-symbols-outlined font-black text-sm">task_alt</span>
                         Einrichtung abschließen
                     </button>
-                    <p class="text-center text-[10px] text-neutral-600 mt-3 leading-normal">
+                    <p class="text-center text-[10px] text-zinc-500 mt-4 leading-normal font-sans">
                         Mit Klick auf "Einrichtung abschließen" wird Ihr System finalisiert und Ihr persönliches Dashboard freigeschaltet.
                     </p>
                 </div>
@@ -129,14 +123,14 @@
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
-                dropZone.classList.add('border-[#deff9a]');
+                dropZone.classList.add('border-primary');
             }, false);
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
-                dropZone.classList.remove('border-[#deff9a]');
+                dropZone.classList.remove('border-primary');
             }, false);
         });
 

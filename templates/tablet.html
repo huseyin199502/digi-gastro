@@ -4,10 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ restaurant.name }} - Tablet-Kasse</title>
-    <!-- Tailwind and FontAwesome / Material Symbols -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design_system.css">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -15,13 +14,13 @@
           theme: {
             extend: {
               colors: {
-                "on-surface": "#e5e2e1",
-                "outline-variant": "#262626",
-                "primary": "#deff9a",
-                "background": "#0a0a0a",
-                "surface": "#141313",
-                "surface-container-high": "#2b2a2a",
-                "on-surface-variant": "#c4c7c7"
+                "on-surface": "#f3f4f6",
+                "outline-variant": "rgba(255, 255, 255, 0.05)",
+                "primary": "#10b981", /* Premium Emerald */
+                "background": "#050507", /* Obsidian */
+                "surface": "#0b0c10",
+                "surface-container-high": "#11131a",
+                "on-surface-variant": "#9ca3af"
               }
             }
           }
@@ -29,13 +28,13 @@
     </script>
     <style>
         body {
-            background-color: #0a0a0a;
-            color: #e5e2e1;
-            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-obsidian);
+            color: #f3f4f6;
+            font-family: var(--font-sans);
         }
         .card-surface {
-            background-color: #1a1a1a;
-            border: 1px solid #262626;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
         }
         @media (max-width: 767px) {
             .hidden-mobile {
@@ -77,7 +76,7 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="bg-background text-on-surface antialiased font-sans min-h-screen flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+<body class="bg-background text-on-surface antialiased font-sans min-h-screen flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0 grid-bg radial-glow">
 
     <!-- Web Audio API Acoustic notification synthesizer -->
     <script>
@@ -165,35 +164,38 @@
     </script>
 
     <!-- SideNavBar for Tablet/Desktop -->
-    <aside class="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 p-6 gap-6 bg-[#0f0f0f] border-r border-outline-variant z-40">
+    <aside class="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 p-6 gap-6 bg-surface border-r border-white/5 z-40">
         <div class="mb-4">
             {% if restaurant.branding and restaurant.branding.logo_url %}
-                <img alt="{{ restaurant.name }} Logo" class="w-16 h-16 object-contain mb-2 rounded-xl" src="{{ restaurant.branding.logo_url }}">
+                <img alt="{{ restaurant.name }} Logo" class="w-14 h-14 object-contain mb-3 rounded-xl shadow-md border border-white/5 p-1 bg-black/40" src="{{ restaurant.branding.logo_url }}">
             {% endif %}
-            <h1 class="text-xl font-black text-white tracking-tight">digi-gastro POS</h1>
-            <div class="mt-3 flex items-center justify-between bg-surface/50 border border-outline-variant rounded-xl p-2.5 shadow-inner">
+            <h1 class="text-xl font-black text-white tracking-tight font-display">digi-gastro <span class="text-primary glow-text-primary">POS</span></h1>
+            <div class="mt-4 flex items-center justify-between bg-black/40 border border-white/5 rounded-xl p-3 shadow-inner">
                 <div class="truncate mr-2">
-                    <p class="text-[9px] uppercase font-extrabold text-on-surface-variant leading-none tracking-wider">Bediener</p>
-                    <p class="text-xs text-primary font-black mt-1.5 leading-none truncate"><span id="active-waiter-display">{% if default_staff %}{{ default_staff.name }}{% else %}Besitzer{% endif %}</span></p>
+                    <p class="text-[9px] uppercase font-bold text-zinc-500 leading-none tracking-wider">Bediener</p>
+                    <p class="text-xs text-primary font-black mt-2 leading-none truncate flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-primary pulse-green"></span>
+                        <span id="active-waiter-display">{% if default_staff %}{{ default_staff.name }}{% else %}Besitzer{% endif %}</span>
+                    </p>
                 </div>
             </div>
         </div>
-        <div id="conn-status-banner" class="hidden flex items-center gap-2 p-3 bg-red-950/80 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold animate-pulse">
-            <span class="material-symbols-outlined text-[16px]">signal_wifi_off</span>
+        <div id="conn-status-banner" class="hidden flex items-center gap-2 p-3.5 bg-rose-500/10 border border-rose-500/25 text-rose-400 rounded-xl text-xs font-bold animate-pulse">
+            <span class="material-symbols-outlined text-[16px] text-rose-400">signal_wifi_off</span>
             <span>OFFLINE: Verbindung gestört!</span>
         </div>
 
         <nav class="flex-grow space-y-2">
-            <a class="flex items-center gap-3 px-4 py-3 bg-surface border border-primary/20 text-primary rounded-xl font-black" href="#">
-                <span class="material-symbols-outlined">receipt_long</span>
-                <span class="text-sm">Bestellungen</span>
+            <a class="flex items-center gap-3 px-4 py-3 bg-primary/10 border border-primary/20 text-primary rounded-xl font-bold transition-all duration-300" href="#">
+                <span class="material-symbols-outlined text-lg">receipt_long</span>
+                <span class="text-sm font-display">Bestellungen</span>
             </a>
         </nav>
 
-        <div class="border-t border-outline-variant pt-4">
-            <a class="flex items-center gap-3 px-4 py-2.5 text-red-400 hover:bg-red-950/20 rounded-xl transition" href="/{{ slug }}/admin/logout">
-                <span class="material-symbols-outlined">logout</span>
-                <span class="text-sm font-bold">Abmelden</span>
+        <div class="border-t border-white/5 pt-4">
+            <a class="flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-xl transition-all duration-300" href="/{{ slug }}/admin/logout">
+                <span class="material-symbols-outlined text-lg">logout</span>
+                <span class="text-sm font-bold font-display">Abmelden</span>
             </a>
         </div>
     </aside>
@@ -209,53 +211,53 @@
     <main class="flex-grow flex flex-col md:flex-row h-screen md:ml-64 p-6 gap-6 overflow-hidden">
         
         <!-- FULL WIDTH COLUMN: PINNED Service Calls & Complete Table Kacheln Grid -->
-        <section class="w-full flex flex-col h-full overflow-y-auto pr-2 space-y-6" style="scrollbar-width: none;">
+        <section class="w-full flex flex-col h-full overflow-y-auto pr-2 space-y-6 animate-fade-in" style="scrollbar-width: none;">
             
             <!-- 1. PINNED SERVICE CALLS -->
-            <div class="bg-[#1a1a1a]/85 border-2 border-red-500/30 p-4 rounded-2xl space-y-3">
+            <div class="glass-card bg-rose-950/5 border border-rose-500/20 p-5 rounded-2xl space-y-3.5 shadow-lg shadow-rose-950/5">
                 <div class="flex justify-between items-center">
-                    <h2 class="text-base font-black text-white flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-red-500 animate-pulse">notifications_active</span>
+                    <h2 class="text-base font-black text-white flex items-center space-x-2 font-display">
+                        <span class="material-symbols-outlined text-rose-500 animate-pulse">notifications_active</span>
                         <span>Dringende Service-Signale</span>
                     </h2>
-                    <span class="bg-red-500/20 text-red-300 border border-red-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase">{{ service_calls | length }} Rufen</span>
+                    <span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider font-display">{{ service_calls | length }} Rufe</span>
                 </div>
 
                 <div id="service-calls-container" class="space-y-2.5">
                     {% for call in service_calls %}
-                    <div class="bg-black/40 border border-red-500/20 rounded-xl p-3 flex justify-between items-center relative overflow-hidden">
-                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                    <div class="glass-card bg-rose-950/5 border border-rose-500/10 rounded-xl p-3.5 flex justify-between items-center relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
                         <div>
-                            <h4 class="font-black text-white text-sm">{{ call.table }}</h4>
-                            <span class="text-[11px] text-on-surface-variant flex items-center space-x-1 mt-0.5 font-bold">
+                            <h4 class="font-black text-white text-sm font-display">{{ call.table }}</h4>
+                            <span class="text-[11px] text-zinc-400 flex items-center space-x-1.5 mt-1 font-bold">
                                 {% if call.type == 'kellner' %}
-                                    <span class="text-red-400">👤 Kellner gewünscht!</span>
+                                    <span class="text-red-400 flex items-center gap-1">👤 Kellner gewünscht!</span>
                                 {% elif call.type == 'kohle' %}
-                                    <span class="text-amber-500">🔥 Neue Kohle!</span>
+                                    <span class="text-amber-500 flex items-center gap-1">🔥 Neue Kohle!</span>
                                 {% elif call.type == 'karte' %}
-                                    <span class="text-sky-400">💳 Kartenzahlung gewünscht</span>
+                                    <span class="text-sky-400 flex items-center gap-1">💳 Kartenzahlung gewünscht</span>
                                 {% elif call.type == 'bar' %}
-                                    <span class="text-emerald-400">💵 Barzahlung gewünscht</span>
+                                    <span class="text-emerald-400 flex items-center gap-1">💵 Barzahlung gewünscht</span>
                                 {% else %}
-                                    <span class="text-[#deff9a]">🍽️ Tisch abräumen</span>
+                                    <span class="text-primary flex items-center gap-1">🍽️ Tisch abräumen</span>
                                 {% endif %}
-                                <span class="text-[9px] text-on-surface-variant font-mono">({{ call.timestamp }})</span>
+                                <span class="text-[9px] text-zinc-500 font-mono">({{ call.timestamp }})</span>
                             </span>
                         </div>
-                        <button onclick="resolveServiceCall({{ call.id }})" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 hover:text-white text-[10px] font-black px-3 py-1.5 rounded-lg border border-red-500/30 transition">
+                        <button onclick="resolveServiceCall({{ call.id }})" class="btn-premium bg-rose-500/15 hover:bg-rose-500/30 text-rose-200 border border-rose-500/20 text-[10px] px-3.5 py-2 rounded-lg transition-all duration-300 active:scale-95">
                             Erledigt
                         </button>
                     </div>
                     {% else %}
-                    <p class="text-center py-4 text-xs text-on-surface-variant font-medium">Keine aktiven Rufe vorhanden.</p>
+                    <p class="text-center py-4 text-xs text-zinc-500 font-medium">Keine aktiven Rufe vorhanden.</p>
                     {% endfor %}
                 </div>
             </div>
 
             <!-- 2. TABLE GRID OF LARGE QUADRATIC TILES -->
             <div class="space-y-4 flex-grow flex flex-col">
-                <div class="flex justify-between items-center border-b border-outline-variant pb-2">
-                    <h2 class="text-base font-black text-white">Live-Tischübersicht (Kassen-Kacheln)</h2>
+                <div class="flex justify-between items-center border-b border-white/5 pb-2">
+                    <h2 class="text-base font-black text-white font-display">Live-Tischübersicht (Kassen-Kacheln)</h2>
                 </div>
 
                 <!-- Complete grid container for all tables -->
@@ -265,148 +267,117 @@
             </div>
         </section>
 
-        <!-- FULLSCREEN OVERLAY MODAL: UNIFIED ENTERPRISE POS SPLIT-SCREEN WORKSTATION -->
-        <section id="details-pane" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden animate-fade-in">
-            <div class="bg-[#121214] border border-outline-variant rounded-3xl w-full max-w-7xl h-[92vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
+        <!-- CENTERED OVERLAY MODAL: BON ANSICHT / CHECKOUT WORKSTATION -->
+        <section id="details-pane" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden animate-fade-in">
+            <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-xl h-[85vh] flex flex-col overflow-hidden shadow-2xl relative">
                 
-                <!-- LEFT PANEL: TOUCH PRODUCT CATALOG (60% width on Desktop) -->
-                <div class="w-full md:w-3/5 flex flex-col h-1/2 md:h-full border-b md:border-b-0 md:border-r border-[#1f1f23] p-6 overflow-hidden">
-                    <div class="mb-4 flex justify-between items-center">
-                        <div>
-                            <h3 class="text-base font-black text-white flex items-center gap-2">
-                                <span class="material-symbols-outlined text-primary text-xl">restaurant_menu</span>
-                                <span>Speisekarte / Produktkatalog</span>
-                            </h3>
-                            <p class="text-[11px] text-on-surface-variant mt-0.5">Tippen Sie auf Artikel, um sie dem Bon hinzuzufügen.</p>
-                        </div>
+                <!-- Modal Header -->
+                <div class="p-6 border-b border-white/5 bg-black/20 flex justify-between items-center shrink-0">
+                    <div>
+                        <span class="text-[9px] uppercase font-extrabold text-primary tracking-wider font-display" id="detail-order-id">Bon #--</span>
+                        <h2 id="detail-table-name" class="text-xl font-black text-white font-display">Tisch --</h2>
                     </div>
-                    
-                    <!-- Category Tabs (Horizontal Scrollable) -->
-                    <div id="details-category-tabs" class="flex gap-2 pb-3 overflow-x-auto shrink-0 no-scrollbar" style="scrollbar-width: none;">
-                        <!-- Categories will be rendered here dynamically -->
-                    </div>
-                    
-                    <!-- Products Grid (Scrollable) -->
-                    <div id="details-products-grid" class="flex-grow overflow-y-auto grid grid-cols-2 lg:grid-cols-3 gap-3 pr-1" style="scrollbar-width: thin;">
-                        <!-- Products will be rendered here dynamically -->
-                    </div>
-                </div>
-
-                <!-- RIGHT PANEL: CHECKOUT, CART & ACTIVE ORDER (40% width on Desktop) -->
-                <div class="w-full md:w-2/5 flex flex-col h-1/2 md:h-full bg-black/35 overflow-hidden">
-                    <!-- Right Panel Header -->
-                    <div class="p-6 border-b border-[#1f1f23] bg-black/20 flex justify-between items-center shrink-0">
-                        <div>
-                            <span class="text-[9px] uppercase font-extrabold text-primary tracking-wider" id="detail-order-id">Bon #--</span>
-                            <h2 id="detail-table-name" class="text-xl font-black text-white">Tisch --</h2>
-                        </div>
+                    <div class="flex items-center gap-2">
+                        <!-- Quick Book Button (neu bestellen) -->
+                        <button onclick="openOrderForCurrentTable()" class="text-xs font-bold text-primary px-3.5 py-2 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/20 transition active:scale-95 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[16px]">add_shopping_cart</span>
+                            <span>Buchen</span>
+                        </button>
                         <!-- Close button -->
-                        <button onclick="closeDetailsPane()" class="text-on-surface-variant hover:text-white p-2.5 rounded-xl bg-[#141313] border border-outline-variant flex items-center justify-center transition active:scale-95">
+                        <button onclick="closeDetailsPane()" class="text-zinc-400 hover:text-white p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center transition active:scale-95 hover:bg-white/10">
                             <span class="material-symbols-outlined text-lg">close</span>
                         </button>
                     </div>
+                </div>
 
-                    <!-- Right Panel Content: Active Items + Draft Items (Scrollable) -->
-                    <div class="flex-grow overflow-y-auto p-6 space-y-6" style="scrollbar-width: thin;">
-                        <!-- 1. Active (Already Booked) Items -->
-                        <div class="space-y-3">
-                            <h4 class="text-[10px] uppercase font-black tracking-wider text-on-surface-variant flex items-center gap-1.5">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>Gebuchte Artikel</span>
-                            </h4>
-                            <div id="detail-item-list" class="space-y-2"></div>
-                        </div>
-
-                        <!-- 2. Draft (New Pending) Items -->
-                        <div id="details-draft-section" class="space-y-3 hidden">
-                            <h4 class="text-[10px] uppercase font-black tracking-wider text-amber-500 flex items-center gap-1.5">
-                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                <span>Neue Entwürfe (Ungebucht)</span>
-                            </h4>
-                            <div id="order-draft-list" class="space-y-2"></div>
-                        </div>
-                    </div>
-
-                    <!-- Right Panel Footer: Totals & Checkout Actions -->
-                    <div class="p-6 border-t border-[#1f1f23] bg-black/40 space-y-4 shrink-0">
-                        <!-- Totals Row -->
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-on-surface-variant">Gesamtbetrag (Brutto):</span>
-                            <span id="detail-total-price" class="text-2xl font-black text-primary">0,00 €</span>
-                        </div>
-
-                        <!-- Draft totals display (only visible when draft items exist) -->
-                        <div id="details-draft-total-row" class="hidden flex justify-between items-center text-xs text-amber-500 font-bold border-t border-dashed border-[#1f1f23] pt-2">
-                            <span>Ungebuchter Entwurf:</span>
-                            <span id="order-draft-total">0,00 €</span>
-                        </div>
-
-                        <!-- Confirm Guest Order button (for newly received orders) -->
-                        <button id="btn-confirm-order" onclick="confirmActiveOrder()" class="hidden w-full bg-amber-500 hover:bg-amber-400 text-black font-black text-sm py-3.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95">
-                            <span class="material-symbols-outlined">check_circle</span>
-                            <span>Gast-Bestellung bestätigen</span>
-                        </button>
-
-                        <!-- Save Draft Button (Buchen) - for newly added staff items -->
-                        <button id="btn-save-draft" onclick="saveOrderDraft()" class="hidden w-full bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95">
-                            <span class="material-symbols-outlined text-sm">send</span>
-                            <span>Neue Artikel buchen</span>
-                        </button>
-
-                        <!-- Regular Checkout Form & Inputs -->
-                        <div id="checkout-payment-form" class="space-y-4">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-[9px] uppercase font-bold text-on-surface-variant mb-1">Gegeben</label>
-                                    <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="w-full bg-[#0a0a0a] border border-[#1f1f23] focus:border-primary rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right text-white">
-                                </div>
-                                <div id="change-row" class="hidden">
-                                    <span class="block text-[9px] uppercase font-bold text-on-surface-variant mb-1">Rückgeld</span>
-                                    <div id="detail-change-amount" class="text-lg font-black text-primary mt-2 font-mono">0,00 €</div>
-                                </div>
-                            </div>
-
-                            <!-- Payment action buttons -->
-                            <div class="grid grid-cols-3 gap-2">
-                                <button id="btn-normal-pay" onclick="processPayment()" class="col-span-2 bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-3.5 rounded-xl transition shadow-md active:scale-95">
-                                    💳 Bezahlen
-                                </button>
-                                <button id="btn-start-split" onclick="startSplitMode()" class="bg-[#141313] border border-outline-variant hover:border-primary/40 text-xs text-white font-bold py-3.5 rounded-xl transition active:scale-95">
-                                    ✂️ Split
-                                </button>
-                            </div>
-                            
-                            <!-- Storno button -->
-                            <button onclick="triggerStornoPrompt()" class="w-full bg-red-950/20 border border-red-500/10 hover:bg-red-500 hover:text-black text-red-400 font-bold text-xs py-2.5 rounded-xl transition active:scale-95">
-                                🚫 Bon Stornieren
-                            </button>
-                        </div>
-
-                        <!-- Split Payment Mode Controls -->
-                        <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-outline-variant">
-                            <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition active:scale-95">
-                                Teilbetrag verbuchen
-                            </button>
-                            <button onclick="cancelSplitMode()" class="bg-[#141313] border border-outline-variant text-xs py-3.5 px-4 rounded-xl font-bold text-white transition active:scale-95">
-                                Abbrechen
-                            </button>
-                        </div>
+                <!-- Scrollable Content: Active (Already Booked) Items -->
+                <div class="flex-grow overflow-y-auto p-6 space-y-6" style="scrollbar-width: thin;">
+                    <div class="space-y-3">
+                        <h4 class="text-[10px] uppercase font-black tracking-wider text-zinc-400 flex items-center gap-1.5 font-display">
+                            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                            <span>Gebuchte Artikel</span>
+                        </h4>
+                        <div id="detail-item-list" class="space-y-2"></div>
                     </div>
                 </div>
+
+                <!-- Footer: Totals & Checkout Actions -->
+                <div class="p-6 border-t border-white/5 bg-black/40 space-y-4 shrink-0 font-display">
+                    <!-- Totals Row -->
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-zinc-400 font-display" id="label-total-price">Gesamtbetrag (Brutto):</span>
+                        <span id="detail-total-price" class="text-2xl font-black text-primary font-display glow-text-primary">0,00 €</span>
+                    </div>
+
+                    <!-- Confirm Guest Order button (for newly received orders) -->
+                    <button id="btn-confirm-order" onclick="confirmActiveOrder()" class="hidden w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm font-bold">check_circle</span>
+                        <span>Gast-Bestellung bestätigen</span>
+                    </button>
+
+                    <!-- Regular Checkout Form & Inputs -->
+                    <div id="checkout-payment-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[9px] uppercase font-bold text-zinc-500 mb-1.5 pl-0.5">Gegeben</label>
+                                <input type="text" id="amount-given" oninput="calculateChange()" placeholder="0.00" class="input-premium w-full text-right font-mono text-sm py-2 px-3 focus:border-primary">
+                            </div>
+                            <div id="change-row" class="hidden">
+                                <span class="block text-[9px] uppercase font-bold text-zinc-500 mb-1.5">Rückgeld</span>
+                                <div id="detail-change-amount" class="text-lg font-black text-primary mt-1 font-mono glow-text-primary">0,00 €</div>
+                            </div>
+                        </div>
+
+                        <!-- Payment action buttons -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="btn-normal-pay" onclick="processPayment()" class="col-span-2 btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl">
+                                💳 Bezahlen
+                            </button>
+                            <button id="btn-start-split" onclick="startSplitMode()" class="btn-premium btn-premium-secondary text-xs py-3.5 rounded-xl">
+                                ✂️ Split
+                            </button>
+                        </div>
+                        
+                        <!-- Storno button -->
+                        <button onclick="triggerStornoPrompt()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 font-bold text-xs py-2.5 rounded-xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-[14px]">block</span>
+                            Bon Stornieren
+                        </button>
+
+                        <!-- Tisch umbuchen / zusammenführen button -->
+                        <button id="btn-merge-table" onclick="openMergeTableModal()" class="w-full bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 font-bold text-xs py-2.5 rounded-xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5 mt-2">
+                            <span class="material-symbols-outlined text-[14px]">call_merge</span>
+                            Tisch umbuchen / zusammenführen
+                        </button>
+                    </div>
+
+                    <!-- Split Payment Mode Controls -->
+                    <div id="split-actions" class="hidden flex gap-3 pt-2 border-t border-white/5">
+                        <button id="btn-pay-partial" onclick="processPartialPayment()" class="flex-grow bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition-all duration-200 active:scale-95 shadow-md">
+                            Teilbetrag verbuchen
+                        </button>
+                        <button onclick="cancelSplitMode()" class="btn-premium btn-premium-secondary text-xs py-3.5 px-4 rounded-xl">
+                            Abbrechen
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
 
             </div>
         </section>
     </main>
 
     <!-- BottomNavBar for Mobile -->
-    <nav class="hidden bg-[#0a0a0a] border-t border-outline-variant shadow-lg fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2">
-        <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-white transition" href="/{{ slug }}">
-            <span class="material-symbols-outlined text-xl">restaurant_menu</span>
-            <span class="text-[10px] font-bold mt-1">Menü</span>
+    <nav class="flex md:hidden bg-surface/85 backdrop-blur-xl border-t border-white/5 shadow-2xl fixed bottom-0 w-full z-50 justify-around items-center px-4 py-3">
+        <a class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-all duration-300" href="/{{ slug }}">
+            <span class="material-symbols-outlined text-lg">restaurant_menu</span>
+            <span class="text-[9px] font-bold mt-1 font-display tracking-wider">Menü</span>
         </a>
-        <a class="flex flex-col items-center justify-center text-primary" href="#">
-            <span class="material-symbols-outlined text-xl">receipt_long</span>
-            <span class="text-[10px] font-bold mt-1">Bons</span>
+        <a class="flex flex-col items-center justify-center text-primary glow-text-primary" href="#">
+            <span class="material-symbols-outlined text-lg">receipt_long</span>
+            <span class="text-[9px] font-bold mt-1 font-display tracking-wider">Bons</span>
         </a>
     </nav>
 
@@ -484,6 +455,11 @@
                 splitBtn.disabled = false;
                 splitBtn.classList.remove('opacity-40', 'cursor-not-allowed');
             }
+            const mergeBtn = document.getElementById('btn-merge-table');
+            if (mergeBtn) {
+                mergeBtn.disabled = false;
+                mergeBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
 
             // Load touch product catalog on the left of details-pane
             currentOrderDraft = [];
@@ -549,6 +525,11 @@
                 splitBtn.disabled = true;
                 splitBtn.classList.add('opacity-40', 'cursor-not-allowed');
             }
+            const mergeBtn = document.getElementById('btn-merge-table');
+            if (mergeBtn) {
+                mergeBtn.disabled = true;
+                mergeBtn.classList.add('opacity-40', 'cursor-not-allowed');
+            }
 
             // Load touch product catalog on the left of details-pane
             currentOrderDraft = [];
@@ -568,30 +549,33 @@
 
             order.items.forEach(item => {
                 if (splitModeActive) {
-                    const currentSplit = splitQuantities[item.product_id] || 0;
+                    const splitKey = item.product_id + '_' + (item.note || '').replace(/\s+/g, '_');
+                    const currentSplit = splitQuantities[splitKey] || 0;
                     const splitItemTotal = item.price * currentSplit;
                     container.innerHTML += `
                         <div class="flex items-center gap-4 pb-3 border-b border-outline-variant">
                             <div class="flex items-center gap-2 bg-background border border-outline-variant rounded-full px-3 py-1">
-                                <button onclick="changeSplitQty(${item.product_id}, -1, ${item.quantity})" class="text-on-surface-variant hover:text-white font-bold w-5 h-5 flex items-center justify-center">-</button>
-                                <span id="split-qty-${item.product_id}" class="font-bold text-primary text-xs w-4 text-center">${currentSplit}</span>
-                                <button onclick="changeSplitQty(${item.product_id}, 1, ${item.quantity})" class="text-on-surface-variant hover:text-white font-bold w-5 h-5 flex items-center justify-center">+</button>
+                                <button onclick="changeSplitQty('${splitKey}', -1, ${item.quantity})" class="text-on-surface-variant hover:text-white font-bold w-5 h-5 flex items-center justify-center">-</button>
+                                <span id="split-qty-${splitKey}" class="font-bold text-primary text-xs w-4 text-center">${currentSplit}</span>
+                                <button onclick="changeSplitQty('${splitKey}', 1, ${item.quantity})" class="text-on-surface-variant hover:text-white font-bold w-5 h-5 flex items-center justify-center">+</button>
                             </div>
                             <div class="flex-grow">
                                 <h4 class="font-bold text-white text-sm">${item.name}</h4>
+                                ${item.note ? `<p class="text-xs text-amber-400 font-semibold mt-0.5">&#9998; ${item.note}</p>` : ''}
                                 <span class="text-xs text-on-surface-variant">${item.quantity}x im Bon &bull; ${item.price.toFixed(2)} €</span>
                             </div>
                             <div class="text-right">
                                 <span class="text-xs text-on-surface-variant block">Gesamt: ${(item.price * item.quantity).toFixed(2)} €</span>
-                                <span id="split-price-${item.product_id}" class="text-xs font-black text-rose-500 block">Teil: ${splitItemTotal.toFixed(2)} €</span>
+                                <span id="split-price-${splitKey}" class="text-xs font-black text-rose-500 block">Teil: ${splitItemTotal.toFixed(2)} €</span>
                             </div>
                         </div>
                     `;
                 } else {
                     container.innerHTML += `
-                        <div class="flex justify-between items-center pb-3 border-b border-outline-variant">
+                        <div class="flex justify-between items-start pb-3 border-b border-outline-variant">
                             <div>
                                 <h4 class="font-bold text-white text-sm">${item.name}</h4>
+                                ${item.note ? `<p class="text-xs text-amber-400 font-semibold mt-0.5">&#9998; ${item.note}</p>` : ''}
                                 <span class="text-xs text-on-surface-variant">${item.quantity}x &bull; ${item.price.toFixed(2)} €</span>
                             </div>
                             <span class="font-mono font-bold text-sm text-white">${(item.price * item.quantity).toFixed(2)} €</span>
@@ -629,19 +613,24 @@
             calculateChange();
         }
 
-        function changeSplitQty(productId, change, maxQty) {
-            let current = splitQuantities[productId] || 0;
+        function changeSplitQty(splitKey, change, maxQty) {
+            let current = splitQuantities[splitKey] || 0;
             current += change;
             if (current < 0) current = 0;
             if (current > maxQty) current = maxQty;
 
-            splitQuantities[productId] = current;
-            document.getElementById(`split-qty-${productId}`).textContent = current;
+            splitQuantities[splitKey] = current;
+            document.getElementById(`split-qty-${splitKey}`).textContent = current;
 
             const order = allOrders.find(o => o.id === activeOrderId);
-            const item = order.items.find(i => i.product_id === productId);
+            // Extract product_id from composite key (format: productId_note)
+            const productId = parseInt(splitKey.split('_')[0]);
+            const item = order.items.find(i => {
+                const k = i.product_id + '_' + (i.note || '').replace(/\s+/g, '_');
+                return k === splitKey;
+            });
             if (item) {
-                document.getElementById(`split-price-${productId}`).textContent = `Teil: ${(item.price * current).toFixed(2)} €`;
+                document.getElementById(`split-price-${splitKey}`).textContent = `Teil: ${(item.price * current).toFixed(2)} €`;
             }
             updateSplitTotalDisplay();
         }
@@ -649,9 +638,12 @@
         function updateSplitTotalDisplay() {
             let total = 0.0;
             const order = allOrders.find(o => o.id === activeOrderId);
-            for (let id in splitQuantities) {
-                const qty = splitQuantities[id];
-                const item = order.items.find(i => i.product_id === parseInt(id));
+            for (let splitKey in splitQuantities) {
+                const qty = splitQuantities[splitKey];
+                const item = order.items.find(i => {
+                    const k = i.product_id + '_' + (i.note || '').replace(/\s+/g, '_');
+                    return k === splitKey;
+                });
                 if (item) {
                     total += item.price * qty;
                 }
@@ -762,10 +754,18 @@
             }
             
             const items = [];
-            for (let id in splitQuantities) {
-                const qty = splitQuantities[id];
+            const order = allOrders.find(o => o.id === activeOrderId);
+            for (let splitKey in splitQuantities) {
+                const qty = splitQuantities[splitKey];
                 if (qty > 0) {
-                    items.push({ product_id: parseInt(id), quantity: qty });
+                    // Find the matching item to get product_id and note
+                    const item = order ? order.items.find(i => {
+                        const k = i.product_id + '_' + (i.note || '').replace(/\s+/g, '_');
+                        return k === splitKey;
+                    }) : null;
+                    if (item) {
+                        items.push({ product_id: item.product_id, quantity: qty, note: item.note || null });
+                    }
                 }
             }
 
@@ -837,6 +837,67 @@
             });
             activeOrderId = null;
             selectedTableNum = null;
+        }
+
+        function openOrderForCurrentTable() {
+            const tableNum = selectedTableNum;
+            if (!tableNum) return;
+            closeDetailsPane();
+            selectedTableNum = tableNum;
+            openOrderModal();
+        }
+
+        function openMergeTableModal() {
+            if (!selectedTableNum) return;
+            document.getElementById("merge-source-table-label").textContent = `Tisch ${selectedTableNum}`;
+            const select = document.getElementById("merge-target-table-select");
+            select.innerHTML = "";
+            
+            // Filter out current source table from list
+            allTables.forEach(t => {
+                if (String(t.number) !== String(selectedTableNum)) {
+                    const zoneText = t.zone ? ` (${t.zone})` : "";
+                    select.innerHTML += `<option value="${t.number}">Tisch ${t.number}${zoneText}</option>`;
+                }
+            });
+            document.getElementById("merge-table-modal").classList.remove("hidden");
+        }
+
+        function closeMergeTableModal() {
+            document.getElementById("merge-table-modal").classList.add("hidden");
+        }
+
+        function confirmMergeTables() {
+            if (!selectedTableNum) return;
+            const select = document.getElementById("merge-target-table-select");
+            const targetTableNum = select.value;
+            if (!targetTableNum) {
+                alert("Bitte wählen Sie einen Ziel-Tisch aus.");
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append("source_table", selectedTableNum);
+            formData.append("target_table", targetTableNum);
+            
+            fetch(`/${slug}/tablet/tische-zusammenfuehren`, {
+                method: "POST",
+                body: formData
+            })
+            .then(res => {
+                if (res.ok) {
+                    showToast("Tisch erfolgreich umgebucht/zusammengeführt!", "success");
+                    closeMergeTableModal();
+                    closeDetailsPane();
+                    pollTabletStatus();
+                } else {
+                    alert("Zusammenführen fehlgeschlagen. Bitte überprüfen Sie, ob der Quelltisch eine offene Bestellung hat.");
+                }
+            })
+            .catch(err => {
+                console.error("Zusammenführen Fehler:", err);
+                alert("Verbindungsfehler beim Zusammenführen.");
+            });
         }
 
         function switchOrderMobileTab(tab) {
@@ -944,6 +1005,50 @@
                 // 3. Render DOM elements dynamically
                 renderServiceCallsDOM(data.service_calls);
                 renderOrdersGridDOM(data.orders, data.service_calls);
+
+                // 4. Update active details pane in real-time if visible
+                const detailsPane = document.getElementById('details-pane');
+                if (detailsPane && !detailsPane.classList.contains('hidden')) {
+                    if (activeOrderId !== null) {
+                        const currentOrder = data.orders.find(o => o.id === activeOrderId);
+                        if (currentOrder) {
+                            orderTotal = currentOrder.total;
+                            renderItemsList(currentOrder);
+                            if (!splitModeActive) {
+                                document.getElementById('detail-total-price').textContent = `${orderTotal.toFixed(2)} €`;
+                                calculateChange();
+                            } else {
+                                updateSplitTotalDisplay();
+                            }
+                            
+                            // Dynamically show/hide confirm order button
+                            const confirmBtn = document.getElementById('btn-confirm-order');
+                            if (confirmBtn) {
+                                if (currentOrder.status === "eingegangen") {
+                                    confirmBtn.classList.remove('hidden');
+                                } else {
+                                    confirmBtn.classList.add('hidden');
+                                }
+                            }
+                            
+                            // Dynamically update order display ID
+                            const orderIdDisplay = document.getElementById('detail-order-id');
+                            if (orderIdDisplay) {
+                                orderIdDisplay.textContent = `Bon #${currentOrder.id}`;
+                            }
+                        } else {
+                            // Order has been cleared/paid on another terminal, close details pane
+                            closeDetailsPane();
+                        }
+                    } else if (selectedTableNum !== null) {
+                        // Check if an order was created for this empty table in the meantime
+                        const targetTableName = `Tisch ${selectedTableNum}`;
+                        const newOrder = data.orders.find(o => String(o.table) === targetTableName || String(o.table).replace("Tisch", "").trim() === String(selectedTableNum).trim());
+                        if (newOrder) {
+                            selectOrder(newOrder.id);
+                        }
+                    }
+                }
             })
             .catch(err => {
                 console.error("Fehler beim Polling von Status:", err);
@@ -960,40 +1065,40 @@
             // Update badge count
             const badge = container.previousElementSibling.querySelector("span:last-child");
             if (badge) {
-                badge.textContent = `${calls.length} Rufen`;
+                badge.textContent = `${calls.length} Rufe`;
             }
 
             container.innerHTML = "";
             if (calls.length === 0) {
-                container.innerHTML = `<p class="text-center py-4 text-xs text-on-surface-variant font-medium">Keine aktiven Rufe vorhanden.</p>`;
+                container.innerHTML = `<p class="text-center py-4 text-xs text-zinc-500 font-medium">Keine aktiven Rufe vorhanden.</p>`;
                 return;
             }
 
             calls.forEach(call => {
                 let labelHtml = "";
                 if (call.type === 'kellner') {
-                    labelHtml = '<span class="text-red-400">👤 Kellner gewünscht!</span>';
+                    labelHtml = '<span class="text-red-400 flex items-center gap-1">👤 Kellner gewünscht!</span>';
                 } else if (call.type === 'kohle') {
-                    labelHtml = '<span class="text-amber-500">🔥 Neue Kohle!</span>';
+                    labelHtml = '<span class="text-amber-500 flex items-center gap-1">🔥 Neue Kohle!</span>';
                 } else if (call.type === 'karte') {
-                    labelHtml = '<span class="text-sky-400">💳 Kartenzahlung gewünscht</span>';
+                    labelHtml = '<span class="text-sky-400 flex items-center gap-1">💳 Kartenzahlung gewünscht</span>';
                 } else if (call.type === 'bar') {
-                    labelHtml = '<span class="text-emerald-400">💵 Barzahlung gewünscht</span>';
+                    labelHtml = '<span class="text-emerald-400 flex items-center gap-1">💵 Barzahlung gewünscht</span>';
                 } else {
-                    labelHtml = '<span class="text-[#deff9a]">🍽️ Tisch abräumen</span>';
+                    labelHtml = '<span class="text-primary flex items-center gap-1">🍽️ Tisch abräumen</span>';
                 }
 
                 container.innerHTML += `
-                    <div class="bg-black/40 border border-red-500/20 rounded-xl p-3 flex justify-between items-center relative overflow-hidden">
-                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                    <div class="glass-card bg-rose-950/5 border border-rose-500/10 rounded-xl p-3.5 flex justify-between items-center relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
                         <div>
-                            <h4 class="font-black text-white text-sm">${call.table}</h4>
-                            <span class="text-[11px] text-on-surface-variant flex items-center space-x-1 mt-0.5 font-bold">
+                            <h4 class="font-black text-white text-sm font-display">${call.table}</h4>
+                            <span class="text-[11px] text-zinc-400 flex items-center space-x-1.5 mt-1 font-bold">
                                 ${labelHtml}
-                                <span class="text-[9px] text-on-surface-variant font-mono">(${call.timestamp})</span>
+                                <span class="text-[9px] text-zinc-500 font-mono">(${call.timestamp})</span>
                             </span>
                         </div>
-                        <button onclick="resolveServiceCall(${call.id})" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 hover:text-white text-[10px] font-black px-3 py-1.5 rounded-lg border border-red-500/30 transition">
+                        <button onclick="resolveServiceCall(${call.id})" class="btn-premium bg-rose-500/15 hover:bg-rose-500/30 text-rose-200 border border-rose-500/20 text-[10px] px-3.5 py-2 rounded-lg transition-all duration-300 active:scale-95">
                             Erledigt
                         </button>
                     </div>
@@ -1011,7 +1116,7 @@
             gridContainer.innerHTML = "";
 
             if (allTables.length === 0) {
-                gridContainer.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-on-surface-variant font-medium">Keine Tische konfiguriert.</div>`;
+                gridContainer.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-zinc-500 font-medium">Keine Tische konfiguriert.</div>`;
                 return;
             }
 
@@ -1037,14 +1142,14 @@
                 const sectionHeader = document.createElement("div");
                 sectionHeader.className = "flex items-center gap-2 mt-4 mb-2 animate-fade-in";
                 sectionHeader.innerHTML = `
-                    <span class="text-xs uppercase font-extrabold text-primary tracking-widest">${icon} ${zone.toUpperCase()}</span>
-                    <div class="flex-grow h-[1px] bg-outline-variant opacity-35"></div>
+                    <span class="text-[10px] uppercase font-bold tracking-widest text-primary font-display">${icon} ${zone.toUpperCase()}</span>
+                    <div class="flex-grow h-[1px] bg-white/5"></div>
                 `;
                 gridContainer.appendChild(sectionHeader);
 
                 // Sub-grid Container
                 const subGrid = document.createElement("div");
-                subGrid.className = "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 py-2";
+                subGrid.className = "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 py-2";
                 gridContainer.appendChild(subGrid);
 
                 zonesMap[zone].forEach(table => {
@@ -1057,28 +1162,28 @@
                     let clickAction = "";
 
                     if (hasServiceCall) {
-                        tileClass = "blinking-red-card border-rose-500 text-rose-400 border-2 shadow-[0_0_15px_rgba(239,68,68,0.25)] hover:bg-rose-500/20";
-                        statusHtml = `<span class="text-[9px] uppercase tracking-wider font-extrabold text-rose-500 animate-bounce">🚨 RUF AKTIV</span>`;
+                        tileClass = "glass-card border-rose-500 text-rose-400 border-2 shadow-[0_0_20px_rgba(239,68,68,0.25)] bg-rose-950/10 blinking-red-card hover:bg-rose-950/20";
+                        statusHtml = `<span class="text-[8px] uppercase tracking-wider font-extrabold text-rose-400 animate-bounce">🚨 RUF AKTIV</span>`;
                     } else if (activeOrder && activeOrder.status === "eingegangen") {
                         const isSelected = activeOrder.id === activeOrderId;
-                        const borderStyle = isSelected ? "border-amber-500 border-2 shadow-[0_0_25px_rgba(245,158,11,0.5)] bg-amber-500/30" : "blinking-orange-card border-amber-500 border text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:bg-amber-500/20";
+                        const borderStyle = isSelected ? "border-amber-500 border-2 shadow-[0_0_25px_rgba(245,158,11,0.5)] bg-amber-500/25" : "border-amber-500/50 border bg-amber-500/10 blinking-orange-card hover:bg-amber-500/15";
                         tileClass = `${borderStyle} text-amber-400 font-bold`;
                         statusHtml = `
-                            <span class="text-[9px] uppercase tracking-wider font-extrabold text-amber-500 animate-bounce">🆕 NEUE BESTELLUNG</span>
-                            <div class="text-[10px] text-zinc-300 font-mono mt-1">Bon #${activeOrder.id}</div>
+                            <span class="text-[8px] uppercase tracking-wider font-extrabold text-amber-500 animate-pulse">🆕 NEU</span>
+                            <div class="text-[9px] text-zinc-400 font-mono mt-0.5">Bon #${activeOrder.id}</div>
                             <div class="text-xs text-white font-black font-mono mt-0.5">${activeOrder.total.toFixed(2)} €</div>
                         `;
                     } else if (activeOrder) {
                         const isSelected = activeOrder.id === activeOrderId;
-                        const borderStyle = isSelected ? "border-primary border-2 shadow-[0_0_20px_rgba(222,255,154,0.3)] bg-primary/20" : "border-primary/50 border bg-primary/10 shadow-[0_0_10px_rgba(222,255,154,0.1)] hover:bg-primary/20";
+                        const borderStyle = isSelected ? "border-primary border-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] bg-primary/20" : "border-primary/30 border bg-primary/5 hover:bg-primary/10";
                         tileClass = `${borderStyle} text-primary font-bold`;
                         statusHtml = `
-                            <div class="text-[10px] text-zinc-300 font-mono mt-1">Bon #${activeOrder.id}</div>
+                            <div class="text-[9px] text-zinc-400 font-mono mt-0.5">Bon #${activeOrder.id}</div>
                             <div class="text-xs text-white font-black font-mono mt-0.5">${activeOrder.total.toFixed(2)} €</div>
                         `;
                     } else {
-                        tileClass = "bg-surface/30 border border-outline-variant text-zinc-500 hover:border-zinc-700 hover:text-zinc-400";
-                        statusHtml = `<span class="text-[9px] uppercase tracking-wider font-bold text-emerald-500">Frei</span>`;
+                        tileClass = "glass-card bg-black/20 border border-white/5 text-zinc-500 hover:border-white/15 hover:text-zinc-400";
+                        statusHtml = `<span class="text-[8px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Frei</span>`;
                     }
 
                     if (activeOrder) {
@@ -1088,11 +1193,11 @@
                     }
 
                     subGrid.innerHTML += `
-                        <button id="table-card-${table.number}" ${clickAction} class="flex flex-col items-center justify-center aspect-square p-4 rounded-2xl transition-all duration-200 active:scale-95 text-center select-none ${tileClass}">
-                            <span class="material-symbols-outlined text-2xl mb-1.5 opacity-80">table_restaurant</span>
-                            <span class="font-black text-sm tracking-tight text-white block">Tisch ${table.number}</span>
-                            <span class="text-[9px] uppercase font-bold text-zinc-400 mt-0.5 block tracking-wider">${table.zone}</span>
-                            <div class="mt-2 min-h-[30px] flex flex-col justify-center items-center">${statusHtml}</div>
+                        <button id="table-card-${table.number}" ${clickAction} class="flex flex-col items-center justify-center aspect-square p-3 rounded-2xl transition-all duration-200 active:scale-95 text-center select-none ${tileClass}">
+                            <span class="material-symbols-outlined text-xl mb-1.5 opacity-80">table_restaurant</span>
+                            <span class="font-black text-xs tracking-tight text-white block font-display">Tisch ${table.number}</span>
+                            <span class="text-[8px] uppercase font-bold text-zinc-500 mt-0.5 block tracking-wider font-display">${table.zone}</span>
+                            <div class="mt-1.5 min-h-[24px] flex flex-col justify-center items-center font-display">${statusHtml}</div>
                         </button>
                     `;
                 });
@@ -1383,29 +1488,29 @@
 
 
     <!-- SPEISEKARTE BESTELL-MODAL (STAFF) -->
-    <div id="order-taker-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden">
-        <div class="bg-[#121212] border border-outline-variant rounded-3xl w-full max-w-6xl h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
+    <div id="order-taker-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6 hidden">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-6xl h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
             
             <!-- CLOSE BUTTON -->
-            <button onclick="closeOrderModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition z-20">
+            <button onclick="closeOrderModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition hover:bg-white/5 p-2 rounded-xl z-20">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
             <!-- Mobile Tab Switcher (visible only on mobile) -->
-            <div class="flex md:hidden bg-zinc-900 border-b border-outline-variant p-2 shrink-0 gap-2 mt-12 w-full">
+            <div class="flex md:hidden bg-black/20 border-b border-white/5 p-2 shrink-0 gap-2 mt-12 w-full">
                 <button id="order-mobile-tab-products" onclick="switchOrderMobileTab('products')" class="flex-grow py-2.5 text-xs font-black rounded-xl bg-primary text-black transition">
                     🛍️ Produkte
                 </button>
-                <button id="order-mobile-tab-draft" onclick="switchOrderMobileTab('draft')" class="flex-grow py-2.5 text-xs font-black rounded-xl bg-surface border border-outline-variant text-zinc-400 transition">
+                <button id="order-mobile-tab-draft" onclick="switchOrderMobileTab('draft')" class="flex-grow py-2.5 text-xs font-black rounded-xl bg-surface border border-white/5 text-zinc-400 transition">
                     📝 Entwurf (<span id="mobile-draft-count">0</span>)
                 </button>
             </div>
             
             <!-- LEFT PANEL: PRODUCTS & CATEGORIES -->
-            <div id="order-modal-products-panel" class="flex-grow md:w-3/5 flex flex-col h-full md:h-full border-b md:border-b-0 md:border-r border-outline-variant p-6 overflow-hidden">
+            <div id="order-modal-products-panel" class="flex-grow md:w-3/5 flex flex-col h-full md:h-full border-b md:border-b-0 md:border-r border-white/5 p-6 overflow-hidden">
                 <div class="mb-4">
-                    <h3 class="text-lg font-black text-white">Bestellung für <span id="order-modal-table-name" class="text-primary">Tisch --</span> aufnehmen</h3>
-                    <p class="text-xs text-on-surface-variant mt-0.5">Wählen Sie Artikel aus, um sie dem Entwurf hinzuzufügen.</p>
+                    <h3 class="text-lg font-black text-white font-display">Bestellung für <span id="order-modal-table-name" class="text-primary font-display">Tisch --</span> aufnehmen</h3>
+                    <p class="text-xs text-zinc-400 mt-1">Wählen Sie Artikel aus, um sie dem Entwurf hinzuzufügen.</p>
                 </div>
                 
                 <!-- Category Tabs (Horizontal Scrollable) -->
@@ -1420,10 +1525,10 @@
             </div>
             
             <!-- RIGHT PANEL: DYNAMIC BON DRAFT -->
-            <div id="order-modal-draft-panel" class="md:w-2/5 flex flex-col h-full md:h-full bg-black/30 p-6 overflow-hidden hidden-mobile">
+            <div id="order-modal-draft-panel" class="md:w-2/5 flex flex-col h-full md:h-full bg-black/40 backdrop-blur-md p-6 overflow-hidden hidden-mobile">
                 <div class="mb-4">
-                    <h4 class="text-sm uppercase font-black tracking-wider text-on-surface-variant">Bon-Entwurf</h4>
-                    <p class="text-xs text-on-surface-variant mt-0.5">Der aktuelle Inhalt dieser Zwischenbestellung.</p>
+                    <h4 class="text-sm uppercase font-black tracking-wider text-zinc-400 font-display">Bon-Entwurf</h4>
+                    <p class="text-xs text-zinc-500 mt-1">Der aktuelle Inhalt dieser Zwischenbestellung.</p>
                 </div>
                 
                 <!-- Draft Items List (Scrollable) -->
@@ -1432,17 +1537,46 @@
                 </div>
                 
                 <!-- Draft Totals and Actions -->
-                <div class="pt-4 border-t border-outline-variant mt-4 space-y-4 shrink-0">
+                <div class="pt-4 border-t border-white/5 mt-4 space-y-4 shrink-0">
                     <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-on-surface-variant">Zwischensumme:</span>
-                        <span id="order-draft-total" class="text-xl font-black text-primary">0,00 €</span>
+                        <span class="text-xs font-bold text-zinc-400 font-display">Zwischensumme:</span>
+                        <span id="order-draft-total" class="text-xl font-black text-primary font-display glow-text-primary">0,00 €</span>
                     </div>
                     
-                    <button id="btn-save-draft" onclick="saveOrderDraft()" class="w-full bg-[#deff9a] hover:bg-[#cbf77b] text-black font-black text-sm py-4 rounded-xl transition shadow-md flex items-center justify-center gap-2 active:scale-95">
-                        <span class="material-symbols-outlined">send</span>
+                    <button id="btn-save-draft" onclick="saveOrderDraft()" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm font-bold">send</span>
                         <span>Bestellung einbuchen / Buchen</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TISCH ZUSAMMENFÜHREN / UMBUCHEN MODAL -->
+    <div id="merge-table-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="glass-panel border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-4">
+            <h3 class="text-base font-black text-white font-display flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-400">call_merge</span>
+                <span>Tisch umbuchen / zusammenführen</span>
+            </h3>
+            <p class="text-xs text-zinc-400">
+                Sie verschieben die Buchungen von <strong class="text-white" id="merge-source-table-label">Tisch --</strong> auf einen anderen Tisch. Falls der Ziel-Tisch bereits eine offene Rechnung hat, werden die Artikel zusammengeführt.
+            </p>
+            
+            <div class="space-y-1.5">
+                <label class="block text-[10px] uppercase font-bold text-zinc-500 pl-0.5">Ziel-Tisch auswählen</label>
+                <select id="merge-target-table-select" class="input-premium w-full text-sm py-2.5 px-3 focus:border-indigo-500 bg-surface text-white rounded-xl border border-white/10">
+                    <!-- Dynamically populated in JS -->
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="closeMergeTableModal()" class="btn-premium btn-premium-secondary text-xs py-2.5 px-4 rounded-xl">
+                    Abbrechen
+                </button>
+                <button onclick="confirmMergeTables()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 px-5 rounded-xl transition active:scale-95">
+                    Übertragen & Zusammenführen
+                </button>
             </div>
         </div>
     </div>

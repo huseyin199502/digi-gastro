@@ -7,9 +7,10 @@
     <!-- Tailwind and FontAwesome / Material Symbols / Alpine.js -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/design_system.css">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -17,13 +18,13 @@
           theme: {
             extend: {
               colors: {
-                "on-surface": "#e5e2e1",
-                "outline-variant": "#262626",
-                "primary": "#deff9a",
-                "background": "#0a0a0a",
-                "surface": "#141313",
-                "surface-container-high": "#2b2a2a",
-                "on-surface-variant": "#c4c7c7"
+                "on-surface": "#f3f4f6",
+                "outline-variant": "#1f1f23",
+                "primary": "#10b981",
+                "background": "#050507",
+                "surface": "#0b0c10",
+                "surface-container-high": "#11131a",
+                "on-surface-variant": "#9ca3af"
               }
             }
           }
@@ -31,21 +32,13 @@
     </script>
     <style>
         body {
-            background-color: #0a0a0a;
-            color: #e5e2e1;
+            background-color: var(--bg-obsidian);
+            color: #f3f4f6;
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
         .admin-tab-content { display: none; }
         .admin-tab-content.active { display: block; }
-        @keyframes blink-red {
-            0%, 100% { background-color: rgba(239, 68, 68, 0.2); border-color: rgb(239, 68, 68); }
-            50% { background-color: rgba(220, 38, 38, 0.6); border-color: rgb(220, 38, 38); box-shadow: 0 0 12px rgba(220,38,38,0.4); }
-        }
-        .blinking-red-card {
-            animation: blink-red 1.5s infinite;
-            border-width: 2px !important;
-        }
     </style>
 </head>
 <body class="bg-background text-on-surface antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
@@ -56,36 +49,40 @@
     </button>
 
     <!-- Sidebar Left -->
-    <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 w-64 bg-[#0c0c0e] border-r border-[#1f1f23] z-40 transform md:translate-x-0 transition-transform duration-300 flex flex-col justify-between">
+    <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 w-64 bg-surface border-r border-outline-variant z-40 transform md:translate-x-0 transition-transform duration-300 flex flex-col justify-between">
         <div class="p-6 space-y-6">
             <!-- Brand Logo -->
             <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-black font-black text-sm">OS</div>
-                <div class="text-base font-black tracking-tight text-white flex flex-col leading-none">
+                <div class="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-black font-black text-sm font-display glow-primary">OS</div>
+                <div class="text-base font-black tracking-tight text-white flex flex-col leading-none font-display">
                     <span class="text-sm font-black">{{ restaurant.name }}</span>
-                    <span class="text-[10px] text-primary font-bold mt-0.5">Enterprise OS</span>
+                    <span class="text-[10px] text-primary font-bold mt-0.5 tracking-wider uppercase">Gastro OS Pro</span>
                 </div>
             </div>
 
             <!-- Module Navigation -->
-            <nav class="space-y-1">
-                <button onclick="switchAdminTab('live')" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+            <nav class="space-y-1 font-display">
+                <button onclick="switchAdminTab('kassensysteme')" id="tab-btn-kassensysteme" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                    <span class="material-symbols-outlined text-lg">devices</span>
+                    <span>💻 Kassensysteme</span>
+                </button>
+                <button onclick="switchAdminTab('live')" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">dashboard</span>
                     <span>🎯 Live-Tische</span>
                 </button>
-                <button onclick="switchAdminTab('finanzen')" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                <button onclick="switchAdminTab('finanzen')" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">analytics</span>
                     <span>📈 Finanzen & Logs</span>
                 </button>
-                <button onclick="switchAdminTab('speisekarte')" id="tab-btn-speisekarte" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                <button onclick="switchAdminTab('speisekarte')" id="tab-btn-speisekarte" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">restaurant_menu</span>
                     <span>⏱️ Speisekarte</span>
                 </button>
-                <button onclick="switchAdminTab('personal')" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                <button onclick="switchAdminTab('personal')" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">storefront</span>
                     <span>👤 Profil & Einstellungen</span>
                 </button>
-                <button onclick="switchAdminTab('konfiguration')" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent">
+                <button onclick="switchAdminTab('konfiguration')" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">settings</span>
                     <span>⚙️ Konfiguration</span>
                 </button>
@@ -93,14 +90,14 @@
         </div>
 
         <!-- Sidebar Footer -->
-        <div class="p-6 border-t border-[#1f1f23] space-y-3">
-            <div class="flex items-center space-x-2 text-xs text-on-surface-variant bg-surface/50 border border-outline-variant p-2 rounded-xl">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="font-bold">System Status: Online</span>
+        <div class="p-6 border-t border-outline-variant space-y-3 font-display">
+            <div class="flex items-center space-x-2.5 text-xs text-on-surface-variant bg-background/50 border border-outline-variant p-3 rounded-xl">
+                <span class="w-2.5 h-2.5 rounded-full bg-primary pulse-green"></span>
+                <span class="font-extrabold text-white">System: Online</span>
             </div>
-            <a href="/{{ slug }}/admin/logout" class="w-full flex items-center justify-center space-x-2 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-black transition-all">
+            <a href="/{{ slug }}/admin/logout" class="w-full flex items-center justify-center space-x-2 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-black transition-all">
                 <span class="material-symbols-outlined text-sm">logout</span>
-                <span>System Abmelden</span>
+                <span>System verlassen</span>
             </a>
         </div>
     </aside>
@@ -109,16 +106,16 @@
     <div class="flex-grow md:pl-64 flex flex-col min-w-0">
 
         <!-- Topbar Header -->
-        <header class="flex justify-between items-center px-8 h-16 fixed top-0 left-0 md:left-64 right-0 z-30 bg-[#09090b]/80 backdrop-blur-md border-b border-[#1f1f23] pl-16 md:pl-8">
+        <header class="flex justify-between items-center px-8 h-20 fixed top-0 left-0 md:left-64 right-0 z-30 bg-[#050507]/80 backdrop-blur-md border-b border-outline-variant pl-16 md:pl-8">
             <!-- Breadcrumbs -->
-            <div class="flex items-center space-x-2 text-xs font-medium text-on-surface-variant">
+            <div class="flex items-center space-x-2 text-xs font-bold text-on-surface-variant font-display uppercase tracking-wider">
                 <span>System</span>
-                <span class="material-symbols-outlined text-sm">chevron_right</span>
-                <span class="text-white font-bold" id="breadcrumb-current">🎯 Live-Tische</span>
+                <span class="material-symbols-outlined text-sm text-zinc-600">chevron_right</span>
+                <span class="text-white font-black" id="breadcrumb-current">🎯 Live-Tische</span>
             </div>
 
-            <div class="flex items-center space-x-6">
-                <a href="/{{ slug }}?preview=true" class="text-xs text-on-surface-variant hover:text-primary transition flex items-center space-x-2 bg-[#141313] border border-outline-variant px-3 py-1.5 rounded-lg shadow-sm">
+            <div class="flex items-center space-x-6 font-display">
+                <a href="/{{ slug }}?preview=true" target="_blank" class="btn-premium btn-premium-secondary text-xs text-on-surface-variant hover:text-primary transition flex items-center space-x-2 px-4 py-2.5 rounded-xl">
                     <span class="material-symbols-outlined text-base">visibility</span>
                     <span>Vorschau-Modus</span>
                 </a>
@@ -128,24 +125,161 @@
         <!-- Main Board -->
         <main class="flex-grow w-full max-w-6xl mx-auto mt-20 md:mt-24 px-6 md:px-8 space-y-6">
 
+        <!-- ================= TAB: KASSENSYSTEME ================= -->
+        <div id="admin-tab-kassensysteme" class="admin-tab-content space-y-6">
+            <div class="flex justify-between items-center border-b border-outline-variant pb-4">
+                <div>
+                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">💻 Kassensysteme & Geräte</h2>
+                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Verwalten und koppeln Sie Service-Tablets und Küchen-Displays.</p>
+                </div>
+            </div>
+
+            <!-- 🔗 GERÄTE KOPPELN (Device Provisioning via Magic Links) -->
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="flex items-start justify-between border-b border-white/5 pb-4 mb-5">
+                    <div>
+                        <h3 class="text-lg font-black text-white flex items-center gap-2 font-display">
+                            <span class="material-symbols-outlined text-primary text-xl">devices</span>
+                            Geräte koppeln
+                        </h3>
+                        <p class="text-xs text-on-surface-variant mt-1">
+                            Öffnen Sie den Magic Link auf dem Ziel-Gerät. Das Gerät wird dauerhaft eingeloggt. Mit "Link erneuern" entkoppeln Sie alle alten Geräte sofort.
+                        </p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <!-- POS Tablet -->
+                    <div class="bg-black/30 border border-white/5 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shadow-inner">
+                                <span class="material-symbols-outlined text-primary" style="font-size:20px">point_of_sale</span>
+                            </div>
+                            <div>
+                                <div class="text-sm font-black text-white font-display">Kassen-Terminal (POS)</div>
+                                <div class="text-[9px] text-on-surface-variant uppercase tracking-wider font-semibold">Kellner-Tablet</div>
+                            </div>
+                        </div>
+                        {% if restaurant.pos_secret %}
+                        <!-- Magic Link display -->
+                        <div class="bg-black/60 border border-white/5 rounded-xl p-3 flex items-center gap-2.5">
+                            <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
+                            <code class="text-xs text-primary font-mono break-all leading-tight flex-1 select-all" id="pos-magic-link">
+                                /{{ slug }}/setup-device?type=pos&amp;token={{ restaurant.pos_secret }}
+                            </code>
+                            <button onclick="copyMagicLink('pos-magic-link')" title="Link kopieren"
+                                    class="text-on-surface-variant hover:text-white transition flex-shrink-0 p-1.5 rounded-lg hover:bg-white/5 active:scale-95">
+                                <span class="material-symbols-outlined" style="font-size:16px">content_copy</span>
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="/{{ slug }}/setup-device?type=pos&token={{ restaurant.pos_secret }}"
+                               target="_blank"
+                               class="flex-1 btn-premium btn-premium-primary text-xs py-3 rounded-xl text-center flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                Link testen
+                            </a>
+                            <form action="/{{ slug }}/admin/renew-pos-secret" method="POST"
+                                  onsubmit="return confirm('Achtung: Alle gekoppelten Kassen-Tablets werden sofort entkoppelt. Fortfahren?')"
+                                  class="flex-shrink-0">
+                                <button type="submit"
+                                        class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-bold text-xs py-3 px-4 rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95">
+                                    <span class="material-symbols-outlined text-sm">refresh</span>
+                                    Erneuern
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="bg-black/40 border border-dashed border-white/10 rounded-xl p-5 text-center">
+                            <p class="text-xs text-on-surface-variant mb-4">Noch kein Magic Link generiert. Das Kassen-Terminal kann erst nach Generierung gekoppelt werden.</p>
+                            <form action="/{{ slug }}/admin/renew-pos-secret" method="POST">
+                                <button type="submit" class="btn-premium btn-premium-primary text-xs py-2.5 px-4 rounded-xl transition">
+                                    ✨ Magic Link generieren
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- KDS Kitchen Display -->
+                    <div class="bg-black/30 border border-white/5 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center shadow-inner">
+                                <span class="material-symbols-outlined text-rose-400" style="font-size:20px">kitchen</span>
+                            </div>
+                            <div>
+                                <div class="text-sm font-black text-white font-display">Küchen-Display (KDS)</div>
+                                <div class="text-[9px] text-on-surface-variant uppercase tracking-wider font-semibold">Kitchen Display System</div>
+                            </div>
+                        </div>
+                        {% if restaurant.kds_secret %}
+                        <!-- Magic Link display -->
+                        <div class="bg-black/60 border border-white/5 rounded-xl p-3 flex items-center gap-2.5">
+                            <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
+                            <code class="text-xs text-rose-400 font-mono break-all leading-tight flex-1 select-all" id="kds-magic-link">
+                                /{{ slug }}/setup-device?type=kds&amp;token={{ restaurant.kds_secret }}
+                            </code>
+                            <button onclick="copyMagicLink('kds-magic-link')" title="Link kopieren"
+                                    class="text-on-surface-variant hover:text-white transition flex-shrink-0 p-1.5 rounded-lg hover:bg-white/5 active:scale-95">
+                                <span class="material-symbols-outlined" style="font-size:16px">content_copy</span>
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="/{{ slug }}/setup-device?type=kds&token={{ restaurant.kds_secret }}"
+                               target="_blank"
+                               class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs py-3 rounded-xl text-center flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-95 shadow-md">
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                Link testen
+                            </a>
+                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST"
+                                  onsubmit="return confirm('Achtung: Alle gekoppelten Küchen-Displays werden sofort entkoppelt. Fortfahren?')"
+                                  class="flex-shrink-0">
+                                <button type="submit"
+                                        class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-bold text-xs py-3 px-4 rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95">
+                                    <span class="material-symbols-outlined text-sm">refresh</span>
+                                    Erneuern
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="bg-black/40 border border-dashed border-white/10 rounded-xl p-5 text-center">
+                            <p class="text-xs text-on-surface-variant mb-4">Noch kein Magic Link generiert. Das Küchen-Display kann erst nach Generierung gekoppelt werden.</p>
+                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST">
+                                <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition active:scale-95">
+                                    ✨ Magic Link generieren
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <!-- Security note -->
+                <p class="text-[10px] text-on-surface-variant mt-4 flex items-center gap-1.5 bg-white/5 px-3 py-2.5 rounded-xl border border-white/5">
+                    <span class="material-symbols-outlined text-primary" style="font-size:14px">shield</span>
+                    Magic Links enthalten kryptographisch sichere Tokens. Teilen Sie diese Links nur mit vertrauenswürdigen Mitarbeitern und Geräten.
+                </p>
+            </div>
+        </div>
+
         <!-- ================= TAB: LIVE TISCHE ================= -->
         <div id="admin-tab-live" class="admin-tab-content space-y-6">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center border-b border-outline-variant pb-4">
                 <div>
-                    <h2 class="text-xl font-bold">🎯 Live-Tisch-Zustand</h2>
-                    <p class="text-xs text-on-surface-variant mt-0.5">Visuelle Übersicht aller eingerichteten Tische des Lokals.</p>
+                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">🎯 Live-Tische Monitor</h2>
+                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Echtzeit-Zustand und Bestellübersicht aller Tische.</p>
                 </div>
-                <div class="flex space-x-3 text-xs">
-                    <span class="flex items-center space-x-1 text-on-surface-variant"><span class="w-2.5 h-2.5 bg-surface border border-outline-variant rounded"></span> <span>Frei</span></span>
-                    <span class="flex items-center space-x-1 text-amber-500"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded"></span> <span>Offene Bestellung</span></span>
-                    <span class="flex items-center space-x-1 text-red-500"><span class="w-2.5 h-2.5 bg-red-600 border border-red-500 rounded animate-pulse"></span> <span>Service-Ruf</span></span>
+                <div class="flex space-x-4 text-[10px] font-bold uppercase tracking-wider font-display">
+                    <span class="flex items-center space-x-2 text-on-surface-variant"><span class="w-2.5 h-2.5 bg-zinc-800 border border-outline-variant rounded-full"></span> <span>Frei</span></span>
+                    <span class="flex items-center space-x-2 text-amber-500"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full animate-pulse"></span> <span>Aktiv</span></span>
+                    <span class="flex items-center space-x-2 text-red-500"><span class="w-2.5 h-2.5 bg-red-600 rounded-full pulse-green"></span> <span>Service-Ruf</span></span>
                 </div>
             </div>
 
             <!-- Area:🛋️ INNEN -->
-            <div class="space-y-3">
-                <span class="text-xs uppercase font-black text-on-surface-variant tracking-wider">🛋️ Innenbereich</span>
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+            <div class="space-y-4">
+                <span class="text-xs uppercase font-black text-on-surface-variant tracking-widest font-display flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">chair</span> 🛋️ Innenbereich
+                </span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-5">
                     {% for t in restaurant.tables %}
                     {% if t.zone == 'innen' %}
                         <!-- Determine state of this table -->
@@ -164,33 +298,43 @@
                         {% endfor %}
 
                         {% if active_call %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="blinking-red-card rounded-xl p-4 flex flex-col justify-between h-28 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block">
-                            <span class="font-black text-lg">Tisch {{ t.number }}</span>
-                            <span class="text-[10px] font-bold uppercase tracking-wider animate-pulse">⚠️ {{ active_call[0].type | upper }} RUF!</span>
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="pulse-red-card rounded-2xl p-5 flex flex-col justify-between h-32 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block font-display">
+                            <span class="font-extrabold text-xl">Tisch {{ t.number }}</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">warning</span>{{ active_call[0].type }} RUF!</span>
                         </a>
                         {% elif active_order %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-4 flex flex-col justify-between h-28 text-center text-amber-400 hover:bg-amber-500/20 hover:scale-[1.02] transition block">
-                            <span class="font-black text-lg">Tisch {{ t.number }}</span>
-                            <span class="text-[10px] font-bold block">{{ active_order | length }} Bon(s)</span>
-                            <span class="text-xs font-black">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between h-32 text-center text-amber-400 hover:bg-amber-500/10 hover:scale-[1.02] transition block font-display">
+                            <div class="flex justify-between items-start">
+                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
+                                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full pulse-amber"></span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] font-bold block text-on-surface-variant">{{ active_order | length }} Bon(s)</span>
+                                <span class="text-sm font-black text-amber-400">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
+                            </div>
                         </a>
                         {% else %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface border border-outline-variant hover:border-primary/50 hover:bg-zinc-900 rounded-xl p-4 flex flex-col justify-center items-center h-28 text-center hover:scale-[1.02] transition block">
-                            <span class="font-black text-lg text-on-surface-variant">Tisch {{ t.number }}</span>
-                            <span class="text-[10px] text-on-surface-variant/50 uppercase font-bold mt-1">Frei</span>
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface/60 border border-outline-variant hover:border-primary/50 hover:bg-surface rounded-2xl p-5 flex flex-col justify-between h-32 text-left hover:scale-[1.02] transition block font-display">
+                            <div class="flex justify-between items-start">
+                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
+                                <span class="w-2.5 h-2.5 bg-zinc-800 rounded-full border border-outline-variant"></span>
+                            </div>
+                            <span class="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Frei</span>
                         </a>
                         {% endif %}
                     {% endif %}
                     {% else %}
-                    <p class="col-span-full py-6 text-center text-xs text-on-surface-variant font-medium">Keine Tische für den Innenbereich eingerichtet.</p>
+                    <p class="col-span-full py-8 text-center text-xs text-on-surface-variant font-medium bg-surface/30 border border-outline-variant rounded-2xl">Keine Tische für den Innenbereich eingerichtet.</p>
                     {% endfor %}
                 </div>
             </div>
 
             <!-- Area: ☀️ TERRASSE -->
-            <div class="space-y-3 pt-4">
-                <span class="text-xs uppercase font-black text-on-surface-variant tracking-wider">☀️ Außenbereich / Terrasse</span>
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+            <div class="space-y-4 pt-6">
+                <span class="text-xs uppercase font-black text-on-surface-variant tracking-widest font-display flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">wb_sunny</span> ☀️ Außenbereich
+                </span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-5">
                     {% for t in restaurant.tables %}
                     {% if t.zone == 'terrasse' %}
                         <!-- Determine state of this table -->
@@ -209,25 +353,33 @@
                         {% endfor %}
 
                         {% if active_call %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="blinking-red-card rounded-xl p-4 flex flex-col justify-between h-28 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block">
-                            <span class="font-black text-lg">Tisch {{ t.number }}</span>
-                            <span class="text-[10px] font-bold uppercase tracking-wider animate-pulse">⚠️ {{ active_call[0].type | upper }} RUF!</span>
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="pulse-red-card rounded-2xl p-5 flex flex-col justify-between h-32 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block font-display">
+                            <span class="font-extrabold text-xl">Tisch {{ t.number }}</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">warning</span>{{ active_call[0].type }} RUF!</span>
                         </a>
                         {% elif active_order %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-4 flex flex-col justify-between h-28 text-center text-amber-400 hover:bg-amber-500/20 hover:scale-[1.02] transition block">
-                            <span class="font-black text-lg">Tisch {{ t.number }}</span>
-                            <span class="text-[10px] font-bold block">{{ active_order | length }} Bon(s)</span>
-                            <span class="text-xs font-black">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between h-32 text-center text-amber-400 hover:bg-amber-500/10 hover:scale-[1.02] transition block font-display">
+                            <div class="flex justify-between items-start">
+                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
+                                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full pulse-amber"></span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] font-bold block text-on-surface-variant">{{ active_order | length }} Bon(s)</span>
+                                <span class="text-sm font-black text-amber-400">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
+                            </div>
                         </a>
                         {% else %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface border border-outline-variant hover:border-primary/50 hover:bg-zinc-900 rounded-xl p-4 flex flex-col justify-center items-center h-28 text-center hover:scale-[1.02] transition block">
-                            <span class="font-black text-lg text-on-surface-variant">Tisch {{ t.number }}</span>
-                            <span class="text-[10px] text-on-surface-variant/50 uppercase font-bold mt-1">Frei</span>
+                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface/60 border border-outline-variant hover:border-primary/50 hover:bg-surface rounded-2xl p-5 flex flex-col justify-between h-32 text-left hover:scale-[1.02] transition block font-display">
+                            <div class="flex justify-between items-start">
+                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
+                                <span class="w-2.5 h-2.5 bg-zinc-800 rounded-full border border-outline-variant"></span>
+                            </div>
+                            <span class="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Frei</span>
                         </a>
                         {% endif %}
                     {% endif %}
                     {% else %}
-                    <p class="col-span-full py-6 text-center text-xs text-on-surface-variant font-medium">Keine Tische für die Terrasse eingerichtet.</p>
+                    <p class="col-span-full py-8 text-center text-xs text-on-surface-variant font-medium bg-surface/30 border border-outline-variant rounded-2xl">Keine Tische für die Terrasse eingerichtet.</p>
                     {% endfor %}
                 </div>
             </div>
@@ -235,126 +387,133 @@
 
         <!-- ================= TAB: FINANZEN & secure LOGS ================= -->
         <div id="admin-tab-finanzen" class="admin-tab-content space-y-6">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 border-b border-outline-variant pb-4">
                 <div>
-                    <h2 class="text-xl font-bold">📈 Finanz- & Analysezentrum</h2>
-                    <p class="text-xs text-on-surface-variant mt-0.5">Umsatzauswertungen, Steuern, Renner/Penner-Listen und Audit-Logs.</p>
+                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">📈 Finanz- & Analysestatistiken</h2>
+                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Behalte deine Umsätze, Steuern, Top-Seller und das rechtssichere GoBD-Journal im Blick.</p>
                 </div>
 
                 <!-- Period Date filters -->
-                <div class="flex bg-surface border border-outline-variant rounded-full p-1 self-start sm:self-auto">
-                    <a href="?period=heute" class="px-3 py-1.5 rounded-full text-xs font-bold transition {% if period == 'heute' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Heute</a>
-                    <a href="?period=monat" class="px-3 py-1.5 rounded-full text-xs font-bold transition {% if period == 'monat' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Aktueller Monat</a>
-                    <a href="?period=letzter_monat" class="px-3 py-1.5 rounded-full text-xs font-bold transition {% if period == 'letzter_monat' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Letzter Monat</a>
+                <div class="flex bg-[#11131a] border border-outline-variant rounded-xl p-1 font-display self-start">
+                    <a href="?period=heute" class="px-4 py-2 rounded-lg text-xs font-bold transition {% if period == 'heute' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Heute</a>
+                    <a href="?period=monat" class="px-4 py-2 rounded-lg text-xs font-bold transition {% if period == 'monat' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Diesen Monat</a>
+                    <a href="?period=letzter_monat" class="px-4 py-2 rounded-lg text-xs font-bold transition {% if period == 'letzter_monat' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Letzten Monat</a>
                 </div>
             </div>
 
             <!-- KPIs -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-                <div class="bg-surface border border-outline-variant p-4 rounded-xl">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase">Gross / Brutto-Umsatz</span>
-                    <div class="text-xl font-black text-primary mt-1">{{ "%.2f"|format(stats.brutto) }} €</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-5">
+                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display relative overflow-hidden">
+                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Brutto-Umsatz</span>
+                    <div class="text-2xl font-black text-primary mt-2 pl-0.5 glow-text-primary">{{ "%.2f"|format(stats.brutto) }} €</div>
                 </div>
-                <div class="bg-surface border border-outline-variant p-4 rounded-xl">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase">Netto split 19% MwSt</span>
-                    <div class="text-base font-black text-white mt-1">{{ "%.2f"|format(stats.netto_19) }} €</div>
-                    <span class="text-[9px] text-on-surface-variant block mt-0.5">Brutto: {{ "%.2f"|format(stats.brutto_19) }} €</span>
+                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
+                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Netto 19% MwSt</span>
+                    <div class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_19) }} €</div>
+                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: {{ "%.2f"|format(stats.brutto_19) }} €</span>
                 </div>
-                <div class="bg-surface border border-outline-variant p-4 rounded-xl">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase">Netto split 7% MwSt</span>
-                    <div class="text-base font-black text-white mt-1">{{ "%.2f"|format(stats.netto_7) }} €</div>
-                    <span class="text-[9px] text-on-surface-variant block mt-0.5">Brutto: {{ "%.2f"|format(stats.brutto_7) }} €</span>
+                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
+                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Netto 7% MwSt</span>
+                    <div class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_7) }} €</div>
+                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: {{ "%.2f"|format(stats.brutto_7) }} €</span>
                 </div>
-                <div class="bg-surface border border-outline-variant p-4 rounded-xl">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase">Gesamt-Trinkgeld</span>
-                    <div class="text-base font-black text-emerald-400 mt-1">{{ "%.2f"|format(stats.tip) }} €</div>
+                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
+                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Gesamt-Trinkgeld</span>
+                    <div class="text-xl font-black text-emerald-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.tip) }} €</div>
                 </div>
-                <div class="bg-surface border border-outline-variant p-4 rounded-xl">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase">Ø-Bonwert / Tisch</span>
-                    <div class="text-base font-black text-sky-400 mt-1">{{ "%.2f"|format(stats.avg_basket) }} €</div>
-                    <span class="text-[9px] text-on-surface-variant block mt-0.5">Anzahl Bons: {{ stats.orders_count }}</span>
+                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
+                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Ø-Warenkorb / Tisch</span>
+                    <div class="text-xl font-black text-sky-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.avg_basket) }} €</div>
+                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Bons: {{ stats.orders_count }}</span>
                 </div>
             </div>
 
             <!-- GOBD Export Trigger -->
-            <div class="bg-indigo-950/20 border border-indigo-500/20 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h3 class="font-bold text-sm text-indigo-300">📄 GoBD-Konformer Steuer-Export</h3>
-                    <p class="text-[11px] text-on-surface-variant mt-0.5">Generiert eine druck- und finanzamtskonforme Übersicht aller unschreibbaren, manipulationssicheren Buchungsvorgänge.</p>
+            <div class="bg-primary/5 border border-primary/20 p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="space-y-1">
+                    <h3 class="font-bold text-sm text-primary flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-sm">verified_user</span>
+                        <span>GoBD-Konformer Steuerberater-Export</span>
+                    </h3>
+                    <p class="text-xs text-on-surface-variant leading-relaxed">Generiert eine finanzamtkonforme und unmanipulierbare Aufstellung aller getätigten Buchungen.</p>
                 </div>
-                <a href="/{{ slug }}/admin/gobd-export" target="_blank" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition whitespace-nowrap">
-                    Steuer-Berater Export <i class="fas fa-arrow-up-right-from-square ml-1 text-[10px]"></i>
+                <a href="/{{ slug }}/admin/gobd-export" target="_blank" class="btn-premium btn-premium-primary text-xs px-5 py-3 rounded-xl flex items-center gap-1.5 shadow-md shadow-primary/10">
+                    Export generieren <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">cloud_download</span>
                 </a>
             </div>
 
             <!-- Renner & Penner list -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Renner -->
-                <div class="bg-surface border border-outline-variant p-5 rounded-2xl">
-                    <h3 class="text-sm font-black text-[#deff9a] uppercase tracking-wider mb-4 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-[#deff9a]">local_fire_department</span>
-                        <span>Renner: Top 5 Bestseller</span>
+                <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
+                    <h3 class="text-sm font-black text-primary uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-primary">local_fire_department</span>
+                        <span>Top 5 Renner (Bestseller)</span>
                     </h3>
-                    <div class="space-y-2.5">
+                    <div class="space-y-3 font-display">
                         {% for prod_name, count in stats.top_5 %}
-                        <div class="flex justify-between items-center text-xs border-b border-outline-variant/40 pb-2">
+                        <div class="flex justify-between items-center text-xs border-b border-outline-variant/60 pb-3">
                             <span class="font-bold text-white">{{ loop.index }}. {{ prod_name }}</span>
-                            <span class="bg-[#deff9a]/10 text-[#deff9a] font-black font-mono px-2 py-0.5 rounded">{{ count }}x verkauft</span>
+                            <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/10">{{ count }}x verkauft</span>
                         </div>
                         {% else %}
-                        <p class="text-center py-4 text-xs text-on-surface-variant">Keine Daten verfügbar.</p>
+                        <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe aufgezeichnet.</p>
                         {% endfor %}
                     </div>
                 </div>
 
                 <!-- Penner -->
-                <div class="bg-surface border border-outline-variant p-5 rounded-2xl">
-                    <h3 class="text-sm font-black text-rose-400 uppercase tracking-wider mb-4 flex items-center space-x-2">
+                <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
+                    <h3 class="text-sm font-black text-rose-400 uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
                         <span class="material-symbols-outlined text-rose-400">trending_down</span>
-                        <span>Penner: Flop 5 Artikel</span>
+                        <span>Flop 5 Penner (Ladenhüter)</span>
                     </h3>
-                    <div class="space-y-2.5">
+                    <div class="space-y-3 font-display">
                         {% for prod_name, count in stats.flop_5 %}
-                        <div class="flex justify-between items-center text-xs border-b border-outline-variant/40 pb-2">
+                        <div class="flex justify-between items-center text-xs border-b border-outline-variant/60 pb-3">
                             <span class="font-bold text-white">{{ loop.index }}. {{ prod_name }}</span>
-                            <span class="bg-rose-500/10 text-rose-400 font-black font-mono px-2 py-0.5 rounded">{{ count }}x verkauft</span>
+                            <span class="bg-rose-500/10 text-rose-400 font-bold px-3 py-1 rounded-full border border-rose-500/10">{{ count }}x verkauft</span>
                         </div>
                         {% else %}
-                        <p class="text-center py-4 text-xs text-on-surface-variant">Keine Daten verfügbar.</p>
+                        <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe aufgezeichnet.</p>
                         {% endfor %}
                     </div>
                 </div>
             </div>
 
             <!-- Secure Audit Log -->
-            <div class="bg-surface border border-outline-variant p-5 rounded-2xl">
-                <h3 class="text-sm font-black text-red-400 uppercase tracking-wider mb-4 flex items-center space-x-2">
-                    <span class="material-symbols-outlined text-red-400">security</span>
-                    <span>Sicherheits- & Audit-Log (Protokollierte Löschungen/Stornos)</span>
+            <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
+                <h3 class="text-sm font-black text-rose-400 uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
+                    <span class="material-symbols-outlined text-rose-400">security</span>
+                    <span>Kryptografisches Audit-Log (Stornierungen & Löschungen)</span>
                 </h3>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
+                    <table class="w-full text-left border-collapse text-xs font-display">
                         <thead>
-                            <tr class="border-b border-outline-variant text-on-surface-variant">
-                                <th class="pb-3 font-black">Zeitstempel</th>
-                                <th class="pb-3 font-black">Bediener / Kellner</th>
-                                <th class="pb-3 font-black">Rolle</th>
-                                <th class="pb-3 font-black">Aktion / Beleg</th>
-                                <th class="pb-3 font-black">Details</th>
+                            <tr class="border-b border-outline-variant text-on-surface-variant text-[10px] uppercase tracking-wider font-extrabold">
+                                <th class="pb-3 px-2 font-black">Zeitstempel</th>
+                                <th class="pb-3 px-2 font-black">Mitarbeiter</th>
+                                <th class="pb-3 px-2 font-black">Rolle</th>
+                                <th class="pb-3 px-2 font-black">Aktion</th>
+                                <th class="pb-3 px-2 font-black">Details</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-outline-variant/40">
                             {% for log in restaurant.audit_log %}
-                            <tr class="border-b border-outline-variant/40 hover:bg-black/20">
-                                <td class="py-3 font-mono text-slate-400">{{ log.timestamp }}</td>
-                                <td class="py-3 font-bold text-white">{{ log.employee_name }}</td>
-                                <td class="py-3"><span class="bg-red-500/10 text-red-300 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-black uppercase">{{ log.employee_role }}</span></td>
-                                <td class="py-3 font-black text-rose-400">{{ log.action }}</td>
-                                <td class="py-3 text-on-surface-variant">{{ log.details }}</td>
+                            <tr class="hover:bg-background/40 transition-colors">
+                                <td class="py-4.5 px-2 font-mono text-zinc-500">{{ log.timestamp }}</td>
+                                <td class="py-4.5 px-2 font-bold text-white">{{ log.employee_name }}</td>
+                                <td class="py-4.5 px-2">
+                                    <span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
+                                        {{ log.employee_role }}
+                                    </span>
+                                </td>
+                                <td class="py-4.5 px-2 font-bold text-rose-400">{{ log.action }}</td>
+                                <td class="py-4.5 px-2 text-on-surface-variant font-medium">{{ log.details }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" class="py-6 text-center text-on-surface-variant font-medium">Bislang wurden keine kritischen Belegänderungen (Stornos) protokolliert.</td>
+                                <td colspan="5" class="py-8 text-center text-on-surface-variant font-semibold">Bislang wurden keine kritischen Belegänderungen (Stornos) protokolliert.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -365,86 +524,90 @@
 
         <!-- ================= TAB: SPEISEKARTEN-LIVE-STEUERUNG ================= -->
         <div id="admin-tab-speisekarte" class="admin-tab-content space-y-6">
-            <div class="flex justify-between items-center border-b border-outline-variant pb-3">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-outline-variant pb-4">
                 <div>
-                    <h2 class="text-xl font-bold">⏱️ Speisekarten-Live-Steuerung</h2>
-                    <p class="text-xs text-on-surface-variant mt-0.5">Togglen Sie Verfügbarkeiten und pflegen Sie produktbezogene Happy Hour Parameter.</p>
+                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">⏱️ Speisekarten-Steuerung</h2>
+                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Verwalte hier die Produkte, Kategorien und Preise deines Restaurants.</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <form action="/{{ slug }}/kategorie-erstellen" method="POST" class="flex gap-2">
-                        <input type="text" name="category-name" placeholder="Neue Kategorie..." class="bg-background border border-outline-variant px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:border-primary text-white" required>
-                        <button type="submit" class="bg-primary text-black font-black text-xs px-3 py-1.5 rounded-lg">Erstellen</button>
+                    <form action="/{{ slug }}/kategorie-erstellen" method="POST" class="flex gap-2 font-display">
+                        <input type="text" name="category-name" placeholder="Neue Kategorie..." class="input-premium py-2 px-3 text-xs w-48 focus:border-primary" required>
+                        <button type="submit" class="btn-premium btn-premium-primary text-xs px-4 py-2.5 rounded-xl">Hinzufügen</button>
                     </form>
                 </div>
             </div>
+
             <!-- Category chips with delete -->
-            <div class="flex flex-wrap gap-2 mb-4">
+            <div class="flex flex-wrap gap-2 mb-4 font-display">
                 {% for cat in restaurant.categories %}
-                <span class="flex items-center gap-1.5 bg-surface border border-outline-variant rounded-full px-3 py-1 text-xs text-white font-semibold">
-                    {{ cat }}
+                <span class="flex items-center gap-2 bg-[#11131a] border border-outline-variant rounded-full pl-3.5 pr-2 py-1.5 text-xs text-white font-semibold">
+                    <span>{{ cat }}</span>
                     <form action="/{{ slug }}/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \'{{ cat }}\' wirklich löschen?')">
                         <input type="hidden" name="kategorie_name" value="{{ cat }}">
-                        <button type="submit" class="text-red-400 hover:text-red-300 transition ml-0.5" title="Kategorie löschen">
-                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">delete</span>
+                        <button type="submit" class="text-red-400 hover:text-red-300 transition-colors flex items-center justify-center p-0.5 hover:bg-red-500/10 rounded" title="Kategorie löschen">
+                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                         </button>
                     </form>
                 </span>
                 {% endfor %}
             </div>
 
-            <!-- Neues Produkt hinzufügen Formular -->
-            <div class="bg-surface border border-outline-variant p-5 rounded-2xl mb-6">
-                <h3 class="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-                    <span class="material-symbols-outlined text-primary">add_circle</span>
+            <!-- Neues Produkt hinzufügen Formular (Super Easy step-by-step styling) -->
+            <div class="glass-panel border border-outline-variant p-6 rounded-3xl mb-8 relative overflow-hidden">
+                <h3 class="text-base font-extrabold text-white tracking-tight font-display mb-6 flex items-center space-x-2">
+                    <span class="material-symbols-outlined text-primary text-xl">add_circle</span>
                     <span>Neues Produkt hinzufügen</span>
                 </h3>
-                <form action="/{{ slug }}/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="text-xs text-on-surface-variant block mb-1">Name des Produkts</label>
-                            <input type="text" name="name" placeholder="z.B. Premium Burger" class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-primary" required>
+                <form action="/{{ slug }}/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="space-y-6 font-display">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Name des Produkts</label>
+                            <input type="text" name="name" placeholder="z.B. Premium Burger" class="input-premium w-full text-sm focus:border-primary" required>
                         </div>
-                        <div>
-                            <label class="text-xs text-on-surface-variant block mb-1">Preis (EUR)</label>
-                            <input type="number" step="0.01" name="preis" placeholder="z.B. 14.50" class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-primary" required>
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Preis (EUR)</label>
+                            <input type="number" step="0.01" name="preis" placeholder="z.B. 14.50" class="input-premium w-full text-sm focus:border-primary" required>
                         </div>
-                        <div>
-                            <label class="text-xs text-on-surface-variant block mb-1">Kategorie</label>
-                            <select name="kategorie" class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-primary">
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Kategorie</label>
+                            <select name="kategorie" class="input-premium w-full text-sm focus:border-primary bg-background cursor-pointer">
                                 {% for cat in restaurant.categories %}
                                 <option value="{{ cat }}">{{ cat }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-xs text-on-surface-variant block mb-1">Beschreibung (optional)</label>
-                            <input type="text" name="description" placeholder="z.B. Saftiges Rindfleisch..." class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-primary">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Beschreibung (optional)</label>
+                            <textarea name="description" rows="3" placeholder="z.B. Saftiges Rindfleisch, Cheddar, hausgemachte Sauce..." class="input-premium w-full text-sm focus:border-primary resize-none"></textarea>
                         </div>
-                        <div class="space-y-2">
-                            <div>
-                                <label class="text-xs text-on-surface-variant block mb-1">📁 Bild hochladen (empfohlen)</label>
-                                <input type="file" name="image_file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white focus:outline-none focus:border-primary cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-black hover:file:bg-[#c9e88b]">
+                        <div class="space-y-4">
+                            <div class="space-y-1.5">
+                                <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">📁 Bild hochladen (empfohlen)</label>
+                                <input type="file" name="image_file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white focus:outline-none focus:border-primary cursor-pointer file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-black hover:file:bg-primary/90">
                             </div>
-                            <div>
-                                <label class="text-xs text-on-surface-variant block mb-1">🔗 Oder Bild-URL eingeben</label>
-                                <input type="text" name="image_url" placeholder="https://..." class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-primary">
+                            <div class="space-y-1.5">
+                                <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">🔗 Oder Bild-URL eingeben</label>
+                                <input type="text" name="image_url" placeholder="https://..." class="input-premium w-full text-sm focus:border-primary">
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-6 pt-2">
-                        <label class="flex items-center gap-2 cursor-pointer text-xs text-white">
+                    
+                    <div class="flex items-center gap-6 pt-2 font-display">
+                        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
                             <input type="checkbox" name="is_vegan" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
-                            <span>🌿 Vegan</span>
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-emerald-400 text-sm">eco</span> Vegan</span>
                         </label>
-                        <label class="flex items-center gap-2 cursor-pointer text-xs text-white">
+                        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
                             <input type="checkbox" name="is_glutenfree" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
-                            <span>🌾 Glutenfrei</span>
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-amber-400 text-sm">eco_food</span> Glutenfrei</span>
                         </label>
                     </div>
-                    <div class="pt-2 flex justify-end">
-                        <button type="submit" class="bg-primary hover:bg-[#c9e88b] text-black font-black text-xs px-5 py-2.5 rounded-xl transition">
+                    
+                    <div class="pt-4 border-t border-outline-variant/60 flex justify-end">
+                        <button type="submit" class="btn-premium btn-premium-primary text-xs px-6 py-3.5 rounded-xl shadow-lg shadow-primary/10">
                             Produkt anlegen
                         </button>
                     </div>
@@ -455,72 +618,78 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {% for p in restaurant.products %}
                 {% set is_p_avail = p.get('is_available', True) %}
-                <div class="bg-surface border border-outline-variant rounded-xl p-5 space-y-4 flex flex-col justify-between">
-                    <div class="flex items-start justify-between">
-                        <div class="flex space-x-3">
-                            <img src="{{ p.image }}" class="w-16 h-16 rounded-xl object-cover bg-slate-900">
-                            <div>
-                                <h4 class="font-black text-white text-sm">{{ p.name }}</h4>
-                                <span class="text-xs text-on-surface-variant">{{ p.category }} &bull; Standard: <span class="text-primary font-bold">{{ "%.2f"|format(p.price) }} €</span></span>
-                                <div class="flex gap-1.5 mt-1.5">
+                <div class="glass-card rounded-2xl p-5 space-y-5 flex flex-col justify-between border border-outline-variant hover:border-outline-variant shadow-lg transition duration-200">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex space-x-3.5">
+                            <img src="{{ p.image }}" class="w-16 h-16 rounded-2xl object-cover bg-background border border-outline-variant shrink-0">
+                            <div class="space-y-1">
+                                <h4 class="font-bold text-white text-base font-display">{{ p.name }}</h4>
+                                <span class="text-xs text-on-surface-variant font-medium block">{{ p.category }} &bull; Standard: <span class="text-primary font-extrabold">{{ "%.2f"|format(p.price) }} €</span></span>
+                                <div class="flex flex-wrap gap-1.5 pt-1 font-display">
                                     {% if p.is_vegan or p.vegan %}
-                                        <span class="bg-emerald-950 text-emerald-400 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">Vegan</span>
+                                        <span class="bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Vegan</span>
                                     {% endif %}
                                     {% if p.is_glutenfree %}
-                                        <span class="bg-amber-950 text-amber-400 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">Glutenfrei</span>
+                                        <span class="bg-amber-950/40 text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Glutenfrei</span>
                                     {% endif %}
                                     {% if p.allergens %}
-                                        <span class="bg-slate-800 text-slate-300 font-mono text-[9px] px-1.5 py-0.5 rounded">Allergene: {{ p.allergens | join(',') }}</span>
+                                        <span class="bg-[#11131a] text-zinc-400 border border-outline-variant font-mono text-[9px] px-2 py-0.5 rounded-full">Allergene: {{ p.allergens | join(',') }}</span>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Status toggle + Delete -->
-                        <div class="flex flex-col gap-2 items-end">
+                        <!-- Status toggle -->
+                        <div class="flex flex-col gap-2 items-end shrink-0 font-display">
                             <form action="/{{ slug }}/admin/product-toggle/{{ p.id }}" method="POST">
-                                <button type="submit" class="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg border transition {% if is_p_avail %}bg-[#1c2e17] text-[#deff9a] border-[#deff9a]/30{% else %}bg-red-950 text-red-400 border-red-500/20{% endif %}">
+                                <button type="submit" class="text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border transition-all duration-200 active:scale-95
+                                    {% if is_p_avail %}bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20
+                                    {% else %}bg-red-500/10 text-red-300 border-red-500/20 hover:bg-red-500/20{% endif %}">
                                     {{ "Aktiv" if is_p_avail else "Ausverkauft" }}
                                 </button>
                             </form>
-                            <div class="flex gap-2">
-                                <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}')" class="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg border bg-[#1a1a1a] text-amber-400 border-amber-500/20 hover:bg-zinc-800 transition flex items-center gap-1">
-                                    <span class="material-symbols-outlined" style="font-size:12px">edit</span>
-                                    Bearbeiten
-                                </button>
-                                <button type="button" onclick="toggleHHForm({{ p.id }})" class="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg border bg-[#1a1a1a] text-primary border-primary/20 hover:bg-zinc-800 transition flex items-center gap-1">
-                                    <span class="material-symbols-outlined" style="font-size:12px">settings</span>
-                                    Konfigurieren
-                                </button>
-                                <form action="/{{ slug }}/admin/produkt-loeschen/{{ p.id }}" method="POST" onsubmit="return confirm('Produkt \'{{ p.name }}\' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
-                                    <button type="submit" class="text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg border bg-red-950 text-red-400 border-red-500/20 hover:bg-red-900 transition flex items-center gap-1">
-                                        <span class="material-symbols-outlined" style="font-size:12px">delete</span>
-                                        Löschen
-                                    </button>
-                                </form>
-                            </div>
                         </div>
                     </div>
 
+                    <div class="flex justify-between items-center border-t border-outline-variant/60 pt-4 font-display">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}')" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                                Bearbeiten
+                            </button>
+                            <button type="button" onclick="toggleHHForm({{ p.id }})" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm">settings</span>
+                                HH Preis
+                            </button>
+                        </div>
+                        
+                        <form action="/{{ slug }}/admin/produkt-loeschen/{{ p.id }}" method="POST" onsubmit="return confirm('Produkt \'{{ p.name }}\' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                            <button type="submit" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-red-500/15 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                                Löschen
+                            </button>
+                        </form>
+                    </div>
+
                     <!-- Individual Happy Hour Setup Form -->
-                    <div id="hh-form-{{ p.id }}" class="border-t border-outline-variant/60 pt-3 hidden">
-                        <span class="text-[10px] uppercase font-black text-on-surface-variant block mb-2">⚡ Produktbezogene Happy-Hour</span>
+                    <div id="hh-form-{{ p.id }}" class="border-t border-outline-variant/60 pt-4 space-y-3 hidden font-display">
+                        <span class="text-[10px] uppercase font-black tracking-wider text-primary block">⚡ Happy-Hour Parameter</span>
                         <form action="/{{ slug }}/admin/product-hh" method="POST" class="grid grid-cols-3 gap-2.5 items-end">
                             <input type="hidden" name="product_id" value="{{ p.id }}">
-                            <div>
-                                <label class="text-[9px] text-on-surface-variant block mb-0.5">Spezial-Preis</label>
-                                <input type="number" step="0.10" name="happy_hour_price" value="{{ p.happy_hour_price or '' }}" placeholder="z.B. 11.90" class="w-full bg-background border border-outline-variant rounded p-1.5 text-xs text-white">
+                            <div class="space-y-1">
+                                <label class="text-[9px] text-on-surface-variant font-bold pl-0.5">Spezial-Preis</label>
+                                <input type="number" step="0.10" name="happy_hour_price" value="{{ p.happy_hour_price or '' }}" placeholder="z.B. 11.90" class="input-premium w-full py-1.5 px-2 text-xs focus:border-primary">
                             </div>
-                            <div>
-                                <label class="text-[9px] text-on-surface-variant block mb-0.5">Startzeit</label>
-                                <input type="text" name="start_time" value="{{ p.start_time or '' }}" placeholder="18:00" class="w-full bg-background border border-outline-variant rounded p-1.5 text-xs text-white">
+                            <div class="space-y-1">
+                                <label class="text-[9px] text-on-surface-variant font-bold pl-0.5">Startzeit</label>
+                                <input type="text" name="start_time" value="{{ p.start_time or '' }}" placeholder="18:00" class="input-premium w-full py-1.5 px-2 text-xs focus:border-primary">
                             </div>
-                            <div>
-                                <label class="text-[9px] text-on-surface-variant block mb-0.5">Endzeit</label>
-                                <input type="text" name="end_time" value="{{ p.end_time or '' }}" placeholder="20:00" class="w-full bg-background border border-outline-variant rounded p-1.5 text-xs text-white">
+                            <div class="space-y-1">
+                                <label class="text-[9px] text-on-surface-variant font-bold pl-0.5">Endzeit</label>
+                                <input type="text" name="end_time" value="{{ p.end_time or '' }}" placeholder="20:00" class="input-premium w-full py-1.5 px-2 text-xs focus:border-primary">
                             </div>
-                            <button type="submit" class="col-span-3 bg-primary hover:bg-[#c9e88b] text-black text-[10px] font-black uppercase py-2 rounded-lg transition mt-1">
-                                Happy Hour Parameter sichern
+                            <button type="submit" class="col-span-3 btn-premium btn-premium-primary text-[10px] py-2 rounded-xl mt-1.5">
+                                Sichern
                             </button>
                         </form>
                     </div>
@@ -533,47 +702,48 @@
         <div id="admin-tab-personal" class="admin-tab-content space-y-6">
             <div class="max-w-2xl">
                 <!-- Profile / Onboarding -->
-                <div class="bg-surface border border-outline-variant p-6 rounded-2xl space-y-5">
+                <div class="glass-card p-6 rounded-2xl space-y-6">
                     <div>
-                        <h3 class="text-base font-black text-white flex items-center space-x-2">
-                            <span class="material-symbols-outlined text-primary">storefront</span>
+                        <h3 class="text-lg font-black text-white flex items-center space-x-2 font-display">
+                            <span class="material-symbols-outlined text-primary text-xl">storefront</span>
                             <span>Restaurant-Onboarding & Profil</span>
                         </h3>
-                        <p class="text-xs text-on-surface-variant mt-0.5">Verwalten Sie Ihre gesetzlichen Texte und Betriebs-Flags im Live-Betrieb.</p>
+                        <p class="text-xs text-on-surface-variant mt-1">Verwalten Sie Ihre gesetzlichen Texte und Betriebs-Flags im Live-Betrieb.</p>
                     </div>
 
-                    <form action="/{{ slug }}/admin/profile-update" method="POST" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
+                    <form action="/{{ slug }}/admin/profile-update" method="POST" class="space-y-5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <!-- Toggle: has_kitchen -->
-                            <label class="flex items-center space-x-3 bg-background border border-outline-variant p-3.5 rounded-xl cursor-pointer">
-                                <input type="checkbox" name="has_kitchen" value="true" {% if restaurant.has_kitchen %}checked{% endif %} class="rounded bg-background text-primary focus:ring-primary border-outline-variant">
+                            <label class="flex items-center space-x-3 bg-black/40 border border-white/5 p-4 rounded-xl cursor-pointer hover:border-primary/30 transition-all duration-300">
+                                <input type="checkbox" name="has_kitchen" value="true" {% if restaurant.has_kitchen %}checked{% endif %} class="rounded bg-black border-white/10 text-primary focus:ring-primary focus:ring-offset-black">
                                 <div>
-                                    <span class="text-xs font-bold text-white block">👨‍🍳 Küche active</span>
-                                    <span class="text-[9px] text-on-surface-variant">Schaltet warme Speisen frei</span>
+                                    <span class="text-xs font-bold text-white block">👨‍🍳 Küche aktiv</span>
+                                    <span class="text-[10px] text-on-surface-variant">Schaltet warme Speisen frei</span>
                                 </div>
                             </label>
 
                             <!-- Toggle: is_shishabar -->
-                            <label class="flex items-center space-x-3 bg-background border border-outline-variant p-3.5 rounded-xl cursor-pointer">
-                                <input type="checkbox" name="is_shishabar" value="true" {% if restaurant.is_shishabar %}checked{% endif %} class="rounded bg-background text-primary focus:ring-primary border-outline-variant">
+                            <label class="flex items-center space-x-3 bg-black/40 border border-white/5 p-4 rounded-xl cursor-pointer hover:border-primary/30 transition-all duration-300">
+                                <input type="checkbox" name="is_shishabar" value="true" {% if restaurant.is_shishabar %}checked{% endif %} class="rounded bg-black border-white/10 text-primary focus:ring-primary focus:ring-offset-black">
                                 <div>
-                                    <span class="text-xs font-bold text-white block">💨 Shishabar active</span>
-                                    <span class="text-[9px] text-on-surface-variant">Schaltet Kohle-Bestellsystem frei</span>
+                                    <span class="text-xs font-bold text-white block">💨 Shishabar aktiv</span>
+                                    <span class="text-[10px] text-on-surface-variant">Schaltet Kohle-Bestellsystem frei</span>
                                 </div>
                             </label>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">Impressum Rechtstext</label>
-                            <textarea name="impressum_content" rows="4" class="w-full bg-background border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none p-3 rounded-xl text-xs text-white leading-relaxed">{{ restaurant.impressum_content }}</textarea>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2 pl-0.5">Impressum Rechtstext</label>
+                            <textarea name="impressum_content" rows="4" class="input-premium w-full text-xs leading-relaxed focus:border-primary" placeholder="Name des Vertretungsberechtigten, Registergericht, Steuernummer...">{{ restaurant.impressum_content }}</textarea>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">Datenschutzerklärung Rechtstext</label>
-                            <textarea name="datenschutz_content" rows="4" class="w-full bg-background border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none p-3 rounded-xl text-xs text-white leading-relaxed">{{ restaurant.datenschutz_content }}</textarea>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2 pl-0.5">Datenschutzerklärung Rechtstext</label>
+                            <textarea name="datenschutz_content" rows="4" class="input-premium w-full text-xs leading-relaxed focus:border-primary" placeholder="Informationen über Datenerfassung, Analysen, Zwecke und Rechtsgrundlagen...">{{ restaurant.datenschutz_content }}</textarea>
                         </div>
 
-                        <button type="submit" class="w-full bg-primary hover:bg-[#c9e88b] text-black text-xs font-black uppercase py-3.5 rounded-xl transition">
+                        <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm">shield</span>
                             Profil & Rechtstexte sichern
                         </button>
                     </form>
@@ -584,229 +754,106 @@
         <!-- ================= TAB: KONFIGURATION ================= -->
         <div id="admin-tab-konfiguration" class="admin-tab-content space-y-6">
 
-            <!-- ════════════════════════════════════════════════════════
-                 🔗 GERÄTE KOPPELN (Device Provisioning via Magic Links)
-                 ════════════════════════════════════════════════════════ -->
-            <div class="bg-surface border border-outline-variant p-6 rounded-2xl">
-                <div class="flex items-start justify-between border-b border-outline-variant pb-4 mb-5">
-                    <div>
-                        <h3 class="text-base font-black text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">devices</span>
-                            Geräte koppeln
-                        </h3>
-                        <p class="text-xs text-on-surface-variant mt-0.5">
-                            Öffnen Sie den Magic Link auf dem Ziel-Gerät. Das Gerät wird dauerhaft eingeloggt. Mit "Link erneuern" entkoppeln Sie alle alten Geräte sofort.
-                        </p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <!-- POS Tablet -->
-                    <div class="bg-background border border-outline-variant rounded-xl p-5 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <div class="w-9 h-9 bg-[#deff9a]/10 rounded-lg flex items-center justify-center">
-                                <span class="material-symbols-outlined text-primary" style="font-size:18px">point_of_sale</span>
-                            </div>
-                            <div>
-                                <div class="text-sm font-black text-white">Kassen-Terminal (POS)</div>
-                                <div class="text-[10px] text-on-surface-variant uppercase tracking-wider">Kellner-Tablet</div>
-                            </div>
-                        </div>
-                        {% if restaurant.pos_secret %}
-                        <!-- Magic Link display -->
-                        <div class="bg-[#0f0f0f] border border-outline-variant/50 rounded-lg p-3 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
-                            <code class="text-xs text-[#deff9a] break-all leading-tight flex-1" id="pos-magic-link">
-                                /{{ slug }}/setup-device?type=pos&amp;token={{ restaurant.pos_secret }}
-                            </code>
-                            <button onclick="copyMagicLink('pos-magic-link')" title="Link kopieren"
-                                    class="text-on-surface-variant hover:text-white transition flex-shrink-0">
-                                <span class="material-symbols-outlined" style="font-size:16px">content_copy</span>
-                            </button>
-                        </div>
-                        <div class="flex gap-2">
-                            <a href="/{{ slug }}/setup-device?type=pos&token={{ restaurant.pos_secret }}"
-                               target="_blank"
-                               class="flex-1 bg-primary hover:bg-[#c9e88b] text-black font-black text-xs py-2.5 rounded-xl text-center transition">
-                                🔗 Link öffnen / testen
-                            </a>
-                            <form action="/{{ slug }}/admin/renew-pos-secret" method="POST"
-                                  onsubmit="return confirm('Achtung: Alle gekoppelten Kassen-Tablets werden sofort entkoppelt. Fortfahren?')">
-                                <button type="submit"
-                                        class="bg-red-950 hover:bg-red-900 text-red-400 border border-red-800 font-black text-xs py-2.5 px-3 rounded-xl transition flex items-center gap-1">
-                                    <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
-                                    Erneuern
-                                </button>
-                            </form>
-                        </div>
-                        {% else %}
-                        <div class="bg-[#0f0f0f] border border-dashed border-outline-variant rounded-lg p-4 text-center">
-                            <p class="text-xs text-on-surface-variant mb-3">Noch kein Magic Link generiert. Das Kassen-Terminal kann erst nach Generierung gekoppelt werden.</p>
-                            <form action="/{{ slug }}/admin/renew-pos-secret" method="POST">
-                                <button type="submit" class="bg-primary hover:bg-[#c9e88b] text-black font-black text-xs py-2.5 px-4 rounded-xl transition active:scale-95">
-                                    ✨ Magic Link generieren
-                                </button>
-                            </form>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- KDS Kitchen Display -->
-                    <div class="bg-background border border-outline-variant rounded-xl p-5 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <div class="w-9 h-9 bg-rose-500/10 rounded-lg flex items-center justify-center">
-                                <span class="material-symbols-outlined text-rose-400" style="font-size:18px">kitchen</span>
-                            </div>
-                            <div>
-                                <div class="text-sm font-black text-white">Küchen-Display (KDS)</div>
-                                <div class="text-[10px] text-on-surface-variant uppercase tracking-wider">Kitchen Display System</div>
-                            </div>
-                        </div>
-                        {% if restaurant.kds_secret %}
-                        <!-- Magic Link display -->
-                        <div class="bg-[#0f0f0f] border border-outline-variant/50 rounded-lg p-3 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
-                            <code class="text-xs text-rose-400 break-all leading-tight flex-1" id="kds-magic-link">
-                                /{{ slug }}/setup-device?type=kds&amp;token={{ restaurant.kds_secret }}
-                            </code>
-                            <button onclick="copyMagicLink('kds-magic-link')" title="Link kopieren"
-                                    class="text-on-surface-variant hover:text-white transition flex-shrink-0">
-                                <span class="material-symbols-outlined" style="font-size:16px">content_copy</span>
-                            </button>
-                        </div>
-                        <div class="flex gap-2">
-                            <a href="/{{ slug }}/setup-device?type=kds&token={{ restaurant.kds_secret }}"
-                               target="_blank"
-                               class="flex-1 bg-rose-700 hover:bg-rose-600 text-white font-black text-xs py-2.5 rounded-xl text-center transition">
-                                🔗 Link öffnen / testen
-                            </a>
-                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST"
-                                  onsubmit="return confirm('Achtung: Alle gekoppelten Küchen-Displays werden sofort entkoppelt. Fortfahren?')">
-                                <button type="submit"
-                                        class="bg-red-950 hover:bg-red-900 text-red-400 border border-red-800 font-black text-xs py-2.5 px-3 rounded-xl transition flex items-center gap-1">
-                                    <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
-                                    Erneuern
-                                </button>
-                            </form>
-                        </div>
-                        {% else %}
-                        <div class="bg-[#0f0f0f] border border-dashed border-outline-variant rounded-lg p-4 text-center">
-                            <p class="text-xs text-on-surface-variant mb-3">Noch kein Magic Link generiert. Das Küchen-Display kann erst nach Generierung gekoppelt werden.</p>
-                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST">
-                                <button type="submit" class="bg-rose-700 hover:bg-rose-600 text-white font-black text-xs py-2.5 px-4 rounded-xl transition active:scale-95">
-                                    ✨ Magic Link generieren
-                                </button>
-                            </form>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <!-- Security note -->
-                <p class="text-[10px] text-on-surface-variant mt-4 flex items-center gap-1.5">
-                    <span class="material-symbols-outlined" style="font-size:13px">shield</span>
-                    Magic Links enthalten kryptographisch sichere Tokens. Teilen Sie diese Links nur mit vertrauenswürdigen Mitarbeitern und Geräten.
-                </p>
-            </div>
-            <!-- end Geräte koppeln -->
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Custom Tables setup -->
-                <div class="bg-surface border border-outline-variant p-6 rounded-2xl space-y-5">
+                <div class="glass-card p-6 rounded-2xl space-y-5">
                     <div>
-                        <h3 class="text-base font-black text-white flex items-center space-x-2">
-                            <span class="material-symbols-outlined text-primary">table_restaurant</span>
+                        <h3 class="text-lg font-black text-white flex items-center space-x-2 font-display">
+                            <span class="material-symbols-outlined text-primary text-xl">table_restaurant</span>
                             <span>Tische einrichten & verwalten</span>
                         </h3>
-                        <p class="text-xs text-on-surface-variant mt-0.5">Erstellen oder löschen Sie Gästetische und ordnen Sie sie Zonen zu.</p>
+                        <p class="text-xs text-on-surface-variant mt-1">Erstellen oder löschen Sie Gästetische und ordnen Sie sie Zonen zu.</p>
                     </div>
 
                     <form action="/{{ slug }}/admin/table-erstellen" method="POST" class="grid grid-cols-3 gap-3 items-end">
                         <div class="col-span-1">
-                            <label class="block text-xs font-bold text-on-surface-variant mb-1">Tisch-Nummer</label>
-                            <input type="text" name="number" placeholder="z.B. 12" class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-xs text-center text-white" required>
+                            <label class="block text-[10px] font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Tisch-Nummer</label>
+                            <input type="text" name="number" placeholder="z.B. 12" class="input-premium w-full py-2.5 text-center text-xs focus:border-primary" required>
                         </div>
                         <div class="col-span-1">
-                            <label class="block text-xs font-bold text-on-surface-variant mb-1">Bereich / Zone</label>
-                            <select name="zone" class="w-full bg-background border border-outline-variant rounded-xl p-2.5 text-xs text-white">
+                            <label class="block text-[10px] font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Bereich / Zone</label>
+                            <select name="zone" class="input-premium w-full py-2.5 text-xs focus:border-primary">
                                 <option value="innen">🛋️ Innen</option>
                                 <option value="terrasse">☀️ Terrasse</option>
                             </select>
                         </div>
-                        <button type="submit" class="col-span-1 bg-primary hover:bg-[#c9e88b] text-black text-xs font-black py-3 rounded-xl transition">
+                        <button type="submit" class="col-span-1 btn-premium btn-premium-primary text-xs py-3 rounded-xl">
                             Hinzufügen
                         </button>
                     </form>
 
                     <!-- Active tables list -->
-                    <div class="border-t border-outline-variant/60 pt-4 space-y-3">
-                        <span class="text-xs font-bold text-on-surface-variant block">Eingerichtete Tische:</span>
-                        <div class="grid grid-cols-2 gap-2.5">
+                    <div class="border-t border-white/5 pt-4 space-y-3">
+                        <span class="text-xs font-bold text-on-surface-variant block uppercase tracking-wider">Eingerichtete Tische:</span>
+                        <div class="grid grid-cols-2 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
                             {% for t in restaurant.tables %}
-                            <div class="bg-background border border-outline-variant p-3 rounded-xl flex justify-between items-center text-xs">
+                            <div class="bg-black/30 border border-white/5 p-3 rounded-xl flex justify-between items-center text-xs hover:border-white/10 transition-all duration-200">
                                 <div>
                                     <span class="font-bold text-white block">Tisch {{ t.number }}</span>
-                                    <span class="text-[9px] text-on-surface-variant uppercase font-mono">{{ '🛋️ Innen' if t.zone == 'innen' else '☀️ Terrasse' }}</span>
+                                    <span class="text-[9px] text-on-surface-variant uppercase font-mono mt-0.5 block">{{ '🛋️ Innen' if t.zone == 'innen' else '☀️ Terrasse' }}</span>
                                 </div>
                                 <form action="/{{ slug }}/admin/table-loeschen/{{ t.number }}" method="POST">
-                                    <button type="submit" class="text-rose-400 hover:text-rose-300 transition">
+                                    <button type="submit" class="text-rose-400 hover:text-rose-300 transition-all duration-200 hover:bg-white/5 p-1 rounded-lg">
                                         <span class="material-symbols-outlined text-sm">close</span>
                                     </button>
                                 </form>
                             </div>
                             {% endfor %}
+                        </div>
                     </div>
                     
                     <!-- QR-Code print button → opens automatic grid page -->
-                    <div class="border-t border-outline-variant/60 pt-4">
+                    <div class="border-t border-white/5 pt-4">
                         <a href="/{{ slug }}/admin/qr-print" target="_blank"
-                           class="w-full bg-primary hover:bg-[#c9e88b] text-black font-extrabold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                            <span>🖨️</span>
+                           class="w-full btn-premium btn-premium-primary text-xs py-3 rounded-xl flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm">print</span>
                             <span>Alle Tisch-QR-Codes drucken</span>
                         </a>
                     </div>
                 </div>
 
                 <!-- Branding & Master parameters configuration -->
-                <div class="bg-surface border border-outline-variant p-6 rounded-2xl space-y-5">
+                <div class="glass-card p-6 rounded-2xl space-y-5">
                     <div>
-                        <h3 class="text-base font-black text-white flex items-center space-x-2">
-                            <span class="material-symbols-outlined text-primary">storefront</span>
+                        <h3 class="text-lg font-black text-white flex items-center space-x-2 font-display">
+                            <span class="material-symbols-outlined text-primary text-xl">palette</span>
                             <span>Branding & Logo</span>
                         </h3>
-                        <p class="text-xs text-on-surface-variant mt-0.5">Legen Sie Ihr Corporate Design, Logo und Adresse fest.</p>
+                        <p class="text-xs text-on-surface-variant mt-1">Legen Sie Ihr Corporate Design, Logo und Adresse fest.</p>
                     </div>
 
                     <form action="/{{ slug }}/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
                         <div class="flex items-center space-x-4">
-                            <div class="w-20 h-20 bg-background border border-dashed border-outline-variant rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+                            <div class="w-20 h-20 bg-black/40 border border-dashed border-white/10 rounded-xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
                                 {% if restaurant.branding and restaurant.branding.logo_url %}
                                     <img src="{{ restaurant.branding.logo_url }}" class="w-full h-full object-contain p-2">
                                 {% else %}
-                                    <span class="material-symbols-outlined text-outline-variant text-3xl">image</span>
+                                    <span class="material-symbols-outlined text-white/20 text-3xl">image</span>
                                 {% endif %}
                             </div>
                             <div class="flex-grow">
-                                <label class="block text-xs font-bold text-on-surface-variant mb-1">Logo hochladen</label>
-                                <input type="file" name="logo_file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-primary file:text-black hover:file:bg-[#c9e88b] file:cursor-pointer">
+                                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Logo hochladen</label>
+                                <input type="file" name="logo_file" accept="image/*" class="input-premium w-full text-xs file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-primary file:text-black hover:file:bg-[#c9e88b] file:cursor-pointer p-2">
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-on-surface-variant mb-1">Adresse</label>
-                            <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" placeholder="Straße PLZ Ort" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-xs text-white">
+                            <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Adresse</label>
+                            <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" placeholder="Straße PLZ Ort" class="input-premium w-full text-xs py-2.5 focus:border-primary">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-on-surface-variant mb-1">Instagram Handle</label>
-                                <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" placeholder="@demolounge" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-xs text-white">
+                                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Instagram Handle</label>
+                                <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" placeholder="@demolounge" class="input-premium w-full text-xs py-2.5 focus:border-primary">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-on-surface-variant mb-1">Facebook</label>
-                                <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" placeholder="/demolounge" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-xs text-white">
+                                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Facebook</label>
+                                <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" placeholder="/demolounge" class="input-premium w-full text-xs py-2.5 focus:border-primary">
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-primary hover:bg-[#c9e88b] text-black text-xs font-black uppercase py-3.5 rounded-xl transition">
+                        <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl transition shadow-lg">
                             Branding aktualisieren
                         </button>
                     </form>
@@ -815,14 +862,14 @@
         </div>
 
     <!-- EDIT PRODUCT MODAL -->
-    <div id="edit-product-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 hidden animate-fade-in">
-        <div class="bg-[#141414] border border-outline-variant rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-outline-variant pb-3">
-                <h3 class="text-lg font-black text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-400">edit</span>
+    <div id="edit-product-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden animate-fade-in">
+        <div class="glass-panel w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl border border-white/10 relative">
+            <div class="flex justify-between items-center border-b border-white/5 pb-3">
+                <h3 class="text-lg font-black text-white flex items-center gap-2 font-display">
+                    <span class="material-symbols-outlined text-primary">edit</span>
                     <span>Produkt bearbeiten</span>
                 </h3>
-                <button onclick="closeEditProductModal()" class="text-on-surface-variant hover:text-white p-1 rounded-lg transition">
+                <button onclick="closeEditProductModal()" class="text-on-surface-variant hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition active:scale-95">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
@@ -831,18 +878,18 @@
                 <input type="hidden" id="edit-product-id">
 
                 <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1">Produkt-Name</label>
-                    <input type="text" id="edit-product-name" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400" required>
+                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Produkt-Name</label>
+                    <input type="text" id="edit-product-name" class="input-premium w-full text-sm focus:border-primary" required>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1">Preis (€)</label>
-                    <input type="number" step="0.01" id="edit-product-price" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400 font-mono" required>
+                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Preis (€)</label>
+                    <input type="number" step="0.01" id="edit-product-price" class="input-premium w-full text-sm focus:border-primary font-mono" required>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1">Kategorie</label>
-                    <select id="edit-product-category" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400">
+                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Kategorie</label>
+                    <select id="edit-product-category" class="input-premium w-full text-sm focus:border-primary">
                         {% for cat in restaurant.categories %}
                         <option value="{{ cat }}">{{ cat }}</option>
                         {% endfor %}
@@ -850,16 +897,17 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1">Beschreibung</label>
-                    <textarea id="edit-product-description" rows="3" class="w-full bg-background border border-outline-variant rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400"></textarea>
+                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung</label>
+                    <textarea id="edit-product-description" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
                 </div>
 
-                <button type="submit" class="w-full bg-amber-400 hover:bg-amber-300 text-black font-black text-sm py-3.5 rounded-xl transition shadow-md">
+                <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg">
                     Speichern
                 </button>
             </form>
         </div>
     </div>
+
 
     </main>
     </div> <!-- Close Content Wrapper -->
@@ -880,6 +928,7 @@
             
             // Dynamically update Topbar Breadcrumbs
             const tabNames = {
+                'kassensysteme': '💻 Kassensysteme',
                 'live': '🎯 Live-Tische',
                 'finanzen': '📈 Finanzen & Logs',
                 'speisekarte': '⏱️ Speisekarte',
@@ -897,6 +946,51 @@
         document.addEventListener("DOMContentLoaded", () => {
             const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
             switchAdminTab(activeTab);
+        });
+
+        // Real-time Live-Tische Monitor Poller
+        let lastLiveTischeHash = null;
+
+        function checkLiveTischeUpdates() {
+            // Only run check if we are on the 'live' tab
+            const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+            if (activeTab !== 'live') return;
+
+            // Do not reload if a modal is open or if user is typing
+            const editModal = document.getElementById('edit-product-modal');
+            if (editModal && !editModal.classList.contains('hidden')) return;
+
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+                return;
+            }
+
+            fetch(`/api/${slug}/tablet-status`)
+                .then(res => {
+                    if (res.status === 401 || res.status === 403) return null;
+                    return res.json();
+                })
+                .then(data => {
+                    if (!data) return;
+
+                    // Build a simple state hash based on orders (id + status + total) and service calls (id + type)
+                    const ordersState = data.orders.map(o => `${o.id}:${o.status}:${o.total}`).join('|');
+                    const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
+                    const currentHash = `${ordersState}#${callsState}`;
+
+                    if (lastLiveTischeHash !== null && lastLiveTischeHash !== currentHash) {
+                        location.reload();
+                    }
+                    lastLiveTischeHash = currentHash;
+                })
+                .catch(err => console.warn("Live status polling error:", err));
+        }
+
+        // Poll every 5 seconds
+        setInterval(checkLiveTischeUpdates, 5000);
+        // Run first check after DOM content loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            setTimeout(checkLiveTischeUpdates, 1500);
         });
 
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }

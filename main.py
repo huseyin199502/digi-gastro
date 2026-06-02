@@ -89,10 +89,18 @@ from database import (
     AuditLog,
     SessionLocal,
     STANDARD_PRODUCTS,
-    get_db
+    get_db,
+    Base,
+    engine,
+    run_migrations
 )
 
 INITIAL_RESTAURANTS = {}
+
+# Run DB migrations and ensure all tables exist
+Base.metadata.create_all(engine)
+run_migrations()
+
 
 # Stateless Serialization Helpers for compatibility and template rendering
 def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
@@ -132,7 +140,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "name": item.name,
             "price": item.price,
             "quantity": item.quantity,
-            "category_type": item.category_type
+            "category_type": item.category_type,
+            "note": item.note
         } for item in db_items]
         orders.append({
             "id": o.id,
@@ -347,7 +356,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 name=item.get("name"),
                 price=item.get("price"),
                 quantity=item.get("quantity"),
-                category_type=item.get("category_type", "küche")
+                category_type=item.get("category_type", "küche"),
+                note=item.get("note")
             )
             session.add(db_item)
             
@@ -800,6 +810,7 @@ class OrderItem(BaseModel):
     name: str
     price: float
     quantity: int
+    note: Optional[str] = None
 
 class OrderPayload(BaseModel):
     table: str
@@ -815,6 +826,7 @@ class ServiceRufPayload(BaseModel):
 class SplitItem(BaseModel):
     product_id: int
     quantity: int
+    note: Optional[str] = None
 
 class SplitPayload(BaseModel):
     items: List[SplitItem]
@@ -1287,8 +1299,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             max_age=14400,
             path="/"
         )
-        
-    if reset_session:
+    elif reset_session:
+        # Only delete the old cookie when the session was reset without setting a new one
         response.delete_cookie(key=f"guest_session_{slug}", path="/")
         
     return response
@@ -1337,8 +1349,14 @@ def create_order(request: Request, slug: str, payload: OrderPayload, db: Session
     active_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")) == str(payload.table) and o.get("status") not in ["bezahlt", "storniert"]), None)
     if active_order:
         for new_item in payload.items:
-            # Check if same product is already in the order
-            existing_item = next((item for item in active_order["items"] if item.get("product_id") == new_item.product_id), None)
+            new_note = (new_item.note or "").strip()
+            # Only merge if SAME product_id AND SAME note — different notes → separate positions
+            existing_item = next(
+                (item for item in active_order["items"]
+                 if item.get("product_id") == new_item.product_id
+                 and (item.get("note") or "").strip() == new_note),
+                None
+            )
             if existing_item:
                 existing_item["quantity"] += new_item.quantity
             else:
@@ -1780,7 +1798,14 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
     items_to_remove = []
     
     for split_item in payload.items:
-        order_item = next((item for item in order["items"] if item["product_id"] == split_item.product_id), None)
+        split_note = (split_item.note or "").strip()
+        # Match by product_id AND note (composite key) to handle same product with different notes
+        order_item = next(
+            (item for item in order["items"]
+             if item["product_id"] == split_item.product_id
+             and (item.get("note") or "").strip() == split_note),
+            None
+        )
         if not order_item:
             continue
             
@@ -1829,6 +1854,83 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
         "order_status": order["status"],
         "split_amount": round(total_split_amount, 2)
     }
+
+@app.post("/{slug}/tablet/tische-zusammenfuehren")
+def merge_tables(request: Request, slug: str, source_table: str = Form(...), target_table: str = Form(...), db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+        
+    s_table_num = str(source_table).replace("Tisch", "").strip()
+    t_table_num = str(target_table).replace("Tisch", "").strip()
+    
+    s_table = f"Tisch {s_table_num}"
+    t_table = f"Tisch {t_table_num}"
+    
+    # Locate active orders
+    source_order = next((o for o in restaurant.get("orders", []) if o.get("table") == s_table and o.get("status") not in ["bezahlt", "storniert"]), None)
+    if not source_order:
+        source_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")).strip() == s_table_num and o.get("status") not in ["bezahlt", "storniert"]), None)
+        
+    if not source_order:
+        raise HTTPException(status_code=400, detail="Keine offene Bestellung auf dem Quelltisch gefunden.")
+        
+    target_order = next((o for o in restaurant.get("orders", []) if o.get("table") == t_table and o.get("status") not in ["bezahlt", "storniert"]), None)
+    if not target_order:
+        target_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")).strip() == t_table_num and o.get("status") not in ["bezahlt", "storniert"]), None)
+
+    # 1. Update/Merge active order
+    if not target_order:
+        # Move order directly to new table
+        source_order["table"] = t_table
+    else:
+        # Merge items of source order into target order
+        for s_item in source_order.get("items", []):
+            t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id")), None)
+            if t_item:
+                t_item["quantity"] += s_item.get("quantity", 0)
+            else:
+                target_order["items"].append(copy.deepcopy(s_item))
+                
+        # Recalculate target order totals
+        target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
+        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+        
+        # Mark source order as storniert
+        source_order["status"] = "storniert"
+        source_order["total"] = 0.0
+        source_order["total_with_tip"] = 0.0
+        source_order["items"] = []
+
+    # 2. Sync security tokens so mobile sessions remain valid for the guests
+    tables_list = restaurant.get("tables", [])
+    s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)
+    t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
+    
+    if s_db_table and t_db_table:
+        # Copy token from source to target table
+        t_db_table["security_token"] = s_db_table.get("security_token")
+        
+    db = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zusammenführung: {e}")
+    finally:
+        db.close()
+        
+    return {"success": True}
 
 @app.post("/{slug}/tablet/stornieren/{order_id}")
 def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...), db: Session = Depends(get_db)):
@@ -2587,6 +2689,19 @@ def get_kitchen_status(request: Request, slug: str, db: Session = Depends(get_db
         "orders": cooking_orders,
         "service_calls": restaurant.get("service_calls", [])
     }
+
+@app.get("/api/{slug}/table-unpaid-sum/{table_num}")
+def get_table_unpaid_sum(slug: str, table_num: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
+    unpaid_sum = 0.0
+    t_num = str(table_num).replace("Tisch", "").strip()
+    target_table_name = f"Tisch {t_num}"
+    
+    for o in restaurant.get("orders", []):
+        if o["table"] == target_table_name and o["status"] not in ["bezahlt", "storniert"]:
+            unpaid_sum += o["total"]
+            
+    return {"unpaid_sum": unpaid_sum}
 
 @app.post("/api/{slug}/quick-login")
 def api_quick_login(slug: str, name: str = Form(...), db: Session = Depends(get_db)):

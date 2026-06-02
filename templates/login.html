@@ -3,24 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Demo Lounge - Admin Login</title>
+    <title>{{ restaurant_name }} - Admin Login</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <!-- Premium Design System -->
+    <link rel="stylesheet" href="/static/css/design_system.css">
+    
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        "background": "#0a0a0a",
-                        "surface": "#141313",
-                        "surface-container": "#201f1f",
-                        "primary": "#deff9a",
-                        "on-primary": "#0a0a0a",
-                        "on-surface": "#e5e2e1",
-                        "on-surface-variant": "#c4c7c7",
-                        "outline-variant": "#262626"
+                        primary: '#10b981', /* Premium Emerald */
+                        charcoal: '#0b0c10',
                     }
                 }
             }
@@ -28,46 +26,56 @@
     </script>
     <style>
         body {
-            background-color: #0a0a0a;
-            color: #e5e2e1;
-            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-obsidian);
+            color: #f3f4f6;
+            font-family: var(--font-sans);
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="flex items-center justify-center min-h-screen p-4 bg-background">
-    <div class="w-full max-w-md bg-[#1a1a1a] border border-outline-variant rounded-xl p-8 shadow-2xl">
+<body class="flex items-center justify-center min-h-screen p-4 relative overflow-hidden">
+    
+    <!-- Visual background enhancements -->
+    <div class="fixed inset-0 grid-bg opacity-30 pointer-events-none z-0"></div>
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] radial-glow pointer-events-none z-0"></div>
+    
+    <div class="w-full max-w-md glass-panel rounded-2xl p-8 shadow-2xl relative z-10 overflow-hidden">
+        <!-- Ambient corner glow -->
+        <div class="absolute -right-20 -top-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+        
         <div class="text-center mb-8">
-            <img alt="digi-gastro logo" class="h-12 mx-auto mb-4 object-contain rounded-lg" src="/static/images/digigastrologo.jpeg">
-            <h2 class="text-2xl font-bold text-on-surface">Admin Login</h2>
-            <p class="text-sm text-on-surface-variant mt-2">{{ restaurant_name }} Management Panel</p>
+            <div class="inline-flex p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 mb-4 shadow-lg shadow-emerald-500/5 hover-lift">
+                <img alt="digi-gastro logo" class="h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" onerror="this.src='https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300'">
+            </div>
+            <h2 class="text-2xl font-black text-white tracking-tight font-display bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Admin Login</h2>
+            <p class="text-xs text-zinc-400 mt-2 font-medium tracking-wide uppercase">{{ restaurant_name }} Management Panel</p>
         </div>
 
         {% if error %}
-        <div class="mb-4 bg-red-900/30 border border-red-500/50 rounded-lg p-4 text-red-200 text-sm flex items-center gap-2">
-            <span class="material-symbols-outlined text-red-400">error</span>
-            <span>{{ error }}</span>
+        <div class="mb-5 bg-red-950/20 border border-red-500/20 rounded-xl p-4 text-red-300 text-xs flex items-start gap-3">
+            <span class="material-symbols-outlined text-red-400 text-sm mt-0.5">error</span>
+            <span class="font-medium leading-relaxed">{{ error }}</span>
         </div>
         {% endif %}
 
-        <form action="/{{ slug }}/admin/login" method="POST" class="space-y-6">
+        <form action="/{{ slug }}/admin/login" method="POST" class="space-y-5">
             <div>
-                <label class="block text-sm font-medium text-on-surface-variant mb-2" for="email">E-Mail Adresse</label>
-                <input class="w-full bg-background border border-outline-variant rounded-lg px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required>
+                <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2" for="email">E-Mail Adresse</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-on-surface-variant mb-2" for="password">Passwort</label>
-                <input class="w-full bg-background border border-outline-variant rounded-lg px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" id="password" name="password" type="password" placeholder="••••••••" required>
+                <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2" for="password">Passwort</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="password" name="password" type="password" placeholder="••••••••" required>
             </div>
 
-            <button class="bg-primary text-on-primary hover:bg-[#c9e88b] active:scale-95 transition-all duration-150 rounded-lg py-3 font-semibold flex items-center justify-center gap-2 w-full" type="submit">
-                <span class="material-symbols-outlined">login</span>
+            <button class="btn-premium btn-premium-primary py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all" type="submit">
+                <span class="material-symbols-outlined text-[18px]">login</span>
                 Einloggen
             </button>
         </form>
 
-        <div class="mt-6 pt-6 border-t border-outline-variant text-center text-xs text-on-surface-variant/50">
+        <div class="mt-8 pt-5 border-t border-zinc-800/60 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
             digi-gastro Admin Panel
         </div>
     </div>

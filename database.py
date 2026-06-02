@@ -154,6 +154,7 @@ class OrderItem(Base):
     price = Column(Float, nullable=False)
     quantity = Column(Integer, nullable=False)
     category_type = Column(String, default="küche")
+    note = Column(String, nullable=True)
 
 class Staff(Base):
     __tablename__ = 'staff'
@@ -342,4 +343,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def run_migrations():
+    """Apply incremental ALTER TABLE migrations safely (idempotent)."""
+    migrations = [
+        # 2024-06: Add customer note field to order items
+        "ALTER TABLE order_items ADD COLUMN note TEXT",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(__import__("sqlalchemy").text(sql))
+                conn.commit()
+            except Exception:
+                # Column already exists or similar – safe to ignore
+                pass
 

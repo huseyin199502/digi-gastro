@@ -853,6 +853,62 @@ def test_integration():
     assert o_updated["status"] == "bestaetigt"
     print("Order Confirmation API: OK")
 
+    # 7. Table Merge / Transfer API
+    print("Testing Table Merge / Transfer API...")
+    restaurants["demo"]["tables"] = [
+        {"number": "3", "zone": "innen", "security_token": "token-tisch-3"},
+        {"number": "4", "zone": "innen", "security_token": "token-tisch-4"}
+    ]
+    
+    # Place order on Tisch 3
+    resp = client.post("/demo/bestellen", json={
+        "table": "Tisch 3",
+        "token": "demo2026",
+        "items": [
+            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+        ]
+    })
+    assert resp.status_code == 200
+    
+    # Place order on Tisch 4
+    resp = client.post("/demo/bestellen", json={
+        "table": "Tisch 4",
+        "token": "demo2026",
+        "items": [
+            {"product_id": 1, "name": "Super Burger", "price": 12.99, "quantity": 1}
+        ]
+    })
+    assert resp.status_code == 200
+    
+    # Call merge endpoint
+    resp = client.post("/demo/tablet/tische-zusammenfuehren", data={
+        "source_table": "3",
+        "target_table": "4"
+    })
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    
+    # Verify the cache values
+    tisch3_orders = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 3", "3"] and o.get("status") not in ["bezahlt", "storniert"]]
+    assert len(tisch3_orders) == 0, f"Expected 0 active orders for Tisch 3, got {len(tisch3_orders)}"
+    
+    tisch4_orders = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 4", "4"] and o.get("status") not in ["bezahlt", "storniert"]]
+    assert len(tisch4_orders) == 1
+    
+    merged_order = tisch4_orders[0]
+    # Items should be Burger (qty 1) and Spezi (qty 1)
+    assert len(merged_order["items"]) == 2
+    spezi_item = next(item for item in merged_order["items"] if item["product_id"] == 4)
+    burger_item = next(item for item in merged_order["items"] if item["product_id"] == 1)
+    assert spezi_item["quantity"] == 1
+    assert burger_item["quantity"] == 1
+    
+    # Security token of Tisch 4 should match Tisch 3's token
+    t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
+    t4_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "4")
+    assert t4_table["security_token"] == t3_table["security_token"]
+    print("Table Merge / Transfer API: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":
