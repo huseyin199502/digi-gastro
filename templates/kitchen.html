@@ -68,7 +68,7 @@
                 <!-- Filter order items client-side/server-side based on kitchen status -->
                 {% set filtered_items = [] %}
                 {% for item in o['items'] %}
-                    {% if item.category_type == 'küche' or item.category_type == 'shisha' %}
+                    {% if item.category_type == 'küche' or item.category_type == 'shisha' or item.category_type == 'bar' %}
                         {% set _ = filtered_items.append(item) %}
                     {% endif %}
                 {% endfor %}

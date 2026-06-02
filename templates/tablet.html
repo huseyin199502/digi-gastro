@@ -824,7 +824,9 @@
         function resolveServiceCall(callId) {
             fetch(`/{{ slug }}/service-erledigt/${callId}`, { method: 'POST' })
             .then(res => {
-                if (res.ok) window.location.reload();
+                if (res.ok) {
+                    pollTabletStatus();
+                }
             });
         }
 
@@ -1519,17 +1521,7 @@
         // Initialize Kasse state & active PIN overlay
         document.addEventListener("DOMContentLoaded", () => {
             startPolling();
-
-            // Set up first selected order or first table as empty if on desktop
-            if (allOrdersLocal.length > 0 && window.innerWidth >= 768) {
-                selectOrder(allOrdersLocal[0].id);
-            } else if (window.innerWidth >= 768) {
-                if (allTables.length > 0) {
-                    selectEmptyTable(allTables[0].number);
-                }
-            } else {
-                document.getElementById('details-pane').classList.add('hidden');
-            }
+            document.getElementById('details-pane').classList.add('hidden');
         });
     </script>
 

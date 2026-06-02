@@ -185,9 +185,10 @@
         <div id="tab-speisekarte" class="py-2">
             
 
-            <!-- Category Pills (Horizontal scrolling) -->
-            <div class="sticky top-20 z-45 bg-[#050507]/90 backdrop-blur-md overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none py-4 border-b border-outline-variant -mx-4 px-4 scroll-indicator select-none" style="touch-action: pan-x;" ondragstart="return false;">
-                <div id="category-pills" class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none" style="touch-action: pan-x;" ondragstart="return false;">
+            <!-- Category Wrapper (Sticky) -->
+            <div class="sticky top-[80px] z-45 bg-[#050507]/90 backdrop-blur-md py-4 border-b border-outline-variant -mx-4 px-4 select-none">
+                <!-- Category Pills (Horizontal scrolling) -->
+                <div id="category-pills" class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
                     {% for cat in restaurant.categories %}
                     <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display select-none {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
                         {{ cat }}
@@ -631,6 +632,44 @@
                     if (firstCategory) {
                         this.filterCategory(firstCategory);
                     }
+
+                    const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
+                    if (!isReadonly) {
+                        this.initGuestWebSocket();
+                    }
+                },
+
+                initGuestWebSocket() {
+                    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                    const wsUrl = `${protocol}//${window.location.host}/ws/{{ slug }}`;
+                    
+                    console.log("Guest connecting to WebSocket...");
+                    const ws = new WebSocket(wsUrl);
+                    
+                    ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data.type === "update") {
+                                // Check if guest session is still active
+                                fetch("/api/{{ slug }}/check-session")
+                                    .then(res => res.json())
+                                    .then(sessionData => {
+                                        if (sessionData && sessionData.active === false) {
+                                            console.warn("Session expired! Redirecting...");
+                                            window.location.href = "/{{ slug }}/sitz-expired";
+                                        }
+                                    })
+                                    .catch(err => console.error("Error checking session:", err));
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse websocket message:", e);
+                        }
+                    };
+
+                    ws.onclose = () => {
+                        // Reconnect after 5 seconds
+                        setTimeout(() => this.initGuestWebSocket(), 5000);
+                    };
                 },
 
                 get cartTotal() {
