@@ -1843,13 +1843,14 @@ def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPa
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] += 1
         
-    # Rotate table active session token upon split payment to clear session
-    table_num = str(order["table"]).replace("Tisch", "").strip()
-    tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
-    if db_table:
-        import secrets
-        db_table["active_session_token"] = secrets.token_hex(4)
+    # Rotate table active session token upon split payment to clear session ONLY if fully paid
+    if order["status"] == "bezahlt":
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        tables_list = restaurant.get("tables", [])
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        if db_table:
+            import secrets
+            db_table["active_session_token"] = secrets.token_hex(4)
 
     db = SessionLocal()
     try:
@@ -2475,9 +2476,10 @@ async def post_produkt_erstellen(
         new_id = max(p["id"] for p in restaurant["products"]) + 1
 
     category_type = "k\u00fcche"
-    if cat_name.lower() in ["drinks", "bar", "getr\u00e4nke"]:
+    cat_lower = cat_name.lower()
+    if any(keyword in cat_lower for keyword in ["drinks", "bar", "getr\u00e4nke", "soft", "alkohol", "bier", "wein", "cocktail", "saft", "kaffee", "tee", "wasser", "limo"]):
         category_type = "bar"
-    elif cat_name.lower() == "shisha":
+    elif any(keyword in cat_lower for keyword in ["shisha", "wasserpfeife", "pfeife", "head", "kohle"]):
         category_type = "shisha"
 
     # ── Image handling: file upload wins over URL ─────────────────
