@@ -909,6 +909,59 @@ def test_integration():
     assert t4_table["security_token"] == t3_table["security_token"]
     print("Table Merge / Transfer API: OK")
 
+    # 8. Tisch-Tokens & Sitzung Wiederkehrend-Scan Test
+    print("Testing table session printed token scan-to-re-login (Issue 2)...")
+    client.cookies.clear() # Clear any session cookies from previous setup/admin/chef tests
+    # Reset table 3 token to static initial value
+    t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
+    t3_table["security_token"] = "token-tisch-3"
+    t3_table["active_session_token"] = None
+    
+    # 8a. Scan the printed QR code first time (Tisch 3, token=token-tisch-3)
+    resp = client.get("/demo?tisch=3&token=token-tisch-3")
+    assert resp.status_code == 200
+    assert resp.context["is_readonly"] is False
+    cookie_header = resp.headers.get("set-cookie")
+    assert cookie_header is not None
+    guest_cookie_val = cookie_header.split(";")[0].split("=")[1]
+    guest_cookies_t3 = {"guest_session_demo": guest_cookie_val}
+    
+    # Verify active session token is populated
+    t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
+    active_tok_1 = t3_table["active_session_token"]
+    assert active_tok_1 is not None
+    assert active_tok_1 != "token-tisch-3"
+    
+    # 8b. Place an order using the guest session cookie
+    order_payload = {
+        "table": "Tisch 3",
+        "items": [
+            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+        ]
+    }
+    resp = client.post("/demo/bestellen", json=order_payload, cookies=guest_cookies_t3)
+    assert resp.status_code == 200
+    order_id_t3 = resp.json()["order_id"]
+    
+    # 8c. Process payment/clear table
+    resp = client.post(f"/demo/tablet/bezahlen/{order_id_t3}")
+    assert resp.status_code == 200
+    
+    # 8d. Accessing the table with the old session cookie should now redirect to sitz-expired
+    resp = client.get("/demo", cookies=guest_cookies_t3, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/demo/sitz-expired"
+    
+    # 8e. Re-scanning the static printed QR code (Tisch 3, token=token-tisch-3) should succeed and open the menu
+    resp = client.get("/demo?tisch=3&token=token-tisch-3")
+    assert resp.status_code == 200
+    assert resp.context["is_readonly"] is False
+    cookie_header_2 = resp.headers.get("set-cookie")
+    assert cookie_header_2 is not None
+    guest_cookie_val_2 = cookie_header_2.split(";")[0].split("=")[1]
+    assert guest_cookie_val_2 != guest_cookie_val
+    print("Printed QR Code scan-to-re-login: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":

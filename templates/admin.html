@@ -62,27 +62,27 @@
 
             <!-- Module Navigation -->
             <nav class="space-y-1 font-display">
-                <button onclick="switchAdminTab('kassensysteme')" id="tab-btn-kassensysteme" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                <button onclick="switchAdminTab('kassensysteme')" @click="sidebarOpen = false" id="tab-btn-kassensysteme" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">devices</span>
                     <span>💻 Kassensysteme</span>
                 </button>
-                <button onclick="switchAdminTab('live')" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                <button onclick="switchAdminTab('live')" @click="sidebarOpen = false" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">dashboard</span>
                     <span>🎯 Live-Tische</span>
                 </button>
-                <button onclick="switchAdminTab('finanzen')" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                <button onclick="switchAdminTab('finanzen')" @click="sidebarOpen = false" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">analytics</span>
                     <span>📈 Finanzen & Logs</span>
                 </button>
-                <button onclick="switchAdminTab('speisekarte')" id="tab-btn-speisekarte" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                <button onclick="switchAdminTab('speisekarte')" @click="sidebarOpen = false" id="tab-btn-speisekarte" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">restaurant_menu</span>
                     <span>⏱️ Speisekarte</span>
                 </button>
-                <button onclick="switchAdminTab('personal')" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                <button onclick="switchAdminTab('personal')" @click="sidebarOpen = false" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">storefront</span>
                     <span>👤 Profil & Einstellungen</span>
                 </button>
-                <button onclick="switchAdminTab('konfiguration')" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
+                <button onclick="switchAdminTab('konfiguration')" @click="sidebarOpen = false" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">settings</span>
                     <span>⚙️ Konfiguration</span>
                 </button>
@@ -99,8 +99,19 @@
                 <span class="material-symbols-outlined text-sm">logout</span>
                 <span>System verlassen</span>
             </a>
-        </div>
     </aside>
+
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div x-show="sidebarOpen" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click="sidebarOpen = false" 
+         class="md:hidden fixed inset-0 bg-black/65 backdrop-blur-xs z-30">
+    </div>
 
     <!-- Content Wrapper container -->
     <div class="flex-grow md:pl-64 flex flex-col min-w-0">

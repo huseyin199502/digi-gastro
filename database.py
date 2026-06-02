@@ -183,6 +183,7 @@ class Table(Base):
     number = Column(String, nullable=False)
     zone = Column(String, nullable=False)
     security_token = Column(String, nullable=False, default="")
+    active_session_token = Column(String, nullable=True)
 
 class AuditLog(Base):
     __tablename__ = 'audit_log'
@@ -232,6 +233,11 @@ def _migrate_database():
         if 'security_token' not in table_columns:
             try:
                 conn.execute(sa.text("ALTER TABLE tables ADD COLUMN security_token VARCHAR DEFAULT ''"))
+            except Exception:
+                pass
+        if 'active_session_token' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN active_session_token VARCHAR"))
             except Exception:
                 pass
 

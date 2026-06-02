@@ -489,17 +489,6 @@
                 translations: translations,
 
                 init() {
-                    const resetSession = {% if reset_session %}true{% else %}false{% endif %};
-                    if (resetSession) {
-                        localStorage.removeItem(`dl_orders_{{ slug }}`);
-                        this.cart = [];
-                    }
-
-                    const firstCategory = "{{ restaurant.categories[0] if restaurant.categories else '' }}";
-                    if (firstCategory) {
-                        this.filterCategory(firstCategory);
-                    }
-
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
                     window.addToCart = (id, name, price, categoryType) => this.addToCart(id, name, price, categoryType);
                     window.openCartModal = () => this.openCartModal();
@@ -516,6 +505,17 @@
                     window.filterCategory = (cat) => this.filterCategory(cat);
                     window.submitOrder = () => this.submitOrder();
                     window.closeThankYou = () => this.closeThankYou();
+
+                    const resetSession = {% if reset_session %}true{% else %}false{% endif %};
+                    if (resetSession) {
+                        localStorage.removeItem(`dl_orders_{{ slug }}`);
+                        this.cart = [];
+                    }
+
+                    const firstCategory = "{{ restaurant.categories[0] if restaurant.categories else '' }}";
+                    if (firstCategory) {
+                        this.filterCategory(firstCategory);
+                    }
                 },
 
                 get cartTotal() {
@@ -562,15 +562,14 @@
                         }
                     });
                     
-                    // Sync highlight on category pills
-                    {% for cat in restaurant.categories %}
-                    const pillBtn = document.getElementById("btn-{{ cat }}");
-                    if (pillBtn) {
-                        pillBtn.className = (category === "{{ cat }}") ? 
-                            "whitespace-nowrap px-5 py-2 rounded-full text-sm font-extrabold shadow-lg shadow-primary/20 scale-105 transition-all bg-primary text-black" : 
-                            "whitespace-nowrap px-5 py-2 rounded-full text-sm font-semibold transition-all bg-white/5 border border-outline-variant text-on-surface-variant hover:bg-white/10 hover:text-white";
-                    }
-                    {% endfor %}
+                    // Sync highlight on category pills dynamically without layout shift
+                    const pills = document.querySelectorAll('#category-pills button');
+                    pills.forEach(pillBtn => {
+                        const isCurrent = pillBtn.id === `btn-${category}`;
+                        pillBtn.className = isCurrent ? 
+                            "whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display bg-primary text-black shadow-lg shadow-primary/10 scale-105" : 
+                            "whitespace-nowrap px-6 py-2.5 rounded-full text-xs font-bold transition-all duration-300 font-display bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white";
+                    });
 
                     this.applyAllFilters();
                 },
