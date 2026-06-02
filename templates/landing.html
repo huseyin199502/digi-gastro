@@ -271,7 +271,7 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <form action="/login" method="POST" class="p-6 space-y-4 relative z-10">
+            <form action="/login" method="POST" class="p-6 space-y-4 relative z-10" novalidate>
                 {% if error and show_login %}
                 <div class="p-3.5 bg-red-950/20 border border-red-500/20 rounded-xl text-red-300 text-xs">
                     {{ error }}
