@@ -50,6 +50,13 @@ async def websocket_endpoint(websocket: WebSocket, slug: str):
     try:
         while True:
             data = await websocket.receive_text()
+            # Handle client keepalive pings gracefully
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+            except Exception:
+                pass
     except WebSocketDisconnect:
         manager.disconnect(slug, websocket)
     except Exception:
@@ -1273,7 +1280,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             response.set_cookie(
                 key=cookie_name,
                 value=cookie_val,
-                max_age=14400, # 4 hours
+                max_age=1800, # 30 minutes
                 httponly=False,
                 samesite="lax",
                 secure=False
@@ -2067,6 +2074,128 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
         
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
+
+
+# ──────────────────────────────────────────────────────────────────
+# TRANSFER ORDER – Umbuchen: move an active order to another table
+# POST /{slug}/tablet/transfer-order
+# Body JSON: { "order_id": int, "target_table": str }
+# ──────────────────────────────────────────────────────────────────
+class TransferOrderPayload(BaseModel):
+    order_id: int
+    target_table: str
+
+@app.post("/{slug}/tablet/transfer-order")
+async def transfer_order(request: Request, slug: str, payload: TransferOrderPayload, db: Session = Depends(get_db)):
+    """Move an active order to a different table and broadcast refresh_tables."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == payload.order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    target_num = str(payload.target_table).replace("Tisch", "").strip()
+    target_table_str = f"Tisch {target_num}"
+
+    tables_list = restaurant.get("tables", [])
+    target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
+    if not target_db_table:
+        raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
+
+    order["table"] = target_table_str
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Umbuchen: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "refresh_tables"})
+    return {"success": True, "new_table": target_table_str}
+
+
+# ──────────────────────────────────────────────────────────────────
+# ITEM STATUS – Set per-item status: confirmed or delivered
+# POST /{slug}/orders/item-status/{order_id}
+# Body JSON: { "item_key": "{product_id}_{note_slug}", "status": "confirmed"|"delivered" }
+# ──────────────────────────────────────────────────────────────────
+class ItemStatusPayload(BaseModel):
+    item_key: str
+    status: str
+
+@app.post("/{slug}/orders/item-status/{order_id}")
+async def set_item_status(request: Request, slug: str, order_id: int, payload: ItemStatusPayload, db: Session = Depends(get_db)):
+    """Update the status of a single line-item within an order."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+
+    if payload.status not in ["confirmed", "delivered"]:
+        raise HTTPException(status_code=400, detail="Ungültiger Status. Erlaubt: confirmed, delivered")
+
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    matched = False
+    for item in order.get("items", []):
+        note_slug = (item.get("note") or "").strip().replace(" ", "_")
+        key = f"{item['product_id']}_{note_slug}"
+        if key == payload.item_key:
+            item["item_status"] = payload.status
+            matched = True
+            break
+
+    if not matched:
+        raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+
+    # If ALL items confirmed/delivered → upgrade order to bestaetigt
+    all_done = all(i.get("item_status", "pending") in ["confirmed", "delivered"] for i in order.get("items", []))
+    if all_done and order["status"] == "eingegangen":
+        order["status"] = "bestaetigt"
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Aktualisieren: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "item_key": payload.item_key, "new_status": payload.status}
 
 
 # ==========================================

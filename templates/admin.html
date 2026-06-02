@@ -211,57 +211,6 @@
                         {% endif %}
                     </div>
 
-                    <!-- KDS Kitchen Display -->
-                    <div class="bg-black/30 border border-white/5 rounded-2xl p-5 space-y-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center shadow-inner">
-                                <span class="material-symbols-outlined text-rose-400" style="font-size:20px">kitchen</span>
-                            </div>
-                            <div>
-                                <div class="text-sm font-black text-white font-display">Küchen-Display (KDS)</div>
-                                <div class="text-[9px] text-on-surface-variant uppercase tracking-wider font-semibold">Kitchen Display System</div>
-                            </div>
-                        </div>
-                        {% if restaurant.kds_secret %}
-                        <!-- Magic Link display -->
-                        <div class="bg-black/60 border border-white/5 rounded-xl p-3 flex items-center gap-2.5">
-                            <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">link</span>
-                            <code class="text-xs text-rose-400 font-mono break-all leading-tight flex-1 select-all" id="kds-magic-link">
-                                /{{ slug }}/setup-device?type=kds&amp;token={{ restaurant.kds_secret }}
-                            </code>
-                            <button onclick="copyMagicLink('kds-magic-link')" title="Link kopieren"
-                                    class="text-on-surface-variant hover:text-white transition flex-shrink-0 p-1.5 rounded-lg hover:bg-white/5 active:scale-95">
-                                <span class="material-symbols-outlined" style="font-size:16px">content_copy</span>
-                            </button>
-                        </div>
-                        <div class="flex gap-2">
-                            <a href="/{{ slug }}/setup-device?type=kds&token={{ restaurant.kds_secret }}"
-                               target="_blank"
-                               class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs py-3 rounded-xl text-center flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-95 shadow-md">
-                                <span class="material-symbols-outlined text-sm">open_in_new</span>
-                                Link testen
-                            </a>
-                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST"
-                                  onsubmit="return confirm('Achtung: Alle gekoppelten Küchen-Displays werden sofort entkoppelt. Fortfahren?')"
-                                  class="flex-shrink-0">
-                                <button type="submit"
-                                        class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-bold text-xs py-3 px-4 rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95">
-                                    <span class="material-symbols-outlined text-sm">refresh</span>
-                                    Erneuern
-                                </button>
-                            </form>
-                        </div>
-                        {% else %}
-                        <div class="bg-black/40 border border-dashed border-white/10 rounded-xl p-5 text-center">
-                            <p class="text-xs text-on-surface-variant mb-4">Noch kein Magic Link generiert. Das Küchen-Display kann erst nach Generierung gekoppelt werden.</p>
-                            <form action="/{{ slug }}/admin/renew-kds-secret" method="POST">
-                                <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition active:scale-95">
-                                    ✨ Magic Link generieren
-                                </button>
-                            </form>
-                        </div>
-                        {% endif %}
-                    </div>
                 </div>
                 <!-- Security note -->
                 <p class="text-[10px] text-on-surface-variant mt-4 flex items-center gap-1.5 bg-white/5 px-3 py-2.5 rounded-xl border border-white/5">
@@ -1037,7 +986,7 @@
         }
 
         function checkLiveTischeUpdates() {
-            // Only run check if we are on the 'live' tab
+            // Only run if we are on the 'live' tab
             const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
             if (activeTab !== 'live') return;
 
@@ -1058,17 +1007,63 @@
                 .then(data => {
                     if (!data) return;
 
-                    // Build a simple state hash based on orders (id + status + total) and service calls (id + type)
+                    // Build state hash
                     const ordersState = data.orders.map(o => `${o.id}:${o.status}:${o.total}`).join('|');
                     const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
                     const currentHash = `${ordersState}#${callsState}`;
 
                     if (lastLiveTischeHash !== null && lastLiveTischeHash !== currentHash) {
-                        location.reload();
+                        updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
                     }
                     lastLiveTischeHash = currentHash;
                 })
                 .catch(err => console.warn("Live status polling error:", err));
+        }
+
+        function updateLiveTiles(orders, serviceCalls, tables) {
+            // Find all table tile links and update their visual state without full reload
+            const allLinks = document.querySelectorAll('[id^="admin-tab-live"] a[href*="/impersonate/"]');
+            allLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                const match = href && href.match(/impersonate\/(\d+)/);
+                if (!match) return;
+                const tNum = match[1];
+                const tableStr = 'Tisch ' + tNum;
+
+                const activeCall = serviceCalls.find(c => c.table === tableStr);
+                const activeOrders = orders.filter(o =>
+                    o.table === tableStr && o.status !== 'bezahlt' && o.status !== 'storniert'
+                );
+                const totalAmt = activeOrders.reduce((s, o) => s + (o.total || 0), 0);
+
+                if (activeCall) {
+                    link.className = 'pulse-red-card rounded-2xl p-5 flex flex-col justify-between h-32 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block font-display';
+                    link.innerHTML = `
+                        <span class="font-extrabold text-xl">Tisch ${tNum}</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-1">
+                            <span class="material-symbols-outlined text-sm">warning</span>${activeCall.type} RUF!
+                        </span>`;
+                } else if (activeOrders.length > 0) {
+                    link.className = 'bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between h-32 text-center text-amber-400 hover:bg-amber-500/10 hover:scale-[1.02] transition block font-display';
+                    link.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <span class="font-extrabold text-xl text-white">Tisch ${tNum}</span>
+                            <span class="w-2.5 h-2.5 bg-amber-500 rounded-full pulse-amber"></span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold block text-on-surface-variant">${activeOrders.length} Bon(s)</span>
+                            <span class="text-sm font-black text-amber-400">${totalAmt.toFixed(2).replace('.', ',')} €</span>
+                        </div>`;
+                } else {
+                    link.className = 'bg-surface/60 border border-outline-variant hover:border-primary/50 hover:bg-surface rounded-2xl p-5 flex flex-col justify-between h-32 text-left hover:scale-[1.02] transition block font-display';
+                    link.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <span class="font-extrabold text-xl text-white">Tisch ${tNum}</span>
+                            <span class="w-2.5 h-2.5 bg-zinc-800 rounded-full border border-outline-variant"></span>
+                        </div>
+                        <span class="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Frei</span>`;
+                }
+            });
         }
 
         // Run first check after DOM content loaded, initializing websocket
