@@ -188,69 +188,81 @@
             <!-- Category Wrapper (Sticky) -->
             <div class="sticky top-[80px] z-49 bg-background/95 backdrop-blur-md py-4 border-b border-outline-variant -mx-4 px-4 select-none">
                 <!-- Category Pills (Horizontal scrolling) -->
-                <div id="category-pills" class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
+                <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
                     {% for cat in restaurant.categories %}
-                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="whitespace-nowrap px-7 py-3 rounded-full text-sm md:text-base font-extrabold transition-all duration-300 font-display select-none {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
-                        {{ cat }}
+                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="flex-shrink-0 min-w-[125px] h-[74px] rounded-2xl text-xs md:text-sm font-black transition-all duration-300 font-display select-none flex flex-col items-center justify-center gap-1.5 {% if loop.first %}bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent{% else %}bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white{% endif %}">
+                        <span class="material-symbols-outlined text-xl md:text-2xl">
+                            {% if cat.lower() in ['burger', 'essen', 'food', 'salate', 'salads', 'pizza', 'snacks', 'hauptgericht'] %}
+                                burger
+                            {% elif cat.lower() in ['drinks', 'getränke', 'bar', 'cocktails', 'softdrinks', 'alkohol'] %}
+                                local_bar
+                            {% elif cat.lower() in ['desserts', 'nachtisch', 'süßes', 'eis', 'eiscreme'] %}
+                                cake
+                            {% elif cat.lower() in ['shisha', 'hookah', 'rauch', 'köpfe'] %}
+                                wind
+                            {% else %}
+                                restaurant
+                            {% endif %}
+                        </span>
+                        <span>{{ cat }}</span>
                     </button>
                     {% endfor %}
                 </div>
             </div>
 
-            <!-- Products Grid -->
-            <div id="product-grid-container" class="grid grid-cols-1 sm:grid-cols-2 gap-5 py-8">
+            <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
+            <div id="product-grid-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 py-6">
                 {% for product in products %}
                 {% set is_avail = product.get('is_available', True) %}
-                <article class="product-card product-item glass-card hover-lift rounded-3xl p-5 flex flex-col justify-between border border-outline-variant relative overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
+                <article class="product-card product-item glass-card hover-lift rounded-2xl p-3.5 flex flex-col justify-between border border-outline-variant relative overflow-hidden z-0 {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
                          data-category="{{ product.category }}" 
                          data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
                          data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                     
-                    <div class="relative w-full aspect-[16/10] rounded-2xl overflow-hidden mb-4 bg-background flex items-center justify-center border border-outline-variant/60">
+                    <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-3 bg-background flex items-center justify-center border border-outline-variant/60">
                         {% if product.image %}
                         <img alt="{{ product.name }}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
                         {% else %}
                         <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
-                            <span class="material-symbols-outlined text-4xl">restaurant</span>
+                            <span class="material-symbols-outlined text-3xl">restaurant</span>
                         </div>
                         {% endif %}
                         {% if not is_avail %}
-                        <div class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-3 backdrop-blur-xs">
-                            <span class="material-symbols-outlined text-red-500 text-3xl mb-1">block</span>
-                            <span class="text-xs font-black uppercase text-red-400 tracking-wider" data-translate="sold_out">Ausverkauft</span>
-                            <span class="text-[10px] text-zinc-500 mt-0.5" data-translate="sold_out_desc">In Kürze wieder da</span>
+                        <div class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-2 backdrop-blur-xs">
+                            <span class="material-symbols-outlined text-red-500 text-2xl mb-0.5">block</span>
+                            <span class="text-[10px] font-black uppercase text-red-400 tracking-wider" data-translate="sold_out">Ausverkauft</span>
                         </div>
                         {% endif %}
                     </div>
                     
                     <div class="flex flex-col justify-between flex-grow">
                         <div>
-                            <div class="flex items-start justify-between gap-2">
-                                <h3 class="font-extrabold text-base text-white font-display truncate product-name" data-name-de="{{ product.name | replace('"', '&quot;') }}" data-name-en="{{ (product.name_en or product.name) | replace('"', '&quot;') }}">{{ product.name }}</h3>
+                            <div class="flex items-start justify-between gap-1.5">
+                                <h3 class="font-extrabold text-sm text-white font-display truncate product-name" data-name-de="{{ product.name | replace('"', '&quot;') }}" data-name-en="{{ (product.name_en or product.name) | replace('"', '&quot;') }}">{{ product.name }}</h3>
                                 {% if product.allergens %}
-                                <span class="text-[9px] text-on-surface-variant bg-surface px-1.5 py-0.5 rounded border border-outline-variant font-mono uppercase">{{ product.allergens | join(',') }}</span>
+                                <span class="text-[8px] text-on-surface-variant bg-surface px-1 py-0.5 rounded border border-outline-variant font-mono uppercase">{{ product.allergens | join(',') }}</span>
                                 {% endif %}
                             </div>
-                            <p class="text-xs text-on-surface-variant mt-2 leading-relaxed line-clamp-2 product-desc" data-desc-de="{{ (product.description or '') | replace('"', '&quot;') }}" data-desc-en="{{ (product.description_en or product.description or '') | replace('"', '&quot;') }}">{{ product.description }}</p>
+                            <p class="text-[11px] text-on-surface-variant mt-1.5 leading-relaxed line-clamp-2 product-desc" data-desc-de="{{ (product.description or '') | replace('"', '&quot;') }}" data-desc-en="{{ (product.description_en or product.description or '') | replace('"', '&quot;') }}">{{ product.description }}</p>
                         </div>
 
-                        <div class="flex justify-between items-end mt-5">
+                        <div class="flex justify-between items-end mt-4">
                             <div>
                                 {% if product.is_hh_active %}
-                                    <span class="text-xs line-through text-on-surface-variant/50 mr-1.5">{{ "%.2f"|format(product.price) }} €</span>
-                                    <span class="text-xl font-black text-rose-500 glow-text-primary">{{ "%.2f"|format(product.display_price) }} €</span>
+                                    <span class="text-[10px] line-through text-on-surface-variant/50 mr-1">{{ "%.2f"|format(product.price) }} €</span>
+                                    <span class="text-sm font-black text-rose-500 glow-text-primary">{{ "%.2f"|format(product.display_price) }} €</span>
                                 {% else %}
-                                    <span class="text-xl font-black text-primary glow-text-primary">{{ "%.2f"|format(product.price) }} €</span>
+                                    <span class="text-sm font-black text-primary glow-text-primary">{{ "%.2f"|format(product.price) }} €</span>
                                 {% endif %}
                             </div>
 
                             {% if is_avail %}
-                            <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
-                                <span class="material-symbols-outlined font-black">add</span>
+                            <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-9 h-9 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
+                                <span class="material-symbols-outlined font-black text-lg">add</span>
                             </button>
                             {% else %}
-                            <button disabled class="w-11 h-11 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
-                                <span class="material-symbols-outlined">block</span>
+                            <button disabled class="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
+                                <span class="material-symbols-outlined text-lg">block</span>
                             </button>
                             {% endif %}
                         </div>
