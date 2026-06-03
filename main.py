@@ -866,6 +866,74 @@ def get_current_user(request: Request, slug: str) -> Optional[dict]:
         pass
     return None
 
+def get_current_user_and_slug(request: Request) -> Optional[tuple]:
+    session = request.cookies.get("session")
+    if not session:
+        return None
+    try:
+        parts = session.split(":")
+        if len(parts) == 4:
+            slug = parts[0]
+            user = {"name": parts[1], "role": parts[2], "pin": parts[3]}
+            return user, slug
+    except Exception:
+        pass
+    return None
+
+def require_user_and_slug(request: Request, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
+    restaurant = get_restaurant_or_raise(slug, db)
+    return user, slug, restaurant
+
+def require_chef_user(request: Request, slug: str):
+    # Reject POS/KDS device cookies trying to access admin routes
+    pos_session = request.cookies.get("pos_session")
+    kds_session = request.cookies.get("kds_session")
+    session = request.cookies.get("session")
+    
+    # Check if there is only a device cookie but no user session
+    if (pos_session or kds_session) and not session:
+        raise HTTPException(
+            status_code=403,
+            detail="POS/KDS-Geräte haben keinen Zugriff auf Admin-Routen."
+        )
+        
+    res = get_current_user_and_slug(request)
+    if res:
+        user, session_slug = res
+        if session_slug != slug:
+            raise HTTPException(status_code=403, detail="Kein Zugriff. Falscher Tenant.")
+        if user["role"] != "chef":
+            raise HTTPException(status_code=403, detail="Kein Zugriff. Nur für Administratoren.")
+        return user
+        
+    # Legacy session check fallback
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    kds_cookie = request.cookies.get(f"kds_token_{slug}")
+    session_legacy = request.cookies.get(f"session_{slug}")
+    if (pos_cookie or kds_cookie) and not session_legacy:
+        raise HTTPException(
+            status_code=403,
+            detail="POS/KDS-Geräte haben keinen Zugriff auf Admin-Routen."
+        )
+    user = get_current_user(request, slug)
+    if not user or user["role"] != "chef":
+        raise HTTPException(status_code=403, detail="Kein Zugriff. Nur für Administratoren.")
+    return user
+
+def require_chef_user_flat(request: Request, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
+    require_chef_user(request, slug)
+    restaurant = get_restaurant_or_raise(slug, db)
+    return user, slug, restaurant
+
+
 class OrderItem(BaseModel):
     product_id: int
     name: str
@@ -1141,6 +1209,20 @@ def post_tenant_toggle(request: Request, slug_key: str, db: Session = Depends(ge
     return RedirectResponse(url="/digi-gastro-admin", status_code=303)
 
 
+@app.get("/admin")
+def get_admin_root(request: Request, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login")
+    restaurant = get_restaurant_or_raise(slug, db)
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup")
+    return RedirectResponse(url="/admin/dashboard")
+
+
 # ==========================================
 # GUEST MOBILE CHANNELS & SECURITY LOGIC
 # ==========================================
@@ -1398,6 +1480,12 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         session = request.cookies.get(f"session_{slug}")
         if session:
             is_staff = True
+        else:
+            res = get_current_user_and_slug(request)
+            if res:
+                user, session_slug = res
+                if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                    is_staff = True
             
     if not is_staff:
         tok = payload.token
@@ -1500,6 +1588,12 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
         session = request.cookies.get(f"session_{slug}")
         if session:
             is_staff = True
+        else:
+            res = get_current_user_and_slug(request)
+            if res:
+                user, session_slug = res
+                if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                    is_staff = True
             
     if not is_staff:
         is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
@@ -1530,278 +1624,46 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     return {"success": True, "call_id": new_id}
 
 
-# ==========================================
-# STAFF POS & MONITOR (TABLET, KITCHEN)
-# ==========================================
-
-@app.get("/{slug}/tablet", response_class=HTMLResponse)
-def get_tablet(request: Request, slug: str, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    
-    if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup")
-        
-    # POS Trusted Device verification
-    pos_cookie = request.cookies.get(f"pos_token_{slug}")
-    expected_pos = restaurant.get("pos_token")
-    
-    is_test = request.url.hostname == "testserver"
-    
-    if not is_test:
-        if not expected_pos or not pos_cookie or pos_cookie != expected_pos:
-            return templates.TemplateResponse(
-                request=request,
-                name="pos_auth.html",
-                context={"slug": slug, "restaurant_name": restaurant["name"], "error": None}
-            )
-            
-    user = get_current_user(request, slug)
-    if not user:
-        if is_test:
-            user = {"name": "Test-Kellner", "role": "kellner", "pin": "1234"}
-        else:
-            user = None
-            
-    active_orders = [o for o in restaurant.get("orders", []) if o["status"] not in ["bezahlt", "storniert"]]
-    orders_json = json.dumps(active_orders)
-    tables_json = json.dumps(restaurant.get("tables", []))
-    products_json = json.dumps(restaurant.get("products", []))
-    
-    # Extract owner/chef staff employee
-    default_staff = next((s for s in restaurant.get("staff", []) if s.get("role") == "chef"), None)
-    
-    return templates.TemplateResponse(
-        request=request,
-        name="tablet.html",
-        context={
-            "restaurant": restaurant,
-            "slug": slug,
-            "orders": active_orders,
-            "orders_json": orders_json,
-            "tables_json": tables_json,
-            "products_json": products_json,
-            "service_calls": restaurant.get("service_calls", []),
-            "current_user": user,
-            "default_staff": default_staff
-        }
-    )
-
-@app.post("/{slug}/tablet/autorisieren")
-def authorize_tablet(
-    request: Request,
-    slug: str,
-    email: str = Form(...),
-    password: str = Form(...)
-, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    
-    if email.strip() == restaurant["email"] and password.strip() == restaurant["password"]:
-        pos_token = restaurant.get("pos_token")
-        if not pos_token:
-            pos_token = secrets.token_hex(8)
-            restaurant["pos_token"] = pos_token
-            
-            db = SessionLocal()
-            try:
-                save_restaurant_to_db(slug, restaurant, db)
-                db.commit()
-            finally:
-                db.close()
-                
-        resp = RedirectResponse(url=f"/{slug}/tablet", status_code=303)
-        resp.set_cookie(
-            key=f"pos_token_{slug}",
-            value=pos_token,
-            max_age=31536000, # 1 Year
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
-        return resp
-    else:
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
-        return templates.TemplateResponse(
-            request=request,
-            name="pos_auth.html",
-            context={
-                "slug": slug,
-                "restaurant_name": restaurant["name"],
-                "error": "Ungültige Administrator-Zugangsdaten."
-            }
-        )
-
-
-# ──────────────────────────────────────────────────────────────────
-# DEVICE PROVISIONING – Magic Link setup
-# GET /{slug}/setup-device?type=pos|kds&token=<secret>
-# Validates the one-time secret, sets a permanent device cookie,
-# and redirects to the correct display (tablet or kitchen).
-# ──────────────────────────────────────────────────────────────────
-@app.get("/{slug}/setup-device")
-def setup_device(request: Request, slug: str, type: str, token: str, db: Session = Depends(get_db)):
-    """Magic Link provisioning: validate secret, set cookie, redirect to device UI."""
-    restaurant = get_restaurant_or_raise(slug, db)
-    type = type.lower().strip()
-
-    if type == "pos":
-        expected = restaurant.get("pos_secret")
-        if not expected or token != expected:
-            raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Kassen-Link.")
-        # Set persistent POS device cookie (same value as pos_token if it exists)
-        pos_token = restaurant.get("pos_token") or secrets.token_hex(8)
-        if not restaurant.get("pos_token"):
-            restaurant["pos_token"] = pos_token
-            db = SessionLocal()
-            try:
-                save_restaurant_to_db(slug, restaurant, db)
-                db.commit()
-            finally:
-                db.close()
-        resp = RedirectResponse(url=f"/{slug}/tablet", status_code=303)
-        resp.set_cookie(
-            key=f"pos_token_{slug}",
-            value=pos_token,
-            max_age=31536000,
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
-        return resp
-
-    elif type == "kds":
-        expected = restaurant.get("kds_secret")
-        if not expected or token != expected:
-            raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Küchen-Link.")
-        kds_token = restaurant.get("kds_token") or secrets.token_hex(8)
-        if not restaurant.get("kds_token"):
-            restaurant["kds_token"] = kds_token
-            db = SessionLocal()
-            try:
-                save_restaurant_to_db(slug, restaurant, db)
-                db.commit()
-            finally:
-                db.close()
-        resp = RedirectResponse(url=f"/{slug}/kitchen", status_code=303)
-        resp.set_cookie(
-            key=f"kds_token_{slug}",
-            value=kds_token,
-            max_age=31536000,
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
-        # Also set the device_role=kds cookie to pair the hardware display
-        resp.set_cookie(
-            key="device_role",
-            value="kds",
-            max_age=31536000,
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
-        return resp
-
-    raise HTTPException(status_code=400, detail="Unbekannter Geräte-Typ. Erlaubt: pos, kds")
 
 
 # ──────────────────────────────────────────────────────────────────
 # TOKEN ROTATION – Renew device secrets (invalidates all paired devices)
 # ──────────────────────────────────────────────────────────────────
-@app.post("/{slug}/admin/renew-pos-secret")
-def renew_pos_secret(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.post("/admin/renew-pos-secret")
+def renew_pos_secret(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     """Rotate POS pairing secret. Kicks all paired POS tablets on next status poll."""
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    user, slug, restaurant = chef_data
     new_secret = secrets.token_urlsafe(24)
     restaurant["pos_secret"] = new_secret
     # Also invalidate the pos_token so existing tablets get 401 on next poll
     restaurant["pos_token"] = secrets.token_hex(8)
-    db = SessionLocal()
+    db_session = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        save_restaurant_to_db(slug, restaurant, db_session)
+        db_session.commit()
     finally:
-        db.close()
-    return RedirectResponse(url=f"/{slug}/admin/dashboard?tab=config", status_code=303)
+        db_session.close()
+    return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 
-@app.post("/{slug}/admin/renew-kds-secret")
-def renew_kds_secret(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.post("/admin/renew-kds-secret")
+def renew_kds_secret(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     """Rotate KDS pairing secret. Kicks all paired kitchen displays on next status poll."""
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    user, slug, restaurant = chef_data
     new_secret = secrets.token_urlsafe(24)
     restaurant["kds_secret"] = new_secret
     # Also invalidate kds_token so existing KDS devices get 401 on next poll
     restaurant["kds_token"] = secrets.token_hex(8)
-    db = SessionLocal()
+    db_session = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        save_restaurant_to_db(slug, restaurant, db_session)
+        db_session.commit()
     finally:
-        db.close()
-    return RedirectResponse(url=f"/{slug}/admin/dashboard?tab=config", status_code=303)
+        db_session.close()
+    return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
-@app.get("/{slug}/kitchen", response_class=HTMLResponse)
-def get_kitchen_monitor(request: Request, slug: str, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    
-    if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup")
-        
-    device_role = request.cookies.get(f"device_role_{slug}") or request.cookies.get("device_role")
-    kds_token = request.cookies.get(f"kds_token_{slug}")
-    expected_kds = restaurant.get("kds_token")
-    
-    user = get_current_user(request, slug)
-    if not user:
-        # Hardware Silio bypass: device role cookie or verified kds token enables auto-login
-        if device_role == "kds" or (kds_token and expected_kds and kds_token == expected_kds) or request.url.hostname == "testserver":
-            user = {"name": "KDS-Terminal", "role": "zubereiter", "pin": "KDS"}
-        else:
-            return RedirectResponse(url=f"/{slug}/admin/login?redirect=kitchen")
-        
-    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "bestaetigt", "in_zubereitung"]]
-    
-    return templates.TemplateResponse(
-        request=request,
-        name="kitchen.html",
-        context={
-            "restaurant": restaurant,
-            "slug": slug,
-            "orders": cooking_orders,
-            "current_user": user
-        }
-    )
 
-@app.get("/{slug}/kds", response_class=HTMLResponse)
-def get_kds_alias(request: Request, slug: str, db: Session = Depends(get_db)):
-    """Alias endpoint for /{slug}/kitchen to support native /kds requests directly."""
-    return get_kitchen_monitor(request, slug)
 
-@app.post("/{slug}/kitchen/status/{order_id}")
-def update_cooking_status(request: Request, slug: str, order_id: int, status: str = Form(...), db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    user = get_current_user(request, slug)
-    if not user and request.url.hostname == "testserver":
-        user = {"name": "Test-Zubereiter", "role": "zubereiter"}
-    if not user or user["role"] not in ["chef", "kellner", "zubereiter"]:
-        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
-        
-    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
-    if not order:
-        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
-        
-    if status in ["eingegangen", "in_zubereitung", "bereit", "serviert", "bezahlt", "storniert"]:
-        order["status"] = status
-        if status == "bezahlt":
-            restaurant["tagesumsatz"] += order.get("total", 0.0)
-            restaurant["bestellungen_gesamt"] += 1
-            
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    return {"success": True, "new_status": order["status"]}
 
 @app.post("/{slug}/tablet/bezahlen/{order_id}")
 async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0), db: Session = Depends(get_db)):
@@ -2510,16 +2372,20 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
 # RESTAURANT ADMIN BOARD (OWNER PORTAL)
 # ==========================================
 
-@app.get("/{slug}/admin/onboarding", response_class=HTMLResponse)
-def get_onboarding(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.get("/admin/onboarding", response_class=HTMLResponse)
+def get_onboarding(request: Request, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
     restaurant = get_restaurant_or_raise(slug, db)
     if restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin")
+        return RedirectResponse(url="/admin")
     return templates.TemplateResponse(request=request, name="onboarding.html", context={"restaurant": restaurant, "slug": slug})
 
-@app.post("/{slug}/admin/onboarding")
+@app.post("/admin/onboarding")
 def post_onboarding(
-    slug: str,
+    request: Request,
     has_kitchen: Optional[bool] = Form(False),
     is_shishabar: Optional[bool] = Form(False),
     impressum_content: Optional[str] = Form(""),
@@ -2528,6 +2394,10 @@ def post_onboarding(
     chef_name: str = Form("Chef"),
     chef_pin: str = Form("1111")
 , db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
     restaurant = get_restaurant_or_raise(slug, db)
     
     restaurant["is_setup_completed"] = True
@@ -2558,25 +2428,19 @@ def post_onboarding(
         {"name": chef_name, "role": "chef", "pin": chef_pin, "pin_code": chef_pin}
     ]
     
-    resp = RedirectResponse(url=f"/{slug}/admin", status_code=303)
-    resp.set_cookie(key=f"session_{slug}", value=f"{chef_name}:chef:{chef_pin}", httponly=True)
+    resp = RedirectResponse(url="/admin", status_code=303)
+    resp.set_cookie(key="session", value=f"{slug}:{chef_name}:chef:{chef_pin}", httponly=True)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return resp
 
-@app.get("/{slug}/admin")
-def get_admin_root(request: Request, slug: str, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    user = get_current_user(request, slug)
-    if not user or user["role"] != "chef":
-        return RedirectResponse(url=f"/{slug}/admin/login")
-    if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup")
-    return RedirectResponse(url=f"/{slug}/admin/dashboard")
-
-@app.get("/{slug}/admin/impersonate/{table_number}")
-def admin_impersonate(request: Request, slug: str, table_number: str, db: Session = Depends(get_db)):
+@app.get("/admin/impersonate/{table_number}")
+def admin_impersonate(request: Request, table_number: str, db: Session = Depends(get_db)):
     # Server-side auth check: strictly require chef
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
     require_chef_user(request, slug)
     restaurant = get_restaurant_or_raise(slug, db)
     
@@ -2590,26 +2454,29 @@ def admin_impersonate(request: Request, slug: str, table_number: str, db: Sessio
     table_token = db_table.get("security_token") or restaurant.get("security_token")
     
     # Redirect to customer menu and set session cookie
-    resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}", status_code=303)
+    resp = RedirectResponse(url=f"/?uid={slug}&tisch={table_num}&token={table_token}", status_code=303)
     resp.set_cookie(
-        key=f"guest_session_{slug}",
-        value=f"{table_num}:{table_token}",
+        key="guest_session",
+        value=f"{slug}:{table_num}:{table_token}",
         httponly=True,
         max_age=14400,
         path="/"
     )
     return resp
 
-@app.get("/{slug}/admin/dashboard", response_class=HTMLResponse)
-def get_admin(request: Request, slug: str, period: str = "heute", db: Session = Depends(get_db)):
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+def get_admin(request: Request, period: str = "heute", db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login")
+        
     restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup")
-        
-    user = get_current_user(request, slug)
-    if not user or user["role"] != "chef":
-        return RedirectResponse(url=f"/{slug}/admin/login")
+        return RedirectResponse(url="/admin/setup")
         
     orders = restaurant.get("orders", [])
     now = datetime.now()
@@ -2714,65 +2581,68 @@ def get_admin(request: Request, slug: str, period: str = "heute", db: Session = 
         }
     )
 
-@app.get("/{slug}/admin/login", response_class=HTMLResponse)
-def get_login(request: Request, slug: str, redirect: Optional[str] = None, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    
-    session_cookie = request.cookies.get(f"session_{slug}")
-    if session_cookie:
-        user = get_current_user(request, slug)
-        if user:
-            role = user["role"]
-            if role == "chef":
-                if not restaurant.get("is_setup_completed", False):
-                    return RedirectResponse(url=f"/{slug}/admin/setup")
-                return RedirectResponse(url=f"/{slug}/admin/dashboard")
-            elif role == "kellner":
-                return RedirectResponse(url=f"/{slug}/tablet")
-            elif role == "zubereiter":
-                return RedirectResponse(url=f"/{slug}/kitchen")
-                
+@app.get("/admin/login", response_class=HTMLResponse)
+def get_login(request: Request, redirect: Optional[str] = None, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if res:
+        user, slug = res
+        restaurant = get_restaurant_or_raise(slug, db)
+        role = user["role"]
+        if role == "chef":
+            if not restaurant.get("is_setup_completed", False):
+                return RedirectResponse(url="/admin/setup")
+            return RedirectResponse(url="/admin/dashboard")
+        elif role == "kellner":
+            return RedirectResponse(url=f"/{slug}/tablet")
+        elif role == "zubereiter":
+            return RedirectResponse(url=f"/{slug}/kitchen")
+            
     return templates.TemplateResponse(
         request,
         "login.html",
         {
             "request": request,
-            "restaurant_name": restaurant["name"],
-            "slug": slug,
+            "restaurant_name": "digi-gastro",
+            "slug": "",
             "error": None,
             "redirect": redirect
         }
     )
 
-@app.post("/{slug}/admin/login")
+@app.post("/admin/login")
 def post_login(
     request: Request,
     response: Response,
-    slug: str,
     email: Optional[str] = Form(None),
     password: Optional[str] = Form(None),
     pin: Optional[str] = Form(None),
     redirect: Optional[str] = None
 , db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    
-    target_url = f"/{slug}/admin"
+    target_url = "/admin"
     if redirect == "tablet":
-        target_url = f"/{slug}/tablet"
+        pass
     elif redirect == "kitchen":
-        target_url = f"/{slug}/kitchen"
+        pass
     elif redirect == "setup":
-        target_url = f"/{slug}/admin/setup"
+        target_url = "/admin/setup"
         
     if email and password:
-        if email.strip() == restaurant["email"] and password.strip() == restaurant["password"]:
+        tenant = db.query(Tenant).filter_by(email=email.strip()).first()
+        if tenant and tenant.password == password.strip():
+            slug = tenant.slug
+            restaurant = get_restaurant_or_raise(slug, db)
             if not restaurant.get("is_setup_completed", False):
-                target_url = f"/{slug}/admin/setup"
+                target_url = "/admin/setup"
+            elif redirect == "tablet":
+                target_url = f"/{slug}/tablet"
+            elif redirect == "kitchen":
+                target_url = f"/{slug}/kitchen"
             elif not redirect:
-                target_url = f"/{slug}/admin/dashboard"
+                target_url = "/admin/dashboard"
                 
             resp = RedirectResponse(url=target_url, status_code=303)
-            resp.set_cookie(key=f"session_{slug}", value=f"Owner:chef:{password.strip()}", httponly=True)
+            # Set unified session cookie: slug:name:role:password
+            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True)
             return resp
         else:
             return templates.TemplateResponse(
@@ -2780,8 +2650,8 @@ def post_login(
                 "login.html",
                 {
                     "request": request,
-                    "restaurant_name": restaurant["name"],
-                    "slug": slug,
+                    "restaurant_name": "digi-gastro",
+                    "slug": "",
                     "error": "Ungültige E-Mail-Adresse oder Passwort.",
                     "redirect": redirect
                 }
@@ -2789,70 +2659,102 @@ def post_login(
             
     if pin:
         pin_str = str(pin).strip()
-        staff_list = restaurant.get("staff", [])
-        if not staff_list and pin_str == "1111":
-            staff_list = [{"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"}]
-            restaurant["staff"] = staff_list
-            
-        employee = next((s for s in staff_list if str(s.get("pin_code", s.get("pin"))) == pin_str), None)
-        if employee:
-            role = employee["role"]
-            name = employee["name"]
-            
-            if role != "chef":
-                return templates.TemplateResponse(
-                    request,
-                    "login.html",
-                    {
-                        "request": request,
-                        "restaurant_name": restaurant["name"],
-                        "slug": slug,
-                        "error": "Mitarbeiter-Anmeldung erfolgt direkt auf dem Tablet-Sperrbildschirm.",
-                        "redirect": redirect
-                    }
-                )
-            
-            if not redirect:
-                if not restaurant.get("is_setup_completed", False):
-                    target_url = f"/{slug}/admin/setup"
-                else:
-                    target_url = f"/{slug}/admin/dashboard"
+        all_tenants = db.query(Tenant).all()
+        for tenant in all_tenants:
+            slug = tenant.slug
+            restaurant = get_restaurant_or_raise(slug, db)
+            staff_list = restaurant.get("staff", [])
+            if not staff_list and pin_str == "1111":
+                staff_list = [{"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"}]
+                restaurant["staff"] = staff_list
+                save_restaurant_to_db(slug, restaurant, db)
+                db.commit()
+                
+            employee = next((s for s in staff_list if str(s.get("pin_code", s.get("pin"))) == pin_str), None)
+            if employee:
+                role = employee["role"]
+                name = employee["name"]
+                
+                if role != "chef":
+                    return templates.TemplateResponse(
+                        request,
+                        "login.html",
+                        {
+                            "request": request,
+                            "restaurant_name": restaurant["name"],
+                            "slug": "",
+                            "error": "Mitarbeiter-Anmeldung erfolgt direkt auf dem Tablet-Sperrbildschirm.",
+                            "redirect": redirect
+                        }
+                    )
+                
+                if not redirect:
+                    if not restaurant.get("is_setup_completed", False):
+                        target_url = "/admin/setup"
+                    else:
+                        target_url = "/admin/dashboard"
+                elif redirect == "tablet":
+                    target_url = f"/{slug}/tablet"
+                elif redirect == "kitchen":
+                    target_url = f"/{slug}/kitchen"
                     
-            resp = RedirectResponse(url=target_url, status_code=303)
-            resp.set_cookie(key=f"session_{slug}", value=f"{name}:{role}:{pin_str}", httponly=True)
-            return resp
-            
+                resp = RedirectResponse(url=target_url, status_code=303)
+                # Set unified session cookie: slug:name:role:pin
+                resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True)
+                return resp
+                
     return templates.TemplateResponse(
         request,
         "login.html",
         {
             "request": request,
-            "restaurant_name": restaurant["name"],
-            "slug": slug,
-            "error": "Ungültige E-Mail-Adresse oder Passwort.",
+            "restaurant_name": "digi-gastro",
+            "slug": "",
+            "error": "Ungültige Anmeldedaten.",
             "redirect": redirect
         }
     )
 
-@app.get("/{slug}/admin/logout")
-def get_logout(slug: str, db: Session = Depends(get_db)):
-    resp = RedirectResponse(url=f"/{slug}/admin/login")
-    resp.delete_cookie(key=f"session_{slug}")
+@app.get("/admin/logout")
+def get_logout():
+    resp = RedirectResponse(url="/admin/login")
+    resp.delete_cookie(key="session")
     return resp
 
-@app.post("/{slug}/admin/profile-update")
+# Legacy redirects for backward compatibility
+@app.get("/{slug}/admin")
+def legacy_admin_root(slug: str):
+    return RedirectResponse(url="/admin")
+
+@app.get("/{slug}/admin/dashboard")
+def legacy_admin_dashboard(slug: str):
+    return RedirectResponse(url="/admin/dashboard")
+
+@app.get("/{slug}/admin/setup")
+def legacy_admin_setup(slug: str):
+    return RedirectResponse(url="/admin/setup")
+
+@app.get("/{slug}/admin/login")
+def legacy_admin_login(slug: str):
+    return RedirectResponse(url="/admin/login")
+
+@app.get("/{slug}/admin/logout")
+def legacy_admin_logout(slug: str):
+    return RedirectResponse(url="/admin/logout")
+
+@app.post("/admin/profile-update")
 def profile_update(
     request: Request,
-    slug: str,
     has_kitchen: Optional[bool] = Form(False),
     is_shishabar: Optional[bool] = Form(False),
     impressum_content: Optional[str] = Form(""),
-    datenschutz_content: Optional[str] = Form("")
-, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    datenschutz_content: Optional[str] = Form(""),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     restaurant["has_kitchen"] = bool(has_kitchen)
     restaurant["is_shishabar"] = bool(is_shishabar)
@@ -2883,14 +2785,13 @@ def profile_update(
     
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/table-erstellen")
-def create_table(request: Request, slug: str, number: str = Form(...), zone: str = Form(...), db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/table-erstellen")
+def create_table(request: Request, number: str = Form(...), zone: str = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     table_num = number.strip()
     
@@ -2902,27 +2803,25 @@ def create_table(request: Request, slug: str, number: str = Form(...), zone: str
         
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/table-loeschen/{table_num}")
-def delete_table(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/table-loeschen/{table_num}")
+def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     if "tables" in restaurant:
         restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/kategorie-erstellen")
-def create_category(request: Request, slug: str, category_name: str = Form(None, alias="category-name"), db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/kategorie-erstellen")
+def create_category(request: Request, category_name: str = Form(None, alias="category-name"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     if not category_name:
          raise HTTPException(status_code=400, detail="Kategorie-Name erforderlich.")
@@ -2932,32 +2831,13 @@ def create_category(request: Request, slug: str, category_name: str = Form(None,
         restaurant["categories"].append(cat)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-# Helper für Admin-Rechteprüfung
-# ──────────────────────────────────────────────────────────────────
-# STRICT ISOLATION: POS/KDS cookies NEVER grant admin access.
-# Only a valid session_{slug} cookie with role=chef is accepted.
-# ──────────────────────────────────────────────────────────────────
-def require_chef_user(request: Request, slug: str):
-    # Explicitly reject requests that carry only a POS or KDS device cookie
-    pos_cookie = request.cookies.get(f"pos_token_{slug}")
-    kds_cookie = request.cookies.get(f"kds_token_{slug}")
-    session = request.cookies.get(f"session_{slug}")
-    if (pos_cookie or kds_cookie) and not session:
-        raise HTTPException(
-            status_code=403,
-            detail="POS/KDS-Geräte haben keinen Zugriff auf Admin-Routen."
-        )
-    user = get_current_user(request, slug)
-    if not user or user["role"] != "chef":
-        raise HTTPException(status_code=403, detail="Kein Zugriff. Nur für Administratoren.")
-    return user
+# Helper für Admin-Rechteprüfung ist nun am Anfang definiert.
 
-@app.post("/{slug}/admin/produkt-erstellen")
+@app.post("/admin/produkt-erstellen")
 async def post_produkt_erstellen(
     request: Request,
-    slug: str,
     name: str = Form(...),
     preis: float = Form(...),
     kategorie: str = Form(...),
@@ -2967,10 +2847,11 @@ async def post_produkt_erstellen(
     image_url: Optional[str] = Form(""),
     image_file: Optional[UploadFile] = File(None),
     is_vegan: Optional[bool] = Form(False),
-    is_glutenfree: Optional[bool] = Form(False)
-, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    is_glutenfree: Optional[bool] = Form(False),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
 
     cat_name = kategorie.strip()
     if cat_name and cat_name not in restaurant["categories"]:
@@ -3037,20 +2918,18 @@ async def post_produkt_erstellen(
     finally:
         db.close()
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    return RedirectResponse(url=f"/{slug}/admin/dashboard", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
-@app.post("/{slug}/admin/produkt-loeschen/{product_id}")
+@app.post("/admin/produkt-loeschen/{product_id}")
 def delete_produkt(
     request: Request,
-    slug: str,
-    product_id: int
-, db: Session = Depends(get_db)):
+    product_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
     """Sicher löschen: nur eingeloggte Chef-User, strikt Tenant-isoliert."""
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    user, slug, restaurant = chef_data
 
     original_len = len(restaurant["products"])
     restaurant["products"] = [
@@ -3059,29 +2938,29 @@ def delete_produkt(
     if len(restaurant["products"]) == original_len:
         raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
 
-    db = SessionLocal()
+    db_session = SessionLocal()
     try:
         from database import Product as DBProduct
-        db.query(DBProduct).filter_by(id=product_id, tenant_slug=slug).delete()
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        db_session.query(DBProduct).filter_by(id=product_id, tenant_slug=slug).delete()
+        save_restaurant_to_db(slug, restaurant, db_session)
+        db_session.commit()
     finally:
-        db.close()
+        db_session.close()
 
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
-@app.post("/{slug}/admin/kategorie-loeschen")
+@app.post("/admin/kategorie-loeschen")
 def delete_kategorie(
     request: Request,
-    slug: str,
-    kategorie_name: str = Form(...)
-, db: Session = Depends(get_db)):
+    kategorie_name: str = Form(...),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
     """Kategorie sicher löschen (inkl. Tenant-Check). Produkte bleiben erhalten."""
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    user, slug, restaurant = chef_data
 
     cat_name = kategorie_name.strip()
     if cat_name not in restaurant["categories"]:
@@ -3091,18 +2970,18 @@ def delete_kategorie(
         c for c in restaurant["categories"] if c != cat_name
     ]
 
-    db = SessionLocal()
+    db_session = SessionLocal()
     try:
         from database import Category as DBCategory
-        db.query(DBCategory).filter_by(name=cat_name, tenant_slug=slug).delete()
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        db_session.query(DBCategory).filter_by(name=cat_name, tenant_slug=slug).delete()
+        save_restaurant_to_db(slug, restaurant, db_session)
+        db_session.commit()
     finally:
-        db.close()
+        db_session.close()
 
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # API Models
 class CallServicePayload(BaseModel):
@@ -3142,6 +3021,12 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         session = request.cookies.get(f"session_{slug}")
         if session:
             is_staff = True
+        else:
+            res = get_current_user_and_slug(request)
+            if res:
+                user, session_slug = res
+                if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                    is_staff = True
             
     if not is_staff:
         is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
@@ -3204,16 +3089,49 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
     is_token_valid = (active_token and ((active_session_tok and active_token == active_session_tok) or (master_token and active_token == master_token)))
     return {"active": bool(is_token_valid)}
 
-@app.get("/api/{slug}/tablet-status")
-def get_tablet_status(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.get("/api/tablet-status")
+def get_tablet_status(request: Request, db: Session = Depends(get_db)):
+    slug = None
+    is_admin = False
+    client_pos_token = None
+    
+    # 1. Try to get slug from admin/staff session
+    res = get_current_user_and_slug(request)
+    if res:
+        user, slug = res
+        is_admin = True
+    else:
+        # 2. Try to get slug from POS session
+        pos_session = request.cookies.get("pos_session")
+        if pos_session:
+            try:
+                parts = pos_session.split(":")
+                if len(parts) == 2:
+                    slug = parts[0]
+                    client_pos_token = parts[1]
+            except Exception:
+                pass
+        else:
+            # 3. Fallback: Search if any "pos_token_{slug}" cookie exists
+            for key, val in request.cookies.items():
+                if key.startswith("pos_token_"):
+                    slug = key.replace("pos_token_", "").strip()
+                    client_pos_token = val
+                    break
+                    
+    if not slug:
+        raise HTTPException(status_code=401, detail="Nicht autorisiert.")
+        
     restaurant = get_restaurant_or_raise(slug, db)
-    # ── Auto-kick: if pos_token was rotated, return 401 so tablet JS redirects to decoupled page
-    is_test = request.url.hostname == "testserver"
-    if not is_test:
-        expected_pos = restaurant.get("pos_token")
-        client_pos = request.cookies.get(f"pos_token_{slug}")
-        if expected_pos and client_pos and client_pos != expected_pos:
-            return JSONResponse(status_code=401, content={"error": "Gerät wurde entkoppelt"})
+    
+    # Auto-kick for POS if not admin
+    if not is_admin:
+        is_test = request.url.hostname == "testserver"
+        if not is_test:
+            expected_pos = restaurant.get("pos_token")
+            if expected_pos and client_pos_token != expected_pos:
+                return JSONResponse(status_code=401, content={"error": "Gerät wurde entkoppelt"})
+                
     active_orders = [o for o in restaurant.get("orders", []) if o["status"] not in ["bezahlt", "storniert"]]
     return {
         "orders": active_orders,
@@ -3221,21 +3139,6 @@ def get_tablet_status(request: Request, slug: str, db: Session = Depends(get_db)
         "tables": restaurant.get("tables", [])
     }
 
-@app.get("/api/{slug}/kitchen-status")
-def get_kitchen_status(request: Request, slug: str, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    # ── Auto-kick: if kds_token was rotated, return 401 so kitchen JS redirects
-    is_test = request.url.hostname == "testserver"
-    if not is_test:
-        expected_kds = restaurant.get("kds_token")
-        client_kds = request.cookies.get(f"kds_token_{slug}")
-        if expected_kds and client_kds and client_kds != expected_kds:
-            return JSONResponse(status_code=401, content={"error": "Gerät wurde entkoppelt"})
-    cooking_orders = [o for o in restaurant.get("orders", []) if o["status"] in ["eingegangen", "bestaetigt", "in_zubereitung"]]
-    return {
-        "orders": cooking_orders,
-        "service_calls": restaurant.get("service_calls", [])
-    }
 
 @app.get("/api/{slug}/table-unpaid-sum/{table_num}")
 def get_table_unpaid_sum(slug: str, table_num: str, db: Session = Depends(get_db)):
@@ -3250,28 +3153,13 @@ def get_table_unpaid_sum(slug: str, table_num: str, db: Session = Depends(get_db
             
     return {"unpaid_sum": unpaid_sum}
 
-@app.post("/api/{slug}/quick-login")
-def api_quick_login(slug: str, name: str = Form(...), db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    # Trim + case-insensitive match so minor whitespace / casing never breaks login
-    name_str = name.strip().lower()
 
-    staff_list = restaurant.get("staff", [])
-    employee = next(
-        (s for s in staff_list if s["name"].strip().lower() == name_str),
-        None
-    )
-    if employee:
-        pin_code = employee.get("pin_code") or employee.get("pin") or "1111"
-        return {"success": True, "name": employee["name"], "role": employee["role"], "pin": pin_code}
-    return {"success": False, "error": "Mitarbeiter nicht gefunden"}
 
-@app.post("/{slug}/admin/staff")
-def add_staff(request: Request, slug: str, staff_name: str = Form(...), role: str = Form(...), pin: str = Form(...), db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/staff")
+def add_staff(request: Request, staff_name: str = Form(...), role: str = Form(...), pin: str = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     pin_str = str(pin).strip()
     
@@ -3283,34 +3171,33 @@ def add_staff(request: Request, slug: str, staff_name: str = Form(...), role: st
     })
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/staff-loeschen/{pin_code}")
-def delete_staff(request: Request, slug: str, pin_code: str, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/staff-loeschen/{pin_code}")
+def delete_staff(request: Request, pin_code: str, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     restaurant["staff"] = [s for s in restaurant.get("staff", []) if str(s.get("pin_code")) != str(pin_code).strip()]
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/branding")
+@app.post("/admin/branding")
 def update_branding(
     request: Request,
-    slug: str,
     logo_file: Optional[UploadFile] = File(None),
     logo_url: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
     instagram: Optional[str] = Form(None),
-    facebook: Optional[str] = Form(None)
-, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    facebook: Optional[str] = Form(None),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     final_logo_url = logo_url.strip() if logo_url else restaurant.get("branding", {}).get("logo_url", "")
     
@@ -3340,14 +3227,13 @@ def update_branding(
     }
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin?tab=config", status_code=303)
+    return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
-@app.post("/{slug}/admin/happy-hour")
-def update_happy_hour(request: Request, slug: str, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...), db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/happy-hour")
+def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     restaurant["happy_hour"] = {
         "days": days,
@@ -3357,14 +3243,13 @@ def update_happy_hour(request: Request, slug: str, days: List[str] = Form(defaul
     }
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/shishabar-toggle")
-def toggle_shishabar(request: Request, slug: str, is_shishabar: Optional[bool] = Form(None), db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/shishabar-toggle")
+def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     restaurant["is_shishabar"] = bool(is_shishabar)
     
@@ -3378,7 +3263,7 @@ def toggle_shishabar(request: Request, slug: str, is_shishabar: Optional[bool] =
             
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.put("/api/products/{product_id}")
 def update_product_api(request: Request, product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
@@ -3451,12 +3336,11 @@ async def confirm_order(request: Request, slug: str, order_id: int, db: Session 
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
-@app.post("/{slug}/admin/product-toggle/{product_id}")
-def toggle_product_availability(request: Request, slug: str, product_id: int, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/product-toggle/{product_id}")
+def toggle_product_availability(request: Request, product_id: int, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     product = next((p for p in restaurant["products"] if p["id"] == product_id), None)
     if not product:
@@ -3464,21 +3348,21 @@ def toggle_product_availability(request: Request, slug: str, product_id: int, db
     product["is_available"] = not product.get("is_available", True)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/product-hh")
+@app.post("/admin/product-hh")
 def update_product_hh(
     request: Request,
-    slug: str, 
     product_id: int = Form(...), 
     hh_price: Optional[float] = Form(None, alias="happy_hour_price"),
     start_time: Optional[str] = Form(None),
-    end_time: Optional[str] = Form(None)
-, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+    end_time: Optional[str] = Form(None),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
         
     product = next((p for p in restaurant["products"] if p["id"] == product_id), None)
     if not product:
@@ -3489,30 +3373,32 @@ def update_product_hh(
     product["end_time"] = end_time if end_time else None
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/{slug}/admin/token-rotieren")
-def token_rotieren(request: Request, slug: str, db: Session = Depends(get_db)):
-    require_chef_user(request, slug)
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/token-rotieren")
+def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup", status_code=303)
+        return RedirectResponse(url="/admin/setup", status_code=303)
          
     new_token = secrets.token_hex(4)
     restaurant["security_token"] = new_token
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.get("/{slug}/admin/gobd-export", response_class=HTMLResponse)
-def gobd_export(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.get("/admin/gobd-export", response_class=HTMLResponse)
+def gobd_export(request: Request, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login")
+        
     restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url=f"/{slug}/admin/setup")
-        
-    user = get_current_user(request, slug)
-    if not user or user["role"] != "chef":
-        return RedirectResponse(url=f"/{slug}/admin/login")
+        return RedirectResponse(url="/admin/setup")
         
     paid_orders = [o for o in restaurant.get("orders", []) if o.get("status") == "bezahlt"]
     
@@ -3532,12 +3418,16 @@ def gobd_export(request: Request, slug: str, db: Session = Depends(get_db)):
 # LAUNCH-READY WIZARD & SETUP ROUTES
 # ==========================================
 
-@app.get("/{slug}/admin/setup", response_class=HTMLResponse)
-def get_setup(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.get("/admin/setup", response_class=HTMLResponse)
+def get_setup(request: Request, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login?redirect=setup")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login?redirect=setup")
+        
     restaurant = get_restaurant_or_raise(slug, db)
-    user = get_current_user(request, slug)
-    if not user or user["role"] != "chef":
-        return RedirectResponse(url=f"/{slug}/admin/login?redirect=setup")
     
     return templates.TemplateResponse(
         request,
@@ -3550,9 +3440,9 @@ def get_setup(request: Request, slug: str, db: Session = Depends(get_db)):
         }
     )
 
-@app.post("/{slug}/admin/upload-logo")
-async def upload_logo(slug: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
+@app.post("/admin/upload-logo")
+async def upload_logo(request: Request, file: UploadFile = File(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
 
     # Use the persistent uploads directory (env-configured)
     os.makedirs(UPLOAD_LOGOS_DIR, exist_ok=True)
@@ -3581,17 +3471,15 @@ async def upload_logo(slug: str, file: UploadFile = File(...), db: Session = Dep
     db.commit()
     return {"success": True, "logo_url": logo_relative_path}
 
-@app.post("/{slug}/admin/setup-complete")
+@app.post("/admin/setup-complete")
 def post_setup_complete(
     request: Request,
-    slug: str,
     has_kitchen: Optional[bool] = Form(False),
-    is_shishabar: Optional[bool] = Form(False)
-, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
-    user = get_current_user(request, slug)
-    if not user or user["role"] != "chef":
-         raise HTTPException(status_code=403, detail="Kein Zugriff")
+    is_shishabar: Optional[bool] = Form(False),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
          
     # Update settings
     restaurant["has_kitchen"] = bool(has_kitchen)
@@ -3620,15 +3508,19 @@ def post_setup_complete(
         
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    return RedirectResponse(url=f"/{slug}/admin/dashboard", status_code=303)
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
 # ──────────────────────────────────────────────────────────────────
 # QR-CODE PRINT GENERATOR – all tables for a tenant in one A4 grid
 # ──────────────────────────────────────────────────────────────────
-@app.get("/{slug}/admin/qr-print")
-def get_qr_print(request: Request, slug: str, db: Session = Depends(get_db)):
+@app.get("/admin/qr-print")
+def get_qr_print(request: Request, db: Session = Depends(get_db)):
     """Renders a printable A4 overview with a QR code block per table."""
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
     require_chef_user(request, slug)
     restaurant = get_restaurant_or_raise(slug, db)
     tables = restaurant.get("tables", [])
