@@ -1116,22 +1116,44 @@ def test_integration():
 
     # 9. New Features and Bug Fixes verification
     print("Testing Tisch umbuchen order merge logic...")
-    
-    # Establish valid guest sessions for Tisch 3 and Tisch 4 with current active session tokens
-    r_data = restaurants["demo"]
-    t3_db_table = next(t for t in r_data["tables"] if t["number"] == "3")
-    t3_tok = t3_db_table["active_session_token"]
-    resp = client.get(f"/demo?tisch=3&token={t3_tok}")
-    assert resp.status_code == 200
-    t3_cookie = resp.headers.get("set-cookie").split(";")[0].split("=")[1]
-    t3_cookies = {f"guest_session_demo": t3_cookie}
 
-    t4_db_table = next(t for t in r_data["tables"] if t["number"] == "4")
-    t4_tok = t4_db_table["active_session_token"]
-    resp = client.get(f"/demo?tisch=4&token={t4_tok}")
-    assert resp.status_code == 200
-    t4_cookie = resp.headers.get("set-cookie").split(";")[0].split("=")[1]
-    t4_cookies = {f"guest_session_demo": t4_cookie}
+    # Reset tables 3 & 4 with fresh, known tokens and clear their active orders.
+    # We build the complete final lists in one step and assign once so the
+    # LiveDictProxy.__setitem__ is triggered and saves to the DB.
+    r_data = restaurants["demo"]
+    current_tables = list(r_data["tables"])            # read from DB → plain list
+    new_tables = [t for t in current_tables if t.get("number") not in ("3", "4")]
+    new_tables += [
+        {"number": "3", "zone": "innen", "security_token": "sec-t3-test", "active_session_token": None},
+        {"number": "4", "zone": "innen", "security_token": "sec-t4-test", "active_session_token": None},
+    ]
+    r_data["tables"] = new_tables                       # single assignment → persists to DB
+
+    current_orders = list(r_data["orders"])             # read from DB → plain list
+    new_orders = [
+        o for o in current_orders
+        if o.get("table") not in ("Tisch 3", "Tisch 4", "3", "4")
+        or o.get("status") in ("bezahlt", "storniert")
+    ]
+    r_data["orders"] = new_orders                       # single assignment → persists to DB
+
+    # Log in as Tisch 3 (table is free → server generates new active_session_token, redirects with set-cookie)
+    client.cookies.clear()
+    resp = client.get("/demo?tisch=3&token=sec-t3-test", follow_redirects=False)
+    assert resp.status_code == 303, f"Tisch 3 login: expected 303, got {resp.status_code}; location={resp.headers.get('location')}"
+    sc3 = resp.headers.get("set-cookie")
+    assert sc3 is not None, f"No set-cookie for Tisch 3 (redirect to {resp.headers.get('location')})"
+    t3_cookie = sc3.split(";")[0].split("=", 1)[1]
+    t3_cookies = {"guest_session_demo": t3_cookie}
+
+    # Log in as Tisch 4 using its printed security_token
+    client.cookies.clear()
+    resp = client.get("/demo?tisch=4&token=sec-t4-test", follow_redirects=False)
+    assert resp.status_code == 303, f"Tisch 4 login: expected 303, got {resp.status_code}; location={resp.headers.get('location')}"
+    sc4 = resp.headers.get("set-cookie")
+    assert sc4 is not None, f"No set-cookie for Tisch 4 (redirect to {resp.headers.get('location')})"
+    t4_cookie = sc4.split(";")[0].split("=", 1)[1]
+    t4_cookies = {"guest_session_demo": t4_cookie}
 
     # Add a target order on Tisch 4
     resp = client.post("/demo/bestellen", json={
@@ -1170,12 +1192,14 @@ def test_integration():
     print("Tisch umbuchen order merge logic: OK")
 
     print("Testing complete order stornieren (BON STORNO)...")
-    # Fetch a fresh session token for Tisch 3 since it was rotated upon transfer/empty
-    t3_tok_new = t3_db_table["active_session_token"]
-    resp = client.get(f"/demo?tisch=3&token={t3_tok_new}")
-    assert resp.status_code == 200
-    t3_cookie_new = resp.headers.get("set-cookie").split(";")[0].split("=")[1]
-    t3_cookies_new = {f"guest_session_demo": t3_cookie_new}
+    # After transfer, Tisch 3 is free again. Re-login with its security_token.
+    client.cookies.clear()
+    resp = client.get("/demo?tisch=3&token=sec-t3-test", follow_redirects=False)
+    assert resp.status_code == 303, f"Tisch 3 re-login: expected 303, got {resp.status_code}"
+    sc3_new = resp.headers.get("set-cookie")
+    assert sc3_new is not None, "No set-cookie for Tisch 3 after transfer"
+    t3_cookie_new = sc3_new.split(";")[0].split("=", 1)[1]
+    t3_cookies_new = {"guest_session_demo": t3_cookie_new}
 
     # Place another order on Tisch 3
     resp = client.post("/demo/bestellen", json={
