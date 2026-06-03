@@ -257,8 +257,8 @@
     </section>
 
     <!-- LOGIN MODAL -->
-    <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/85 backdrop-blur-sm {% if not show_login %}hidden{% endif %}">
-        <div class="glass-panel w-full max-w-md rounded-2xl overflow-hidden shadow-2xl transform scale-100 transition-transform relative" id="loginCard">
+    <div id="loginModal" class="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/85 backdrop-blur-sm flex justify-center items-start md:items-center p-4 {% if not show_login %}hidden{% endif %}">
+        <div class="glass-panel w-full max-w-md rounded-2xl overflow-hidden shadow-2xl transform scale-100 transition-transform relative my-auto md:my-0" id="loginCard">
             <!-- Ambient glow -->
             <div class="absolute -right-20 -top-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
 

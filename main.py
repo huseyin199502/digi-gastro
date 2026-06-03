@@ -1051,9 +1051,15 @@ def global_login_get(request: Request, db: Session = Depends(get_db)):
 @app.post("/login")
 def global_login_post(
     request: Request,
-    email: str = Form(...),
-    password: str = Form(...)
+    email: Optional[str] = Form(None),
+    password: Optional[str] = Form(None)
 , db: Session = Depends(get_db)):
+    if not email or not password or not email.strip() or not password.strip():
+        return templates.TemplateResponse(
+            request,
+            "landing.html",
+            {"request": request, "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.", "show_login": True}
+        )
     db = SessionLocal()
     try:
         tenant = db.query(Tenant).filter_by(email=email.strip()).first()
@@ -2629,6 +2635,18 @@ def post_login(
     pin: Optional[str] = Form(None),
     redirect: Optional[str] = None
 , db: Session = Depends(get_db)):
+    if not (email and password) and not pin:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "request": request,
+                "restaurant_name": "digi-gastro",
+                "slug": "",
+                "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort (oder Ihre PIN) ein.",
+                "redirect": redirect
+            }
+        )
     target_url = "/admin"
     if redirect == "tablet":
         pass
