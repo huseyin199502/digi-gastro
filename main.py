@@ -2471,11 +2471,10 @@ def admin_impersonate(request: Request, table_number: str, db: Session = Depends
     table_token = db_table.get("security_token") or restaurant.get("security_token")
     
     # Redirect to customer menu and set session cookie
-    resp = RedirectResponse(url=f"/?uid={slug}&tisch={table_num}&token={table_token}", status_code=303)
+    resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}", status_code=303)
     resp.set_cookie(
-        key="guest_session",
-        value=f"{slug}:{table_num}:{table_token}",
-        httponly=True,
+        key=f"guest_session_{slug}",
+        value=f"{table_num}:{table_token}",
         max_age=14400,
         path="/"
     )

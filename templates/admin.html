@@ -1043,7 +1043,14 @@
         // ── SITZPLAN / WAITER POS GLOBAL STATE ──
         let allOrders  = {{ orders_json | safe }} || [];
         let allTables  = {{ tables_json | safe }} || [];
+        let allProducts = {{ restaurant.products | tojson | safe }} || [];
         let allCalls   = [];
+
+        function getProductCategory(item) {
+            if (item.category) return item.category;
+            const p = allProducts.find(prod => String(prod.id) === String(item.product_id));
+            return p ? (p.category || 'Sonstiges') : 'Sonstiges';
+        }
         
         let activeOrderId   = null;
         let expandedItemKey = null;
@@ -1339,7 +1346,7 @@
             } else {
                 cls += 'tile-free';
                 inner = `<span style="font-size:9px;font-weight:800;color:#10b981;text-transform:uppercase;">Frei</span>`;
-                onclick = `onclick="showToast('Tisch ${table.number} ist frei','success')"`;
+                onclick = `onclick="adminTakeOrder(${table.number})"`;
             }
 
             return `<div id="tile-${table.number}" class="${cls}" ${onclick}>
@@ -1385,6 +1392,12 @@
             }
         }
 
+        function adminTakeOrder(tableNumber) {
+            if (confirm(`Tisch ${tableNumber}: Neue Bestellung aufnehmen?`)) {
+                window.open(`/admin/impersonate/${tableNumber}`, '_blank');
+            }
+        }
+
         // ── ORDER POPUP LOGIC ──
         function openPopup(orderId) {
             activeOrderId = orderId;
@@ -1427,7 +1440,7 @@
 
             const cats = {};
             order.items.forEach(item => {
-                const c = item.category || item.category_type || 'Sonstiges';
+                const c = getProductCategory(item);
                 if (!cats[c]) cats[c] = [];
                 cats[c].push(item);
             });
@@ -1657,7 +1670,7 @@
                 
                 const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
                 if (item) {
-                    const c = item.category || item.category_type || 'Sonstiges';
+                    const c = getProductCategory(item);
                     if (!selectedItemsGrouped[c]) selectedItemsGrouped[c] = [];
                     selectedItemsGrouped[c].push({ item, qty, key });
                     total += item.price * qty;
