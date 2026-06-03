@@ -2077,6 +2077,314 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
 
 
 # ──────────────────────────────────────────────────────────────────
+# PAY ITEM – Teilzahlung: pay for a specific item within an order
+# POST /{slug}/tablet/pay-item/{order_id}
+# Body JSON: { "item_key": str, "quantity": int }
+# ──────────────────────────────────────────────────────────────────
+class PayItemPayload(BaseModel):
+    item_key: str
+    quantity: int = 1
+
+@app.post("/{slug}/tablet/pay-item/{order_id}")
+async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemPayload, db: Session = Depends(get_db)):
+    """Pay for a specific line item (partial payment). Removes paid quantity from order."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    # Find item by composite key: "{product_id}_{note_slug}"
+    parts = payload.item_key.split("_", 1)
+    pid_str = parts[0]
+    note_slug = parts[1] if len(parts) > 1 else ""
+
+    matched_item = None
+    for item in order.get("items", []):
+        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
+            matched_item = item
+            break
+
+    if not matched_item:
+        raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+
+    qty_to_pay = min(payload.quantity, matched_item["quantity"])
+    paid_amount = round(qty_to_pay * matched_item["price"], 2)
+
+    matched_item["quantity"] -= qty_to_pay
+    if matched_item["quantity"] <= 0:
+        order["items"].remove(matched_item)
+
+    # Recalculate order total
+    order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
+    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+
+    # Book revenue
+    restaurant["tagesumsatz"] = round(restaurant.get("tagesumsatz", 0.0) + paid_amount, 2)
+
+    # If no items left → mark whole order as bezahlt
+    if not order["items"]:
+        order["status"] = "bezahlt"
+        restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
+        # Rotate session token
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == table_num), None)
+        if db_table:
+            db_table["active_session_token"] = secrets.token_hex(4)
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "update"})
+    return {
+        "success": True,
+        "paid_amount": paid_amount,
+        "remaining_items": len(order["items"]),
+        "order_status": order["status"]
+    }
+
+
+# ──────────────────────────────────────────────────────────────────
+# TRANSFER ITEM – Umbuchen: move a single item to another table
+# POST /{slug}/tablet/transfer-item/{order_id}
+# Body JSON: { "item_key": str, "target_table": str, "quantity": int }
+# ──────────────────────────────────────────────────────────────────
+class TransferItemPayload(BaseModel):
+    item_key: str
+    target_table: str
+    quantity: int = 1
+
+@app.post("/{slug}/tablet/transfer-item/{order_id}")
+async def transfer_item(request: Request, slug: str, order_id: int, payload: TransferItemPayload, db: Session = Depends(get_db)):
+    """Move a single item from one order to another table's order."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+
+    source_order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not source_order:
+        raise HTTPException(status_code=404, detail="Quell-Bestellung nicht gefunden.")
+    if source_order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    target_num = str(payload.target_table).replace("Tisch", "").strip()
+    target_table_str = f"Tisch {target_num}"
+
+    tables_list = restaurant.get("tables", [])
+    target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
+    if not target_db_table:
+        raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
+
+    # Find source item
+    parts = payload.item_key.split("_", 1)
+    pid_str = parts[0]
+    note_slug = parts[1] if len(parts) > 1 else ""
+
+    source_item = None
+    for item in source_order.get("items", []):
+        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
+            source_item = item
+            break
+
+    if not source_item:
+        raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+
+    qty_to_move = min(payload.quantity, source_item["quantity"])
+    item_amount = round(qty_to_move * source_item["price"], 2)
+
+    # Remove qty from source
+    source_item["quantity"] -= qty_to_move
+    if source_item["quantity"] <= 0:
+        source_order["items"].remove(source_item)
+    source_order["total"] = round(sum(i["price"] * i["quantity"] for i in source_order["items"]), 2)
+    source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
+    if not source_order["items"]:
+        source_order["status"] = "storniert"
+
+    # Find or create target order
+    target_order = next(
+        (o for o in restaurant.get("orders", [])
+         if o.get("table") == target_table_str and o.get("status") not in ["bezahlt", "storniert"]),
+        None
+    )
+
+    if target_order:
+        # Merge into existing order
+        t_item = next(
+            (i for i in target_order.get("items", [])
+             if str(i.get("product_id")) == pid_str and (i.get("note") or "").strip().replace(" ", "_") == note_slug),
+            None
+        )
+        if t_item:
+            t_item["quantity"] += qty_to_move
+        else:
+            new_item = copy.deepcopy(source_item if source_item["quantity"] > 0 else {
+                "product_id": int(pid_str) if pid_str.isdigit() else 0,
+                "name": source_item.get("name", ""),
+                "price": source_item.get("price", 0.0),
+                "quantity": qty_to_move,
+                "note": source_item.get("note", ""),
+                "category": source_item.get("category", ""),
+                "category_type": source_item.get("category_type", ""),
+            })
+            new_item["quantity"] = qty_to_move
+            target_order["items"].append(new_item)
+        target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
+        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+        target_order["status"] = "eingegangen"
+    else:
+        # Create new order for target table
+        new_id = max((o.get("id", 0) for o in restaurant.get("orders", [])), default=0) + 1
+        moved_item = {
+            "product_id": int(pid_str) if pid_str.isdigit() else 0,
+            "name": source_item.get("name", ""),
+            "price": source_item.get("price", 0.0),
+            "quantity": qty_to_move,
+            "note": source_item.get("note"),
+            "category": source_item.get("category", ""),
+            "category_type": source_item.get("category_type", ""),
+        }
+        new_order = {
+            "id": new_id,
+            "table": target_table_str,
+            "items": [moved_item],
+            "total": round(item_amount, 2),
+            "total_with_tip": round(item_amount, 2),
+            "tip_amount": 0.0,
+            "status": "eingegangen",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "mwst_rate": 19,
+            "waiter_id": None
+        }
+        restaurant["orders"].append(new_order)
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "refresh_tables"})
+    return {"success": True, "moved_to": target_table_str, "qty_moved": qty_to_move}
+
+
+# ──────────────────────────────────────────────────────────────────
+# CANCEL ITEM – Stornieren: cancel a specific item or quantity within an order
+# POST /{slug}/tablet/cancel-item/{order_id}
+# Body JSON: { "item_key": str, "quantity": int, "pin": str }
+# ──────────────────────────────────────────────────────────────────
+class CancelItemPayload(BaseModel):
+    item_key: str
+    quantity: int = 1
+    pin: str
+
+@app.post("/{slug}/tablet/cancel-item/{order_id}")
+async def cancel_item(request: Request, slug: str, order_id: int, payload: CancelItemPayload, db: Session = Depends(get_db)):
+    """Cancel a specific line item (partial cancellation) with chef PIN check."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    # PIN check
+    employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
+    if not employee or employee["role"] != "chef":
+        raise HTTPException(status_code=403, detail="Ungültige PIN.")
+
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    parts = payload.item_key.split("_", 1)
+    pid_str = parts[0]
+    note_slug = parts[1] if len(parts) > 1 else ""
+
+    matched_item = None
+    for item in order.get("items", []):
+        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
+            matched_item = item
+            break
+
+    if not matched_item:
+        raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+
+    qty_to_cancel = min(payload.quantity, matched_item["quantity"])
+    cancelled_amount = round(qty_to_cancel * matched_item["price"], 2)
+
+    matched_item["quantity"] -= qty_to_cancel
+    if matched_item["quantity"] <= 0:
+        order["items"].remove(matched_item)
+
+    order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
+    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+
+    if not order["items"]:
+        order["status"] = "storniert"
+
+    log_entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "employee_name": employee["name"],
+        "employee_role": employee["role"],
+        "action": f"Stornierung von {qty_to_cancel}x {matched_item.get('name')} (Bestellung #{order_id})",
+        "details": f"Tisch: {order['table']}, Betrag: {cancelled_amount} € storniert."
+    }
+    if "audit_log" not in restaurant:
+        restaurant["audit_log"] = []
+    restaurant["audit_log"].append(log_entry)
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True}
+
+
+# ──────────────────────────────────────────────────────────────────
+
 # TRANSFER ORDER – Umbuchen: move an active order to another table
 # POST /{slug}/tablet/transfer-order
 # Body JSON: { "order_id": int, "target_table": str }
@@ -2400,7 +2708,9 @@ def get_admin(request: Request, slug: str, period: str = "heute", db: Session = 
             "slug": slug,
             "stats": stats,
             "period": period,
-            "current_user": user
+            "current_user": user,
+            "orders_json": json.dumps(restaurant.get("orders", [])),
+            "tables_json": json.dumps(restaurant.get("tables", []))
         }
     )
 

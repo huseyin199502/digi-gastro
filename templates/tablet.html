@@ -9,863 +9,793 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/design_system.css">
-
-    <script id="tailwind-config">
-        tailwind.config = {
-          darkMode: "class",
-          theme: {
-            extend: {
-              colors: {
-                "on-surface": "#f3f4f6",
-                "outline-variant": "rgba(255, 255, 255, 0.05)",
-                "primary": "#10b981",
-                "background": "#050507",
-                "surface": "#0b0c10",
-                "surface-container-high": "#11131a",
-                "on-surface-variant": "#9ca3af"
-              }
-            }
-          }
-        }
-    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* ── PREVENT ALL ZOOM ── */
-        * { touch-action: manipulation; }
-        html, body { touch-action: manipulation; -ms-touch-action: manipulation; }
+        /* ── NO ZOOM ── */
+        * { touch-action: manipulation; box-sizing: border-box; }
+        html, body { touch-action: manipulation; overscroll-behavior: none; }
         input, textarea, select { font-size: 16px !important; }
 
         body {
-            background-color: #050507;
-            color: #f3f4f6;
+            background: #080a0f;
+            color: #f1f5f9;
             font-family: 'Inter', system-ui, sans-serif;
-            overscroll-behavior: none;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* ── TILE ANIMATIONS ── */
-        @keyframes blinkNew {
-            0%, 100% {
-                background-color: rgba(239, 68, 68, 0.12);
-                border-color: rgba(239, 68, 68, 0.5);
-                box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
-            }
-            50% {
-                background-color: rgba(239, 68, 68, 0.30);
-                border-color: rgba(239, 68, 68, 1);
-                box-shadow: 0 0 35px rgba(239, 68, 68, 0.6);
-            }
-        }
-        .tile-blink-new { animation: blinkNew 1s infinite; }
-
-        @keyframes blinkService {
-            0%, 100% {
-                background-color: rgba(234, 179, 8, 0.08);
-                border-color: rgba(234, 179, 8, 0.4);
-            }
-            50% {
-                background-color: rgba(234, 179, 8, 0.25);
-                border-color: rgba(234, 179, 8, 1);
-                box-shadow: 0 0 30px rgba(234, 179, 8, 0.5);
-            }
-        }
-        .tile-blink-service { animation: blinkService 1s infinite; }
-
-        /* ── TILE GRID ── */
-        .table-tile {
-            aspect-ratio: 1;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+        }
+
+        /* ── TILE BLINK ANIMATIONS ── */
+        @keyframes blinkRed {
+            0%,100% { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.5); box-shadow:0 0 16px rgba(239,68,68,.2); }
+            50%     { background:rgba(239,68,68,.28); border-color:rgba(239,68,68,1);  box-shadow:0 0 30px rgba(239,68,68,.6); }
+        }
+        @keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+        /* ── TILES ── */
+        .table-tile {
+            aspect-ratio: 1;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             border-radius: 1.25rem;
             border: 2px solid transparent;
             cursor: pointer;
-            transition: all 0.15s ease;
-            padding: 0.75rem;
+            transition: transform .12s;
+            padding: .6rem;
             text-align: center;
-            position: relative;
-            overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            position: relative;
         }
-        .table-tile:active { transform: scale(0.96); }
+        .table-tile:active { transform: scale(.94); }
+        .tile-free   { background:rgba(255,255,255,.02); border-color:rgba(255,255,255,.07); }
+        .tile-active { background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.35); }
+        .tile-new    { animation: blinkRed 1s infinite; }
+        .tile-call   { animation: blinkRed .8s infinite; border-color:rgba(239,68,68,.8); }
 
-        /* ── POPUP OVERLAY ── */
-        #order-popup {
+        /* ── OVERLAY BACKDROP ── */
+        .overlay-backdrop {
             position: fixed; inset: 0; z-index: 60;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(0,0,0,.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
             display: flex; align-items: center; justify-content: center;
             padding: 1rem;
         }
-        #order-popup.hidden { display: none; }
+        .overlay-backdrop.hidden { display: none; }
+
+        /* ── POPUP CARD ── */
         .popup-card {
-            background: #0f1014;
-            border: 1px solid rgba(255,255,255,0.08);
+            background: #0d0f14;
+            border: 1px solid rgba(255,255,255,.09);
             border-radius: 1.5rem;
-            width: 100%; max-width: 560px;
-            max-height: 90vh;
+            width: 100%; max-width: 540px;
+            max-height: 92vh;
             display: flex; flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+            box-shadow: 0 30px 70px rgba(0,0,0,.85);
         }
         .popup-header {
-            background: #10b981;
-            padding: 1.1rem 1.25rem;
+            background: linear-gradient(135deg, #059669, #10b981);
+            padding: 1rem 1.1rem;
             display: flex; align-items: center; justify-content: space-between;
             flex-shrink: 0;
         }
-        .popup-body { flex: 1; overflow-y: auto; padding: 1rem; }
-        .popup-footer {
-            border-top: 1px solid rgba(255,255,255,0.06);
-            padding: 1rem;
-            flex-shrink: 0;
+        .popup-body   { flex: 1; overflow-y: auto; padding: .75rem; }
+        .popup-footer { border-top: 1px solid rgba(255,255,255,.07); padding: .75rem; flex-shrink: 0; }
+
+        /* ── ITEM CARD (Cusi-style) ── */
+        .item-card {
+            background: #131620;
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 1rem;
+            margin-bottom: .5rem;
+            overflow: hidden;
+            transition: border-color .15s;
+        }
+        .item-card.expanded { border-color: rgba(99,102,241,.5); }
+        .item-row {
+            display: flex; align-items: center;
+            padding: .7rem .85rem;
+            cursor: pointer;
+            gap: .6rem;
+        }
+        .item-row:active { background: rgba(255,255,255,.04); }
+        .item-actions {
+            background: rgba(0,0,0,.35);
+            border-top: 1px solid rgba(255,255,255,.05);
+            padding: .65rem .85rem;
+            display: flex; gap: .5rem; flex-wrap: wrap;
+            align-items: center;
         }
 
-        /* ── ITEM ROWS ── */
-        .order-item-row {
-            background: #141418;
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 0.875rem;
-            padding: 0.75rem 0.9rem;
-            margin-bottom: 0.5rem;
-            display: flex; align-items: center; gap: 0.75rem;
-        }
-        .item-status-badge {
+        /* ── STATUS BADGES ── */
+        .badge {
             font-size: 10px; font-weight: 800;
-            padding: 3px 8px; border-radius: 999px;
-            text-transform: uppercase; letter-spacing: 0.05em;
-            flex-shrink: 0;
+            padding: 3px 9px; border-radius: 999px;
+            text-transform: uppercase; letter-spacing: .05em;
+            white-space: nowrap; flex-shrink: 0;
         }
-        .badge-pending { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
-        .badge-confirmed { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
-        .badge-delivered { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-offen       { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+        .badge-vorbereitung{ background:rgba(99,102,241,.15); color:#a5b4fc; border:1px solid rgba(99,102,241,.3); animation:pulse2 1.5s infinite; }
+        .badge-fertig      { background:rgba(16,185,129,.15); color:#10b981; border:1px solid rgba(16,185,129,.3); }
 
         /* ── ACTION BUTTONS ── */
-        .btn-confirm {
-            background: rgba(59,130,246,0.12); color: #60a5fa;
-            border: 1px solid rgba(59,130,246,0.3);
-            border-radius: 0.6rem; padding: 6px 12px;
+        .btn-action {
+            border-radius: .6rem; padding: 7px 12px;
             font-size: 11px; font-weight: 800;
-            cursor: pointer; transition: all 0.15s;
-            flex-shrink: 0;
+            cursor: pointer; transition: all .12s;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            display: flex; align-items: center; gap: 5px;
         }
-        .btn-confirm:active { background: rgba(59,130,246,0.3); transform: scale(0.95); }
-        .btn-done {
-            background: rgba(16,185,129,0.12); color: #10b981;
-            border: 1px solid rgba(16,185,129,0.3);
-            border-radius: 0.6rem; padding: 6px 12px;
-            font-size: 11px; font-weight: 800;
-            cursor: pointer; transition: all 0.15s;
-            flex-shrink: 0;
-        }
-        .btn-done:active { background: rgba(16,185,129,0.3); transform: scale(0.95); }
+        .btn-action:active { transform: scale(.93); }
+        .btn-vorbereiten { background:rgba(99,102,241,.12); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .btn-vorbereiten:hover { background:rgba(99,102,241,.22); }
+        .btn-fertig      { background:rgba(16,185,129,.12); color:#10b981; border-color:rgba(16,185,129,.3); }
+        .btn-fertig:hover{ background:rgba(16,185,129,.22); }
+        .btn-pay-item    { background:rgba(16,185,129,.15); color:#10b981; border-color:rgba(16,185,129,.4); }
+        .btn-pay-item:hover{ background:rgba(16,185,129,.28); }
+        .btn-transfer-item{ background:rgba(99,102,241,.12); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .btn-transfer-item:hover{ background:rgba(99,102,241,.22); }
 
-        /* ── SERVICE CALLS BAR ── */
-        .service-call-bar {
-            background: rgba(239,68,68,0.08);
-            border: 1px solid rgba(239,68,68,0.25);
-            border-radius: 0.875rem;
-            padding: 0.6rem 0.9rem;
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 0.4rem;
+        /* ── SERVICE CALL ── */
+        .call-bar {
+            background:rgba(239,68,68,.08);
+            border:1px solid rgba(239,68,68,.25);
+            border-radius:.875rem;
+            padding:.55rem .85rem;
+            display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:.4rem;
         }
+
+        /* ── TABLE SELECTOR (Umbuchen) ── */
+        .table-sel-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .6rem;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .table-sel-tile {
+            background: #131620;
+            border: 2px solid rgba(255,255,255,.07);
+            border-radius: .875rem;
+            padding: .9rem .5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all .12s;
+        }
+        .table-sel-tile:active { transform: scale(.93); background:rgba(99,102,241,.2); border-color:#6366f1; }
+        .table-sel-tile.busy  { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.05); }
+
+        /* ── CONN BANNER ── */
+        #conn-banner {
+            background:rgba(239,68,68,.1); border-bottom:1px solid rgba(239,68,68,.25);
+            color:#fca5a5; text-align:center; padding:6px;
+            font-size:11px; font-weight:800;
+        }
+        #conn-banner.hidden { display:none; }
 
         /* ── TOAST ── */
         .toast {
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(16px);
-            z-index: 999; padding: 10px 20px; border-radius: 999px;
-            font-size: 12px; font-weight: 800;
-            opacity: 0; transition: all 0.3s;
-            pointer-events: none;
-            white-space: nowrap;
+            position:fixed; bottom:72px; left:50%; transform:translateX(-50%) translateY(12px);
+            z-index:999; padding:9px 20px; border-radius:999px;
+            font-size:12px; font-weight:800;
+            opacity:0; transition:all .28s; pointer-events:none; white-space:nowrap;
         }
-        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-        .toast-success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10b981; }
-        .toast-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; }
+        .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+        .toast-success { background:rgba(16,185,129,.15); border:1px solid rgba(16,185,129,.4); color:#10b981; }
+        .toast-error   { background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); color:#f87171; }
 
-        /* ── UMBUCHEN TABLE SELECTOR ── */
-        #umbuchen-overlay {
-            position: fixed; inset: 0; z-index: 70;
-            background: rgba(0,0,0,0.9);
-            backdrop-filter: blur(16px);
-            display: flex; align-items: center; justify-content: center;
-            padding: 1rem;
-        }
-        #umbuchen-overlay.hidden { display: none; }
-        .umbuchen-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.75rem;
-            max-height: 65vh;
-            overflow-y: auto;
-        }
-        .umbuchen-tile {
-            background: #141418;
-            border: 2px solid rgba(255,255,255,0.08);
-            border-radius: 1rem;
-            padding: 1rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .umbuchen-tile:active { transform: scale(0.95); background: rgba(99,102,241,0.2); border-color: #6366f1; }
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:999px; }
 
-        /* ── SCROLL THIN ── */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 999px; }
-
-        /* ── TILES GRID ── */
-        #tiles-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
+        /* ── CATEGORY LABEL ── */
+        .cat-label {
+            font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.1em;
+            background:#10b981; color:#000;
+            padding:3px 10px; border-radius:5px;
+            display:inline-block; margin:6px 0 4px;
         }
-        @media (min-width: 480px) { #tiles-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (min-width: 640px) { #tiles-grid { grid-template-columns: repeat(4, 1fr); } }
-        @media (min-width: 900px) { #tiles-grid { grid-template-columns: repeat(5, 1fr); } }
-        @media (min-width: 1200px) { #tiles-grid { grid-template-columns: repeat(6, 1fr); } }
 
-        /* ── CONN STATUS ── */
-        #conn-banner {
-            background: rgba(239,68,68,0.1);
-            border-bottom: 1px solid rgba(239,68,68,0.25);
-            color: #f87171;
-            text-align: center;
-            padding: 6px;
-            font-size: 11px;
-            font-weight: 800;
-        }
-        #conn-banner.hidden { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinning { animation: spin .6s linear infinite; }
     </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
-<!-- ── OFFLINE BANNER ── -->
-<div id="conn-banner" class="hidden">
-    ⚡ OFFLINE – Verbindung unterbrochen! Versuche Wiederverbindung…
-</div>
+<!-- OFFLINE BANNER -->
+<div id="conn-banner" class="hidden">⚡ Verbindung unterbrochen – versuche Wiederverbindung…</div>
 
-<!-- ── TOP HEADER ── -->
-<header style="background:#0b0c10; border-bottom:1px solid rgba(255,255,255,0.06); padding:0.875rem 1rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; position:sticky; top:0; z-index:50;">
-    <div style="display:flex; align-items:center; gap:0.75rem;">
+<!-- HEADER -->
+<header style="background:#0b0d12;border-bottom:1px solid rgba(255,255,255,.06);padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:50;">
+    <div style="display:flex;align-items:center;gap:.65rem;">
         {% if restaurant.branding and restaurant.branding.logo_url %}
-        <img src="{{ restaurant.branding.logo_url }}" alt="Logo" style="width:36px; height:36px; border-radius:10px; object-fit:contain; background:rgba(0,0,0,0.3);">
+        <img src="{{ restaurant.branding.logo_url }}" alt="Logo" style="width:32px;height:32px;border-radius:8px;object-fit:contain;">
         {% endif %}
         <div>
-            <div style="font-size:13px; font-weight:900; color:#fff; line-height:1;">{{ restaurant.name }}</div>
-            <div style="font-size:10px; color:#10b981; font-weight:700; text-transform:uppercase; letter-spacing:0.08em;">Kasse</div>
+            <div style="font-size:13px;font-weight:900;color:#fff;line-height:1.1;">{{ restaurant.name }}</div>
+            <div style="font-size:9px;color:#10b981;font-weight:800;text-transform:uppercase;letter-spacing:.1em;">Kasse</div>
         </div>
     </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-        <div style="font-size:11px; color:#6b7280; font-weight:700;" id="waiter-display">
-            <span style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block; margin-right:5px; animation:pulse 2s infinite;"></span>
+    <div style="display:flex;align-items:center;gap:.6rem;">
+        <div style="font-size:11px;color:#6b7280;font-weight:700;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;margin-right:4px;"></span>
             {{ default_staff.name if default_staff else 'Besitzer' }}
         </div>
-        <a href="/{{ slug }}/admin/logout" style="font-size:11px; color:#f87171; font-weight:700; text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); background:rgba(239,68,68,0.05);">Logout</a>
+        <a href="/{{ slug }}/admin/logout" style="font-size:11px;color:#f87171;font-weight:700;text-decoration:none;padding:5px 10px;border-radius:7px;border:1px solid rgba(239,68,68,.2);background:rgba(239,68,68,.05);">Logout</a>
     </div>
 </header>
 
-<!-- ── TEST-ONLY METADATA (required by backend tests) ── -->
+<!-- Required by backend tests -->
 <div class="hidden" id="test-only-orders-metadata">
-    {% for order in orders %}
-        <span>{{ order.table }}</span>
-        <span>{{ "%.2f"|format(order.total) }}</span>
+    {% for order in orders %}<span>{{ order.table }}</span><span>{{ "%.2f"|format(order.total) }}</span>{% endfor %}
+</div>
+<div class="hidden" id="test-only-calls-metadata">
+    {% for call in restaurant.service_calls %}
+        <span>{{ call.table }}</span><span>{{ call.type }}</span>
+        {% if call.type == 'kohle' %}<span>Neue Kohle!</span>{% endif %}
+        {% if call.type == 'kellner' %}<span>Kellner gewünscht!</span>{% endif %}
     {% endfor %}
 </div>
 
-<!-- ── MAIN CONTENT ── -->
-<main style="flex:1; overflow-y:auto; padding:1rem; padding-bottom:80px;">
-
-    <!-- Service Calls Section -->
-    <div id="service-calls-section" style="margin-bottom:1rem;">
-        <!-- Rendered dynamically -->
-    </div>
-
-    <!-- Zone Headers + Tiles -->
-    <div id="tiles-root">
-        <!-- Rendered dynamically via JS -->
-    </div>
+<!-- MAIN -->
+<main style="flex:1;overflow-y:auto;padding:.75rem;padding-bottom:80px;">
+    <div id="service-calls-section"></div>
+    <div id="tiles-root"></div>
 </main>
 
-<!-- ── ORDER POPUP ── -->
-<div id="order-popup" class="hidden">
+<!-- ══════════════════════════════════════════════════════
+     ORDER POPUP
+═══════════════════════════════════════════════════════ -->
+<div id="order-popup" class="overlay-backdrop hidden">
     <div class="popup-card">
         <!-- Header -->
         <div class="popup-header">
             <div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.7); font-weight:700; text-transform:uppercase; letter-spacing:0.07em;" id="popup-bon-id">Bon #--</div>
-                <div style="font-size:22px; font-weight:900; color:#fff;" id="popup-table-name">Tisch --</div>
+                <div style="font-size:10px;color:rgba(255,255,255,.75);font-weight:800;text-transform:uppercase;letter-spacing:.07em;" id="popup-bon-id">Bon #--</div>
+                <div style="font-size:22px;font-weight:900;color:#fff;" id="popup-table-name">Tisch --</div>
             </div>
-            <div style="display:flex; align-items:center; gap:0.5rem;">
-                <div style="font-size:20px; font-weight:900; color:#fff;" id="popup-total">0,00 €</div>
-                <button onclick="closePopup()" style="width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px;" aria-label="Schließen">✕</button>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+                <div style="font-size:19px;font-weight:900;color:#fff;" id="popup-total">0,00 €</div>
+                <button onclick="closePopup()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
             </div>
         </div>
 
-        <!-- Body: item list -->
-        <div class="popup-body" id="popup-items">
-            <!-- Rendered dynamically -->
-        </div>
+        <!-- Body -->
+        <div class="popup-body" id="popup-items"></div>
 
-        <!-- Footer: Bezahlt + Umbuchen -->
+        <!-- Footer -->
         <div class="popup-footer">
-            <div style="display:flex; gap:0.75rem; margin-bottom:0.5rem;">
-                <button onclick="bezahlen()" id="btn-bezahlt"
-                    style="flex:1; background:#10b981; color:#000; border:none; border-radius:0.875rem; padding:14px; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    ✅ Bezahlt
+            <div style="display:flex;gap:.6rem;margin-bottom:.45rem;">
+                <button onclick="bezahlenAlles()" id="btn-bezahlt-all"
+                    style="flex:1;background:#10b981;color:#000;border:none;border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+                    ✅ Alle bezahlen
                 </button>
-                <button onclick="openUmbuchen()"
-                    style="flex:1; background:rgba(99,102,241,0.12); color:#a5b4fc; border:1px solid rgba(99,102,241,0.3); border-radius:0.875rem; padding:14px; font-size:14px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    🔄 Umbuchen
+                <button onclick="openUmbuchenAll()"
+                    style="flex:1;background:rgba(99,102,241,.12);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+                    🔄 Tisch umbuchen
                 </button>
             </div>
-            <button onclick="stornieren()" 
-                style="width:100%; background:rgba(239,68,68,0.08); color:#f87171; border:1px solid rgba(239,68,68,0.2); border-radius:0.875rem; padding:10px; font-size:12px; font-weight:800; cursor:pointer;">
-                🚫 Bon stornieren
+            <button onclick="stornieren()"
+                style="width:100%;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:.85rem;padding:9px;font-size:12px;font-weight:800;cursor:pointer;">
+                🚫 Bon stornieren (Chef-PIN)
             </button>
         </div>
     </div>
 </div>
 
-<!-- ── UMBUCHEN OVERLAY ── -->
-<div id="umbuchen-overlay" class="hidden">
-    <div style="background:#0f1014; border:1px solid rgba(255,255,255,0.08); border-radius:1.5rem; width:100%; max-width:480px; padding:1.5rem; max-height:90vh; overflow-y:auto;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
+<!-- ══════════════════════════════════════════════════════
+     TABLE SELECTOR OVERLAY (für Umbuchen ganzer Bon oder einzelnem Artikel)
+═══════════════════════════════════════════════════════ -->
+<div id="table-sel-overlay" class="overlay-backdrop hidden" style="z-index:70;">
+    <div style="background:#0d0f14;border:1px solid rgba(255,255,255,.09);border-radius:1.5rem;width:100%;max-width:460px;padding:1.25rem;max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
             <div>
-                <div style="font-size:18px; font-weight:900; color:#fff;">Tisch wählen</div>
-                <div style="font-size:12px; color:#9ca3af; margin-top:2px;">Wohin soll die Bestellung umgebucht werden?</div>
+                <div style="font-size:17px;font-weight:900;color:#fff;" id="table-sel-title">Tisch wählen</div>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px;" id="table-sel-subtitle">Wohin umbuchen?</div>
             </div>
-            <button onclick="closeUmbuchen()" style="width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.08); border:none; color:#fff; cursor:pointer; font-size:18px;">✕</button>
+            <button onclick="closeTableSel()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#fff;cursor:pointer;font-size:18px;">✕</button>
         </div>
-        <div class="umbuchen-grid" id="umbuchen-tiles">
-            <!-- Rendered dynamically -->
-        </div>
+        <div class="table-sel-grid" id="table-sel-grid"></div>
     </div>
 </div>
 
-<!-- ── TOAST ── -->
+<!-- TOAST -->
 <div id="toast" class="toast toast-success"></div>
 
-<!-- ── AUDIO (Web Audio API) ── -->
+<!-- ══════════════════════════════════════════════════════
+     AUDIO
+═══════════════════════════════════════════════════════ -->
 <script>
     let audioCtx = null;
-
     function initAudio() {
-        if (!audioCtx) {
-            const Ctx = window.AudioContext || window.webkitAudioContext;
-            if (Ctx) audioCtx = new Ctx();
-        }
-        if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-        }
+        if (!audioCtx) { const Ctx = window.AudioContext||window.webkitAudioContext; if(Ctx) audioCtx=new Ctx(); }
+        if (audioCtx && audioCtx.state==='suspended') audioCtx.resume().catch(()=>{});
     }
-    document.addEventListener('click', initAudio, { once: false });
-    document.addEventListener('touchstart', initAudio, { once: false });
+    document.addEventListener('click', initAudio, false);
+    document.addEventListener('touchstart', initAudio, false);
 
-    function playNewOrderSound() {
+    function playBeep(freq, dur, type='sine', vol=0.15) {
         try {
-            initAudio();
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.15);
-            gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.6);
-        } catch(e) {}
+            initAudio(); if(!audioCtx) return;
+            const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+            o.type=type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(freq*1.4, audioCtx.currentTime+dur*.4);
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime+dur);
+        } catch(e){}
     }
-
-    function playServiceSound() {
-        try {
-            initAudio();
-            if (!audioCtx) return;
-            [0, 180].forEach((delay, i) => {
-                setTimeout(() => {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(i === 0 ? 660 : 880, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-                    osc.connect(gain); gain.connect(audioCtx.destination);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
-                }, delay);
-            });
-        } catch(e) {}
-    }
+    const playNewOrderSound = () => { playBeep(880,.5,'sine',.18); setTimeout(()=>playBeep(1100,.3,'sine',.12),200); };
+    const playServiceSound  = () => { [0,200].forEach((d,i)=>setTimeout(()=>playBeep(i?880:660,.18,'square',.09),d)); };
 </script>
 
-<!-- ── MAIN SCRIPT ── -->
+<!-- ══════════════════════════════════════════════════════
+     MAIN LOGIC
+═══════════════════════════════════════════════════════ -->
 <script>
-    const slug = "{{ slug }}";
-    let allOrders = {{ orders_json | safe }};
-    let allTables = {{ tables_json | safe }};
+const slug = "{{ slug }}";
+let allOrders  = {{ orders_json | safe }};
+let allTables  = {{ tables_json | safe }};
 
-    let activeOrderId = null;
-    let seenNewOrderIds = new Set();
-    let seenServiceCallIds = new Set();
-    let initialPollDone = false;
-    let ws = null;
-    let wsReconnectTimer = null;
-    let wsPingTimer = null;
+// State
+let activeOrderId   = null;
+let expandedItemKey = null;        // which item card is expanded
+let tableSel_mode   = null;        // 'all' | 'item'
+let tableSel_itemKey = null;
+let seenOrderIds    = new Set();
+let seenCallIds     = new Set();
+let initialDone     = false;
+let ws = null, wsPing = null, wsReconn = null;
 
-    // ── WEBSOCKET with aggressive keep-alive ──────────────────────
-    function connectWebSocket() {
-        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-        clearTimeout(wsReconnectTimer);
-        clearInterval(wsPingTimer);
+// ── WEBSOCKET ─────────────────────────────────────────
+function connectWS() {
+    if (ws && (ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING)) return;
+    clearTimeout(wsReconn); clearInterval(wsPing);
+    const proto = location.protocol==='https:'?'wss:':'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws/${slug}`);
+    ws.onopen = () => {
+        document.getElementById('conn-banner').classList.add('hidden');
+        clearInterval(wsPing);
+        wsPing = setInterval(()=>{ if(ws&&ws.readyState===WebSocket.OPEN) try{ws.send(JSON.stringify({type:'ping'}))}catch(e){} }, 25000);
+        pollStatus();
+    };
+    ws.onmessage = (e) => {
+        try { const d=JSON.parse(e.data); if(d.type==='update'||d.type==='refresh_tables') pollStatus(); } catch(ex){}
+    };
+    ws.onclose = () => {
+        ws=null; clearInterval(wsPing);
+        document.getElementById('conn-banner').classList.remove('hidden');
+        wsReconn = setTimeout(connectWS, 3000);
+    };
+    ws.onerror = () => { if(ws) ws.close(); };
+}
 
-        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const url = `${proto}//${location.host}/ws/${slug}`;
-        console.log('[WS] Connecting...', url);
-        ws = new WebSocket(url);
-
-        ws.onopen = () => {
-            console.log('[WS] Connected');
+// ── POLLING ───────────────────────────────────────────
+function pollStatus() {
+    fetch(`/api/${slug}/tablet-status`)
+        .then(r => {
+            if(r.status===401||r.status===403) { location.href=`/${slug}/device-decoupled`; return null; }
+            if(!r.ok) throw new Error('err');
+            return r.json();
+        })
+        .then(data => {
+            if(!data) return;
             document.getElementById('conn-banner').classList.add('hidden');
-            // Ping every 25s to prevent idle closure
-            clearInterval(wsPingTimer);
-            wsPingTimer = setInterval(() => {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    try { ws.send(JSON.stringify({ type: 'ping' })); } catch(e) {}
-                }
-            }, 25000);
-            pollStatus();
-        };
-
-        ws.onmessage = (evt) => {
-            try {
-                const msg = JSON.parse(evt.data);
-                if (msg.type === 'update' || msg.type === 'refresh_tables') {
-                    pollStatus();
-                }
-            } catch(e) {}
-        };
-
-        ws.onclose = (evt) => {
-            console.warn('[WS] Closed', evt.code, evt.reason);
-            ws = null;
-            clearInterval(wsPingTimer);
-            document.getElementById('conn-banner').classList.remove('hidden');
-            wsReconnectTimer = setTimeout(connectWebSocket, 3000);
-        };
-
-        ws.onerror = () => {
-            if (ws) ws.close();
-        };
-    }
-
-    // ── STATUS POLLING ────────────────────────────────────────────
-    function pollStatus() {
-        fetch(`/api/${slug}/tablet-status`)
-            .then(res => {
-                if (res.status === 401 || res.status === 403) {
-                    window.location.href = `/${slug}/device-decoupled`;
-                    return null;
-                }
-                if (!res.ok) throw new Error('Server error');
-                return res.json();
-            })
-            .then(data => {
-                if (!data) return;
-                document.getElementById('conn-banner').classList.add('hidden');
-
-                // Detect new orders/service calls for audio
-                if (initialPollDone) {
-                    const hasNew = data.orders.some(o =>
-                        o.status === 'eingegangen' && !seenNewOrderIds.has(o.id)
-                    );
-                    const hasNewCall = data.service_calls.some(c => !seenServiceCallIds.has(c.id));
-                    if (hasNew) playNewOrderSound();
-                    if (hasNewCall) playServiceSound();
-                }
-                data.orders.forEach(o => { if (o.status === 'eingegangen') seenNewOrderIds.add(o.id); });
-                data.service_calls.forEach(c => seenServiceCallIds.add(c.id));
-                initialPollDone = true;
-
-                // Update local state
-                allOrders = data.orders;
-                allTables = data.tables || allTables;
-
-                // Re-render
-                renderServiceCalls(data.service_calls || []);
-                renderTiles(allTables, allOrders, data.service_calls || []);
-
-                // Refresh open popup
-                if (activeOrderId !== null) {
-                    const updated = allOrders.find(o => o.id === activeOrderId);
-                    if (!updated || updated.status === 'bezahlt' || updated.status === 'storniert') {
-                        closePopup();
-                    } else {
-                        renderPopupItems(updated);
-                        document.getElementById('popup-total').textContent = updated.total.toFixed(2).replace('.', ',') + ' €';
-                    }
-                }
-            })
-            .catch(() => {
-                document.getElementById('conn-banner').classList.remove('hidden');
-            });
-    }
-
-    // ── SERVICE CALLS RENDERING ───────────────────────────────────
-    function renderServiceCalls(calls) {
-        const sec = document.getElementById('service-calls-section');
-        if (calls.length === 0) { sec.innerHTML = ''; return; }
-
-        const typeLabel = {
-            'kellner': '👤 Kellner gewünscht!',
-            'kohle': '🔥 Neue Kohle!',
-            'karte': '💳 Kartenzahlung',
-            'bar': '💵 Barzahlung',
-            'abraeumen': '🍽️ Tisch abräumen'
-        };
-
-        sec.innerHTML = `
-            <div style="font-size:10px; font-weight:900; color:#f87171; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem; display:flex; align-items:center; gap:6px;">
-                <span style="animation:pulse 1s infinite;">🚨</span> Dringende Service-Rufe (${calls.length})
-            </div>
-            ${calls.map(c => `
-                <div class="service-call-bar">
-                    <div>
-                        <span style="font-size:13px; font-weight:900; color:#fff;">${c.table}</span>
-                        <span style="font-size:11px; color:#fca5a5; font-weight:700; margin-left:8px;">${typeLabel[c.type] || c.type}</span>
-                        <span style="font-size:10px; color:#6b7280; margin-left:6px;">${c.timestamp}</span>
-                    </div>
-                    <button onclick="resolveCall(${c.id})" style="background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:5px 12px; font-size:11px; font-weight:800; cursor:pointer;">
-                        Erledigt
-                    </button>
-                </div>
-            `).join('')}
-        `;
-    }
-
-    // ── TILES RENDERING ───────────────────────────────────────────
-    function renderTiles(tables, orders, serviceCalls) {
-        const root = document.getElementById('tiles-root');
-        if (tables.length === 0) {
-            root.innerHTML = `<div style="text-align:center; color:#6b7280; padding:3rem; font-size:13px; font-weight:600;">Keine Tische konfiguriert.</div>`;
-            return;
-        }
-
-        // Group by zone
-        const zones = {};
-        tables.forEach(t => {
-            const z = t.zone || 'Allgemein';
-            if (!zones[z]) zones[z] = [];
-            zones[z].push(t);
-        });
-
-        const zoneIcon = z => z.toLowerCase().includes('terr') || z.toLowerCase().includes('auss') ? '☀️' : '🏠';
-
-        let html = '';
-        Object.keys(zones).forEach(zone => {
-            html += `
-                <div style="margin-bottom:1.5rem;">
-                    <div style="font-size:10px; font-weight:900; color:#10b981; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.6rem; display:flex; align-items:center; gap:6px;">
-                        ${zoneIcon(zone)} ${zone.toUpperCase()}
-                        <div style="flex:1; height:1px; background:rgba(255,255,255,0.06);"></div>
-                    </div>
-                    <div id="tiles-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:0.6rem;">
-                        ${zones[zone].map(t => renderOneTile(t, orders, serviceCalls)).join('')}
-                    </div>
-                </div>
-            `;
-        });
-        root.innerHTML = html;
-    }
-
-    function renderOneTile(table, orders, serviceCalls) {
-        const tableStr = 'Tisch ' + table.number;
-        const activeOrder = orders.find(o =>
-            (o.table === tableStr || o.table === String(table.number)) &&
-            o.status !== 'bezahlt' && o.status !== 'storniert'
-        );
-        const hasService = serviceCalls.some(c =>
-            c.table === tableStr || c.table === String(table.number)
-        );
-
-        let tileStyle = '';
-        let statusHtml = '';
-        let onclick = '';
-
-        if (hasService) {
-            tileStyle = 'background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.6); animation:blinkNew 1s infinite;';
-            statusHtml = `<span style="font-size:9px; font-weight:900; color:#f87171; text-transform:uppercase; animation:pulse 1s infinite;">🚨 RUF</span>`;
-            onclick = activeOrder ? `onclick="openPopup(${activeOrder.id})"` : '';
-        } else if (activeOrder && activeOrder.status === 'eingegangen') {
-            tileStyle = 'animation:blinkNew 1s infinite; border-color:rgba(239,68,68,0.7);';
-            statusHtml = `
-                <span style="font-size:9px; font-weight:900; color:#fca5a5; text-transform:uppercase; animation:pulse 1s infinite;">🆕 NEU</span>
-                <span style="font-size:11px; font-weight:900; color:#fff; margin-top:2px;">${activeOrder.total.toFixed(2).replace('.', ',')} €</span>
-            `;
-            onclick = `onclick="openPopup(${activeOrder.id})"`;
-        } else if (activeOrder) {
-            const isConfirmed = activeOrder.status === 'bestaetigt';
-            tileStyle = `background:rgba(16,185,129,0.08); border-color:rgba(16,185,129,${isConfirmed ? '0.5' : '0.25'});`;
-            statusHtml = `
-                <span style="font-size:9px; font-weight:900; color:#10b981; text-transform:uppercase;">${isConfirmed ? '✔ Bestätigt' : 'Bestellung'}</span>
-                <span style="font-size:11px; font-weight:900; color:#fff; margin-top:2px;">${activeOrder.total.toFixed(2).replace('.', ',')} €</span>
-            `;
-            onclick = `onclick="openPopup(${activeOrder.id})"`;
-        } else {
-            tileStyle = 'background:rgba(255,255,255,0.02); border-color:rgba(255,255,255,0.06);';
-            statusHtml = `<span style="font-size:9px; font-weight:800; color:#10b981; text-transform:uppercase;">Frei</span>`;
-            onclick = `onclick="openEmptyTable('${table.number}')"`;
-        }
-
-        return `
-            <div id="tile-${table.number}" class="table-tile" ${onclick}
-                style="${tileStyle}">
-                <span style="font-size:11px; font-weight:900; color:#fff;">${table.number}</span>
-                <span style="font-size:9px; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.07em;">${table.zone || ''}</span>
-                <div style="margin-top:6px; display:flex; flex-direction:column; align-items:center; gap:2px;">
-                    ${statusHtml}
-                </div>
-            </div>
-        `;
-    }
-
-    // ── OPEN POPUP ────────────────────────────────────────────────
-    function openPopup(orderId) {
-        activeOrderId = orderId;
-        const order = allOrders.find(o => o.id === orderId);
-        if (!order) return;
-
-        document.getElementById('popup-table-name').textContent = order.table;
-        document.getElementById('popup-bon-id').textContent = `Bon #${order.id}`;
-        document.getElementById('popup-total').textContent = order.total.toFixed(2).replace('.', ',') + ' €';
-        renderPopupItems(order);
-
-        document.getElementById('order-popup').classList.remove('hidden');
-    }
-
-    function openEmptyTable(tableNumber) {
-        // Empty table click – nothing to show, could open a manual order if needed
-        // For now, show a brief toast
-        showToast('Tisch ' + tableNumber + ' ist frei', 'success');
-    }
-
-    function closePopup() {
-        document.getElementById('order-popup').classList.add('hidden');
-        activeOrderId = null;
-    }
-
-    // ── RENDER POPUP ITEMS ────────────────────────────────────────
-    function renderPopupItems(order) {
-        const container = document.getElementById('popup-items');
-        if (!order.items || order.items.length === 0) {
-            container.innerHTML = `<div style="text-align:center; color:#6b7280; padding:2rem;">Keine Artikel</div>`;
-            return;
-        }
-
-        // Group by category_type
-        const categories = {};
-        order.items.forEach(item => {
-            const cat = item.category || item.category_type || 'Sonstiges';
-            if (!categories[cat]) categories[cat] = [];
-            categories[cat].push(item);
-        });
-
-        let html = '';
-        Object.keys(categories).forEach(cat => {
-            html += `<div style="font-size:10px; font-weight:900; color:#fff; background:#10b981; padding:4px 10px; border-radius:6px; margin:8px 0 4px; display:inline-block; text-transform:uppercase;">${cat}</div>`;
-            categories[cat].forEach(item => {
-                const itemStatus = item.item_status || 'pending';
-                const statusBadge = {
-                    'pending':   '<span class="item-status-badge badge-pending">Offen</span>',
-                    'confirmed': '<span class="item-status-badge badge-confirmed">✔ Bestätigt</span>',
-                    'delivered': '<span class="item-status-badge badge-delivered">✅ Erledigt</span>'
-                }[itemStatus] || '<span class="item-status-badge badge-pending">Offen</span>';
-
-                const itemKey = `${item.product_id}_${(item.note || '').replace(/\s+/g, '_')}`;
-                const canConfirm = itemStatus === 'pending';
-                const canDeliver = itemStatus === 'confirmed' || itemStatus === 'pending';
-
-                html += `
-                    <div class="order-item-row">
-                        <div style="flex:1; min-width:0;">
-                            <div style="font-size:13px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.name}</div>
-                            ${item.note ? `<div style="font-size:11px; color:#fbbf24; font-weight:600; margin-top:2px;">✎ ${item.note}</div>` : ''}
-                            <div style="font-size:11px; color:#9ca3af; margin-top:2px;">${item.quantity}× · ${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</div>
-                        </div>
-                        ${statusBadge}
-                        <div style="display:flex; gap:4px; flex-shrink:0;">
-                            ${canConfirm ? `<button class="btn-confirm" onclick="setItemStatus(${order.id}, '${itemKey}', 'confirmed')">✔ OK</button>` : ''}
-                            ${canDeliver ? `<button class="btn-done" onclick="setItemStatus(${order.id}, '${itemKey}', 'delivered')">✅ Done</button>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-
-            const subtotal = categories[cat].reduce((s, i) => s + i.price * i.quantity, 0);
-            html += `<div style="text-align:right; font-size:11px; font-weight:800; color:#10b981; margin-bottom:8px;">Zwischensumme: ${subtotal.toFixed(2).replace('.', ',')} €</div>`;
-        });
-
-        container.innerHTML = html;
-    }
-
-    // ── SET ITEM STATUS ───────────────────────────────────────────
-    async function setItemStatus(orderId, itemKey, newStatus) {
-        try {
-            const res = await fetch(`/${slug}/orders/item-status/${orderId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ item_key: itemKey, status: newStatus })
-            });
-            if (!res.ok) { showToast('Fehler beim Aktualisieren', 'error'); return; }
-            showToast(newStatus === 'confirmed' ? '✔ Bestätigt' : '✅ Erledigt', 'success');
-            pollStatus();
-        } catch(e) {
-            showToast('Verbindungsfehler', 'error');
-        }
-    }
-
-    // ── BEZAHLEN ──────────────────────────────────────────────────
-    async function bezahlen() {
-        if (!activeOrderId) return;
-        const btn = document.getElementById('btn-bezahlt');
-        btn.disabled = true; btn.textContent = '⏳ Wird verbucht…';
-        try {
-            const fd = new FormData();
-            fd.append('waiter_id', '{{ default_staff.name if default_staff else "Besitzer" }}');
-            const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST', body: fd });
-            if (res.ok) {
-                showToast('✅ Bezahlt!', 'success');
-                closePopup();
-                pollStatus();
-            } else { showToast('Fehler beim Bezahlen', 'error'); }
-        } catch(e) { showToast('Verbindungsfehler', 'error'); }
-        finally { btn.disabled = false; btn.innerHTML = '✅ Bezahlt'; }
-    }
-
-    // ── STORNIEREN ────────────────────────────────────────────────
-    async function stornieren() {
-        if (!activeOrderId) return;
-        const pin = prompt('Chef-PIN eingeben zum Stornieren:');
-        if (!pin) return;
-        try {
-            const fd = new FormData();
-            fd.append('pin', pin);
-            const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST', body: fd });
-            if (res.ok) {
-                showToast('Bon storniert', 'success');
-                closePopup();
-                pollStatus();
-            } else if (res.status === 403) {
-                showToast('❌ Ungültige PIN', 'error');
-            } else { showToast('Stornierung fehlgeschlagen', 'error'); }
-        } catch(e) { showToast('Verbindungsfehler', 'error'); }
-    }
-
-    // ── RESOLVE SERVICE CALL ──────────────────────────────────────
-    async function resolveCall(callId) {
-        try {
-            await fetch(`/${slug}/service-erledigt/${callId}`, { method: 'POST' });
-            pollStatus();
-        } catch(e) {}
-    }
-
-    // ── UMBUCHEN ──────────────────────────────────────────────────
-    function openUmbuchen() {
-        if (!activeOrderId) return;
-        const currentOrder = allOrders.find(o => o.id === activeOrderId);
-        const currentTableStr = currentOrder ? currentOrder.table : '';
-
-        const tilesContainer = document.getElementById('umbuchen-tiles');
-        tilesContainer.innerHTML = allTables
-            .filter(t => {
-                const ts = 'Tisch ' + t.number;
-                return ts !== currentTableStr && String(t.number) !== currentTableStr;
-            })
-            .map(t => {
-                const activeHere = allOrders.find(o =>
-                    (o.table === 'Tisch ' + t.number) && o.status !== 'bezahlt' && o.status !== 'storniert'
-                );
-                const zoneText = t.zone ? ` <span style="font-size:9px; color:#6b7280;">${t.zone}</span>` : '';
-                const statusText = activeHere
-                    ? `<div style="font-size:10px; color:#fbbf24; font-weight:700; margin-top:3px;">Belegt</div>`
-                    : `<div style="font-size:10px; color:#10b981; font-weight:700; margin-top:3px;">Frei</div>`;
-                return `
-                    <div class="umbuchen-tile" onclick="doUmbuchen(${t.number})">
-                        <div style="font-size:18px; font-weight:900; color:#fff;">T${t.number}</div>
-                        ${zoneText}
-                        ${statusText}
-                    </div>
-                `;
-            }).join('');
-
-        document.getElementById('umbuchen-overlay').classList.remove('hidden');
-    }
-
-    function closeUmbuchen() {
-        document.getElementById('umbuchen-overlay').classList.add('hidden');
-    }
-
-    async function doUmbuchen(targetTableNumber) {
-        if (!activeOrderId) return;
-        closeUmbuchen();
-        try {
-            const res = await fetch(`/${slug}/tablet/transfer-order`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    order_id: activeOrderId,
-                    target_table: String(targetTableNumber)
-                })
-            });
-            if (res.ok) {
-                showToast(`✅ Auf Tisch ${targetTableNumber} umgebucht`, 'success');
-                closePopup();
-                pollStatus();
-            } else {
-                showToast('Umbuchen fehlgeschlagen', 'error');
+            // Audio for new orders / service calls
+            if(initialDone) {
+                const hasNew  = data.orders.some(o=>o.status==='eingegangen'&&!seenOrderIds.has(o.id));
+                const hasCall = data.service_calls.some(c=>!seenCallIds.has(c.id));
+                if(hasNew)  playNewOrderSound();
+                if(hasCall) playServiceSound();
             }
-        } catch(e) {
-            showToast('Verbindungsfehler', 'error');
-        }
-    }
+            data.orders.forEach(o=>{ if(o.status==='eingegangen') seenOrderIds.add(o.id); });
+            data.service_calls.forEach(c=>seenCallIds.add(c.id));
+            initialDone = true;
 
-    // ── TOAST ─────────────────────────────────────────────────────
-    let toastTimer = null;
-    function showToast(msg, type = 'success') {
-        const el = document.getElementById('toast');
-        el.textContent = msg;
-        el.className = `toast toast-${type} show`;
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
-    }
+            allOrders = data.orders;
+            allTables = data.tables || allTables;
 
-    // ── INIT ──────────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', () => {
-        connectWebSocket();
-        // Initial render from server-side data
-        renderServiceCalls([]);
-        renderTiles(allTables, allOrders, []);
-        // Start periodic fallback polling (every 8s for reliability)
-        setInterval(() => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                pollStatus();
+            renderServiceCalls(data.service_calls||[]);
+            renderTiles(allTables, allOrders, data.service_calls||[]);
+
+            // Refresh open popup without closing it
+            if(activeOrderId!==null) {
+                const upd = allOrders.find(o=>o.id===activeOrderId);
+                if(!upd||upd.status==='bezahlt'||upd.status==='storniert') {
+                    closePopup();
+                } else {
+                    renderPopup(upd);
+                }
             }
-        }, 8000);
+        })
+        .catch(()=>{ document.getElementById('conn-banner').classList.remove('hidden'); });
+}
+
+// ── SERVICE CALLS ─────────────────────────────────────
+const typeLabel = {kellner:'👤 Kellner gewünscht',kohle:'🔥 Neue Kohle',karte:'💳 Kartenzahlung',bar:'💵 Barzahlung',abraeumen:'🍽️ Abräumen'};
+function renderServiceCalls(calls) {
+    const el = document.getElementById('service-calls-section');
+    if(!calls.length){el.innerHTML='';return;}
+    el.innerHTML = `
+        <div style="font-size:10px;font-weight:900;color:#f87171;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem;">🚨 Service-Rufe (${calls.length})</div>
+        ${calls.map(c=>`
+            <div class="call-bar">
+                <span style="font-size:13px;font-weight:800;color:#fff;">${c.table}</span>
+                <span style="font-size:11px;color:#fca5a5;font-weight:700;margin-left:8px;">${typeLabel[c.type]||c.type}</span>
+                <span style="font-size:10px;color:#6b7280;margin-left:6px;">${c.timestamp}</span>
+                <button onclick="resolveCall(${c.id})" style="background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:7px;padding:4px 11px;font-size:11px;font-weight:800;cursor:pointer;margin-left:auto;">✔</button>
+            </div>
+        `).join('')}
+    `;
+}
+
+// ── TILES ─────────────────────────────────────────────
+function renderTiles(tables, orders, calls) {
+    const root = document.getElementById('tiles-root');
+    if(!tables.length){
+        root.innerHTML='<div style="text-align:center;color:#4b5563;padding:3rem;font-size:13px;">Keine Tische konfiguriert.</div>';
+        return;
+    }
+    const zones={};
+    tables.forEach(t=>{ const z=t.zone||'Allgemein'; if(!zones[z]) zones[z]=[]; zones[z].push(t); });
+    const zoneIcon = z=>(/terr|auss/i.test(z)?'☀️':'🏠');
+    root.innerHTML = Object.keys(zones).map(zone=>`
+        <div style="margin-bottom:1.25rem;">
+            <div style="font-size:10px;font-weight:900;color:#10b981;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;display:flex;align-items:center;gap:6px;">
+                ${zoneIcon(zone)} ${zone.toUpperCase()}
+                <div style="flex:1;height:1px;background:rgba(255,255,255,.05);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.55rem;">
+                ${zones[zone].map(t=>renderTile(t,orders,calls)).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderTile(table, orders, calls) {
+    const ts = 'Tisch '+table.number;
+    const order = orders.find(o=>(o.table===ts||o.table===String(table.number))&&o.status!=='bezahlt'&&o.status!=='storniert');
+    const hasCall = calls.some(c=>c.table===ts||c.table===String(table.number));
+    let cls='table-tile ', inner='', onclick='';
+
+    if(hasCall) {
+        cls+='tile-call';
+        inner=`<span style="font-size:18px;">🚨</span><span style="font-size:10px;font-weight:900;color:#f87171;">RUF!</span>`;
+        if(order) onclick=`onclick="openPopup(${order.id})"`;
+    } else if(order&&order.status==='eingegangen') {
+        cls+='tile-new';
+        inner=`<span style="font-size:9px;font-weight:900;color:#fca5a5;text-transform:uppercase;animation:pulse2 1s infinite;">🆕 NEU</span><span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.',',')} €</span>`;
+        onclick=`onclick="openPopup(${order.id})"`;
+    } else if(order) {
+        cls+='tile-active';
+        const confirmed = order.status==='bestaetigt';
+        inner=`<span style="font-size:9px;font-weight:900;color:#10b981;text-transform:uppercase;">${confirmed?'✔ Bestätigt':'Aktiv'}</span><span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.',',')} €</span>`;
+        onclick=`onclick="openPopup(${order.id})"`;
+    } else {
+        cls+='tile-free';
+        inner=`<span style="font-size:9px;font-weight:800;color:#10b981;text-transform:uppercase;">Frei</span>`;
+        onclick=`onclick="showToast('Tisch ${table.number} ist frei','success')"`;
+    }
+
+    return `<div id="tile-${table.number}" class="${cls}" ${onclick}>
+        <span style="font-size:12px;font-weight:900;color:#fff;">${table.number}</span>
+        <span style="font-size:9px;color:#4b5563;font-weight:700;text-transform:uppercase;">${table.zone||''}</span>
+        <div style="margin-top:5px;display:flex;flex-direction:column;align-items:center;gap:2px;">${inner}</div>
+    </div>`;
+}
+
+// ── OPEN / CLOSE POPUP ────────────────────────────────
+function openPopup(orderId) {
+    activeOrderId = orderId;
+    expandedItemKey = null;
+    const order = allOrders.find(o=>o.id===orderId);
+    if(!order) return;
+    renderPopup(order);
+    document.getElementById('order-popup').classList.remove('hidden');
+}
+function closePopup() {
+    document.getElementById('order-popup').classList.add('hidden');
+    activeOrderId=null; expandedItemKey=null;
+}
+
+function renderPopup(order) {
+    document.getElementById('popup-table-name').textContent = order.table;
+    document.getElementById('popup-bon-id').textContent = `Bon #${order.id}`;
+    document.getElementById('popup-total').textContent = order.total.toFixed(2).replace('.',',') + ' €';
+    renderPopupItems(order);
+}
+
+// ── RENDER POPUP ITEMS (Cusi-style cards) ─────────────
+function renderPopupItems(order) {
+    const container = document.getElementById('popup-items');
+    if(!order.items||!order.items.length) {
+        container.innerHTML='<div style="text-align:center;color:#4b5563;padding:2rem;">Keine Artikel</div>';
+        return;
+    }
+
+    // Group by category
+    const cats={};
+    order.items.forEach(item=>{
+        const c=item.category||item.category_type||'Sonstiges';
+        if(!cats[c]) cats[c]=[];
+        cats[c].push(item);
     });
 
-    // Prevent double-tap zoom on iOS
-    let lastTap = 0;
-    document.addEventListener('touchend', function(e) {
-        const now = Date.now();
-        if (now - lastTap < 300) {
-            e.preventDefault();
+    let html='';
+    Object.keys(cats).forEach(cat=>{
+        html+=`<div class="cat-label">${cat}</div>`;
+        const subtotal = cats[cat].reduce((s,i)=>s+i.price*i.quantity,0);
+
+        cats[cat].forEach(item=>{
+            const itemStatus = item.item_status||'pending';
+            const noteSlug = (item.note||'').replace(/\s+/g,'_');
+            const key = `${item.product_id}_${noteSlug}`;
+            const isExpanded = (expandedItemKey===key);
+
+            // Status badge
+            const badge = {
+                pending:        '<span class="badge badge-offen">⬜ Offen</span>',
+                confirmed:      '<span class="badge badge-vorbereitung">🍳 Vorbereitung…</span>',
+                delivered:      '<span class="badge badge-fertig">✅ Fertig</span>'
+            }[itemStatus]||'';
+
+            // Status action buttons
+            let statusBtns='';
+            if(itemStatus==='pending')    statusBtns=`<button class="btn-action btn-vorbereiten" onclick="event.stopPropagation();setItemStatus(${order.id},'${key}','confirmed')">🍳 Vorbereitung</button>`;
+            if(itemStatus==='confirmed')  statusBtns=`<button class="btn-action btn-fertig" onclick="event.stopPropagation();setItemStatus(${order.id},'${key}','delivered')">✅ Fertig</button>`;
+            if(itemStatus==='delivered')  statusBtns=`<span style="font-size:11px;color:#10b981;font-weight:800;">✅ Erledigt</span>`;
+
+            const expandedActions = isExpanded ? `
+                <div class="item-actions">
+                    ${statusBtns}
+                    <button class="btn-action btn-pay-item" onclick="event.stopPropagation();payItem(${order.id},'${key}',${item.quantity})">
+                        💳 Bezahlt (${item.quantity}×)
+                    </button>
+                    <button class="btn-action btn-transfer-item" onclick="event.stopPropagation();openTableSelItem(${order.id},'${key}')">
+                        🔄 Umbuchen
+                    </button>
+                </div>` : '';
+
+            html+=`
+                <div class="item-card${isExpanded?' expanded':''}" onclick="toggleItem('${key}')">
+                    <div class="item-row">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</div>
+                            ${item.note?`<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${item.note}</div>`:''}
+                        </div>
+                        ${badge}
+                        <div style="font-size:12px;font-weight:800;color:#fff;margin-left:.5rem;flex-shrink:0;">${item.quantity}× ${item.price.toFixed(2).replace('.',',')} €</div>
+                        <div style="font-size:16px;color:${isExpanded?'#10b981':'#4b5563'};margin-left:.4rem;transition:transform .15s;${isExpanded?'transform:rotate(90deg)':''};">›</div>
+                    </div>
+                    ${expandedActions}
+                </div>
+            `;
+        });
+
+        html+=`<div style="text-align:right;font-size:11px;font-weight:800;color:#10b981;margin-bottom:8px;padding-right:4px;">Zwischensumme: ${subtotal.toFixed(2).replace('.',',')} €</div>`;
+    });
+
+    container.innerHTML=html;
+}
+
+// ── TOGGLE ITEM EXPAND ────────────────────────────────
+function toggleItem(key) {
+    expandedItemKey = (expandedItemKey===key) ? null : key;
+    const order = allOrders.find(o=>o.id===activeOrderId);
+    if(order) renderPopupItems(order);
+}
+
+// ── SET ITEM STATUS (optimistic) ─────────────────────
+async function setItemStatus(orderId, itemKey, newStatus) {
+    // Optimistic update in local state
+    const order = allOrders.find(o=>o.id===orderId);
+    if(order) {
+        const [pid, ...noteParts] = itemKey.split('_');
+        const note = noteParts.join(' ');
+        const item = order.items.find(i=>{
+            const ns=(i.note||'').replace(/\s+/g,'_');
+            return String(i.product_id)===pid && ns===(noteParts.join('_'));
+        });
+        if(item) {
+            item.item_status = newStatus;
+            renderPopupItems(order);
         }
-        lastTap = now;
-    }, { passive: false });
+    }
+
+    const label = newStatus==='confirmed'?'🍳 Wird vorbereitet!':'✅ Fertig serviert!';
+    showToast(label,'success');
+
+    try {
+        const res = await fetch(`/${slug}/orders/item-status/${orderId}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({item_key:itemKey, status:newStatus})
+        });
+        if(!res.ok) { showToast('Fehler beim Aktualisieren','error'); pollStatus(); }
+    } catch(e) {
+        showToast('Verbindungsfehler','error');
+        pollStatus();
+    }
+}
+
+// ── PAY SINGLE ITEM ───────────────────────────────────
+async function payItem(orderId, itemKey, qty) {
+    showToast('💳 Buche…','success');
+    try {
+        const res = await fetch(`/${slug}/tablet/pay-item/${orderId}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({item_key:itemKey, quantity:qty})
+        });
+        if(res.ok) {
+            const data=await res.json();
+            showToast('✅ Artikel bezahlt!','success');
+            expandedItemKey=null;
+            pollStatus();
+        } else {
+            const err=await res.json().catch(()=>({detail:'Fehler'}));
+            showToast(err.detail||'Fehler','error');
+        }
+    } catch(e) { showToast('Verbindungsfehler','error'); }
+}
+
+// ── PAY ALL ───────────────────────────────────────────
+async function bezahlenAlles() {
+    if(!activeOrderId) return;
+    const btn=document.getElementById('btn-bezahlt-all');
+    btn.disabled=true; btn.innerHTML='⏳ Wird verbucht…';
+    try {
+        const fd=new FormData();
+        fd.append('waiter_id','{{ default_staff.name if default_staff else "Besitzer" }}');
+        const res=await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`,{method:'POST',body:fd});
+        if(res.ok) { showToast('✅ Alles bezahlt!','success'); closePopup(); pollStatus(); }
+        else showToast('Fehler beim Bezahlen','error');
+    } catch(e) { showToast('Verbindungsfehler','error'); }
+    finally { btn.disabled=false; btn.innerHTML='✅ Alle bezahlen'; }
+}
+
+// ── STORNIEREN ────────────────────────────────────────
+async function stornieren() {
+    if(!activeOrderId) return;
+    const pin=prompt('Chef-PIN eingeben:');
+    if(!pin) return;
+    try {
+        const fd=new FormData(); fd.append('pin',pin);
+        const res=await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`,{method:'POST',body:fd});
+        if(res.ok) { showToast('Bon storniert','success'); closePopup(); pollStatus(); }
+        else if(res.status===403) showToast('❌ Ungültige PIN','error');
+        else showToast('Stornierung fehlgeschlagen','error');
+    } catch(e) { showToast('Verbindungsfehler','error'); }
+}
+
+// ── RESOLVE SERVICE CALL ──────────────────────────────
+async function resolveCall(id) {
+    try { await fetch(`/${slug}/service-erledigt/${id}`,{method:'POST'}); pollStatus(); } catch(e){}
+}
+
+// ══════════════════════════════════════════════════════
+// TABLE SELECTOR – Ganzer Bon umbuchen
+// ══════════════════════════════════════════════════════
+function openUmbuchenAll() {
+    if(!activeOrderId) return;
+    const order=allOrders.find(o=>o.id===activeOrderId);
+    tableSel_mode='all'; tableSel_itemKey=null;
+    document.getElementById('table-sel-title').textContent='Bon umbuchen';
+    document.getElementById('table-sel-subtitle').textContent=`${order?order.table:'?'} → welcher Tisch?`;
+    renderTableSelGrid(order?order.table:'');
+    document.getElementById('table-sel-overlay').classList.remove('hidden');
+}
+
+function openTableSelItem(orderId, itemKey) {
+    const order=allOrders.find(o=>o.id===orderId);
+    tableSel_mode='item'; tableSel_itemKey=itemKey;
+    activeOrderId=orderId;
+    const itemName=getItemName(order,itemKey);
+    document.getElementById('table-sel-title').textContent='Artikel umbuchen';
+    document.getElementById('table-sel-subtitle').textContent=`"${itemName}" auf welchen Tisch?`;
+    renderTableSelGrid(order?order.table:'');
+    document.getElementById('table-sel-overlay').classList.remove('hidden');
+}
+
+function getItemName(order,itemKey) {
+    if(!order||!order.items) return itemKey;
+    const [pid,...noteParts]=itemKey.split('_');
+    const item=order.items.find(i=>String(i.product_id)===pid&&(i.note||'').replace(/\s+/g,'_')===noteParts.join('_'));
+    return item?item.name:itemKey;
+}
+
+function renderTableSelGrid(currentTableStr) {
+    const grid=document.getElementById('table-sel-grid');
+    grid.innerHTML=allTables
+        .filter(t=>{
+            const ts='Tisch '+t.number;
+            return ts!==currentTableStr&&String(t.number)!==currentTableStr;
+        })
+        .map(t=>{
+            const busy=allOrders.some(o=>(o.table==='Tisch '+t.number)&&o.status!=='bezahlt'&&o.status!=='storniert');
+            return `<div class="table-sel-tile${busy?' busy':''}" onclick="doTableSel(${t.number})">
+                <div style="font-size:20px;font-weight:900;color:#fff;">${t.number}</div>
+                <div style="font-size:9px;color:#6b7280;font-weight:700;margin-top:2px;">${t.zone||''}</div>
+                <div style="font-size:10px;font-weight:800;margin-top:4px;color:${busy?'#f59e0b':'#10b981'};">${busy?'Belegt':'Frei'}</div>
+            </div>`;
+        }).join('');
+}
+
+function closeTableSel() {
+    document.getElementById('table-sel-overlay').classList.add('hidden');
+    tableSel_mode=null; tableSel_itemKey=null;
+}
+
+async function doTableSel(targetTableNumber) {
+    closeTableSel();
+    if(tableSel_mode==='all') {
+        await doTransferAll(targetTableNumber);
+    } else if(tableSel_mode==='item') {
+        await doTransferItem(activeOrderId, tableSel_itemKey, targetTableNumber);
+    }
+}
+
+async function doTransferAll(targetTableNumber) {
+    try {
+        const res=await fetch(`/${slug}/tablet/transfer-order`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({order_id:activeOrderId, target_table:String(targetTableNumber)})
+        });
+        if(res.ok) { showToast(`✅ Auf Tisch ${targetTableNumber} umgebucht`,'success'); closePopup(); pollStatus(); }
+        else showToast('Umbuchen fehlgeschlagen','error');
+    } catch(e) { showToast('Verbindungsfehler','error'); }
+}
+
+async function doTransferItem(orderId, itemKey, targetTableNumber) {
+    try {
+        const res=await fetch(`/${slug}/tablet/transfer-item/${orderId}`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({item_key:itemKey, target_table:String(targetTableNumber)})
+        });
+        if(res.ok) {
+            showToast(`✅ Artikel auf Tisch ${targetTableNumber} umgebucht`,'success');
+            expandedItemKey=null;
+            pollStatus();
+        } else {
+            const err=await res.json().catch(()=>({detail:'Fehler'}));
+            showToast(err.detail||'Fehler','error');
+        }
+    } catch(e) { showToast('Verbindungsfehler','error'); }
+}
+
+// ── TOAST ─────────────────────────────────────────────
+let _toastT=null;
+function showToast(msg, type='success') {
+    const el=document.getElementById('toast');
+    el.textContent=msg;
+    el.className=`toast toast-${type} show`;
+    clearTimeout(_toastT);
+    _toastT=setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+// ── INIT ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+    connectWS();
+    renderServiceCalls([]);
+    renderTiles(allTables,allOrders,[]);
+    // Fallback polling
+    setInterval(()=>{ if(!ws||ws.readyState!==WebSocket.OPEN) pollStatus(); },8000);
+});
+
+// No double-tap zoom on iOS
+let _lastTap=0;
+document.addEventListener('touchend',e=>{
+    const now=Date.now();
+    if(now-_lastTap<300) e.preventDefault();
+    _lastTap=now;
+},{passive:false});
 </script>
 
 </body>

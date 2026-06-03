@@ -39,6 +39,187 @@
         }
         .admin-tab-content { display: none; }
         .admin-tab-content.active { display: block; }
+
+        /* ── TILE BLINK ANIMATIONS ── */
+        @keyframes blinkRed {
+            0%,100% { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.5); box-shadow:0 0 16px rgba(239,68,68,.2); }
+            50%     { background:rgba(239,68,68,.28); border-color:rgba(239,68,68,1);  box-shadow:0 0 30px rgba(239,68,68,.6); }
+        }
+        @keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+        /* ── TILES ── */
+        .table-tile {
+            aspect-ratio: 1;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            border-radius: 1.25rem;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform .12s;
+            padding: .6rem;
+            text-align: center;
+            user-select: none;
+            -webkit-user-select: none;
+            position: relative;
+        }
+        .table-tile:active { transform: scale(.94); }
+        .tile-free   { background:rgba(255,255,255,.02); border-color:rgba(255,255,255,.07); }
+        .tile-active { background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.35); }
+        .tile-new    { animation: blinkRed 1s infinite; }
+        .tile-call   { animation: blinkRed .8s infinite; border-color:rgba(239,68,68,.8); }
+
+        /* ── OVERLAY BACKDROP ── */
+        .overlay-backdrop {
+            position: fixed; inset: 0; z-index: 60;
+            background: rgba(0,0,0,.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem;
+        }
+        .overlay-backdrop.hidden { display: none; }
+
+        /* ── POPUP CARD ── */
+        .popup-card {
+            background: #0d0f14;
+            border: 1px solid rgba(255,255,255,.09);
+            border-radius: 1.5rem;
+            width: 100%; max-width: 540px;
+            max-height: 92vh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 30px 70px rgba(0,0,0,.85);
+        }
+        .popup-header {
+            background: linear-gradient(135deg, #059669, #10b981);
+            padding: 1rem 1.1rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .popup-body   { flex: 1; overflow-y: auto; padding: .75rem; }
+        .popup-footer { border-top: 1px solid rgba(255,255,255,.07); padding: .75rem; flex-shrink: 0; }
+
+        /* ── ITEM CARD (Cusi-style) ── */
+        .item-card {
+            background: #131620;
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 1rem;
+            margin-bottom: .5rem;
+            overflow: hidden;
+            transition: border-color .15s;
+        }
+        .item-card.expanded { border-color: rgba(99,102,241,.5); }
+        .item-row {
+            display: flex; align-items: center;
+            padding: .7rem .85rem;
+            cursor: pointer;
+            gap: .6rem;
+        }
+        .item-row:active { background: rgba(255,255,255,.04); }
+        .item-actions {
+            background: rgba(0,0,0,.35);
+            border-top: 1px solid rgba(255,255,255,.05);
+            padding: .65rem .85rem;
+            display: flex; gap: .5rem; flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* ── STATUS BADGES ── */
+        .badge {
+            font-size: 10px; font-weight: 800;
+            padding: 3px 9px; border-radius: 999px;
+            text-transform: uppercase; letter-spacing: .05em;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .badge-offen       { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+        .badge-vorbereitung{ background:rgba(99,102,241,.15); color:#a5b4fc; border:1px solid rgba(99,102,241,.3); animation:pulse2 1.5s infinite; }
+        .badge-fertig      { background:rgba(16,185,129,.15); color:#10b981; border:1px solid rgba(16,185,129,.3); }
+
+        /* ── ACTION BUTTONS ── */
+        .btn-action {
+            border-radius: .6rem; padding: 7px 12px;
+            font-size: 11px; font-weight: 800;
+            cursor: pointer; transition: all .12s;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .btn-action:active { transform: scale(.93); }
+        .btn-vorbereiten { background:rgba(99,102,241,.12); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .btn-vorbereiten:hover { background:rgba(99,102,241,.22); }
+        .btn-fertig      { background:rgba(16,185,129,.12); color:#10b981; border-color:rgba(16,185,129,.3); }
+        .btn-fertig:hover{ background:rgba(16,185,129,.22); }
+        .btn-pay-item    { background:rgba(16,185,129,.15); color:#10b981; border-color:rgba(16,185,129,.4); }
+        .btn-pay-item:hover{ background:rgba(16,185,129,.28); }
+        .btn-transfer-item{ background:rgba(99,102,241,.12); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .btn-transfer-item:hover{ background:rgba(99,102,241,.22); }
+
+        /* ── SERVICE CALL ── */
+        .call-bar {
+            background:rgba(239,68,68,.08);
+            border:1px solid rgba(239,68,68,.25);
+            border-radius:.875rem;
+            padding:.55rem .85rem;
+            display:flex; align-items:center; justify-content:space-between;
+            margin-bottom:.4rem;
+        }
+
+        /* ── TABLE SELECTOR (Umbuchen) ── */
+        .table-sel-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .6rem;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .table-sel-tile {
+            background: #131620;
+            border: 2px solid rgba(255,255,255,.07);
+            border-radius: .875rem;
+            padding: .9rem .5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all .12s;
+        }
+        .table-sel-tile:active { transform: scale(.93); background:rgba(99,102,241,.2); border-color:#6366f1; }
+        .table-sel-tile.busy  { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.05); }
+
+        /* ── TOAST ── */
+        .toast {
+            position:fixed; bottom:72px; left:50%; transform:translateX(-50%) translateY(12px);
+            z-index:999; padding:9px 20px; border-radius:999px;
+            font-size:12px; font-weight:800;
+            opacity:0; transition:all .28s; pointer-events:none; white-space:nowrap;
+        }
+        .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+        .toast-success { background:rgba(16,185,129,.15); border:1px solid rgba(16,185,129,.4); color:#10b981; }
+        .toast-error   { background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); color:#f87171; }
+
+        /* ── CATEGORY LABEL ── */
+        .cat-label {
+            font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.1em;
+            background:#10b981; color:#000;
+            padding:3px 10px; border-radius:5px;
+            display:inline-block; margin:6px 0 4px;
+        }
+
+        /* ── TEILRECHNUNG SPECIFIC STYLES ── */
+        .teilrechnung-box {
+            border: 2px solid #10b981;
+            background: #0f121a;
+            border-radius: 1.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.05);
+        }
+        .btn-storno-item {
+            background: rgba(239,68,68,0.12);
+            color: #f87171;
+            border-color: rgba(239,68,68,0.3);
+        }
+        .btn-storno-item:hover {
+            background: rgba(239,68,68,0.22);
+        }
     </style>
 </head>
 <body class="bg-background text-on-surface antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
@@ -67,8 +248,8 @@
                     <span>💻 Kassensysteme</span>
                 </button>
                 <button onclick="switchAdminTab('live')" @click="sidebarOpen = false" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
-                    <span class="material-symbols-outlined text-lg">dashboard</span>
-                    <span>🎯 Live-Tische</span>
+                    <span class="material-symbols-outlined text-lg">table_restaurant</span>
+                    <span>🛋️ Sitzplan</span>
                 </button>
                 <button onclick="switchAdminTab('finanzen')" @click="sidebarOpen = false" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
                     <span class="material-symbols-outlined text-lg">analytics</span>
@@ -222,10 +403,10 @@
 
         <!-- ================= TAB: LIVE TISCHE ================= -->
         <div id="admin-tab-live" class="admin-tab-content space-y-6">
-            <div class="flex justify-between items-center border-b border-outline-variant pb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-outline-variant pb-4 gap-4">
                 <div>
-                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">🎯 Live-Tische Monitor</h2>
-                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Echtzeit-Zustand und Bestellübersicht aller Tische.</p>
+                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">🛋️ Sitzplan</h2>
+                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Echtzeit-Kassensystem und Tischplan.</p>
                 </div>
                 <div class="flex space-x-4 text-[10px] font-bold uppercase tracking-wider font-display">
                     <span class="flex items-center space-x-2 text-on-surface-variant"><span class="w-2.5 h-2.5 bg-zinc-800 border border-outline-variant rounded-full"></span> <span>Frei</span></span>
@@ -234,115 +415,24 @@
                 </div>
             </div>
 
-            <!-- Area:🛋️ INNEN -->
-            <div class="space-y-4">
-                <span class="text-xs uppercase font-black text-on-surface-variant tracking-widest font-display flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">chair</span> 🛋️ Innenbereich
-                </span>
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-5">
-                    {% for t in restaurant.tables %}
-                    {% if t.zone == 'innen' %}
-                        <!-- Determine state of this table -->
-                        {% set active_call = [] %}
-                        {% for c in restaurant.service_calls %}
-                            {% if c.table == 'Tisch ' ~ t.number %}
-                                {% set _ = active_call.append(c) %}
-                            {% endif %}
-                        {% endfor %}
-
-                        {% set active_order = [] %}
-                        {% for o in restaurant.orders %}
-                            {% if o.table == 'Tisch ' ~ t.number and o.status not in ['bezahlt', 'storniert'] %}
-                                {% set _ = active_order.append(o) %}
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if active_call %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="pulse-red-card rounded-2xl p-5 flex flex-col justify-between h-32 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block font-display">
-                            <span class="font-extrabold text-xl">Tisch {{ t.number }}</span>
-                            <span class="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">warning</span>{{ active_call[0].type }} RUF!</span>
-                        </a>
-                        {% elif active_order %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between h-32 text-center text-amber-400 hover:bg-amber-500/10 hover:scale-[1.02] transition block font-display">
-                            <div class="flex justify-between items-start">
-                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
-                                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full pulse-amber"></span>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[10px] font-bold block text-on-surface-variant">{{ active_order | length }} Bon(s)</span>
-                                <span class="text-sm font-black text-amber-400">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
-                            </div>
-                        </a>
-                        {% else %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface/60 border border-outline-variant hover:border-primary/50 hover:bg-surface rounded-2xl p-5 flex flex-col justify-between h-32 text-left hover:scale-[1.02] transition block font-display">
-                            <div class="flex justify-between items-start">
-                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
-                                <span class="w-2.5 h-2.5 bg-zinc-800 rounded-full border border-outline-variant"></span>
-                            </div>
-                            <span class="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Frei</span>
-                        </a>
-                        {% endif %}
-                    {% endif %}
-                    {% else %}
-                    <p class="col-span-full py-8 text-center text-xs text-on-surface-variant font-medium bg-surface/30 border border-outline-variant rounded-2xl">Keine Tische für den Innenbereich eingerichtet.</p>
-                    {% endfor %}
-                </div>
+            <!-- Filter Tabs (Gesamt, Innen, Terrasse) -->
+            <div class="flex border-b border-[#1f1f23] gap-6 text-sm font-bold font-display">
+                <button onclick="filterSitzplanZone('gesamt')" id="sitzplan-filter-gesamt" class="pb-2 border-b-2 border-primary text-primary transition-all flex items-center gap-1.5 font-extrabold">
+                    Gesamt <span class="w-1.5 h-1.5 rounded-full bg-primary" id="dot-gesamt"></span>
+                </button>
+                <button onclick="filterSitzplanZone('innen')" id="sitzplan-filter-innen" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
+                    Innenbereich <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-innen"></span>
+                </button>
+                <button onclick="filterSitzplanZone('terrasse')" id="sitzplan-filter-terrasse" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
+                    Terrasse <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-terrasse"></span>
+                </button>
             </div>
 
-            <!-- Area: ☀️ TERRASSE -->
-            <div class="space-y-4 pt-6">
-                <span class="text-xs uppercase font-black text-on-surface-variant tracking-widest font-display flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">wb_sunny</span> ☀️ Außenbereich
-                </span>
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-5">
-                    {% for t in restaurant.tables %}
-                    {% if t.zone == 'terrasse' %}
-                        <!-- Determine state of this table -->
-                        {% set active_call = [] %}
-                        {% for c in restaurant.service_calls %}
-                            {% if c.table == 'Tisch ' ~ t.number %}
-                                {% set _ = active_call.append(c) %}
-                            {% endif %}
-                        {% endfor %}
+            <!-- Service Calls alerts -->
+            <div id="admin-service-calls-section" class="space-y-2"></div>
 
-                        {% set active_order = [] %}
-                        {% for o in restaurant.orders %}
-                            {% if o.table == 'Tisch ' ~ t.number and o.status not in ['bezahlt', 'storniert'] %}
-                                {% set _ = active_order.append(o) %}
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if active_call %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="pulse-red-card rounded-2xl p-5 flex flex-col justify-between h-32 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block font-display">
-                            <span class="font-extrabold text-xl">Tisch {{ t.number }}</span>
-                            <span class="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">warning</span>{{ active_call[0].type }} RUF!</span>
-                        </a>
-                        {% elif active_order %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between h-32 text-center text-amber-400 hover:bg-amber-500/10 hover:scale-[1.02] transition block font-display">
-                            <div class="flex justify-between items-start">
-                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
-                                <span class="w-2.5 h-2.5 bg-amber-500 rounded-full pulse-amber"></span>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[10px] font-bold block text-on-surface-variant">{{ active_order | length }} Bon(s)</span>
-                                <span class="text-sm font-black text-amber-400">{{ "%.2f"|format(active_order | map(attribute='total') | sum) }} €</span>
-                            </div>
-                        </a>
-                        {% else %}
-                        <a href="/{{ slug }}/admin/impersonate/{{ t.number }}" class="bg-surface/60 border border-outline-variant hover:border-primary/50 hover:bg-surface rounded-2xl p-5 flex flex-col justify-between h-32 text-left hover:scale-[1.02] transition block font-display">
-                            <div class="flex justify-between items-start">
-                                <span class="font-extrabold text-xl text-white">Tisch {{ t.number }}</span>
-                                <span class="w-2.5 h-2.5 bg-zinc-800 rounded-full border border-outline-variant"></span>
-                            </div>
-                            <span class="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Frei</span>
-                        </a>
-                        {% endif %}
-                    {% endif %}
-                    {% else %}
-                    <p class="col-span-full py-8 text-center text-xs text-on-surface-variant font-medium bg-surface/30 border border-outline-variant rounded-2xl">Keine Tische für die Terrasse eingerichtet.</p>
-                    {% endfor %}
-                </div>
-            </div>
+            <!-- Dynamic Table Tiles Root -->
+            <div id="admin-tiles-root" class="space-y-6"></div>
         </div>
 
         <!-- ================= TAB: FINANZEN & secure LOGS ================= -->
@@ -894,6 +984,65 @@
 
 
 
+    <!-- ══════════════════════════════════════════════════════
+         ORDER POPUP (Sitzplan / Waiter POS)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="order-popup" class="overlay-backdrop hidden">
+        <div class="popup-card">
+            <!-- Header -->
+            <div class="popup-header">
+                <div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.75);font-weight:800;text-transform:uppercase;letter-spacing:.07em;" id="popup-bon-id">Bon #--</div>
+                    <div style="font-size:22px;font-weight:900;color:#fff;" id="popup-table-name">Tisch --</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                    <div style="font-size:19px;font-weight:900;color:#fff;" id="popup-total">0,00 €</div>
+                    <button onclick="closePopup()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="popup-body" id="popup-items"></div>
+
+            <!-- Footer (shown only in normal mode) -->
+            <div class="popup-footer" id="popup-footer-normal">
+                <div style="display:flex;gap:.6rem;margin-bottom:.45rem;">
+                    <button onclick="bezahlenAlles()" id="btn-bezahlt-all"
+                        style="flex:1;background:#10b981;color:#000;border:none;border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+                        ✅ Alle bezahlen
+                    </button>
+                    <button onclick="openUmbuchenAll()"
+                        style="flex:1;background:rgba(99,102,241,.12);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+                        🔄 Tisch umbuchen
+                    </button>
+                </div>
+                <button onclick="stornieren()"
+                    style="width:100%;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:.85rem;padding:9px;font-size:12px;font-weight:800;cursor:pointer;">
+                    🚫 Bon stornieren (Chef-PIN)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TABLE SELECTOR OVERLAY (für Umbuchen ganzer Bon oder einzelnem Artikel)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="table-sel-overlay" class="overlay-backdrop hidden" style="z-index:70;">
+        <div style="background:#0d0f14;border:1px solid rgba(255,255,255,.09);border-radius:1.5rem;width:100%;max-width:460px;padding:1.25rem;max-height:90vh;overflow-y:auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <div>
+                    <div style="font-size:17px;font-weight:900;color:#fff;" id="table-sel-title">Tisch wählen</div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:2px;" id="table-sel-subtitle">Wohin umbuchen?</div>
+                </div>
+                <button onclick="closeTableSel()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#fff;cursor:pointer;font-size:18px;">✕</button>
+            </div>
+            <div class="table-sel-grid" id="table-sel-grid"></div>
+        </div>
+    </div>
+
+    <!-- TOAST ELEMENT -->
+    <div id="toast" class="toast toast-success"></div>
+
     <!-- Javascript tab persistence & operations -->
     <script>
         const slug = "{{ slug }}";
@@ -909,7 +1058,7 @@
             // Dynamically update Topbar Breadcrumbs
             const tabNames = {
                 'kassensysteme': '💻 Kassensysteme',
-                'live': '🎯 Live-Tische',
+                'live': '🛋️ Sitzplan',
                 'finanzen': '📈 Finanzen & Logs',
                 'speisekarte': '⏱️ Speisekarte',
                 'personal': '👤 Profil & Einstellungen',
@@ -928,7 +1077,60 @@
             switchAdminTab(activeTab);
         });
 
-        // Real-time Live-Tische Monitor Poller and WebSockets
+        // ── SITZPLAN / WAITER POS GLOBAL STATE ──
+        let allOrders  = {{ orders_json | safe }} || [];
+        let allTables  = {{ tables_json | safe }} || [];
+        let allCalls   = [];
+        
+        let activeOrderId   = null;
+        let expandedItemKey = null;
+        let tableSel_mode   = null;
+        let selectedTeilrechnung = {}; // key: itemKey, value: qty to pay
+        let sitzplanFilterZone = 'gesamt';
+
+        let seenOrderIds    = new Set();
+        let seenCallIds     = new Set();
+        let initialDone     = false;
+
+        // ── AUDIO SYSTEM ──
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) audioCtx = new Ctx();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+        }
+        document.addEventListener('click', initAudio, false);
+        document.addEventListener('touchstart', initAudio, false);
+
+        function playBeep(freq, dur, type = 'sine', vol = 0.15) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                o.type = type;
+                o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                o.frequency.exponentialRampToValueAtTime(freq * 1.4, audioCtx.currentTime + dur * .4);
+                g.gain.setValueAtTime(vol, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+                o.connect(g);
+                g.connect(audioCtx.destination);
+                o.start();
+                o.stop(audioCtx.currentTime + dur);
+            } catch (e) {}
+        }
+        const playNewOrderSound = () => {
+            playBeep(880, .5, 'sine', .18);
+            setTimeout(() => playBeep(1100, .3, 'sine', .12), 200);
+        };
+        const playServiceSound = () => {
+            [0, 200].forEach((d, i) => setTimeout(() => playBeep(i ? 880 : 660, .18, 'square', .09), d));
+        };
+
+        // ── REAL-TIME POLLING & WEBSOCKETS ──
         let lastLiveTischeHash = null;
         let ws = null;
         let pollInterval = null;
@@ -952,7 +1154,7 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === "update") {
+                    if (data.type === "update" || data.type === "refresh_tables") {
                         checkLiveTischeUpdates();
                     }
                 } catch (e) {
@@ -981,16 +1183,25 @@
         }
 
         function startPolling() {
-            checkLiveTischeUpdates();
+            // First run, populate seen list immediately so we don't beep for historical items
+            fetch(`/api/${slug}/tablet-status`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data) {
+                        data.orders.forEach(o => { if (o.status === 'eingegangen') seenOrderIds.add(o.id); });
+                        (data.service_calls || []).forEach(c => { seenCallIds.add(c.id); });
+                        initialDone = true;
+                        updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
+                    }
+                }).catch(()=>{});
+
             connectWebSocket();
         }
 
         function checkLiveTischeUpdates() {
-            // Only run if we are on the 'live' tab
             const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
             if (activeTab !== 'live') return;
 
-            // Do not reload if a modal is open or if user is typing
             const editModal = document.getElementById('edit-product-modal');
             if (editModal && !editModal.classList.contains('hidden')) return;
 
@@ -1012,7 +1223,23 @@
                     const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
                     const currentHash = `${ordersState}#${callsState}`;
 
-                    if (lastLiveTischeHash !== null && lastLiveTischeHash !== currentHash) {
+                    // Audio signals
+                    if (initialDone) {
+                        data.orders.forEach(o => {
+                            if (o.status === 'eingegangen' && !seenOrderIds.has(o.id)) {
+                                playNewOrderSound();
+                                seenOrderIds.add(o.id);
+                            }
+                        });
+                        (data.service_calls || []).forEach(c => {
+                            if (!seenCallIds.has(c.id)) {
+                                playServiceSound();
+                                seenCallIds.add(c.id);
+                            }
+                        });
+                    }
+
+                    if (lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
                         updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
                     }
                     lastLiveTischeHash = currentHash;
@@ -1021,50 +1248,581 @@
         }
 
         function updateLiveTiles(orders, serviceCalls, tables) {
-            // Find all table tile links and update their visual state without full reload
-            const allLinks = document.querySelectorAll('[id^="admin-tab-live"] a[href*="/impersonate/"]');
-            allLinks.forEach(link => {
-                const href = link.getAttribute('href');
-                const match = href && href.match(/impersonate\/(\d+)/);
-                if (!match) return;
-                const tNum = match[1];
-                const tableStr = 'Tisch ' + tNum;
+            allOrders = orders;
+            allTables = tables;
+            allCalls = serviceCalls;
 
-                const activeCall = serviceCalls.find(c => c.table === tableStr);
-                const activeOrders = orders.filter(o =>
-                    o.table === tableStr && o.status !== 'bezahlt' && o.status !== 'storniert'
-                );
-                const totalAmt = activeOrders.reduce((s, o) => s + (o.total || 0), 0);
-
-                if (activeCall) {
-                    link.className = 'pulse-red-card rounded-2xl p-5 flex flex-col justify-between h-32 border border-red-500 text-center text-red-200 hover:scale-[1.02] transition block font-display';
-                    link.innerHTML = `
-                        <span class="font-extrabold text-xl">Tisch ${tNum}</span>
-                        <span class="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-sm">warning</span>${activeCall.type} RUF!
-                        </span>`;
-                } else if (activeOrders.length > 0) {
-                    link.className = 'bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between h-32 text-center text-amber-400 hover:bg-amber-500/10 hover:scale-[1.02] transition block font-display';
-                    link.innerHTML = `
-                        <div class="flex justify-between items-start">
-                            <span class="font-extrabold text-xl text-white">Tisch ${tNum}</span>
-                            <span class="w-2.5 h-2.5 bg-amber-500 rounded-full pulse-amber"></span>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-[10px] font-bold block text-on-surface-variant">${activeOrders.length} Bon(s)</span>
-                            <span class="text-sm font-black text-amber-400">${totalAmt.toFixed(2).replace('.', ',')} €</span>
-                        </div>`;
+            // If popup is active, keep it in sync
+            if (activeOrderId) {
+                const order = allOrders.find(o => o.id === activeOrderId);
+                if (order && order.status !== 'bezahlt' && order.status !== 'storniert') {
+                    renderPopup(order);
                 } else {
-                    link.className = 'bg-surface/60 border border-outline-variant hover:border-primary/50 hover:bg-surface rounded-2xl p-5 flex flex-col justify-between h-32 text-left hover:scale-[1.02] transition block font-display';
-                    link.innerHTML = `
-                        <div class="flex justify-between items-start">
-                            <span class="font-extrabold text-xl text-white">Tisch ${tNum}</span>
-                            <span class="w-2.5 h-2.5 bg-zinc-800 rounded-full border border-outline-variant"></span>
-                        </div>
-                        <span class="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Frei</span>`;
+                    closePopup();
+                }
+            }
+
+            renderSitzplanTiles();
+            renderServiceCallsAlerts();
+        }
+
+        // ── SITZPLAN RENDERING ──
+        function filterSitzplanZone(zone) {
+            sitzplanFilterZone = zone;
+            ['gesamt', 'innen', 'terrasse'].forEach(z => {
+                const btn = document.getElementById(`sitzplan-filter-${z}`);
+                const dot = document.getElementById(`dot-${z}`);
+                if (z === zone) {
+                    btn.className = "pb-2 border-b-2 border-primary text-primary transition-all flex items-center gap-1.5 font-extrabold";
+                    if (dot) { dot.className = "w-1.5 h-1.5 rounded-full bg-primary"; }
+                } else {
+                    btn.className = "pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5";
+                    if (dot) { dot.className = "w-1.5 h-1.5 rounded-full bg-zinc-700"; }
                 }
             });
+            renderSitzplanTiles();
         }
+
+        function renderSitzplanTiles() {
+            const root = document.getElementById('admin-tiles-root');
+            if (!root) return;
+
+            let filteredTables = allTables;
+            if (sitzplanFilterZone !== 'gesamt') {
+                filteredTables = allTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
+            }
+
+            if (!filteredTables.length) {
+                root.innerHTML = '<div style="text-align:center;color:#4b5563;padding:3rem;font-size:13px;">Keine Tische in diesem Bereich konfiguriert.</div>';
+                return;
+            }
+
+            // Group tables by zone
+            const zones = {};
+            filteredTables.forEach(t => {
+                const z = t.zone || 'Allgemein';
+                if (!zones[z]) zones[z] = [];
+                zones[z].push(t);
+            });
+
+            const zoneIcon = z => (/terr|auss/i.test(z) ? '☀️' : '🛋️');
+
+            root.innerHTML = Object.keys(zones).map(zone => `
+                <div style="margin-bottom:1.5rem;">
+                    <div style="font-size:10px;font-weight:900;color:#10b981;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem;display:flex;align-items:center;gap:6px;">
+                        ${zoneIcon(zone)} ${zone.toUpperCase()}
+                        <div style="flex:1;height:1px;background:rgba(255,255,255,.05);"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.55rem;">
+                        ${zones[zone].map(t => renderTileHtml(t)).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTileHtml(table) {
+            const ts = 'Tisch ' + table.number;
+            const order = allOrders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            const hasCall = allCalls.some(c => c.table === ts || c.table === String(table.number));
+            let cls = 'table-tile ', inner = '', onclick = '';
+
+            if (hasCall) {
+                cls += 'tile-call';
+                inner = `<span style="font-size:18px;">🚨</span><span style="font-size:10px;font-weight:900;color:#f87171;">RUF!</span>`;
+                if (order) {
+                    onclick = `onclick="openPopup(${order.id})"`;
+                } else {
+                    const call = allCalls.find(c => c.table === ts || c.table === String(table.number));
+                    onclick = `onclick="resolveCallDirectly(${call.id}, '${ts}')"`;
+                }
+            } else if (order && order.status === 'eingegangen') {
+                cls += 'tile-new';
+                inner = `<span style="font-size:9px;font-weight:900;color:#fca5a5;text-transform:uppercase;animation:pulse2 1s infinite;">🆕 NEU</span><span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.', ',')} €</span>`;
+                onclick = `onclick="openPopup(${order.id})"`;
+            } else if (order) {
+                cls += 'tile-active';
+                const confirmed = order.status === 'bestaetigt';
+                inner = `<span style="font-size:9px;font-weight:900;color:#10b981;text-transform:uppercase;">${confirmed ? '✔ Bestätigt' : 'Aktiv'}</span><span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.', ',')} €</span>`;
+                onclick = `onclick="openPopup(${order.id})"`;
+            } else {
+                cls += 'tile-free';
+                inner = `<span style="font-size:9px;font-weight:800;color:#10b981;text-transform:uppercase;">Frei</span>`;
+                onclick = `onclick="showToast('Tisch ${table.number} ist frei','success')"`;
+            }
+
+            return `<div id="tile-${table.number}" class="${cls}" ${onclick}>
+                <span style="font-size:14px;font-weight:900;color:#fff;">${table.number}</span>
+                <span style="font-size:9px;color:#4b5563;font-weight:700;text-transform:uppercase;">${table.zone || ''}</span>
+                <div style="margin-top:5px;display:flex;flex-direction:column;align-items:center;gap:2px;">${inner}</div>
+            </div>`;
+        }
+
+        function renderServiceCallsAlerts() {
+            const root = document.getElementById('admin-service-calls-section');
+            if (!root) return;
+
+            if (!allCalls.length) {
+                root.innerHTML = '';
+                return;
+            }
+
+            root.innerHTML = allCalls.map(c => `
+                <div class="call-bar">
+                    <span style="font-size:11px;font-weight:800;color:#f87171;display:flex;align-items:center;gap:6px;">
+                        🔔 Tisch ${c.table.replace('Tisch ', '')}: <strong>${c.type.toUpperCase()} RUF</strong>
+                    </span>
+                    <button onclick="resolveCall(${c.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
+                        ✓ Erledigt
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function resolveCall(id) {
+            try {
+                await fetch(`/${slug}/service-erledigt/${id}`, { method: 'POST' });
+                checkLiveTischeUpdates();
+            } catch (e) {
+                showToast('Fehler beim Erledigen des Rufs', 'error');
+            }
+        }
+
+        async function resolveCallDirectly(id, tableName) {
+            if (confirm(`${tableName}: Service-Ruf als erledigt markieren?`)) {
+                await resolveCall(id);
+            }
+        }
+
+        // ── ORDER POPUP LOGIC ──
+        function openPopup(orderId) {
+            activeOrderId = orderId;
+            expandedItemKey = null;
+            selectedTeilrechnung = {};
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) return;
+            renderPopup(order);
+            document.getElementById('order-popup').classList.remove('hidden');
+        }
+
+        function closePopup() {
+            document.getElementById('order-popup').classList.add('hidden');
+            activeOrderId = null;
+            expandedItemKey = null;
+            selectedTeilrechnung = {};
+        }
+
+        function renderPopup(order) {
+            document.getElementById('popup-table-name').textContent = order.table;
+            document.getElementById('popup-bon-id').textContent = `Bon #${order.id}`;
+            document.getElementById('popup-total').textContent = order.total.toFixed(2).replace('.', ',') + ' €';
+
+            const hasTeil = Object.keys(selectedTeilrechnung).length > 0;
+            if (hasTeil) {
+                document.getElementById('popup-footer-normal').style.display = 'none';
+                renderTeilrechnungView(order);
+            } else {
+                document.getElementById('popup-footer-normal').style.display = 'block';
+                renderPopupItems(order);
+            }
+        }
+
+        function renderPopupItems(order) {
+            const container = document.getElementById('popup-items');
+            if (!order.items || !order.items.length) {
+                container.innerHTML = '<div style="text-align:center;color:#4b5563;padding:2rem;">Keine Artikel</div>';
+                return;
+            }
+
+            const cats = {};
+            order.items.forEach(item => {
+                const c = item.category || item.category_type || 'Sonstiges';
+                if (!cats[c]) cats[c] = [];
+                cats[c].push(item);
+            });
+
+            let html = '';
+            Object.keys(cats).forEach(cat => {
+                html += `<div class="cat-label">${cat}</div>`;
+                const subtotal = cats[cat].reduce((s, i) => s + i.price * i.quantity, 0);
+
+                cats[cat].forEach(item => {
+                    const itemStatus = item.item_status || 'pending';
+                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                    const key = `${item.product_id}_${noteSlug}`;
+
+                    let checkmarks = '';
+                    if (itemStatus === 'confirmed') {
+                        checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️</span>';
+                    } else if (itemStatus === 'delivered') {
+                        checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️✔️</span>';
+                    }
+
+                    let actionBtn = '';
+                    if (itemStatus === 'pending') {
+                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'confirmed')" class="btn-action btn-vorbereiten">🍳 Vorbereitung</button>`;
+                    } else if (itemStatus === 'confirmed') {
+                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'delivered')" class="btn-action btn-fertig">✅ Fertig</button>`;
+                    } else if (itemStatus === 'delivered') {
+                        actionBtn = `<button onclick="event.stopPropagation();addToTeilrechnung('${key}', ${item.quantity})" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
+                    }
+
+                    let rowClick = '';
+                    if (itemStatus === 'delivered') {
+                        rowClick = `onclick="addToTeilrechnung('${key}', ${item.quantity})"`;
+                    } else if (itemStatus === 'pending') {
+                        rowClick = `onclick="setItemStatus(${order.id}, '${key}', 'confirmed')"`;
+                    } else if (itemStatus === 'confirmed') {
+                        rowClick = `onclick="setItemStatus(${order.id}, '${key}', 'delivered')"`;
+                    }
+
+                    html += `
+                        <div class="item-card hover:border-primary/40 transition-colors" ${rowClick}>
+                            <div class="item-row">
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        ${checkmarks}${item.name}
+                                    </div>
+                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${item.note}</div>` : ''}
+                                </div>
+                                <div style="display:flex;align-items:center;gap:.5rem;">
+                                    ${actionBtn}
+                                    <div style="font-size:12px;font-weight:800;color:#fff;margin-left:.5rem;flex-shrink:0;">
+                                        ${item.quantity}× ${item.price.toFixed(2).replace('.', ',')} €
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `<div style="text-align:right;font-size:11px;font-weight:800;color:#10b981;margin-bottom:8px;padding-right:4px;">Zwischensumme: ${subtotal.toFixed(2).replace('.', ',')} €</div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function setItemStatus(orderId, itemKey, newStatus) {
+            try {
+                const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_key: itemKey, status: newStatus })
+                });
+                if (res.ok) {
+                    const order = allOrders.find(o => o.id === orderId);
+                    if (order) {
+                        const parts = itemKey.split('_', 1);
+                        const pid = parts[0];
+                        const noteParts = parts[1] || '';
+                        const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
+                        if (item) item.item_status = newStatus;
+                        renderPopup(order);
+                    }
+                    checkLiveTischeUpdates();
+                } else {
+                    showToast('Fehler beim Aktualisieren des Status', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        // ── TEILRECHNUNG WORKFLOWS ──
+        function addToTeilrechnung(itemKey, maxQty) {
+            const current = selectedTeilrechnung[itemKey] || 0;
+            if (current < maxQty) {
+                selectedTeilrechnung[itemKey] = current + 1;
+                const order = allOrders.find(o => o.id === activeOrderId);
+                renderPopup(order);
+            } else {
+                showToast('Maximale Menge erreicht', 'error');
+            }
+        }
+
+        function removeFromTeilrechnung(itemKey) {
+            const current = selectedTeilrechnung[itemKey] || 0;
+            if (current > 1) {
+                selectedTeilrechnung[itemKey] = current - 1;
+            } else {
+                delete selectedTeilrechnung[itemKey];
+            }
+            const order = allOrders.find(o => o.id === activeOrderId);
+            renderPopup(order);
+        }
+
+        function clearTeilrechnung() {
+            selectedTeilrechnung = {};
+            const order = allOrders.find(o => o.id === activeOrderId);
+            renderPopup(order);
+        }
+
+        function renderTeilrechnungView(order) {
+            const container = document.getElementById('popup-items');
+            
+            let itemsHtml = '';
+            let total = 0;
+            const selectedItemsGrouped = {};
+
+            Object.keys(selectedTeilrechnung).forEach(key => {
+                const qty = selectedTeilrechnung[key];
+                const parts = key.split('_', 1);
+                const pid = parts[0];
+                const noteParts = parts[1] || '';
+                
+                const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
+                if (item) {
+                    const c = item.category || item.category_type || 'Sonstiges';
+                    if (!selectedItemsGrouped[c]) selectedItemsGrouped[c] = [];
+                    selectedItemsGrouped[c].push({ item, qty, key });
+                    total += item.price * qty;
+                }
+            });
+
+            Object.keys(selectedItemsGrouped).forEach(cat => {
+                itemsHtml += `<div class="cat-label">${cat}</div>`;
+                selectedItemsGrouped[cat].forEach(({ item, qty, key }) => {
+                    itemsHtml += `
+                        <div class="item-card" style="border-color: rgba(16, 185, 129, 0.4);">
+                            <div class="item-row" style="cursor: default;">
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:13px;font-weight:800;color:#fff;">
+                                        ✔️✔️ ${item.name}
+                                    </div>
+                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${item.note}</div>` : ''}
+                                </div>
+                                <div style="display:flex;align-items:center;gap:.5rem;">
+                                    <div style="font-size:12px;font-weight:800;color:#fff;margin-right:.5rem;">
+                                        ${qty}× ${item.price.toFixed(2).replace('.', ',')} €
+                                    </div>
+                                    <button onclick="removeFromTeilrechnung('${key}')" style="width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;">
+                                        －
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            container.innerHTML = `
+                <div class="teilrechnung-box">
+                    <div style="font-size:14px;font-weight:900;color:#10b981;margin-bottom:0.75rem;display:flex;align-items:center;justify-content:space-between;">
+                        <span>📋 Teilrechnung</span>
+                        <button onclick="clearTeilrechnung()" style="font-size:10px;color:#9ca3af;text-decoration:underline;background:none;border:none;cursor:pointer;">Abbrechen</button>
+                    </div>
+                    
+                    ${itemsHtml}
+
+                    <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-size:13px;font-weight:800;color:#fff;">Ausgewähltes Gesamt:</span>
+                        <span style="font-size:16px;font-weight:900;color:#10b981;">${total.toFixed(2).replace('.', ',')} €</span>
+                    </div>
+
+                    <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+                        <button onclick="bezahlenTeilrechnung()" class="btn-action btn-fertig" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;">
+                            💳 Bezahlt
+                        </button>
+                        <button onclick="openUmbuchenTeilrechnung()" class="btn-action btn-vorbereiten" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;">
+                            🔄 Umbuchen
+                        </button>
+                        <button onclick="stornierenTeilrechnung()" class="btn-action btn-storno-item" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;border:1px solid rgba(239,68,68,0.3);">
+                            ❌ Stornieren
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function bezahlenTeilrechnung() {
+            const keys = Object.keys(selectedTeilrechnung);
+            if (!keys.length) return;
+
+            const btn = document.querySelector('.teilrechnung-box button[onclick="bezahlenTeilrechnung()"]');
+            btn.disabled = true; btn.textContent = 'Verarbeite…';
+
+            try {
+                for (const key of keys) {
+                    const qty = selectedTeilrechnung[key];
+                    await fetch(`/${slug}/tablet/pay-item/${activeOrderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ item_key: key, quantity: qty })
+                    });
+                }
+                showToast('Teilzahlung erfolgreich gebucht', 'success');
+                selectedTeilrechnung = {};
+                checkLiveTischeUpdates();
+            } catch (e) {
+                showToast('Fehler bei Teilzahlung', 'error');
+            }
+        }
+
+        function openUmbuchenTeilrechnung() {
+            tableSel_mode = 'teilrechnung';
+            document.getElementById('table-sel-title').textContent = 'Teilbestellungen umbuchen';
+            const order = allOrders.find(o => o.id === activeOrderId);
+            document.getElementById('table-sel-subtitle').textContent = `Ausgewählte Artikel von ${order ? order.table : '?'} umbuchen`;
+            renderTableSelGrid(order ? order.table : '');
+            document.getElementById('table-sel-overlay').classList.remove('hidden');
+        }
+
+        async function stornierenTeilrechnung() {
+            const keys = Object.keys(selectedTeilrechnung);
+            if (!keys.length) return;
+
+            const pin = prompt('Chef-PIN eingeben:');
+            if (!pin) return;
+
+            try {
+                for (const key of keys) {
+                    const qty = selectedTeilrechnung[key];
+                    const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ item_key: key, quantity: qty, pin: pin })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        showToast(err.detail || 'Stornierung fehlgeschlagen', 'error');
+                        return;
+                    }
+                }
+                showToast('Artikel storniert', 'success');
+                selectedTeilrechnung = {};
+                checkLiveTischeUpdates();
+            } catch (e) {
+                showToast('Fehler bei Stornierung', 'error');
+            }
+        }
+
+        // ── WHOLE ORDER ACTIONS ──
+        async function bezahlenAlles() {
+            if (!activeOrderId) return;
+            const btn = document.getElementById('btn-bezahlt-all');
+            btn.disabled = true; btn.innerHTML = 'Verarbeite…';
+            try {
+                const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST' });
+                if (res.ok) {
+                    showToast('✅ Alles bezahlt!', 'success');
+                    closePopup();
+                    checkLiveTischeUpdates();
+                } else {
+                    showToast('Fehler beim Bezahlen', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            } finally {
+                btn.disabled = false; btn.innerHTML = '✅ Alle bezahlen';
+            }
+        }
+
+        async function stornieren() {
+            if (!activeOrderId) return;
+            const pin = prompt('Chef-PIN eingeben:');
+            if (!pin) return;
+            try {
+                const fd = new FormData(); fd.append('pin', pin);
+                const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST', body: fd });
+                if (res.ok) {
+                    showToast('Bon storniert', 'success');
+                    closePopup();
+                    checkLiveTischeUpdates();
+                } else if (res.status === 403) {
+                    showToast('❌ Ungültige PIN', 'error');
+                } else {
+                    showToast('Stornierung fehlgeschlagen', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        function openUmbuchenAll() {
+            if (!activeOrderId) return;
+            const order = allOrders.find(o => o.id === activeOrderId);
+            tableSel_mode = 'all';
+            document.getElementById('table-sel-title').textContent = 'Bon umbuchen';
+            document.getElementById('table-sel-subtitle').textContent = `${order ? order.table : '?'} → welcher Tisch?`;
+            renderTableSelGrid(order ? order.table : '');
+            document.getElementById('table-sel-overlay').classList.remove('hidden');
+        }
+
+        function renderTableSelGrid(currentTableStr) {
+            const grid = document.getElementById('table-sel-grid');
+            grid.innerHTML = allTables
+                .filter(t => {
+                    const ts = 'Tisch ' + t.number;
+                    return ts !== currentTableStr && String(t.number) !== currentTableStr;
+                })
+                .map(t => {
+                    const ts = 'Tisch ' + t.number;
+                    const busy = allOrders.some(o => (o.table === ts || o.table === String(t.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+                    return `<div class="table-sel-tile${busy ? ' busy' : ''}" onclick="doTableSel(${t.number})">
+                        <div style="font-size:20px;font-weight:900;color:#fff;">${t.number}</div>
+                        <div style="font-size:9px;color:#6b7280;font-weight:700;margin-top:2px;">${t.zone || ''}</div>
+                        <div style="font-size:10px;font-weight:800;margin-top:4px;color:${busy ? '#f59e0b' : '#10b981'};">${busy ? 'Belegt' : 'Frei'}</div>
+                    </div>`;
+                }).join('');
+        }
+
+        function closeTableSel() {
+            document.getElementById('table-sel-overlay').classList.add('hidden');
+            tableSel_mode = null;
+        }
+
+        async function doTableSel(targetTableNumber) {
+            closeTableSel();
+            if (tableSel_mode === 'all') {
+                try {
+                    const res = await fetch(`/${slug}/tablet/transfer-order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_id: activeOrderId, target_table: String(targetTableNumber) })
+                    });
+                    if (res.ok) {
+                        showToast(`✅ Auf Tisch ${targetTableNumber} umgebucht`, 'success');
+                        closePopup();
+                        checkLiveTischeUpdates();
+                    } else {
+                        showToast('Umbuchen fehlgeschlagen', 'error');
+                    }
+                } catch (e) {
+                    showToast('Verbindungsfehler', 'error');
+                }
+            } else if (tableSel_mode === 'teilrechnung') {
+                const keys = Object.keys(selectedTeilrechnung);
+                if (!keys.length) return;
+
+                try {
+                    for (const key of keys) {
+                        const qty = selectedTeilrechnung[key];
+                        const res = await fetch(`/${slug}/tablet/transfer-item/${activeOrderId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ item_key: key, target_table: String(targetTableNumber), quantity: qty })
+                        });
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            showToast(err.detail || 'Fehler beim Umbuchen', 'error');
+                            return;
+                        }
+                    }
+                    showToast(`✅ Artikel auf Tisch ${targetTableNumber} umgebucht`, 'success');
+                    selectedTeilrechnung = {};
+                    closePopup();
+                    checkLiveTischeUpdates();
+                } catch (e) {
+                    showToast('Verbindungsfehler', 'error');
+                }
+            }
+        }
+
+        // Helper to trigger polling initial rendering on load
+        function startPolling() {
+            checkLiveTischeUpdates();
+            connectWebSocket();
+        }
+
 
         // Run first check after DOM content loaded, initializing websocket
         document.addEventListener("DOMContentLoaded", () => {
