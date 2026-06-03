@@ -1,6 +1,5 @@
-const CACHE_NAME = 'digi-gastro-v6';
+const CACHE_NAME = 'digi-gastro-v7';
 const STATIC_ASSETS = [
-  '/',
   '/static/css/design_system.css',
   '/static/images/digigastrologo.jpeg',
   'https://cdn.tailwindcss.com',
@@ -41,6 +40,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
+  // Exclude root landing page from service worker control so it always hits the network
+  if (url.pathname === '/') {
+    return;
+  }
+
   // Exclude WebSocket and non-GET requests
   if (event.request.method !== 'GET' || url.protocol === 'ws:' || url.protocol === 'wss:') {
     return;
@@ -48,8 +52,7 @@ self.addEventListener('fetch', event => {
 
   // Dynamic/API or menu endpoints: Network-First Strategy
   // E.g., guest menu pages, api calls
-  const isDynamic = url.pathname === '/' ||
-                    url.pathname.includes('/api/') || 
+  const isDynamic = url.pathname.includes('/api/') || 
                     url.pathname.includes('/menu/') ||
                     url.pathname.includes('/admin/') ||
                     url.pathname.includes('/login') ||

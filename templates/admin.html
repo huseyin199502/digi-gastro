@@ -1028,6 +1028,7 @@
     <!-- Javascript tab persistence & operations -->
     <script>
         const slug = "{{ slug }}";
+        const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
 
         // Prevent pinch-zoom (multi-touch) on mobile browsers
         document.addEventListener('touchstart', function (e) {
@@ -1580,11 +1581,14 @@
                     return;
                 }
             }
-            const pin = prompt('Bitte Chef-PIN eingeben:');
-            if (pin === null) return;
-            if (!pin.trim()) {
-                showToast('PIN erforderlich', 'error');
-                return;
+            let pin = '';
+            if (currentUserRole !== 'chef') {
+                pin = prompt('Bitte Chef-PIN eingeben:');
+                if (pin === null) return;
+                if (!pin.trim()) {
+                    showToast('PIN erforderlich', 'error');
+                    return;
+                }
             }
             try {
                 const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
@@ -1674,11 +1678,14 @@
                 document.getElementById('item-action-modal').classList.add('hidden');
                 document.getElementById('table-sel-overlay').classList.remove('hidden');
             } else if (action === 'cancel') {
-                const pin = prompt('Bitte Chef-PIN eingeben:');
-                if (pin === null) return; // Abgebrochen
-                if (!pin.trim()) {
-                    showToast('PIN erforderlich', 'error');
-                    return;
+                let pin = '';
+                if (currentUserRole !== 'chef') {
+                    pin = prompt('Bitte Chef-PIN eingeben:');
+                    if (pin === null) return; // Abgebrochen
+                    if (!pin.trim()) {
+                        showToast('PIN erforderlich', 'error');
+                        return;
+                    }
                 }
                 try {
                     const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
@@ -1855,8 +1862,11 @@
             const keys = Object.keys(selectedTeilrechnung);
             if (!keys.length) return;
 
-            const pin = prompt('Chef-PIN eingeben:');
-            if (!pin) return;
+            let pin = '';
+            if (currentUserRole !== 'chef') {
+                pin = prompt('Chef-PIN eingeben:');
+                if (!pin) return;
+            }
 
             try {
                 const bulkItems = keys.map(key => ({
@@ -1905,8 +1915,11 @@
 
         async function stornieren() {
             if (!activeOrderId) return;
-            const pin = prompt('Chef-PIN eingeben:');
-            if (!pin) return;
+            let pin = '';
+            if (currentUserRole !== 'chef') {
+                pin = prompt('Chef-PIN eingeben:');
+                if (!pin) return;
+            }
             try {
                 const fd = new FormData(); fd.append('pin', pin);
                 const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST', body: fd });

@@ -1931,12 +1931,26 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
     return {"success": True}
 
 @app.post("/{slug}/tablet/stornieren/{order_id}")
-async def cancel_order(request: Request, slug: str, order_id: int, pin: str = Form(...), db: Session = Depends(get_db)):
+async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional[str] = Form(None), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
-    employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(pin).strip()), None)
-    if not employee or employee["role"] != "chef":
-        raise HTTPException(status_code=403, detail="Ungültige PIN oder keine Berechtigung für Stornierung.")
+    is_chef = False
+    chef_employee = None
+    res = get_current_user_and_slug(request)
+    if res:
+        user, session_slug = res
+        if session_slug == slug and user["role"] == "chef":
+            is_chef = True
+            chef_employee = next((s for s in restaurant.get("staff", []) if s["role"] == "chef"), None)
+
+    if not is_chef:
+        if not pin:
+            raise HTTPException(status_code=400, detail="Chef-PIN erforderlich.")
+        employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(pin).strip()), None)
+        if not employee or employee["role"] != "chef":
+            raise HTTPException(status_code=403, detail="Ungültige PIN oder keine Berechtigung für Stornierung.")
+    else:
+        employee = chef_employee or {"name": "Chef", "role": "chef"}
         
     order = next((o for o in restaurant["orders"] if o["id"] == order_id), None)
     if not order:
@@ -2342,17 +2356,30 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
 class CancelItemPayload(BaseModel):
     item_key: str
     quantity: int = 1
-    pin: str
+    pin: Optional[str] = None
 
 @app.post("/{slug}/tablet/cancel-item/{order_id}")
 async def cancel_item(request: Request, slug: str, order_id: int, payload: CancelItemPayload, db: Session = Depends(get_db)):
     """Cancel a specific line item (partial cancellation) with chef PIN check."""
     restaurant = get_restaurant_or_raise(slug, db)
 
-    # PIN check
-    employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
-    if not employee or employee["role"] != "chef":
-        raise HTTPException(status_code=403, detail="Ungültige PIN.")
+    is_chef = False
+    chef_employee = None
+    res = get_current_user_and_slug(request)
+    if res:
+        user, session_slug = res
+        if session_slug == slug and user["role"] == "chef":
+            is_chef = True
+            chef_employee = next((s for s in restaurant.get("staff", []) if s["role"] == "chef"), None)
+
+    if not is_chef:
+        if not payload.pin:
+            raise HTTPException(status_code=400, detail="Chef-PIN erforderlich.")
+        employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
+        if not employee or employee["role"] != "chef":
+            raise HTTPException(status_code=403, detail="Ungültige PIN.")
+    else:
+        employee = chef_employee or {"name": "Chef", "role": "chef"}
 
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
     if not order:
@@ -2412,17 +2439,30 @@ class BulkCancelItemInfo(BaseModel):
 
 class BulkCancelItemsPayload(BaseModel):
     items: List[BulkCancelItemInfo]
-    pin: str
+    pin: Optional[str] = None
 
 @app.post("/{slug}/tablet/cancel-items-bulk/{order_id}")
 async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload: BulkCancelItemsPayload, db: Session = Depends(get_db)):
     """Cancel multiple specific line items (bulk partial cancellation) with chef PIN check in a single transaction."""
     restaurant = get_restaurant_or_raise(slug, db)
 
-    # PIN check
-    employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
-    if not employee or employee["role"] != "chef":
-        raise HTTPException(status_code=403, detail="Ungültige PIN.")
+    is_chef = False
+    chef_employee = None
+    res = get_current_user_and_slug(request)
+    if res:
+        user, session_slug = res
+        if session_slug == slug and user["role"] == "chef":
+            is_chef = True
+            chef_employee = next((s for s in restaurant.get("staff", []) if s["role"] == "chef"), None)
+
+    if not is_chef:
+        if not payload.pin:
+            raise HTTPException(status_code=400, detail="Chef-PIN erforderlich.")
+        employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
+        if not employee or employee["role"] != "chef":
+            raise HTTPException(status_code=403, detail="Ungültige PIN.")
+    else:
+        employee = chef_employee or {"name": "Chef", "role": "chef"}
 
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
     if not order:
