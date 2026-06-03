@@ -1114,6 +1114,89 @@ def test_integration():
     assert pending_shisha["quantity"] == 1
     print("Repeat orders status-sensitive separation: OK")
 
+    # 9. New Features and Bug Fixes verification
+    print("Testing Tisch umbuchen order merge logic...")
+    
+    # Establish valid guest sessions for Tisch 3 and Tisch 4 with current active session tokens
+    r_data = restaurants["demo"]
+    t3_db_table = next(t for t in r_data["tables"] if t["number"] == "3")
+    t3_tok = t3_db_table["active_session_token"]
+    resp = client.get(f"/demo?tisch=3&token={t3_tok}")
+    assert resp.status_code == 200
+    t3_cookie = resp.headers.get("set-cookie").split(";")[0].split("=")[1]
+    t3_cookies = {f"guest_session_demo": t3_cookie}
+
+    t4_db_table = next(t for t in r_data["tables"] if t["number"] == "4")
+    t4_tok = t4_db_table["active_session_token"]
+    resp = client.get(f"/demo?tisch=4&token={t4_tok}")
+    assert resp.status_code == 200
+    t4_cookie = resp.headers.get("set-cookie").split(";")[0].split("=")[1]
+    t4_cookies = {f"guest_session_demo": t4_cookie}
+
+    # Add a target order on Tisch 4
+    resp = client.post("/demo/bestellen", json={
+        "table": "Tisch 4",
+        "items": [
+            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+        ]
+    }, cookies=t4_cookies)
+    assert resp.status_code == 200
+    tisch4_order_id = resp.json()["order_id"]
+
+    # Place a separate order on Tisch 3
+    resp = client.post("/demo/bestellen", json={
+        "table": "Tisch 3",
+        "items": [
+            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+        ]
+    }, cookies=t3_cookies)
+    assert resp.status_code == 200
+    tisch3_order_id = resp.json()["order_id"]
+
+    # Transfer Tisch 3's order to Tisch 4 (should merge quantities)
+    resp = client.post("/demo/tablet/transfer-order", json={
+        "order_id": tisch3_order_id,
+        "target_table": "4"
+    }, cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+
+    # Verify that tisch3 order was removed from orders, and tisch4 order has Spezi quantity = 2
+    r_data = restaurants["demo"]
+    o_t3 = next((o for o in r_data["orders"] if o["id"] == tisch3_order_id), None)
+    assert o_t3 is None
+    o_t4 = next(o for o in r_data["orders"] if o["id"] == tisch4_order_id)
+    assert o_t4["items"][0]["quantity"] == 2
+    print("Tisch umbuchen order merge logic: OK")
+
+    print("Testing complete order stornieren (BON STORNO)...")
+    # Fetch a fresh session token for Tisch 3 since it was rotated upon transfer/empty
+    t3_tok_new = t3_db_table["active_session_token"]
+    resp = client.get(f"/demo?tisch=3&token={t3_tok_new}")
+    assert resp.status_code == 200
+    t3_cookie_new = resp.headers.get("set-cookie").split(";")[0].split("=")[1]
+    t3_cookies_new = {f"guest_session_demo": t3_cookie_new}
+
+    # Place another order on Tisch 3
+    resp = client.post("/demo/bestellen", json={
+        "table": "Tisch 3",
+        "items": [
+            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+        ]
+    }, cookies=t3_cookies_new)
+    assert resp.status_code == 200
+    new_order_id = resp.json()["order_id"]
+
+    # Perform BON STORNO with Chef PIN
+    resp = client.post(f"/demo/tablet/stornieren/{new_order_id}", data={"pin": "1111"}, cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+
+    r_data = restaurants["demo"]
+    o_storno = next(o for o in r_data["orders"] if o["id"] == new_order_id)
+    assert o_storno["status"] == "storniert"
+    print("Complete order stornieren (BON STORNO): OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":

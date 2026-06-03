@@ -383,26 +383,26 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-5">
                 <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display relative overflow-hidden">
                     <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Brutto-Umsatz</span>
-                    <div class="text-2xl font-black text-primary mt-2 pl-0.5 glow-text-primary">{{ "%.2f"|format(stats.brutto) }} €</div>
+                    <div id="kpi-brutto" class="text-2xl font-black text-primary mt-2 pl-0.5 glow-text-primary">{{ "%.2f"|format(stats.brutto) }} €</div>
                 </div>
                 <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
                     <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Netto 19% MwSt</span>
-                    <div class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_19) }} €</div>
-                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: {{ "%.2f"|format(stats.brutto_19) }} €</span>
+                    <div id="kpi-netto-19" class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_19) }} €</div>
+                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: <span id="kpi-brutto-19">{{ "%.2f"|format(stats.brutto_19) }}</span> €</span>
                 </div>
                 <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
                     <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Netto 7% MwSt</span>
-                    <div class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_7) }} €</div>
-                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: {{ "%.2f"|format(stats.brutto_7) }} €</span>
+                    <div id="kpi-netto-7" class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_7) }} €</div>
+                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: <span id="kpi-brutto-7">{{ "%.2f"|format(stats.brutto_7) }}</span> €</span>
                 </div>
                 <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
                     <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Gesamt-Trinkgeld</span>
-                    <div class="text-xl font-black text-emerald-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.tip) }} €</div>
+                    <div id="kpi-tip" class="text-xl font-black text-emerald-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.tip) }} €</div>
                 </div>
                 <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
                     <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Ø-Warenkorb / Tisch</span>
-                    <div class="text-xl font-black text-sky-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.avg_basket) }} €</div>
-                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Bons: {{ stats.orders_count }}</span>
+                    <div id="kpi-avg-basket" class="text-xl font-black text-sky-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.avg_basket) }} €</div>
+                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Bons: <span id="kpi-orders-count">{{ stats.orders_count }}</span></span>
                 </div>
             </div>
 
@@ -421,7 +421,8 @@
             </div>
 
             <!-- Renner & Penner list -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Renner, Penner & Live Feed -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Renner -->
                 <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
                     <h3 class="text-sm font-black text-primary uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
@@ -455,6 +456,17 @@
                         {% else %}
                         <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe aufgezeichnet.</p>
                         {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Live-Zahlungs- & Trinkgeld-Feed -->
+                <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
+                    <h3 class="text-sm font-black text-emerald-400 uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-emerald-400">payments</span>
+                        <span>⚡ Live-Zahlungsfeed</span>
+                    </h3>
+                    <div id="live-payments-feed" class="space-y-3 font-display">
+                        <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Warte auf Zahlungen...</p>
                     </div>
                 </div>
             </div>
@@ -639,7 +651,7 @@
 
                     <div class="flex justify-between items-center border-t border-outline-variant/60 pt-4 font-display">
                         <div class="flex gap-2">
-                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}', '{{ (p.name_en or '') | replace("'", "\\'") }}', '{{ (p.description_en or '') | replace("'", "\\'") }}')" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
+                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}', '{{ (p.name_en or '') | replace("'", "\\'") }}', '{{ (p.description_en or '') | replace("'", "\\'") }}', '{{ p.image or '' }}')" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
                                 <span class="material-symbols-outlined text-sm">edit</span>
                                 Bearbeiten
                             </button>
@@ -896,6 +908,17 @@
                     <div>
                         <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung (EN - optional)</label>
                         <textarea id="edit-product-description-en" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">📁 Bild hochladen</label>
+                        <input type="file" id="edit-product-image-file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white focus:outline-none focus:border-primary cursor-pointer file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-black hover:file:bg-primary/90">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">🔗 Oder Bild-URL eingeben</label>
+                        <input type="text" id="edit-product-image-url" class="input-premium w-full text-sm focus:border-primary">
                     </div>
                 </div>
 
@@ -1246,6 +1269,60 @@
                         updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
                     }
                     lastLiveTischeHash = currentHash;
+
+                    // Real-time KPI Card Updates (only if tab is dashboard/live)
+                    if (data.stats) {
+                        const elBrutto = document.getElementById('kpi-brutto');
+                        if (elBrutto) elBrutto.textContent = `${data.stats.brutto.toFixed(2).replace('.', ',')} €`;
+                        
+                        const elNetto19 = document.getElementById('kpi-netto-19');
+                        if (elNetto19) elNetto19.textContent = `${data.stats.netto_19.toFixed(2).replace('.', ',')} €`;
+                        
+                        const elBrutto19 = document.getElementById('kpi-brutto-19');
+                        if (elBrutto19) elBrutto19.textContent = `${data.stats.brutto_19.toFixed(2).replace('.', ',')}`;
+                        
+                        const elNetto7 = document.getElementById('kpi-netto-7');
+                        if (elNetto7) elNetto7.textContent = `${data.stats.netto_7.toFixed(2).replace('.', ',')} €`;
+                        
+                        const elBrutto7 = document.getElementById('kpi-brutto-7');
+                        if (elBrutto7) elBrutto7.textContent = `${data.stats.brutto_7.toFixed(2).replace('.', ',')}`;
+                        
+                        const elTip = document.getElementById('kpi-tip');
+                        if (elTip) elTip.textContent = `${data.stats.tip.toFixed(2).replace('.', ',')} €`;
+                        
+                        const elAvgBasket = document.getElementById('kpi-avg-basket');
+                        if (elAvgBasket) elAvgBasket.textContent = `${data.stats.avg_basket.toFixed(2).replace('.', ',')} €`;
+                        
+                        const elOrdersCount = document.getElementById('kpi-orders-count');
+                        if (elOrdersCount) elOrdersCount.textContent = data.stats.orders_count;
+                    }
+
+                    // Real-time Live Payments Feed Update
+                    if (data.recent_payments) {
+                        const feedContainer = document.getElementById('live-payments-feed');
+                        if (feedContainer) {
+                            if (data.recent_payments.length === 0) {
+                                feedContainer.innerHTML = '<p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe heute.</p>';
+                            } else {
+                                feedContainer.innerHTML = data.recent_payments.map(p => {
+                                    const timeStr = p.timestamp ? p.timestamp.substring(11, 16) : '--:--';
+                                    const hasTip = p.tip_amount > 0;
+                                    return `
+                                        <div class="flex flex-col gap-1 border-b border-outline-variant/40 pb-3 text-xs">
+                                            <div class="flex justify-between items-center">
+                                                <span class="font-bold text-white">💰 ${p.table} (Bon #${p.id})</span>
+                                                <span class="font-mono text-zinc-500">${timeStr} Uhr</span>
+                                            </div>
+                                            <div class="flex justify-between items-center text-[11px] mt-0.5">
+                                                <span class="text-on-surface-variant font-semibold">Betrag: ${p.total.toFixed(2).replace('.', ',')} €</span>
+                                                ${hasTip ? `<span class="bg-emerald-500/10 text-emerald-400 font-black px-2 py-0.5 rounded border border-emerald-500/20 text-[9px] uppercase tracking-wider">Trinkgeld: +${p.tip_amount.toFixed(2).replace('.', ',')} €</span>` : '<span class="text-zinc-600 font-medium">Kein Trinkgeld</span>'}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('');
+                            }
+                        }
+                    }
                 })
                 .catch(err => console.warn("Live status polling error:", err));
         }
@@ -1626,6 +1703,7 @@
             }
 
             document.getElementById('item-action-modal').classList.remove('hidden');
+            closePopup();
         }
 
         function closeItemActionModal() {
@@ -2045,7 +2123,7 @@
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }
         function closeQRGenerator()     { /* legacy */ }
 
-        function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '') {
+        function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '') {
             document.getElementById('edit-product-id').value = id;
             document.getElementById('edit-product-name').value = name;
             document.getElementById('edit-product-name-en').value = nameEn;
@@ -2053,6 +2131,8 @@
             document.getElementById('edit-product-description').value = description;
             document.getElementById('edit-product-description-en').value = descriptionEn;
             document.getElementById('edit-product-category').value = category;
+            document.getElementById('edit-product-image-url').value = imageUrl;
+            document.getElementById('edit-product-image-file').value = '';
             document.getElementById('edit-product-modal').classList.remove('hidden');
         }
 
@@ -2070,19 +2150,24 @@
         function submitEditProduct(event) {
             event.preventDefault();
             const id = document.getElementById('edit-product-id').value;
-            const payload = {
-                name: document.getElementById('edit-product-name').value,
-                price: parseFloat(document.getElementById('edit-product-price').value),
-                description: document.getElementById('edit-product-description').value,
-                category: document.getElementById('edit-product-category').value,
-                name_en: document.getElementById('edit-product-name-en').value,
-                description_en: document.getElementById('edit-product-description-en').value
-            };
+            
+            const formData = new FormData();
+            formData.append('name', document.getElementById('edit-product-name').value);
+            formData.append('price', parseFloat(document.getElementById('edit-product-price').value));
+            formData.append('description', document.getElementById('edit-product-description').value);
+            formData.append('category', document.getElementById('edit-product-category').value);
+            formData.append('name_en', document.getElementById('edit-product-name-en').value);
+            formData.append('description_en', document.getElementById('edit-product-description-en').value);
+            formData.append('image_url', document.getElementById('edit-product-image-url').value);
+            
+            const fileInput = document.getElementById('edit-product-image-file');
+            if (fileInput.files.length > 0) {
+                formData.append('image_file', fileInput.files[0]);
+            }
 
             fetch(`/api/products/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: formData
             })
             .then(res => {
                 if (res.ok) {

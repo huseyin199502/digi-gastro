@@ -1958,6 +1958,14 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
         
     order["status"] = "storniert"
     
+    # Rotate table active session token upon cancellation to clear session
+    table_num = str(order["table"]).replace("Tisch", "").strip()
+    tables_list = restaurant.get("tables", [])
+    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+    if db_table:
+        import secrets
+        db_table["active_session_token"] = secrets.token_hex(4)
+    
     log_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "employee_name": employee["name"],
@@ -1969,8 +1977,16 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
         restaurant["audit_log"] = []
     restaurant["audit_log"].append(log_entry)
     
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Stornierung: {e}")
+    finally:
+        db2.close()
+        
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
@@ -2246,6 +2262,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
 
     target_num = str(payload.target_table).replace("Tisch", "").strip()
     target_table_str = f"Tisch {target_num}"
+    possible_tables = [target_table_str, target_num]
 
     tables_list = restaurant.get("tables", [])
     target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
@@ -2259,6 +2276,9 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     if not source_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
 
+    # Make a copy of source_item before modifying quantity
+    source_item_copy = copy.deepcopy(source_item)
+
     qty_to_move = min(payload.quantity, source_item["quantity"])
     item_amount = round(qty_to_move * source_item["price"], 2)
 
@@ -2266,18 +2286,23 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     source_item["quantity"] -= qty_to_move
     if source_item["quantity"] <= 0:
         source_order["items"].remove(source_item)
-    source_order["total"] = round(sum(i["price"] * i["quantity"] for i in source_order["items"]), 2)
-    source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
-    update_order_status_by_items(source_order)
+
+    # If source order has no items left, remove it from list
+    if not source_order.get("items", []):
+        restaurant["orders"].remove(source_order)
+    else:
+        source_order["total"] = round(sum(i["price"] * i["quantity"] for i in source_order["items"]), 2)
+        source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
+        update_order_status_by_items(source_order)
 
     # Find or create target order
     target_order = next(
         (o for o in restaurant.get("orders", [])
-         if o.get("table") == target_table_str and o.get("status") not in ["bezahlt", "storniert"]),
+         if o.get("table") in possible_tables and o.get("status") not in ["bezahlt", "storniert"]),
         None
     )
 
-    source_status = source_item.get("item_status", "pending") or "pending"
+    source_status = source_item_copy.get("item_status", "pending") or "pending"
 
     if target_order:
         # Merge into existing order ONLY if same status
@@ -2291,16 +2316,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         if t_item:
             t_item["quantity"] += qty_to_move
         else:
-            new_item = copy.deepcopy(source_item if source_item["quantity"] > 0 else {
-                "product_id": int(pid_str) if pid_str.isdigit() else 0,
-                "name": source_item.get("name", ""),
-                "price": source_item.get("price", 0.0),
-                "quantity": qty_to_move,
-                "note": source_item.get("note", ""),
-                "category": source_item.get("category", ""),
-                "category_type": source_item.get("category_type", ""),
-                "item_status": source_status,
-            })
+            new_item = copy.deepcopy(source_item_copy)
             new_item["quantity"] = qty_to_move
             target_order["items"].append(new_item)
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
@@ -2308,16 +2324,8 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         update_order_status_by_items(target_order)
     else:
         # Create new order for target table — let DB assign autoincrement ID
-        moved_item = {
-            "product_id": int(pid_str) if pid_str.isdigit() else 0,
-            "name": source_item.get("name", ""),
-            "price": source_item.get("price", 0.0),
-            "quantity": qty_to_move,
-            "note": source_item.get("note"),
-            "category": source_item.get("category", ""),
-            "category_type": source_item.get("category_type", ""),
-            "item_status": source_status,
-        }
+        moved_item = copy.deepcopy(source_item_copy)
+        moved_item["quantity"] = qty_to_move
         new_order = {
             "id": None,  # DB will assign via autoincrement
             "table": target_table_str,
@@ -2405,6 +2413,13 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
 
     if not order["items"]:
         order["status"] = "storniert"
+        # Rotate table active session token upon cancellation to clear session
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        tables_list = restaurant.get("tables", [])
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        if db_table:
+            import secrets
+            db_table["active_session_token"] = secrets.token_hex(4)
     else:
         update_order_status_by_items(order)
 
@@ -2493,6 +2508,13 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
     if not order["items"]:
         order["status"] = "storniert"
+        # Rotate table active session token upon cancellation to clear session
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        tables_list = restaurant.get("tables", [])
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        if db_table:
+            import secrets
+            db_table["active_session_token"] = secrets.token_hex(4)
     else:
         update_order_status_by_items(order)
 
@@ -2557,13 +2579,50 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
 
     target_num = str(payload.target_table).replace("Tisch", "").strip()
     target_table_str = f"Tisch {target_num}"
+    possible_tables = [target_table_str, target_num]
 
     tables_list = restaurant.get("tables", [])
     target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
     if not target_db_table:
         raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
 
-    order["table"] = target_table_str
+    target_order = next(
+        (o for o in restaurant.get("orders", [])
+         if o.get("table") in possible_tables and o.get("status") not in ["bezahlt", "storniert"]),
+        None
+    )
+
+    if target_order:
+        # Merge items from the source order into target_order
+        for item in order.get("items", []):
+            source_status = item.get("item_status", "pending") or "pending"
+            pid_str = str(item.get("product_id"))
+            note_slug = (item.get("note") or "").strip().replace(" ", "_")
+            
+            t_item = next(
+                (i for i in target_order.get("items", [])
+                 if str(i.get("product_id")) == pid_str 
+                 and (i.get("note") or "").strip().replace(" ", "_") == note_slug
+                 and (i.get("item_status", "pending") or "pending") == source_status),
+                None
+            )
+            if t_item:
+                t_item["quantity"] += item["quantity"]
+            else:
+                new_item = copy.deepcopy(item)
+                target_order["items"].append(new_item)
+                
+        # Recalculate target_order totals
+        target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
+        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0) + order.get("tip_amount", 0.0), 2)
+        target_order["tip_amount"] = round(target_order.get("tip_amount", 0.0) + order.get("tip_amount", 0.0), 2)
+        update_order_status_by_items(target_order)
+        
+        # Remove the source order since it is merged
+        restaurant["orders"].remove(order)
+    else:
+        # Just update the table name of the order
+        order["table"] = target_table_str
 
     db2 = SessionLocal()
     try:
@@ -3436,10 +3495,81 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
                 return JSONResponse(status_code=401, content={"error": "Gerät wurde entkoppelt"})
                 
     active_orders = [o for o in restaurant.get("orders", []) if o["status"] not in ["bezahlt", "storniert"]]
+
+    # Real-time statistics for today ("heute")
+    orders = restaurant.get("orders", [])
+    now = datetime.now()
+    
+    filtered_orders = []
+    for o in orders:
+        if o.get("status") == "storniert":
+            continue
+        ts_str = o.get("timestamp", "")
+        if not ts_str:
+            continue
+        try:
+            dt = datetime.strptime(ts_str[:10], "%Y-%m-%d")
+        except Exception:
+            continue
+            
+        if dt.date() == now.date():
+            filtered_orders.append(o)
+            
+    brutto = sum(o["total"] for o in filtered_orders if o.get("status") == "bezahlt")
+    total_tip = sum(o.get("tip_amount", 0.0) for o in filtered_orders if o.get("status") == "bezahlt")
+    total_orders = len([o for o in filtered_orders if o.get("status") == "bezahlt"])
+    
+    netto_7 = 0.0
+    netto_19 = 0.0
+    brutto_7 = 0.0
+    brutto_19 = 0.0
+    
+    for o in filtered_orders:
+        if o.get("status") != "bezahlt":
+            continue
+        for item in o.get("items", []):
+            item_price = item.get("price", 0.0)
+            item_qty = item.get("quantity", 0)
+            item_total = item_price * item_qty
+            is_food = item.get("category_type", "küche") == "küche"
+            if is_food:
+                brutto_7 += item_total
+                netto_7 += item_total / 1.07
+            else:
+                brutto_19 += item_total
+                netto_19 += item_total / 1.19
+                
+    avg_basket = 0.0
+    if total_orders > 0:
+        avg_basket = brutto / total_orders
+        
+    recent_payments = []
+    paid_orders = [o for o in orders if o.get("status") == "bezahlt"]
+    paid_orders_sorted = sorted(paid_orders, key=lambda x: x.get("timestamp", ""), reverse=True)
+    for o in paid_orders_sorted[:5]:
+        recent_payments.append({
+            "id": o.get("id"),
+            "table": o.get("table"),
+            "total": o.get("total"),
+            "tip_amount": o.get("tip_amount", 0.0),
+            "timestamp": o.get("timestamp", "")
+        })
+
     return {
         "orders": active_orders,
         "service_calls": restaurant.get("service_calls", []),
-        "tables": restaurant.get("tables", [])
+        "tables": restaurant.get("tables", []),
+        "stats": {
+            "brutto": round(brutto, 2),
+            "netto_7": round(netto_7, 2),
+            "netto_19": round(netto_19, 2),
+            "brutto_7": round(brutto_7, 2),
+            "brutto_19": round(brutto_19, 2),
+            "tip": round(total_tip, 2),
+            "orders_count": total_orders,
+            "avg_basket": round(avg_basket, 2)
+        },
+        "recent_payments": recent_payments
     }
 
 
@@ -3569,15 +3699,19 @@ def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None)
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.put("/api/products/{product_id}")
-def update_product_api(request: Request, product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
-    db = SessionLocal()
+async def update_product_api(
+    request: Request,
+    product_id: int,
+    db: Session = Depends(get_db)
+):
+    db2 = SessionLocal()
     try:
-        db_product = db.query(Product).filter_by(id=product_id).first()
+        db_product = db2.query(Product).filter_by(id=product_id).first()
         if not db_product:
             raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
         slug = db_product.tenant_slug
     finally:
-        db.close()
+        db2.close()
 
     require_chef_user(request, slug)
     restaurant = get_restaurant_or_raise(slug, db)
@@ -3586,20 +3720,79 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
     if not product:
         raise HTTPException(status_code=404, detail="Produkt in Cache nicht gefunden.")
 
-    product["name"] = payload.name.strip()
-    product["price"] = round(payload.price, 2)
-    product["description"] = payload.description.strip() if payload.description else None
-    product["category"] = payload.category.strip()
-    product["name_en"] = payload.name_en.strip() if payload.name_en else ""
-    product["description_en"] = payload.description_en.strip() if payload.description_en else ""
+    # Parse request fields depending on Content-Type
+    content_type = request.headers.get("content-type", "")
+    
+    name = ""
+    price = 0.0
+    description = ""
+    category = ""
+    name_en = ""
+    description_en = ""
+    image_url = None
+    image_file = None
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
+        name = body.get("name", "")
+        price = float(body.get("price", 0.0))
+        description = body.get("description", "")
+        category = body.get("category", "")
+        name_en = body.get("name_en", "")
+        description_en = body.get("description_en", "")
+        image_url = body.get("image_url")
+    else:
+        # Parse multipart/form-data or form-urlencoded
+        form = await request.form()
+        name = form.get("name", "")
+        price = float(form.get("price", 0.0))
+        description = form.get("description", "")
+        category = form.get("category", "")
+        name_en = form.get("name_en", "")
+        description_en = form.get("description_en", "")
+        image_url = form.get("image_url")
+        image_file = form.get("image_file")
+
+    product["name"] = str(name).strip()
+    product["price"] = round(float(price), 2)
+    product["description"] = str(description).strip() if description else ""
+    product["category"] = str(category).strip()
+    product["name_en"] = str(name_en).strip() if name_en else ""
+    product["description_en"] = str(description_en).strip() if description_en else ""
+
+    # Image handling: file upload wins over URL
+    final_image = product.get("image", "")
+    if image_file and hasattr(image_file, "filename") and image_file.filename:
+        products_upload_dir = os.path.join(UPLOAD_DIR, "products")
+        os.makedirs(products_upload_dir, exist_ok=True)
+        ext = "jpg"
+        parts = image_file.filename.split(".")
+        if len(parts) > 1:
+            ext = parts[-1].lower()
+        safe_name = f"{slug}-product-{product_id}.{ext}"
+        file_path = os.path.join(products_upload_dir, safe_name)
+        content = await image_file.read()
+        with open(file_path, "wb") as fh:
+            fh.write(content)
+        final_image = f"/uploads/products/{safe_name}"
+    elif image_url is not None:
+        if str(image_url).strip():
+            final_image = str(image_url).strip()
+        else:
+            final_image = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400"
+            
+    product["image"] = final_image
 
     # Synchronize to database
-    db2 = SessionLocal()
+    db3 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db3)
+        db3.commit()
     finally:
-        db2.close()
+        db3.close()
 
     return {"success": True}
 
