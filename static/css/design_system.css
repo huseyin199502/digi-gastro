@@ -260,3 +260,9 @@ html:not(.dark) select {
   color: #000000 !important;
 }
 
+/* Disable double-tap zoom globally to ensure rapid, responsive clicks on all pages */
+*, *::before, *::after {
+  touch-action: manipulation;
+}
+
+

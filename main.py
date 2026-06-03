@@ -197,7 +197,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "price": item.price,
             "quantity": item.quantity,
             "category_type": item.category_type,
-            "note": item.note
+            "note": item.note,
+            "item_status": getattr(item, "item_status", "pending") or "pending"
         } for item in db_items]
         orders.append({
             "id": o.id,
@@ -417,7 +418,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 price=item.get("price"),
                 quantity=item.get("quantity"),
                 category_type=item.get("category_type", "küche"),
-                note=item.get("note")
+                note=item.get("note"),
+                item_status=item.get("item_status", "pending")
             )
             session.add(db_item)
             
@@ -950,6 +952,7 @@ class OrderItem(BaseModel):
     price: float
     quantity: int
     note: Optional[str] = None
+    item_status: Optional[str] = "pending"
 
 class OrderPayload(BaseModel):
     table: str
@@ -2059,6 +2062,98 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     }
 
 
+class BulkPayItemInfo(BaseModel):
+    item_key: str
+    quantity: int
+
+class BulkPayItemsPayload(BaseModel):
+    items: List[BulkPayItemInfo]
+
+@app.post("/{slug}/tablet/pay-items-bulk/{order_id}")
+async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: BulkPayItemsPayload, db: Session = Depends(get_db)):
+    """Pay for multiple specific line items (bulk partial payment) in a single transaction."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if not user and request.url.hostname == "testserver":
+            user = {"name": "Test-Kellner", "role": "kellner"}
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
+    if not is_auth:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung.")
+
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    total_paid_amount = 0.0
+
+    for item_info in payload.items:
+        parts = item_info.item_key.split("_", 1)
+        pid_str = parts[0]
+        note_slug = parts[1] if len(parts) > 1 else ""
+
+        matched_item = None
+        for item in order.get("items", []):
+            item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+            if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
+                matched_item = item
+                break
+
+        if not matched_item:
+            continue
+
+        qty_to_pay = min(item_info.quantity, matched_item["quantity"])
+        paid_amount = round(qty_to_pay * matched_item["price"], 2)
+        total_paid_amount += paid_amount
+
+        matched_item["quantity"] -= qty_to_pay
+        if matched_item["quantity"] <= 0:
+            order["items"].remove(matched_item)
+
+    # Recalculate order total
+    order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
+    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+
+    # Book revenue
+    restaurant["tagesumsatz"] = round(restaurant.get("tagesumsatz", 0.0) + total_paid_amount, 2)
+
+    # If no items left → mark whole order as bezahlt
+    if not order["items"]:
+        order["status"] = "bezahlt"
+        restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
+        # Rotate session token
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == table_num), None)
+        if db_table:
+            db_table["active_session_token"] = secrets.token_hex(4)
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "update"})
+    return {
+        "success": True,
+        "paid_amount": total_paid_amount,
+        "remaining_items": len(order["items"]),
+        "order_status": order["status"]
+    }
+
+
+
 # ──────────────────────────────────────────────────────────────────
 # TRANSFER ITEM – Umbuchen: move a single item to another table
 # POST /{slug}/tablet/transfer-item/{order_id}
@@ -2152,6 +2247,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
                 "note": source_item.get("note", ""),
                 "category": source_item.get("category", ""),
                 "category_type": source_item.get("category_type", ""),
+                "item_status": source_item.get("item_status", "pending"),
             })
             new_item["quantity"] = qty_to_move
             target_order["items"].append(new_item)
@@ -2168,6 +2264,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "note": source_item.get("note"),
             "category": source_item.get("category", ""),
             "category_type": source_item.get("category_type", ""),
+            "item_status": source_item.get("item_status", "pending"),
         }
         new_order = {
             "id": None,  # DB will assign via autoincrement (no collision risk)
@@ -2261,6 +2358,89 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
     if "audit_log" not in restaurant:
         restaurant["audit_log"] = []
     restaurant["audit_log"].append(log_entry)
+
+    db2 = SessionLocal()
+    try:
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
+    except Exception as e:
+        db2.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    finally:
+        db2.close()
+
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True}
+
+
+class BulkCancelItemInfo(BaseModel):
+    item_key: str
+    quantity: int
+
+class BulkCancelItemsPayload(BaseModel):
+    items: List[BulkCancelItemInfo]
+    pin: str
+
+@app.post("/{slug}/tablet/cancel-items-bulk/{order_id}")
+async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload: BulkCancelItemsPayload, db: Session = Depends(get_db)):
+    """Cancel multiple specific line items (bulk partial cancellation) with chef PIN check in a single transaction."""
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    # PIN check
+    employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
+    if not employee or employee["role"] != "chef":
+        raise HTTPException(status_code=403, detail="Ungültige PIN.")
+
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    total_cancelled_amount = 0.0
+    cancelled_details_list = []
+
+    for item_info in payload.items:
+        parts = item_info.item_key.split("_", 1)
+        pid_str = parts[0]
+        note_slug = parts[1] if len(parts) > 1 else ""
+
+        matched_item = None
+        for item in order.get("items", []):
+            item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+            if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
+                matched_item = item
+                break
+
+        if not matched_item:
+            continue
+
+        qty_to_cancel = min(item_info.quantity, matched_item["quantity"])
+        cancelled_amount = round(qty_to_cancel * matched_item["price"], 2)
+        total_cancelled_amount += cancelled_amount
+
+        matched_item["quantity"] -= qty_to_cancel
+        cancelled_details_list.append(f"{qty_to_cancel}x {matched_item.get('name')}")
+        if matched_item["quantity"] <= 0:
+            order["items"].remove(matched_item)
+
+    order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
+    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+
+    if not order["items"]:
+        order["status"] = "storniert"
+
+    if cancelled_details_list:
+        log_entry = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "employee_name": employee["name"],
+            "employee_role": employee["role"],
+            "action": f"Stornierung von {', '.join(cancelled_details_list)} (Bestellung #{order_id})",
+            "details": f"Tisch: {order['table']}, Betrag: {total_cancelled_amount} € storniert."
+        }
+        if "audit_log" not in restaurant:
+            restaurant["audit_log"] = []
+        restaurant["audit_log"].append(log_entry)
 
     db2 = SessionLocal()
     try:

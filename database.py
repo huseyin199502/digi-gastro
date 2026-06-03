@@ -158,6 +158,7 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     category_type = Column(String, default="küche")
     note = Column(String, nullable=True)
+    item_status = Column(String, nullable=True, default="pending")
 
 class Staff(Base):
     __tablename__ = 'staff'
@@ -255,6 +256,15 @@ def _migrate_database():
         if 'description_en' not in product_columns:
             try:
                 conn.execute(sa.text("ALTER TABLE products ADD COLUMN description_en TEXT"))
+            except Exception:
+                pass
+
+    # Migrate 'order_items' table
+    order_items_columns = [c['name'] for c in inspector.get_columns('order_items')]
+    with engine.begin() as conn:
+        if 'item_status' not in order_items_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE order_items ADD COLUMN item_status VARCHAR DEFAULT 'pending'"))
             except Exception:
                 pass
 

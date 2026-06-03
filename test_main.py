@@ -1009,6 +1009,65 @@ def test_integration():
     assert resp.json() == {"active": True}
     print("Admin impersonation and check-session staff bypass: OK")
  
+    # 13. Bulk Pay and Cancel API Tests
+    print("Testing bulk pay and cancel APIs...")
+    # First, let's create a new order with multiple items
+    order_payload = {
+        "table": "Tisch 5",
+        "token": restaurants["demo"]["security_token"],
+        "items": [
+            {"product_id": 1, "name": "Premium Burger", "price": 14.50, "quantity": 3},
+            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 2}
+        ]
+    }
+    resp = client.post("/demo/bestellen", json=order_payload)
+    assert resp.status_code == 200
+    bulk_order_id = resp.json()["order_id"]
+
+    # Let's perform a bulk pay on:
+    # 1x Premium Burger (14.50)
+    # 1x Spezi (3.50)
+    # total to pay: 18.00
+    bulk_pay_payload = {
+        "items": [
+            {"item_key": "1_", "quantity": 1},
+            {"item_key": "4_", "quantity": 1}
+        ]
+    }
+    resp = client.post(f"/demo/tablet/pay-items-bulk/{bulk_order_id}", json=bulk_pay_payload, cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    assert resp.json()["paid_amount"] == 18.00
+
+    # Let's check remaining items in restaurants cache
+    r_data = restaurants["demo"]
+    ord_cached = next(o for o in r_data["orders"] if o["id"] == bulk_order_id)
+    # Premium Burger quantity should be 2, Spezi quantity should be 1
+    assert any(i["product_id"] == 1 and i["quantity"] == 2 for i in ord_cached["items"])
+    assert any(i["product_id"] == 4 and i["quantity"] == 1 for i in ord_cached["items"])
+
+    # Let's perform a bulk cancel on:
+    # 1x Premium Burger
+    # 1x Spezi
+    # total to cancel: 18.00
+    bulk_cancel_payload = {
+        "items": [
+            {"item_key": "1_", "quantity": 1},
+            {"item_key": "4_", "quantity": 1}
+        ],
+        "pin": "1111"  # Chef pin
+    }
+    resp = client.post(f"/demo/tablet/cancel-items-bulk/{bulk_order_id}", json=bulk_cancel_payload, cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+
+    # Remaining items: only 1x Premium Burger should be left
+    ord_cached = next(o for o in r_data["orders"] if o["id"] == bulk_order_id)
+    assert len(ord_cached["items"]) == 1
+    assert ord_cached["items"][0]["product_id"] == 1
+    assert ord_cached["items"][0]["quantity"] == 1
+    print("Bulk pay and cancel APIs: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":
