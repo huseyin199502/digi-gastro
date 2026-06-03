@@ -935,6 +935,60 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════
+         ITEM ACTION MODAL (Teilzahlung / Buchen, Umbuchen, Stornieren für Einzelartikel)
+         ═══════════════════════════════════════════════════════ -->
+    <div id="item-action-modal" class="overlay-backdrop hidden" style="z-index: 80;">
+        <div class="popup-card" style="max-width: 420px;">
+            <!-- Header -->
+            <div class="popup-header" style="background: linear-gradient(135deg, #1e3a8a, #3b82f6);">
+                <div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.75);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Artikel-Aktionen</div>
+                    <div style="font-size:18px;font-weight:900;color:#fff;" id="item-action-title">Artikel</div>
+                </div>
+                <button onclick="closeItemActionModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+
+            <!-- Body -->
+            <div class="popup-body" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Quantity Selector (only displayed if maxQty > 1) -->
+                <div id="item-action-qty-container" style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; padding: 0.75rem;">
+                    <div style="font-size: 11px; color: #9ca3af; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Menge auswählen</div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button onclick="changeItemActionQty(-1)" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
+                        <span id="item-action-qty-text" style="font-size: 20px; font-weight: 900; color: #fff; min-width: 40px; text-align: center;">1</span>
+                        <button onclick="changeItemActionQty(1)" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <!-- Bezahlen / Buchen -->
+                    <button onclick="executeItemAction('pay')" class="btn-action btn-pay-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%;">
+                        💳 Bezahlt (Buchen)
+                    </button>
+                    
+                    <!-- Tisch umbuchen -->
+                    <button onclick="executeItemAction('transfer')" class="btn-action btn-transfer-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%;">
+                        🔄 Tisch umbuchen
+                    </button>
+                    
+                    <!-- Stornieren -->
+                    <button onclick="executeItemAction('cancel')" class="btn-action btn-storno-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%; border: 1px solid rgba(239,68,68,0.3);">
+                        🚫 Stornieren (Chef-PIN)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="popup-footer" style="display: flex; justify-content: center; padding: 0.5rem 0;">
+                <button onclick="closeItemActionModal()" style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;background:none;border:none;cursor:pointer;padding: 4px 8px;">
+                    Abbrechen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
          TABLE SELECTOR OVERLAY (für Umbuchen ganzer Bon oder einzelnem Artikel)
     ═══════════════════════════════════════════════════════ -->
     <div id="table-sel-overlay" class="overlay-backdrop hidden" style="z-index:70;">
@@ -995,6 +1049,10 @@
         let expandedItemKey = null;
         let tableSel_mode   = null;
         let selectedTeilrechnung = {}; // key: itemKey, value: qty to pay
+        let activeItemActionKey = null;
+        let activeItemActionMaxQty = 1;
+        let activeItemActionQty = 1;
+        let activeItemActionName = '';
         let sitzplanFilterZone = 'gesamt';
 
         let seenOrderIds    = new Set();
@@ -1397,12 +1455,12 @@
                     } else if (itemStatus === 'confirmed') {
                         actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'delivered')" class="btn-action btn-fertig">✅ Fertig</button>`;
                     } else if (itemStatus === 'delivered') {
-                        actionBtn = `<button onclick="event.stopPropagation();addToTeilrechnung('${key}', ${item.quantity})" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
+                        actionBtn = `<button onclick="event.stopPropagation();openItemActionModal('${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
                     }
 
                     let rowClick = '';
                     if (itemStatus === 'delivered') {
-                        rowClick = `onclick="addToTeilrechnung('${key}', ${item.quantity})"`;
+                        rowClick = `onclick="openItemActionModal('${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')"`;
                     } else if (itemStatus === 'pending') {
                         rowClick = `onclick="setItemStatus(${order.id}, '${key}', 'confirmed')"`;
                     } else if (itemStatus === 'confirmed') {
@@ -1458,6 +1516,100 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        // ── ITEM ACTION MODAL LOGIC ──
+        function openItemActionModal(itemKey, maxQty, itemName) {
+            activeItemActionKey = itemKey;
+            activeItemActionMaxQty = maxQty;
+            activeItemActionQty = 1;
+            activeItemActionName = itemName;
+
+            document.getElementById('item-action-title').textContent = itemName;
+            document.getElementById('item-action-qty-text').textContent = activeItemActionQty;
+
+            const qtyContainer = document.getElementById('item-action-qty-container');
+            if (maxQty > 1) {
+                qtyContainer.style.display = 'flex';
+            } else {
+                qtyContainer.style.display = 'none';
+            }
+
+            document.getElementById('item-action-modal').classList.remove('hidden');
+        }
+
+        function closeItemActionModal() {
+            document.getElementById('item-action-modal').classList.add('hidden');
+            activeItemActionKey = null;
+            activeItemActionMaxQty = 1;
+            activeItemActionQty = 1;
+            activeItemActionName = '';
+        }
+
+        function changeItemActionQty(delta) {
+            let newQty = activeItemActionQty + delta;
+            if (newQty < 1) newQty = 1;
+            if (newQty > activeItemActionMaxQty) newQty = activeItemActionMaxQty;
+            activeItemActionQty = newQty;
+            document.getElementById('item-action-qty-text').textContent = activeItemActionQty;
+        }
+
+        async function executeItemAction(action) {
+            if (!activeItemActionKey || !activeOrderId) return;
+            
+            if (action === 'pay') {
+                try {
+                    const res = await fetch(`/${slug}/tablet/pay-item/${activeOrderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty })
+                    });
+                    if (res.ok) {
+                        showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} gebucht`, 'success');
+                        closeItemActionModal();
+                        checkLiveTischeUpdates();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        showToast(err.detail || 'Fehler beim Buchen', 'error');
+                    }
+                } catch (e) {
+                    showToast('Verbindungsfehler', 'error');
+                }
+            } else if (action === 'transfer') {
+                tableSel_mode = 'single_item';
+                document.getElementById('table-sel-title').textContent = 'Artikel umbuchen';
+                document.getElementById('table-sel-subtitle').textContent = `${activeItemActionQty}x ${activeItemActionName} umbuchen → Welcher Tisch?`;
+                
+                const order = allOrders.find(o => o.id === activeOrderId);
+                renderTableSelGrid(order ? order.table : '');
+                
+                document.getElementById('item-action-modal').classList.add('hidden');
+                document.getElementById('table-sel-overlay').classList.remove('hidden');
+            } else if (action === 'cancel') {
+                const pin = prompt('Bitte Chef-PIN eingeben:');
+                if (pin === null) return; // Abgebrochen
+                if (!pin.trim()) {
+                    showToast('PIN erforderlich', 'error');
+                    return;
+                }
+                try {
+                    const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty, pin: pin })
+                    });
+                    if (res.ok) {
+                        showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} storniert`, 'success');
+                        closeItemActionModal();
+                        checkLiveTischeUpdates();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        showToast(err.detail || 'Fehler beim Stornieren', 'error');
+                    }
+                } catch (e) {
+                    showToast('Verbindungsfehler', 'error');
+                }
             }
         }
 
@@ -1745,6 +1897,26 @@
                     selectedTeilrechnung = {};
                     closePopup();
                     checkLiveTischeUpdates();
+                } catch (e) {
+                    showToast('Verbindungsfehler', 'error');
+                }
+            } else if (tableSel_mode === 'single_item') {
+                if (!activeItemActionKey) return;
+                try {
+                    const res = await fetch(`/${slug}/tablet/transfer-item/${activeOrderId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ item_key: activeItemActionKey, target_table: String(targetTableNumber), quantity: activeItemActionQty })
+                    });
+                    if (res.ok) {
+                        showToast(`✅ Artikel auf Tisch ${targetTableNumber} umgebucht`, 'success');
+                        closeItemActionModal();
+                        closePopup();
+                        checkLiveTischeUpdates();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        showToast(err.detail || 'Fehler beim Umbuchen', 'error');
+                    }
                 } catch (e) {
                     showToast('Verbindungsfehler', 'error');
                 }
