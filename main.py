@@ -2159,8 +2159,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
         target_order["status"] = "eingegangen"
     else:
-        # Create new order for target table
-        new_id = max((o.get("id", 0) for o in restaurant.get("orders", [])), default=0) + 1
+        # Create new order for target table — let DB assign autoincrement ID
         moved_item = {
             "product_id": int(pid_str) if pid_str.isdigit() else 0,
             "name": source_item.get("name", ""),
@@ -2171,7 +2170,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "category_type": source_item.get("category_type", ""),
         }
         new_order = {
-            "id": new_id,
+            "id": None,  # DB will assign via autoincrement (no collision risk)
             "table": target_table_str,
             "items": [moved_item],
             "total": round(item_amount, 2),
@@ -2183,6 +2182,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "waiter_id": None
         }
         restaurant["orders"].append(new_order)
+
 
     db2 = SessionLocal()
     try:
@@ -2842,7 +2842,14 @@ def create_table(request: Request, number: str = Form(...), zone: str = Form(...
         restaurant["tables"] = []
         
     if not any(t["number"] == table_num for t in restaurant["tables"]):
-        restaurant["tables"].append({"number": table_num, "zone": zone})
+        import secrets as _secrets
+        table_entry = {
+            "number": table_num,
+            "zone": zone,
+            "security_token": _secrets.token_hex(4),
+            "active_session_token": None
+        }
+        restaurant["tables"].append(table_entry)
         
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
@@ -2990,8 +2997,6 @@ def delete_produkt(
     finally:
         db_session.close()
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -3022,8 +3027,6 @@ def delete_kategorie(
     finally:
         db_session.close()
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # API Models
@@ -3351,17 +3354,14 @@ def update_product_api(request: Request, product_id: int, payload: ProductUpdate
     product["name_en"] = payload.name_en.strip() if payload.name_en else ""
     product["description_en"] = payload.description_en.strip() if payload.description_en else ""
 
-
     # Synchronize to database
-    db = SessionLocal()
+    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
     finally:
-        db.close()
+        db2.close()
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     return {"success": True}
 
 @app.post("/{slug}/orders/confirm/{order_id}")
@@ -3385,15 +3385,13 @@ async def confirm_order(request: Request, slug: str, order_id: int, db: Session 
         
     order["status"] = "bestaetigt"
     
-    db = SessionLocal()
+    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        save_restaurant_to_db(slug, restaurant, db2)
+        db2.commit()
     finally:
-        db.close()
+        db2.close()
         
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 

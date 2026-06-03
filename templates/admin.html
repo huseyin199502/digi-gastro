@@ -1716,7 +1716,7 @@
                     </div>
 
                     <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-                        <button onclick="bezahlenTeilrechnung()" class="btn-action btn-fertig" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;">
+                        <button id="btn-bezahlen-teilrechnung" onclick="bezahlenTeilrechnung()" class="btn-action btn-fertig" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;">
                             💳 Bezahlt
                         </button>
                         <button onclick="openUmbuchenTeilrechnung()" class="btn-action btn-vorbereiten" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;">
@@ -1734,8 +1734,8 @@
             const keys = Object.keys(selectedTeilrechnung);
             if (!keys.length) return;
 
-            const btn = document.querySelector('.teilrechnung-box button[onclick="bezahlenTeilrechnung()"]');
-            btn.disabled = true; btn.textContent = 'Verarbeite…';
+            const btn = document.getElementById('btn-bezahlen-teilrechnung');
+            if (btn) { btn.disabled = true; btn.textContent = 'Verarbeite…'; }
 
             try {
                 for (const key of keys) {
@@ -1933,12 +1933,6 @@
                     showToast('Verbindungsfehler', 'error');
                 }
             }
-        }
-
-        // Helper to trigger polling initial rendering on load
-        function startPolling() {
-            checkLiveTischeUpdates();
-            connectWebSocket();
         }
 
 
