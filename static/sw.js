@@ -1,4 +1,4 @@
-const CACHE_NAME = 'digi-gastro-v4';
+const CACHE_NAME = 'digi-gastro-v5';
 const STATIC_ASSETS = [
   '/',
   '/static/css/design_system.css',
@@ -50,6 +50,9 @@ self.addEventListener('fetch', event => {
   // E.g., guest menu pages, api calls
   const isDynamic = url.pathname.includes('/api/') || 
                     url.pathname.includes('/menu/') ||
+                    url.pathname.includes('/admin/') ||
+                    url.pathname.includes('/login') ||
+                    url.pathname.includes('/setup') ||
                     url.pathname.match(/^\/[a-zA-Z0-9_-]+$/); // /slug (e.g. guest menu root)
 
   if (isDynamic) {

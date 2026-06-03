@@ -978,6 +978,15 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
     if session_global == "admin@digi-gastro.de":
         return RedirectResponse(url="/digi-gastro-admin")
         
+    res = get_current_user_and_slug(request)
+    if res:
+        user, slug = res
+        tenant = db.query(Tenant).filter_by(slug=slug).first()
+        if tenant and user["role"] == "chef":
+            if not tenant.is_setup_completed:
+                return RedirectResponse(url="/admin/setup")
+            return RedirectResponse(url="/admin/dashboard")
+
     for cookie_key, cookie_val in request.cookies.items():
         if cookie_key.startswith("session_") and cookie_key != "session_global":
             slug = cookie_key.replace("session_", "").strip()
@@ -989,12 +998,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                         role = parts[1]
                         if role == "chef":
                             if not tenant.is_setup_completed:
-                                return RedirectResponse(url=f"/{slug}/admin/setup")
-                            return RedirectResponse(url=f"/{slug}/admin/dashboard")
-                        elif role == "kellner":
-                            return RedirectResponse(url=f"/{slug}/tablet")
-                        elif role == "zubereiter":
-                            return RedirectResponse(url=f"/{slug}/kitchen")
+                                return RedirectResponse(url="/admin/setup")
+                            return RedirectResponse(url="/admin/dashboard")
                 except Exception:
                     pass
                     
@@ -1016,6 +1021,15 @@ def global_login_get(request: Request, db: Session = Depends(get_db)):
     if session_global == "admin@digi-gastro.de":
         return RedirectResponse(url="/digi-gastro-admin")
         
+    res = get_current_user_and_slug(request)
+    if res:
+        user, slug = res
+        tenant = db.query(Tenant).filter_by(slug=slug).first()
+        if tenant and user["role"] == "chef":
+            if not tenant.is_setup_completed:
+                return RedirectResponse(url="/admin/setup")
+            return RedirectResponse(url="/admin/dashboard")
+
     for cookie_key, cookie_val in request.cookies.items():
         if cookie_key.startswith("session_") and cookie_key != "session_global":
             slug = cookie_key.replace("session_", "").strip()
@@ -1027,12 +1041,8 @@ def global_login_get(request: Request, db: Session = Depends(get_db)):
                         role = parts[1]
                         if role == "chef":
                             if not tenant.is_setup_completed:
-                                return RedirectResponse(url=f"/{slug}/admin/setup")
-                            return RedirectResponse(url=f"/{slug}/admin/dashboard")
-                        elif role == "kellner":
-                            return RedirectResponse(url=f"/{slug}/tablet")
-                        elif role == "zubereiter":
-                            return RedirectResponse(url=f"/{slug}/kitchen")
+                                return RedirectResponse(url="/admin/setup")
+                            return RedirectResponse(url="/admin/dashboard")
                 except Exception:
                     pass
 
@@ -1049,9 +1059,9 @@ def global_login_post(
         tenant = db.query(Tenant).filter_by(email=email.strip()).first()
         if tenant and tenant.password == password.strip():
             slug = tenant.slug
-            target = f"/{slug}/admin/setup" if not tenant.is_setup_completed else f"/{slug}/admin/dashboard"
+            target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
             resp = RedirectResponse(url=target, status_code=303)
-            resp.set_cookie(key=f"session_{slug}", value=f"Owner:chef:{password.strip()}", httponly=True)
+            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True)
             return resp
             
         if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
