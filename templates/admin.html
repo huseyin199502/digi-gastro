@@ -1227,6 +1227,27 @@
                     </div>
                 </div>
             `).join('');
+            updateTimers();
+        }
+
+        function updateTimers() {
+            document.querySelectorAll('.tile-timer').forEach(el => {
+                const ts = el.getAttribute('data-timestamp');
+                if (!ts) return;
+                const orderTime = new Date(ts.replace(' ', 'T'));
+                const diffMs = new Date() - orderTime;
+                if (isNaN(diffMs) || diffMs < 0) {
+                    el.textContent = '';
+                    return;
+                }
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                el.textContent = `${diffMins}m ${diffSecs}s`;
+            });
+        }
+        if (!window.timerIntervalRegistered) {
+            setInterval(updateTimers, 1000);
+            window.timerIntervalRegistered = true;
         }
 
         function renderTileHtml(table) {
@@ -1246,12 +1267,16 @@
                 }
             } else if (order && order.status === 'eingegangen') {
                 cls += 'tile-new';
-                inner = `<span style="font-size:9px;font-weight:900;color:#fca5a5;text-transform:uppercase;animation:pulse2 1s infinite;">🆕 NEU</span><span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.', ',')} €</span>`;
+                inner = `<span style="font-size:9px;font-weight:900;color:#fca5a5;text-transform:uppercase;animation:pulse2 1s infinite;">🆕 NEU</span>
+                         <span class="tile-timer" data-timestamp="${order.timestamp}" style="font-size:9px;color:#a5b4fc;margin-top:1px;font-weight:bold;"></span>
+                         <span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.', ',')} €</span>`;
                 onclick = `onclick="openPopup(${order.id})"`;
             } else if (order) {
                 cls += 'tile-active';
                 const confirmed = order.status === 'bestaetigt';
-                inner = `<span style="font-size:9px;font-weight:900;color:#10b981;text-transform:uppercase;">${confirmed ? '✔ Bestätigt' : 'Aktiv'}</span><span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.', ',')} €</span>`;
+                inner = `<span style="font-size:9px;font-weight:900;color:#10b981;text-transform:uppercase;">${confirmed ? '✔ Bestätigt' : 'Aktiv'}</span>
+                         <span class="tile-timer" data-timestamp="${order.timestamp}" style="font-size:9px;color:#a5b4fc;margin-top:1px;font-weight:bold;"></span>
+                         <span style="font-size:11px;font-weight:900;color:#fff;margin-top:2px;">${order.total.toFixed(2).replace('.', ',')} €</span>`;
                 onclick = `onclick="openPopup(${order.id})"`;
             } else {
                 cls += 'tile-free';
