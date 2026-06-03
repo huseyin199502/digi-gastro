@@ -1567,9 +1567,10 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         await manager.broadcast(slug, {"type": "update"})
         return {"success": True, "order_id": active_order["id"]}
 
-    new_id = len(restaurant["orders"]) + 1
+    # Let the database assign a unique autoincrement ID to avoid collisions
+    # in multi-worker setups where len(orders)+1 can duplicate existing IDs.
     new_order = {
-        "id": new_id,
+        "id": None,   # will be filled in by save_restaurant_to_db after DB flush
         "table": payload.table,
         "items": [item.model_dump() for item in payload.items],
         "total": round(total, 2),
@@ -1585,7 +1586,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     await manager.broadcast(slug, {"type": "update"})
-    return {"success": True, "order_id": new_id}
+    return {"success": True, "order_id": new_order.get("id")}
 
 @app.post("/{slug}/service-ruf")
 async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
