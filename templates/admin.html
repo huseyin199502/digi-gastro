@@ -1128,7 +1128,7 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === "update" || data.type === "refresh_tables") {
+                    if (data.type === "update" || data.type === "refresh_tables" || data.type === "service_call") {
                         checkLiveTischeUpdates();
                     }
                 } catch (e) {
@@ -1173,9 +1173,6 @@
         }
 
         function checkLiveTischeUpdates() {
-            const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
-            if (activeTab !== 'live') return;
-
             const editModal = document.getElementById('edit-product-modal');
             if (editModal && !editModal.classList.contains('hidden')) return;
 
@@ -1236,8 +1233,11 @@
                 }
             }
 
-            renderSitzplanTiles();
-            renderServiceCallsAlerts();
+            const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+            if (activeTab === 'live') {
+                renderSitzplanTiles();
+                renderServiceCallsAlerts();
+            }
         }
 
         // ── SITZPLAN RENDERING ──
@@ -1466,7 +1466,7 @@
                     if (itemStatus === 'pending') {
                         actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'confirmed')" class="btn-action btn-vorbereiten">🍳 Vorbereitung</button>`;
                     } else if (itemStatus === 'confirmed') {
-                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'delivered')" class="btn-action btn-fertig">✅ Fertig</button>`;
+                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'delivered')" class="btn-action btn-fertig">Vorbereitet ✔️</button>`;
                     } else if (itemStatus === 'delivered') {
                         actionBtn = `<button onclick="event.stopPropagation();openItemActionModal('${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
                     }
@@ -1800,7 +1800,8 @@
             const btn = document.getElementById('btn-bezahlt-all');
             btn.disabled = true; btn.innerHTML = 'Verarbeite…';
             try {
-                const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST' });
+                const fd = new FormData();
+                const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST', body: fd });
                 if (res.ok) {
                     showToast('✅ Alles bezahlt!', 'success');
                     closePopup();

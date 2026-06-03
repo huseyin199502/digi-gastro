@@ -855,15 +855,25 @@ def get_restaurant_or_raise(slug: str, db):
     return r
 
 def get_current_user(request: Request, slug: str) -> Optional[dict]:
-    session = request.cookies.get(f"session_{slug}")
-    if not session:
-        return None
-    try:
-        parts = session.split(":")
-        if len(parts) == 3:
-            return {"name": parts[0], "role": parts[1], "pin": parts[2]}
-    except Exception:
-        pass
+    # Check unified session cookie first
+    session = request.cookies.get("session")
+    if session:
+        try:
+            parts = session.split(":")
+            if len(parts) == 4 and parts[0] == slug:
+                return {"name": parts[1], "role": parts[2], "pin": parts[3]}
+        except Exception:
+            pass
+
+    # Fallback to legacy/device-specific session cookie
+    session_legacy = request.cookies.get(f"session_{slug}")
+    if session_legacy:
+        try:
+            parts = session_legacy.split(":")
+            if len(parts) == 3:
+                return {"name": parts[0], "role": parts[1], "pin": parts[2]}
+        except Exception:
+            pass
     return None
 
 def get_current_user_and_slug(request: Request) -> Optional[tuple]:
@@ -1067,12 +1077,12 @@ def global_login_post(
             slug = tenant.slug
             target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
             resp = RedirectResponse(url=target, status_code=303)
-            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True)
+            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
             return resp
             
         if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
             resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-            resp.set_cookie(key="session_global", value=email.strip(), httponly=True)
+            resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
             return resp
             
         return templates.TemplateResponse(
@@ -1126,7 +1136,7 @@ def get_global_login(request: Request, db: Session = Depends(get_db)):
 def post_global_login(request: Request, response: Response, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     if email == "admin@digi-gastro.de" and password == ADMIN_PASSWORD:
         resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-        resp.set_cookie(key="session_global", value=email, httponly=True)
+        resp.set_cookie(key="session_global", value=email, httponly=True, max_age=31536000)
         return resp
     return templates.TemplateResponse(request=request, name="global_login.html", context={"error": "Ungültige E-Mail-Adresse oder Passwort."})
 
@@ -1381,7 +1391,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 max_age=1800, # 30 minutes
                 httponly=False,
                 samesite="lax",
-                secure=False
+                secure=False,
+                path="/"
             )
             return response
         elif session_val:
@@ -2446,7 +2457,7 @@ def post_onboarding(
     ]
     
     resp = RedirectResponse(url="/admin", status_code=303)
-    resp.set_cookie(key="session", value=f"{slug}:{chef_name}:chef:{chef_pin}", httponly=True)
+    resp.set_cookie(key="session", value=f"{slug}:{chef_name}:chef:{chef_pin}", httponly=True, max_age=31536000)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return resp
@@ -2670,7 +2681,7 @@ def post_login(
                 
             resp = RedirectResponse(url=target_url, status_code=303)
             # Set unified session cookie: slug:name:role:password
-            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True)
+            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
             return resp
         else:
             return templates.TemplateResponse(
@@ -2728,7 +2739,7 @@ def post_login(
                     
                 resp = RedirectResponse(url=target_url, status_code=303)
                 # Set unified session cookie: slug:name:role:pin
-                resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True)
+                resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True, max_age=31536000)
                 return resp
                 
     return templates.TemplateResponse(
