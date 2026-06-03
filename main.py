@@ -487,7 +487,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
             tenant_slug=slug,
             action=l.get("action"),
             timestamp=l.get("timestamp"),
-            user=l.get("user"),
+            user=l.get("user") or (f"{l.get('employee_name', '')} ({l.get('employee_role', '')})" if l.get("employee_name") else None),
             details=l.get("details")
         )
         session.add(db_l)
@@ -1752,15 +1752,12 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
         
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zahlung: {e}")
-    finally:
-        db.close()
         
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
@@ -1977,15 +1974,12 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
         restaurant["audit_log"] = []
     restaurant["audit_log"].append(log_entry)
     
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Stornierung: {e}")
-    finally:
-        db2.close()
         
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
@@ -2067,6 +2061,7 @@ def update_order_status_by_items(order):
 class PayItemPayload(BaseModel):
     item_key: str
     quantity: int = 1
+    tip_amount: Optional[float] = 0.0
 
 @app.post("/{slug}/tablet/pay-item/{order_id}")
 async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemPayload, db: Session = Depends(get_db)):
@@ -2108,6 +2103,11 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
     order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
 
+    # Add tip
+    tip_to_add = payload.tip_amount or 0.0
+    order["tip_amount"] = round(order.get("tip_amount", 0.0) + tip_to_add, 2)
+    order["total_with_tip"] = round(order["total"] + order["tip_amount"], 2)
+
     # Book revenue
     restaurant["tagesumsatz"] = round(restaurant.get("tagesumsatz", 0.0) + paid_amount, 2)
 
@@ -2123,15 +2123,12 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     else:
         update_order_status_by_items(order)
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "update"})
     return {
@@ -2148,6 +2145,7 @@ class BulkPayItemInfo(BaseModel):
 
 class BulkPayItemsPayload(BaseModel):
     items: List[BulkPayItemInfo]
+    tip_amount: Optional[float] = 0.0
 
 @app.post("/{slug}/tablet/pay-items-bulk/{order_id}")
 async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: BulkPayItemsPayload, db: Session = Depends(get_db)):
@@ -2195,6 +2193,11 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
     # Book revenue
     restaurant["tagesumsatz"] = round(restaurant.get("tagesumsatz", 0.0) + total_paid_amount, 2)
 
+    # Add tip
+    tip_to_add = payload.tip_amount or 0.0
+    order["tip_amount"] = round(order.get("tip_amount", 0.0) + tip_to_add, 2)
+    order["total_with_tip"] = round(order["total"] + order["tip_amount"], 2)
+
     # If no items left → mark whole order as bezahlt
     if not order["items"]:
         order["status"] = "bezahlt"
@@ -2207,15 +2210,12 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
     else:
         update_order_status_by_items(order)
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "update"})
     return {
@@ -2342,15 +2342,12 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         restaurant["orders"].append(new_order)
 
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "refresh_tables"})
     return {"success": True, "moved_to": target_table_str, "qty_moved": qty_to_move}
@@ -2434,15 +2431,12 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         restaurant["audit_log"] = []
     restaurant["audit_log"].append(log_entry)
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
@@ -2530,15 +2524,12 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
             restaurant["audit_log"] = []
         restaurant["audit_log"].append(log_entry)
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
@@ -2624,15 +2615,12 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
         # Just update the table name of the order
         order["table"] = target_table_str
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Umbuchen: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "refresh_tables"})
     return {"success": True, "new_table": target_table_str}
@@ -2675,24 +2663,18 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
     matched_item = find_order_item(order.get("items", []), payload.item_key)
-    if matched_item:
-        matched_item["item_status"] = payload.status
-        matched = True
-
-    if not matched:
+    if not matched_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+    matched_item["item_status"] = payload.status
 
     update_order_status_by_items(order)
 
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     except Exception as e:
-        db2.rollback()
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Aktualisieren: {e}")
-    finally:
-        db2.close()
 
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True, "item_key": payload.item_key, "new_status": payload.status}
@@ -3259,12 +3241,12 @@ async def post_produkt_erstellen(
 
     restaurant["products"].append(new_product)
 
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
-    finally:
-        db.close()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Erstellen des Produkts: {e}")
 
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
@@ -3400,12 +3382,12 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
     
     restaurant["service_calls"].append(new_call)
     
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
-    finally:
-        db.close()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     actual_id = restaurant["service_calls"][-1]["id"]
     await manager.broadcast(slug, {"type": "update"})
@@ -3704,14 +3686,10 @@ async def update_product_api(
     product_id: int,
     db: Session = Depends(get_db)
 ):
-    db2 = SessionLocal()
-    try:
-        db_product = db2.query(Product).filter_by(id=product_id).first()
-        if not db_product:
-            raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
-        slug = db_product.tenant_slug
-    finally:
-        db2.close()
+    db_product = db.query(Product).filter_by(id=product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
+    slug = db_product.tenant_slug
 
     require_chef_user(request, slug)
     restaurant = get_restaurant_or_raise(slug, db)
@@ -3731,6 +3709,8 @@ async def update_product_api(
     description_en = ""
     image_url = None
     image_file = None
+    is_vegan = False
+    is_glutenfree = False
 
     if "application/json" in content_type:
         try:
@@ -3744,6 +3724,8 @@ async def update_product_api(
         name_en = body.get("name_en", "")
         description_en = body.get("description_en", "")
         image_url = body.get("image_url")
+        is_vegan = body.get("is_vegan") in [True, "true"]
+        is_glutenfree = body.get("is_glutenfree") in [True, "true"]
     else:
         # Parse multipart/form-data or form-urlencoded
         form = await request.form()
@@ -3755,6 +3737,8 @@ async def update_product_api(
         description_en = form.get("description_en", "")
         image_url = form.get("image_url")
         image_file = form.get("image_file")
+        is_vegan = form.get("is_vegan") in [True, "true"]
+        is_glutenfree = form.get("is_glutenfree") in [True, "true"]
 
     product["name"] = str(name).strip()
     product["price"] = round(float(price), 2)
@@ -3762,6 +3746,17 @@ async def update_product_api(
     product["category"] = str(category).strip()
     product["name_en"] = str(name_en).strip() if name_en else ""
     product["description_en"] = str(description_en).strip() if description_en else ""
+    product["vegan"] = is_vegan
+    product["is_vegan"] = is_vegan
+    product["is_glutenfree"] = is_glutenfree
+
+    cat_lower = str(category).strip().lower()
+    category_type = "küche"
+    if any(keyword in cat_lower for keyword in ["drinks", "bar", "getränke", "soft", "alkohol", "bier", "wein", "cocktail", "saft", "kaffee", "tee", "wasser", "limo"]):
+        category_type = "bar"
+    elif any(keyword in cat_lower for keyword in ["shisha", "wasserpfeife", "pfeife", "head", "kohle"]):
+        category_type = "shisha"
+    product["category_type"] = category_type
 
     # Image handling: file upload wins over URL
     final_image = product.get("image", "")
@@ -3787,12 +3782,12 @@ async def update_product_api(
     product["image"] = final_image
 
     # Synchronize to database
-    db3 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db3)
-        db3.commit()
-    finally:
-        db3.close()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
 
     return {"success": True}
 
@@ -3817,12 +3812,12 @@ async def confirm_order(request: Request, slug: str, order_id: int, db: Session 
         
     order["status"] = "bestaetigt"
     
-    db2 = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db2)
-        db2.commit()
-    finally:
-        db2.close()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Bestätigen der Bestellung: {e}")
         
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}

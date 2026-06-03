@@ -651,7 +651,7 @@
 
                     <div class="flex justify-between items-center border-t border-outline-variant/60 pt-4 font-display">
                         <div class="flex gap-2">
-                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}', '{{ (p.name_en or '') | replace("'", "\\'") }}', '{{ (p.description_en or '') | replace("'", "\\'") }}', '{{ p.image or '' }}')" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
+                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}', '{{ (p.name_en or '') | replace("'", "\\'") }}', '{{ (p.description_en or '') | replace("'", "\\'") }}', '{{ p.image or '' }}', {{ 'true' if p.is_vegan else 'false' }}, {{ 'true' if p.is_glutenfree else 'false' }})" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
                                 <span class="material-symbols-outlined text-sm">edit</span>
                                 Bearbeiten
                             </button>
@@ -922,6 +922,17 @@
                     </div>
                 </div>
 
+                <div class="flex items-center gap-6 pt-2 font-display">
+                    <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
+                        <input type="checkbox" id="edit-product-is-vegan" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
+                        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-emerald-400 text-sm">eco</span> Vegan</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
+                        <input type="checkbox" id="edit-product-is-glutenfree" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
+                        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-amber-400 text-sm">eco_food</span> Glutenfrei</span>
+                    </label>
+                </div>
+
                 <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg">
                     Speichern
                 </button>
@@ -957,6 +968,10 @@
 
             <!-- Footer (shown only in normal mode) -->
             <div class="popup-footer" id="popup-footer-normal">
+                <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:.5rem;padding:4px 8px;">
+                    <span style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;">Trinkgeld (€):</span>
+                    <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" style="flex:1;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:4px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
+                </div>
                 <div class="flex-responsive" style="margin-bottom:.45rem; gap:.6rem;">
                     <button onclick="bezahlenAlles()" id="btn-bezahlt-all"
                         style="flex:1;background:#10b981;color:#000;border:none;border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
@@ -1004,9 +1019,12 @@
                 <!-- Action Buttons -->
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                     <!-- Bezahlen / Buchen -->
-                    <button onclick="executeItemAction('pay')" class="btn-action btn-pay-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%;">
-                        💳 Bezahlt (Buchen)
-                    </button>
+                    <div style="display:flex;align-items:center;gap:.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:0.75rem;padding:6px 10px;">
+                        <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" style="width:75px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:5px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
+                        <button onclick="executeItemAction('pay')" class="btn-action btn-pay-item" style="flex:1;justify-content:center;padding:10px;font-size:13px;font-weight:900;border-radius:0.5rem;">
+                            💳 Bezahlt (Buchen)
+                        </button>
+                    </div>
                     
                     <!-- Tisch umbuchen -->
                     <button onclick="executeItemAction('transfer')" class="btn-action btn-transfer-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%;">
@@ -1177,6 +1195,10 @@
             
             ws.onopen = () => {
                 console.log("Admin WebSocket connected!");
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
                 checkLiveTischeUpdates();
             };
             
@@ -1231,6 +1253,9 @@
         function checkLiveTischeUpdates() {
             const editModal = document.getElementById('edit-product-modal');
             if (editModal && !editModal.classList.contains('hidden')) return;
+            // Also skip if item-action-modal is open (avoid flicker during user interaction)
+            const itemModal = document.getElementById('item-action-modal');
+            if (itemModal && !itemModal.classList.contains('hidden')) return;
 
             fetch(`/api/tablet-status`)
                 .then(res => {
@@ -1512,6 +1537,8 @@
             activeOrderId = orderId;
             expandedItemKey = null;
             selectedTeilrechnung = {};
+            const allTipInput = document.getElementById('pay-all-tip');
+            if (allTipInput) allTipInput.value = '';
             const order = allOrders.find(o => o.id === orderId);
             if (!order) return;
             renderPopup(order);
@@ -1571,6 +1598,13 @@
                         checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️</span>';
                     }
 
+                    let checkboxHtml = '';
+                    if (itemStatus === 'delivered') {
+                        const currentInTeil = selectedTeilrechnung[key] || 0;
+                        const isChecked = currentInTeil > 0;
+                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${key}', ${item.quantity}) } else { removeFromTeilrechnung('${key}') }" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; margin-right: 8px;" title="Zur Teilrechnung hinzufügen">`;
+                    }
+
                     let actionBtn = '';
                     if (itemStatus === 'pending') {
                         actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'confirmed')" class="btn-action btn-vorbereiten">🍳 Vorbereitung</button>`;
@@ -1595,6 +1629,7 @@
                                 <button onclick="event.stopPropagation();cancelItemDirect(${order.id}, '${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;margin-right:8px;flex-shrink:0;" title="Artikel stornieren">
                                     <span class="material-symbols-outlined" style="font-size: 20px;">block</span>
                                 </button>
+                                ${checkboxHtml}
                                 <div style="flex:1;min-width:0;">
                                     <div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                         ${checkmarks}${item.name}
@@ -1658,14 +1693,11 @@
                     return;
                 }
             }
-            let pin = '';
-            if (currentUserRole !== 'chef') {
-                pin = prompt('Bitte Chef-PIN eingeben:');
-                if (pin === null) return;
-                if (!pin.trim()) {
-                    showToast('PIN erforderlich', 'error');
-                    return;
-                }
+            let pin = prompt('Bitte Chef-PIN eingeben:');
+            if (pin === null) return;
+            if (!pin.trim()) {
+                showToast('PIN erforderlich', 'error');
+                return;
             }
             try {
                 const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
@@ -1701,6 +1733,9 @@
             } else {
                 qtyContainer.style.display = 'none';
             }
+
+            const singleTipInput = document.getElementById('pay-single-item-tip');
+            if (singleTipInput) singleTipInput.value = '';
 
             // Hide the order-popup visually but keep activeOrderId intact
             // (executeItemAction needs activeOrderId to POST to the correct order)
@@ -1739,11 +1774,12 @@
             if (!activeItemActionKey || !activeOrderId) return;
             
             if (action === 'pay') {
+                const tipVal = parseFloat(document.getElementById('pay-single-item-tip').value) || 0.0;
                 try {
                     const res = await fetch(`/${slug}/tablet/pay-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty })
+                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty, tip_amount: tipVal })
                     });
                     if (res.ok) {
                         showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} gebucht`, 'success');
@@ -1774,14 +1810,11 @@
                 document.getElementById('item-action-modal').classList.add('hidden');
                 document.getElementById('table-sel-overlay').classList.remove('hidden');
             } else if (action === 'cancel') {
-                let pin = '';
-                if (currentUserRole !== 'chef') {
-                    pin = prompt('Bitte Chef-PIN eingeben:');
-                    if (pin === null) return; // Abgebrochen
-                    if (!pin.trim()) {
-                        showToast('PIN erforderlich', 'error');
-                        return;
-                    }
+                let pin = prompt('Bitte Chef-PIN eingeben:');
+                if (pin === null) return;
+                if (!pin.trim()) {
+                    showToast('PIN erforderlich', 'error');
+                    return;
                 }
                 try {
                     const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
@@ -1897,6 +1930,11 @@
                         <span style="font-size:16px;font-weight:900;color:#10b981;">${total.toFixed(2).replace('.', ',')} €</span>
                     </div>
 
+                    <div style="display:flex;align-items:center;gap:.5rem;margin-top:0.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:.5rem;padding:4px 8px;">
+                        <span style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;">Trinkgeld (€):</span>
+                        <input type="number" id="pay-teil-tip" step="0.1" min="0" placeholder="0,00" style="flex:1;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:4px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
+                    </div>
+
                     <div class="flex-responsive" style="margin-top:1rem; gap:0.5rem;">
                         <button id="btn-bezahlen-teilrechnung" onclick="bezahlenTeilrechnung()" class="btn-action btn-fertig" style="flex:1;justify-content:center;padding:10px;font-size:12px;font-weight:900;">
                             💳 Bezahlt
@@ -1919,6 +1957,8 @@
             const btn = document.getElementById('btn-bezahlen-teilrechnung');
             if (btn) { btn.disabled = true; btn.textContent = 'Verarbeite…'; }
 
+            const tipVal = parseFloat(document.getElementById('pay-teil-tip').value) || 0.0;
+
             try {
                 const bulkItems = keys.map(key => ({
                     item_key: key,
@@ -1927,7 +1967,7 @@
                 const res = await fetch(`/${slug}/tablet/pay-items-bulk/${activeOrderId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: bulkItems })
+                    body: JSON.stringify({ items: bulkItems, tip_amount: tipVal })
                 });
                 if (res.ok) {
                     showToast('Teilzahlung erfolgreich gebucht', 'success');
@@ -1958,10 +1998,11 @@
             const keys = Object.keys(selectedTeilrechnung);
             if (!keys.length) return;
 
-            let pin = '';
-            if (currentUserRole !== 'chef') {
-                pin = prompt('Chef-PIN eingeben:');
-                if (!pin) return;
+            let pin = prompt('Chef-PIN eingeben:');
+            if (pin === null) return;
+            if (!pin.trim()) {
+                showToast('PIN erforderlich', 'error');
+                return;
             }
 
             try {
@@ -1977,6 +2018,13 @@
                 if (res.ok) {
                     showToast('Artikel storniert', 'success');
                     selectedTeilrechnung = {};
+                    // Re-render popup or close if order is now empty
+                    const updatedOrder = allOrders.find(o => o.id === activeOrderId);
+                    if (updatedOrder && updatedOrder.items && updatedOrder.items.length > 0) {
+                        renderPopup(updatedOrder);
+                    } else {
+                        closePopup();
+                    }
                     checkLiveTischeUpdates();
                 } else {
                     const err = await res.json().catch(() => ({}));
@@ -1992,8 +2040,10 @@
             if (!activeOrderId) return;
             const btn = document.getElementById('btn-bezahlt-all');
             btn.disabled = true; btn.innerHTML = 'Verarbeite…';
+            const tipVal = parseFloat(document.getElementById('pay-all-tip').value) || 0.0;
             try {
                 const fd = new FormData();
+                fd.append('tip', tipVal);
                 const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST', body: fd });
                 if (res.ok) {
                     showToast('✅ Alles bezahlt!', 'success');
@@ -2011,10 +2061,11 @@
 
         async function stornieren() {
             if (!activeOrderId) return;
-            let pin = '';
-            if (currentUserRole !== 'chef') {
-                pin = prompt('Chef-PIN eingeben:');
-                if (!pin) return;
+            let pin = prompt('Chef-PIN eingeben:');
+            if (pin === null) return;
+            if (!pin.trim()) {
+                showToast('PIN erforderlich', 'error');
+                return;
             }
             try {
                 const fd = new FormData(); fd.append('pin', pin);
@@ -2067,8 +2118,9 @@
         }
 
         async function doTableSel(targetTableNumber) {
+            const mode = tableSel_mode;
             closeTableSel();
-            if (tableSel_mode === 'all') {
+            if (mode === 'all') {
                 try {
                     const res = await fetch(`/${slug}/tablet/transfer-order`, {
                         method: 'POST',
@@ -2085,7 +2137,7 @@
                 } catch (e) {
                     showToast('Verbindungsfehler', 'error');
                 }
-            } else if (tableSel_mode === 'teilrechnung') {
+            } else if (mode === 'teilrechnung') {
                 const keys = Object.keys(selectedTeilrechnung);
                 if (!keys.length) return;
 
@@ -2110,7 +2162,7 @@
                 } catch (e) {
                     showToast('Verbindungsfehler', 'error');
                 }
-            } else if (tableSel_mode === 'single_item') {
+            } else if (mode === 'single_item') {
                 if (!activeItemActionKey) return;
                 try {
                     const res = await fetch(`/${slug}/tablet/transfer-item/${activeOrderId}`, {
@@ -2120,7 +2172,12 @@
                     });
                     if (res.ok) {
                         showToast(`✅ Artikel auf Tisch ${targetTableNumber} umgebucht`, 'success');
-                        closeItemActionModal();
+                        // Clear item action state without re-opening parent popup (transfer is done)
+                        document.getElementById('item-action-modal').classList.add('hidden');
+                        activeItemActionKey = null;
+                        activeItemActionMaxQty = 1;
+                        activeItemActionQty = 1;
+                        activeItemActionName = '';
                         closePopup();
                         checkLiveTischeUpdates();
                     } else {
@@ -2142,7 +2199,7 @@
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }
         function closeQRGenerator()     { /* legacy */ }
 
-        function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '') {
+        function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
             document.getElementById('edit-product-id').value = id;
             document.getElementById('edit-product-name').value = name;
             document.getElementById('edit-product-name-en').value = nameEn;
@@ -2152,6 +2209,8 @@
             document.getElementById('edit-product-category').value = category;
             document.getElementById('edit-product-image-url').value = imageUrl;
             document.getElementById('edit-product-image-file').value = '';
+            document.getElementById('edit-product-is-vegan').checked = isVegan;
+            document.getElementById('edit-product-is-glutenfree').checked = isGlutenfree;
             document.getElementById('edit-product-modal').classList.remove('hidden');
         }
 
@@ -2183,6 +2242,8 @@
             if (fileInput.files.length > 0) {
                 formData.append('image_file', fileInput.files[0]);
             }
+            formData.append('is_vegan', document.getElementById('edit-product-is-vegan').checked ? 'true' : 'false');
+            formData.append('is_glutenfree', document.getElementById('edit-product-is-glutenfree').checked ? 'true' : 'false');
 
             fetch(`/api/products/${id}`, {
                 method: 'PUT',
