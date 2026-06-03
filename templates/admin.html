@@ -1598,7 +1598,6 @@
                 });
                 if (res.ok) {
                     showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
-                    closePopup();
                     checkLiveTischeUpdates();
                 } else {
                     const err = await res.json().catch(() => ({}));
