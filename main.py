@@ -1019,11 +1019,15 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                     except Exception:
                         pass
                         
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request, 
         name="landing.html", 
         context={"request": request, "is_logged_in": is_logged_in, "login_target": login_target}
     )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.get("/impressum", response_class=HTMLResponse)
 def platform_impressum(request: Request, db: Session = Depends(get_db)):
@@ -1066,7 +1070,11 @@ def global_login_get(request: Request, db: Session = Depends(get_db)):
                 except Exception:
                     pass
 
-    return templates.TemplateResponse(request=request, name="landing.html", context={"show_login": True})
+    response = templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_login": True})
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.post("/login")
 def global_login_post(
