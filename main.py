@@ -1302,7 +1302,10 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     if not is_preview:
         current_user = get_current_user(request, slug)
         if current_user and current_user.get("role") == "chef":
-            is_preview = True
+            cookie_name = f"guest_session_{slug}"
+            session_val = request.cookies.get(cookie_name)
+            if not query_table and not session_val:
+                is_preview = True
 
     if is_preview:
         is_readonly = False
@@ -3109,6 +3112,24 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
 @app.get("/api/{slug}/check-session")
 def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
+    
+    # ── Staff / POS trusted device bypass ──
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_staff:
+        session = request.cookies.get(f"session_{slug}")
+        if session:
+            is_staff = True
+        else:
+            res = get_current_user_and_slug(request)
+            if res:
+                user, session_slug = res
+                if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                    is_staff = True
+    if is_staff:
+        return {"active": True}
+
     cookie_name = f"guest_session_{slug}"
     session_val = request.cookies.get(cookie_name)
     if not session_val:

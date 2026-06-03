@@ -1033,6 +1033,11 @@
             }
             
             sessionStorage.setItem('dl_admin_active_tab', tabId);
+
+            if (tabId === 'live') {
+                renderSitzplanTiles();
+                renderServiceCallsAlerts();
+            }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -1176,11 +1181,6 @@
             const editModal = document.getElementById('edit-product-modal');
             if (editModal && !editModal.classList.contains('hidden')) return;
 
-            const activeEl = document.activeElement;
-            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
-                return;
-            }
-
             fetch(`/api/tablet-status`)
                 .then(res => {
                     if (res.status === 401 || res.status === 403) return null;
@@ -1192,7 +1192,8 @@
                     // Build state hash
                     const ordersState = data.orders.map(o => `${o.id}:${o.status}:${o.total}`).join('|');
                     const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
-                    const currentHash = `${ordersState}#${callsState}`;
+                    const tablesState = (data.tables || []).map(t => `${t.number}:${t.zone}:${t.active_session_token || ''}`).join('|');
+                    const currentHash = `${ordersState}#${callsState}#${tablesState}`;
 
                     // Audio signals
                     if (initialDone) {

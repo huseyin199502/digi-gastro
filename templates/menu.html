@@ -336,7 +336,7 @@
                 <template x-if="cart.length === 0">
                     <div class="text-center py-8 text-on-surface-variant text-sm font-semibold" x-text="translations[currentLang].empty_cart">Ihr Warenkorb ist leer.</div>
                 </template>
-                <template x-for="item in cart" :key="item.id">
+                <template x-for="item in cart" :key="item.cart_id">
                     <div class="bg-background/50 border border-outline-variant/80 p-4 rounded-2xl text-sm space-y-2">
                         <div class="flex items-center justify-between">
                             <div>
@@ -344,9 +344,9 @@
                                 <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
                             </div>
                             <div class="flex items-center space-x-3.5">
-                                <button @click="changeQty(item.id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-white hover:bg-white/10 transition-colors">-</button>
+                                <button @click="changeQty(item.cart_id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-white hover:bg-white/10 transition-colors">-</button>
                                 <span class="font-bold font-mono text-white text-sm w-4 text-center" x-text="item.quantity"></span>
-                                <button @click="changeQty(item.id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-white hover:bg-white/10 transition-colors">+</button>
+                                <button @click="changeQty(item.cart_id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-white hover:bg-white/10 transition-colors">+</button>
                             </div>
                         </div>
                         <input
@@ -799,11 +799,12 @@
 
                 addToCart(id, nameDe, nameEn, price, categoryType, btnElement = null) {
                     const name = this.currentLang === 'en' ? nameEn : nameDe;
-                    const existing = this.cart.find(i => i.id === id);
+                    const existing = this.cart.find(i => i.id === id && (!i.note || i.note.trim() === ''));
                     if (existing) {
                         existing.quantity++;
                     } else {
-                        this.cart.push({ id, name, name_de: nameDe, name_en: nameEn, price, quantity: 1, category_type: categoryType, note: null });
+                        const newCartId = id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        this.cart.push({ cart_id: newCartId, id, name, name_de: nameDe, name_en: nameEn, price, quantity: 1, category_type: categoryType, note: null });
                     }
                     
                     const addedMsg = translations[this.currentLang].toast_added || "hinzugefügt";
@@ -843,12 +844,12 @@
                     }
                 },
 
-                changeQty(id, delta) {
-                    const item = this.cart.find(i => i.id === id);
+                changeQty(cartId, delta) {
+                    const item = this.cart.find(i => i.cart_id === cartId);
                     if (item) {
                         item.quantity += delta;
                         if (item.quantity <= 0) {
-                            this.cart = this.cart.filter(i => i.id !== id);
+                            this.cart = this.cart.filter(i => i.cart_id !== cartId);
                         }
                     }
                 },

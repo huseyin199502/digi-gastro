@@ -996,6 +996,18 @@ def test_integration():
     finally:
         db.close()
     print("Multilingual product database storage: OK")
+
+    # 12. Admin Impersonate and check-session staff bypass tests
+    print("Testing admin impersonation and check-session staff bypass...")
+    # Impersonating table 3 should redirect and load successfully (expecting 200 follow redirects)
+    resp = client.get("/admin/impersonate/3", cookies=dl_cookies, follow_redirects=True)
+    assert resp.status_code == 200
+    
+    # Check check-session API with chef session cookies -> should return active=True
+    resp = client.get("/api/demo/check-session", cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert resp.json() == {"active": True}
+    print("Admin impersonation and check-session staff bypass: OK")
  
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
