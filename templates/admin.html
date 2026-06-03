@@ -1702,8 +1702,10 @@
                 qtyContainer.style.display = 'none';
             }
 
+            // Hide the order-popup visually but keep activeOrderId intact
+            // (executeItemAction needs activeOrderId to POST to the correct order)
+            document.getElementById('order-popup').classList.add('hidden');
             document.getElementById('item-action-modal').classList.remove('hidden');
-            closePopup();
         }
 
         function closeItemActionModal() {
@@ -1712,6 +1714,17 @@
             activeItemActionMaxQty = 1;
             activeItemActionQty = 1;
             activeItemActionName = '';
+            // Re-open parent order popup if there is still an active order
+            if (activeOrderId) {
+                const order = allOrders.find(o => o.id === activeOrderId);
+                if (order && order.status !== 'bezahlt' && order.status !== 'storniert') {
+                    renderPopup(order);
+                    document.getElementById('order-popup').classList.remove('hidden');
+                } else {
+                    // Order is gone/paid – close the parent popup properly
+                    closePopup();
+                }
+            }
         }
 
         function changeItemActionQty(delta) {
@@ -1734,7 +1747,13 @@
                     });
                     if (res.ok) {
                         showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} gebucht`, 'success');
-                        closeItemActionModal();
+                        // Close item modal and clear state first
+                        document.getElementById('item-action-modal').classList.add('hidden');
+                        activeItemActionKey = null;
+                        activeItemActionMaxQty = 1;
+                        activeItemActionQty = 1;
+                        activeItemActionName = '';
+                        // Then close parent order popup completely
                         closePopup();
                         checkLiveTischeUpdates();
                     } else {
