@@ -1,4 +1,4 @@
-const CACHE_NAME = 'digi-gastro-v5';
+const CACHE_NAME = 'digi-gastro-v6';
 const STATIC_ASSETS = [
   '/',
   '/static/css/design_system.css',
@@ -48,7 +48,8 @@ self.addEventListener('fetch', event => {
 
   // Dynamic/API or menu endpoints: Network-First Strategy
   // E.g., guest menu pages, api calls
-  const isDynamic = url.pathname.includes('/api/') || 
+  const isDynamic = url.pathname === '/' ||
+                    url.pathname.includes('/api/') || 
                     url.pathname.includes('/menu/') ||
                     url.pathname.includes('/admin/') ||
                     url.pathname.includes('/login') ||
