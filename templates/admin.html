@@ -1359,9 +1359,9 @@
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {
-                        checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️</span>';
-                    } else if (itemStatus === 'delivered') {
                         checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️✔️</span>';
+                    } else if (itemStatus === 'delivered') {
+                        checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️</span>';
                     }
 
                     let actionBtn = '';
@@ -1418,9 +1418,9 @@
                 if (res.ok) {
                     const order = allOrders.find(o => o.id === orderId);
                     if (order) {
-                        const parts = itemKey.split('_', 1);
+                        const parts = itemKey.split('_');
                         const pid = parts[0];
-                        const noteParts = parts[1] || '';
+                        const noteParts = parts.slice(1).join('_');
                         const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
                         if (item) item.item_status = newStatus;
                         renderPopup(order);
@@ -1472,9 +1472,9 @@
 
             Object.keys(selectedTeilrechnung).forEach(key => {
                 const qty = selectedTeilrechnung[key];
-                const parts = key.split('_', 1);
+                const parts = key.split('_');
                 const pid = parts[0];
-                const noteParts = parts[1] || '';
+                const noteParts = parts.slice(1).join('_');
                 
                 const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
                 if (item) {
@@ -1493,7 +1493,7 @@
                             <div class="item-row" style="cursor: default;">
                                 <div style="flex:1;min-width:0;">
                                     <div style="font-size:13px;font-weight:800;color:#fff;">
-                                        ✔️✔️ ${item.name}
+                                        ✔️ ${item.name}
                                     </div>
                                     ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${item.note}</div>` : ''}
                                 </div>

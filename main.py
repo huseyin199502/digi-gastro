@@ -2312,6 +2312,7 @@ class ItemStatusPayload(BaseModel):
     status: str
 
 @app.post("/{slug}/orders/item-status/{order_id}")
+@app.post("/{slug}/tablet/item-status/{order_id}")
 async def set_item_status(request: Request, slug: str, order_id: int, payload: ItemStatusPayload, db: Session = Depends(get_db)):
     """Update the status of a single line-item within an order."""
     restaurant = get_restaurant_or_raise(slug, db)
