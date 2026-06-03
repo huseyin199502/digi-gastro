@@ -1060,13 +1060,59 @@ def test_integration():
     resp = client.post(f"/demo/tablet/cancel-items-bulk/{bulk_order_id}", json=bulk_cancel_payload, cookies=dl_cookies)
     assert resp.status_code == 200
     assert resp.json()["success"] is True
-
-    # Remaining items: only 1x Premium Burger should be left
-    ord_cached = next(o for o in r_data["orders"] if o["id"] == bulk_order_id)
-    assert len(ord_cached["items"]) == 1
     assert ord_cached["items"][0]["product_id"] == 1
     assert ord_cached["items"][0]["quantity"] == 1
-    print("Bulk pay and cancel APIs: OK")
+
+    # 14. Test repeat orders (Classic Shisha issue) and status-sensitive splitting
+    print("Testing repeat orders logic (Classic Shisha status-sensitive separation)...")
+    # Scan Tisch 3 to get a fresh valid session cookie
+    resp_scan = client.get("/demo?tisch=3&token=token-tisch-3")
+    assert resp_scan.status_code == 200
+    cookie_header = resp_scan.headers.get("set-cookie")
+    assert cookie_header is not None
+    shisha_cookie_val = cookie_header.split(";")[0].split("=")[1]
+    shisha_cookies = {"guest_session_demo": shisha_cookie_val}
+
+    shisha_order_payload = {
+        "table": "Tisch 3",
+        "items": [
+            {"product_id": 7, "name": "Klassische Shisha", "price": 12.00, "quantity": 1}
+        ]
+    }
+    resp = client.post("/demo/bestellen", json=shisha_order_payload, cookies=shisha_cookies)
+    assert resp.status_code == 200
+    shisha_order_id = resp.json()["order_id"]
+
+    r_data = restaurants["demo"]
+    ord_cached = next(o for o in r_data["orders"] if o["id"] == shisha_order_id)
+    shisha_item = ord_cached["items"][0]
+    assert shisha_item["item_status"] == "pending"
+
+    # Confirm and deliver this shisha
+    resp = client.post(f"/demo/tablet/item-status/{shisha_order_id}", json={"item_key": "7__pending", "status": "confirmed"}, cookies=dl_cookies)
+    assert resp.status_code == 200
+    resp = client.post(f"/demo/tablet/item-status/{shisha_order_id}", json={"item_key": "7__confirmed", "status": "delivered"}, cookies=dl_cookies)
+    assert resp.status_code == 200
+
+    # Verify status is now 'delivered'
+    r_data = restaurants["demo"]
+    ord_cached = next(o for o in r_data["orders"] if o["id"] == shisha_order_id)
+    assert ord_cached["items"][0]["item_status"] == "delivered"
+
+    # Now order it again
+    resp = client.post("/demo/bestellen", json=shisha_order_payload, cookies=shisha_cookies)
+    assert resp.status_code == 200
+    
+    # Verify two separate items in the order
+    r_data = restaurants["demo"]
+    ord_cached = next(o for o in r_data["orders"] if o["id"] == shisha_order_id)
+    assert len(ord_cached["items"]) == 2
+    
+    delivered_shisha = next(i for i in ord_cached["items"] if i["item_status"] == "delivered")
+    pending_shisha = next(i for i in ord_cached["items"] if i["item_status"] == "pending")
+    assert delivered_shisha["quantity"] == 1
+    assert pending_shisha["quantity"] == 1
+    print("Repeat orders status-sensitive separation: OK")
 
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 

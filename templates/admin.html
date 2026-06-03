@@ -1484,7 +1484,7 @@
                 cats[cat].forEach(item => {
                     const itemStatus = item.item_status || 'pending';
                     const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                    const key = `${item.product_id}_${noteSlug}`;
+                    const key = `${item.product_id}_${noteSlug}_${itemStatus}`;
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {
@@ -1514,6 +1514,9 @@
                     html += `
                         <div class="item-card hover:border-primary/40 transition-colors" ${rowClick}>
                             <div class="item-row">
+                                <button onclick="event.stopPropagation();cancelItemDirect(${order.id}, '${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;margin-right:8px;flex-shrink:0;" title="Artikel stornieren">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">block</span>
+                                </button>
                                 <div style="flex:1;min-width:0;">
                                     <div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                         ${checkmarks}${item.name}
@@ -1549,14 +1552,53 @@
                     if (order) {
                         const parts = itemKey.split('_');
                         const pid = parts[0];
-                        const noteParts = parts.slice(1).join('_');
-                        const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
+                        const status = parts[parts.length - 1];
+                        const noteParts = parts.slice(1, parts.length - 1).join('_');
+                        const item = order.items.find(i => String(i.product_id) === pid 
+                            && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
+                            && (i.item_status || 'pending') === status);
                         if (item) item.item_status = newStatus;
                         renderPopup(order);
                     }
                     checkLiveTischeUpdates();
                 } else {
                     showToast('Fehler beim Aktualisieren des Status', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        async function cancelItemDirect(orderId, itemKey, maxQty, itemName) {
+            let qty = 1;
+            if (maxQty > 1) {
+                const qtyStr = prompt(`Wie viele ${itemName} stornieren? (Max: ${maxQty})`, maxQty);
+                if (qtyStr === null) return;
+                qty = parseInt(qtyStr, 10);
+                if (isNaN(qty) || qty < 1 || qty > maxQty) {
+                    showToast('Ungültige Menge', 'error');
+                    return;
+                }
+            }
+            const pin = prompt('Bitte Chef-PIN eingeben:');
+            if (pin === null) return;
+            if (!pin.trim()) {
+                showToast('PIN erforderlich', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_key: itemKey, quantity: qty, pin: pin })
+                });
+                if (res.ok) {
+                    showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
+                    closePopup();
+                    checkLiveTischeUpdates();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    showToast(err.detail || 'Fehler beim Stornieren', 'error');
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
@@ -1612,6 +1654,7 @@
                     if (res.ok) {
                         showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} gebucht`, 'success');
                         closeItemActionModal();
+                        closePopup();
                         checkLiveTischeUpdates();
                     } else {
                         const err = await res.json().catch(() => ({}));
@@ -1697,9 +1740,12 @@
                 const qty = selectedTeilrechnung[key];
                 const parts = key.split('_');
                 const pid = parts[0];
-                const noteParts = parts.slice(1).join('_');
+                const status = parts[parts.length - 1];
+                const noteParts = parts.slice(1, parts.length - 1).join('_');
                 
-                const item = order.items.find(i => String(i.product_id) === pid && (i.note || '').trim().replace(/\s+/g, '_') === noteParts);
+                const item = order.items.find(i => String(i.product_id) === pid 
+                    && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
+                    && (i.item_status || 'pending') === status);
                 if (item) {
                     const c = getProductCategory(item);
                     if (!selectedItemsGrouped[c]) selectedItemsGrouped[c] = [];
@@ -1783,6 +1829,7 @@
                 if (res.ok) {
                     showToast('Teilzahlung erfolgreich gebucht', 'success');
                     selectedTeilrechnung = {};
+                    closePopup();
                     checkLiveTischeUpdates();
                 } else {
                     const err = await res.json().catch(() => ({}));

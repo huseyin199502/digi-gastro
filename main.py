@@ -991,32 +991,39 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
     if session_global == "admin@digi-gastro.de":
         return RedirectResponse(url="/digi-gastro-admin")
         
+    is_logged_in = False
+    login_target = None
+        
     res = get_current_user_and_slug(request)
     if res:
         user, slug = res
         tenant = db.query(Tenant).filter_by(slug=slug).first()
         if tenant and user["role"] == "chef":
-            if not tenant.is_setup_completed:
-                return RedirectResponse(url="/admin/setup")
-            return RedirectResponse(url="/admin/dashboard")
+            is_logged_in = True
+            login_target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
 
-    for cookie_key, cookie_val in request.cookies.items():
-        if cookie_key.startswith("session_") and cookie_key != "session_global":
-            slug = cookie_key.replace("session_", "").strip()
-            tenant = db.query(Tenant).filter_by(slug=slug).first()
-            if tenant:
-                try:
-                    parts = cookie_val.split(":")
-                    if len(parts) == 3:
-                        role = parts[1]
-                        if role == "chef":
-                            if not tenant.is_setup_completed:
-                                return RedirectResponse(url="/admin/setup")
-                            return RedirectResponse(url="/admin/dashboard")
-                except Exception:
-                    pass
-                    
-    return templates.TemplateResponse(request=request, name="landing.html")
+    if not is_logged_in:
+        for cookie_key, cookie_val in request.cookies.items():
+            if cookie_key.startswith("session_") and cookie_key != "session_global":
+                slug = cookie_key.replace("session_", "").strip()
+                tenant = db.query(Tenant).filter_by(slug=slug).first()
+                if tenant:
+                    try:
+                        parts = cookie_val.split(":")
+                        if len(parts) == 3:
+                            role = parts[1]
+                            if role == "chef":
+                                is_logged_in = True
+                                login_target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+                                break
+                    except Exception:
+                        pass
+                        
+    return templates.TemplateResponse(
+        request=request, 
+        name="landing.html", 
+        context={"request": request, "is_logged_in": is_logged_in, "login_target": login_target}
+    )
 
 @app.get("/impressum", response_class=HTMLResponse)
 def platform_impressum(request: Request, db: Session = Depends(get_db)):
@@ -1548,11 +1555,13 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     if active_order:
         for new_item in payload.items:
             new_note = (new_item.note or "").strip()
-            # Only merge if SAME product_id AND SAME note — different notes → separate positions
+            # Only merge if SAME product_id AND SAME note AND the existing item is still in 'pending' status!
+            # If the existing item is already 'confirmed' or 'delivered', we should NOT merge it.
             existing_item = next(
                 (item for item in active_order["items"]
                  if item.get("product_id") == new_item.product_id
-                 and (item.get("note") or "").strip() == new_note),
+                 and (item.get("note") or "").strip() == new_note
+                 and (item.get("item_status", "pending") or "pending") == "pending"),
                 None
             )
             if existing_item:
@@ -1971,6 +1980,46 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
+def parse_item_key(item_key: str):
+    """Splits composite key into (product_id_str, note_slug, status_str)."""
+    key_parts = item_key.split("_")
+    pid_str = key_parts[0]
+    if len(key_parts) >= 3:
+        status_str = key_parts[-1]
+        note_slug = "_".join(key_parts[1:-1])
+    else:
+        status_str = None
+        note_slug = key_parts[1] if len(key_parts) > 1 else ""
+    return pid_str, note_slug, status_str
+
+def find_order_item(items, item_key: str):
+    """Finds an item in the list of items matching the status-specific item_key."""
+    pid_str, note_slug, status_str = parse_item_key(item_key)
+    for item in items:
+        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+        item_status = item.get("item_status", "pending") or "pending"
+        
+        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
+            # If status_str is provided, it MUST match the status exactly
+            if status_str is None or item_status == status_str:
+                return item
+    return None
+
+def update_order_status_by_items(order):
+    """Maintains order status dynamically based on individual item statuses."""
+    if not order.get("items"):
+        order["status"] = "storniert"
+        return
+    
+    if order.get("status") in ["bezahlt", "storniert"]:
+        return
+        
+    all_done = all(i.get("item_status", "pending") in ["confirmed", "delivered"] for i in order.get("items", []))
+    if all_done:
+        order["status"] = "bestaetigt"
+    else:
+        order["status"] = "eingegangen"
+
 
 # ──────────────────────────────────────────────────────────────────
 # PAY ITEM – Teilzahlung: pay for a specific item within an order
@@ -2004,17 +2053,8 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     if order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
-    # Find item by composite key: "{product_id}_{note_slug}"
-    parts = payload.item_key.split("_", 1)
-    pid_str = parts[0]
-    note_slug = parts[1] if len(parts) > 1 else ""
-
-    matched_item = None
-    for item in order.get("items", []):
-        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
-        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
-            matched_item = item
-            break
+    # Find item by status-sensitive composite key
+    matched_item = find_order_item(order.get("items", []), payload.item_key)
 
     if not matched_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -2042,6 +2082,8 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
         db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == table_num), None)
         if db_table:
             db_table["active_session_token"] = secrets.token_hex(4)
+    else:
+        update_order_status_by_items(order)
 
     db2 = SessionLocal()
     try:
@@ -2095,16 +2137,7 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
     total_paid_amount = 0.0
 
     for item_info in payload.items:
-        parts = item_info.item_key.split("_", 1)
-        pid_str = parts[0]
-        note_slug = parts[1] if len(parts) > 1 else ""
-
-        matched_item = None
-        for item in order.get("items", []):
-            item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
-            if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
-                matched_item = item
-                break
+        matched_item = find_order_item(order.get("items", []), item_info.item_key)
 
         if not matched_item:
             continue
@@ -2133,6 +2166,8 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
         db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == table_num), None)
         if db_table:
             db_table["active_session_token"] = secrets.token_hex(4)
+    else:
+        update_order_status_by_items(order)
 
     db2 = SessionLocal()
     try:
@@ -2196,16 +2231,8 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
 
     # Find source item
-    parts = payload.item_key.split("_", 1)
-    pid_str = parts[0]
-    note_slug = parts[1] if len(parts) > 1 else ""
-
-    source_item = None
-    for item in source_order.get("items", []):
-        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
-        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
-            source_item = item
-            break
+    pid_str, note_slug, status_str = parse_item_key(payload.item_key)
+    source_item = find_order_item(source_order.get("items", []), payload.item_key)
 
     if not source_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -2219,8 +2246,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         source_order["items"].remove(source_item)
     source_order["total"] = round(sum(i["price"] * i["quantity"] for i in source_order["items"]), 2)
     source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
-    if not source_order["items"]:
-        source_order["status"] = "storniert"
+    update_order_status_by_items(source_order)
 
     # Find or create target order
     target_order = next(
@@ -2229,11 +2255,15 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         None
     )
 
+    source_status = source_item.get("item_status", "pending") or "pending"
+
     if target_order:
-        # Merge into existing order
+        # Merge into existing order ONLY if same status
         t_item = next(
             (i for i in target_order.get("items", [])
-             if str(i.get("product_id")) == pid_str and (i.get("note") or "").strip().replace(" ", "_") == note_slug),
+             if str(i.get("product_id")) == pid_str 
+             and (i.get("note") or "").strip().replace(" ", "_") == note_slug
+             and (i.get("item_status", "pending") or "pending") == source_status),
             None
         )
         if t_item:
@@ -2247,13 +2277,13 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
                 "note": source_item.get("note", ""),
                 "category": source_item.get("category", ""),
                 "category_type": source_item.get("category_type", ""),
-                "item_status": source_item.get("item_status", "pending"),
+                "item_status": source_status,
             })
             new_item["quantity"] = qty_to_move
             target_order["items"].append(new_item)
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
         target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
-        target_order["status"] = "eingegangen"
+        update_order_status_by_items(target_order)
     else:
         # Create new order for target table — let DB assign autoincrement ID
         moved_item = {
@@ -2264,10 +2294,10 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "note": source_item.get("note"),
             "category": source_item.get("category", ""),
             "category_type": source_item.get("category_type", ""),
-            "item_status": source_item.get("item_status", "pending"),
+            "item_status": source_status,
         }
         new_order = {
-            "id": None,  # DB will assign via autoincrement (no collision risk)
+            "id": None,  # DB will assign via autoincrement
             "table": target_table_str,
             "items": [moved_item],
             "total": round(item_amount, 2),
@@ -2278,6 +2308,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "mwst_rate": 19,
             "waiter_id": None
         }
+        update_order_status_by_items(new_order)
         restaurant["orders"].append(new_order)
 
 
@@ -2321,16 +2352,8 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
     if order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
-    parts = payload.item_key.split("_", 1)
-    pid_str = parts[0]
-    note_slug = parts[1] if len(parts) > 1 else ""
-
-    matched_item = None
-    for item in order.get("items", []):
-        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
-        if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
-            matched_item = item
-            break
+    # Find item by status-sensitive composite key
+    matched_item = find_order_item(order.get("items", []), payload.item_key)
 
     if not matched_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -2347,6 +2370,8 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
 
     if not order["items"]:
         order["status"] = "storniert"
+    else:
+        update_order_status_by_items(order)
 
     log_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -2401,16 +2426,7 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
     cancelled_details_list = []
 
     for item_info in payload.items:
-        parts = item_info.item_key.split("_", 1)
-        pid_str = parts[0]
-        note_slug = parts[1] if len(parts) > 1 else ""
-
-        matched_item = None
-        for item in order.get("items", []):
-            item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
-            if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
-                matched_item = item
-                break
+        matched_item = find_order_item(order.get("items", []), item_info.item_key)
 
         if not matched_item:
             continue
@@ -2429,6 +2445,8 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
     if not order["items"]:
         order["status"] = "storniert"
+    else:
+        update_order_status_by_items(order)
 
     if cancelled_details_list:
         log_entry = {
@@ -2549,22 +2567,15 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
     if order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
-    matched = False
-    for item in order.get("items", []):
-        note_slug = (item.get("note") or "").strip().replace(" ", "_")
-        key = f"{item['product_id']}_{note_slug}"
-        if key == payload.item_key:
-            item["item_status"] = payload.status
-            matched = True
-            break
+    matched_item = find_order_item(order.get("items", []), payload.item_key)
+    if matched_item:
+        matched_item["item_status"] = payload.status
+        matched = True
 
     if not matched:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
 
-    # If ALL items confirmed/delivered → upgrade order to bestaetigt
-    all_done = all(i.get("item_status", "pending") in ["confirmed", "delivered"] for i in order.get("items", []))
-    if all_done and order["status"] == "eingegangen":
-        order["status"] = "bestaetigt"
+    update_order_status_by_items(order)
 
     db2 = SessionLocal()
     try:
