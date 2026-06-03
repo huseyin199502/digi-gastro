@@ -1123,10 +1123,6 @@
             
             ws.onopen = () => {
                 console.log("Admin WebSocket connected!");
-                if (pollInterval) {
-                    clearInterval(pollInterval);
-                    pollInterval = null;
-                }
                 checkLiveTischeUpdates();
             };
             
@@ -1156,8 +1152,8 @@
 
         function startFallbackPolling() {
             if (!pollInterval) {
-                console.log("Starting admin fallback polling interval (5s)");
-                pollInterval = setInterval(checkLiveTischeUpdates, 5000);
+                console.log("Starting admin fallback polling interval (4s)");
+                pollInterval = setInterval(checkLiveTischeUpdates, 4000);
             }
         }
 
@@ -1175,6 +1171,7 @@
                 }).catch(()=>{});
 
             connectWebSocket();
+            startFallbackPolling();
         }
 
         function checkLiveTischeUpdates() {
