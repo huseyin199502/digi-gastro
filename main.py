@@ -4083,3 +4083,144 @@ def device_decoupled(request: Request, slug: str, db: Session = Depends(get_db))
 </html>
 """, status_code=200)
 
+
+# ──────────────────────────────────────────────────────────────────
+# EVENT COCKPIT ADMIN FLAT ROUTES
+# ──────────────────────────────────────────────────────────────────
+
+class ServePayload(BaseModel):
+    order_id: int
+    item_key: Optional[str] = None
+
+@app.post("/admin/orders/serve")
+async def serve_order_items(request: Request, payload: ServePayload, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
+    if user["role"] not in ["chef", "kellner"]:
+        raise HTTPException(status_code=403, detail="Kein Zugriff.")
+        
+    restaurant = get_restaurant_or_raise(slug, db)
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == payload.order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+        
+    updated = False
+    if payload.item_key:
+        matched_item = find_order_item(order.get("items", []), payload.item_key)
+        if matched_item and matched_item.get("item_status", "pending") == "pending":
+            matched_item["item_status"] = "delivered"
+            updated = True
+    else:
+        for item in order.get("items", []):
+            if item.get("item_status", "pending") == "pending":
+                item["item_status"] = "delivered"
+                updated = True
+                
+    if updated:
+        update_order_status_by_items(order)
+        try:
+            save_restaurant_to_db(slug, restaurant, db)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Fehler beim Servieren: {e}")
+            
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True}
+
+
+class AddManualPayload(BaseModel):
+    table_number: str
+    product_id: int
+    quantity: int
+
+@app.post("/api/admin/orders/add-manual")
+async def add_manual_order_item(request: Request, payload: AddManualPayload, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
+    if user["role"] not in ["chef", "kellner"]:
+        raise HTTPException(status_code=403, detail="Kein Zugriff.")
+        
+    restaurant = get_restaurant_or_raise(slug, db)
+    
+    # 1. Find product
+    product = next((p for p in restaurant.get("products", []) if p["id"] == payload.product_id), None)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
+        
+    # 2. Format table name (e.g. "Tisch 5" or "5")
+    t_num = str(payload.table_number).replace("Tisch", "").strip()
+    table_str = f"Tisch {t_num}"
+    
+    # Check if table exists in restaurant config
+    tables_list = restaurant.get("tables", [])
+    db_table = next((t for t in tables_list if str(t.get("number")) == t_num), None)
+    if not db_table:
+        raise HTTPException(status_code=404, detail="Tisch existiert nicht.")
+        
+    item_price = product["price"]
+    
+    # 3. Check if active order exists
+    active_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")) == table_str and o.get("status") not in ["bezahlt", "storniert"]), None)
+    
+    new_item = {
+        "product_id": product["id"],
+        "name": product["name"],
+        "price": float(item_price),
+        "quantity": payload.quantity,
+        "category_type": product.get("category_type", "küche"),
+        "note": "",
+        "item_status": "delivered" # directly delivered!
+    }
+    
+    if active_order:
+        # Merge if item with same product_id and no note and status 'delivered' already exists
+        existing_item = next(
+            (i for i in active_order["items"]
+             if i.get("product_id") == product["id"]
+             and not i.get("note")
+             and i.get("item_status") == "delivered"),
+            None
+        )
+        if existing_item:
+            existing_item["quantity"] += payload.quantity
+        else:
+            active_order["items"].append(new_item)
+            
+        active_order["total"] = round(active_order["total"] + (new_item["price"] * payload.quantity), 2)
+        active_order["total_with_tip"] = round(active_order["total_with_tip"] + (new_item["price"] * payload.quantity), 2)
+        
+        update_order_status_by_items(active_order)
+    else:
+        # Create a new order
+        new_order = {
+            "id": None, # populated during sync/flush
+            "table": table_str,
+            "items": [new_item],
+            "total": round(new_item["price"] * payload.quantity, 2),
+            "total_with_tip": round(new_item["price"] * payload.quantity, 2),
+            "tip_amount": 0.0,
+            "status": "bestaetigt", # all items are confirmed/delivered
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "mwst_rate": 19,
+            "waiter_id": user.get("name")
+        }
+        restaurant["orders"].append(new_order)
+        
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Hinzufügen der Bestellung: {e}")
+        
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True}
+
+

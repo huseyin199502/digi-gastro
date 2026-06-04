@@ -1191,6 +1191,63 @@ def test_integration():
     assert o_t4["items"][0]["quantity"] == 2
     print("Tisch umbuchen order merge logic: OK")
 
+    # ── Test manual product addition via flat endpoint ──
+    print("Testing flat manual order item addition...")
+    # Add manual product 4 (Spezi) on Tisch 4
+    add_payload = {
+        "table_number": "4",
+        "product_id": 4,
+        "quantity": 3
+    }
+    resp = client.post("/api/admin/orders/add-manual", json=add_payload, cookies=dl_cookies)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+    assert resp.json()["success"] is True
+    
+    # Verify the order item was added with item_status='delivered'
+    r_data = restaurants["demo"]
+    o_t4 = next(o for o in r_data["orders"] if o["table"] == "Tisch 4" and o["status"] not in ["bezahlt", "storniert"])
+    spezi_item_delivered = next(item for item in o_t4["items"] if item["product_id"] == 4 and item["item_status"] == "delivered")
+    assert spezi_item_delivered["quantity"] == 3
+    
+    spezi_item_pending = next(item for item in o_t4["items"] if item["product_id"] == 4 and (item.get("item_status") or "pending") == "pending")
+    assert spezi_item_pending["quantity"] == 2
+    print("Flat manual order item addition: OK")
+
+    # ── Test serve order items via flat endpoint ──
+    print("Testing flat serve order items...")
+    # Place a pending order first
+    # Add a pending item to the order manually in r_data for testing
+    o_t4["items"].append({
+        "product_id": 1,
+        "name": "Premium Burger",
+        "price": 14.50,
+        "quantity": 1,
+        "category_type": "küche",
+        "note": "",
+        "item_status": "pending"
+    })
+    o_t4["total"] = round(o_t4["total"] + 14.50, 2)
+    o_t4["total_with_tip"] = round(o_t4["total_with_tip"] + 14.50, 2)
+    r_data["orders"] = list(r_data["orders"]) # sync db
+    
+    # Confirm it has a pending item
+    has_pending = any(item["item_status"] == "pending" for item in o_t4["items"])
+    assert has_pending is True
+    
+    # Call serve endpoint
+    serve_payload = {
+        "order_id": o_t4["id"]
+    }
+    resp = client.post("/admin/orders/serve", json=serve_payload, cookies=dl_cookies)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+    assert resp.json()["success"] is True
+    
+    # Verify that all pending items are now 'delivered'
+    r_data = restaurants["demo"]
+    o_t4_updated = next(o for o in r_data["orders"] if o["id"] == o_t4["id"])
+    assert all(item["item_status"] == "delivered" for item in o_t4_updated["items"])
+    print("Flat serve order items: OK")
+
     print("Testing complete order stornieren (BON STORNO)...")
     # After transfer, Tisch 3 is free again. Re-login with its security_token.
     client.cookies.clear()
