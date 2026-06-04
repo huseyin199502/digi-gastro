@@ -214,101 +214,44 @@ def _migrate_database():
     import sqlalchemy as sa
     inspector = sa.inspect(engine)
     
+    def add_column_if_missing(table_name, column_name, column_definition):
+        try:
+            columns = [c['name'] for c in inspector.get_columns(table_name)]
+        except Exception as e:
+            print(f"[DB Migration] Fehler beim Auslesen der Spalten für '{table_name}': {e}")
+            return
+            
+        if column_name not in columns:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(sa.text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"))
+                print(f"[DB Migration] Spalte '{column_name}' erfolgreich zu Tabelle '{table_name}' hinzugefügt.")
+            except Exception as e:
+                print(f"[DB Migration] Fehler beim Hinzufügen von '{column_name}' zu '{table_name}': {e}")
+
     # Migrate 'tenants' table
-    tenant_columns = [c['name'] for c in inspector.get_columns('tenants')]
-    with engine.begin() as conn:
-        if 'security_token' not in tenant_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tenants ADD COLUMN security_token VARCHAR DEFAULT ''"))
-            except Exception:
-                pass
-        if 'pos_token' not in tenant_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tenants ADD COLUMN pos_token VARCHAR"))
-            except Exception:
-                pass
-        if 'pos_secret' not in tenant_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tenants ADD COLUMN pos_secret VARCHAR"))
-            except Exception:
-                pass
-        if 'kds_secret' not in tenant_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tenants ADD COLUMN kds_secret VARCHAR"))
-            except Exception:
-                pass
+    add_column_if_missing('tenants', 'security_token', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tenants', 'pos_token', "VARCHAR")
+    add_column_if_missing('tenants', 'pos_secret', "VARCHAR")
+    add_column_if_missing('tenants', 'kds_secret', "VARCHAR")
 
     # Migrate 'tables' table
-    table_columns = [c['name'] for c in inspector.get_columns('tables')]
-    with engine.begin() as conn:
-        if 'security_token' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN security_token VARCHAR DEFAULT ''"))
-            except Exception:
-                pass
-        if 'active_session_token' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN active_session_token VARCHAR"))
-            except Exception:
-                pass
-        if 'pos_x' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN pos_x FLOAT DEFAULT 0.0"))
-            except Exception:
-                pass
-        if 'pos_y' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN pos_y FLOAT DEFAULT 0.0"))
-            except Exception:
-                pass
-        if 'width' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN width FLOAT DEFAULT 120.0"))
-            except Exception:
-                pass
-        if 'height' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN height FLOAT DEFAULT 80.0"))
-            except Exception:
-                pass
-        if 'shape' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN shape VARCHAR DEFAULT 'rect'"))
-            except Exception:
-                pass
-        if 'active' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN active BOOLEAN DEFAULT 1"))
-            except Exception:
-                pass
-        if 'qr_token' not in table_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN qr_token VARCHAR"))
-            except Exception:
-                pass
+    add_column_if_missing('tables', 'security_token', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tables', 'active_session_token', "VARCHAR")
+    add_column_if_missing('tables', 'pos_x', "FLOAT DEFAULT 0.0")
+    add_column_if_missing('tables', 'pos_y', "FLOAT DEFAULT 0.0")
+    add_column_if_missing('tables', 'width', "FLOAT DEFAULT 120.0")
+    add_column_if_missing('tables', 'height', "FLOAT DEFAULT 80.0")
+    add_column_if_missing('tables', 'shape', "VARCHAR DEFAULT 'rect'")
+    add_column_if_missing('tables', 'active', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('tables', 'qr_token', "VARCHAR")
 
     # Migrate 'products' table
-    product_columns = [c['name'] for c in inspector.get_columns('products')]
-    with engine.begin() as conn:
-        if 'name_en' not in product_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE products ADD COLUMN name_en VARCHAR"))
-            except Exception:
-                pass
-        if 'description_en' not in product_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE products ADD COLUMN description_en TEXT"))
-            except Exception:
-                pass
+    add_column_if_missing('products', 'name_en', "VARCHAR")
+    add_column_if_missing('products', 'description_en', "TEXT")
 
     # Migrate 'order_items' table
-    order_items_columns = [c['name'] for c in inspector.get_columns('order_items')]
-    with engine.begin() as conn:
-        if 'item_status' not in order_items_columns:
-            try:
-                conn.execute(sa.text("ALTER TABLE order_items ADD COLUMN item_status VARCHAR DEFAULT 'pending'"))
-            except Exception:
-                pass
+    add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
 
 
 try:
