@@ -434,4 +434,6 @@ def run_migrations():
             except Exception:
                 # Column already exists or similar – safe to ignore
                 pass
+# sync comment to trigger git push
+
 
