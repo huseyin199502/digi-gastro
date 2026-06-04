@@ -3249,15 +3249,15 @@ def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(re
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/kategorie-erstellen")
-def create_category(request: Request, category_name: str = Form(None, alias="category-name"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+def create_category(request: Request, name: str = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
         
-    if not category_name:
+    if not name:
          raise HTTPException(status_code=400, detail="Kategorie-Name erforderlich.")
          
-    cat = category_name.strip()
+    cat = name.strip()
     if cat and cat not in restaurant["categories"]:
         restaurant["categories"].append(cat)
     save_restaurant_to_db(slug, restaurant, db)
@@ -3384,14 +3384,14 @@ def delete_produkt(
 @app.post("/admin/kategorie-loeschen")
 def delete_kategorie(
     request: Request,
-    kategorie_name: str = Form(...),
+    name: str = Form(...),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
     """Kategorie sicher löschen (inkl. Tenant-Check). Produkte bleiben erhalten."""
     user, slug, restaurant = chef_data
 
-    cat_name = kategorie_name.strip()
+    cat_name = name.strip()
     if cat_name not in restaurant["categories"]:
         raise HTTPException(status_code=404, detail="Kategorie nicht gefunden.")
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>Cusi-Order | Bestellsystem für Gastronomie</title>
+    <title>Digi-Gastro | Bestellsystem für Gastronomie</title>
     
     <!-- Google Fonts & Material Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,8 +20,8 @@
                 extend: {
                     colors: {
                         primary: '#009900',
-                        cusi: '#009900',
-                        cusi2: '#1f2937'
+                        gastro: '#009900',
+                        gastro2: '#1f2937'
                     }
                 }
             }
@@ -31,18 +31,18 @@
     <!-- Custom Style System -->
     <style>
         :root {
-            --cusi-primary: #009900;
-            --cusi-primary-hover: #008000;
-            --cusi-bg-gray: rgb(235, 235, 235);
-            --cusi-card-bg: #ffffff;
-            --cusi-text-main: #1f2937;
-            --cusi-text-muted: #6b7280;
+            --gastro-primary: #009900;
+            --gastro-primary-hover: #008000;
+            --gastro-bg-gray: rgb(235, 235, 235);
+            --gastro-card-bg: #ffffff;
+            --gastro-text-main: #1f2937;
+            --gastro-text-muted: #6b7280;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--cusi-bg-gray);
-            color: var(--cusi-text-main);
+            background-color: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
             overflow-x: hidden;
         }
 
@@ -113,7 +113,7 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background-color: var(--cusi-primary);
+            background-color: var(--gastro-primary);
             color: white;
             display: flex;
             align-items: center;
@@ -130,7 +130,7 @@
             align-items: center;
             gap: 0.75rem;
             padding: 0.85rem 1.25rem;
-            color: var(--cusi-text-muted);
+            color: var(--gastro-text-muted);
             font-weight: 600;
             font-size: 0.9rem;
             border-left: 4px solid transparent;
@@ -143,13 +143,13 @@
 
         nav .nav-btn:hover {
             background-color: #f3f4f6;
-            color: var(--cusi-text-main);
+            color: var(--gastro-text-main);
         }
 
         nav .nav-btn.active {
             background-color: #e6f5e6;
-            color: var(--cusi-primary);
-            border-left-color: var(--cusi-primary);
+            color: var(--gastro-primary);
+            border-left-color: var(--gastro-primary);
         }
 
         main {
@@ -226,9 +226,9 @@
         }
 
         .sitzplan-table.status-active {
-            border-color: var(--cusi-primary);
+            border-color: var(--gastro-primary);
             background-color: #f0fdf4;
-            color: var(--cusi-primary);
+            color: var(--gastro-primary);
         }
 
         .sitzplan-table.status-pending {
@@ -349,7 +349,7 @@
     <aside>
         <div class="sidebar-header">
             <a href="/" class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-cusi font-black text-3xl">restaurant_menu</span>
+                <span class="material-symbols-outlined text-gastro font-black text-3xl">restaurant_menu</span>
                 <span class="font-extrabold text-lg font-sans tracking-tight">digi-gastro</span>
             </a>
         </div>
@@ -419,12 +419,12 @@
                 
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="sitzplanFilterZone='gesamt'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-cusi focus:bg-emerald-50">Gesamt</button>
+                        <button onclick="sitzplanFilterZone='gesamt'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-gastro focus:bg-emerald-50">Gesamt</button>
                         {% set unique_zones = [] %}
                         {% for t in restaurant.tables %}
                             {% if t.zone not in unique_zones %}
                                 {% set _ = unique_zones.append(t.zone) %}
-                                <button onclick="sitzplanFilterZone='{{ t.zone.lower() }}'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-cusi focus:bg-emerald-50">{{ t.zone }}</button>
+                                <button onclick="sitzplanFilterZone='{{ t.zone.lower() }}'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-gastro focus:bg-emerald-50">{{ t.zone }}</button>
                             {% endif %}
                         {% endfor %}
                     </div>
@@ -437,7 +437,7 @@
                             <span class="material-symbols-outlined text-sm">edit</span>
                             <span id="btn-edit-mode-text">Sitzplan bearbeiten</span>
                         </button>
-                        <button id="btn-save-layout" onclick="saveLayout()" class="px-4 py-2 bg-cusi text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition hidden shadow">
+                        <button id="btn-save-layout" onclick="saveLayout()" class="px-4 py-2 bg-gastro text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition hidden shadow">
                             Layout speichern
                         </button>
                     </div>
@@ -454,11 +454,11 @@
                     <form action="/admin/table-erstellen" method="POST" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                         <div>
                             <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
-                            <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
-                            <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 <option value="Innen">Innen</option>
                                 <option value="Terrasse">Terrasse</option>
                                 <option value="Bar">Bar</option>
@@ -466,12 +466,12 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
-                            <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 <option value="rect">Rechteckig</option>
                                 <option value="round">Rund</option>
                             </select>
                         </div>
-                        <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
+                        <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
                     </form>
                 </div>
             </div>
@@ -562,8 +562,8 @@
                             <span class="material-symbols-outlined text-zinc-500">folder</span> Kategorie anlegen
                         </h3>
                         <form action="/admin/kategorie-erstellen" method="POST" class="flex gap-2">
-                            <input type="text" name="name" required placeholder="z.B. Softdrinks" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
-                            <button type="submit" class="bg-cusi hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow">Anlegen</button>
+                            <input type="text" name="name" required placeholder="z.B. Softdrinks" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            <button type="submit" class="bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow">Anlegen</button>
                         </form>
                         
                         <div class="border-t border-gray-100 pt-3">
@@ -590,15 +590,15 @@
                         <form action="/admin/produkt-erstellen" method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktname</label>
-                                <input type="text" name="name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <input type="text" name="name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
-                                <input type="number" step="0.01" name="price" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                <input type="number" step="0.01" name="price" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
-                                <select name="category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <select name="category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     {% for cat in restaurant.categories %}
                                     <option value="{{ cat }}">{{ cat }}</option>
                                     {% endfor %}
@@ -606,12 +606,12 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Typ</label>
-                                <select name="category_type" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <select name="category_type" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     <option value="bar"> Getränk (Bar)</option>
                                     <option value="küche"> Speise (Küche)</option>
                                 </select>
                             </div>
-                            <button type="submit" class="sm:col-span-2 w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Produkt anlegen</button>
+                            <button type="submit" class="sm:col-span-2 w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Produkt anlegen</button>
                         </form>
                     </div>
                 </div>
@@ -679,13 +679,13 @@
                         <form action="/admin/profile-update" method="POST" class="space-y-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Neuer Name</label>
-                                <input type="text" name="name" value="{{ current_user.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <input type="text" name="name" value="{{ current_user.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Neues Passwort</label>
-                                <input type="password" name="password" placeholder="Passwort eingeben" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <input type="password" name="password" placeholder="Passwort eingeben" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
-                            <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Speichern</button>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Speichern</button>
                         </form>
                     </div>
 
@@ -697,14 +697,14 @@
                         <form action="/admin/staff" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                             <div class="sm:col-span-2">
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name</label>
-                                <input type="text" name="name" required placeholder="z.B. Mehmet" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <input type="text" name="name" required placeholder="z.B. Mehmet" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">4-stellige PIN</label>
-                                <input type="text" name="pin" pattern="[0-9]{4}" required placeholder="1234" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                <input type="text" name="pin" pattern="[0-9]{4}" required placeholder="1234" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                             </div>
                             <input type="hidden" name="role" value="kellner">
-                            <button type="submit" class="sm:col-span-3 w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Personal hinzufügen</button>
+                            <button type="submit" class="sm:col-span-3 w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Personal hinzufügen</button>
                         </form>
 
                         <div class="border-t border-gray-100 pt-3 divide-y divide-gray-50">
@@ -736,19 +736,19 @@
                         <form action="/admin/branding" method="POST" class="space-y-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse</label>
-                                <input type="text" name="address" value="{{ restaurant.address }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <input type="text" name="address" value="{{ restaurant.address }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Instagram URL</label>
-                                    <input type="text" name="instagram" value="{{ restaurant.instagram }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                    <input type="text" name="instagram" value="{{ restaurant.instagram }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Facebook URL</label>
-                                    <input type="text" name="facebook" value="{{ restaurant.facebook }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                    <input type="text" name="facebook" value="{{ restaurant.facebook }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 </div>
                             </div>
-                            <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
                         </form>
                         
                         <!-- Shishabar toggler -->
@@ -778,7 +778,7 @@
                                     {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
                                     {% for day in days %}
                                     <label class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none">
-                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-cusi focus:ring-0">
+                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0">
                                         <span>{{ day }}</span>
                                     </label>
                                     {% endfor %}
@@ -787,18 +787,18 @@
                             <div class="grid grid-cols-3 gap-3">
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Startzeit</label>
-                                    <input type="time" name="start" value="{{ restaurant.happy_hour_start }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                    <input type="time" name="start" value="{{ restaurant.happy_hour_start }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Endzeit</label>
-                                    <input type="time" name="end" value="{{ restaurant.happy_hour_end }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                    <input type="time" name="end" value="{{ restaurant.happy_hour_end }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%)</label>
-                                    <input type="number" name="discount" value="{{ restaurant.happy_hour_discount }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                    <input type="number" name="discount" value="{{ restaurant.happy_hour_discount }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                             </div>
-                            <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
                         </form>
                     </div>
                 </div>
@@ -850,15 +850,21 @@
             <!-- Table Control Cockpit Actions Footer -->
             <div class="popup-footer space-y-3">
                 <!-- Split Pay selector -->
-                <div id="control-split-cockpit" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-3">
-                    <div class="flex items-center justify-between text-xs font-extrabold mb-2 text-zinc-800">
+                <div id="control-split-cockpit" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-extrabold text-zinc-800">
                         <span>Teilrechnung Summe:</span>
                         <span id="control-split-sum" class="font-mono text-zinc-900">0,00 €</span>
                     </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold text-zinc-400 uppercase">Trinkgeld €:</span>
+                        <input type="number" id="pay-split-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-2.5 py-1 text-xs text-right font-bold font-mono">
+                    </div>
                     <div class="flex gap-2">
-                        <input type="number" id="pay-split-tip" step="0.1" min="0" placeholder="Trinkgeld €" class="w-24 bg-white border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs text-right font-bold">
-                        <button onclick="submitControlSplitPayment()" class="flex-1 bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
+                        <button id="btn-control-split" onclick="submitControlSplitPayment()" class="flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
                             Ausgewählte kassieren
+                        </button>
+                        <button onclick="openUmbuchenSelectedCockpit()" class="flex-1 border border-gray-200 hover:bg-gray-100 text-zinc-700 font-bold text-xs py-2.5 rounded-xl transition shadow">
+                            Ausgewählte umbuchen
                         </button>
                     </div>
                 </div>
@@ -869,7 +875,7 @@
                         <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5">Trinkgeld €:</span>
                         <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold font-mono">
                     </div>
-                    <button onclick="bezahlenAlles()" class="bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
+                    <button onclick="bezahlenAlles()" class="bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
                     </button>
                     <button onclick="openUmbuchenAll()" class="border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1">
@@ -913,7 +919,7 @@
                 <div class="flex flex-col gap-2">
                     <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
                         <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" class="w-20 bg-white border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-right font-bold">
-                        <button onclick="executeItemAction('pay')" class="flex-1 bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1">
+                        <button onclick="executeItemAction('pay')" class="flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1">
                             💳 Teilmenge bezahlen
                         </button>
                     </div>
@@ -963,7 +969,7 @@
                 
                 <div>
                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Ziel-Tisch auswählen</label>
-                    <select id="transfer-target-select" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi"></select>
+                    <select id="transfer-target-select" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro"></select>
                 </div>
                 
                 <!-- Items selection checklist (optional/split) -->
@@ -972,7 +978,7 @@
                     <div id="transfer-items-list" class="space-y-1 max-h-[180px] overflow-y-auto"></div>
                 </div>
                 
-                <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
+                <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
                     Umbuchen ausführen
                 </button>
             </form>
@@ -995,22 +1001,22 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produkt-Name (DE)</label>
-                        <input type="text" id="edit-product-name" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                        <input type="text" id="edit-product-name" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name (EN - optional)</label>
-                        <input type="text" id="edit-product-name-en" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                        <input type="text" id="edit-product-name-en" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
-                        <input type="number" step="0.01" id="edit-product-price" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                        <input type="number" step="0.01" id="edit-product-price" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
-                        <select id="edit-product-category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                        <select id="edit-product-category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             {% for cat in restaurant.categories %}
                             <option value="{{ cat }}">{{ cat }}</option>
                             {% endfor %}
@@ -1021,31 +1027,31 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung (DE)</label>
-                        <textarea id="edit-product-description" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi resize-none"></textarea>
+                        <textarea id="edit-product-description" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro resize-none"></textarea>
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung (EN)</label>
-                        <textarea id="edit-product-description-en" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi resize-none"></textarea>
+                        <textarea id="edit-product-description-en" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro resize-none"></textarea>
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild-URL</label>
-                    <input type="text" id="edit-product-image-url" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                    <input type="text" id="edit-product-image-url" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                 </div>
 
                 <div class="flex items-center gap-6 pt-2 font-display">
                     <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-zinc-700">
-                        <input type="checkbox" id="edit-product-is-vegan" class="rounded text-cusi focus:ring-0">
+                        <input type="checkbox" id="edit-product-is-vegan" class="rounded text-gastro focus:ring-0">
                         <span>🌱 Vegan</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-zinc-700">
-                        <input type="checkbox" id="edit-product-is-glutenfree" class="rounded text-cusi focus:ring-0">
+                        <input type="checkbox" id="edit-product-is-glutenfree" class="rounded text-gastro focus:ring-0">
                         <span>🌾 Glutenfrei</span>
                     </label>
                 </div>
 
-                <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow mt-4">
+                <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow mt-4">
                     Änderungen speichern
                 </button>
             </form>
@@ -1135,7 +1141,7 @@
         let isEditMode = false;
         let tempTables = [];
         
-        // ── CUSI-STYLE MODAL CONTROL STATE ──
+        // ── DIGI-STYLE MODAL CONTROL STATE ──
         let controlModalActiveTableNum = null;
         let selectedControlSplitItems = {};
 
@@ -1420,19 +1426,23 @@
                 count++;
             });
             
-            const summary = document.getElementById('control-split-summary');
-            const totalText = document.getElementById('control-split-total');
+            const summary = document.getElementById('control-split-cockpit');
+            const totalText = document.getElementById('control-split-sum');
             const btnTeil = document.getElementById('btn-control-split');
             
             if (count > 0) {
-                summary.classList.remove('hidden');
-                totalText.textContent = `${splitTotal.toFixed(2).replace('.', ',')} €`;
-                btnTeil.disabled = false;
-                btnTeil.className = "h-11 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all select-none border border-zinc-700 bg-zinc-800 hover:bg-zinc-750 text-white cursor-pointer shadow-lg shadow-zinc-950/20";
+                if (summary) summary.classList.remove('hidden');
+                if (totalText) totalText.textContent = `${splitTotal.toFixed(2).replace('.', ',')} €`;
+                if (btnTeil) {
+                    btnTeil.disabled = false;
+                    btnTeil.className = "flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow";
+                }
             } else {
-                summary.classList.add('hidden');
-                btnTeil.disabled = true;
-                btnTeil.className = "h-11 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all select-none border border-zinc-850 bg-zinc-900/50 text-zinc-600 cursor-not-allowed";
+                if (summary) summary.classList.add('hidden');
+                if (btnTeil) {
+                    btnTeil.disabled = true;
+                    btnTeil.className = "flex-1 bg-gray-300 text-gray-500 font-bold text-xs py-2.5 rounded-xl cursor-not-allowed";
+                }
             }
         }
 
@@ -2813,6 +2823,15 @@
             document.getElementById('table-sel-overlay').classList.remove('hidden');
         }
 
+        function openUmbuchenSelectedCockpit() {
+            tableSel_mode = 'cockpit_split';
+            document.getElementById('table-sel-title').textContent = 'Teilbestellungen umbuchen';
+            document.getElementById('table-sel-subtitle').textContent = `Ausgewählte Artikel umbuchen`;
+            const currentTable = "Tisch " + controlModalActiveTableNum;
+            renderTableSelGrid(currentTable);
+            document.getElementById('table-sel-overlay').classList.remove('hidden');
+        }
+
         function renderTableSelGrid(currentTableStr) {
             const grid = document.getElementById('table-sel-grid');
             const sortedOthers = allTables
@@ -2903,6 +2922,35 @@
                         activeItemActionName = '';
                         closePopup();
                         checkLiveTischeUpdates();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        showToast(err.detail || 'Fehler beim Umbuchen', 'error');
+                    }
+                } catch (e) {
+                    showToast('Verbindungsfehler', 'error');
+                }
+            } else if (mode === 'cockpit_split') {
+                const keys = Object.keys(selectedControlSplitItems);
+                if (!keys.length) return;
+                
+                try {
+                    const payload = {
+                        source_table: "Tisch " + controlModalActiveTableNum,
+                        target_table: "Tisch " + targetTableNumber,
+                        item_keys: keys
+                    };
+                    
+                    const res = await fetch('/admin/orders/transfer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (res.ok) {
+                        showToast(`✅ Ausgewählte Artikel auf Tisch ${targetTableNumber} umgebucht!`, 'success');
+                        selectedControlSplitItems = {};
+                        closeControlModal();
+                        await checkLiveTischeUpdates();
                     } else {
                         const err = await res.json().catch(() => ({}));
                         showToast(err.detail || 'Fehler beim Umbuchen', 'error');
