@@ -293,6 +293,7 @@
                 <span class="material-symbols-outlined text-sm">logout</span>
                 <span>System verlassen</span>
             </a>
+        </div>
     </aside>
 
     <!-- Mobile Sidebar Backdrop Overlay -->
@@ -363,8 +364,6 @@
 
                 <!-- Dynamic Table Tiles Root -->
                 <div id="admin-tiles-root" class="space-y-6"></div>
-            </div>
-
             </div>
 
             <!-- CUSI-STYLE CENTRAL CONTROL POPUP OVERLAY -->
@@ -1828,175 +1827,183 @@
                 })
                 .then(data => {
                     if (!data) return;
+                    try {
+                        // Build state hash (including item statuses)
+                        const ordersState = data.orders.map(o => {
+                            const itemsStatusStr = (o.items || []).map(i => `${i.product_id}:${i.item_status || 'pending'}`).join(',');
+                            return `${o.id}:${o.status}:${o.total}:${itemsStatusStr}`;
+                        }).join('|');
+                        const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
+                        const tablesState = (data.tables || []).map(t => `${t.number}:${t.zone}:${t.active_session_token || ''}`).join('|');
+                        const currentHash = `${ordersState}#${callsState}#${tablesState}`;
 
-                    // Build state hash (including item statuses)
-                    const ordersState = data.orders.map(o => {
-                        const itemsStatusStr = (o.items || []).map(i => `${i.product_id}:${i.item_status || 'pending'}`).join(',');
-                        return `${o.id}:${o.status}:${o.total}:${itemsStatusStr}`;
-                    }).join('|');
-                    const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
-                    const tablesState = (data.tables || []).map(t => `${t.number}:${t.zone}:${t.active_session_token || ''}`).join('|');
-                    const currentHash = `${ordersState}#${callsState}#${tablesState}`;
+                        // Audio signals
+                        if (initialDone) {
+                            data.orders.forEach(o => {
+                                if (o.status === 'eingegangen' && !seenOrderIds.has(o.id)) {
+                                    playNewOrderSound();
+                                    seenOrderIds.add(o.id);
+                                }
+                            });
+                            (data.service_calls || []).forEach(c => {
+                                if (!seenCallIds.has(c.id)) {
+                                    playServiceSound();
+                                    seenCallIds.add(c.id);
+                                }
+                            });
+                        }
 
-                    // Audio signals
-                    if (initialDone) {
-                        data.orders.forEach(o => {
-                            if (o.status === 'eingegangen' && !seenOrderIds.has(o.id)) {
-                                playNewOrderSound();
-                                seenOrderIds.add(o.id);
-                            }
-                        });
-                        (data.service_calls || []).forEach(c => {
-                            if (!seenCallIds.has(c.id)) {
-                                playServiceSound();
-                                seenCallIds.add(c.id);
-                            }
-                        });
-                    }
+                        if (lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
+                            updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
+                        }
+                        lastLiveTischeHash = currentHash;
 
-                    if (lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
-                        updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
-                    }
-                    lastLiveTischeHash = currentHash;
+                        // Real-time KPI Card Updates (only if tab is dashboard/live)
+                        if (data.stats) {
+                            const elBrutto = document.getElementById('kpi-brutto');
+                            if (elBrutto) elBrutto.textContent = `${data.stats.brutto.toFixed(2).replace('.', ',')} €`;
+                            
+                            const elNetto19 = document.getElementById('kpi-netto-19');
+                            if (elNetto19) elNetto19.textContent = `${data.stats.netto_19.toFixed(2).replace('.', ',')} €`;
+                            
+                            const elBrutto19 = document.getElementById('kpi-brutto-19');
+                            if (elBrutto19) elBrutto19.textContent = `${data.stats.brutto_19.toFixed(2).replace('.', ',')}`;
+                            
+                            const elNetto7 = document.getElementById('kpi-netto-7');
+                            if (elNetto7) elNetto7.textContent = `${data.stats.netto_7.toFixed(2).replace('.', ',')} €`;
+                            
+                            const elBrutto7 = document.getElementById('kpi-brutto-7');
+                            if (elBrutto7) elBrutto7.textContent = `${data.stats.brutto_7.toFixed(2).replace('.', ',')}`;
+                            
+                            const elTip = document.getElementById('kpi-tip');
+                            if (elTip) elTip.textContent = `${data.stats.tip.toFixed(2).replace('.', ',')} €`;
+                            
+                            const elAvgBasket = document.getElementById('kpi-avg-basket');
+                            if (elAvgBasket) elAvgBasket.textContent = `${data.stats.avg_basket.toFixed(2).replace('.', ',')} €`;
+                            
+                            const elOrdersCount = document.getElementById('kpi-orders-count');
+                            if (elOrdersCount) elOrdersCount.textContent = data.stats.orders_count;
+                        }
 
-                    // Real-time KPI Card Updates (only if tab is dashboard/live)
-                    if (data.stats) {
-                        const elBrutto = document.getElementById('kpi-brutto');
-                        if (elBrutto) elBrutto.textContent = `${data.stats.brutto.toFixed(2).replace('.', ',')} €`;
-                        
-                        const elNetto19 = document.getElementById('kpi-netto-19');
-                        if (elNetto19) elNetto19.textContent = `${data.stats.netto_19.toFixed(2).replace('.', ',')} €`;
-                        
-                        const elBrutto19 = document.getElementById('kpi-brutto-19');
-                        if (elBrutto19) elBrutto19.textContent = `${data.stats.brutto_19.toFixed(2).replace('.', ',')}`;
-                        
-                        const elNetto7 = document.getElementById('kpi-netto-7');
-                        if (elNetto7) elNetto7.textContent = `${data.stats.netto_7.toFixed(2).replace('.', ',')} €`;
-                        
-                        const elBrutto7 = document.getElementById('kpi-brutto-7');
-                        if (elBrutto7) elBrutto7.textContent = `${data.stats.brutto_7.toFixed(2).replace('.', ',')}`;
-                        
-                        const elTip = document.getElementById('kpi-tip');
-                        if (elTip) elTip.textContent = `${data.stats.tip.toFixed(2).replace('.', ',')} €`;
-                        
-                        const elAvgBasket = document.getElementById('kpi-avg-basket');
-                        if (elAvgBasket) elAvgBasket.textContent = `${data.stats.avg_basket.toFixed(2).replace('.', ',')} €`;
-                        
-                        const elOrdersCount = document.getElementById('kpi-orders-count');
-                        if (elOrdersCount) elOrdersCount.textContent = data.stats.orders_count;
-                    }
-
-                    // Real-time Live Payments Feed Update
-                    if (data.recent_payments) {
-                        const feedContainer = document.getElementById('live-payments-feed');
-                        if (feedContainer) {
-                            if (data.recent_payments.length === 0) {
-                                feedContainer.innerHTML = '<p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe heute.</p>';
-                            } else {
-                                feedContainer.innerHTML = data.recent_payments.map(p => {
-                                    const timeStr = p.timestamp ? p.timestamp.substring(11, 16) : '--:--';
-                                    const hasTip = p.tip_amount > 0;
-                                        <div class="flex flex-col gap-1 border-b border-outline-variant/40 pb-3 text-xs">
-                                            <div class="flex justify-between items-center">
-                                                <span class="font-bold text-white">💰 ${p.table} (Bon #${p.id})</span>
-                                                <span class="font-mono text-zinc-500">${timeStr} Uhr</span>
+                        // Real-time Live Payments Feed Update
+                        if (data.recent_payments) {
+                            const feedContainer = document.getElementById('live-payments-feed');
+                            if (feedContainer) {
+                                if (data.recent_payments.length === 0) {
+                                    feedContainer.innerHTML = '<p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe heute.</p>';
+                                } else {
+                                    feedContainer.innerHTML = data.recent_payments.map(p => {
+                                        const timeStr = p.timestamp ? p.timestamp.substring(11, 16) : '--:--';
+                                        const hasTip = p.tip_amount > 0;
+                                        return `
+                                            <div class="flex flex-col gap-1 border-b border-outline-variant/40 pb-3 text-xs">
+                                                <div class="flex justify-between items-center">
+                                                    <span class="font-bold text-white">💰 ${p.table} (Bon #${p.id})</span>
+                                                    <span class="font-mono text-zinc-500">${timeStr} Uhr</span>
+                                                </div>
+                                                <div class="flex justify-between items-center text-[11px] mt-0.5">
+                                                    <span class="text-on-surface-variant font-semibold">Betrag: ${p.total.toFixed(2).replace('.', ',')} €</span>
+                                                    ${hasTip ? `<span class="bg-emerald-500/10 text-emerald-400 font-black px-2 py-0.5 rounded border border-emerald-500/20 text-[9px] uppercase tracking-wider">Trinkgeld: +${p.tip_amount.toFixed(2).replace('.', ',')} €</span>` : '<span class="text-zinc-600 font-medium">Kein Trinkgeld</span>'}
+                                                </div>
                                             </div>
-                                            <div class="flex justify-between items-center text-[11px] mt-0.5">
-                                                <span class="text-on-surface-variant font-semibold">Betrag: ${p.total.toFixed(2).replace('.', ',')} €</span>
-                                                ${hasTip ? `<span class="bg-emerald-500/10 text-emerald-400 font-black px-2 py-0.5 rounded border border-emerald-500/20 text-[9px] uppercase tracking-wider">Trinkgeld: +${p.tip_amount.toFixed(2).replace('.', ',')} €</span>` : '<span class="text-zinc-600 font-medium">Kein Trinkgeld</span>'}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('');
+                                        `;
+                                    }).join('');
+                                }
                             }
                         }
+                    } catch (e) {
+                        console.error("Error processing live updates:", e);
                     }
                 })
                 .catch(err => console.warn("Live status polling error:", err));
         }
 
         function updateLiveTiles(orders, serviceCalls, tables) {
-            allOrders = orders;
-            allTables = tables;
-            allCalls = serviceCalls;
+            try {
+                allOrders = orders;
+                allTables = tables;
+                allCalls = serviceCalls;
 
-            // Sync the table cards in place (preventing duplicate spawning)
-            tables.forEach(table => {
-                let card = document.getElementById(`table-card-${table.number}`);
-                if (card) {
-                    const ts = 'Tisch ' + table.number;
-                    const order = orders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
-                    const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
-                    
-                    const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
-                    const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${table.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
-                    
-                    if (order) {
-                        // Active table (Green)
-                        card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
+                // Sync the table cards in place (preventing duplicate spawning)
+                tables.forEach(table => {
+                    let card = document.getElementById(`table-card-${table.number}`);
+                    if (card) {
+                        const ts = 'Tisch ' + table.number;
+                        const order = orders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+                        const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
                         
-                        if (card.tagName === 'A') {
-                            const newDiv = document.createElement('div');
-                            newDiv.id = card.id;
-                            newDiv.className = card.className;
-                            newDiv.style.display = 'flex';
-                            newDiv.style.flexDirection = 'column';
-                            newDiv.style.alignItems = 'center';
-                            newDiv.style.justifyContent = 'center';
-                            newDiv.onclick = () => openControlModal(table.number);
-                            card.parentNode.replaceChild(newDiv, card);
-                            card = newDiv;
-                        } else {
-                            card.onclick = () => openControlModal(table.number);
-                        }
+                        const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                        const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${table.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                         
-                        if (hasPending) {
-                            card.innerHTML = `
-                                ${eyeHtml}
-                                ${mergeHtml}
-                                <span class="text-2xl sm:text-3xl animate-bounce">🔔</span>
-                                <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
-                                <span class="text-sm sm:text-base font-black mt-1">${table.number}</span>
-                                <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${order.timestamp}"></span>
-                            `;
+                        if (order) {
+                            // Active table (Green)
+                            card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
+                            
+                            if (card.tagName === 'A') {
+                                const newDiv = document.createElement('div');
+                                newDiv.id = card.id;
+                                newDiv.className = card.className;
+                                newDiv.style.display = 'flex';
+                                newDiv.style.flexDirection = 'column';
+                                newDiv.style.alignItems = 'center';
+                                newDiv.style.justifyContent = 'center';
+                                newDiv.onclick = () => openControlModal(table.number);
+                                card.parentNode.replaceChild(newDiv, card);
+                                card = newDiv;
+                            } else {
+                                card.onclick = () => openControlModal(table.number);
+                            }
+                            
+                            if (hasPending) {
+                                card.innerHTML = `
+                                    ${eyeHtml}
+                                    ${mergeHtml}
+                                    <span class="text-2xl sm:text-3xl animate-bounce">🔔</span>
+                                    <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
+                                    <span class="text-sm sm:text-base font-black mt-1">${table.number}</span>
+                                    <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${order.timestamp}"></span>
+                                `;
+                            } else {
+                                card.innerHTML = `
+                                    ${eyeHtml}
+                                    ${mergeHtml}
+                                    <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
+                                    <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1 text-emerald-100 font-bold">Serviert</span>
+                                `;
+                            }
                         } else {
-                            card.innerHTML = `
-                                ${eyeHtml}
-                                ${mergeHtml}
-                                <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
-                                <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1 text-emerald-100 font-bold">Serviert</span>
-                            `;
-                        }
-                    } else {
-                        // Free table (White)
-                        if (card.tagName === 'DIV') {
-                            const newA = document.createElement('a');
-                            newA.id = card.id;
-                            newA.href = `/?uid=${slug}&tisch=${table.number}&role=waiter`;
-                            newA.style.textDecoration = 'none';
-                            newA.style.display = 'flex';
-                            newA.style.flexDirection = 'column';
-                            newA.style.alignItems = 'center';
-                            newA.style.justifyContent = 'center';
-                            newA.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
-                            newA.innerHTML = `<span class="text-2xl sm:text-3xl font-black">${table.number}</span>`;
-                            card.parentNode.replaceChild(newA, card);
-                        } else {
-                            card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
-                            card.innerHTML = `<span class="text-2xl sm:text-3xl font-black">${table.number}</span>`;
+                            // Free table (White)
+                            if (card.tagName === 'DIV') {
+                                const newA = document.createElement('a');
+                                newA.id = card.id;
+                                newA.href = `/?uid=${slug}&tisch=${table.number}&role=waiter`;
+                                newA.style.textDecoration = 'none';
+                                newA.style.display = 'flex';
+                                newA.style.flexDirection = 'column';
+                                newA.style.alignItems = 'center';
+                                newA.style.justifyContent = 'center';
+                                newA.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
+                                newA.innerHTML = `<span class="text-2xl sm:text-3xl font-black">${table.number}</span>`;
+                                card.parentNode.replaceChild(newA, card);
+                            } else {
+                                card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
+                                card.innerHTML = `<span class="text-2xl sm:text-3xl font-black">${table.number}</span>`;
+                            }
                         }
                     }
-                }
-            });
-            updateTimers();
+                });
+                updateTimers();
 
-            const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
-            if (activeTab === 'live') {
-                renderServiceCallsAlerts();
-            }
-            
-            if (controlModalActiveTableNum) {
-                refreshControlModal();
+                const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+                if (activeTab === 'live') {
+                    renderServiceCallsAlerts();
+                }
+                
+                if (controlModalActiveTableNum) {
+                    refreshControlModal();
+                }
+            } catch (e) {
+                console.error("Error updating live tiles:", e);
             }
         }
 
