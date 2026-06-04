@@ -234,7 +234,14 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "number": t.number,
         "zone": t.zone,
         "security_token": t.security_token,
-        "active_session_token": t.active_session_token
+        "active_session_token": t.active_session_token,
+        "pos_x": getattr(t, "pos_x", 0.0) or 0.0,
+        "pos_y": getattr(t, "pos_y", 0.0) or 0.0,
+        "width": getattr(t, "width", 120.0) or 120.0,
+        "height": getattr(t, "height", 80.0) or 80.0,
+        "shape": getattr(t, "shape", "rect") or "rect",
+        "active": getattr(t, "active", True) if getattr(t, "active", True) is not None else True,
+        "qr_token": getattr(t, "qr_token", None)
     } for t in db_tables]
     
     db_logs = session.query(AuditLog).filter_by(tenant_slug=slug).order_by(AuditLog.id).all()
@@ -476,7 +483,14 @@ def save_restaurant_to_db(slug: str, r: dict, session):
             number=t.get("number"),
             zone=t.get("zone"),
             security_token=tok,
-            active_session_token=t.get("active_session_token")
+            active_session_token=t.get("active_session_token"),
+            pos_x=t.get("pos_x", 0.0),
+            pos_y=t.get("pos_y", 0.0),
+            width=t.get("width", 120.0),
+            height=t.get("height", 80.0),
+            shape=t.get("shape", "rect"),
+            active=t.get("active", True),
+            qr_token=t.get("qr_token")
         )
         session.add(db_t)
         
@@ -3152,7 +3166,7 @@ def create_table(request: Request, number: str = Form(...), zone: str = Form(...
         
     table_num = number.strip()
     
-    if "tables" not in restaurant:
+    if "tables" not in restaurant or restaurant["tables"] is None:
         restaurant["tables"] = []
         
     if not any(t["number"] == table_num for t in restaurant["tables"]):
@@ -3161,13 +3175,37 @@ def create_table(request: Request, number: str = Form(...), zone: str = Form(...
             "number": table_num,
             "zone": zone,
             "security_token": _secrets.token_hex(4),
-            "active_session_token": None
+            "active_session_token": None,
+            "pos_x": 10.0 + (len(restaurant["tables"]) * 8) % 75,
+            "pos_y": 10.0 + (len(restaurant["tables"]) * 12) % 75,
+            "width": 120.0,
+            "height": 80.0,
+            "shape": "rect",
+            "active": True,
+            "qr_token": _secrets.token_urlsafe(12)
         }
         restaurant["tables"].append(table_entry)
         
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+@app.post("/admin/sitzplan/positions")
+def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
+    tables = restaurant.get("tables", [])
+    for t in tables:
+        num = str(t.get("number"))
+        if num in payload:
+            t["pos_x"] = float(payload[num].get("pos_x", t.get("pos_x", 0.0)))
+            t["pos_y"] = float(payload[num].get("pos_y", t.get("pos_y", 0.0)))
+            t["width"] = float(payload[num].get("width", t.get("width", 120.0)))
+            t["height"] = float(payload[num].get("height", t.get("height", 80.0)))
+            t["shape"] = str(payload[num].get("shape", t.get("shape", "rect")))
+            
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return {"success": True}
 
 @app.post("/admin/table-loeschen/{table_num}")
 def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):

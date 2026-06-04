@@ -188,6 +188,13 @@ class Table(Base):
     zone = Column(String, nullable=False)
     security_token = Column(String, nullable=False, default="")
     active_session_token = Column(String, nullable=True)
+    pos_x = Column(Float, default=0.0)
+    pos_y = Column(Float, default=0.0)
+    width = Column(Float, default=120.0)
+    height = Column(Float, default=80.0)
+    shape = Column(String, default="rect")
+    active = Column(Boolean, default=True)
+    qr_token = Column(String, unique=True, nullable=True)
 
 class AuditLog(Base):
     __tablename__ = 'audit_log'
@@ -242,6 +249,41 @@ def _migrate_database():
         if 'active_session_token' not in table_columns:
             try:
                 conn.execute(sa.text("ALTER TABLE tables ADD COLUMN active_session_token VARCHAR"))
+            except Exception:
+                pass
+        if 'pos_x' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN pos_x FLOAT DEFAULT 0.0"))
+            except Exception:
+                pass
+        if 'pos_y' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN pos_y FLOAT DEFAULT 0.0"))
+            except Exception:
+                pass
+        if 'width' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN width FLOAT DEFAULT 120.0"))
+            except Exception:
+                pass
+        if 'height' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN height FLOAT DEFAULT 80.0"))
+            except Exception:
+                pass
+        if 'shape' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN shape VARCHAR DEFAULT 'rect'"))
+            except Exception:
+                pass
+        if 'active' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN active BOOLEAN DEFAULT 1"))
+            except Exception:
+                pass
+        if 'qr_token' not in table_columns:
+            try:
+                conn.execute(sa.text("ALTER TABLE tables ADD COLUMN qr_token VARCHAR"))
             except Exception:
                 pass
 

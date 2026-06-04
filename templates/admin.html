@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/static/css/design_system.css">
+    <link rel="stylesheet" href="/static/css/sitzplan.css">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -392,8 +393,24 @@
                 <!-- Service Calls alerts -->
                 <div id="admin-service-calls-section" class="space-y-2"></div>
 
-                <!-- Dynamic Table Tiles Root -->
-                <div id="admin-tiles-root" class="space-y-6"></div>
+                <!-- Visual Sitzplan Map & Controls -->
+                <div class="flex items-center gap-3 mb-2 font-display">
+                    <button onclick="toggleEditMode()" id="btn-edit-mode" class="px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg">
+                        <span class="material-symbols-outlined text-sm">edit</span>
+                        <span id="btn-edit-mode-text">Sitzplan bearbeiten</span>
+                    </button>
+                    <button onclick="saveLayout()" id="btn-save-layout" class="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg hidden">
+                        <span class="material-symbols-outlined text-sm">save</span>
+                        <span>Layout speichern</span>
+                    </button>
+                    <span class="text-xs text-on-surface-variant font-medium hidden" id="edit-instructions">
+                        💡 Tische ziehen zum Bewegen. Doppelklick zum Wechseln der Form (Rund/Eckig).
+                    </span>
+                </div>
+
+                <div class="sitzplan-map-container" id="admin-tiles-root">
+                    <!-- Tables rendered here dynamically with absolute positions -->
+                </div>
             </div>
 
             <!-- CUSI-STYLE CENTRAL CONTROL POPUP OVERLAY -->
@@ -1269,6 +1286,8 @@
         let allProducts = {{ restaurant.products | tojson | safe }} || [];
         let allCategories = {{ restaurant.categories | tojson | safe }} || [];
         let allCalls   = [];
+        let isEditMode = false;
+        let tempTables = [];
         
         // ── CUSI-STYLE MODAL CONTROL STATE ──
         let controlModalActiveTableNum = null;
@@ -1975,21 +1994,7 @@
                             const elTip = document.getElementById('kpi-tip');
                             if (elTip) elTip.textContent = `${data.stats.tip.toFixed(2).replace('.', ',')} €`;
                             
-                            const elAvgBasket = document.getElementById('kpi-avg-basket');
-                            if (elAvgBasket) elAvgBasket.textContent = `${data.stats.avg_basket.toFixed(2).replace('.', ',')} €`;
-                            
-                            const elOrdersCount = document.getElementById('kpi-orders-count');
-                            if (elOrdersCount) elOrdersCount.textContent = data.stats.orders_count;
-                        }
-
-                        // Real-time Live Payments Feed Update
-                        if (data.recent_payments) {
-                            const feedContainer = document.getElementById('live-payments-feed');
-                            if (feedContainer) {
-                                if (data.recent_payments.length === 0) {
-                                    feedContainer.innerHTML = '<p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe heute.</p>';
-                                } else {
-                                    feedContainer.innerHTML = data.recent_payments.map(p => {
+                                           feedContainer.innerHTML = data.recent_payments.map(p => {
                                         const timeStr = p.timestamp ? p.timestamp.substring(11, 16) : '--:--';
                                         const hasTip = p.tip_amount > 0;
                                         return `
@@ -2021,75 +2026,9 @@
                 allTables = tables;
                 allCalls = serviceCalls;
 
-                // Sync the table cards in place (preventing duplicate spawning)
-                tables.forEach(table => {
-                    let card = document.getElementById(`table-card-${table.number}`);
-                    if (card) {
-                        const ts = 'Tisch ' + table.number;
-                        const order = orders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
-                        const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
-                        
-                        const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
-                        const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${table.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
-                        
-                        if (order) {
-                            // Active table (Green)
-                            card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
-                            
-                            if (card.tagName === 'A') {
-                                const newDiv = document.createElement('div');
-                                newDiv.id = card.id;
-                                newDiv.className = card.className;
-                                newDiv.style.display = 'flex';
-                                newDiv.style.flexDirection = 'column';
-                                newDiv.style.alignItems = 'center';
-                                newDiv.style.justifyContent = 'center';
-                                newDiv.onclick = () => openControlModal(table.number);
-                                card.parentNode.replaceChild(newDiv, card);
-                                card = newDiv;
-                            } else {
-                                card.onclick = () => openControlModal(table.number);
-                            }
-                            
-                            if (hasPending) {
-                                card.innerHTML = `
-                                    ${eyeHtml}
-                                    ${mergeHtml}
-                                    <span class="text-2xl sm:text-3xl animate-bounce">🔔</span>
-                                    <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
-                                    <span class="text-sm sm:text-base font-black mt-1">${table.number}</span>
-                                    <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${order.timestamp}"></span>
-                                `;
-                            } else {
-                                card.innerHTML = `
-                                    ${eyeHtml}
-                                    ${mergeHtml}
-                                    <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
-                                    <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1 text-emerald-100 font-bold">Serviert</span>
-                                `;
-                            }
-                        } else {
-                            // Free table (White)
-                            if (card.tagName === 'DIV') {
-                                const newA = document.createElement('a');
-                                newA.id = card.id;
-                                newA.href = `/?uid=${slug}&tisch=${table.number}&role=waiter`;
-                                newA.style.textDecoration = 'none';
-                                newA.style.display = 'flex';
-                                newA.style.flexDirection = 'column';
-                                newA.style.alignItems = 'center';
-                                newA.style.justifyContent = 'center';
-                                newA.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
-                                newA.innerHTML = `<span class="text-2xl sm:text-3xl font-black">${table.number}</span>`;
-                                card.parentNode.replaceChild(newA, card);
-                            } else {
-                                card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
-                                card.innerHTML = `<span class="text-2xl sm:text-3xl font-black">${table.number}</span>`;
-                            }
-                        }
-                    }
-                });
-                updateTimers();
+                if (!isEditMode) {
+                    renderSitzplanTiles();
+                }
 
                 const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
                 if (activeTab === 'live') {
@@ -2102,9 +2041,11 @@
             } catch (e) {
                 console.error("Error updating live tiles:", e);
             }
-        }
+
 
         // ── SITZPLAN RENDERING ──
+        let sitzplanFilterZone = 'gesamt';
+
         function filterSitzplanZone(zone) {
             sitzplanFilterZone = zone;
             ['gesamt', 'innen', 'terrasse'].forEach(z => {
@@ -2121,42 +2062,202 @@
             renderSitzplanTiles();
         }
 
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('btn-edit-mode');
+            const text = document.getElementById('btn-edit-mode-text');
+            const saveBtn = document.getElementById('btn-save-layout');
+            const instructions = document.getElementById('edit-instructions');
+
+            if (isEditMode) {
+                tempTables = JSON.parse(JSON.stringify(allTables));
+                btn.className = "px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg";
+                text.textContent = "Bearbeitung beenden";
+                saveBtn.classList.remove('hidden');
+                instructions.classList.remove('hidden');
+            } else {
+                btn.className = "px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg";
+                text.textContent = "Sitzplan bearbeiten";
+                saveBtn.classList.add('hidden');
+                instructions.classList.add('hidden');
+            }
+            renderSitzplanTiles();
+        }
+
+        function toggleShape(tableNum) {
+            if (!isEditMode) return;
+            const t = tempTables.find(tbl => String(tbl.number) === String(tableNum));
+            if (t) {
+                t.shape = t.shape === 'round' ? 'rect' : 'round';
+                renderSitzplanTiles();
+            }
+        }
+
+        async function saveLayout() {
+            try {
+                const payload = {};
+                tempTables.forEach(t => {
+                    payload[String(t.number)] = {
+                        pos_x: t.pos_x,
+                        pos_y: t.pos_y,
+                        width: t.width,
+                        height: t.height,
+                        shape: t.shape
+                    };
+                });
+
+                const response = await fetch('/admin/sitzplan/positions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Layout erfolgreich gespeichert!', 'success');
+                    allTables = JSON.parse(JSON.stringify(tempTables));
+                    isEditMode = false;
+                    
+                    const btn = document.getElementById('btn-edit-mode');
+                    const text = document.getElementById('btn-edit-mode-text');
+                    const saveBtn = document.getElementById('btn-save-layout');
+                    const instructions = document.getElementById('edit-instructions');
+                    btn.className = "px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg";
+                    text.textContent = "Sitzplan bearbeiten";
+                    saveBtn.classList.add('hidden');
+                    instructions.classList.add('hidden');
+
+                    renderSitzplanTiles();
+                } else {
+                    showToast('Fehler beim Speichern des Layouts', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Verbindungsfehler beim Speichern', 'error');
+            }
+        }
+
         function renderSitzplanTiles() {
             const root = document.getElementById('admin-tiles-root');
             if (!root) return;
 
-            let filteredTables = allTables;
+            let filteredTables = isEditMode ? tempTables : allTables;
             if (sitzplanFilterZone !== 'gesamt') {
-                filteredTables = allTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
+                filteredTables = filteredTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
             }
 
             if (!filteredTables.length) {
-                root.innerHTML = '<div style="text-align:center;color:#4b5563;padding:3rem;font-size:13px;">Keine Tische in diesem Bereich konfiguriert.</div>';
+                root.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#4b5563;font-size:13px;">Keine Tische in diesem Bereich konfiguriert.</div>';
                 return;
             }
 
-            // Group tables by zone
-            const zones = {};
-            filteredTables.forEach(t => {
-                const z = t.zone || 'Allgemein';
-                if (!zones[z]) zones[z] = [];
-                zones[z].push(t);
-            });
-
-            const zoneIcon = z => (/terr|auss/i.test(z) ? '☀️' : '🛋️');
-
-            root.innerHTML = Object.keys(zones).map(zone => `
-                <div style="margin-bottom:1.5rem;">
-                    <div style="font-size:10px;font-weight:900;color:#10b981;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem;display:flex;align-items:center;gap:6px;">
-                        ${zoneIcon(zone)} ${zone.toUpperCase()}
-                        <div style="flex:1;height:1px;background:rgba(255,255,255,.05);"></div>
-                    </div>
-                    <div class="flex flex-wrap gap-4">
-                        ${zones[zone].map(t => renderTileHtml(t)).join('')}
-                    </div>
-                </div>
-            `).join('');
+            root.innerHTML = filteredTables.map(t => renderTileHtml(t)).join('');
+            
+            initDragAndResize();
             updateTimers();
+        }
+
+        function initDragAndResize() {
+            if (!isEditMode) return;
+            tempTables.forEach(t => {
+                const el = document.getElementById(`table-card-${t.number}`);
+                const handle = document.getElementById(`resize-handle-${t.number}`);
+                if (el) {
+                    makeElementDraggable(el, t.number);
+                }
+                if (el && handle) {
+                    makeElementResizable(el, handle, t.number);
+                }
+            });
+        }
+
+        function makeElementDraggable(el, tableNum) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            el.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                if (e.target.classList.contains('edit-table-shape-btn') || e.target.classList.contains('resize-handle')) return;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+
+                const parent = el.parentNode;
+                const parentRect = parent.getBoundingClientRect();
+                
+                let newTop = el.offsetTop - pos2;
+                let newLeft = el.offsetLeft - pos1;
+
+                let pctLeft = (newLeft / parentRect.width) * 100;
+                let pctTop = (newTop / parentRect.height) * 100;
+
+                if (pctLeft < 0) pctLeft = 0;
+                if (pctLeft > 92) pctLeft = 92;
+                if (pctTop < 0) pctTop = 0;
+                if (pctTop > 88) pctTop = 88;
+
+                el.style.left = pctLeft + "%";
+                el.style.top = pctTop + "%";
+
+                const t = tempTables.find(tbl => String(tbl.number) === String(tableNum));
+                if (t) {
+                    t.pos_x = pctLeft;
+                    t.pos_y = pctTop;
+                }
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        function makeElementResizable(el, handle, tableNum) {
+            handle.onmousedown = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const startWidth = parseFloat(el.style.width) || el.offsetWidth;
+                const startHeight = parseFloat(el.style.height) || el.offsetHeight;
+                const startX = e.clientX;
+                const startY = e.clientY;
+
+                document.onmousemove = function(e) {
+                    let newWidth = startWidth + (e.clientX - startX);
+                    let newHeight = startHeight + (e.clientY - startY);
+
+                    if (newWidth < 60) newWidth = 60;
+                    if (newWidth > 300) newWidth = 300;
+                    if (newHeight < 60) newHeight = 60;
+                    if (newHeight > 300) newHeight = 300;
+
+                    el.style.width = newWidth + "px";
+                    el.style.height = newHeight + "px";
+
+                    const t = tempTables.find(tbl => String(tbl.number) === String(tableNum));
+                    if (t) {
+                        t.width = newWidth;
+                        t.height = newHeight;
+                    }
+                };
+
+                document.onmouseup = function() {
+                    document.onmousemove = null;
+                    document.onmouseup = null;
+                };
+            };
         }
 
         function updateTimers() {
@@ -2180,52 +2281,75 @@
         }
 
         function renderTileHtml(table) {
-            const ts = 'Tisch ' + table.number;
-            const order = allOrders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            const isTemp = isEditMode;
+            const tableList = isTemp ? tempTables : allTables;
+            const currentTable = tableList.find(t => String(t.number) === String(table.number)) || table;
+
+            const ts = 'Tisch ' + currentTable.number;
+            const order = allOrders.find(o => (o.table === ts || o.table === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
             
-            let cls = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 ';
-            
+            let statusClass = 'status-free';
             if (order) {
-                // Active table (Green)
-                cls += 'bg-[#4cbb17] text-white shadow-lg';
-                
-                const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
-                const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${table.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
-                
-                let inner = '';
-                if (hasPending) {
-                    inner = `
-                        ${eyeHtml}
-                        ${mergeHtml}
-                        <span class="text-2xl sm:text-3xl animate-bounce">🔔</span>
-                        <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
-                        <span class="text-sm sm:text-base font-black mt-1">${table.number}</span>
-                        <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${order.timestamp}"></span>
-                    `;
-                } else {
-                    inner = `
-                        ${eyeHtml}
-                        ${mergeHtml}
-                        <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
-                        <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1 text-emerald-100 font-bold">Serviert</span>
-                    `;
-                }
-                
-                return `
-                    <div id="table-card-${table.number}" onclick="openControlModal('${table.number}')" class="${cls}" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                        ${inner}
+                statusClass = hasPending ? 'status-pending' : 'status-active';
+            }
+            
+            const shapeClass = currentTable.shape === 'round' ? 'round' : 'rect';
+            
+            let html = '';
+            if (isEditMode) {
+                html = `
+                    <div id="table-card-${currentTable.number}" 
+                         class="sitzplan-table draggable ${shapeClass} status-free"
+                         style="left: ${currentTable.pos_x || 0}%; top: ${currentTable.pos_y || 0}%; width: ${currentTable.width || 120}px; height: ${currentTable.height || 80}px;"
+                         ondblclick="toggleShape('${currentTable.number}')">
+                        <span class="edit-table-badge">Tisch ${currentTable.number}</span>
+                        <span class="text-xs font-bold text-zinc-400 select-none">${currentTable.zone || ''}</span>
+                        <button class="edit-table-shape-btn" onclick="toggleShape('${currentTable.number}')">Form</button>
+                        <div class="resize-handle se" id="resize-handle-${currentTable.number}"></div>
                     </div>
                 `;
             } else {
-                // Free table (White)
-                cls += 'bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
-                return `
-                    <a id="table-card-${table.number}" href="/?uid=${slug}&tisch=${table.number}&role=waiter" class="${cls}" style="text-decoration:none; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-                        <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
-                    </a>
+                let inner = '';
+                if (order) {
+                    const eyeHtml = `<a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                    const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${currentTable.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
+                    
+                    if (hasPending) {
+                        inner = `
+                            ${eyeHtml}
+                            ${mergeHtml}
+                            <span class="text-xl sm:text-2xl animate-bounce">🔔</span>
+                            <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5">Bestellung</span>
+                            <span class="text-xs sm:text-sm font-black">${currentTable.number}</span>
+                            <span class="tile-timer absolute right-8 top-2 text-[9px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded" data-timestamp="${order.timestamp}"></span>
+                        `;
+                    } else {
+                        inner = `
+                            ${eyeHtml}
+                            ${mergeHtml}
+                            <span class="text-xl sm:text-2xl font-black">${currentTable.number}</span>
+                            <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-emerald-100 font-bold">Serviert</span>
+                        `;
+                    }
+                } else {
+                    inner = `
+                        <a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" class="w-full h-full flex flex-col items-center justify-center text-zinc-300 hover:text-white" style="text-decoration:none;">
+                            <span class="text-xl sm:text-2xl font-black">${currentTable.number}</span>
+                        </a>
+                    `;
+                }
+
+                html = `
+                    <div id="table-card-${currentTable.number}" 
+                         onclick="openControlModal('${currentTable.number}')"
+                         class="sitzplan-table ${shapeClass} ${statusClass}"
+                         style="left: ${currentTable.pos_x || 0}%; top: ${currentTable.pos_y || 0}%; width: ${currentTable.width || 120}px; height: ${currentTable.height || 80}px;">
+                        ${inner}
+                    </div>
                 `;
             }
+            return html;
         }
 
         function renderServiceCallsAlerts() {
