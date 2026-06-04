@@ -135,8 +135,8 @@ async def tenant_suspended_handler(request: Request, exc: TenantSuspendedExcepti
         </head>
         <body>
             <div class="card">
-                <h1>Konto gesperrt</h1>
-                <p>Das Konto für <strong>{exc.slug}</strong> wurde vorübergehend gesperrt.</p>
+                <h1>Konto deaktiviert</h1>
+                <p>Dieses Restaurant ist vorübergehend deaktiviert.</p>
                 <p>Bitte kontaktieren Sie den Support.</p>
             </div>
         </body>
@@ -1179,21 +1179,178 @@ def global_login_post(
 # GLOBAL PLATFORM ADMIN ROUTES
 # ==========================================
 
-@app.get("/digi-gastro-admin")
+@app.get("/digi-gastro-admin", response_class=HTMLResponse)
 def get_global_admin(request: Request):
-    return RedirectResponse(url="/")
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        return RedirectResponse(url="/digi-gastro-admin/login")
+        
+    error = request.query_params.get("error")
+    success = request.query_params.get("success")
+    
+    alert_html = ""
+    if error:
+        alert_html = f'<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-xs text-red-400 font-bold">{error}</div>'
+    elif success:
+        alert_html = f'<div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-xs text-emerald-400 font-bold">{success}</div>'
+        
+    tenant_rows = ""
+    for slug, t in restaurants.items():
+        status_badge = '<span class="bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold">Aktiv</span>' if t.get("active", True) else '<span class="bg-red-500/10 text-red-500 px-2 py-0.5 rounded text-[10px] font-bold">Inaktiv</span>'
+        toggle_label = "Deaktivieren" if t.get("active", True) else "Aktivieren"
+        
+        tenant_rows += f"""
+        <tr class="hover:bg-zinc-900/30">
+          <td class="py-4 px-4 font-bold text-white">
+            <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{slug}" class="flex items-center gap-2">
+              <input type="text" name="name" value="{t.get('name', slug)}" class="bg-transparent border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:outline-none py-0.5 font-bold text-white w-32" />
+              <button type="submit" class="text-[10px] text-zinc-500 hover:text-emerald-400">💾</button>
+            </form>
+          </td>
+          <td class="py-4 px-4 text-zinc-400 font-mono">{slug}</td>
+          <td class="py-4 px-4 space-y-1">
+            <div class="text-zinc-500 font-mono text-[10px]">{t.get('email', '')}</div>
+            <div class="text-zinc-500 font-mono text-[10px]">{t.get('password', '')}</div>
+          </td>
+          <td class="py-4 px-4">{status_badge}</td>
+          <td class="py-4 px-4 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <form method="POST" action="/digi-gastro-admin/tenant-reset-password/{slug}" class="inline">
+                <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2.5 py-1 rounded text-[10px] font-bold transition">Passwort Reset</button>
+              </form>
+              <form method="POST" action="/digi-gastro-admin/tenant-toggle/{slug}" class="inline">
+                <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2.5 py-1 rounded text-[10px] font-bold transition">{toggle_label}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        """
+        
+    html_content = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Control Center – Digi-Gastro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0a0a0a] text-zinc-100 min-h-screen p-6">
+  <div class="max-w-6xl mx-auto space-y-8">
+    <!-- Header -->
+    <header class="flex items-center justify-between border-b border-zinc-800 pb-6">
+      <div>
+        <h1 class="text-2xl font-black text-white tracking-tight">Global Control Center</h1>
+        <p class="text-xs text-zinc-500 mt-0.5">Plattform Master-Liste & Tenant-Verwaltung</p>
+      </div>
+      <a href="/digi-gastro-admin/logout" class="bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-500/20 font-bold text-xs px-4 py-2 rounded-xl transition">
+        Ausloggen
+      </a>
+    </header>
+    
+    {alert_html}
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Tenant Creator Form -->
+      <div class="bg-[#141313] border border-zinc-800 rounded-3xl p-6 space-y-4 h-fit">
+        <h2 class="font-extrabold text-sm text-white">Neuen Partner / Tenant erstellen</h2>
+        <form method="POST" action="/digi-gastro-admin/tenant-erstellen" class="space-y-4">
+          <div>
+            <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Restaurant Name</label>
+            <input type="text" name="name" placeholder="z.B. Moonlight Shisha Bar" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Subdomain / Slug</label>
+            <input type="text" name="slug" placeholder="z.B. moonlight" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow">Tenant erstellen</button>
+        </form>
+      </div>
+      
+      <!-- Tenant List -->
+      <div class="lg:col-span-2 bg-[#141313] border border-zinc-800 rounded-3xl p-6 space-y-4">
+        <h2 class="font-extrabold text-sm text-white">Registrierte Partner-Restaurants</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-zinc-800 text-zinc-500 font-bold uppercase text-[10px]">
+                <th class="py-3 px-4">Restaurant</th>
+                <th class="py-3 px-4">Slug</th>
+                <th class="py-3 px-4">Anmeldedaten</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/50">
+              {tenant_rows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
 
 @app.get("/digi-gastro-admin/login", response_class=HTMLResponse)
-def get_global_login(request: Request):
-    return RedirectResponse(url="/")
+def get_global_login(request: Request, error: Optional[str] = None):
+    session_cookie = request.cookies.get("session_global")
+    if session_cookie == "admin@digi-gastro.de":
+        return RedirectResponse(url="/digi-gastro-admin")
+        
+    error_html = ""
+    if error:
+        error_html = f'<div class="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400 font-bold">{error}</div>'
+        
+    html_content = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Admin Login – Digi-Gastro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0a0a0a] text-zinc-100 flex items-center justify-center min-h-screen p-6">
+  <div class="w-full max-w-md bg-[#141313] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-2xl">
+    <div class="text-center">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 mb-3">
+        👑
+      </div>
+      <h1 class="text-xl font-black tracking-tight text-white">Admin Login</h1>
+      <p class="text-xs text-zinc-500 mt-1">Global Platform Control Center</p>
+    </div>
+    
+    {error_html}
+    
+    <form method="POST" action="/digi-gastro-admin/login" class="space-y-4">
+      <div>
+        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">E-Mail-Adresse</label>
+        <input type="email" name="email" placeholder="admin@digi-gastro.de" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Passwort</label>
+        <input type="password" name="password" placeholder="••••••••" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
+      </div>
+      <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-lg">Log-In</button>
+    </form>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
 
 @app.post("/digi-gastro-admin/login")
-def post_global_login(request: Request):
-    return RedirectResponse(url="/")
+def post_global_login(request: Request, email: str = Form(...), password: str = Form(...)):
+    if email == "admin@digi-gastro.de" and password == ADMIN_PASSWORD:
+        resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
+        resp.set_cookie(key="session_global", value=email, httponly=True, max_age=31536000)
+        return resp
+    return get_global_login(request, error="Ungültige E-Mail-Adresse oder Passwort.")
 
 @app.get("/digi-gastro-admin/logout")
 def get_global_logout(response: Response):
-    return RedirectResponse(url="/")
+    resp = RedirectResponse(url="/digi-gastro-admin/login")
+    resp.delete_cookie(key="session_global")
+    return resp
 
 @app.post("/digi-gastro-admin/tenant-erstellen")
 def post_tenant_erstellen(request: Request, name: str = Form(...), slug: str = Form(...), db: Session = Depends(get_db)):
@@ -1294,10 +1451,7 @@ def get_admin_root(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/admin/login")
     restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
-        restaurant["is_setup_completed"] = True
-        restaurant["is_onboarded"] = True
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        return RedirectResponse(url="/admin/setup")
     return RedirectResponse(url="/admin/dashboard")
 
 
@@ -3249,15 +3403,22 @@ def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(re
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/kategorie-erstellen")
-def create_category(request: Request, name: str = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+def create_category(
+    request: Request,
+    name: Optional[str] = Form(None),
+    category_name: Optional[str] = Form(None, alias="category-name"),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
         
-    if not name:
+    final_name = name or category_name
+    if not final_name:
          raise HTTPException(status_code=400, detail="Kategorie-Name erforderlich.")
          
-    cat = name.strip()
+    cat = final_name.strip()
     if cat and cat not in restaurant["categories"]:
         restaurant["categories"].append(cat)
     save_restaurant_to_db(slug, restaurant, db)
