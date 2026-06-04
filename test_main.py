@@ -1278,6 +1278,13 @@ def test_integration():
     assert o_storno["status"] == "storniert"
     print("Complete order stornieren (BON STORNO): OK")
 
+    print("Testing root UID & Tisch redirection...")
+    resp = client.get("/?uid=demo&tisch=3", follow_redirects=False)
+    assert resp.status_code == 303, f"Expected 303 redirect, got {resp.status_code}"
+    assert "tisch=3" in resp.headers["location"]
+    assert "token=sec-t3-test" in resp.headers["location"]
+    print("Root UID & Tisch redirection: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":

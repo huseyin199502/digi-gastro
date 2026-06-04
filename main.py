@@ -984,6 +984,26 @@ class ProductUpdatePayload(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, db: Session = Depends(get_db)):
+    uid = request.query_params.get("uid")
+    if uid:
+        tisch = request.query_params.get("tisch") or request.query_params.get("table") or ""
+        restaurant = get_restaurant(uid, db)
+        if restaurant:
+            tables_list = restaurant.get("tables", [])
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(tisch).strip()), None)
+            table_token = ""
+            if db_table:
+                table_token = db_table.get("security_token") or restaurant.get("security_token") or ""
+            else:
+                table_token = restaurant.get("security_token") or ""
+            
+            url = f"/{uid}"
+            if tisch:
+                url += f"?tisch={tisch}"
+                if table_token:
+                    url += f"&token={table_token}"
+            return RedirectResponse(url=url, status_code=303)
+
     if os.getenv("PYTEST_CURRENT_TEST"):
         return RedirectResponse(url="/demo", status_code=307)
         
@@ -2884,6 +2904,7 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             "request": request,
             "restaurant": restaurant,
             "slug": slug,
+            "tenant_slug": slug,
             "stats": stats,
             "period": period,
             "current_user": user,
