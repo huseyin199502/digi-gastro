@@ -1994,7 +1994,12 @@
                             const elTip = document.getElementById('kpi-tip');
                             if (elTip) elTip.textContent = `${data.stats.tip.toFixed(2).replace('.', ',')} €`;
                             
-                                           feedContainer.innerHTML = data.recent_payments.map(p => {
+                            const feedContainer = document.getElementById('live-payments-feed');
+                            if (feedContainer) {
+                                if (!data.recent_payments || !data.recent_payments.length) {
+                                    feedContainer.innerHTML = '<p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe heute.</p>';
+                                } else {
+                                    feedContainer.innerHTML = data.recent_payments.map(p => {
                                         const timeStr = p.timestamp ? p.timestamp.substring(11, 16) : '--:--';
                                         const hasTip = p.tip_amount > 0;
                                         return `
@@ -2041,10 +2046,10 @@
             } catch (e) {
                 console.error("Error updating live tiles:", e);
             }
+        }
 
 
         // ── SITZPLAN RENDERING ──
-        let sitzplanFilterZone = 'gesamt';
 
         function filterSitzplanZone(zone) {
             sitzplanFilterZone = zone;
