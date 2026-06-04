@@ -387,10 +387,14 @@
 
     <!-- POST-PAYMENT THANK YOU OVERLAY -->
     <div id="thankyou-overlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 hidden">
-        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-6 shadow-2xl">
+        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-6 shadow-2xl relative">
+            <button @click="closeThankYou()" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors text-xl font-bold flex items-center justify-center p-2 rounded-full hover:bg-white/10 w-9 h-9" title="Schließen">✕</button>
             <span class="material-symbols-outlined text-primary text-7xl animate-bounce glow-text-primary">check_circle</span>
             <h2 class="text-3xl font-extrabold text-white font-display" data-translate="thank_you">Bestellung erhalten!</h2>
-            <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
+            <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans pb-2" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
+            <button @click="closeThankYou()" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg font-bold mt-4">
+                Weitere Bestellungen aufnehmen
+            </button>
         </div>
     </div>
 

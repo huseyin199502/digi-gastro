@@ -4145,12 +4145,14 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
     updated = False
     if payload.item_key:
         matched_item = find_order_item(order.get("items", []), payload.item_key)
-        if matched_item and matched_item.get("item_status", "pending") == "pending":
+        current_status = matched_item.get("item_status") or "pending" if matched_item else None
+        if matched_item and current_status != "delivered":
             matched_item["item_status"] = "delivered"
             updated = True
     else:
         for item in order.get("items", []):
-            if item.get("item_status", "pending") == "pending":
+            current_status = item.get("item_status") or "pending"
+            if current_status != "delivered":
                 item["item_status"] = "delivered"
                 updated = True
                 
@@ -4249,6 +4251,7 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
 class AdminTransferPayload(BaseModel):
     source_table: str
     target_table: str
+    item_keys: Optional[List[str]] = None
 
 @app.post("/admin/orders/transfer")
 async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Session = Depends(get_db)):
@@ -4274,26 +4277,76 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         
     target_order = next((o for o in restaurant.get("orders", []) if (o.get("table") == t_table or str(o.get("table")).strip() == t_table_num) and o.get("status") not in ["bezahlt", "storniert"]), None)
     
-    for source_order in source_orders:
+    if payload.item_keys:
+        # Move ONLY selected items
         if not target_order:
-            source_order["table"] = t_table
-            target_order = source_order
-        else:
-            for s_item in source_order.get("items", []):
-                t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending")), None)
-                if t_item:
-                    t_item["quantity"] += s_item.get("quantity", 0)
+            existing_ids = [o["id"] for o in restaurant.get("orders", [])]
+            new_order_id = max(existing_ids) + 1 if existing_ids else 1
+            target_order = {
+                "id": new_order_id,
+                "table": t_table,
+                "items": [],
+                "total": 0.0,
+                "total_with_tip": 0.0,
+                "tip_amount": 0.0,
+                "status": "eingegangen",
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "mwst_rate": 19,
+                "waiter_id": None
+            }
+            if "orders" not in restaurant:
+                restaurant["orders"] = []
+            restaurant["orders"].append(target_order)
+            
+        for source_order in source_orders:
+            remaining_items = []
+            for item in source_order.get("items", []):
+                item_status = item.get("item_status") or "pending"
+                note_slug = (item.get("note") or "").strip().replace(" ", "_")
+                key = f"{item.get('product_id')}_{note_slug}_{item_status}"
+                
+                if key in payload.item_keys:
+                    t_item = next((i for i in target_order.get("items", []) if i.get("product_id") == item.get("product_id") and (i.get("note") or "").strip() == (item.get("note") or "").strip() and (i.get("item_status") or "pending") == item_status), None)
+                    if t_item:
+                        t_item["quantity"] += item.get("quantity", 0)
+                    else:
+                        target_order["items"].append(copy.deepcopy(item))
                 else:
-                    target_order["items"].append(copy.deepcopy(s_item))
-                    
-            target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
-            target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+                    remaining_items.append(item)
             
-            source_order["status"] = "storniert"
-            source_order["total"] = 0.0
-            source_order["total_with_tip"] = 0.0
-            source_order["items"] = []
-            
+            source_order["items"] = remaining_items
+            source_order["total"] = round(sum(i["price"] * i["quantity"] for i in remaining_items), 2)
+            source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
+            if not remaining_items:
+                source_order["status"] = "storniert"
+                source_order["total"] = 0.0
+                source_order["total_with_tip"] = 0.0
+                
+        target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
+        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+        
+    else:
+        # Full table transfer
+        for source_order in source_orders:
+            if not target_order:
+                source_order["table"] = t_table
+                target_order = source_order
+            else:
+                for s_item in source_order.get("items", []):
+                    t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending")), None)
+                    if t_item:
+                        t_item["quantity"] += s_item.get("quantity", 0)
+                    else:
+                        target_order["items"].append(copy.deepcopy(s_item))
+                        
+                target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
+                target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+                
+                source_order["status"] = "storniert"
+                source_order["total"] = 0.0
+                source_order["total_with_tip"] = 0.0
+                source_order["items"] = []
+                
     tables_list = restaurant.get("tables", [])
     s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)
     t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)

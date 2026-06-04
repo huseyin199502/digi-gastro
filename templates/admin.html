@@ -238,6 +238,36 @@
         .btn-storno-item:hover {
             background: rgba(239,68,68,0.22);
         }
+
+        /* Custom Checkbox Styling */
+        .custom-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 1.125rem;
+            height: 1.125rem;
+            border: 2px solid #4b5563; /* border-gray-600 */
+            border-radius: 0.25rem;
+            background-color: #1f2937; /* bg-zinc-800 */
+            cursor: pointer;
+            position: relative;
+            outline: none;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .custom-checkbox:checked {
+            background-color: #10b981; /* bg-emerald-500 */
+            border-color: #10b981;
+        }
+        .custom-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 0.75rem;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
     </style>
 </head>
 <body class="bg-background text-on-surface antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
@@ -459,6 +489,12 @@
                             <select id="transfer-target-select" class="input-premium w-full text-sm focus:border-primary bg-background cursor-pointer text-white">
                                 <!-- Options dynamically loaded -->
                             </select>
+                        </div>
+                        <div id="transfer-items-container" class="space-y-2 mt-1 hidden">
+                            <label class="text-[11px] uppercase tracking-wider text-zinc-400 font-bold block">Artikel auswählen (leer lassen für alle)</label>
+                            <div id="transfer-items-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                <!-- Dynamic check list of products -->
+                            </div>
                         </div>
                     </div>
 
@@ -1248,6 +1284,47 @@
                 const others = allTables.filter(t => String(t.number) !== String(tableNumber));
                 select.innerHTML = others.map(t => `<option value="${t.number}">Tisch ${t.number} (${t.zone || 'Allgemein'})</option>`).join('');
             }
+
+            // Populate items checklists
+            const sourceTable = "Tisch " + tableNumber;
+            const sourceOrders = allOrders.filter(o => (o.table === sourceTable || String(o.table) === String(tableNumber)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            
+            const listContainer = document.getElementById('transfer-items-container');
+            const itemsList = document.getElementById('transfer-items-list');
+            
+            let itemsHtml = '';
+            if (sourceOrders.length > 0) {
+                sourceOrders.forEach(order => {
+                    if (order.items) {
+                        order.items.forEach(item => {
+                            const status = item.item_status || 'pending';
+                            const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                            const key = `${item.product_id}_${noteSlug}_${status}`;
+                            const statusLabel = status === 'pending' ? 'Ausstehend' : status === 'confirmed' ? 'Zubereitung' : 'Serviert';
+                            const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400';
+                            
+                            itemsHtml += `
+                                <label class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/80 cursor-pointer border border-zinc-800/50 transition-colors">
+                                    <input type="checkbox" value="${key}" class="custom-checkbox shrink-0">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-xs font-bold text-white truncate">${item.quantity}x ${item.name}</div>
+                                        ${item.note ? `<div class="text-[10px] text-amber-400 font-medium mt-0.5">✎ ${item.note}</div>` : ''}
+                                    </div>
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${statusBg}">${statusLabel}</span>
+                                </label>
+                            `;
+                        });
+                    }
+                });
+            }
+            
+            if (itemsHtml) {
+                itemsList.innerHTML = itemsHtml;
+                listContainer.classList.remove('hidden');
+            } else {
+                itemsList.innerHTML = '';
+                listContainer.classList.add('hidden');
+            }
             
             document.getElementById('table-transfer-modal').classList.remove('hidden');
         }
@@ -1263,16 +1340,36 @@
             const target = select.value;
             
             if (!source || !target) return;
+
+            // Gather selected item keys
+            const listContainer = document.getElementById('transfer-items-container');
+            const itemKeys = [];
+            if (listContainer && !listContainer.classList.contains('hidden')) {
+                const checkboxes = listContainer.querySelectorAll('input[type="checkbox"]:checked');
+                checkboxes.forEach(cb => itemKeys.push(cb.value));
+            }
             
             try {
+                const payload = { 
+                    source_table: source, 
+                    target_table: target 
+                };
+                if (itemKeys.length > 0) {
+                    payload.item_keys = itemKeys;
+                }
+
                 const res = await fetch('/admin/orders/transfer', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ source_table: source, target_table: target })
+                    body: JSON.stringify(payload)
                 });
                 
                 if (res.ok) {
-                    showToast(`Tisch ${source} erfolgreich auf Tisch ${target} umgebucht!`, 'success');
+                    if (itemKeys.length > 0) {
+                        showToast(`Ausgewählte Artikel erfolgreich auf Tisch ${target} umgebucht!`, 'success');
+                    } else {
+                        showToast(`Tisch ${source} erfolgreich auf Tisch ${target} umgebucht!`, 'success');
+                    }
                     closeTransferModal();
                     await checkLiveTischeUpdates();
                 } else {
@@ -1388,7 +1485,7 @@
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <input type="checkbox" ${isChecked ? 'checked' : ''} 
                                        onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
-                                       class="w-4.5 h-4.5 rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-0 cursor-pointer">
+                                       class="custom-checkbox w-4.5 h-4.5 cursor-pointer">
                                 
                                 <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
                                 
@@ -1511,10 +1608,10 @@
             
             const orderIds = [];
             tableOrders.forEach(o => {
-                if (o.items && o.items.some(i => (i.item_status || 'pending') === 'pending')) {
+                if (o.items && o.items.some(i => (i.item_status || 'pending') !== 'delivered')) {
                     orderIds.push(o.id);
                     o.items.forEach(i => {
-                        if ((i.item_status || 'pending') === 'pending') {
+                        if ((i.item_status || 'pending') !== 'delivered') {
                             i.item_status = 'delivered';
                         }
                     });
@@ -1732,7 +1829,7 @@
                         if (card) {
                             card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
                             
-                            const eyeHtml = `<a href="/?uid=${slug}&tisch=${data.table_number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                            const eyeHtml = `<a href="/?uid=${slug}&tisch=${data.table_number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
                             const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${data.table_number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                             
                             const now = new Date();
@@ -1932,7 +2029,7 @@
                         const order = orders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
                         const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
                         
-                        const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                        const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
                         const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${table.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                         
                         if (order) {
@@ -2093,7 +2190,7 @@
                 // Active table (Green)
                 cls += 'bg-[#4cbb17] text-white shadow-lg';
                 
-                const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
                 const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${table.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                 
                 let inner = '';
@@ -2243,7 +2340,7 @@
                     if (itemStatus === 'delivered') {
                         const currentInTeil = selectedTeilrechnung[key] || 0;
                         const isChecked = currentInTeil > 0;
-                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${key}', ${item.quantity}) } else { removeFromTeilrechnung('${key}') }" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer; margin-right: 8px;" title="Zur Teilrechnung hinzufügen">`;
+                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${key}', ${item.quantity}) } else { removeFromTeilrechnung('${key}') }" ${isChecked ? 'checked' : ''} class="custom-checkbox" style="margin-right: 8px;" title="Zur Teilrechnung hinzufügen">`;
                     }
 
                     let actionBtn = '';
