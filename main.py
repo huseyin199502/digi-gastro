@@ -263,7 +263,10 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     } for t in db_tables]
     
     try:
-        tables.sort(key=lambda x: (int(x["number"]) if str(x["number"]).isdigit() else 999999, str(x["number"])))
+        import re
+        def natural_sort_key(s):
+            return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', str(s))]
+        tables.sort(key=lambda x: natural_sort_key(x["number"]))
     except Exception:
         pass
     

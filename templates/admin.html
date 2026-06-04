@@ -46,7 +46,7 @@
             overflow-x: hidden;
         }
 
-        /* Left Sidebar */
+        /* Left Sidebar - Responsive styling */
         aside {
             width: 280px;
             background-color: #ffffff;
@@ -55,9 +55,48 @@
             position: fixed;
             left: 0;
             top: 0;
-            z-index: 40;
+            z-index: 50;
             display: flex;
             flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* On mobile/tablet, hide sidebar off-screen by default */
+        @media (max-width: 1023px) {
+            aside {
+                transform: translateX(-100%);
+            }
+            aside.open {
+                transform: translateX(0);
+                box-shadow: 10px 0 25px -5px rgba(0, 0, 0, 0.15);
+            }
+            main {
+                margin-left: 0 !important;
+            }
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background-color: rgba(0, 0, 0, 0.4);
+                z-index: 45;
+                backdrop-filter: blur(2px);
+            }
+            .sidebar-backdrop.show {
+                display: block;
+            }
+        }
+
+        /* On desktop, keep sidebar fixed and open */
+        @media (min-width: 1024px) {
+            aside {
+                transform: translateX(0) !important;
+            }
+            main {
+                margin-left: 280px;
+            }
+            .sidebar-backdrop {
+                display: none !important;
+            }
         }
 
         .profile-card {
@@ -303,6 +342,9 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex">
 
+    <!-- SIDEBAR BACKDROP FOR MOBILE -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeSidebar()"></div>
+
     <!-- LEFT SIDEBAR -->
     <aside>
         <div class="sidebar-header">
@@ -355,6 +397,9 @@
     <main class="flex-1">
         <header>
             <div class="flex items-center gap-2">
+                <button onclick="toggleSidebar()" class="lg:hidden text-zinc-500 hover:text-zinc-700 mr-2 p-1.5 rounded-xl hover:bg-gray-100 flex items-center justify-center border border-gray-200">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
                 <span class="text-zinc-400 font-bold text-xs uppercase tracking-wider">Dashboard /</span>
                 <span id="breadcrumb-current" class="text-zinc-800 font-extrabold text-xs uppercase tracking-wider">🛋️ Sitzplan</span>
             </div>
@@ -1027,7 +1072,26 @@
             e.preventDefault();
         }, { passive: false });
 
+        function toggleSidebar() {
+            const aside = document.querySelector('aside');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (aside && backdrop) {
+                aside.classList.toggle('open');
+                backdrop.classList.toggle('show');
+            }
+        }
+
+        function closeSidebar() {
+            const aside = document.querySelector('aside');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (aside && backdrop) {
+                aside.classList.remove('open');
+                backdrop.classList.remove('show');
+            }
+        }
+
         function switchAdminTab(tabId) {
+            closeSidebar();
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('aside nav button').forEach(btn => {
                 btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent text-on-surface-variant text-left";
@@ -1083,6 +1147,7 @@
             const select = document.getElementById('transfer-target-select');
             if (select) {
                 const others = allTables.filter(t => String(t.number) !== String(tableNumber));
+                others.sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'}));
                 select.innerHTML = others.map(t => `<option value="${t.number}">Tisch ${t.number} (${t.zone || 'Allgemein'})</option>`).join('');
             }
 
@@ -1935,11 +2000,8 @@
                 filteredTables = filteredTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
             }
 
-            // Sort filtered tables numerically by number
+            // Sort filtered tables naturally by number
             filteredTables.sort((a, b) => {
-                const numA = parseInt(a.number) || 0;
-                const numB = parseInt(b.number) || 0;
-                if (numA !== numB) return numA - numB;
                 return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
             });
 
@@ -2759,9 +2821,6 @@
                     return ts !== currentTableStr && String(t.number) !== currentTableStr;
                 });
             sortedOthers.sort((a, b) => {
-                const numA = parseInt(a.number) || 0;
-                const numB = parseInt(b.number) || 0;
-                if (numA !== numB) return numA - numB;
                 return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
             });
             grid.innerHTML = sortedOthers
@@ -2952,6 +3011,96 @@
                     if (icon) { icon.textContent = 'check'; setTimeout(() => { icon.textContent = 'content_copy'; }, 2000); }
                 }
             }).catch(() => { alert('Link:\n' + fullUrl); });
+        }
+
+        // Tab swipe navigation on mobile/tablet viewports
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        const tabsSequence = ['live', 'finanzen', 'speisekarte', 'personal', 'konfiguration'];
+
+        function isModalOpen() {
+            const modals = document.querySelectorAll('.overlay-backdrop');
+            for (let modal of modals) {
+                if (!modal.classList.contains('hidden')) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        document.addEventListener('touchstart', e => {
+            // Ignore if any modal/overlay is open
+            if (isModalOpen()) return;
+            // Ignore if touching form fields
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+            // Ignore if touch starts inside interactive or scrollable panels to prevent conflicts
+            if (e.target.closest('.seating-canvas') || 
+                e.target.closest('#table-creator-panel') || 
+                e.target.closest('.popup-card') || 
+                e.target.closest('#edit-product-form') ||
+                e.target.closest('.switch') ||
+                e.target.closest('button') ||
+                e.target.closest('a')) {
+                return;
+            }
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', e => {
+            if (!touchStartX) return;
+
+            // Ignore if any modal/overlay is open
+            if (isModalOpen()) return;
+            // Ignore if touching form fields
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+            if (e.target.closest('.seating-canvas') || 
+                e.target.closest('#table-creator-panel') || 
+                e.target.closest('.popup-card') || 
+                e.target.closest('#edit-product-form') ||
+                e.target.closest('.switch') ||
+                e.target.closest('button') ||
+                e.target.closest('a')) {
+                return;
+            }
+
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            
+            handleSwipe();
+            touchStartX = 0;
+        }, { passive: true });
+
+        function handleSwipe() {
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+            
+            // Requires a minimum horizontal swipe length of 80px, and horizontal shift must be greater than vertical
+            if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
+                const currentTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+                const currentIndex = tabsSequence.indexOf(currentTab);
+                
+                if (diffX < 0) {
+                    // Swiped left -> Switch to next tab
+                    if (currentIndex < tabsSequence.length - 1) {
+                        switchAdminTab(tabsSequence[currentIndex + 1]);
+                    }
+                } else {
+                    // Swiped right -> Switch to previous tab, or open sidebar if on first tab
+                    if (currentIndex > 0) {
+                        switchAdminTab(tabsSequence[currentIndex - 1]);
+                    } else {
+                        // Open sidebar drawer on first tab (live) when swiping right
+                        const aside = document.querySelector('aside');
+                        if (aside && !aside.classList.contains('open')) {
+                            toggleSidebar();
+                        }
+                    }
+                }
+            }
         }
     
     </script>
