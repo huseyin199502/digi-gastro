@@ -1308,12 +1308,25 @@
                 }
             });
             
-            if (total <= 0.0) {
-                closeControlModal();
-                checkLiveTischeUpdates();
-                return;
+            const hasActiveOrder = tableOrders.length > 0;
+            const elTip = document.getElementById('pay-all-tip');
+            const elTipWrapper = elTip ? elTip.closest('.col-span-2') : null;
+            const elPayBtn = document.querySelector('button[onclick="bezahlenAlles()"]');
+            const elTransferBtn = document.querySelector('button[onclick="openUmbuchenAll()"]');
+            const elCancelBtn = document.querySelector('button[onclick="stornieren()"]');
+
+            if (hasActiveOrder) {
+                if (elTipWrapper) elTipWrapper.classList.remove('hidden');
+                if (elPayBtn) elPayBtn.classList.remove('hidden');
+                if (elTransferBtn) elTransferBtn.classList.remove('hidden');
+                if (elCancelBtn) elCancelBtn.classList.remove('hidden');
+            } else {
+                if (elTipWrapper) elTipWrapper.classList.add('hidden');
+                if (elPayBtn) elPayBtn.classList.add('hidden');
+                if (elTransferBtn) elTransferBtn.classList.add('hidden');
+                if (elCancelBtn) elCancelBtn.classList.add('hidden');
             }
-            
+
             document.getElementById('control-modal-total-balance').textContent = `${total.toFixed(2).replace('.', ',')} €`;
             
             // Render Pending Block
@@ -2201,9 +2214,8 @@
                     }
                 } else {
                     inner = `
-                        <a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" class="w-full h-full flex flex-col items-center justify-center text-zinc-300 hover:text-white" style="text-decoration:none;">
-                            <span class="text-xl sm:text-2xl font-black">${currentTable.number}</span>
-                        </a>
+                        <span class="text-xl sm:text-2xl font-black text-zinc-400">${currentTable.number}</span>
+                        <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-zinc-500">Frei</span>
                     `;
                 }
 
