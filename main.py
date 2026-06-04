@@ -120,10 +120,28 @@ class TenantSuspendedException(Exception):
 
 @app.exception_handler(TenantSuspendedException)
 async def tenant_suspended_handler(request: Request, exc: TenantSuspendedException):
-    return templates.TemplateResponse(
-        request=request,
-        name="suspended.html",
-        context={"slug": exc.slug},
+    return HTMLResponse(
+        content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Konto gesperrt</title>
+            <style>
+                body {{ font-family: sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                .card {{ background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }}
+                h1 {{ color: #dc2626; margin-top: 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Konto gesperrt</h1>
+                <p>Das Konto für <strong>{exc.slug}</strong> wurde vorübergehend gesperrt.</p>
+                <p>Bitte kontaktieren Sie den Support.</p>
+            </div>
+        </body>
+        </html>
+        """,
         status_code=403
     )
 
@@ -1154,52 +1172,20 @@ def global_login_post(
 # ==========================================
 
 @app.get("/digi-gastro-admin")
-def get_global_admin(request: Request, error: Optional[str] = None, success: Optional[str] = None, db: Session = Depends(get_db)):
-    session_cookie = request.cookies.get("session_global")
-    if not session_cookie or session_cookie != "admin@digi-gastro.de":
-        return RedirectResponse(url="/digi-gastro-admin/login")
-        
-    total_restaurants = len(restaurants)
-    total_revenue = sum(r.get("tagesumsatz", 0.0) for r in restaurants.values())
-    active_tables = sum(
-        len(set(o["table"] for o in r.get("orders", []) if o.get("status") in ["eingegangen", "in_zubereitung", "bereit", "serviert"]))
-        for r in restaurants.values()
-    )
-    
-    return templates.TemplateResponse(
-        request,
-        "global_admin.html",
-        {
-            "request": request,
-            "tenants": restaurants,
-            "total_restaurants": total_restaurants,
-            "total_revenue": total_revenue,
-            "active_tables": active_tables,
-            "error": error,
-            "success": success
-        }
-    )
+def get_global_admin(request: Request):
+    return RedirectResponse(url="/")
 
 @app.get("/digi-gastro-admin/login", response_class=HTMLResponse)
-def get_global_login(request: Request, db: Session = Depends(get_db)):
-    session_cookie = request.cookies.get("session_global")
-    if session_cookie == "admin@digi-gastro.de":
-        return RedirectResponse(url="/digi-gastro-admin")
-    return templates.TemplateResponse(request=request, name="global_login.html", context={"error": None})
+def get_global_login(request: Request):
+    return RedirectResponse(url="/")
 
 @app.post("/digi-gastro-admin/login")
-def post_global_login(request: Request, response: Response, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
-    if email == "admin@digi-gastro.de" and password == ADMIN_PASSWORD:
-        resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-        resp.set_cookie(key="session_global", value=email, httponly=True, max_age=31536000)
-        return resp
-    return templates.TemplateResponse(request=request, name="global_login.html", context={"error": "Ungültige E-Mail-Adresse oder Passwort."})
+def post_global_login(request: Request):
+    return RedirectResponse(url="/")
 
 @app.get("/digi-gastro-admin/logout")
-def get_global_logout(response: Response, db: Session = Depends(get_db)):
-    resp = RedirectResponse(url="/digi-gastro-admin/login")
-    resp.delete_cookie(key="session_global")
-    return resp
+def get_global_logout(response: Response):
+    return RedirectResponse(url="/")
 
 @app.post("/digi-gastro-admin/tenant-erstellen")
 def post_tenant_erstellen(request: Request, name: str = Form(...), slug: str = Form(...), db: Session = Depends(get_db)):
@@ -1300,7 +1286,10 @@ def get_admin_root(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/admin/login")
     restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin/setup")
+        restaurant["is_setup_completed"] = True
+        restaurant["is_onboarded"] = True
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
     return RedirectResponse(url="/admin/dashboard")
 
 
@@ -1311,7 +1300,31 @@ def get_admin_root(request: Request, db: Session = Depends(get_db)):
 @app.get("/{slug}/sitz-expired", response_class=HTMLResponse)
 def get_expired(request: Request, slug: str, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
-    return templates.TemplateResponse(request=request, name="expired.html", context={"restaurant": restaurant, "slug": slug})
+    return HTMLResponse(
+        content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Sitzung abgelaufen</title>
+            <style>
+                body {{ font-family: sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                .card {{ background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }}
+                h1 {{ color: #d97706; margin-top: 0; }}
+                a {{ display: inline-block; margin-top: 1rem; padding: 0.5rem 1rem; background: #009900; color: white; text-decoration: none; border-radius: 6px; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Sitzung abgelaufen</h1>
+                <p>Ihre Sitzung für <strong>{restaurant.get('name', slug)}</strong> ist abgelaufen.</p>
+                <p>Bitte scannen Sie den QR-Code erneut, um eine neue Sitzung zu starten.</p>
+                <a href="/{slug}">Zur Startseite</a>
+            </div>
+        </body>
+        </html>
+        """
+    )
 
 @app.get("/{slug}/orders/status")
 def get_orders_status(slug: str, ids: str, db: Session = Depends(get_db)):
@@ -2736,9 +2749,11 @@ def get_onboarding(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/admin/login")
     user, slug = res
     restaurant = get_restaurant_or_raise(slug, db)
-    if restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin")
-    return templates.TemplateResponse(request=request, name="onboarding.html", context={"restaurant": restaurant, "slug": slug})
+    restaurant["is_setup_completed"] = True
+    restaurant["is_onboarded"] = True
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return RedirectResponse(url="/admin/dashboard")
 
 @app.post("/admin/onboarding")
 def post_onboarding(
@@ -2832,7 +2847,10 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
     restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin/setup")
+        restaurant["is_setup_completed"] = True
+        restaurant["is_onboarded"] = True
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
         
     orders = restaurant.get("orders", [])
     now = datetime.now()
@@ -2949,7 +2967,10 @@ def get_login(request: Request, redirect: Optional[str] = None, db: Session = De
         role = user["role"]
         if role == "chef":
             if not restaurant.get("is_setup_completed", False):
-                return RedirectResponse(url="/admin/setup")
+                restaurant["is_setup_completed"] = True
+                restaurant["is_onboarded"] = True
+                save_restaurant_to_db(slug, restaurant, db)
+                db.commit()
             return RedirectResponse(url="/admin/dashboard")
         elif role == "kellner":
             return RedirectResponse(url=f"/{slug}/tablet")
@@ -3956,16 +3977,16 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
         
     restaurant = get_restaurant_or_raise(slug, db)
     if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin/setup")
+        restaurant["is_setup_completed"] = True
+        restaurant["is_onboarded"] = True
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
         
     paid_orders = [o for o in restaurant.get("orders", []) if o.get("status") == "bezahlt"]
     
-    return templates.TemplateResponse(
-        request,
-        "gobd_export.html",
-        {
-            "request": request,
-            "restaurant": restaurant,
+    return JSONResponse(
+        content={
+            "restaurant": restaurant.get("name", slug),
             "slug": slug,
             "orders": paid_orders,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3980,23 +4001,17 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
 def get_setup(request: Request, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
-        return RedirectResponse(url="/admin/login?redirect=setup")
+        return RedirectResponse(url="/admin/login")
     user, slug = res
     if user["role"] != "chef":
-        return RedirectResponse(url="/admin/login?redirect=setup")
+        return RedirectResponse(url="/admin/login")
         
     restaurant = get_restaurant_or_raise(slug, db)
-    
-    return templates.TemplateResponse(
-        request,
-        "setup.html",
-        {
-            "request": request,
-            "restaurant": restaurant,
-            "slug": slug,
-            "current_user": user
-        }
-    )
+    restaurant["is_setup_completed"] = True
+    restaurant["is_onboarded"] = True
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return RedirectResponse(url="/admin/dashboard")
 
 @app.post("/admin/upload-logo")
 async def upload_logo(request: Request, file: UploadFile = File(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
@@ -4083,16 +4098,48 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     tables = restaurant.get("tables", [])
     base_url = str(request.base_url).rstrip("/")
-    return templates.TemplateResponse(
-        request=request,
-        name="qr_print.html",
-        context={
-            "slug": slug,
-            "restaurant": restaurant,
-            "tables": tables,
-            "base_url": base_url,
-        }
-    )
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>QR Codes drucken - {restaurant.get('name', slug)}</title>
+        <style>
+            body {{ font-family: sans-serif; background: #fff; margin: 0; padding: 20px; }}
+            .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }}
+            .card {{ border: 2px solid #ccc; padding: 15px; border-radius: 8px; text-align: center; page-break-inside: avoid; }}
+            h3 {{ margin: 0; color: #333; }}
+            p {{ font-size: 12px; color: #666; margin: 5px 0 0; word-break: break-all; }}
+            @media print {{
+                body {{ padding: 0; }}
+                .card {{ border: 1px solid #000; }}
+            }}
+            .print-btn {{ display: block; width: 200px; margin: 0 auto 30px; padding: 10px; background: #009900; color: #fff; border: none; border-radius: 5px; cursor: pointer; text-align: center; text-decoration: none; font-weight: bold; font-size: 16px; }}
+            @media print {{ .print-btn {{ display: none; }} }}
+        </style>
+    </head>
+    <body>
+        <button class="print-btn" onclick="window.print()">Drucken</button>
+        <div class="grid">
+    """
+    for t in tables:
+        table_num = t.get("number")
+        token = t.get("security_token", "")
+        qr_url = f"{base_url}/{slug}?t={table_num}&tk={token}"
+        qr_image_src = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={qr_url}"
+        html_content += f"""
+            <div class="card">
+                <h3>Tisch {table_num}</h3>
+                <img src="{qr_image_src}" alt="QR Tisch {table_num}" style="width: 150px; height: 150px; margin: 10px auto; display: block;" />
+                <p>{qr_url}</p>
+            </div>
+        """
+    html_content += """
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 
 # ──────────────────────────────────────────────────────────────────

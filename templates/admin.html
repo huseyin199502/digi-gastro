@@ -1,1236 +1,1018 @@
 <!DOCTYPE html>
-<html class="dark" lang="de">
+<html lang="de" class="light">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>{{ restaurant.name }} - Unified Admin Dashboard OS</title>
-    <!-- Tailwind and FontAwesome / Material Symbols / Alpine.js -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <title>Cusi-Order | Bestellsystem für Gastronomie</title>
+    
+    <!-- Google Fonts & Material Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/design_system.css">
-    <link rel="stylesheet" href="/static/css/sitzplan.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
-    <script id="tailwind-config">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
         tailwind.config = {
-          darkMode: "class",
-          theme: {
-            extend: {
-              colors: {
-                "on-surface": "#f3f4f6",
-                "outline-variant": "#1f1f23",
-                "primary": "#10b981",
-                "background": "#050507",
-                "surface": "#0b0c10",
-                "surface-container-high": "#11131a",
-                "on-surface-variant": "#9ca3af"
-              }
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#009900',
+                        cusi: '#009900',
+                        cusi2: '#1f2937'
+                    }
+                }
             }
-          }
         }
     </script>
+    
+    <!-- Custom Style System -->
     <style>
+        :root {
+            --cusi-primary: #009900;
+            --cusi-primary-hover: #008000;
+            --cusi-bg-gray: rgb(235, 235, 235);
+            --cusi-card-bg: #ffffff;
+            --cusi-text-main: #1f2937;
+            --cusi-text-muted: #6b7280;
+        }
+
         body {
-            background-color: var(--bg-obsidian);
-            color: #f3f4f6;
             font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
+            background-color: var(--cusi-bg-gray);
+            color: var(--cusi-text-main);
+            overflow-x: hidden;
         }
-        .admin-tab-content { display: none; }
-        .admin-tab-content.active { display: block; }
 
-        /* Responsive button groups for narrow viewports */
-        .flex-responsive {
+        /* Left Sidebar */
+        aside {
+            width: 280px;
+            background-color: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 40;
             display: flex;
-            gap: 0.5rem;
-            flex-direction: row;
-        }
-        @media (max-width: 480px) {
-            .flex-responsive {
-                flex-direction: column !important;
-            }
-            .flex-responsive > button, 
-            .flex-responsive > a {
-                width: 100% !important;
-                flex: none !important;
-            }
+            flex-direction: column;
         }
 
-
-        /* ── TILE BLINK ANIMATIONS ── */
-        @keyframes blinkRed {
-            0%,100% { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.5); box-shadow:0 0 16px rgba(239,68,68,.2); }
-            50%     { background:rgba(239,68,68,.28); border-color:rgba(239,68,68,1);  box-shadow:0 0 30px rgba(239,68,68,.6); }
-        }
-        @keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:.5} }
-
-        /* ── TILES ── */
-        .table-tile {
-            aspect-ratio: 1;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            border-radius: 1.25rem;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: transform .12s;
-            padding: .6rem;
+        .profile-card {
+            padding: 1.5rem;
+            background-color: #1f2937;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
-            user-select: none;
-            -webkit-user-select: none;
-            position: relative;
         }
-        .table-tile:active { transform: scale(.94); }
-        .tile-free   { background:rgba(255,255,255,.02); border-color:rgba(255,255,255,.07); }
-        .tile-active { background:rgba(16,185,129,.07); border-color:rgba(16,185,129,.35); }
-        .tile-new    { animation: blinkRed 1s infinite; }
-        .tile-call   { animation: blinkRed .8s infinite; border-color:rgba(239,68,68,.8); }
 
-        /* ── OVERLAY BACKDROP ── */
+        .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--cusi-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+
+        nav .nav-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            color: var(--cusi-text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        nav .nav-btn:hover {
+            background-color: #f3f4f6;
+            color: var(--cusi-text-main);
+        }
+
+        nav .nav-btn.active {
+            background-color: #e6f5e6;
+            color: var(--cusi-primary);
+            border-left-color: var(--cusi-primary);
+        }
+
+        main {
+            margin-left: 280px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-area {
+            padding: 1.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Tab Content Switching */
+        .admin-tab-content {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .admin-tab-content.active {
+            display: flex;
+        }
+
+        /* Seating Plan Canvas */
+        .seating-canvas {
+            position: relative;
+            width: 100%;
+            height: 620px;
+            background-color: #ffffff;
+            border: 2px dashed #cbd5e1;
+            border-radius: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        /* Table Tiles */
+        .sitzplan-table {
+            position: absolute;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: #1f2937;
+            user-select: none;
+        }
+
+        .sitzplan-table:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.12);
+        }
+
+        .sitzplan-table.rect {
+            border-radius: 12px;
+        }
+
+        .sitzplan-table.round {
+            border-radius: 50%;
+        }
+
+        .sitzplan-table.status-free {
+            border-color: #cbd5e1;
+        }
+
+        .sitzplan-table.status-active {
+            border-color: var(--cusi-primary);
+            background-color: #f0fdf4;
+            color: var(--cusi-primary);
+        }
+
+        .sitzplan-table.status-pending {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+            animation: tableShake 0.4s infinite;
+        }
+
+        .sitzplan-table.draggable {
+            cursor: move;
+            border-style: dashed !important;
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.05) !important;
+            color: #3b82f6 !important;
+        }
+
+        @keyframes tableShake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-1deg) translateY(-1px); }
+            75% { transform: rotate(1deg) translateY(1px); }
+        }
+
+        /* Service Alerts */
+        .call-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #fee2e2;
+            border: 1px solid #fca5a5;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            animation: pulseBg 1.5s infinite;
+        }
+
+        @keyframes pulseBg {
+            0%, 100% { opacity: 0.95; }
+            50% { opacity: 1; transform: scale(1.005); }
+        }
+
+        /* Overlay Backdrop Modals */
         .overlay-backdrop {
-            position: fixed; inset: 0; z-index: 60;
-            background: rgba(0,0,0,.88);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            display: flex; align-items: center; justify-content: center;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
             padding: 1rem;
         }
-        .overlay-backdrop.hidden { display: none; }
 
-        /* ── POPUP CARD ── */
         .popup-card {
-            background: #0d0f14;
-            border: 1px solid rgba(255,255,255,.09);
+            background-color: #ffffff;
             border-radius: 1.5rem;
-            width: 100%; max-width: 540px;
-            max-height: 92vh;
-            display: flex; flex-direction: column;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
             overflow: hidden;
-            box-shadow: 0 30px 70px rgba(0,0,0,.85);
+            border: 1px solid #e5e7eb;
         }
-        .popup-header {
-            background: linear-gradient(135deg, #059669, #10b981);
-            padding: 1rem 1.1rem;
-            display: flex; align-items: center; justify-content: space-between;
-            flex-shrink: 0;
-        }
-        .popup-body   { flex: 1; overflow-y: auto; padding: .75rem; }
-        .popup-footer { border-top: 1px solid rgba(255,255,255,.07); padding: .75rem; flex-shrink: 0; }
 
-        /* ── ITEM CARD (Cusi-style) ── */
-        .item-card {
-            background: #131620;
-            border: 1px solid rgba(255,255,255,.07);
-            border-radius: 1rem;
-            margin-bottom: .5rem;
-            overflow: hidden;
-            transition: border-color .15s;
-        }
-        .item-card.expanded { border-color: rgba(99,102,241,.5); }
-        .item-row {
-            display: flex; align-items: center;
-            padding: .7rem .85rem;
-            cursor: pointer;
-            gap: .6rem;
-        }
-        .item-row:active { background: rgba(255,255,255,.04); }
-        .item-actions {
-            background: rgba(0,0,0,.35);
-            border-top: 1px solid rgba(255,255,255,.05);
-            padding: .65rem .85rem;
-            display: flex; gap: .5rem; flex-wrap: wrap;
+        .popup-header {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
             align-items: center;
         }
 
-        /* ── STATUS BADGES ── */
-        .badge {
-            font-size: 10px; font-weight: 800;
-            padding: 3px 9px; border-radius: 999px;
-            text-transform: uppercase; letter-spacing: .05em;
-            white-space: nowrap; flex-shrink: 0;
-        }
-        .badge-offen       { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
-        .badge-vorbereitung{ background:rgba(99,102,241,.15); color:#a5b4fc; border:1px solid rgba(99,102,241,.3); animation:pulse2 1.5s infinite; }
-        .badge-fertig      { background:rgba(16,185,129,.15); color:#10b981; border:1px solid rgba(16,185,129,.3); }
-
-        /* ── ACTION BUTTONS ── */
-        .btn-action {
-            border-radius: .6rem; padding: 7px 12px;
-            font-size: 11px; font-weight: 800;
-            cursor: pointer; transition: all .12s;
-            border: 1px solid transparent;
-            white-space: nowrap;
-            display: flex; align-items: center; gap: 5px;
-        }
-        .btn-action:active { transform: scale(.93); }
-        .btn-vorbereiten { background:rgba(99,102,241,.12); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
-        .btn-vorbereiten:hover { background:rgba(99,102,241,.22); }
-        .btn-fertig      { background:rgba(16,185,129,.12); color:#10b981; border-color:rgba(16,185,129,.3); }
-        .btn-fertig:hover{ background:rgba(16,185,129,.22); }
-        .btn-pay-item    { background:rgba(16,185,129,.15); color:#10b981; border-color:rgba(16,185,129,.4); }
-        .btn-pay-item:hover{ background:rgba(16,185,129,.28); }
-        .btn-transfer-item{ background:rgba(99,102,241,.12); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
-        .btn-transfer-item:hover{ background:rgba(99,102,241,.22); }
-
-        /* ── SERVICE CALL ── */
-        .call-bar {
-            background:rgba(239,68,68,.08);
-            border:1px solid rgba(239,68,68,.25);
-            border-radius:.875rem;
-            padding:.55rem .85rem;
-            display:flex; align-items:center; justify-content:space-between;
-            margin-bottom:.4rem;
-        }
-
-        /* ── TABLE SELECTOR (Umbuchen) ── */
-        .table-sel-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: .6rem;
+        .popup-body {
+            padding: 1.5rem;
             max-height: 60vh;
             overflow-y: auto;
         }
-        .table-sel-tile {
-            background: #131620;
-            border: 2px solid rgba(255,255,255,.07);
-            border-radius: .875rem;
-            padding: .9rem .5rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all .12s;
-        }
-        .table-sel-tile:active { transform: scale(.93); background:rgba(99,102,241,.2); border-color:#6366f1; }
-        .table-sel-tile.busy  { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.05); }
 
-        /* ── TOAST ── */
+        .popup-footer {
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            padding: 1rem 1.5rem;
+        }
+
+        /* Toast element */
         .toast {
-            position:fixed; bottom:72px; left:50%; transform:translateX(-50%) translateY(12px);
-            z-index:999; padding:9px 20px; border-radius:999px;
-            font-size:12px; font-weight:800;
-            opacity:0; transition:all .28s; pointer-events:none; white-space:nowrap;
-        }
-        .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
-        .toast-success { background:rgba(16,185,129,.15); border:1px solid rgba(16,185,129,.4); color:#10b981; }
-        .toast-error   { background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); color:#f87171; }
-
-        /* ── CATEGORY LABEL ── */
-        .cat-label {
-            font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.1em;
-            background:#10b981; color:#000;
-            padding:3px 10px; border-radius:5px;
-            display:inline-block; margin:6px 0 4px;
-        }
-
-        /* ── TEILRECHNUNG SPECIFIC STYLES ── */
-        .teilrechnung-box {
-            border: 2px solid #10b981;
-            background: #0f121a;
-            border-radius: 1.25rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.05);
-        }
-        .btn-storno-item {
-            background: rgba(239,68,68,0.12);
-            color: #f87171;
-            border-color: rgba(239,68,68,0.3);
-        }
-        .btn-storno-item:hover {
-            background: rgba(239,68,68,0.22);
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         }
 
-        /* Custom Checkbox Styling */
-        .custom-checkbox {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 1.125rem;
-            height: 1.125rem;
-            border: 2px solid #4b5563; /* border-gray-600 */
-            border-radius: 0.25rem;
-            background-color: #1f2937; /* bg-zinc-800 */
-            cursor: pointer;
-            position: relative;
-            outline: none;
-            display: inline-block;
-            vertical-align: middle;
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
         }
-        .custom-checkbox:checked {
-            background-color: #10b981; /* bg-emerald-500 */
-            border-color: #10b981;
-        }
-        .custom-checkbox:checked::after {
-            content: '✓';
-            position: absolute;
-            color: #ffffff;
-            font-weight: 900;
-            font-size: 0.75rem;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-        }
+
+        .toast-success { background-color: #10b981; }
+        .toast-error { background-color: #ef4444; }
     </style>
 </head>
-<body class="bg-background text-on-surface antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
+<body class="bg-gray-100 min-h-screen flex">
 
-    <!-- Hamburger button for mobile -->
-    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden fixed top-4 left-4 z-50 bg-[#141313] border border-outline-variant p-2 rounded-xl text-white flex items-center justify-center">
-        <span class="material-symbols-outlined">menu</span>
-    </button>
-
-    <!-- Sidebar Left -->
-    <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 w-64 bg-surface border-r border-outline-variant z-40 transform md:translate-x-0 transition-transform duration-300 flex flex-col justify-between">
-        <div class="p-6 space-y-6">
-            <!-- Brand Logo -->
-            <div class="flex items-center space-x-3">
-                <div class="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-black font-black text-sm font-display glow-primary">OS</div>
-                <div class="text-base font-black tracking-tight text-white flex flex-col leading-none font-display">
-                    <span class="text-sm font-black">{{ restaurant.name }}</span>
-                    <span class="text-[10px] text-primary font-bold mt-0.5 tracking-wider uppercase">Gastro OS Pro</span>
-                </div>
-            </div>
-
-            <nav class="space-y-1 font-display">
-                <button onclick="switchAdminTab('live')" @click="sidebarOpen = false" id="tab-btn-live" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
-                    <span class="material-symbols-outlined text-lg">table_restaurant</span>
-                    <span>🛋️ Sitzplan</span>
-                </button>
-                <button onclick="switchAdminTab('finanzen')" @click="sidebarOpen = false" id="tab-btn-finanzen" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
-                    <span class="material-symbols-outlined text-lg">analytics</span>
-                    <span>📈 Finanzen & Logs</span>
-                </button>
-                <button onclick="switchAdminTab('speisekarte')" @click="sidebarOpen = false" id="tab-btn-speisekarte" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
-                    <span class="material-symbols-outlined text-lg">restaurant_menu</span>
-                    <span>⏱️ Speisekarte</span>
-                </button>
-                <button onclick="switchAdminTab('personal')" @click="sidebarOpen = false" id="tab-btn-personal" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
-                    <span class="material-symbols-outlined text-lg">storefront</span>
-                    <span>👤 Profil & Einstellungen</span>
-                </button>
-                <button onclick="switchAdminTab('konfiguration')" @click="sidebarOpen = false" id="tab-btn-konfiguration" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface-container-high border-l-2 border-transparent text-on-surface-variant hover:text-white">
-                    <span class="material-symbols-outlined text-lg">settings</span>
-                    <span>⚙️ Konfiguration</span>
-                </button>
-            </nav>
+    <!-- LEFT SIDEBAR -->
+    <aside>
+        <div class="sidebar-header">
+            <a href="/" class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-cusi font-black text-3xl">restaurant_menu</span>
+                <span class="font-extrabold text-lg font-sans tracking-tight">digi-gastro</span>
+            </a>
         </div>
-
-        <!-- Sidebar Footer -->
-        <div class="p-6 border-t border-outline-variant space-y-3 font-display">
-            <div class="flex items-center space-x-2.5 text-xs text-on-surface-variant bg-background/50 border border-outline-variant p-3 rounded-xl">
-                <span class="w-2.5 h-2.5 rounded-full bg-primary pulse-green"></span>
-                <span class="font-extrabold text-white">System: Online</span>
+        
+        <div class="profile-card">
+            <div class="avatar">
+                {{ restaurant.name[:2].upper() if restaurant.name else 'DG' }}
             </div>
-            <a href="/admin/logout" class="w-full flex items-center justify-center space-x-2 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-black transition-all">
-                <span class="material-symbols-outlined text-sm">logout</span>
-                <span>System verlassen</span>
+            <div class="font-black text-sm text-white truncate max-w-[200px]">{{ restaurant.name }}</div>
+            <div class="text-[10px] text-zinc-400 font-bold tracking-wide mt-0.5">{{ current_user.email }}</div>
+        </div>
+        
+        <nav class="flex-1 py-4 space-y-1">
+            <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
+                <span class="material-symbols-outlined">table_restaurant</span>
+                <span>🛋️ Sitzplan</span>
+            </button>
+            <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
+                <span class="material-symbols-outlined">payments</span>
+                <span>📈 Bestellungen & Reports</span>
+            </button>
+            <button id="tab-btn-speisekarte" onclick="switchAdminTab('speisekarte')" class="nav-btn">
+                <span class="material-symbols-outlined">restaurant_menu</span>
+                <span>⏱️ Speisekarte</span>
+            </button>
+            <button id="tab-btn-personal" onclick="switchAdminTab('personal')" class="nav-btn">
+                <span class="material-symbols-outlined">group</span>
+                <span>👤 Personal & Account</span>
+            </button>
+            <button id="tab-btn-konfiguration" onclick="switchAdminTab('konfiguration')" class="nav-btn">
+                <span class="material-symbols-outlined">settings</span>
+                <span>⚙️ Konfiguration</span>
+            </button>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-200">
+            <a href="/admin/logout" class="flex items-center gap-2 text-red-500 hover:text-red-700 font-bold text-sm px-4 py-2 rounded-lg hover:bg-red-50 transition">
+                <span class="material-symbols-outlined text-lg">logout</span>
+                <span>Ausloggen</span>
             </a>
         </div>
     </aside>
 
-    <!-- Mobile Sidebar Backdrop Overlay -->
-    <div x-show="sidebarOpen" 
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         @click="sidebarOpen = false" 
-         class="md:hidden fixed inset-0 bg-black/65 backdrop-blur-xs z-30">
-    </div>
-
-    <!-- Content Wrapper container -->
-    <div class="flex-grow md:pl-64 flex flex-col min-w-0">
-
-        <!-- Topbar Header -->
-        <header class="flex justify-between items-center px-8 h-20 fixed top-0 left-0 md:left-64 right-0 z-30 bg-[#050507]/80 backdrop-blur-md border-b border-outline-variant pl-16 md:pl-8">
-            <!-- Breadcrumbs -->
-            <div class="flex items-center space-x-2 text-xs font-bold text-on-surface-variant font-display uppercase tracking-wider">
-                <span>System</span>
-                <span class="material-symbols-outlined text-sm text-zinc-600">chevron_right</span>
-                <span class="text-white font-black" id="breadcrumb-current">🎯 Live-Tische</span>
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1">
+        <header>
+            <div class="flex items-center gap-2">
+                <span class="text-zinc-400 font-bold text-xs uppercase tracking-wider">Dashboard /</span>
+                <span id="breadcrumb-current" class="text-zinc-800 font-extrabold text-xs uppercase tracking-wider">🛋️ Sitzplan</span>
             </div>
-
-            <div class="flex items-center space-x-6 font-display">
-                <a href="/{{ slug }}?preview=true" target="_blank" class="btn-premium btn-premium-secondary text-xs text-on-surface-variant hover:text-primary transition flex items-center space-x-2 px-4 py-2.5 rounded-xl">
-                    <span class="material-symbols-outlined text-base">visibility</span>
-                    <span>Vorschau-Modus</span>
-                </a>
+            <div class="flex items-center gap-4">
+                <span class="bg-emerald-500/10 text-emerald-600 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live-Betrieb
+                </span>
             </div>
         </header>
 
-        <main class="flex-grow pt-24 px-4 md:px-8 pb-8 space-y-6">
-
-        <!-- ================= TAB: LIVE TISCHE ================= -->
-        <div id="admin-tab-live" class="admin-tab-content space-y-6">
-            <!-- SITZPLAN VIEW -->
-            <div id="sitzplan-view" class="space-y-6">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-outline-variant pb-4 gap-4">
-                    <div>
-                        <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">🛋️ Sitzplan</h2>
-                        <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Echtzeit-Kassensystem und Tischplan.</p>
+        <div class="content-area">
+            
+            <!-- 🛋️ TAB 1: SITZPLAN (live) -->
+            <div id="admin-tab-live" class="admin-tab-content active">
+                <!-- Service Call Alert Banner Section -->
+                <div id="admin-service-calls-section" class="w-full"></div>
+                
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="sitzplanFilterZone='gesamt'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-cusi focus:bg-emerald-50">Gesamt</button>
+                        {% set unique_zones = [] %}
+                        {% for t in restaurant.tables %}
+                            {% if t.zone not in unique_zones %}
+                                {% set _ = unique_zones.append(t.zone) %}
+                                <button onclick="sitzplanFilterZone='{{ t.zone.lower() }}'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-cusi focus:bg-emerald-50">{{ t.zone }}</button>
+                            {% endif %}
+                        {% endfor %}
                     </div>
-                    <div class="flex space-x-4 text-[10px] font-bold uppercase tracking-wider font-display">
-                        <span class="flex items-center space-x-2 text-on-surface-variant"><span class="w-2.5 h-2.5 bg-zinc-800 border border-outline-variant rounded-full"></span> <span>Frei</span></span>
-                        <span class="flex items-center space-x-2 text-amber-500"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full animate-pulse"></span> <span>Aktiv</span></span>
-                        <span class="flex items-center space-x-2 text-red-500"><span class="w-2.5 h-2.5 bg-red-600 rounded-full pulse-green"></span> <span>Service-Ruf</span></span>
+                    
+                    <div class="flex items-center gap-3">
+                        <div id="edit-instructions" class="hidden text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl">
+                            💡 Doppelklick auf Tisch zum Ändern der Form. Drag zum Bewegen. Eckgriff zum Skalieren.
+                        </div>
+                        <button id="btn-edit-mode" onclick="toggleEditMode()" class="px-4 py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition flex items-center gap-1.5 shadow">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                            <span id="btn-edit-mode-text">Sitzplan bearbeiten</span>
+                        </button>
+                        <button id="btn-save-layout" onclick="saveLayout()" class="px-4 py-2 bg-cusi text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition hidden shadow">
+                            Layout speichern
+                        </button>
                     </div>
                 </div>
 
-                <!-- Filter Tabs (Gesamt, Innen, Terrasse) -->
-                <div class="flex border-b border-[#1f1f23] gap-6 text-sm font-bold font-display">
-                    <button onclick="filterSitzplanZone('gesamt')" id="sitzplan-filter-gesamt" class="pb-2 border-b-2 border-primary text-primary transition-all flex items-center gap-1.5 font-extrabold">
-                        Gesamt <span class="w-1.5 h-1.5 rounded-full bg-primary" id="dot-gesamt"></span>
-                    </button>
-                    <button onclick="filterSitzplanZone('innen')" id="sitzplan-filter-innen" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
-                        Innenbereich <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-innen"></span>
-                    </button>
-                    <button onclick="filterSitzplanZone('terrasse')" id="sitzplan-filter-terrasse" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
-                        Terrasse <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-terrasse"></span>
-                    </button>
-                </div>
-
-                <!-- Service Calls alerts -->
-                <div id="admin-service-calls-section" class="space-y-2"></div>
-
-                <!-- Visual Sitzplan Map & Controls -->
-                <div class="flex items-center gap-3 mb-2 font-display">
-                    <button onclick="toggleEditMode()" id="btn-edit-mode" class="px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg">
-                        <span class="material-symbols-outlined text-sm">edit</span>
-                        <span id="btn-edit-mode-text">Sitzplan bearbeiten</span>
-                    </button>
-                    <button onclick="saveLayout()" id="btn-save-layout" class="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg hidden">
-                        <span class="material-symbols-outlined text-sm">save</span>
-                        <span>Layout speichern</span>
-                    </button>
-                    <span class="text-xs text-on-surface-variant font-medium hidden" id="edit-instructions">
-                        💡 Tische ziehen zum Bewegen. Doppelklick zum Wechseln der Form (Rund/Eckig).
-                    </span>
-                </div>
-
-                <div class="sitzplan-map-container" id="admin-tiles-root">
-                    <!-- Tables rendered here dynamically with absolute positions -->
-                </div>
-            </div>
-
-            <!-- CUSI-STYLE CENTRAL CONTROL POPUP OVERLAY -->
-            <div id="control-modal" class="overlay-backdrop hidden" style="z-index: 70;">
-                <div class="popup-card" style="max-width: 500px; margin: auto;">
-                    <!-- Header -->
-                    <div class="popup-header" style="background: linear-gradient(135deg, #0d0f14, #1f2937); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 1rem 1.25rem;">
+                <!-- Interactive canvas -->
+                <div class="seating-canvas" id="admin-tiles-root"></div>
+                
+                <!-- Table config form (shown only in Edit mode) -->
+                <div id="table-creator-panel" class="hidden mt-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 class="font-extrabold text-sm text-zinc-800 mb-3 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-zinc-500">add_box</span> Tisch hinzufügen
+                    </h3>
+                    <form action="/admin/table-erstellen" method="POST" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                         <div>
-                            <div style="font-size:10px;color:#10b981;font-weight:900;text-transform:uppercase;letter-spacing:.1em;">Tisch-Cockpit</div>
-                            <div style="font-size:20px;font-weight:900;color:#fff;" id="control-modal-table-title">Tisch -</div>
+                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
+                            <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
                         </div>
-                        <button onclick="closeControlModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background-color 0.2s;" class="hover:bg-white/15">✕</button>
-                    </div>
-
-                    <!-- Body -->
-                    <div class="popup-body space-y-4 font-display" style="padding: 1.25rem; max-height: 60vh; overflow-y: auto;">
-                        <!-- Open Balance Indicator -->
-                        <div class="flex items-center justify-between p-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl">
-                            <span class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Offener Gesamtbetrag:</span>
-                            <span id="control-modal-total-balance" class="text-xl font-black text-primary font-mono">0,00 €</span>
-                        </div>
-
-                        <!-- Stufe 1: Pending (Ausstehend) Block -->
-                        <div id="control-pending-container" class="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3 hidden">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    <h4 class="text-[11px] font-black uppercase tracking-wider text-emerald-400">Stufe 1: Ausstehend</h4>
-                                </div>
-                                <button onclick="serveAllControlPending()" class="text-[10px] font-black text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition bg-emerald-500/5 hover:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-500/10 font-display">
-                                    <span class="material-symbols-outlined text-xs font-black">done_all</span>
-                                    Alle serviert
-                                </button>
-                            </div>
-                            <div id="control-pending-list" class="space-y-2">
-                                <!-- Dynamic pending items -->
-                            </div>
-                        </div>
-
-                        <!-- Stufe 2: Delivered (Serviert) Block -->
-                        <div id="control-delivered-container" class="bg-[#0b0c10]/50 border border-[#1f1f23] rounded-2xl p-4 space-y-3 hidden">
-                            <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
-                                <h4 class="text-[11px] font-black uppercase tracking-wider text-zinc-400">Stufe 2: Geliefert</h4>
-                            </div>
-                            <div id="control-delivered-list" class="space-y-2">
-                                <!-- Dynamic delivered items -->
-                            </div>
-                        </div>
-
-                        <!-- Split Payment Info -->
-                        <div id="control-split-summary" class="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-3 flex justify-between items-center text-xs hidden">
-                            <span class="font-bold text-zinc-400">Teilzahlung ausgewählt:</span>
-                            <span id="control-split-total" class="text-sm font-black text-primary font-mono">0,00 €</span>
-                        </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="popup-footer flex flex-col gap-2.5 bg-[#08090c] border-t border-zinc-800/60" style="padding: 1.25rem;">
-                        <div class="grid grid-cols-2 gap-3">
-                            <button id="btn-control-split" onclick="submitControlSplitPayment()" disabled
-                                    class="h-11 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all select-none border border-zinc-850 bg-zinc-900/50 text-zinc-600 cursor-not-allowed">
-                                <span class="material-symbols-outlined text-base font-black">call_split</span>
-                                Teilrechnung
-                            </button>
-                            <button onclick="closeTableControl()" id="btn-control-close-table"
-                                    class="h-11 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all select-none bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/20 cursor-pointer shadow-lg shadow-red-950/10">
-                                <span class="material-symbols-outlined text-base font-black">payments</span>
-                                Tisch komplett abrechnen
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- QUICK MERGE / TRANSFER MINI-MODAL -->
-            <div id="table-transfer-modal" class="overlay-backdrop hidden" style="z-index: 80;">
-                <div class="popup-card" style="max-width: 380px; margin: auto;">
-                    <!-- Header -->
-                    <div class="popup-header" style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 1rem 1.25rem;">
                         <div>
-                            <div style="font-size:10px;color:rgba(255,255,255,.75);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Tisch umbuchen</div>
-                            <div style="font-size:16px;font-weight:900;color:#fff;" id="transfer-modal-title">Tisch umbuchen</div>
-                        </div>
-                        <button onclick="closeTransferModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
-                    </div>
-
-                    <!-- Body -->
-                    <div class="popup-body flex flex-col gap-4 font-display" style="padding: 1.25rem;">
-                        <input type="hidden" id="transfer-source-table" value="">
-                        <div class="space-y-2">
-                            <label class="text-[11px] uppercase tracking-wider text-zinc-400 font-bold block">Ziel-Tisch wählen</label>
-                            <select id="transfer-target-select" class="input-premium w-full text-sm focus:border-primary bg-background cursor-pointer text-white">
-                                <!-- Options dynamically loaded -->
+                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
+                            <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <option value="Innen">Innen</option>
+                                <option value="Terrasse">Terrasse</option>
+                                <option value="Bar">Bar</option>
                             </select>
                         </div>
-                        <div id="transfer-items-container" class="space-y-2 mt-1 hidden">
-                            <label class="text-[11px] uppercase tracking-wider text-zinc-400 font-bold block">Artikel auswählen (leer lassen für alle)</label>
-                            <div id="transfer-items-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                <!-- Dynamic check list of products -->
-                            </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
+                            <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                <option value="rect">Rechteckig</option>
+                                <option value="round">Rund</option>
+                            </select>
                         </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="popup-footer flex justify-between gap-3 bg-[#08090c]" style="padding: 1rem 1.25rem;">
-                        <button onclick="closeTransferModal()" class="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition">Abbrechen</button>
-                        <button onclick="submitTableTransfer()" class="btn-premium btn-premium-primary text-xs px-5 py-2.5 rounded-xl">Umbuchen</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ================= TAB: FINANZEN & secure LOGS ================= -->
-        <div id="admin-tab-finanzen" class="admin-tab-content space-y-6">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 border-b border-outline-variant pb-4">
-                <div>
-                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">📈 Finanz- & Analysestatistiken</h2>
-                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Behalte deine Umsätze, Steuern, Top-Seller und das rechtssichere GoBD-Journal im Blick.</p>
-                </div>
-
-                <!-- Period Date filters -->
-                <div class="flex bg-[#11131a] border border-outline-variant rounded-xl p-1 font-display self-start">
-                    <a href="?period=heute" class="px-4 py-2 rounded-lg text-xs font-bold transition {% if period == 'heute' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Heute</a>
-                    <a href="?period=monat" class="px-4 py-2 rounded-lg text-xs font-bold transition {% if period == 'monat' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Diesen Monat</a>
-                    <a href="?period=letzter_monat" class="px-4 py-2 rounded-lg text-xs font-bold transition {% if period == 'letzter_monat' %}bg-primary text-black{% else %}text-on-surface-variant hover:text-white{% endif %}">Letzten Monat</a>
+                        <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
+                    </form>
                 </div>
             </div>
 
-            <!-- KPIs -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-5">
-                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display relative overflow-hidden">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Brutto-Umsatz</span>
-                    <div id="kpi-brutto" class="text-2xl font-black text-primary mt-2 pl-0.5 glow-text-primary">{{ "%.2f"|format(stats.brutto) }} €</div>
-                </div>
-                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Netto 19% MwSt</span>
-                    <div id="kpi-netto-19" class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_19) }} €</div>
-                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: <span id="kpi-brutto-19">{{ "%.2f"|format(stats.brutto_19) }}</span> €</span>
-                </div>
-                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Netto 7% MwSt</span>
-                    <div id="kpi-netto-7" class="text-xl font-black text-white mt-2 pl-0.5">{{ "%.2f"|format(stats.netto_7) }} €</div>
-                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Brutto: <span id="kpi-brutto-7">{{ "%.2f"|format(stats.brutto_7) }}</span> €</span>
-                </div>
-                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Gesamt-Trinkgeld</span>
-                    <div id="kpi-tip" class="text-xl font-black text-emerald-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.tip) }} €</div>
-                </div>
-                <div class="glass-card rounded-2xl p-5 border border-outline-variant font-display">
-                    <span class="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block pl-0.5">Ø-Warenkorb / Tisch</span>
-                    <div id="kpi-avg-basket" class="text-xl font-black text-sky-400 mt-2 pl-0.5">{{ "%.2f"|format(stats.avg_basket) }} €</div>
-                    <span class="text-[9px] text-zinc-500 block mt-1 pl-0.5">Bons: <span id="kpi-orders-count">{{ stats.orders_count }}</span></span>
-                </div>
-            </div>
-
-            <!-- GOBD Export Trigger -->
-            <div class="bg-primary/5 border border-primary/20 p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div class="space-y-1">
-                    <h3 class="font-bold text-sm text-primary flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-sm">verified_user</span>
-                        <span>GoBD-Konformer Steuerberater-Export</span>
-                    </h3>
-                    <p class="text-xs text-on-surface-variant leading-relaxed">Generiert eine finanzamtkonforme und unmanipulierbare Aufstellung aller getätigten Buchungen.</p>
-                </div>
-                <a href="/admin/gobd-export" target="_blank" class="btn-premium btn-premium-primary text-xs px-5 py-3 rounded-xl flex items-center gap-1.5 shadow-md shadow-primary/10">
-                    Export generieren <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">cloud_download</span>
-                </a>
-            </div>
-
-            <!-- Renner & Penner list -->
-            <!-- Renner, Penner & Live Feed -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Renner -->
-                <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
-                    <h3 class="text-sm font-black text-primary uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-primary">local_fire_department</span>
-                        <span>Top 5 Renner (Bestseller)</span>
-                    </h3>
-                    <div class="space-y-3 font-display">
-                        {% for prod_name, count in stats.top_5 %}
-                        <div class="flex justify-between items-center text-xs border-b border-outline-variant/60 pb-3">
-                            <span class="font-bold text-white">{{ loop.index }}. {{ prod_name }}</span>
-                            <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full border border-primary/10">{{ count }}x verkauft</span>
-                        </div>
-                        {% else %}
-                        <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe aufgezeichnet.</p>
-                        {% endfor %}
+            <!-- 📈 TAB 2: BESTELLUNGEN & STATS (finanzen) -->
+            <div id="admin-tab-finanzen" class="admin-tab-content">
+                <!-- Sales Statistics Overview Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Tagesumsatz (Brutto)</div>
+                        <div class="text-2xl font-black text-zinc-800 mt-1 font-mono">{{ "%.2f"|format(stats.brutto) }} €</div>
+                        <div class="text-[9px] text-zinc-400 mt-1">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € | Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Trinkgeld heute</div>
+                        <div class="text-2xl font-black text-emerald-600 mt-1 font-mono">{{ "%.2f"|format(stats.tip) }} €</div>
+                        <div class="text-[9px] text-zinc-400 mt-1">Zusätzliches waiter Trinkgeld</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Bestellungen</div>
+                        <div class="text-2xl font-black text-zinc-800 mt-1 font-mono">{{ stats.orders_count }}</div>
+                        <div class="text-[9px] text-zinc-400 mt-1">Erfolgreich abgerechnete Bons</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Schnitt / Bon</div>
+                        <div class="text-2xl font-black text-zinc-800 mt-1 font-mono">{{ "%.2f"|format(stats.avg_basket) }} €</div>
+                        <div class="text-[9px] text-zinc-400 mt-1">Ø Warenkorb pro Abrechnung</div>
                     </div>
                 </div>
 
-                <!-- Penner -->
-                <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
-                    <h3 class="text-sm font-black text-rose-400 uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-rose-400">trending_down</span>
-                        <span>Flop 5 Penner (Ladenhüter)</span>
-                    </h3>
-                    <div class="space-y-3 font-display">
-                        {% for prod_name, count in stats.flop_5 %}
-                        <div class="flex justify-between items-center text-xs border-b border-outline-variant/60 pb-3">
-                            <span class="font-bold text-white">{{ loop.index }}. {{ prod_name }}</span>
-                            <span class="bg-rose-500/10 text-rose-400 font-bold px-3 py-1 rounded-full border border-rose-500/10">{{ count }}x verkauft</span>
-                        </div>
-                        {% else %}
-                        <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Bislang keine Verkäufe aufgezeichnet.</p>
-                        {% endfor %}
+                <div class="flex items-center gap-3 mb-6 bg-white p-4 rounded-2xl shadow-sm justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-zinc-500">receipt_long</span>
+                        <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="/admin/qr-print" class="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">print</span> QR-Codes drucken
+                        </a>
+                        <a href="/admin/gobd-export" target="_blank" class="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">download</span> GOBD / GDPdU Export
+                        </a>
                     </div>
                 </div>
 
-                <!-- Live-Zahlungs- & Trinkgeld-Feed -->
-                <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
-                    <h3 class="text-sm font-black text-emerald-400 uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-emerald-400">payments</span>
-                        <span>⚡ Live-Zahlungsfeed</span>
-                    </h3>
-                    <div id="live-payments-feed" class="space-y-3 font-display">
-                        <p class="text-center py-6 text-xs text-on-surface-variant font-medium">Warte auf Zahlungen...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Secure Audit Log -->
-            <div class="glass-panel border border-outline-variant p-6 rounded-3xl">
-                <h3 class="text-sm font-black text-rose-400 uppercase tracking-widest font-display mb-5 flex items-center space-x-2">
-                    <span class="material-symbols-outlined text-rose-400">security</span>
-                    <span>Kryptografisches Audit-Log (Stornierungen & Löschungen)</span>
-                </h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs font-display">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr class="border-b border-outline-variant text-on-surface-variant text-[10px] uppercase tracking-wider font-extrabold">
-                                <th class="pb-3 px-2 font-black">Zeitstempel</th>
-                                <th class="pb-3 px-2 font-black">Mitarbeiter</th>
-                                <th class="pb-3 px-2 font-black">Rolle</th>
-                                <th class="pb-3 px-2 font-black">Aktion</th>
-                                <th class="pb-3 px-2 font-black">Details</th>
+                            <tr class="bg-zinc-800 text-white font-extrabold uppercase text-[10px]">
+                                <th class="p-4">Bon ID</th>
+                                <th class="p-4">Tisch</th>
+                                <th class="p-4">Zeitstempel</th>
+                                <th class="p-4">Gesamt</th>
+                                <th class="p-4">MwSt</th>
+                                <th class="p-4">Status</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-outline-variant/40">
-                            {% for log in restaurant.audit_log %}
-                            <tr class="hover:bg-background/40 transition-colors">
-                                <td class="py-4.5 px-2 font-mono text-zinc-500">{{ log.timestamp }}</td>
-                                <td class="py-4.5 px-2 font-bold text-white">{{ log.employee_name }}</td>
-                                <td class="py-4.5 px-2">
-                                    <span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
-                                        {{ log.employee_role }}
-                                    </span>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for o in restaurant.orders | sort(attribute='timestamp', reverse=true) %}
+                            <tr class="hover:bg-gray-50 font-medium">
+                                <td class="p-4 font-bold text-zinc-800">Bon #{{ o.id }}</td>
+                                <td class="p-4 font-extrabold">{{ o.table }}</td>
+                                <td class="p-4 text-zinc-500 font-mono">{{ o.timestamp }}</td>
+                                <td class="p-4 font-extrabold text-zinc-900 font-mono">{{ "%.2f"|format(o.total) }} €</td>
+                                <td class="p-4 text-zinc-500">{{ o.mwst_rate }}%</td>
+                                <td class="p-4">
+                                    {% if o.status == 'bezahlt' %}
+                                        <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase">Bezahlt</span>
+                                    {% elif o.status == 'storniert' %}
+                                        <span class="bg-rose-500/10 text-rose-600 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase">Storniert</span>
+                                    {% else %}
+                                        <span class="bg-amber-500/10 text-amber-600 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase animate-pulse">Aktiv</span>
+                                    {% endif %}
                                 </td>
-                                <td class="py-4.5 px-2 font-bold text-rose-400">{{ log.action }}</td>
-                                <td class="py-4.5 px-2 text-on-surface-variant font-medium">{{ log.details }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="py-8 text-center text-on-surface-variant font-semibold">Bislang wurden keine kritischen Belegänderungen (Stornos) protokolliert.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
 
-        <!-- ================= TAB: SPEISEKARTEN-LIVE-STEUERUNG ================= -->
-        <div id="admin-tab-speisekarte" class="admin-tab-content space-y-6">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-outline-variant pb-4">
-                <div>
-                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">⏱️ Speisekarten-Steuerung</h2>
-                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Verwalte hier die Produkte, Kategorien und Preise deines Restaurants.</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <form action="/admin/kategorie-erstellen" method="POST" class="flex gap-2 font-display">
-                        <input type="text" name="category-name" placeholder="Neue Kategorie..." class="input-premium py-2 px-3 text-xs w-48 focus:border-primary" required>
-                        <button type="submit" class="btn-premium btn-premium-primary text-xs px-4 py-2.5 rounded-xl">Hinzufügen</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Category chips with delete -->
-            <div class="flex flex-wrap gap-2 mb-4 font-display">
-                {% for cat in restaurant.categories %}
-                <span class="flex items-center gap-2 bg-[#11131a] border border-outline-variant rounded-full pl-3.5 pr-2 py-1.5 text-xs text-white font-semibold">
-                    <span>{{ cat }}</span>
-                    <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \'{{ cat }}\' wirklich löschen?')">
-                        <input type="hidden" name="kategorie_name" value="{{ cat }}">
-                        <button type="submit" class="text-red-400 hover:text-red-300 transition-colors flex items-center justify-center p-0.5 hover:bg-red-500/10 rounded" title="Kategorie löschen">
-                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                        </button>
-                    </form>
-                </span>
-                {% endfor %}
-            </div>
-
-            <!-- Neues Produkt hinzufügen Formular (Super Easy step-by-step styling) -->
-            <div class="glass-panel border border-outline-variant p-6 rounded-3xl mb-8 relative overflow-hidden">
-                <h3 class="text-base font-extrabold text-white tracking-tight font-display mb-6 flex items-center space-x-2">
-                    <span class="material-symbols-outlined text-primary text-xl">add_circle</span>
-                    <span>Neues Produkt hinzufügen</span>
-                </h3>
-                <form action="/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="space-y-6 font-display">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Name des Produkts (DE)</label>
-                            <input type="text" name="name" placeholder="z.B. Premium Burger" class="input-premium w-full text-sm focus:border-primary" required>
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Name (EN - optional)</label>
-                            <input type="text" name="name_en" placeholder="z.B. Premium Burger (EN)" class="input-premium w-full text-sm focus:border-primary">
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Preis (EUR)</label>
-                            <input type="number" step="0.01" name="preis" placeholder="z.B. 14.50" class="input-premium w-full text-sm focus:border-primary" required>
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Kategorie</label>
-                            <select name="kategorie" class="input-premium w-full text-sm focus:border-primary bg-background cursor-pointer">
-                                {% for cat in restaurant.categories %}
-                                <option value="{{ cat }}">{{ cat }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        <div class="space-y-1.5 col-span-1">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Beschreibung (DE - optional)</label>
-                            <textarea name="description" rows="3" placeholder="z.B. Saftiges Rindfleisch, Cheddar, hausgemachte Sauce..." class="input-premium w-full text-sm focus:border-primary resize-none"></textarea>
-                        </div>
-                        <div class="space-y-1.5 col-span-1">
-                            <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Beschreibung (EN - optional)</label>
-                            <textarea name="description_en" rows="3" placeholder="e.g. Prime beef patty, aged cheddar, signature sauce..." class="input-premium w-full text-sm focus:border-primary resize-none"></textarea>
-                        </div>
-                        <div class="space-y-4 col-span-1">
-                            <div class="space-y-1.5">
-                                <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">📁 Bild hochladen (empfohlen)</label>
-                                <input type="file" name="image_file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white focus:outline-none focus:border-primary cursor-pointer file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-black hover:file:bg-primary/90">
-                            </div>
-                            <div class="space-y-1.5">
-                                <label class="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">🔗 Oder Bild-URL eingeben</label>
-                                <input type="text" name="image_url" placeholder="https://..." class="input-premium w-full text-sm focus:border-primary">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-6 pt-2 font-display">
-                        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
-                            <input type="checkbox" name="is_vegan" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
-                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-emerald-400 text-sm">eco</span> Vegan</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
-                            <input type="checkbox" name="is_glutenfree" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
-                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-amber-400 text-sm">eco_food</span> Glutenfrei</span>
-                        </label>
-                    </div>
-                    
-                    <div class="pt-4 border-t border-outline-variant/60 flex justify-end">
-                        <button type="submit" class="btn-premium btn-premium-primary text-xs px-6 py-3.5 rounded-xl shadow-lg shadow-primary/10">
-                            Produkt anlegen
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Products management grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {% for p in restaurant.products %}
-                {% set is_p_avail = p.get('is_available', True) %}
-                <div class="glass-card rounded-2xl p-5 space-y-5 flex flex-col justify-between border border-outline-variant hover:border-outline-variant shadow-lg transition duration-200">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex space-x-3.5">
-                            <img src="{{ p.image }}" class="w-16 h-16 rounded-2xl object-cover bg-background border border-outline-variant shrink-0">
-                            <div class="space-y-1">
-                                <h4 class="font-bold text-white text-base font-display">{{ p.name }}</h4>
-                                <span class="text-xs text-on-surface-variant font-medium block">{{ p.category }} &bull; Standard: <span class="text-primary font-extrabold">{{ "%.2f"|format(p.price) }} €</span></span>
-                                <div class="flex flex-wrap gap-1.5 pt-1 font-display">
-                                    {% if p.is_vegan or p.vegan %}
-                                        <span class="bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Vegan</span>
-                                    {% endif %}
-                                    {% if p.is_glutenfree %}
-                                        <span class="bg-amber-950/40 text-amber-400 border border-amber-500/20 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Glutenfrei</span>
-                                    {% endif %}
-                                    {% if p.allergens %}
-                                        <span class="bg-[#11131a] text-zinc-400 border border-outline-variant font-mono text-[9px] px-2 py-0.5 rounded-full">Allergene: {{ p.allergens | join(',') }}</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Status toggle -->
-                        <div class="flex flex-col gap-2 items-end shrink-0 font-display">
-                            <form action="/admin/product-toggle/{{ p.id }}" method="POST">
-                                <button type="submit" class="text-[9px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border transition-all duration-200 active:scale-95
-                                    {% if is_p_avail %}bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20
-                                    {% else %}bg-red-500/10 text-red-300 border-red-500/20 hover:bg-red-500/20{% endif %}">
-                                    {{ "Aktiv" if is_p_avail else "Ausverkauft" }}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-between items-center border-t border-outline-variant/60 pt-4 font-display">
-                        <div class="flex gap-2">
-                            <button type="button" onclick="openEditProductModal({{ p.id }}, '{{ p.name | replace("'", "\\'") }}', {{ p.price }}, '{{ p.description | replace("'", "\\'") if p.description else '' }}', '{{ p.category }}', '{{ (p.name_en or '') | replace("'", "\\'") }}', '{{ (p.description_en or '') | replace("'", "\\'") }}', '{{ p.image or '' }}', {{ 'true' if p.is_vegan else 'false' }}, {{ 'true' if p.is_glutenfree else 'false' }})" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-sm">edit</span>
-                                Bearbeiten
-                            </button>
-                            <button type="button" onclick="toggleHHForm({{ p.id }})" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-outline-variant bg-background text-on-surface-variant hover:text-white hover:border-zinc-700 transition flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-sm">settings</span>
-                                HH Preis
-                            </button>
-                        </div>
+            <!-- ⏱️ TAB 3: SPEISEKARTE (speisekarte) -->
+            <div id="admin-tab-speisekarte" class="admin-tab-content">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                    <!-- Category setup card -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">folder</span> Kategorie anlegen
+                        </h3>
+                        <form action="/admin/kategorie-erstellen" method="POST" class="flex gap-2">
+                            <input type="text" name="name" required placeholder="z.B. Softdrinks" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            <button type="submit" class="bg-cusi hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow">Anlegen</button>
+                        </form>
                         
-                        <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" onsubmit="return confirm('Produkt \'{{ p.name }}\' wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
-                            <button type="submit" class="text-[10px] font-bold px-3 py-2 rounded-xl border border-red-500/15 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-sm">delete</span>
-                                Löschen
-                            </button>
-                        </form>
+                        <div class="border-t border-gray-100 pt-3">
+                            <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Kategorien</label>
+                            <div class="flex flex-wrap gap-2">
+                                {% for cat in restaurant.categories %}
+                                <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs">
+                                    <span>{{ cat }}</span>
+                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                        <input type="hidden" name="name" value="{{ cat }}">
+                                        <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center">✕</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Individual Happy Hour Setup Form -->
-                    <div id="hh-form-{{ p.id }}" class="border-t border-outline-variant/60 pt-4 space-y-3 hidden font-display">
-                        <span class="text-[10px] uppercase font-black tracking-wider text-primary block">⚡ Happy-Hour Parameter</span>
-                        <form action="/admin/product-hh" method="POST" class="grid grid-cols-3 gap-2.5 items-end">
-                            <input type="hidden" name="product_id" value="{{ p.id }}">
-                            <div class="space-y-1">
-                                <label class="text-[9px] text-on-surface-variant font-bold pl-0.5">Spezial-Preis</label>
-                                <input type="number" step="0.10" name="happy_hour_price" value="{{ p.happy_hour_price or '' }}" placeholder="z.B. 11.90" class="input-premium w-full py-1.5 px-2 text-xs focus:border-primary">
+                    <!-- Product creator card -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">add_circle</span> Produkt anlegen
+                        </h3>
+                        <form action="/admin/produkt-erstellen" method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktname</label>
+                                <input type="text" name="name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
                             </div>
-                            <div class="space-y-1">
-                                <label class="text-[9px] text-on-surface-variant font-bold pl-0.5">Startzeit</label>
-                                <input type="text" name="start_time" value="{{ p.start_time or '' }}" placeholder="18:00" class="input-premium w-full py-1.5 px-2 text-xs focus:border-primary">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
+                                <input type="number" step="0.01" name="price" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
                             </div>
-                            <div class="space-y-1">
-                                <label class="text-[9px] text-on-surface-variant font-bold pl-0.5">Endzeit</label>
-                                <input type="text" name="end_time" value="{{ p.end_time or '' }}" placeholder="20:00" class="input-premium w-full py-1.5 px-2 text-xs focus:border-primary">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
+                                <select name="category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                    {% for cat in restaurant.categories %}
+                                    <option value="{{ cat }}">{{ cat }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            <button type="submit" class="col-span-3 btn-premium btn-premium-primary text-[10px] py-2 rounded-xl mt-1.5">
-                                Sichern
-                            </button>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Typ</label>
+                                <select name="category_type" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                    <option value="bar"> Getränk (Bar)</option>
+                                    <option value="küche"> Speise (Küche)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="sm:col-span-2 w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Produkt anlegen</button>
                         </form>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
 
-        <!-- ================= TAB: PROFILE & SETTINGS ================= -->
-        <div id="admin-tab-personal" class="admin-tab-content space-y-6">
-            <div class="max-w-2xl">
-                <!-- Profile / Onboarding -->
-                <div class="glass-card p-6 rounded-2xl space-y-6">
-                    <div>
-                        <h3 class="text-lg font-black text-white flex items-center space-x-2 font-display">
-                            <span class="material-symbols-outlined text-primary text-xl">storefront</span>
-                            <span>Restaurant-Onboarding & Profil</span>
+                <!-- Products listings -->
+                <div class="space-y-6">
+                    {% for cat in restaurant.categories %}
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 class="font-extrabold text-sm text-zinc-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-zinc-500">folder_open</span> {{ cat }}
                         </h3>
-                        <p class="text-xs text-on-surface-variant mt-1">Verwalten Sie Ihre gesetzlichen Texte und Betriebs-Flags im Live-Betrieb.</p>
-                    </div>
-
-                    <form action="/admin/profile-update" method="POST" class="space-y-5">
+                        
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <!-- Toggle: has_kitchen -->
-                            <label class="flex items-center space-x-3 bg-black/40 border border-white/5 p-4 rounded-xl cursor-pointer hover:border-primary/30 transition-all duration-300">
-                                <input type="checkbox" name="has_kitchen" value="true" {% if restaurant.has_kitchen %}checked{% endif %} class="rounded bg-black border-white/10 text-primary focus:ring-primary focus:ring-offset-black">
-                                <div>
-                                    <span class="text-xs font-bold text-white block">👨‍🍳 Küche aktiv</span>
-                                    <span class="text-[10px] text-on-surface-variant">Schaltet warme Speisen frei</span>
+                            {% for p in restaurant.products if p.category == cat %}
+                            <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-zinc-200 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
+                                        {% if p.image %}
+                                            <img src="{{ p.image }}" alt="{{ p.name }}" class="w-full h-full object-cover">
+                                        {% else %}
+                                            <span class="material-symbols-outlined text-zinc-400">fastfood</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="font-extrabold text-xs text-zinc-800">{{ p.name }}</div>
+                                        <div class="text-[10px] text-zinc-500 font-bold font-mono mt-0.5">{{ "%.2f"|format(p.price) }} €</div>
+                                    </div>
                                 </div>
-                            </label>
-
-                            <!-- Toggle: is_shishabar -->
-                            <label class="flex items-center space-x-3 bg-black/40 border border-white/5 p-4 rounded-xl cursor-pointer hover:border-primary/30 transition-all duration-300">
-                                <input type="checkbox" name="is_shishabar" value="true" {% if restaurant.is_shishabar %}checked{% endif %} class="rounded bg-black border-white/10 text-primary focus:ring-primary focus:ring-offset-black">
-                                <div>
-                                    <span class="text-xs font-bold text-white block">💨 Shishabar aktiv</span>
-                                    <span class="text-[10px] text-on-surface-variant">Schaltet Kohle-Bestellsystem frei</span>
+                                
+                                <div class="flex items-center gap-2">
+                                    <!-- Availability toggle switch -->
+                                    <form action="/admin/product-toggle/{{ p.id }}" method="POST" class="inline flex items-center">
+                                        <label class="switch">
+                                            <input type="checkbox" onchange="this.form.submit()" {% if p.is_available %}checked{% endif %}>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </form>
+                                    
+                                    <button onclick='openEditProductModal({{ p | tojson | safe }})' class="p-2 border border-gray-200 hover:bg-gray-100 text-zinc-700 rounded-lg transition" title="Bearbeiten">
+                                        <span class="material-symbols-outlined text-sm">edit</span>
+                                    </button>
+                                    
+                                    <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" class="inline" onsubmit="return confirm('Produkt löschen?')">
+                                        <button type="submit" class="p-2 border border-gray-200 hover:bg-red-50 text-red-500 rounded-lg transition" title="Löschen">
+                                            <span class="material-symbols-outlined text-sm">delete</span>
+                                        </button>
+                                    </form>
                                 </div>
-                            </label>
+                            </div>
+                            {% endfor %}
                         </div>
-
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2 pl-0.5">Impressum Rechtstext</label>
-                            <textarea name="impressum_content" rows="4" class="input-premium w-full text-xs leading-relaxed focus:border-primary" placeholder="Name des Vertretungsberechtigten, Registergericht, Steuernummer...">{{ restaurant.impressum_content }}</textarea>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2 pl-0.5">Datenschutzerklärung Rechtstext</label>
-                            <textarea name="datenschutz_content" rows="4" class="input-premium w-full text-xs leading-relaxed focus:border-primary" placeholder="Informationen über Datenerfassung, Analysen, Zwecke und Rechtsgrundlagen...">{{ restaurant.datenschutz_content }}</textarea>
-                        </div>
-
-                        <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-sm">shield</span>
-                            Profil & Rechtstexte sichern
-                        </button>
-                    </form>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
-        </div>
 
-        <!-- ================= TAB: KONFIGURATION ================= -->
-        <div id="admin-tab-konfiguration" class="admin-tab-content space-y-6">
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Custom Tables setup -->
-                <div class="glass-card p-6 rounded-2xl space-y-5">
-                    <div>
-                        <h3 class="text-lg font-black text-white flex items-center space-x-2 font-display">
-                            <span class="material-symbols-outlined text-primary text-xl">table_restaurant</span>
-                            <span>Tische einrichten & verwalten</span>
+            <!-- 👤 TAB 4: PERSONAL & SETTINGS (personal) -->
+            <div id="admin-tab-personal" class="admin-tab-content">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <!-- Profile card -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">lock</span> Login-Passwort ändern
                         </h3>
-                        <p class="text-xs text-on-surface-variant mt-1">Erstellen oder löschen Sie Gästetische und ordnen Sie sie Zonen zu.</p>
+                        <form action="/admin/profile-update" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Neuer Name</label>
+                                <input type="text" name="name" value="{{ current_user.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Neues Passwort</label>
+                                <input type="password" name="password" placeholder="Passwort eingeben" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            </div>
+                            <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Speichern</button>
+                        </form>
                     </div>
 
-                    <form action="/admin/table-erstellen" method="POST" class="grid grid-cols-3 gap-3 items-end">
-                        <div class="col-span-1">
-                            <label class="block text-[10px] font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Tisch-Nummer</label>
-                            <input type="text" name="number" placeholder="z.B. 12" class="input-premium w-full py-2.5 text-center text-xs focus:border-primary" required>
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-[10px] font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Bereich / Zone</label>
-                            <select name="zone" class="input-premium w-full py-2.5 text-xs focus:border-primary">
-                                <option value="innen">🛋️ Innen</option>
-                                <option value="terrasse">☀️ Terrasse</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="col-span-1 btn-premium btn-premium-primary text-xs py-3 rounded-xl">
-                            Hinzufügen
-                        </button>
-                    </form>
+                    <!-- Staff pins card -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">badge</span> Service-Personal verwalten (PINs)
+                        </h3>
+                        <form action="/admin/staff" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                            <div class="sm:col-span-2">
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name</label>
+                                <input type="text" name="name" required placeholder="z.B. Mehmet" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">4-stellige PIN</label>
+                                <input type="text" name="pin" pattern="[0-9]{4}" required placeholder="1234" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                            </div>
+                            <input type="hidden" name="role" value="kellner">
+                            <button type="submit" class="sm:col-span-3 w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Personal hinzufügen</button>
+                        </form>
 
-                    <!-- Active tables list -->
-                    <div class="border-t border-white/5 pt-4 space-y-3">
-                        <span class="text-xs font-bold text-on-surface-variant block uppercase tracking-wider">Eingerichtete Tische:</span>
-                        <div class="grid grid-cols-2 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
-                            {% for t in restaurant.tables %}
-                            <div class="bg-black/30 border border-white/5 p-3 rounded-xl flex justify-between items-center text-xs hover:border-white/10 transition-all duration-200">
+                        <div class="border-t border-gray-100 pt-3 divide-y divide-gray-50">
+                            <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Mitarbeiter</label>
+                            {% for member in restaurant.staff %}
+                            <div class="flex items-center justify-between py-2 text-xs">
                                 <div>
-                                    <span class="font-bold text-white block">Tisch {{ t.number }}</span>
-                                    <span class="text-[9px] text-on-surface-variant uppercase font-mono mt-0.5 block">{{ '🛋️ Innen' if t.zone == 'innen' else '☀️ Terrasse' }}</span>
+                                    <span class="font-bold text-zinc-800">{{ member.name }}</span>
+                                    <span class="bg-gray-100 text-zinc-500 px-1.5 py-0.5 rounded text-[10px] ml-2 font-mono">PIN: {{ member.pin }}</span>
                                 </div>
-                                <form action="/admin/table-loeschen/{{ t.number }}" method="POST">
-                                    <button type="submit" class="text-rose-400 hover:text-rose-300 transition-all duration-200 hover:bg-white/5 p-1 rounded-lg">
-                                        <span class="material-symbols-outlined text-sm">close</span>
-                                    </button>
+                                <form action="/admin/staff-loeschen/{{ member.pin }}" method="POST" class="inline" onsubmit="return confirm('Mitarbeiter löschen?')">
+                                    <button type="submit" class="text-red-500 hover:text-red-700 font-bold text-xs">Entfernen</button>
                                 </form>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
-                    
-                    <!-- QR-Code print button → opens automatic grid page -->
-                    <div class="border-t border-white/5 pt-4">
-                        <a href="/admin/qr-print" target="_blank"
-                           class="w-full btn-premium btn-premium-primary text-xs py-3 rounded-xl flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-sm">print</span>
-                            <span>Alle Tisch-QR-Codes drucken</span>
-                        </a>
-                    </div>
                 </div>
+            </div>
 
-                <!-- Branding & Master parameters configuration -->
-                <div class="glass-card p-6 rounded-2xl space-y-5">
-                    <div>
-                        <h3 class="text-lg font-black text-white flex items-center space-x-2 font-display">
-                            <span class="material-symbols-outlined text-primary text-xl">palette</span>
-                            <span>Branding & Logo</span>
+            <!-- ⚙️ TAB 5: KONFIGURATION (konfiguration) -->
+            <div id="admin-tab-konfiguration" class="admin-tab-content">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <!-- Branding setup -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">store</span> Restaurant Profil
                         </h3>
-                        <p class="text-xs text-on-surface-variant mt-1">Legen Sie Ihr Corporate Design, Logo und Adresse fest.</p>
+                        <form action="/admin/branding" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse</label>
+                                <input type="text" name="address" value="{{ restaurant.address }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Instagram URL</label>
+                                    <input type="text" name="instagram" value="{{ restaurant.instagram }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Facebook URL</label>
+                                    <input type="text" name="facebook" value="{{ restaurant.facebook }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
+                        </form>
+                        
+                        <!-- Shishabar toggler -->
+                        <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-xs text-zinc-800">Shisha-Bar Modus</h4>
+                                <p class="text-[10px] text-zinc-400">Aktiviert Kohle/Shisha-Rufoptionen im Gästemenü</p>
+                            </div>
+                            <form action="/admin/shishabar-toggle" method="POST" class="inline flex items-center">
+                                <label class="switch">
+                                    <input type="checkbox" onchange="this.form.submit()" {% if restaurant.is_shishabar %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                            </form>
+                        </div>
                     </div>
 
-                    <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-20 h-20 bg-black/40 border border-dashed border-white/10 rounded-xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                                {% if restaurant.branding and restaurant.branding.logo_url %}
-                                    <img src="{{ restaurant.branding.logo_url }}" class="w-full h-full object-contain p-2">
-                                {% else %}
-                                    <span class="material-symbols-outlined text-white/20 text-3xl">image</span>
-                                {% endif %}
-                            </div>
-                            <div class="flex-grow">
-                                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Logo hochladen</label>
-                                <input type="file" name="logo_file" accept="image/*" class="input-premium w-full text-xs file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-primary file:text-black hover:file:bg-[#c9e88b] file:cursor-pointer p-2">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Adresse</label>
-                            <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" placeholder="Straße PLZ Ort" class="input-premium w-full text-xs py-2.5 focus:border-primary">
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
+                    <!-- Happy Hour Setup -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">schedule</span> Happy Hour
+                        </h3>
+                        <form action="/admin/happy-hour" method="POST" class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Instagram Handle</label>
-                                <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" placeholder="@demolounge" class="input-premium w-full text-xs py-2.5 focus:border-primary">
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5">Happy Hour Tage</label>
+                                <div class="flex flex-wrap gap-2">
+                                    {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
+                                    {% for day in days %}
+                                    <label class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none">
+                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-cusi focus:ring-0">
+                                        <span>{{ day }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Facebook</label>
-                                <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" placeholder="/demolounge" class="input-premium w-full text-xs py-2.5 focus:border-primary">
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Startzeit</label>
+                                    <input type="time" name="start" value="{{ restaurant.happy_hour_start }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Endzeit</label>
+                                    <input type="time" name="end" value="{{ restaurant.happy_hour_end }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%)</label>
+                                    <input type="number" name="discount" value="{{ restaurant.happy_hour_discount }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                                </div>
                             </div>
-                        </div>
-
-                        <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl transition shadow-lg">
-                            Branding aktualisieren
-                        </button>
-                    </form>
+                            <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
+                        </form>
+                    </div>
                 </div>
             </div>
+
         </div>
-
-    <!-- EDIT PRODUCT MODAL -->
-    <div id="edit-product-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden animate-fade-in">
-        <div class="glass-panel w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl border border-white/10 relative">
-            <div class="flex justify-between items-center border-b border-white/5 pb-3">
-                <h3 class="text-lg font-black text-white flex items-center gap-2 font-display">
-                    <span class="material-symbols-outlined text-primary">edit</span>
-                    <span>Produkt bearbeiten</span>
-                </h3>
-                <button onclick="closeEditProductModal()" class="text-on-surface-variant hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition active:scale-95">
-                    <span class="material-symbols-outlined text-xl">close</span>
-                </button>
-            </div>
-
-            <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="space-y-4">
-                <input type="hidden" id="edit-product-id">
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Produkt-Name (DE)</label>
-                        <input type="text" id="edit-product-name" class="input-premium w-full text-sm focus:border-primary" required>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Name (EN - optional)</label>
-                        <input type="text" id="edit-product-name-en" class="input-premium w-full text-sm focus:border-primary">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Preis (€)</label>
-                    <input type="number" step="0.01" id="edit-product-price" class="input-premium w-full text-sm focus:border-primary font-mono" required>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Kategorie</label>
-                    <select id="edit-product-category" class="input-premium w-full text-sm focus:border-primary">
-                        {% for cat in restaurant.categories %}
-                        <option value="{{ cat }}">{{ cat }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung (DE)</label>
-                        <textarea id="edit-product-description" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">Beschreibung (EN - optional)</label>
-                        <textarea id="edit-product-description-en" rows="3" class="input-premium w-full text-sm focus:border-primary leading-relaxed resize-none"></textarea>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">📁 Bild hochladen</label>
-                        <input type="file" id="edit-product-image-file" accept="image/*" class="w-full bg-background border border-outline-variant rounded-xl p-2 text-xs text-white focus:outline-none focus:border-primary cursor-pointer file:mr-3 file:py-1.5 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-black hover:file:bg-primary/90">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-on-surface-variant mb-1.5 uppercase pl-0.5">🔗 Oder Bild-URL eingeben</label>
-                        <input type="text" id="edit-product-image-url" class="input-premium w-full text-sm focus:border-primary">
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-6 pt-2 font-display">
-                    <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
-                        <input type="checkbox" id="edit-product-is-vegan" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
-                        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-emerald-400 text-sm">eco</span> Vegan</span>
-                    </label>
-                    <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-white select-none">
-                        <input type="checkbox" id="edit-product-is-glutenfree" class="rounded border-outline-variant bg-background text-primary focus:ring-0 focus:ring-offset-0">
-                        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-amber-400 text-sm">eco_food</span> Glutenfrei</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg">
-                    Speichern
-                </button>
-            </form>
-        </div>
-    </div>
-
-
     </main>
-    </div> <!-- Close Content Wrapper -->
-
-
 
     <!-- ══════════════════════════════════════════════════════
-         ORDER POPUP (Sitzplan / Waiter POS)
+         TISCH-COCKPIT / CONTROLS MODAL OVERLAY (#control-modal)
     ═══════════════════════════════════════════════════════ -->
-    <div id="order-popup" class="overlay-backdrop hidden">
-        <div class="popup-card">
-            <!-- Header -->
+    <div id="control-modal" class="overlay-backdrop hidden">
+        <div class="popup-card" style="max-width:550px;">
             <div class="popup-header">
                 <div>
-                    <div style="font-size:10px;color:rgba(255,255,255,.75);font-weight:800;text-transform:uppercase;letter-spacing:.07em;" id="popup-bon-id">Bon #--</div>
-                    <div style="font-size:22px;font-weight:900;color:#fff;" id="popup-table-name">Tisch --</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Cockpit</div>
+                    <div style="font-size:22px;font-weight:900;color:#fff;" id="control-modal-table-title">Tisch --</div>
                 </div>
-                <div style="display:flex;align-items:center;gap:.5rem;">
-                    <div style="font-size:19px;font-weight:900;color:#fff;" id="popup-total">0,00 €</div>
-                    <button onclick="closePopup()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+                <div style="display:flex;align-items:center;gap:.75rem;">
+                    <div style="font-size:19px;font-weight:900;color:#10b981;" id="control-modal-total-balance">0,00 €</div>
+                    <button onclick="closeControlModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
                 </div>
             </div>
 
-            <!-- Body -->
-            <div class="popup-body" id="popup-items"></div>
+            <div class="popup-body space-y-5" style="max-height:55vh;">
+                <!-- Call-To-Action alerts inside Control Modal -->
+                <div id="control-alerts-box" class="hidden"></div>
+                
+                <!-- Pending order items (Zubereitung / Neue) -->
+                <div id="control-pending-container" class="space-y-2">
+                    <h4 class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">pending</span> In Vorbereitung / Ausstehend
+                    </h4>
+                    <div id="control-pending-list" class="space-y-1.5"></div>
+                    <button onclick="serveAllControlPending()" class="w-full mt-2 py-2 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-sm">done_all</span> Alle als serviert markieren
+                    </button>
+                </div>
 
-            <!-- Footer (shown only in normal mode) -->
-            <div class="popup-footer" id="popup-footer-normal">
-                <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:.5rem;padding:4px 8px;">
-                    <span style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;">Trinkgeld (€):</span>
-                    <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" style="flex:1;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:4px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
+                <!-- Delivered order items (ready for bill checkout) -->
+                <div id="control-delivered-container" class="space-y-2">
+                    <h4 class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">check_circle</span> Serviert / Abrechenbar
+                    </h4>
+                    <div id="control-delivered-list" class="space-y-1.5"></div>
                 </div>
-                <div class="flex-responsive" style="margin-bottom:.45rem; gap:.6rem;">
-                    <button onclick="bezahlenAlles()" id="btn-bezahlt-all"
-                        style="flex:1;background:#10b981;color:#000;border:none;border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
-                        ✅ Alle bezahlen
+            </div>
+
+            <!-- Table Control Cockpit Actions Footer -->
+            <div class="popup-footer space-y-3">
+                <!-- Split Pay selector -->
+                <div id="control-split-cockpit" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-3">
+                    <div class="flex items-center justify-between text-xs font-extrabold mb-2 text-zinc-800">
+                        <span>Teilrechnung Summe:</span>
+                        <span id="control-split-sum" class="font-mono text-zinc-900">0,00 €</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="number" id="pay-split-tip" step="0.1" min="0" placeholder="Trinkgeld €" class="w-24 bg-white border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs text-right font-bold">
+                        <button onclick="submitControlSplitPayment()" class="flex-1 bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
+                            Ausgewählte kassieren
+                        </button>
+                    </div>
+                </div>
+
+                <!-- General actions block -->
+                <div class="grid grid-cols-2 gap-2" id="control-general-actions">
+                    <div class="col-span-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
+                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5">Trinkgeld €:</span>
+                        <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold font-mono">
+                    </div>
+                    <button onclick="bezahlenAlles()" class="bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
+                        <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
                     </button>
-                    <button onclick="openUmbuchenAll()"
-                        style="flex:1;background:rgba(99,102,241,.12);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);border-radius:.85rem;padding:13px;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
-                        🔄 Tisch umbuchen
+                    <button onclick="openUmbuchenAll()" class="border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-sm">sync_alt</span> Tisch umbuchen
+                    </button>
+                    <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="col-span-2 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung aufnehmen
+                    </button>
+                    <button onclick="stornieren()" class="col-span-2 text-center text-[10px] font-bold text-red-500 hover:text-red-700 py-1">
+                        ⚠️ Ganzen Bon stornieren (Chef-PIN erforderlich)
                     </button>
                 </div>
-                <button onclick="stornieren()"
-                    style="width:100%;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:.85rem;padding:9px;font-size:12px;font-weight:800;cursor:pointer;">
-                    🚫 Bon stornieren (Chef-PIN)
-                </button>
             </div>
         </div>
     </div>
 
-
-
     <!-- ══════════════════════════════════════════════════════
-         ITEM ACTION MODAL (Teilzahlung / Buchen, Umbuchen, Stornieren für Einzelartikel)
-         ═══════════════════════════════════════════════════════ -->
-    <div id="item-action-modal" class="overlay-backdrop hidden" style="z-index: 80;">
-        <div class="popup-card" style="max-width: 420px;">
-            <!-- Header -->
+         ITEM ACTION MODAL (#item-action-modal)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="item-action-modal" class="overlay-backdrop hidden" style="z-index:80;">
+        <div class="popup-card" style="max-width:400px;">
             <div class="popup-header" style="background: linear-gradient(135deg, #1e3a8a, #3b82f6);">
                 <div>
-                    <div style="font-size:10px;color:rgba(255,255,255,.75);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Artikel-Aktionen</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Artikel-Aktionen</div>
                     <div style="font-size:18px;font-weight:900;color:#fff;" id="item-action-title">Artikel</div>
                 </div>
                 <button onclick="closeItemActionModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
             </div>
 
-            <!-- Body -->
-            <div class="popup-body" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
-                <!-- Quantity Selector (only displayed if maxQty > 1) -->
-                <div id="item-action-qty-container" style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; padding: 0.75rem;">
-                    <div style="font-size: 11px; color: #9ca3af; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Menge auswählen</div>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <button onclick="changeItemActionQty(-1)" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center;">-</button>
-                        <span id="item-action-qty-text" style="font-size: 20px; font-weight: 900; color: #fff; min-width: 40px; text-align: center;">1</span>
-                        <button onclick="changeItemActionQty(1)" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+            <div class="popup-body space-y-4">
+                <!-- Quantity Selector -->
+                <div id="item-action-qty-container" class="flex flex-col items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl p-3">
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase">Teilmenge auswählen</span>
+                    <div class="flex items-center gap-4">
+                        <button onclick="changeItemActionQty(-1)" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">-</button>
+                        <span id="item-action-qty-text" class="font-black text-lg min-w-[30px] text-center">1</span>
+                        <button onclick="changeItemActionQty(1)" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">+</button>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <!-- Bezahlen / Buchen -->
-                    <div style="display:flex;align-items:center;gap:.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:0.75rem;padding:6px 10px;">
-                        <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" style="width:75px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:5px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
-                        <button onclick="executeItemAction('pay')" class="btn-action btn-pay-item" style="flex:1;justify-content:center;padding:10px;font-size:13px;font-weight:900;border-radius:0.5rem;">
-                            💳 Bezahlt (Buchen)
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
+                        <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" class="w-20 bg-white border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-right font-bold">
+                        <button onclick="executeItemAction('pay')" class="flex-1 bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1">
+                            💳 Teilmenge bezahlen
                         </button>
                     </div>
                     
-                    <!-- Tisch umbuchen -->
-                    <button onclick="executeItemAction('transfer')" class="btn-action btn-transfer-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%;">
-                        🔄 Tisch umbuchen
+                    <button onclick="executeItemAction('transfer')" class="w-full border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1">
+                        🔄 Artikel umbuchen
                     </button>
                     
-                    <!-- Stornieren -->
-                    <button onclick="executeItemAction('cancel')" class="btn-action btn-storno-item" style="justify-content: center; padding: 12px; font-size: 13px; font-weight: 900; border-radius: 0.75rem; width: 100%; border: 1px solid rgba(239,68,68,0.3);">
-                        🚫 Stornieren (Chef-PIN)
+                    <button onclick="executeItemAction('cancel')" class="w-full text-red-500 hover:text-red-700 font-bold text-xs py-2.5 rounded-xl transition">
+                        🚫 Artikel stornieren (Chef-PIN)
                     </button>
                 </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="popup-footer" style="display: flex; justify-content: center; padding: 0.5rem 0;">
-                <button onclick="closeItemActionModal()" style="font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase;background:none;border:none;cursor:pointer;padding: 4px 8px;">
-                    Abbrechen
-                </button>
             </div>
         </div>
     </div>
 
     <!-- ══════════════════════════════════════════════════════
-         TABLE SELECTOR OVERLAY (für Umbuchen ganzer Bon oder einzelnem Artikel)
+         TABLE SELECTOR OVERLAY / MODAL (#table-sel-overlay)
     ═══════════════════════════════════════════════════════ -->
     <div id="table-sel-overlay" class="overlay-backdrop hidden" style="z-index:70;">
-        <div style="background:#0d0f14;border:1px solid rgba(255,255,255,.09);border-radius:1.5rem;width:100%;max-width:460px;padding:1.25rem;max-height:90vh;overflow-y:auto;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <div class="popup-card" style="max-width:440px;">
+            <div class="popup-header">
                 <div>
-                    <div style="font-size:17px;font-weight:900;color:#fff;" id="table-sel-title">Tisch wählen</div>
-                    <div style="font-size:11px;color:#9ca3af;margin-top:2px;" id="table-sel-subtitle">Wohin umbuchen?</div>
+                    <div style="font-size:18px;font-weight:900;color:#fff;" id="table-sel-title">Tisch wählen</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.7);" id="table-sel-subtitle">Ziel für Umbuchen</div>
                 </div>
-                <button onclick="closeTableSel()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#fff;cursor:pointer;font-size:18px;">✕</button>
+                <button onclick="closeTableSel()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
             </div>
-            <div class="table-sel-grid" id="table-sel-grid"></div>
+            <div class="popup-body">
+                <div class="grid grid-cols-4 gap-2" id="table-sel-grid"></div>
+            </div>
         </div>
     </div>
 
-    <!-- TOAST ELEMENT -->
+    <!-- ══════════════════════════════════════════════════════
+         TABLE TRANSFER/MERGE MODAL (#table-transfer-modal)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="table-transfer-modal" class="overlay-backdrop hidden" style="z-index:60;">
+        <div class="popup-card" style="max-width:450px;">
+            <div class="popup-header">
+                <div style="font-size:18px;font-weight:900;color:#fff;" id="table-transfer-modal-title">Tisch umbuchen</div>
+                <button onclick="closeTransferModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            
+            <form onsubmit="event.preventDefault(); submitTableTransfer();" class="popup-body space-y-4">
+                <input type="hidden" id="transfer-source-table">
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Ziel-Tisch auswählen</label>
+                    <select id="transfer-target-select" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi"></select>
+                </div>
+                
+                <!-- Items selection checklist (optional/split) -->
+                <div id="transfer-items-container" class="space-y-2 hidden">
+                    <label class="block text-[10px] font-bold text-zinc-500 uppercase">Artikel-Auswahl (Leer = Ganzer Tisch)</label>
+                    <div id="transfer-items-list" class="space-y-1 max-h-[180px] overflow-y-auto"></div>
+                </div>
+                
+                <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
+                    Umbuchen ausführen
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         EDIT PRODUCT MODAL (#edit-product-modal)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="edit-product-modal" class="overlay-backdrop hidden">
+        <div class="popup-card" style="max-width:500px;">
+            <div class="popup-header">
+                <div style="font-size:18px;font-weight:900;color:#fff;">Produkt bearbeiten</div>
+                <button onclick="closeEditProductModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            
+            <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="popup-body space-y-4">
+                <input type="hidden" id="edit-product-id">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produkt-Name (DE)</label>
+                        <input type="text" id="edit-product-name" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name (EN - optional)</label>
+                        <input type="text" id="edit-product-name-en" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
+                        <input type="number" step="0.01" id="edit-product-price" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
+                        <select id="edit-product-category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                            {% for cat in restaurant.categories %}
+                            <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung (DE)</label>
+                        <textarea id="edit-product-description" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung (EN)</label>
+                        <textarea id="edit-product-description-en" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi resize-none"></textarea>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild-URL</label>
+                    <input type="text" id="edit-product-image-url" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-cusi focus:border-cusi">
+                </div>
+
+                <div class="flex items-center gap-6 pt-2 font-display">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-zinc-700">
+                        <input type="checkbox" id="edit-product-is-vegan" class="rounded text-cusi focus:ring-0">
+                        <span>🌱 Vegan</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-zinc-700">
+                        <input type="checkbox" id="edit-product-is-glutenfree" class="rounded text-cusi focus:ring-0">
+                        <span>🌾 Glutenfrei</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="w-full bg-cusi hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow mt-4">
+                    Änderungen speichern
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST POPUP NOTIFICATION -->
     <div id="toast" class="toast toast-success"></div>
 
-    <!-- Javascript tab persistence & operations -->
+    <!-- JAVASCRIPT INJECTION -->
     <script>
+        
         const slug = "{{ slug }}";
         const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
 
@@ -3156,6 +2938,7 @@
                 }
             }).catch(() => { alert('Link:\n' + fullUrl); });
         }
+    
     </script>
 </body>
 </html>
