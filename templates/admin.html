@@ -990,45 +990,7 @@
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════
-         EVENT COCKPIT TABLE MODAL
-    ═══════════════════════════════════════════════════════ -->
-    <div id="table-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden animate-fade-in" style="z-index:90;">
-        <div class="bg-[#0d0f14] border border-outline-variant/60 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh] font-display">
-            <!-- Header -->
-            <div class="p-6 border-b border-outline-variant/30 flex justify-between items-center bg-[#07080b]">
-                <div>
-                    <h3 class="text-xl font-extrabold text-white" id="table-modal-title">Tisch --</h3>
-                    <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-1" id="table-modal-subtitle">Bestellungs-Cockpit</p>
-                </div>
-                <button onclick="closeTableModal()" class="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition font-extrabold" style="background:none; border:none; cursor:pointer;">
-                    ✕
-                </button>
-            </div>
-            
-            <!-- Body -->
-            <div class="p-6 overflow-y-auto flex-grow space-y-6">
-                <!-- STUFE 1 Box (hellgrün) -->
-                <div id="stufe1-container" class="bg-green-100 border border-green-300 rounded-2xl p-4 hidden">
-                    <div class="text-[10px] font-black text-green-800 uppercase tracking-widest mb-3">Stufe 1: Ausstehende Bestellungen</div>
-                    <div id="stufe1-items" class="space-y-2">
-                        <!-- Pending items list -->
-                    </div>
-                    <button id="btn-serve-all" class="w-full bg-green-600 hover:bg-green-700 text-white font-extrabold text-xs py-3 px-4 rounded-xl mt-4 transition shadow-md uppercase tracking-wider" style="border:none; cursor:pointer;">
-                        ✓ Alle serviert
-                    </button>
-                </div>
 
-                <!-- STUFE 2 Box (weiss / grau unter Kategorie) -->
-                <div id="stufe2-container" class="space-y-4">
-                    <div class="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-[#1f1f23] pb-2">Stufe 2: Servierte Artikel</div>
-                    <div id="stufe2-categories" class="space-y-4">
-                        <!-- Grouped by category -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- ══════════════════════════════════════════════════════
          ITEM ACTION MODAL (Teilzahlung / Buchen, Umbuchen, Stornieren für Einzelartikel)
@@ -1407,14 +1369,38 @@
                 }
             }
 
-            // Keep table modal in sync if active
-            if (typeof activeModalTableId !== 'undefined' && activeModalTableId !== null) {
-                openTableModal(activeModalTableId);
-            }
+            // Sync the table cards in place (preventing duplicate spawning)
+            tables.forEach(table => {
+                const card = document.getElementById(`table-card-${table.number}`);
+                if (card) {
+                    const ts = 'Tisch ' + table.number;
+                    const order = orders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+                    const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
+                    
+                    const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                    
+                    if (hasPending) {
+                        card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
+                        card.innerHTML = `
+                            ${eyeHtml}
+                            <span class="text-2xl sm:text-3xl animate-bounce">🔔</span>
+                            <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
+                            <span class="text-sm sm:text-base font-black mt-1">${table.number}</span>
+                            <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${order.timestamp}"></span>
+                        `;
+                    } else {
+                        card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
+                        card.innerHTML = `
+                            ${eyeHtml}
+                            <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
+                        `;
+                    }
+                }
+            });
+            updateTimers();
 
             const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
             if (activeTab === 'live') {
-                renderSitzplanTiles();
                 renderServiceCallsAlerts();
             }
         }
@@ -1502,39 +1488,35 @@
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
             
             // Eye icon is ALWAYS present in the top-right corner and links to guest menu
-            const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+            const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
             
             let cls = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 ';
             let inner = '';
             
             if (hasPending) {
-                // ZUSTAND B: Knallgrün (blinking table opens the modal)
+                // ZUSTAND B: Knallgrün
                 cls += 'bg-[#4cbb17] text-white shadow-lg';
                 inner = `
+                    ${eyeHtml}
                     <span class="text-2xl sm:text-3xl animate-bounce">🔔</span>
                     <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
                     <span class="text-sm sm:text-base font-black mt-1">${table.number}</span>
                     <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${order.timestamp}"></span>
                 `;
-                return `
-                    <div id="tile-${table.number}" class="${cls}" onclick="openTableModal(${table.id})">
-                        ${eyeHtml}
-                        ${inner}
-                    </div>
-                `;
             } else {
-                // ZUSTAND A: Weiß/grau (normal table redirects to guest menu)
+                // ZUSTAND A: Weiß/grau
                 cls += 'bg-white border border-gray-300 shadow text-gray-800 hover:border-gray-400 hover:shadow-md';
                 inner = `
+                    ${eyeHtml}
                     <span class="text-2xl sm:text-3xl font-black">${table.number}</span>
                 `;
-                return `
-                    <a id="tile-${table.number}" href="/?uid=${slug}&tisch=${table.number}" class="${cls}" style="text-decoration:none;">
-                        ${eyeHtml}
-                        ${inner}
-                    </a>
-                `;
             }
+
+            return `
+                <a id="table-card-${table.number}" href="/?uid=${slug}&tisch=${table.number}&role=admin" class="${cls}" style="text-decoration:none; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                    ${inner}
+                </a>
+            `;
         }
 
         function renderServiceCallsAlerts() {
@@ -2311,9 +2293,6 @@
             });
         }
         
-        // ── EVENT COCKPIT TABLE MODAL JS LOGIC ──
-        let activeModalTableId = null;
-
         // Clean implementation of showToast using the existing #toast element
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
@@ -2323,168 +2302,6 @@
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
-        }
-
-        function openTableModal(tableId) {
-            activeModalTableId = tableId;
-            const table = allTables.find(t => t.id === tableId);
-            if (!table) return;
-
-            // Update title
-            document.getElementById('table-modal-title').textContent = `Tisch ${table.number}`;
-            document.getElementById('table-modal-subtitle').textContent = `Zone: ${table.zone || 'Allgemein'}`;
-
-            // Find active order for this table
-            const ts = 'Tisch ' + table.number;
-            const order = allOrders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
-
-            const stufe1Container = document.getElementById('stufe1-container');
-            const stufe1Items = document.getElementById('stufe1-items');
-            const stufe2Container = document.getElementById('stufe2-container');
-            const stufe2Categories = document.getElementById('stufe2-categories');
-
-            if (!order || !order.items || !order.items.length) {
-                // No open orders
-                stufe1Container.classList.add('hidden');
-                stufe1Items.innerHTML = '';
-                stufe2Categories.innerHTML = '<div class="text-xs text-zinc-500 italic py-4 text-center">Keine servierten Artikel auf diesem Tisch.</div>';
-                
-                // Show modal
-                document.getElementById('table-modal').classList.remove('hidden');
-                return;
-            }
-
-            const orderId = order.id;
-
-            // Separate items into pending (Stufe 1) vs delivered/confirmed (Stufe 2)
-            const pendingItems = [];
-            const deliveredItems = [];
-
-            order.items.forEach(item => {
-                const itemStatus = item.item_status || 'pending';
-                if (itemStatus === 'pending') {
-                    pendingItems.push(item);
-                } else if (itemStatus === 'delivered' || itemStatus === 'confirmed') {
-                    deliveredItems.push(item);
-                }
-            });
-
-            // --- STUFE 1 Render ---
-            if (pendingItems.length > 0) {
-                stufe1Container.classList.remove('hidden');
-                
-                stufe1Items.innerHTML = pendingItems.map(item => {
-                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                    const key = `${item.product_id}_${noteSlug}_pending`;
-                    
-                    return `
-                        <div class="flex items-center justify-between bg-white border border-green-200 rounded-xl p-3 text-zinc-900 shadow-sm animate-fade-in">
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold text-sm">${item.quantity}x</span>
-                                <span class="font-semibold text-sm">${item.name}</span>
-                                ${item.note ? `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded font-bold">✎ ${item.note}</span>` : ''}
-                            </div>
-                            <div class="flex items-center gap-4">
-                                <button onclick="serveSingleItem(${orderId}, '${key}')" class="text-green-600 hover:text-green-800 font-black text-base focus:outline-none p-1" style="background:none; border:none; cursor:pointer;" title="Servieren">✓</button>
-                                <button onclick="cancelItemDirect(${orderId}, '${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="text-red-500 hover:text-red-700 font-extrabold text-xs focus:outline-none p-1" style="background:none; border:none; cursor:pointer;" title="Stornieren">✕</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-                // Set the click action for the big "Serviert" button
-                document.getElementById('btn-serve-all').onclick = function() {
-                    serveAllPending(orderId);
-                };
-            } else {
-                stufe1Container.classList.add('hidden');
-                stufe1Items.innerHTML = '';
-            }
-
-            // --- STUFE 2 Render ---
-            if (deliveredItems.length > 0) {
-                // Group by category
-                const cats = {};
-                deliveredItems.forEach(item => {
-                    const c = getProductCategory(item);
-                    if (!cats[c]) cats[c] = [];
-                    cats[c].push(item);
-                });
-
-                stufe2Categories.innerHTML = Object.keys(cats).map(catName => `
-                    <div class="space-y-1.5">
-                        <div class="text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-1">${catName}</div>
-                        <div class="bg-white border border-zinc-200 rounded-xl p-3 divide-y divide-zinc-100 shadow-sm text-zinc-900">
-                            ${cats[catName].map(item => `
-                                <div class="flex items-center justify-between py-2 first:pt-0 last:pb-0">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-green-600 font-black text-sm">✓✓</span>
-                                        <span class="font-bold text-sm text-zinc-800">${item.quantity}x</span>
-                                        <span class="font-medium text-sm text-zinc-700">${item.name}</span>
-                                        ${item.note ? `<span class="text-[11px] text-amber-600 font-semibold italic">(${item.note})</span>` : ''}
-                                    </div>
-                                    <div class="text-xs font-bold text-zinc-500">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                stufe2Categories.innerHTML = '<div class="text-xs text-zinc-500 italic py-4 text-center">Keine servierten Artikel auf diesem Tisch.</div>';
-            }
-
-            // Show modal
-            document.getElementById('table-modal').classList.remove('hidden');
-        }
-
-        function closeTableModal() {
-            document.getElementById('table-modal').classList.add('hidden');
-            activeModalTableId = null;
-        }
-
-        async function serveSingleItem(orderId, itemKey) {
-            try {
-                const res = await fetch('/admin/orders/serve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        order_id: orderId,
-                        item_key: itemKey
-                    })
-                });
-
-                if (res.ok) {
-                    showToast('Artikel als serviert markiert', 'success');
-                    checkLiveTischeUpdates();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    showToast(err.detail || 'Fehler beim Servieren', 'error');
-                }
-            } catch (e) {
-                showToast('Verbindungsfehler', 'error');
-            }
-        }
-
-        async function serveAllPending(orderId) {
-            try {
-                const res = await fetch('/admin/orders/serve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        order_id: orderId
-                    })
-                });
-
-                if (res.ok) {
-                    showToast('Alle Artikel als serviert markiert', 'success');
-                    checkLiveTischeUpdates();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    showToast(err.detail || 'Fehler beim Servieren', 'error');
-                }
-            } catch (e) {
-                showToast('Verbindungsfehler', 'error');
-            }
         }
 
         // Copy magic link (relative path → absolute URL) to clipboard

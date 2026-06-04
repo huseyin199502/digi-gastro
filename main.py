@@ -987,6 +987,7 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
     uid = request.query_params.get("uid")
     if uid:
         tisch = request.query_params.get("tisch") or request.query_params.get("table") or ""
+        role = request.query_params.get("role") or ""
         restaurant = get_restaurant(uid, db)
         if restaurant:
             tables_list = restaurant.get("tables", [])
@@ -1002,6 +1003,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                 url += f"?tisch={tisch}"
                 if table_token:
                     url += f"&token={table_token}"
+                if role:
+                    url += f"&role={role}"
             return RedirectResponse(url=url, status_code=303)
 
     if os.getenv("PYTEST_CURRENT_TEST"):
@@ -1319,6 +1322,7 @@ def get_orders_status(slug: str, ids: str, db: Session = Depends(get_db)):
 @app.get("/{slug}", response_class=HTMLResponse)
 def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
+    role = request.query_params.get("role") or ""
     
     if not restaurant.get("impressum_content"):
         restaurant["impressum_content"] = f"Impressum\nAngaben gemäß § 5 TMG:\n{restaurant['name']} Gastro GmbH\nInhaber: Chef\n{restaurant.get('branding', {}).get('address', 'Musterstraße 1, 80331 München')}"
@@ -1424,6 +1428,12 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 redirect_url = f"/{slug}?reset=true"
             else:
                 redirect_url = f"/{slug}"
+
+            if role:
+                if "?" in redirect_url:
+                    redirect_url += f"&role={role}"
+                else:
+                    redirect_url += f"?role={role}"
                 
             response = RedirectResponse(url=redirect_url, status_code=303)
             response.set_cookie(
@@ -1514,7 +1524,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "is_readonly": is_readonly,
             "products": processed_products,
             "reset_session": reset_session,
-            "tisch_name": tisch_name
+            "tisch_name": tisch_name,
+            "role": role
         }
     )
     
@@ -4197,16 +4208,16 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
         "quantity": payload.quantity,
         "category_type": product.get("category_type", "küche"),
         "note": "",
-        "item_status": "delivered" # directly delivered!
+        "item_status": "pending" # starts as pending!
     }
     
     if active_order:
-        # Merge if item with same product_id and no note and status 'delivered' already exists
+        # Merge if item with same product_id and no note and status 'pending' already exists
         existing_item = next(
             (i for i in active_order["items"]
              if i.get("product_id") == product["id"]
              and not i.get("note")
-             and i.get("item_status") == "delivered"),
+             and i.get("item_status") == "pending"),
             None
         )
         if existing_item:
@@ -4227,11 +4238,12 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
             "total": round(new_item["price"] * payload.quantity, 2),
             "total_with_tip": round(new_item["price"] * payload.quantity, 2),
             "tip_amount": 0.0,
-            "status": "bestaetigt", # all items are confirmed/delivered
+            "status": "eingegangen", # starts as pending/eingegangen
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "mwst_rate": 19,
             "waiter_id": user.get("name")
         }
+        update_order_status_by_items(new_order)
         restaurant["orders"].append(new_order)
         
     try:

@@ -169,7 +169,7 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
                 <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="welcome_desc">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
             </div>
-            <div class="flex gap-3 justify-center sm:justify-end">
+            <div class="flex gap-3 justify-center sm:justify-end" x-show="role !== 'admin'">
                 <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
                     <span class="material-symbols-outlined text-base">notifications_active</span>
                     <span data-translate="nav_service">Service</span>
@@ -273,7 +273,7 @@
 
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
-    <div id="cart-floating-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
+    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-2">
             <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
@@ -391,9 +391,145 @@
             <span class="material-symbols-outlined text-primary text-7xl animate-bounce glow-text-primary">check_circle</span>
             <h2 class="text-3xl font-extrabold text-white font-display" data-translate="thank_you">Bestellung erhalten!</h2>
             <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
-            <button onclick="closeThankYou()" class="btn-premium btn-premium-primary w-full py-3.5 rounded-xl font-bold active:scale-95 text-xs uppercase tracking-wider" data-translate="close">Schließen</button>
         </div>
     </div>
+
+    {% if role == 'admin' %}
+    <!-- Sticky Bottom Admin Panel (Drawer) -->
+    <div class="sticky-admin-panel fixed bottom-0 left-0 right-0 z-50 bg-[#050507]/95 backdrop-blur-xl border-t border-[#1f1f23] shadow-2xl flex flex-col transition-all duration-300 font-display"
+         :class="isDrawerOpen ? 'h-[75vh] max-h-[75vh]' : 'h-16'"
+         style="touch-action: none;">
+        
+        <!-- Header -->
+        <div @click="isDrawerOpen = !isDrawerOpen" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-[#1f1f23]/50 hover:bg-white/5 transition-colors shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="font-extrabold text-sm md:text-base text-white tracking-tight">
+                    Tisch {{ table }} &bull; Offen: <span class="text-primary font-black ml-1" x-text="tableOrders.total.toFixed(2) + ' €'">0,00 €</span>
+                </span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button x-show="isDrawerOpen" @click.stop="isDrawerOpen = false" class="text-zinc-400 hover:text-white transition-colors flex items-center justify-center">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+                <span x-show="!isDrawerOpen" class="material-symbols-outlined text-zinc-400 text-2xl">
+                    keyboard_arrow_up
+                </span>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div x-show="isDrawerOpen" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar">
+            <!-- STUFE 1: Ausstehend / Zubereitung -->
+            <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3 shadow-lg shadow-emerald-950/10">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-emerald-400">Ausstehend / Zubereitung</h4>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/20" x-text="tableOrders.pending.length">0</span>
+                    </div>
+                    <button x-show="tableOrders.pending.length > 0" @click="serveAllPending()" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/10">
+                        <span class="material-symbols-outlined text-sm font-black">done_all</span>
+                        Alle serviert
+                    </button>
+                </div>
+                
+                <div class="space-y-2">
+                    <template x-if="tableOrders.pending.length === 0">
+                        <p class="text-xs text-emerald-500/60 font-semibold italic text-center py-2">Keine ausstehenden Bestellungen.</p>
+                    </template>
+                    <template x-for="item in tableOrders.pending" :key="item.key">
+                        <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <button @click.stop="serveSingleItem(item)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
+                                    <span class="material-symbols-outlined text-base">check</span>
+                                </button>
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-extrabold text-white block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+                                    <span x-show="item.note" class="text-[10px] text-amber-400 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-extrabold text-zinc-300 font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+                                <button @click.stop="cancelItem(item)" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
+                                    <span class="material-symbols-outlined text-base">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- STUFE 2: Serviert / Geliefert -->
+            <div class="bg-[#0b0c10]/50 border border-[#1f1f23] rounded-2xl p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-zinc-400">Serviert / Geliefert</h4>
+                    <span class="bg-zinc-800 text-zinc-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-zinc-700" x-text="tableOrders.delivered.length">0</span>
+                </div>
+                
+                <div class="space-y-2">
+                    <template x-if="tableOrders.delivered.length === 0">
+                        <p class="text-xs text-zinc-500/60 font-semibold italic text-center py-2">Noch keine Artikel serviert.</p>
+                    </template>
+                    <template x-for="item in tableOrders.delivered" :key="item.key">
+                        <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <input type="checkbox" 
+                                       :checked="selectedSplitItems.some(i => i.key === item.key)"
+                                       @change="toggleSplitCheckbox(item)"
+                                       class="w-4.5 h-4.5 rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-0 cursor-pointer">
+                                
+                                <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
+                                
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-extrabold text-white block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+                                    <span x-show="item.note" class="text-[10px] text-amber-400 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+                                    
+                                    <!-- Split Qty controls -->
+                                    <template x-if="selectedSplitItems.some(i => i.key === item.key) && item.quantity > 1">
+                                        <div class="flex items-center gap-2 mt-1.5 bg-zinc-800/80 w-fit px-2 py-0.5 rounded-lg border border-zinc-700">
+                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-zinc-400 hover:text-white font-black text-sm px-1">-</button>
+                                            <span class="text-[11px] font-black text-white font-mono" x-text="getSplitQty(item)"></span>
+                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-zinc-400 hover:text-white font-black text-sm px-1">+</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-extrabold text-zinc-300 font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div x-show="isDrawerOpen" class="p-4 md:p-6 border-t border-[#1f1f23]/50 bg-[#050507] flex flex-col gap-3 shrink-0">
+            <div class="flex items-center justify-between text-xs text-zinc-400 font-bold px-1" x-show="selectedSplitItems.length > 0">
+                <span>Ausgewählt für Teilrechnung:</span>
+                <span class="text-primary font-black text-sm md:text-base font-mono" x-text="splitTotal.toFixed(2) + ' €'">0,00 €</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3.5">
+                <button @click="submitDrawerPayment(true)" 
+                        :disabled="selectedSplitItems.length === 0"
+                        class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border"
+                        :class="selectedSplitItems.length > 0 ? 'bg-zinc-850 hover:bg-zinc-800 text-white border-zinc-700 cursor-pointer shadow-lg shadow-zinc-950/20' : 'bg-zinc-900/50 text-zinc-600 border-zinc-800/50 cursor-not-allowed'">
+                    <span class="material-symbols-outlined text-base font-black">call_split</span>
+                    Teilrechnung
+                </button>
+                <button @click="submitDrawerPayment(false)" 
+                        :disabled="tableOrders.total <= 0"
+                        class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none"
+                        :class="tableOrders.total > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-zinc-900/50 text-zinc-600 border border-zinc-800/50 cursor-not-allowed'">
+                    <span class="material-symbols-outlined text-base font-black">payments</span>
+                    Gesamtrechnung
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <script>
         // Prevent pinch-to-zoom on iOS devices globally
@@ -601,6 +737,10 @@
                 paymentTipVal: 0,
                 currentPaymentSubtotal: 0,
                 translations: translations,
+                role: new URLSearchParams(window.location.search).get('role') || '',
+                tableOrders: { pending: [], delivered: [], total: 0.0 },
+                selectedSplitItems: [],
+                isDrawerOpen: true,
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
@@ -642,6 +782,10 @@
                     if (!isReadonly) {
                         this.initGuestWebSocket();
                     }
+
+                    if (this.role === 'admin') {
+                        this.fetchAdminDrawerState();
+                    }
                 },
 
                 initGuestWebSocket() {
@@ -655,6 +799,9 @@
                         try {
                             const data = JSON.parse(event.data);
                             if (data.type === "update") {
+                                if (this.role === 'admin') {
+                                    this.fetchAdminDrawerState();
+                                }
                                 // Check if guest session is still active
                                 fetch("/api/{{ slug }}/check-session")
                                     .then(res => res.json())
@@ -804,6 +951,10 @@
                 },
 
                 addToCart(id, nameDe, nameEn, price, categoryType, btnElement = null) {
+                    if (this.role === 'admin') {
+                        this.addToCartAdmin(id, nameDe, nameEn, price, categoryType, btnElement);
+                        return;
+                    }
                     const name = this.currentLang === 'en' ? nameEn : nameDe;
                     const existing = this.cart.find(i => i.id === id && (!i.note || i.note.trim() === ''));
                     if (existing) {
@@ -1170,6 +1321,328 @@
                         modal.classList.add("hidden");
                         document.body.style.overflow = '';
                     }
+                },
+
+                async fetchAdminDrawerState() {
+                    try {
+                        const tableNum = getTableFromUrl();
+                        if (!tableNum) return;
+                        
+                        const res = await fetch('/api/tablet-status');
+                        if (!res.ok) return;
+                        
+                        const data = await res.json();
+                        const targetTable = "Tisch " + tableNum;
+                        
+                        const tableOrders = data.orders.filter(o => o.table === targetTable || o.table === tableNum);
+                        
+                        let pending = [];
+                        let delivered = [];
+                        let total = 0.0;
+                        
+                        tableOrders.forEach(order => {
+                            total += order.total;
+                            if (order.items) {
+                                order.items.forEach(item => {
+                                    const status = item.item_status || 'pending';
+                                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                                    const key = `${item.product_id}_${noteSlug}_${status}`;
+                                    
+                                    const itemData = {
+                                        order_id: order.id,
+                                        product_id: item.product_id,
+                                        name: item.name,
+                                        price: item.price,
+                                        quantity: item.quantity,
+                                        note: item.note || '',
+                                        status: status,
+                                        key: key
+                                    };
+                                    
+                                    if (status === 'pending') {
+                                        pending.push(itemData);
+                                    } else if (status === 'confirmed' || status === 'delivered') {
+                                        delivered.push(itemData);
+                                    }
+                                });
+                            }
+                        });
+                        
+                        this.tableOrders = { pending, delivered, total };
+                        
+                        if (total <= 0.0) {
+                            this.isDrawerOpen = false;
+                        }
+                    } catch (e) {
+                        console.error("Error fetching drawer state:", e);
+                    }
+                },
+
+                async serveSingleItem(item) {
+                    try {
+                        const res = await fetch('/admin/orders/serve', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order_id: item.order_id, item_key: item.key })
+                        });
+                        if (res.ok) {
+                            showToast(`✔️ ${item.name} als serviert markiert`, "success");
+                            this.tableOrders.pending = this.tableOrders.pending.filter(i => i.key !== item.key);
+                            
+                            const newKey = `${item.product_id}_${item.note.replace(/\s+/g, '_')}_delivered`;
+                            const existing = this.tableOrders.delivered.find(i => i.key === newKey);
+                            if (existing) {
+                                existing.quantity += item.quantity;
+                            } else {
+                                this.tableOrders.delivered.push({
+                                    ...item,
+                                    status: 'delivered',
+                                    key: newKey
+                                });
+                            }
+                            
+                            this.fetchAdminDrawerState();
+                        } else {
+                            showToast("Fehler beim Servieren", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler beim Servieren", "error");
+                    }
+                },
+
+                async serveAllPending() {
+                    const orderIds = [...new Set(this.tableOrders.pending.map(i => i.order_id))];
+                    if (orderIds.length === 0) return;
+                    
+                    try {
+                        const promises = orderIds.map(orderId => 
+                            fetch('/admin/orders/serve', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ order_id: orderId })
+                            })
+                        );
+                        const results = await Promise.all(promises);
+                        if (results.every(r => r.ok)) {
+                            showToast("✔️ Alle ausstehenden Artikel serviert", "success");
+                            
+                            this.tableOrders.pending.forEach(item => {
+                                const newKey = `${item.product_id}_${item.note.replace(/\s+/g, '_')}_delivered`;
+                                const existing = this.tableOrders.delivered.find(i => i.key === newKey);
+                                if (existing) {
+                                    existing.quantity += item.quantity;
+                                } else {
+                                    this.tableOrders.delivered.push({
+                                        ...item,
+                                        status: 'delivered',
+                                        key: newKey
+                                    });
+                                }
+                            });
+                            this.tableOrders.pending = [];
+                            
+                            this.fetchAdminDrawerState();
+                        } else {
+                            showToast("Fehler beim Servieren der Artikel", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler", "error");
+                    }
+                },
+
+                async cancelItem(item) {
+                    let qty = item.quantity;
+                    if (qty > 1) {
+                        const qtyStr = prompt(`Wie viele ${item.name} stornieren? (Max: ${qty})`, qty);
+                        if (qtyStr === null) return;
+                        qty = parseInt(qtyStr, 10);
+                        if (isNaN(qty) || qty < 1 || qty > item.quantity) {
+                            showToast("Ungültige Menge", "error");
+                            return;
+                        }
+                    }
+                    
+                    let pin = prompt("Bitte Chef-PIN eingeben:");
+                    if (pin === null) return;
+                    if (!pin.trim()) {
+                        showToast("PIN erforderlich", "error");
+                        return;
+                    }
+                    
+                    try {
+                        const res = await fetch(`/${slug}/tablet/cancel-item/${item.order_id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ item_key: item.key, quantity: qty, pin: pin })
+                        });
+                        
+                        if (res.ok) {
+                            showToast(`✔️ ${qty}x ${item.name} storniert`, "success");
+                            
+                            item.quantity -= qty;
+                            if (item.quantity <= 0) {
+                                this.tableOrders.pending = this.tableOrders.pending.filter(i => i.key !== item.key);
+                            }
+                            
+                            this.fetchAdminDrawerState();
+                        } else {
+                            const err = await res.json().catch(() => ({}));
+                            showToast(err.detail || "Fehler beim Stornieren", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler beim Stornieren", "error");
+                    }
+                },
+
+                toggleSplitCheckbox(item) {
+                    const idx = this.selectedSplitItems.findIndex(i => i.key === item.key);
+                    if (idx > -1) {
+                        this.selectedSplitItems.splice(idx, 1);
+                    } else {
+                        this.selectedSplitItems.push({
+                            key: item.key,
+                            order_id: item.order_id,
+                            product_id: item.product_id,
+                            name: item.name,
+                            price: item.price,
+                            quantity: item.quantity,
+                            note: item.note,
+                            selectedQty: item.quantity
+                        });
+                    }
+                },
+
+                adjustSplitQty(item, delta) {
+                    const found = this.selectedSplitItems.find(i => i.key === item.key);
+                    if (found) {
+                        const newQty = found.selectedQty + delta;
+                        if (newQty >= 1 && newQty <= found.quantity) {
+                            found.selectedQty = newQty;
+                        }
+                    }
+                },
+
+                getSplitQty(item) {
+                    const found = this.selectedSplitItems.find(i => i.key === item.key);
+                    return found ? found.selectedQty : 0;
+                },
+
+                get splitTotal() {
+                    return this.selectedSplitItems.reduce((sum, item) => sum + item.price * item.selectedQty, 0);
+                },
+
+                async submitDrawerPayment(isSplit) {
+                    if (isSplit) {
+                        const groups = {};
+                        this.selectedSplitItems.forEach(i => {
+                            if (!groups[i.order_id]) groups[i.order_id] = [];
+                            groups[i.order_id].push(i);
+                        });
+                        
+                        try {
+                            const promises = Object.keys(groups).map(orderId => {
+                                const payload = {
+                                    items: groups[orderId].map(i => ({
+                                        product_id: i.product_id,
+                                        quantity: i.selectedQty,
+                                        note: i.note || null
+                                    }))
+                                };
+                                return fetch(`/${slug}/tablet/teilzahlung/${orderId}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                            });
+                            
+                            const results = await Promise.all(promises);
+                            if (results.every(r => r.ok)) {
+                                showToast("✔️ Teilzahlung erfolgreich gebucht!", "success");
+                                this.selectedSplitItems = [];
+                                await this.fetchAdminDrawerState();
+                            } else {
+                                showToast("Fehler bei der Teilzahlung", "error");
+                            }
+                        } catch (e) {
+                            showToast("Verbindungsfehler bei Teilzahlung", "error");
+                        }
+                    } else {
+                        const orderIds = [...new Set([
+                            ...this.tableOrders.pending.map(i => i.order_id),
+                            ...this.tableOrders.delivered.map(i => i.order_id)
+                        ])];
+                        
+                        if (orderIds.length === 0) return;
+                        
+                        try {
+                            const promises = orderIds.map(orderId => {
+                                const fd = new FormData();
+                                fd.append('tip', '0.0');
+                                return fetch(`/${slug}/tablet/bezahlen/${orderId}`, {
+                                    method: 'POST',
+                                    body: fd
+                                });
+                            });
+                            
+                            const results = await Promise.all(promises);
+                            if (results.every(r => r.ok)) {
+                                showToast("✔️ Tisch vollständig bezahlt!", "success");
+                                this.selectedSplitItems = [];
+                                await this.fetchAdminDrawerState();
+                            } else {
+                                showToast("Fehler beim Abschließen der Rechnung", "error");
+                            }
+                        } catch (e) {
+                            showToast("Verbindungsfehler bei Zahlung", "error");
+                        }
+                    }
+                },
+
+                async addToCartAdmin(id, nameDe, nameEn, price, categoryType, btnElement = null) {
+                    const tableNum = getTableFromUrl();
+                    if (!tableNum) {
+                        showToast("Fehler: Kein Tisch ausgewählt.", "error");
+                        return;
+                    }
+                    
+                    if (btnElement) {
+                        const iconEl = btnElement.querySelector('span.material-symbols-outlined');
+                        if (iconEl && iconEl.textContent === "add") {
+                            btnElement.classList.remove("bg-primary", "text-black");
+                            btnElement.classList.add("bg-green-500", "text-white");
+                            iconEl.textContent = "check";
+                            btnElement.classList.add("animate-btn-success");
+                            
+                            setTimeout(() => {
+                                iconEl.textContent = "add";
+                                btnElement.classList.remove("bg-green-500", "text-white", "animate-btn-success");
+                                btnElement.classList.add("bg-primary", "text-black");
+                            }, 800);
+                        }
+                    }
+                    
+                    try {
+                        const res = await fetch('/api/admin/orders/add-manual', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                table_number: tableNum,
+                                product_id: id,
+                                quantity: 1
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            const name = this.currentLang === 'en' ? nameEn : nameDe;
+                            showToast(`${name} hinzugefügt`, "success");
+                            await this.fetchAdminDrawerState();
+                        } else {
+                            const err = await res.json().catch(() => ({}));
+                            showToast(err.detail || "Fehler beim Hinzufügen", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler beim Hinzufügen", "error");
+                    }
                 }
             };
         }
@@ -1352,10 +1825,15 @@
             });
         }
 
-        // Clean up address bar query parameters to hide ?reset=true or any other params
+        // Clean up address bar query parameters to hide ?reset=true or any other params but preserve role=admin
         window.addEventListener('DOMContentLoaded', () => {
             if (window.history && window.history.replaceState) {
-                window.history.replaceState({}, document.title, window.location.pathname);
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('role') === 'admin') {
+                    window.history.replaceState({}, document.title, window.location.pathname + "?role=admin");
+                } else {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
             }
         });
     </script>

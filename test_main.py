@@ -1203,14 +1203,12 @@ def test_integration():
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
     assert resp.json()["success"] is True
     
-    # Verify the order item was added with item_status='delivered'
+    # Verify the order item was added with item_status='pending'
     r_data = restaurants["demo"]
     o_t4 = next(o for o in r_data["orders"] if o["table"] == "Tisch 4" and o["status"] not in ["bezahlt", "storniert"])
-    spezi_item_delivered = next(item for item in o_t4["items"] if item["product_id"] == 4 and item["item_status"] == "delivered")
-    assert spezi_item_delivered["quantity"] == 3
     
     spezi_item_pending = next(item for item in o_t4["items"] if item["product_id"] == 4 and (item.get("item_status") or "pending") == "pending")
-    assert spezi_item_pending["quantity"] == 2
+    assert spezi_item_pending["quantity"] == 5
     print("Flat manual order item addition: OK")
 
     # ── Test serve order items via flat endpoint ──
