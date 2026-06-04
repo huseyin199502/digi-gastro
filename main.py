@@ -4167,6 +4167,152 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
     return {"success": True}
 
 
+class AdminSplitPayPayload(BaseModel):
+    order_id: int
+    items: List[SplitItem]
+
+@app.post("/admin/orders/split-pay")
+async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
+    if user["role"] not in ["chef", "kellner"]:
+        raise HTTPException(status_code=403, detail="Kein Zugriff.")
+        
+    restaurant = get_restaurant_or_raise(slug, db)
+    order = next((o for o in restaurant.get("orders", []) if o["id"] == payload.order_id), None)
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
+    if order["status"] in ["bezahlt", "storniert"]:
+        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+        
+    total_split_amount = 0.0
+    items_to_remove = []
+    
+    for split_item in payload.items:
+        split_note = (split_item.note or "").strip()
+        order_item = next(
+            (item for item in order["items"]
+             if item["product_id"] == split_item.product_id
+             and (item.get("note") or "").strip() == split_note),
+            None
+        )
+        if not order_item:
+            continue
+            
+        qty_to_pay = min(split_item.quantity, order_item["quantity"])
+        if qty_to_pay <= 0:
+            continue
+            
+        paid_item_amount = qty_to_pay * order_item["price"]
+        total_split_amount += paid_item_amount
+        
+        order_item["quantity"] -= qty_to_pay
+        if order_item["quantity"] <= 0:
+            items_to_remove.append(order_item)
+            
+    for item in items_to_remove:
+        order["items"].remove(item)
+        
+    order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
+    restaurant["tagesumsatz"] += round(total_split_amount, 2)
+    
+    if not order["items"]:
+        order["status"] = "bezahlt"
+        restaurant["bestellungen_gesamt"] += 1
+        
+        # Rotate table active session token upon payment to clear session
+        table_num = str(order["table"]).replace("Tisch", "").strip()
+        tables_list = restaurant.get("tables", [])
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        if db_table:
+            import secrets
+            db_table["active_session_token"] = secrets.token_hex(4)
+            
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Teilzahlung: {e}")
+        
+    await manager.broadcast(slug, {"type": "update"})
+    return {
+        "success": True,
+        "remaining_items_count": len(order["items"]),
+        "order_status": order["status"],
+        "split_amount": round(total_split_amount, 2)
+    }
+
+
+class AdminTransferPayload(BaseModel):
+    source_table: str
+    target_table: str
+
+@app.post("/admin/orders/transfer")
+async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Session = Depends(get_db)):
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+    user, slug = res
+    if user["role"] not in ["chef", "kellner"]:
+        raise HTTPException(status_code=403, detail="Kein Zugriff.")
+        
+    restaurant = get_restaurant_or_raise(slug, db)
+    
+    s_table_num = str(payload.source_table).replace("Tisch", "").strip()
+    t_table_num = str(payload.target_table).replace("Tisch", "").strip()
+    
+    s_table = f"Tisch {s_table_num}"
+    t_table = f"Tisch {t_table_num}"
+    
+    # Locate active orders
+    source_orders = [o for o in restaurant.get("orders", []) if (o.get("table") == s_table or str(o.get("table")).strip() == s_table_num) and o.get("status") not in ["bezahlt", "storniert"]]
+    if not source_orders:
+        raise HTTPException(status_code=400, detail="Keine offene Bestellung auf dem Quelltisch gefunden.")
+        
+    target_order = next((o for o in restaurant.get("orders", []) if (o.get("table") == t_table or str(o.get("table")).strip() == t_table_num) and o.get("status") not in ["bezahlt", "storniert"]), None)
+    
+    for source_order in source_orders:
+        if not target_order:
+            source_order["table"] = t_table
+            target_order = source_order
+        else:
+            for s_item in source_order.get("items", []):
+                t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending")), None)
+                if t_item:
+                    t_item["quantity"] += s_item.get("quantity", 0)
+                else:
+                    target_order["items"].append(copy.deepcopy(s_item))
+                    
+            target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
+            target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+            
+            source_order["status"] = "storniert"
+            source_order["total"] = 0.0
+            source_order["total_with_tip"] = 0.0
+            source_order["items"] = []
+            
+    tables_list = restaurant.get("tables", [])
+    s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)
+    t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
+    
+    if s_db_table and t_db_table:
+        t_db_table["security_token"] = s_db_table.get("security_token")
+        t_db_table["active_session_token"] = s_db_table.get("active_session_token")
+        
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zusammenführung: {e}")
+        
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True}
+
+
 class AddManualPayload(BaseModel):
     table_number: str
     product_id: int
