@@ -262,6 +262,11 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "qr_token": getattr(t, "qr_token", None)
     } for t in db_tables]
     
+    try:
+        tables.sort(key=lambda x: (int(x["number"]) if str(x["number"]).isdigit() else 999999, str(x["number"])))
+    except Exception:
+        pass
+    
     db_logs = session.query(AuditLog).filter_by(tenant_slug=slug).order_by(AuditLog.id).all()
     audit_log = [{
         "id": l.id,

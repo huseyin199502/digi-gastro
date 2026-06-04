@@ -1935,6 +1935,14 @@
                 filteredTables = filteredTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
             }
 
+            // Sort filtered tables numerically by number
+            filteredTables.sort((a, b) => {
+                const numA = parseInt(a.number) || 0;
+                const numB = parseInt(b.number) || 0;
+                if (numA !== numB) return numA - numB;
+                return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
+            });
+
             if (!filteredTables.length) {
                 root.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#4b5563;font-size:13px;">Keine Tische in diesem Bereich konfiguriert.</div>';
                 return;
@@ -2745,11 +2753,18 @@
 
         function renderTableSelGrid(currentTableStr) {
             const grid = document.getElementById('table-sel-grid');
-            grid.innerHTML = allTables
+            const sortedOthers = allTables
                 .filter(t => {
                     const ts = 'Tisch ' + t.number;
                     return ts !== currentTableStr && String(t.number) !== currentTableStr;
-                })
+                });
+            sortedOthers.sort((a, b) => {
+                const numA = parseInt(a.number) || 0;
+                const numB = parseInt(b.number) || 0;
+                if (numA !== numB) return numA - numB;
+                return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
+            });
+            grid.innerHTML = sortedOthers
                 .map(t => {
                     const ts = 'Tisch ' + t.number;
                     const busy = allOrders.some(o => (o.table === ts || o.table === String(t.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
