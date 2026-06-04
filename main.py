@@ -1389,19 +1389,16 @@ def post_tenant_reset_password(request: Request, slug_key: str, db: Session = De
         raise HTTPException(status_code=403, detail="Kein Zugriff")
         
     slug_lower = slug_key.lower().strip()
-    if slug_lower not in restaurants:
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
         raise HTTPException(status_code=404, detail="Restaurant nicht gefunden")
         
     import random
     new_pw = f"Gastro-{random.randint(1000, 9999)}!"
-    
-    tenant = restaurants[slug_lower]
-    tenant["password"] = new_pw
-    
-    save_restaurant_to_db(slug_lower, tenant, db)
+    tenant.password = new_pw
     db.commit()
     
-    success_msg = f"Passwort für <b>{tenant.get('name')}</b> erfolgreich zurückgesetzt.<br><b>Neues Passwort:</b> {new_pw}"
+    success_msg = f"Passwort für <b>{tenant.name}</b> erfolgreich zurückgesetzt.<br><b>Neues Passwort:</b> {new_pw}"
     return RedirectResponse(url=f"/digi-gastro-admin?success={urllib.parse.quote(success_msg)}", status_code=303)
 
 @app.post("/digi-gastro-admin/tenant-edit-name/{slug_key}")
@@ -1411,14 +1408,12 @@ def post_tenant_edit_name(request: Request, slug_key: str, name: str = Form(...)
         raise HTTPException(status_code=403, detail="Kein Zugriff")
         
     slug_lower = slug_key.lower().strip()
-    if slug_lower not in restaurants:
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
         raise HTTPException(status_code=404, detail="Restaurant nicht gefunden")
         
-    tenant = restaurants[slug_lower]
-    old_name = tenant.get("name")
-    tenant["name"] = name.strip()
-    
-    save_restaurant_to_db(slug_lower, tenant, db)
+    old_name = tenant.name
+    tenant.name = name.strip()
     db.commit()
     
     success_msg = f"Name von <b>{old_name}</b> in <b>{name.strip()}</b> geändert."
@@ -1431,14 +1426,13 @@ def post_tenant_toggle(request: Request, slug_key: str, db: Session = Depends(ge
         raise HTTPException(status_code=403, detail="Kein Zugriff")
         
     slug_lower = slug_key.lower().strip()
-    if slug_lower in restaurants:
-        current_status = restaurants[slug_lower].get("active", True)
-        tenant = restaurants[slug_lower]
-        tenant["active"] = not current_status
-        save_restaurant_to_db(slug_lower, tenant, db)
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        tenant.active = not tenant.active
         db.commit()
         
     return RedirectResponse(url="/digi-gastro-admin", status_code=303)
+
 
 
 @app.get("/admin")
