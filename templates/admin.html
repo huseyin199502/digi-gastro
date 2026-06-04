@@ -331,36 +331,140 @@
 
         <!-- ================= TAB: LIVE TISCHE ================= -->
         <div id="admin-tab-live" class="admin-tab-content space-y-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-outline-variant pb-4 gap-4">
-                <div>
-                    <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">🛋️ Sitzplan</h2>
-                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Echtzeit-Kassensystem und Tischplan.</p>
+            <!-- SITZPLAN VIEW -->
+            <div id="sitzplan-view" class="space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-outline-variant pb-4 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-extrabold tracking-tight text-white font-display">🛋️ Sitzplan</h2>
+                        <p class="text-xs text-on-surface-variant mt-1.5 font-medium">Echtzeit-Kassensystem und Tischplan.</p>
+                    </div>
+                    <div class="flex space-x-4 text-[10px] font-bold uppercase tracking-wider font-display">
+                        <span class="flex items-center space-x-2 text-on-surface-variant"><span class="w-2.5 h-2.5 bg-zinc-800 border border-outline-variant rounded-full"></span> <span>Frei</span></span>
+                        <span class="flex items-center space-x-2 text-amber-500"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full animate-pulse"></span> <span>Aktiv</span></span>
+                        <span class="flex items-center space-x-2 text-red-500"><span class="w-2.5 h-2.5 bg-red-600 rounded-full pulse-green"></span> <span>Service-Ruf</span></span>
+                    </div>
                 </div>
-                <div class="flex space-x-4 text-[10px] font-bold uppercase tracking-wider font-display">
-                    <span class="flex items-center space-x-2 text-on-surface-variant"><span class="w-2.5 h-2.5 bg-zinc-800 border border-outline-variant rounded-full"></span> <span>Frei</span></span>
-                    <span class="flex items-center space-x-2 text-amber-500"><span class="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full animate-pulse"></span> <span>Aktiv</span></span>
-                    <span class="flex items-center space-x-2 text-red-500"><span class="w-2.5 h-2.5 bg-red-600 rounded-full pulse-green"></span> <span>Service-Ruf</span></span>
+
+                <!-- Filter Tabs (Gesamt, Innen, Terrasse) -->
+                <div class="flex border-b border-[#1f1f23] gap-6 text-sm font-bold font-display">
+                    <button onclick="filterSitzplanZone('gesamt')" id="sitzplan-filter-gesamt" class="pb-2 border-b-2 border-primary text-primary transition-all flex items-center gap-1.5 font-extrabold">
+                        Gesamt <span class="w-1.5 h-1.5 rounded-full bg-primary" id="dot-gesamt"></span>
+                    </button>
+                    <button onclick="filterSitzplanZone('innen')" id="sitzplan-filter-innen" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
+                        Innenbereich <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-innen"></span>
+                    </button>
+                    <button onclick="filterSitzplanZone('terrasse')" id="sitzplan-filter-terrasse" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
+                        Terrasse <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-terrasse"></span>
+                    </button>
                 </div>
+
+                <!-- Service Calls alerts -->
+                <div id="admin-service-calls-section" class="space-y-2"></div>
+
+                <!-- Dynamic Table Tiles Root -->
+                <div id="admin-tiles-root" class="space-y-6"></div>
             </div>
 
-            <!-- Filter Tabs (Gesamt, Innen, Terrasse) -->
-            <div class="flex border-b border-[#1f1f23] gap-6 text-sm font-bold font-display">
-                <button onclick="filterSitzplanZone('gesamt')" id="sitzplan-filter-gesamt" class="pb-2 border-b-2 border-primary text-primary transition-all flex items-center gap-1.5 font-extrabold">
-                    Gesamt <span class="w-1.5 h-1.5 rounded-full bg-primary" id="dot-gesamt"></span>
-                </button>
-                <button onclick="filterSitzplanZone('innen')" id="sitzplan-filter-innen" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
-                    Innenbereich <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-innen"></span>
-                </button>
-                <button onclick="filterSitzplanZone('terrasse')" id="sitzplan-filter-terrasse" class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5">
-                    Terrasse <span class="w-1.5 h-1.5 rounded-full bg-zinc-700" id="dot-terrasse"></span>
-                </button>
+            <!-- POS ORDER VIEW (HIDDEN BY DEFAULT) -->
+            <div id="pos-order-view" class="hidden space-y-6">
+                <!-- Header with Back Button and Tisch Title -->
+                <div class="flex items-center justify-between border-b border-outline-variant pb-4">
+                    <div class="flex items-center gap-3 font-display">
+                        <button onclick="switchToSitzplanView()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-4 py-2.5 rounded-xl flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">arrow_back</span>
+                            <span>Zurück</span>
+                        </button>
+                        <h2 id="pos-table-title" class="text-2xl font-extrabold tracking-tight text-white font-display">Tisch -</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+                        <span id="pos-table-status" class="text-xs text-on-surface-variant font-medium">Bereit</span>
+                    </div>
+                </div>
+
+                <!-- Category Pills (Horizontal scrolling) -->
+                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 bg-background select-none z-10 top-0">
+                    <div id="pos-category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Products Grid -->
+                <div id="pos-products-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 py-4">
+                    <!-- Loaded dynamically -->
+                </div>
+
+                <!-- Fixed Bottom Drawer -->
+                <div id="pos-bottom-drawer" class="fixed bottom-0 left-0 right-0 z-45 bg-[#050507]/95 backdrop-blur-xl border-t border-[#1f1f23] shadow-2xl flex flex-col transition-all duration-300"
+                     style="height: 4rem;"> <!-- Clickable header only initially -->
+                     
+                     <!-- Drawer Toggle / Header -->
+                     <div onclick="togglePosDrawer()" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-[#1f1f23]/50 hover:bg-white/5 transition-colors shrink-0">
+                         <div class="flex items-center gap-3">
+                             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                             <span class="font-extrabold text-sm md:text-base text-white tracking-tight font-display">
+                                 Bestell-Cockpit &bull; Offen: <span id="pos-drawer-total" class="text-primary font-black ml-1">0,00 €</span>
+                             </span>
+                         </div>
+                         <div class="flex items-center gap-2">
+                             <span id="pos-drawer-toggle-icon" class="material-symbols-outlined text-zinc-400 text-2xl transition-transform duration-300">
+                                 keyboard_arrow_up
+                             </span>
+                         </div>
+                     </div>
+
+                     <!-- Drawer Content (Scrollable) -->
+                     <div id="pos-drawer-content" class="hidden flex-grow overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar">
+                         <!-- Bereich 1: Pending (Ausstehend) -->
+                         <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3">
+                             <div class="flex items-center justify-between">
+                                 <div class="flex items-center gap-2">
+                                     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                     <h4 class="text-xs font-black uppercase tracking-wider text-emerald-400 font-display">Stufe 1: Ausstehend / Zubereitung</h4>
+                                 </div>
+                                 <button id="btn-serve-all-pos" onclick="serveAllPosPending()" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/10 font-display">
+                                     <span class="material-symbols-outlined text-sm font-black">done_all</span>
+                                     Alle serviert
+                                 </button>
+                             </div>
+                             <div id="pos-pending-list" class="space-y-2 font-display">
+                                 <!-- Dynamic items -->
+                             </div>
+                         </div>
+
+                         <!-- Bereich 2: Delivered (Serviert) -->
+                         <div class="bg-[#0b0c10]/50 border border-[#1f1f23] rounded-2xl p-4 space-y-3">
+                             <div class="flex items-center gap-2">
+                                 <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+                                 <h4 class="text-xs font-black uppercase tracking-wider text-zinc-400 font-display">Stufe 2: Serviert / Geliefert</h4>
+                             </div>
+                             <div id="pos-delivered-list" class="space-y-2 font-display">
+                                 <!-- Dynamic items -->
+                             </div>
+                         </div>
+                     </div>
+
+                     <!-- Drawer Footer (Buttons) -->
+                     <div id="pos-drawer-footer" class="hidden p-4 md:p-6 border-t border-[#1f1f23]/50 bg-[#050507] flex flex-col gap-3 shrink-0">
+                         <div id="pos-split-payment-summary" class="flex items-center justify-between text-xs text-zinc-400 font-bold px-1 hidden font-display">
+                             <span>Ausgewählt für Teilrechnung:</span>
+                             <span id="pos-split-total-text" class="text-primary font-black text-sm md:text-base font-mono">0,00 €</span>
+                         </div>
+                         <div class="grid grid-cols-2 gap-3.5 font-display">
+                             <button id="btn-pos-teilrechnung" onclick="submitPosPayment(true)" 
+                                     class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed">
+                                 <span class="material-symbols-outlined text-base font-black">call_split</span>
+                                 Teilrechnung
+                             </button>
+                             <button id="btn-pos-gesamtrechnung" onclick="submitPosPayment(false)" 
+                                     class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10">
+                                 <span class="material-symbols-outlined text-base font-black">payments</span>
+                                 Gesamtrechnung
+                             </button>
+                         </div>
+                     </div>
+                </div>
             </div>
-
-            <!-- Service Calls alerts -->
-            <div id="admin-service-calls-section" class="space-y-2"></div>
-
-            <!-- Dynamic Table Tiles Root -->
-            <div id="admin-tiles-root" class="space-y-6"></div>
         </div>
 
         <!-- ================= TAB: FINANZEN & secure LOGS ================= -->
@@ -1123,7 +1227,507 @@
         let allOrders  = {{ orders_json | safe }} || [];
         let allTables  = {{ tables_json | safe }} || [];
         let allProducts = {{ restaurant.products | tojson | safe }} || [];
+        let allCategories = {{ restaurant.categories | tojson | safe }} || [];
         let allCalls   = [];
+        
+        // POS Single-Page State
+        let currentActiveTableNum = null;
+        let selectedPosSplitItems = {}; // key: key, value: split item data
+        let isPosDrawerOpen = true;
+        let posSelectedCategory = '';
+
+        // ── POS SINGLE PAGE LOGIC ──
+        function switchToOrderView(tableNumber) {
+            currentActiveTableNum = String(tableNumber);
+            selectedPosSplitItems = {};
+            isPosDrawerOpen = true;
+            
+            // Toggle Views
+            document.getElementById('sitzplan-view').classList.add('hidden');
+            document.getElementById('pos-order-view').classList.remove('hidden');
+            
+            // Set Table Title
+            document.getElementById('pos-table-title').textContent = `Tisch ${tableNumber}`;
+            
+            // Build Category Pills
+            const catPills = document.getElementById('pos-category-pills');
+            if (catPills && allCategories.length > 0) {
+                posSelectedCategory = allCategories[0];
+                catPills.innerHTML = allCategories.map(cat => `
+                    <button id="pos-btn-${cat.replace(/\s+/g, '')}" onclick="selectPosCategory('${cat}')" 
+                            class="flex-shrink-0 min-w-[120px] h-[50px] rounded-xl text-xs md:text-sm font-black transition-all duration-300 font-display flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white uppercase tracking-wider">
+                        <span>${cat}</span>
+                    </button>
+                `).join('');
+                selectPosCategory(posSelectedCategory);
+            }
+            
+            refreshPosDrawer();
+        }
+
+        function switchToSitzplanView() {
+            currentActiveTableNum = null;
+            selectedPosSplitItems = {};
+            
+            document.getElementById('pos-order-view').classList.add('hidden');
+            document.getElementById('sitzplan-view').classList.remove('hidden');
+            
+            // Reset drawer height
+            const drawer = document.getElementById('pos-bottom-drawer');
+            if (drawer) drawer.style.height = '4rem';
+            
+            renderSitzplanTiles();
+        }
+
+        function selectPosCategory(cat) {
+            posSelectedCategory = cat;
+            
+            allCategories.forEach(c => {
+                const btn = document.getElementById(`pos-btn-${c.replace(/\s+/g, '')}`);
+                if (btn) {
+                    if (c === cat) {
+                        btn.className = "flex-shrink-0 min-w-[120px] h-[50px] rounded-xl text-xs md:text-sm font-black transition-all duration-300 font-display flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider";
+                    } else {
+                        btn.className = "flex-shrink-0 min-w-[120px] h-[50px] rounded-xl text-xs md:text-sm font-black transition-all duration-300 font-display flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white uppercase tracking-wider";
+                    }
+                }
+            });
+            
+            renderPosProducts();
+        }
+
+        function renderPosProducts() {
+            const grid = document.getElementById('pos-products-grid');
+            if (!grid) return;
+            
+            const filtered = allProducts.filter(p => p.category === posSelectedCategory && p.is_available !== false);
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-8 text-xs text-on-surface-variant font-semibold">Keine Produkte in dieser Kategorie verfügbar.</div>';
+                return;
+            }
+            
+            grid.innerHTML = filtered.map(p => `
+                <article class="product-card bg-surface-container-high hover-lift rounded-2xl p-2.5 flex flex-col justify-between border border-outline-variant/60 overflow-hidden">
+                    <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-background flex items-center justify-center border border-outline-variant/60 select-none">
+                        ${p.image ? `<img src="${p.image}" class="w-full h-full object-cover">` : `<span class="material-symbols-outlined text-2xl text-on-surface-variant/20">restaurant</span>`}
+                    </div>
+                    <div class="flex flex-col justify-between flex-grow">
+                        <div class="space-y-0.5">
+                            <h3 class="font-extrabold text-xs text-white font-display truncate">${p.name}</h3>
+                            <p class="text-[10px] text-on-surface-variant line-clamp-2 leading-tight h-6">${p.description || ''}</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="text-xs sm:text-sm font-black text-primary font-mono">${p.price.toFixed(2)} €</span>
+                            <button onclick="addToPosOrder(${p.id}, '${p.name.replace(/'/g, "\\'")}', this)" class="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg">
+                                <span class="material-symbols-outlined font-black text-base">add</span>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        async function addToPosOrder(productId, name, btnElement) {
+            if (!currentActiveTableNum) return;
+            
+            if (btnElement) {
+                const icon = btnElement.querySelector('span.material-symbols-outlined');
+                if (icon && icon.textContent === "add") {
+                    btnElement.classList.remove("bg-primary", "text-black");
+                    btnElement.classList.add("bg-green-500", "text-white");
+                    icon.textContent = "check";
+                    setTimeout(() => {
+                        icon.textContent = "add";
+                        btnElement.classList.remove("bg-green-500", "text-white");
+                        btnElement.classList.add("bg-primary", "text-black");
+                    }, 800);
+                }
+            }
+            
+            try {
+                const res = await fetch('/api/admin/orders/add-manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        table_number: currentActiveTableNum,
+                        product_id: productId,
+                        quantity: 1
+                    })
+                });
+                
+                if (res.ok) {
+                    showToast(`${name} hinzugefügt`, 'success');
+                    await checkLiveTischeUpdates();
+                    refreshPosDrawer();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    showToast(err.detail || 'Fehler beim Hinzufügen', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        function togglePosDrawer() {
+            isPosDrawerOpen = !isPosDrawerOpen;
+            const drawer = document.getElementById('pos-bottom-drawer');
+            const icon = document.getElementById('pos-drawer-toggle-icon');
+            const content = document.getElementById('pos-drawer-content');
+            const footer = document.getElementById('pos-drawer-footer');
+            
+            if (isPosDrawerOpen) {
+                drawer.style.height = '75vh';
+                icon.style.transform = 'rotate(180deg)';
+                content.classList.remove('hidden');
+                footer.classList.remove('hidden');
+            } else {
+                drawer.style.height = '4rem';
+                icon.style.transform = 'rotate(0deg)';
+                content.classList.add('hidden');
+                footer.classList.add('hidden');
+            }
+        }
+
+        function refreshPosDrawer() {
+            if (!currentActiveTableNum) return;
+            
+            const targetTable = "Tisch " + currentActiveTableNum;
+            const tableOrders = allOrders.filter(o => o.table === targetTable || o.table === currentActiveTableNum);
+            
+            let total = 0.0;
+            let pendingItems = [];
+            let deliveredItems = [];
+            
+            tableOrders.forEach(order => {
+                total += order.total;
+                if (order.items) {
+                    order.items.forEach(item => {
+                        const status = item.item_status || 'pending';
+                        const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                        const key = `${item.product_id}_${noteSlug}_${status}`;
+                        
+                        const itemData = {
+                            order_id: order.id,
+                            product_id: item.product_id,
+                            name: item.name,
+                            price: item.price,
+                            quantity: item.quantity,
+                            note: item.note || '',
+                            status: status,
+                            key: key
+                        };
+                        
+                        if (status === 'pending') {
+                            pendingItems.push(itemData);
+                        } else {
+                            deliveredItems.push(itemData);
+                        }
+                    });
+                }
+            });
+            
+            if (total <= 0.0) {
+                switchToSitzplanView();
+                return;
+            }
+            
+            document.getElementById('pos-drawer-total').textContent = `${total.toFixed(2).replace('.', ',')} €`;
+            
+            const statusEl = document.getElementById('pos-table-status');
+            if (statusEl) {
+                statusEl.textContent = pendingItems.length > 0 ? 'Aktiv (Zubereitung)' : 'Serviert';
+                statusEl.className = pendingItems.length > 0 ? 'text-xs text-amber-400 font-bold animate-pulse font-display' : 'text-xs text-emerald-400 font-bold font-display';
+            }
+            
+            const pendingList = document.getElementById('pos-pending-list');
+            if (pendingList) {
+                if (pendingItems.length === 0) {
+                    pendingList.innerHTML = '<p class="text-xs text-emerald-500/60 font-semibold italic text-center py-2">Keine ausstehenden Bestellungen.</p>';
+                } else {
+                    pendingList.innerHTML = pendingItems.map(item => `
+                        <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <button onclick="servePosSingleItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                                    <span class="material-symbols-outlined text-base">check</span>
+                                </button>
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-extrabold text-white block truncate text-[13px]">${item.quantity}x ${item.name}</span>
+                                    ${item.note ? `<span class="text-[10px] text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-extrabold text-zinc-300 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
+                                <button onclick="cancelPosItem('${item.key}', ${item.order_id}, ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0">
+                                    <span class="material-symbols-outlined text-base">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+            
+            const deliveredList = document.getElementById('pos-delivered-list');
+            if (deliveredList) {
+                if (deliveredItems.length === 0) {
+                    deliveredList.innerHTML = '<p class="text-xs text-zinc-500/60 font-semibold italic text-center py-2">Noch keine Artikel serviert.</p>';
+                } else {
+                    deliveredList.innerHTML = deliveredItems.map(item => {
+                        const isChecked = !!selectedPosSplitItems[item.key];
+                        const selectedQty = selectedPosSplitItems[item.key] ? selectedPosSplitItems[item.key].selectedQty : item.quantity;
+                        return `
+                            <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                                <div class="flex items-center gap-3 flex-1 min-w-0">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} 
+                                           onclick="togglePosSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
+                                           class="w-4.5 h-4.5 rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-0 cursor-pointer">
+                                    
+                                    <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
+                                    
+                                    <div class="flex-1 min-w-0">
+                                        <span class="font-extrabold text-white block truncate text-[13px]">${item.quantity}x ${item.name}</span>
+                                        ${item.note ? `<span class="text-[10px] text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                        
+                                        <!-- Split Qty controls -->
+                                        ${isChecked && item.quantity > 1 ? `
+                                            <div class="flex items-center gap-2 mt-1.5 bg-zinc-800/80 w-fit px-2 py-0.5 rounded-lg border border-zinc-700">
+                                                <button onclick="adjustPosSplitQty('${item.key}', -1, ${item.quantity})" class="text-zinc-400 hover:text-white font-black text-sm px-1">-</button>
+                                                <span class="text-[11px] font-black text-white font-mono">${selectedQty}</span>
+                                                <button onclick="adjustPosSplitQty('${item.key}', 1, ${item.quantity})" class="text-zinc-400 hover:text-white font-black text-sm px-1">+</button>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="font-extrabold text-zinc-300 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+            
+            updatePosSplitSummary();
+            
+            if (isPosDrawerOpen) {
+                document.getElementById('pos-bottom-drawer').style.height = '75vh';
+                document.getElementById('pos-drawer-content').classList.remove('hidden');
+                document.getElementById('pos-drawer-footer').classList.remove('hidden');
+            }
+        }
+
+        function togglePosSplitCheckbox(key, item) {
+            if (selectedPosSplitItems[key]) {
+                delete selectedPosSplitItems[key];
+            } else {
+                selectedPosSplitItems[key] = {
+                    order_id: item.order_id,
+                    product_id: item.product_id,
+                    price: item.price,
+                    name: item.name,
+                    note: item.note,
+                    quantity: item.quantity,
+                    selectedQty: item.quantity
+                };
+            }
+            refreshPosDrawer();
+        }
+
+        function adjustPosSplitQty(key, delta, maxQty) {
+            if (selectedPosSplitItems[key]) {
+                let current = selectedPosSplitItems[key].selectedQty;
+                let next = current + delta;
+                if (next >= 1 && next <= maxQty) {
+                    selectedPosSplitItems[key].selectedQty = next;
+                    refreshPosDrawer();
+                }
+            }
+        }
+
+        function updatePosSplitSummary() {
+            let splitTotal = 0.0;
+            let count = 0;
+            
+            Object.keys(selectedPosSplitItems).forEach(key => {
+                const item = selectedPosSplitItems[key];
+                splitTotal += item.price * item.selectedQty;
+                count++;
+            });
+            
+            const summary = document.getElementById('pos-split-payment-summary');
+            const totalText = document.getElementById('pos-split-total-text');
+            const btnTeil = document.getElementById('btn-pos-teilrechnung');
+            
+            if (count > 0) {
+                summary.classList.remove('hidden');
+                totalText.textContent = `${splitTotal.toFixed(2).replace('.', ',')} €`;
+                btnTeil.disabled = false;
+                btnTeil.className = "h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border border-zinc-700 bg-zinc-850 hover:bg-zinc-800 text-white cursor-pointer shadow-lg shadow-zinc-950/20";
+            } else {
+                summary.classList.add('hidden');
+                btnTeil.disabled = true;
+                btnTeil.className = "h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border border-zinc-800 bg-zinc-900/50 text-zinc-600 cursor-not-allowed";
+            }
+        }
+
+        async function servePosSingleItem(itemKey, orderId) {
+            try {
+                const res = await fetch('/admin/orders/serve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId, item_key: itemKey })
+                });
+                if (res.ok) {
+                    showToast("Artikel als serviert markiert", "success");
+                    await checkLiveTischeUpdates();
+                    refreshPosDrawer();
+                } else {
+                    showToast("Fehler beim Servieren", "error");
+                }
+            } catch (e) {
+                showToast("Verbindungsfehler", "error");
+            }
+        }
+
+        async function serveAllPosPending() {
+            if (!currentActiveTableNum) return;
+            const targetTable = "Tisch " + currentActiveTableNum;
+            const tableOrders = allOrders.filter(o => o.table === targetTable || o.table === currentActiveTableNum);
+            
+            const orderIds = [];
+            tableOrders.forEach(o => {
+                if (o.items && o.items.some(i => (i.item_status || 'pending') === 'pending')) {
+                    orderIds.push(o.id);
+                }
+            });
+            
+            if (orderIds.length === 0) return;
+            
+            try {
+                const promises = orderIds.map(orderId => 
+                    fetch('/admin/orders/serve', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_id: orderId })
+                    })
+                );
+                const results = await Promise.all(promises);
+                if (results.every(r => r.ok)) {
+                    showToast("Alle Artikel als serviert markiert", "success");
+                    await checkLiveTischeUpdates();
+                    refreshPosDrawer();
+                } else {
+                    showToast("Fehler beim Servieren", "error");
+                }
+            } catch (e) {
+                showToast("Verbindungsfehler", "error");
+            }
+        }
+
+        async function cancelPosItem(itemKey, orderId, maxQty, itemName) {
+            let qty = maxQty;
+            if (maxQty > 1) {
+                const qtyStr = prompt(`Wie viele ${itemName} stornieren? (Max: ${maxQty})`, maxQty);
+                if (qtyStr === null) return;
+                qty = parseInt(qtyStr, 10);
+                if (isNaN(qty) || qty < 1 || qty > maxQty) {
+                    showToast('Ungültige Menge', 'error');
+                    return;
+                }
+            }
+            let pin = prompt('Bitte Chef-PIN eingeben:');
+            if (pin === null) return;
+            if (!pin.trim()) {
+                showToast('PIN erforderlich', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_key: itemKey, quantity: qty, pin: pin })
+                });
+                if (res.ok) {
+                    showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
+                    await checkLiveTischeUpdates();
+                    refreshPosDrawer();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    showToast(err.detail || 'Fehler beim Stornieren', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        async function submitPosPayment(isSplit) {
+            if (isSplit) {
+                const groups = {};
+                Object.keys(selectedPosSplitItems).forEach(key => {
+                    const item = selectedPosSplitItems[key];
+                    if (!groups[item.order_id]) groups[item.order_id] = [];
+                    groups[item.order_id].push(item);
+                });
+                
+                try {
+                    const promises = Object.keys(groups).map(orderId => {
+                        const payload = {
+                            items: groups[orderId].map(i => ({
+                                product_id: i.product_id,
+                                quantity: i.selectedQty,
+                                note: i.note || null
+                            }))
+                        };
+                        return fetch(`/${slug}/tablet/teilzahlung/${orderId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                    });
+                    
+                    const results = await Promise.all(promises);
+                    if (results.every(r => r.ok)) {
+                        showToast("Teilzahlung gebucht!", "success");
+                        selectedPosSplitItems = {};
+                        await checkLiveTischeUpdates();
+                        refreshPosDrawer();
+                    } else {
+                        showToast("Fehler bei Teilzahlung", "error");
+                    }
+                } catch (e) {
+                    showToast("Verbindungsfehler", "error");
+                }
+            } else {
+                const targetTable = "Tisch " + currentActiveTableNum;
+                const tableOrders = allOrders.filter(o => o.table === targetTable || o.table === currentActiveTableNum);
+                
+                if (tableOrders.length === 0) return;
+                
+                try {
+                    const promises = tableOrders.map(o => {
+                        const fd = new FormData();
+                        fd.append('tip', '0.0');
+                        return fetch(`/${slug}/tablet/bezahlen/${o.id}`, {
+                            method: 'POST',
+                            body: fd
+                        });
+                    });
+                    
+                    const results = await Promise.all(promises);
+                    if (results.every(r => r.ok)) {
+                        showToast("Tisch vollständig bezahlt!", "success");
+                        selectedPosSplitItems = {};
+                        await checkLiveTischeUpdates();
+                        refreshPosDrawer();
+                    } else {
+                        showToast("Fehler beim Bezahlen", "error");
+                    }
+                } catch (e) {
+                    showToast("Verbindungsfehler", "error");
+                }
+            }
+        }
 
         function getProductCategory(item) {
             if (item.category) return item.category;
@@ -1207,6 +1811,31 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    if (data.type === "update" && data.table_number) {
+                        const card = document.getElementById(`table-card-${data.table_number}`);
+                        if (card) {
+                            card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
+                            
+                            const eyeHtml = `<a href="/?uid=${slug}&tisch=${data.table_number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                            
+                            const now = new Date();
+                            const yyyy = now.getFullYear();
+                            const mm = String(now.getMonth() + 1).padStart(2, '0');
+                            const dd = String(now.getDate()).padStart(2, '0');
+                            const hh = String(now.getHours()).padStart(2, '0');
+                            const min = String(now.getMinutes()).padStart(2, '0');
+                            const ss = String(now.getSeconds()).padStart(2, '0');
+                            const nowLocal = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+                            
+                            card.innerHTML = `
+                                ${eyeHtml}
+                                <span class="text-2xl sm:text-3xl"><i class="fa-solid fa-arrows-rotate animate-spin"></i></span>
+                                <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
+                                <span class="text-sm sm:text-base font-black mt-1">${data.table_number}</span>
+                                <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${nowLocal}">0m 0s</span>
+                            `;
+                        }
+                    }
                     if (data.type === "update" || data.type === "refresh_tables" || data.type === "service_call") {
                         checkLiveTischeUpdates();
                     }
@@ -1377,7 +2006,7 @@
                     const order = orders.find(o => (o.table === ts || o.table === String(table.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
                     const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
                     
-                    const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+                    const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
                     
                     if (hasPending) {
                         card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
@@ -1402,6 +2031,9 @@
             const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
             if (activeTab === 'live') {
                 renderServiceCallsAlerts();
+            }
+            if (currentActiveTableNum) {
+                refreshPosDrawer();
             }
         }
 
@@ -1488,7 +2120,7 @@
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
             
             // Eye icon is ALWAYS present in the top-right corner and links to guest menu
-            const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+            const eyeHtml = `<a href="/?uid=${slug}&tisch=${table.number}&role=admin" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-[#4cbb17] hover:text-[#3da012] text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
             
             let cls = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 ';
             let inner = '';
@@ -1513,9 +2145,9 @@
             }
 
             return `
-                <a id="table-card-${table.number}" href="/?uid=${slug}&tisch=${table.number}&role=admin" class="${cls}" style="text-decoration:none; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div id="table-card-${table.number}" onclick="switchToOrderView('${table.number}')" class="${cls}" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
                     ${inner}
-                </a>
+                </div>
             `;
         }
 

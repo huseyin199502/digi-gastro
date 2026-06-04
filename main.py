@@ -1615,7 +1615,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
-        await manager.broadcast(slug, {"type": "update"})
+        await manager.broadcast(slug, {"type": "update", "table_number": table_num})
         return {"success": True, "order_id": active_order["id"]}
 
     # Let the database assign a unique autoincrement ID to avoid collisions
@@ -1636,7 +1636,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     restaurant["orders"].append(new_order)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast(slug, {"type": "update", "table_number": table_num})
     return {"success": True, "order_id": new_order.get("id")}
 
 @app.post("/{slug}/service-ruf")
@@ -2920,7 +2920,9 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             "period": period,
             "current_user": user,
             "orders_json": json.dumps(restaurant.get("orders", [])),
-            "tables_json": json.dumps(restaurant.get("tables", []))
+            "tables_json": json.dumps(restaurant.get("tables", [])),
+            "products_json": json.dumps(restaurant.get("products", [])),
+            "categories_json": json.dumps(restaurant.get("categories", []))
         }
     )
 
