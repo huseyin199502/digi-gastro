@@ -1283,6 +1283,39 @@ def test_integration():
     assert "token=sec-t3-test" in resp.headers["location"]
     print("Root UID & Tisch redirection: OK")
 
+    # ── Test gobd-export ──
+    print("Testing GOBD Export...")
+    resp = client.get("/admin/gobd-export", cookies=dl_cookies)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+    assert "content-disposition" in resp.headers
+    assert "attachment" in resp.headers["content-disposition"]
+    assert "gobd-export" in resp.headers["content-disposition"]
+    gobd_data = resp.json()
+    assert gobd_data["restaurant"] == "Demo Lounge"
+    assert gobd_data["slug"] == "demo"
+    assert isinstance(gobd_data["orders"], list)
+    print("GOBD Export: OK")
+
+    # ── Test sitzplan positions save ──
+    print("Testing save sitzplan positions...")
+    positions_payload = {
+        "3": {"pos_x": 10.0, "pos_y": 20.0, "width": 120.0, "height": 80.0, "shape": "rect"},
+        "4": {"pos_x": 30.0, "pos_y": 40.0, "width": 100.0, "height": 100.0, "shape": "round"}
+    }
+    resp = client.post("/admin/sitzplan/positions", json=positions_payload, cookies=dl_cookies)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+    assert resp.json()["success"] is True
+    
+    r_data = restaurants["demo"]
+    t3 = next(t for t in r_data["tables"] if t["number"] == "3")
+    t4 = next(t for t in r_data["tables"] if t["number"] == "4")
+    assert t3["pos_x"] == 10.0
+    assert t3["pos_y"] == 20.0
+    assert t4["pos_x"] == 30.0
+    assert t4["pos_y"] == 40.0
+    assert t4["shape"] == "round"
+    print("Save sitzplan positions: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":

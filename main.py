@@ -3275,6 +3275,95 @@ def get_logout():
     resp.delete_cookie(key="session")
     return resp
 
+def sort_tables_in_grid(tables):
+    import re
+    def natural_sort_key(t_obj):
+        val = str(t_obj.get("number", ""))
+        return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', val)]
+    
+    sorted_tables = sorted(tables, key=natural_sort_key)
+    count = len(sorted_tables)
+    if count == 0:
+        return sorted_tables
+        
+    if count <= 4:
+        cols = 2
+    elif count <= 9:
+        cols = 3
+    elif count <= 16:
+        cols = 4
+    elif count <= 25:
+        cols = 5
+    else:
+        cols = 6
+        
+    for i, t in enumerate(sorted_tables):
+        col = i % cols
+        row = i // cols
+        
+        pos_x = col * (90 / (cols - 1)) if cols > 1 else 0
+        max_rows = (count + cols - 1) // cols
+        pos_y = row * (84 / (max_rows - 1)) if max_rows > 1 else 0
+        
+        t["pos_x"] = round(pos_x)
+        t["pos_y"] = round(pos_y)
+        
+    return sorted_tables
+
+@app.post("/admin/table-erstellen")
+def create_table(
+    request: Request,
+    number: str = Form(...),
+    zone: str = Form(...),
+    shape: str = Form("rect"),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+        
+    table_num = number.strip()
+    
+    if "tables" not in restaurant or restaurant["tables"] is None:
+        restaurant["tables"] = []
+        
+    if not any(t["number"] == table_num for t in restaurant["tables"]):
+        import secrets as _secrets
+        table_entry = {
+            "number": table_num,
+            "zone": zone,
+            "security_token": _secrets.token_hex(4),
+            "active_session_token": None,
+            "pos_x": 0.0,
+            "pos_y": 0.0,
+            "width": 120.0,
+            "height": 80.0,
+            "shape": shape,
+            "active": True,
+            "qr_token": _secrets.token_urlsafe(12)
+        }
+        restaurant["tables"].append(table_entry)
+        
+    restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+@app.post("/admin/table-loeschen/{table_num}")
+def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+        
+    if "tables" in restaurant:
+        restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
+        restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
+        
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
 # Legacy redirects for backward compatibility
 @app.get("/{slug}/admin")
 def legacy_admin_root(slug: str):
@@ -3341,37 +3430,7 @@ def profile_update(
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.post("/admin/table-erstellen")
-def create_table(request: Request, number: str = Form(...), zone: str = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
-    user, slug, restaurant = chef_data
-    if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin/setup", status_code=303)
-        
-    table_num = number.strip()
-    
-    if "tables" not in restaurant or restaurant["tables"] is None:
-        restaurant["tables"] = []
-        
-    if not any(t["number"] == table_num for t in restaurant["tables"]):
-        import secrets as _secrets
-        table_entry = {
-            "number": table_num,
-            "zone": zone,
-            "security_token": _secrets.token_hex(4),
-            "active_session_token": None,
-            "pos_x": 10.0 + (len(restaurant["tables"]) * 8) % 75,
-            "pos_y": 10.0 + (len(restaurant["tables"]) * 12) % 75,
-            "width": 120.0,
-            "height": 80.0,
-            "shape": "rect",
-            "active": True,
-            "qr_token": _secrets.token_urlsafe(12)
-        }
-        restaurant["tables"].append(table_entry)
-        
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
 
 @app.post("/admin/sitzplan/positions")
 def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
@@ -3390,17 +3449,7 @@ def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = 
     db.commit()
     return {"success": True}
 
-@app.post("/admin/table-loeschen/{table_num}")
-def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
-    user, slug, restaurant = chef_data
-    if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin/setup", status_code=303)
-        
-    if "tables" in restaurant:
-        restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
 
 @app.post("/admin/kategorie-erstellen")
 def create_category(
@@ -4135,7 +4184,7 @@ def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_use
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-@app.get("/admin/gobd-export", response_class=HTMLResponse)
+@app.get("/admin/gobd-export")
 def gobd_export(request: Request, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -4153,13 +4202,19 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
         
     paid_orders = [o for o in restaurant.get("orders", []) if o.get("status") == "bezahlt"]
     
+    filename = f"gobd-export-{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}"
+    }
+    
     return JSONResponse(
         content={
             "restaurant": restaurant.get("name", slug),
             "slug": slug,
             "orders": paid_orders,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
+        },
+        headers=headers
     )
 
 # ==========================================

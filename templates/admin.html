@@ -445,6 +445,10 @@
                         <div id="edit-instructions" class="hidden text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl">
                             💡 Doppelklick auf Tisch zum Ändern der Form. Drag zum Bewegen. Eckgriff zum Skalieren.
                         </div>
+                        <button id="btn-sort-tables" onclick="autoSortTablesGridAndSave()" class="px-4 py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition flex items-center gap-1.5 shadow">
+                            <span class="material-symbols-outlined text-sm">sort</span>
+                            <span>Tische sortieren</span>
+                        </button>
                         <button id="btn-edit-mode" onclick="toggleEditMode()" class="px-4 py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition flex items-center gap-1.5 shadow">
                             <span class="material-symbols-outlined text-sm">edit</span>
                             <span id="btn-edit-mode-text">Sitzplan bearbeiten</span>
@@ -519,6 +523,9 @@
                         <span class="material-symbols-outlined text-zinc-500">receipt_long</span>
                         <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
                     </div>
+                    <a href="/admin/gobd-export" download class="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-sm">download</span> GOBD / GDPdU Export
+                    </a>
                 </div>
 
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -816,17 +823,14 @@
                         </form>
                     </div>
 
-                    <!-- QR-Codes & Export card -->
+                    <!-- QR-Codes card -->
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
                         <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">qr_code</span> QR-Codes & GDPdU Export
+                            <span class="material-symbols-outlined text-zinc-500">qr_code</span> QR-Codes
                         </h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
                             <a href="/admin/qr-print" target="_blank" class="w-full text-center py-3 bg-zinc-800 text-white hover:bg-zinc-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
                                 <span class="material-symbols-outlined text-sm">print</span> QR-Codes drucken
-                            </a>
-                            <a href="/admin/gobd-export" target="_blank" class="w-full text-center py-3 border border-gray-200 hover:bg-gray-50 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
-                                <span class="material-symbols-outlined text-sm">download</span> GOBD / GDPdU Export
                             </a>
                         </div>
                     </div>
@@ -2082,6 +2086,82 @@
             } catch (e) {
                 console.error(e);
                 showToast('Verbindungsfehler beim Speichern', 'error');
+            }
+        }
+
+        async function autoSortTablesGridAndSave() {
+            if (!confirm("Möchten Sie alle Tische automatisch sortieren und als Grid-Layout speichern?")) {
+                return;
+            }
+            try {
+                const sorted = JSON.parse(JSON.stringify(allTables));
+                sorted.sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'}));
+
+                const count = sorted.length;
+                if (count > 0) {
+                    let cols = 6;
+                    if (count <= 4) cols = 2;
+                    else if (count <= 9) cols = 3;
+                    else if (count <= 16) cols = 4;
+                    else if (count <= 25) cols = 5;
+
+                    for (let i = 0; i < count; i++) {
+                        const col = i % cols;
+                        const row = Math.floor(i / cols);
+                        
+                        const pos_x = cols > 1 ? col * (90 / (cols - 1)) : 0;
+                        const max_rows = Math.ceil(count / cols);
+                        const pos_y = max_rows > 1 ? row * (84 / (max_rows - 1)) : 0;
+                        
+                        sorted[i].pos_x = Math.round(pos_x);
+                        sorted[i].pos_y = Math.round(pos_y);
+                    }
+                }
+
+                const payload = {};
+                sorted.forEach(t => {
+                    payload[String(t.number)] = {
+                        pos_x: t.pos_x,
+                        pos_y: t.pos_y,
+                        width: t.width || 120.0,
+                        height: t.height || 80.0,
+                        shape: t.shape || "rect"
+                    };
+                });
+
+                const response = await fetch('/admin/sitzplan/positions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Tische erfolgreich sortiert und gespeichert!', 'success');
+                    allTables = sorted;
+                    tempTables = JSON.parse(JSON.stringify(allTables));
+                    isEditMode = false;
+                    
+                    const btn = document.getElementById('btn-edit-mode');
+                    const text = document.getElementById('btn-edit-mode-text');
+                    const saveBtn = document.getElementById('btn-save-layout');
+                    const instructions = document.getElementById('edit-instructions');
+                    if (btn) {
+                        btn.className = "px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg";
+                    }
+                    if (text) text.textContent = "Sitzplan bearbeiten";
+                    if (saveBtn) saveBtn.classList.add('hidden');
+                    if (instructions) instructions.classList.add('hidden');
+
+                    renderSitzplanTiles();
+                } else {
+                    showToast('Fehler beim Sortieren des Layouts', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Verbindungsfehler beim Speichern des sortierten Layouts', 'error');
             }
         }
 
