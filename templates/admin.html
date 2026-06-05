@@ -190,24 +190,6 @@
             overflow: hidden;
         }
 
-        @media (max-width: 1023px) {
-            /* Switch seating canvas to a clean grid layout on mobile & tablet screens in view mode */
-            .seating-canvas:not(.edit-mode) {
-                display: grid !important;
-                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important;
-                gap: 12px !important;
-                height: auto !important;
-                min-height: 200px !important;
-                padding: 12px !important;
-                overflow-y: auto !important;
-            }
-            .seating-canvas:not(.edit-mode) .sitzplan-table {
-                position: static !important;
-                width: 100% !important;
-                height: 90px !important;
-                margin: 0 !important;
-            }
-        }
 
         .seating-canvas.view-mode-grouped {
             position: relative;
@@ -785,7 +767,7 @@
                                         </label>
                                     </form>
                                     
-                                    <button onclick='openEditProductModal({{ p | tojson | safe }})' class="p-2 border border-gray-200 hover:bg-gray-100 text-zinc-700 rounded-lg transition" title="Bearbeiten">
+                                    <button onclick="openEditProductModal({{ p.id }})" class="p-2 border border-gray-200 hover:bg-gray-100 text-zinc-700 rounded-lg transition" title="Bearbeiten">
                                         <span class="material-symbols-outlined text-sm">edit</span>
                                     </button>
                                     
@@ -3645,7 +3627,21 @@
         function closeQRGenerator()     { /* legacy */ }
 
         function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
-            if (typeof id === 'object' && id !== null) {
+            if (id !== undefined && id !== null && name === undefined) {
+                const p = allProducts.find(prod => String(prod.id) === String(id));
+                if (p) {
+                    id = p.id;
+                    name = p.name;
+                    price = p.price;
+                    description = p.description || '';
+                    category = p.category;
+                    nameEn = p.name_en || '';
+                    descriptionEn = p.description_en || '';
+                    imageUrl = p.image || '';
+                    isVegan = p.is_vegan || p.vegan || false;
+                    isGlutenfree = p.is_glutenfree || false;
+                }
+            } else if (typeof id === 'object' && id !== null) {
                 const p = id;
                 id = p.id;
                 name = p.name;
