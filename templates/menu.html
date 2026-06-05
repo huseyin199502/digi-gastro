@@ -941,6 +941,51 @@
                                 } else {
                                     this.fetchGuestTableStatus();
                                 }
+
+                                // Fetch latest product details (prices, availability, happy hour) in real-time
+                                fetch(window.location.href)
+                                    .then(res => {
+                                        if (!res.ok) throw new Error("Failed to fetch menu");
+                                        return res.text();
+                                    })
+                                    .then(html => {
+                                        const parser = new DOMParser();
+                                        const doc = parser.parseFromString(html, 'text/html');
+                                        
+                                        // Update category pills
+                                        const newPills = doc.getElementById('category-pills');
+                                        const currentPills = document.getElementById('category-pills');
+                                        if (newPills && currentPills) {
+                                            currentPills.innerHTML = newPills.innerHTML;
+                                        }
+                                        
+                                        // Update product grid container
+                                        const newGrid = doc.getElementById('product-grid-container');
+                                        const currentGrid = document.getElementById('product-grid-container');
+                                        if (newGrid && currentGrid) {
+                                            currentGrid.innerHTML = newGrid.innerHTML;
+                                        }
+                                        
+                                        // Re-apply current category filter
+                                        if (this.currentCategory) {
+                                            this.filterCategory(this.currentCategory);
+                                        } else {
+                                            const firstBtn = document.querySelector('#category-pills button');
+                                            if (firstBtn) {
+                                                const catName = firstBtn.id.replace('btn-', '');
+                                                this.filterCategory(catName);
+                                            }
+                                        }
+                                        
+                                        // Re-initialize category pills scroll events and chevron logic
+                                        const catPills = document.getElementById('category-pills');
+                                        if (catPills && typeof updateCategoryChevrons === 'function') {
+                                            catPills.addEventListener('scroll', updateCategoryChevrons);
+                                            setTimeout(updateCategoryChevrons, 500);
+                                        }
+                                    })
+                                    .catch(err => console.error("Error loading live menu updates:", err));
+
                                 // Check if guest session is still active
                                 fetch("/api/{{ slug }}/check-session")
                                     .then(res => res.json())
