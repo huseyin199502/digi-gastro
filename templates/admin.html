@@ -209,6 +209,27 @@
             }
         }
 
+        .seating-canvas.view-mode-grouped {
+            position: relative;
+            width: 100%;
+            height: auto !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        .seating-canvas.view-mode-grouped .sitzplan-table {
+            position: static !important;
+            width: 100% !important;
+            height: 90px !important;
+            margin: 0 !important;
+        }
+
+
         /* Table Tiles */
         .sitzplan-table {
             position: absolute;
@@ -412,6 +433,28 @@
 
         .toast-success { background-color: #10b981; }
         .toast-error { background-color: #ef4444; }
+
+        @media (max-width: 640px) {
+            .overlay-backdrop {
+                align-items: flex-end;
+                padding: 0;
+            }
+            .popup-card {
+                max-width: 100% !important;
+                border-bottom-left-radius: 0 !important;
+                border-bottom-right-radius: 0 !important;
+                border-top-left-radius: 1.5rem !important;
+                border-top-right-radius: 1.5rem !important;
+                margin: 0;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+            }
+            .popup-body {
+                max-height: 70vh !important;
+                overflow-y: auto !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -493,14 +536,9 @@
                 
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="sitzplanFilterZone='gesamt'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-gastro focus:bg-emerald-50">Gesamt</button>
-                        {% set unique_zones = [] %}
-                        {% for t in restaurant.tables %}
-                            {% if t.zone not in unique_zones %}
-                                {% set _ = unique_zones.append(t.zone) %}
-                                <button onclick="sitzplanFilterZone='{{ t.zone.lower() }}'; renderSitzplanTiles();" class="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-50 focus:border-gastro focus:bg-emerald-50">{{ t.zone }}</button>
-                            {% endif %}
-                        {% endfor %}
+                        <button id="tab-zone-gesamt" onclick="setSeatingTab('gesamt')" class="px-4 py-2 rounded-xl text-xs font-black bg-gastro text-white border border-gastro transition shadow-sm">Gesamt</button>
+                        <button id="tab-zone-drinnen" onclick="setSeatingTab('drinnen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Drinnen</button>
+                        <button id="tab-zone-draussen" onclick="setSeatingTab('draußen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Draußen</button>
                     </div>
                     
                     <div class="flex items-center gap-3">
@@ -537,6 +575,8 @@
                         <div>
                             <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
                             <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <option value="Drinnen">Drinnen</option>
+                                <option value="Draußen">Draußen</option>
                                 <option value="Innen">Innen</option>
                                 <option value="Terrasse">Terrasse</option>
                                 <option value="Bar">Bar</option>
@@ -840,8 +880,18 @@
                                 <input type="file" name="logo_file" accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse</label>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse (Straße & Hausnummer)</label>
                                 <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">PLZ</label>
+                                    <input type="text" name="plz" value="{{ restaurant.branding.plz if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Ort</label>
+                                    <input type="text" name="ort" value="{{ restaurant.branding.ort if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
                             </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
@@ -904,6 +954,50 @@
                                 </div>
                             </div>
                             <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
+                        </form>
+                    </div>
+
+                    <!-- Landingpage Setup -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 col-span-1 sm:col-span-2">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">campaign</span> Landingpage bearbeiten
+                        </h3>
+                        <form action="/admin/landingpage" method="POST" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
+                                    <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
+                                    <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Über uns / Unsere Angebote (Beschreibung)</label>
+                                    <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
+                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Aktuelles / Ankündigungen</label>
+                                    <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Öffnungszeiten</label>
+                                    <textarea name="oeffnungszeiten" rows="3" placeholder="z.B. Mo - So: 17:00 - 01:00 Uhr" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">{{ restaurant.landing_page.oeffnungszeiten if restaurant.landing_page else '' }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Happy Hour Aktionen</label>
+                                    <textarea name="angebote" rows="3" placeholder="z.B. Täglich 18:00 - 20:00 Uhr alle Cocktails vergünstigt!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote if restaurant.landing_page else '' }}</textarea>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Landingpage speichern</button>
                         </form>
                     </div>
 
@@ -2189,17 +2283,31 @@
 
         // ── SITZPLAN RENDERING ──
 
-        function filterSitzplanZone(zone) {
+        function isDrinnenZone(zone) {
+            const z = (zone || '').toLowerCase().trim();
+            return z === 'drinnen' || z === 'innen' || z === 'bar';
+        }
+
+        function isDraussenZone(zone) {
+            const z = (zone || '').toLowerCase().trim();
+            return z === 'draußen' || z === 'draussen' || z === 'terrasse';
+        }
+
+        function setSeatingTab(zone) {
             sitzplanFilterZone = zone;
-            ['gesamt', 'innen', 'terrasse'].forEach(z => {
-                const btn = document.getElementById(`sitzplan-filter-${z}`);
-                const dot = document.getElementById(`dot-${z}`);
-                if (z === zone) {
-                    btn.className = "pb-2 border-b-2 border-primary text-primary transition-all flex items-center gap-1.5 font-extrabold";
-                    if (dot) { dot.className = "w-1.5 h-1.5 rounded-full bg-primary"; }
-                } else {
-                    btn.className = "pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-white transition-all flex items-center gap-1.5";
-                    if (dot) { dot.className = "w-1.5 h-1.5 rounded-full bg-zinc-700"; }
+            ['gesamt', 'drinnen', 'draußen'].forEach(z => {
+                const idMap = {
+                    'gesamt': 'tab-zone-gesamt',
+                    'drinnen': 'tab-zone-drinnen',
+                    'draußen': 'tab-zone-draussen'
+                };
+                const btn = document.getElementById(idMap[z]);
+                if (btn) {
+                    if (z === zone) {
+                        btn.className = "px-4 py-2 rounded-xl text-xs font-black bg-gastro text-white border border-gastro transition shadow-sm";
+                    } else {
+                        btn.className = "px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition";
+                    }
                 }
             });
             renderSitzplanTiles();
@@ -2211,6 +2319,7 @@
             const text = document.getElementById('btn-edit-mode-text');
             const saveBtn = document.getElementById('btn-save-layout');
             const instructions = document.getElementById('edit-instructions');
+            const creatorPanel = document.getElementById('table-creator-panel');
 
             if (isEditMode) {
                 tempTables = JSON.parse(JSON.stringify(allTables));
@@ -2218,11 +2327,13 @@
                 text.textContent = "Bearbeitung beenden";
                 saveBtn.classList.remove('hidden');
                 instructions.classList.remove('hidden');
+                if (creatorPanel) creatorPanel.classList.remove('hidden');
             } else {
                 btn.className = "px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg";
                 text.textContent = "Sitzplan bearbeiten";
                 saveBtn.classList.add('hidden');
                 instructions.classList.add('hidden');
+                if (creatorPanel) creatorPanel.classList.add('hidden');
             }
             renderSitzplanTiles();
         }
@@ -2364,28 +2475,73 @@
 
             if (isEditMode) {
                 root.classList.add('edit-mode');
+                root.classList.remove('view-mode-grouped');
+                root.style.height = '620px';
             } else {
                 root.classList.remove('edit-mode');
+                root.classList.add('view-mode-grouped');
+                root.style.height = 'auto';
             }
 
-            let filteredTables = isEditMode ? tempTables : allTables;
-            if (sitzplanFilterZone !== 'gesamt') {
-                filteredTables = filteredTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
-            }
-
-            // Sort filtered tables naturally by number
-            filteredTables.sort((a, b) => {
+            let tables = isEditMode ? tempTables : allTables;
+            tables.sort((a, b) => {
                 return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
             });
 
-            if (!filteredTables.length) {
-                root.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#4b5563;font-size:13px;">Keine Tische in diesem Bereich konfiguriert.</div>';
-                return;
+            if (isEditMode) {
+                let filteredTables = tables;
+                if (sitzplanFilterZone !== 'gesamt') {
+                    if (sitzplanFilterZone === 'drinnen') {
+                        filteredTables = tables.filter(t => isDrinnenZone(t.zone));
+                    } else if (sitzplanFilterZone === 'draußen') {
+                        filteredTables = tables.filter(t => isDraussenZone(t.zone));
+                    }
+                }
+                if (!filteredTables.length) {
+                    root.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#4b5563;font-size:13px;">Keine Tische in diesem Bereich konfiguriert.</div>';
+                    return;
+                }
+                root.innerHTML = filteredTables.map(t => renderTileHtml(t)).join('');
+                initDragAndResize();
+            } else {
+                const drinnenTables = tables.filter(t => isDrinnenZone(t.zone));
+                const draussenTables = tables.filter(t => isDraussenZone(t.zone));
+                
+                let html = '';
+                
+                if (sitzplanFilterZone === 'gesamt' || sitzplanFilterZone === 'drinnen') {
+                    html += `
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4">
+                            <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Drinnen <span class="text-xs text-zinc-400 font-normal">(${drinnenTables.length} Tische)</span>
+                            </h3>
+                            ${drinnenTables.length ? `
+                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                                    ${drinnenTables.map(t => renderTileHtml(t)).join('')}
+                                </div>
+                            ` : `<p class="text-xs text-zinc-400">Keine Tische konfiguriert</p>`}
+                        </div>
+                    `;
+                }
+                
+                if (sitzplanFilterZone === 'gesamt' || sitzplanFilterZone === 'draußen') {
+                    html += `
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Draußen <span class="text-xs text-zinc-400 font-normal">(${draussenTables.length} Tische)</span>
+                            </h3>
+                            ${draussenTables.length ? `
+                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                                    ${draussenTables.map(t => renderTileHtml(t)).join('')}
+                                </div>
+                            ` : `<p class="text-xs text-zinc-400">Keine Tische konfiguriert</p>`}
+                        </div>
+                    `;
+                }
+                
+                root.innerHTML = html;
             }
-
-            root.innerHTML = filteredTables.map(t => renderTileHtml(t)).join('');
             
-            initDragAndResize();
             updateTimers();
         }
 
@@ -2627,6 +2783,12 @@
                     if (cType.includes('kohle')) {
                         callIcon = '💨';
                         callText = 'Kohle';
+                    } else if (cType.includes('bar')) {
+                        callIcon = '💵';
+                        callText = 'Bar Ruf';
+                    } else if (cType.includes('karte') || cType.includes('card')) {
+                        callIcon = '💳';
+                        callText = 'Karte';
                     } else if (cType.includes('rechnung') || cType.includes('zahlen') || cType.includes('kasse') || cType.includes('bill') || cType.includes('pay')) {
                         callIcon = '💵';
                         callText = 'Rechnung';
@@ -3483,6 +3645,19 @@
         function closeQRGenerator()     { /* legacy */ }
 
         function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
+            if (typeof id === 'object' && id !== null) {
+                const p = id;
+                id = p.id;
+                name = p.name;
+                price = p.price;
+                description = p.description || '';
+                category = p.category;
+                nameEn = p.name_en || '';
+                descriptionEn = p.description_en || '';
+                imageUrl = p.image || '';
+                isVegan = p.is_vegan || p.vegan || false;
+                isGlutenfree = p.is_glutenfree || false;
+            }
             document.getElementById('edit-product-id').value = id;
             document.getElementById('edit-product-name').value = name;
             document.getElementById('edit-product-name-en').value = nameEn;

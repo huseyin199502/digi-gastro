@@ -91,11 +91,16 @@ class Tenant(Base):
     
     # Branding
     address = Column(String, default="")
+    plz = Column(String, default="")
+    ort = Column(String, default="")
     indigo = Column(String, default="")
     instagram = Column(String, default="")
     facebook = Column(String, default="")
     logo_url = Column(Text, default="")
     logo_path = Column(String, nullable=True)
+    
+    # Landing page configurations (JSON object)
+    landing_page_json = Column(Text, default="{}")
     
     # Happy Hour
     happy_hour_days = Column(Text, default="[]")  # stored as JSON array string
@@ -368,6 +373,9 @@ def run_migrations():
     migrations = [
         # 2024-06: Add customer note field to order items
         "ALTER TABLE order_items ADD COLUMN note TEXT",
+        "ALTER TABLE tenants ADD COLUMN plz VARCHAR DEFAULT ''",
+        "ALTER TABLE tenants ADD COLUMN ort VARCHAR DEFAULT ''",
+        "ALTER TABLE tenants ADD COLUMN landing_page_json TEXT DEFAULT '{}'",
     ]
     with engine.connect() as conn:
         for sql in migrations:

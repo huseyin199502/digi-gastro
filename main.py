@@ -306,11 +306,14 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "staff": staff,
         "branding": {
             "address": tenant.address,
+            "plz": tenant.plz,
+            "ort": tenant.ort,
             "indigo": tenant.indigo,
             "instagram": tenant.instagram,
             "facebook": tenant.facebook,
             "logo_url": tenant.logo_url
         },
+        "landing_page": json.loads(tenant.landing_page_json or "{}"),
         "happy_hour": {
             "days": json.loads(tenant.happy_hour_days or "[]"),
             "start": tenant.happy_hour_start,
@@ -362,10 +365,14 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     
     branding = r.get("branding", {})
     tenant.address = branding.get("address", "")
+    tenant.plz = branding.get("plz", "")
+    tenant.ort = branding.get("ort", "")
     tenant.indigo = branding.get("indigo", "")
     tenant.instagram = branding.get("instagram", "")
     tenant.facebook = branding.get("facebook", "")
     tenant.logo_url = branding.get("logo_url", "")
+    
+    tenant.landing_page_json = json.dumps(unwrap_live_data(r.get("landing_page", {})))
     
     hh = r.get("happy_hour", {})
     tenant.happy_hour_days = json.dumps(unwrap_live_data(hh.get("days", [])))
@@ -1660,11 +1667,19 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     # Process Happy Hour
     now_time = datetime.now().strftime("%H:%M")
     now_day = datetime.now().strftime("%a")
-    german_days_map = {"Mon": "Mo", "Tue": "Di", "Wed": "Mi", "Thu": "Do", "Fri": "Fr", "Sat": "Sa", "Sun": "So"}
-    current_day_de = german_days_map.get(now_day, "Mo")
+    german_days_map = {
+        "Mon": ["Mo", "Montag"],
+        "Tue": ["Di", "Dienstag"],
+        "Wed": ["Mi", "Mittwoch"],
+        "Thu": ["Do", "Donnerstag"],
+        "Fri": ["Fr", "Freitag"],
+        "Sat": ["Sa", "Samstag"],
+        "Sun": ["So", "Sonntag"]
+    }
+    possible_days = german_days_map.get(now_day, ["Mo", "Montag"])
     
     hh_config = restaurant.get("happy_hour", {})
-    hh_active_global = current_day_de in hh_config.get("days", []) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
+    hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
     
     processed_products = []
     active_categories = restaurant.get("categories", [])
@@ -4130,6 +4145,8 @@ def update_branding(
     logo_file: Optional[UploadFile] = File(None),
     logo_url: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
+    plz: Optional[str] = Form(None),
+    ort: Optional[str] = Form(None),
     instagram: Optional[str] = Form(None),
     facebook: Optional[str] = Form(None),
     chef_data: tuple = Depends(require_chef_user_flat),
@@ -4162,12 +4179,141 @@ def update_branding(
     restaurant["branding"] = {
         "logo_url": final_logo_url,
         "address": address.strip() if address else "",
+        "plz": plz.strip() if plz else "",
+        "ort": ort.strip() if ort else "",
         "instagram": instagram.strip() if instagram else "",
         "facebook": facebook.strip() if facebook else ""
     }
+    update_legal_placeholders(restaurant)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
+
+def update_legal_placeholders(restaurant: dict) -> None:
+    branding = restaurant.get("branding", {})
+    addr = branding.get("address", "")
+    plz = branding.get("plz", "")
+    ort = branding.get("ort", "")
+    name = restaurant.get("name", "")
+    email = restaurant.get("email", "")
+    
+    full_addr_line = addr
+    plz_ort_line = f"{plz} {ort}".strip()
+    
+    # Impressum placeholders
+    imp = restaurant.get("impressum_content", "")
+    if imp:
+        imp = str(imp)
+        imp = imp.replace("[Vorname Nachname / Firmenname]", name)
+        imp = imp.replace("[Name / Firmenname]", name)
+        imp = imp.replace("[Straße und Hausnummer]", full_addr_line)
+        imp = imp.replace("[Adresse]", f"{full_addr_line}, {plz_ort_line}")
+        imp = imp.replace("[PLZ Ort]", plz_ort_line)
+        if email:
+            imp = imp.replace("[info@beispiel.de]", email)
+        restaurant["impressum_content"] = imp
+        
+    # Datenschutz placeholders
+    ds = restaurant.get("datenschutz_content", "")
+    if ds:
+        ds = str(ds)
+        ds = ds.replace("[Name / Firmenname]", name)
+        ds = ds.replace("[Adresse]", f"{full_addr_line}, {plz_ort_line}")
+        if email:
+            ds = ds.replace("[E-Mail-Adresse]", email)
+            ds = ds.replace("[info@beispiel.de]", email)
+        restaurant["datenschutz_content"] = ds
+
+@app.post("/admin/landingpage")
+def update_landingpage(
+    request: Request,
+    welcome_title: Optional[str] = Form(None),
+    welcome_subtitle: Optional[str] = Form(None),
+    what_we_offer: Optional[str] = Form(None),
+    google_rating_url: Optional[str] = Form(None),
+    aktuelles: Optional[str] = Form(None),
+    oeffnungszeiten: Optional[str] = Form(None),
+    angebote: Optional[str] = Form(None),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+        
+    restaurant["landing_page"] = {
+        "welcome_title": welcome_title.strip() if welcome_title else f"Willkommen bei {restaurant.get('name', slug)}",
+        "welcome_subtitle": welcome_subtitle.strip() if welcome_subtitle else "",
+        "what_we_offer": what_we_offer.strip() if what_we_offer else "",
+        "google_rating_url": google_rating_url.strip() if google_rating_url else "",
+        "aktuelles": aktuelles.strip() if aktuelles else "",
+        "oeffnungszeiten": oeffnungszeiten.strip() if oeffnungszeiten else "",
+        "angebote": angebote.strip() if angebote else ""
+    }
+    
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
+
+@app.get("/api/{slug}/table-status/{table_num}")
+def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
+    restaurant = get_restaurant_or_raise(slug, db)
+    
+    # Session verification cookie check
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
+    is_valid = True
+    if session_val:
+        try:
+            c_table, c_token = session_val.split(":", 1)
+            if str(c_table).replace("Tisch", "").strip() != str(table_num).replace("Tisch", "").strip():
+                is_valid = False
+        except Exception:
+            is_valid = False
+            
+    if not is_valid:
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Tisch.")
+
+    target_table_name = f"Tisch {table_num}"
+    table_orders = []
+    
+    for o in restaurant.get("orders", []):
+        if (o.get("table") == target_table_name or str(o.get("table")).strip() == str(table_num).strip()) and o.get("status") not in ["bezahlt", "storniert"]:
+            table_orders.append(o)
+            
+    pending = []
+    delivered = []
+    total = 0.0
+    
+    for order in table_orders:
+        total += order.get("total", 0.0)
+        for item in order.get("items", []):
+            status = item.get("item_status", "pending")
+            note_slug = (item.get("note") or "").replace(" ", "_")
+            for idx in range(item.get("quantity", 1)):
+                key = f"{order['id']}_{item['product_id']}_{note_slug}_{status}_{idx}"
+                item_data = {
+                    "order_id": order["id"],
+                    "product_id": item["product_id"],
+                    "name": item["name"],
+                    "price": item["price"],
+                    "quantity": 1,
+                    "note": item.get("note") or "",
+                    "status": status,
+                    "key": key,
+                    "unit_index": idx
+                }
+                if status == "pending":
+                    pending.append(item_data)
+                elif status in ["confirmed", "delivered"]:
+                    delivered.append(item_data)
+                    
+    return {
+        "pending": pending,
+        "delivered": delivered,
+        "total": round(total, 2)
+    }
+
 
 @app.post("/admin/happy-hour")
 def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):

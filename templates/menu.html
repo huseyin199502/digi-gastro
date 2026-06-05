@@ -99,6 +99,20 @@
         .animate-btn-success {
             animation: btnSuccessPulse 0.3s ease-in-out;
         }
+        @keyframes bounceHorizontalRight {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(4px); }
+        }
+        @keyframes bounceHorizontalLeft {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(-4px); }
+        }
+        .animate-bounce-horizontal-right {
+            animation: bounceHorizontalRight 1.2s infinite;
+        }
+        .animate-bounce-horizontal-left {
+            animation: bounceHorizontalLeft 1.2s infinite;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -163,99 +177,182 @@
     <!-- Main Dynamic Content Canvas -->
     <main class="flex-grow w-full max-w-4xl mx-auto px-4">
         
-        <!-- Compact Welcome Area -->
-        <div class="py-8 text-center border-b border-outline-variant mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <div class="text-left font-display">
-                <h1 class="text-3xl font-extrabold text-white tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
-                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="welcome_desc">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
-            </div>
-            <div class="flex gap-3 justify-center sm:justify-end" x-show="role !== 'admin'">
-                <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
-                    <span class="material-symbols-outlined text-base">notifications_active</span>
-                    <span data-translate="nav_service">Service</span>
+        <!-- ================= LANDING VIEW ================= -->
+        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6">
+            <div class="glass-panel border border-outline-variant rounded-3xl p-6 md:p-8 text-center space-y-6 shadow-2xl relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+                {% if restaurant.branding and restaurant.branding.logo_url %}
+                    <img alt="{{ restaurant.name }} Logo" class="h-24 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
+                {% endif %}
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+                <p class="text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
+                
+                <!-- CTA Button to go to Menu -->
+                <button @click="currentView = 'speisekarte'" class="btn-premium px-8 py-3.5 rounded-2xl font-bold text-sm text-black flex items-center gap-2 mx-auto shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+                    <span class="material-symbols-outlined">menu_book</span>
+                    <span>Speisekarte ansehen</span>
                 </button>
-                <button onclick="openPaymentModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
-                    <span class="material-symbols-outlined text-base">receipt_long</span>
-                    <span data-translate="nav_bill">Rechnung</span>
-                </button>
             </div>
-        </div>
 
-        <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
-        <div id="tab-speisekarte" class="py-2">
-            
-
-            <!-- Category Wrapper (Sticky) -->
-            <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: #0a0a0a !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
-                <!-- Category Pills (Horizontal scrolling) -->
-                <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
-                    {% for cat in restaurant.categories %}
-                    <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider{% endif %}">
-                        <span>{{ cat }}</span>
-                    </button>
-                    {% endfor %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- Info Card 1: Öffnungszeiten -->
+                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold">schedule</span>
+                        <span>Öffnungszeiten</span>
+                    </h3>
+                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed font-mono" x-text="restaurantLandingPage.oeffnungszeiten"></p>
+                </div>
+                
+                <!-- Info Card 2: Über uns / Angebote -->
+                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
+                        <span>Angebote & Specials</span>
+                    </h3>
+                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.angebote"></p>
                 </div>
             </div>
 
-            <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
-            <div id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3.5 py-6">
-                {% for product in products %}
-                {% set is_avail = product.get('is_available', True) %}
-                <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-2.5 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
-                         data-category="{{ product.category }}" 
-                         data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
-                         data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
-                    
-                    <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-background flex items-center justify-center border border-outline-variant/60">
-                        {% if product.image %}
-                        <img alt="{{ product.name }}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
-                        {% else %}
-                        <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
-                            <span class="material-symbols-outlined text-3xl">restaurant</span>
-                        </div>
-                        {% endif %}
-                        {% if not is_avail %}
-                        <div class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-2 backdrop-blur-xs">
-                            <span class="material-symbols-outlined text-red-500 text-2xl mb-0.5">block</span>
-                            <span class="text-[10px] font-black uppercase text-red-400 tracking-wider" data-translate="sold_out">Ausverkauft</span>
-                        </div>
-                        {% endif %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- What we offer -->
+                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold">restaurant</span>
+                        <span>Was wir bieten</span>
+                    </h3>
+                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.what_we_offer"></p>
+                </div>
+                
+                <!-- Announcements / News -->
+                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold">campaign</span>
+                        <span>Aktuelles & Events</span>
+                    </h3>
+                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.aktuelles"></p>
+                </div>
+            </div>
+
+            <!-- Google Review Link -->
+            <div class="mt-6 text-center" x-show="restaurantLandingPage.google_rating_url">
+                <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="inline-flex items-center gap-2 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/5 hover:bg-amber-500/10 px-4 py-2 rounded-xl border border-amber-500/20 shadow-md">
+                    <span class="material-symbols-outlined text-base animate-pulse">star</span>
+                    <span>Bewerten Sie uns auf Google</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- ================= SPEISEKARTE VIEW ================= -->
+        <div x-show="currentView === 'speisekarte'" class="animate-fade-in">
+            <!-- Compact Welcome Area -->
+            <div class="py-8 text-center border-b border-outline-variant mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div class="text-left font-display">
+                    <h1 class="text-3xl font-extrabold text-white tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
+                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="welcome_desc">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
+                </div>
+                <div class="flex gap-3 justify-center sm:justify-end" x-show="role !== 'admin'">
+                    <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
+                        <span class="material-symbols-outlined text-base">notifications_active</span>
+                        <span data-translate="nav_service">Service</span>
+                    </button>
+                    <button onclick="openPaymentModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
+                        <span class="material-symbols-outlined text-base">receipt_long</span>
+                        <span data-translate="nav_bill">Rechnung</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
+            <div id="tab-speisekarte" class="py-2">
+                
+
+                <!-- Category Wrapper (Sticky) -->
+                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: #0a0a0a !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
+                    <!-- Left Chevron indicator -->
+                    <button id="chevron-left" class="absolute left-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-left" onclick="scrollCategories(-200)">
+                        <span class="material-symbols-outlined text-sm font-black">chevron_left</span>
+                    </button>
+
+                    <!-- Category Pills (Horizontal scrolling) -->
+                    <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
+                        {% for cat in restaurant.categories %}
+                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider{% endif %}">
+                            <span>{{ cat }}</span>
+                        </button>
+                        {% endfor %}
                     </div>
-                    
-                    <div class="flex flex-col justify-between flex-grow">
-                        <div>
-                            <div class="flex items-start justify-between gap-1">
-                                <h3 class="font-extrabold text-xs sm:text-sm text-white font-display truncate product-name" data-name-de="{{ product.name | replace('"', '&quot;') }}" data-name-en="{{ (product.name_en or product.name) | replace('"', '&quot;') }}">{{ product.name }}</h3>
-                                {% if product.allergens %}
-                                <span class="text-[8px] text-on-surface-variant bg-surface px-1 py-0.5 rounded border border-outline-variant font-mono uppercase">{{ product.allergens | join(',') }}</span>
-                                {% endif %}
-                            </div>
-                            <p class="text-[10px] sm:text-[11px] text-on-surface-variant mt-1 leading-normal line-clamp-2 product-desc" data-desc-de="{{ (product.description or '') | replace('"', '&quot;') }}" data-desc-en="{{ (product.description_en or product.description or '') | replace('"', '&quot;') }}">{{ product.description }}</p>
-                        </div>
 
-                        <div class="flex justify-between items-end mt-3">
-                            <div>
-                                {% if product.is_hh_active %}
-                                    <span class="text-[9px] line-through text-on-surface-variant/50 mr-1">{{ "%.2f"|format(product.price) }} €</span>
-                                    <span class="text-xs sm:text-sm font-black text-rose-500 glow-text-primary">{{ "%.2f"|format(product.display_price) }} €</span>
-                                {% else %}
-                                    <span class="text-xs sm:text-sm font-black text-primary glow-text-primary">{{ "%.2f"|format(product.price) }} €</span>
-                                {% endif %}
-                            </div>
+                    <!-- Right Chevron indicator -->
+                    <button id="chevron-right" class="absolute right-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-right" onclick="scrollCategories(200)">
+                        <span class="material-symbols-outlined text-sm font-black">chevron_right</span>
+                    </button>
+                </div>
 
-                            {% if is_avail %}
-                            <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-9 h-9 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
-                                <span class="material-symbols-outlined font-black text-lg">add</span>
-                            </button>
+                <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
+                <div id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3.5 py-6">
+                    {% for product in products %}
+                    {% set is_avail = product.get('is_available', True) %}
+                    <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-2.5 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
+                             data-category="{{ product.category }}" 
+                             data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
+                             data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
+                        
+                        <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-background flex items-center justify-center border border-outline-variant/60">
+                            {% if product.image %}
+                            <img alt="{{ product.name }}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
                             {% else %}
-                            <button disabled class="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
-                                <span class="material-symbols-outlined text-lg">block</span>
-                            </button>
+                            <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
+                                <span class="material-symbols-outlined text-3xl">restaurant</span>
+                            </div>
                             {% endif %}
+                            
+                            <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                                {% if product.happy_hour_price is not none %}
+                                <span class="bg-[#eab308] text-black text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+                                    <span class="material-symbols-outlined text-[10px] font-black">schedule</span>
+                                    <span>HH</span>
+                                </span>
+                                {% endif %}
+                                {% if product.is_vegan or product.vegan %}
+                                <span class="bg-emerald-500/90 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+                                    <span class="material-symbols-outlined text-[10px] font-bold">grass</span>
+                                    <span>Vegan</span>
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
-                </article>
-                {% endfor %}
+
+                        <div class="flex flex-col flex-grow justify-between px-0.5">
+                            <div>
+                                <h3 class="text-xs md:text-sm font-black text-white leading-tight font-display tracking-tight mb-1" x-text="currentLang === 'en' ? '{{ (product.name_en or product.name) | replace("'", "\\'") }}' : '{{ product.name | replace("'", "\\'") }}'">{{ product.name }}</h3>
+                                <p class="text-[10px] md:text-xs text-on-surface-variant line-clamp-2 leading-relaxed mb-2" x-text="currentLang === 'en' ? '{{ (product.description_en or product.description or '') | replace("'", "\\'") }}' : '{{ (product.description or '') | replace("'", "\\'") }}'">{{ product.description }}</p>
+                            </div>
+                            
+                            <div class="flex justify-between items-center mt-auto pt-1">
+                                <div class="flex flex-col">
+                                    {% if product.happy_hour_price is not none %}
+                                    <span class="text-[10px] line-through text-on-surface-variant/50 leading-none mb-0.5 font-bold">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+                                    <span class="text-xs md:text-sm font-black text-primary leading-none">{{ "%.2f" | format(product.happy_hour_price) | replace('.', ',') }} €</span>
+                                    {% else %}
+                                    <span class="text-xs md:text-sm font-black text-white leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if is_avail %}
+                                <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-9 h-9 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
+                                    <span class="material-symbols-outlined font-black text-lg">add</span>
+                                </button>
+                                {% else %}
+                                <button disabled class="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
+                                    <span class="material-symbols-outlined text-lg">block</span>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </main>
@@ -268,12 +365,30 @@
             <span>&bull;</span>
             <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline" data-translate="datenschutz">Datenschutz</button>
         </div>
+        
+        <!-- Social Media Links -->
+        {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook) %}
+        <div class="flex justify-center space-x-6 py-2">
+            {% if restaurant.branding.instagram %}
+            <a href="{{ restaurant.branding.instagram }}" target="_blank" class="text-zinc-500 hover:text-primary transition text-lg" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+            </a>
+            {% endif %}
+            {% if restaurant.branding.facebook %}
+            <a href="{{ restaurant.branding.facebook }}" target="_blank" class="text-zinc-500 hover:text-primary transition text-lg" title="Facebook">
+                <i class="fa-brands fa-facebook"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
-    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
+    <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
+    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-2">
             <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
@@ -294,6 +409,18 @@
                 <span class="text-xs font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
             </div>
             <span id="total-val-sticky" class="text-xs font-black bg-black/10 px-2 py-1 rounded-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
+        </button>
+    </div>
+
+    <!-- Sticky Bottom Navigation (Welcome vs Speisekarte) -->
+    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-[#0a0a0d]/95 backdrop-blur-md border-t border-outline-variant/60 py-3 flex justify-around items-center shadow-xl">
+        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-zinc-500 hover:text-zinc-300 flex flex-col items-center gap-1 font-medium text-xs'">
+            <span class="material-symbols-outlined text-xl">home</span>
+            <span data-translate="tab_welcome">Willkommen</span>
+        </button>
+        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-zinc-500 hover:text-zinc-300 flex flex-col items-center gap-1 font-medium text-xs'">
+            <span class="material-symbols-outlined text-xl">menu_book</span>
+            <span data-translate="tab_menu">Speisekarte</span>
         </button>
     </div>
     {% endif %}
@@ -745,6 +872,8 @@
                 tableOrders: { pending: [], delivered: [], total: 0.0 },
                 selectedSplitItems: [],
                 isDrawerOpen: true,
+                currentView: (new URLSearchParams(window.location.search).get('role') === 'waiter' || new URLSearchParams(window.location.search).get('role') === 'admin') ? 'speisekarte' : 'landing',
+                restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
@@ -789,6 +918,10 @@
 
                     if (this.role === 'admin') {
                         this.fetchAdminDrawerState();
+                    } else {
+                        if (!isReadonly) {
+                            this.fetchGuestTableStatus();
+                        }
                     }
                 },
 
@@ -805,6 +938,8 @@
                             if (data.type === "update") {
                                 if (this.role === 'admin') {
                                     this.fetchAdminDrawerState();
+                                } else {
+                                    this.fetchGuestTableStatus();
                                 }
                                 // Check if guest session is still active
                                 fetch("/api/{{ slug }}/check-session")
@@ -1385,6 +1520,25 @@
                     }
                 },
 
+                async fetchGuestTableStatus() {
+                    try {
+                        const tableNum = getTableFromUrl();
+                        if (!tableNum) return;
+                        
+                        const res = await fetch(`/api/{{ slug }}/table-status/${tableNum}`);
+                        if (!res.ok) return;
+                        
+                        const data = await res.json();
+                        this.tableOrders = data;
+                        
+                        if (data.total <= 0.0) {
+                            this.isDrawerOpen = false;
+                        }
+                    } catch (e) {
+                        console.error("Error fetching guest table status:", e);
+                    }
+                },
+
                 async serveSingleItem(item) {
                     try {
                         const res = await fetch('/admin/orders/serve', {
@@ -1654,11 +1808,51 @@
             };
         }
 
+        function updateCategoryChevrons() {
+            const container = document.getElementById('category-pills');
+            const leftBtn = document.getElementById('chevron-left');
+            const rightBtn = document.getElementById('chevron-right');
+            if (!container) return;
+            
+            const scrollLeft = container.scrollLeft;
+            const maxScrollLeft = container.scrollWidth - container.clientWidth;
+            
+            if (leftBtn) {
+                if (scrollLeft > 5) {
+                    leftBtn.classList.remove('hidden');
+                } else {
+                    leftBtn.classList.add('hidden');
+                }
+            }
+            
+            if (rightBtn) {
+                if (scrollLeft < maxScrollLeft - 5 && container.scrollWidth > container.clientWidth) {
+                    rightBtn.classList.remove('hidden');
+                } else {
+                    rightBtn.classList.add('hidden');
+                }
+            }
+        }
+        
+        function scrollCategories(amount) {
+            const container = document.getElementById('category-pills');
+            if (container) {
+                container.scrollBy({ left: amount, behavior: 'smooth' });
+            }
+        }
+
         // Initialize default category and check for session reset
         document.addEventListener("DOMContentLoaded", () => {
             const resetSession = {% if reset_session %}true{% else %}false{% endif %};
             if (resetSession) {
                 localStorage.removeItem(`dl_orders_{{ slug }}`);
+            }
+            
+            const catPills = document.getElementById('category-pills');
+            if (catPills) {
+                catPills.addEventListener('scroll', updateCategoryChevrons);
+                window.addEventListener('resize', updateCategoryChevrons);
+                setTimeout(updateCategoryChevrons, 500);
             }
         });
     </script>
