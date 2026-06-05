@@ -886,7 +886,7 @@
                                     {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
                                     {% for day in days %}
                                     <label class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none">
-                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0">
+                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0" {% if restaurant.happy_hour and day in restaurant.happy_hour.days %}checked{% endif %}>
                                         <span>{{ day }}</span>
                                     </label>
                                     {% endfor %}
@@ -895,15 +895,15 @@
                             <div class="grid grid-cols-3 gap-3">
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Startzeit</label>
-                                    <input type="time" name="start" value="{{ restaurant.happy_hour_start }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                    <input type="time" name="start" value="{{ restaurant.happy_hour.start if restaurant.happy_hour else '18:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Endzeit</label>
-                                    <input type="time" name="end" value="{{ restaurant.happy_hour_end }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                    <input type="time" name="end" value="{{ restaurant.happy_hour.end if restaurant.happy_hour else '20:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%)</label>
-                                    <input type="number" name="discount" value="{{ restaurant.happy_hour_discount }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                    <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                             </div>
                             <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
