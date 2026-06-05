@@ -4,10 +4,12 @@ import json
 import os
 import urllib.parse
 import secrets
+import csv
+import io
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -2239,9 +2241,48 @@ def parse_item_key(item_key: str):
         note_slug = key_parts[1] if len(key_parts) > 1 else ""
     return pid_str, note_slug, status_str
 
-def find_order_item(items, item_key: str):
+def merge_duplicate_order_items(order):
+    """Merges items with the same product_id, note, and status to clean up duplicates."""
+    items = order.get("items", [])
+    if not items:
+        return
+    
+    merged = []
+    for item in items:
+        status = item.get("item_status") or "pending"
+        note = (item.get("note") or "").strip()
+        pid = item.get("product_id")
+        
+        # Check if already in merged
+        existing = next(
+            (m for m in merged 
+             if m.get("product_id") == pid 
+             and (m.get("note") or "").strip() == note 
+             and (m.get("item_status") or "pending") == status),
+            None
+        )
+        if existing:
+            existing["quantity"] += item.get("quantity", 0)
+        else:
+            merged.append(item)
+            
+    order["items"] = merged
+
+def find_order_item(items, item_key: str, order_id: Optional[int] = None):
     """Finds an item in the list of items matching the status-specific item_key."""
-    pid_str, note_slug, status_str = parse_item_key(item_key)
+    # Strip order_id prefix if present
+    if order_id is not None:
+        prefix = f"{order_id}_"
+        if item_key.startswith(prefix):
+            item_key = item_key[len(prefix):]
+            
+    # Strip trailing index if present
+    key_parts = item_key.split("_")
+    if len(key_parts) >= 2 and key_parts[-1].isdigit():
+        key_parts.pop()
+    clean_item_key = "_".join(key_parts)
+    
+    pid_str, note_slug, status_str = parse_item_key(clean_item_key)
     for item in items:
         item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
         item_status = item.get("item_status", "pending") or "pending"
@@ -2251,6 +2292,7 @@ def find_order_item(items, item_key: str):
             if status_str is None or item_status == status_str:
                 return item
     return None
+
 
 def update_order_status_by_items(order):
     """Maintains order status dynamically based on individual item statuses."""
@@ -2486,7 +2528,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
 
     # Find source item
     pid_str, note_slug, status_str = parse_item_key(payload.item_key)
-    source_item = find_order_item(source_order.get("items", []), payload.item_key)
+    source_item = find_order_item(source_order.get("items", []), payload.item_key, order_id=order_id)
 
     if not source_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -3471,6 +3513,183 @@ def create_category(
 
 # Helper für Admin-Rechteprüfung ist nun am Anfang definiert.
 
+@app.get("/admin/products/export-csv")
+async def export_products_csv(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
+    products = restaurant.get("products", [])
+    
+    # Generate CSV response
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    
+    # Header
+    writer.writerow([
+        "id", "name", "price", "category", "category_type", 
+        "description", "image", "is_vegan", "is_glutenfree", 
+        "is_available", "allergens"
+    ])
+    
+    for p in products:
+        allergens_list = p.get("allergens", [])
+        allergens_str = ", ".join(allergens_list) if isinstance(allergens_list, list) else ""
+        
+        writer.writerow([
+            p.get("id", ""),
+            p.get("name", ""),
+            f"{p.get('price', 0.0):.2f}".replace('.', ','),
+            p.get("category", ""),
+            p.get("category_type", "küche"),
+            p.get("description", ""),
+            p.get("image", ""),
+            "true" if p.get("is_vegan") or p.get("vegan") else "false",
+            "true" if p.get("is_glutenfree") else "false",
+            "true" if p.get("is_available", True) else "false",
+            allergens_str
+        ])
+        
+    response = StreamingResponse(
+        iter([output.getvalue().encode('utf-8-sig')]),
+        media_type="text/csv"
+    )
+    response.headers["Content-Disposition"] = f"attachment; filename=speisekarte_{slug}.csv"
+    return response
+
+
+@app.post("/admin/products/import-csv")
+async def import_products_csv(
+    request: Request,
+    csv_file: UploadFile = File(...),
+    overwrite: Optional[bool] = Form(False),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    content = await csv_file.read()
+    
+    try:
+        csv_text = content.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        try:
+            csv_text = content.decode('latin1')
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Ungültiges Dateiformat. Bitte nutzen Sie UTF-8.")
+            
+    # Sniff delimiter
+    delimiter = ';'
+    first_line = csv_text.splitlines()[0] if csv_text else ""
+    if ',' in first_line and ';' not in first_line:
+        delimiter = ','
+    elif ',' in first_line and ';' in first_line:
+        if len(first_line.split(',')) > len(first_line.split(';')):
+            delimiter = ','
+            
+    reader = csv.DictReader(csv_text.splitlines(), delimiter=delimiter)
+    
+    existing_products = restaurant.get("products", [])
+    existing_categories = set(restaurant.get("categories", []))
+    
+    if overwrite:
+        existing_products = []
+        existing_categories = set()
+        
+    max_id = max([p.get("id", 0) for p in existing_products] + [0])
+    
+    new_products = []
+    seen_categories = set(existing_categories)
+    
+    for row in reader:
+        name = row.get("name")
+        if not name:
+            continue
+            
+        category = row.get("category", "Unkategorisiert").strip()
+        category_type = row.get("category_type", "küche").strip().lower()
+        if category_type not in ["bar", "küche"]:
+            category_type = "küche"
+            
+        price_str = row.get("price", "0.0").replace(',', '.').strip()
+        try:
+            price = float(price_str)
+        except ValueError:
+            price = 0.0
+            
+        desc = row.get("description", "")
+        img = row.get("image", "")
+        
+        is_vegan_str = row.get("is_vegan", "false").strip().lower()
+        is_vegan = is_vegan_str in ["true", "1", "yes", "wahr"]
+        
+        is_gluten_str = row.get("is_glutenfree", "false").strip().lower()
+        is_gluten = is_gluten_str in ["true", "1", "yes", "wahr"]
+        
+        is_avail_str = row.get("is_available", "true").strip().lower()
+        is_avail = is_avail_str not in ["false", "0", "no", "falsch"]
+        
+        allergens_str = row.get("allergens", "")
+        allergens_list = [a.strip() for a in allergens_str.split(',') if a.strip()] if allergens_str else []
+        
+        if category and category not in seen_categories:
+            seen_categories.add(category)
+            
+        prod_id = None
+        id_str = row.get("id", "").strip()
+        if id_str.isdigit():
+            prod_id = int(id_str)
+            
+        existing_p = None
+        if prod_id and not overwrite:
+            existing_p = next((p for p in existing_products if p.get("id") == prod_id), None)
+            
+        if not existing_p and not overwrite:
+            existing_p = next((p for p in existing_products if str(p.get("name")).lower().strip() == name.lower().strip()), None)
+            
+        if existing_p:
+            existing_p["name"] = name
+            existing_p["price"] = price
+            existing_p["category"] = category
+            existing_p["category_type"] = category_type
+            existing_p["description"] = desc
+            existing_p["image"] = img
+            existing_p["is_vegan"] = is_vegan
+            existing_p["vegan"] = is_vegan
+            existing_p["is_glutenfree"] = is_gluten
+            existing_p["is_available"] = is_avail
+            existing_p["allergens"] = allergens_list
+        else:
+            if not prod_id or overwrite or any(p.get("id") == prod_id for p in existing_products + new_products):
+                max_id += 1
+                prod_id = max_id
+                
+            new_p = {
+                "id": prod_id,
+                "name": name,
+                "price": price,
+                "category": category,
+                "category_type": category_type,
+                "description": desc,
+                "image": img,
+                "is_vegan": is_vegan,
+                "vegan": is_vegan,
+                "is_glutenfree": is_gluten,
+                "is_available": is_avail,
+                "allergens": allergens_list
+            }
+            new_products.append(new_p)
+            
+    restaurant["products"] = existing_products + new_products
+    restaurant["categories"] = sorted(list(seen_categories))
+    
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der importierten Daten: {e}")
+        
+    await manager.broadcast(slug, {"type": "update"})
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+
 @app.post("/admin/produkt-erstellen")
 async def post_produkt_erstellen(
     request: Request,
@@ -4448,10 +4667,46 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
         
     updated = False
     if payload.item_key:
-        matched_item = find_order_item(order.get("items", []), payload.item_key)
+        matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=payload.order_id)
         current_status = matched_item.get("item_status") or "pending" if matched_item else None
         if matched_item and current_status != "delivered":
-            matched_item["item_status"] = "delivered"
+            if matched_item.get("quantity", 1) > 1:
+                # Decrement quantity by 1
+                matched_item["quantity"] -= 1
+                
+                # Check for existing delivered item
+                delivered_item = None
+                for it in order.get("items", []):
+                    if (it.get("product_id") == matched_item.get("product_id") and 
+                        (it.get("note") or "").strip() == (matched_item.get("note") or "").strip() and 
+                        (it.get("item_status") or "pending") == "delivered"):
+                        delivered_item = it
+                        break
+                
+                if delivered_item:
+                    delivered_item["quantity"] += 1
+                else:
+                    new_delivered = copy.deepcopy(matched_item)
+                    new_delivered["quantity"] = 1
+                    new_delivered["item_status"] = "delivered"
+                    order["items"].append(new_delivered)
+            else:
+                # Just change status to delivered
+                matched_item["item_status"] = "delivered"
+                
+                # Merge with any existing delivered item of the same product/note if it exists
+                delivered_item = None
+                for it in order.get("items", []):
+                    if (it is not matched_item and 
+                        it.get("product_id") == matched_item.get("product_id") and 
+                        (it.get("note") or "").strip() == (matched_item.get("note") or "").strip() and 
+                        (it.get("item_status") or "pending") == "delivered"):
+                        delivered_item = it
+                        break
+                if delivered_item:
+                    delivered_item["quantity"] += matched_item["quantity"]
+                    order["items"].remove(matched_item)
+            
             updated = True
     else:
         for item in order.get("items", []):
@@ -4461,6 +4716,7 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
                 updated = True
                 
     if updated:
+        merge_duplicate_order_items(order)
         update_order_status_by_items(order)
         try:
             save_restaurant_to_db(slug, restaurant, db)

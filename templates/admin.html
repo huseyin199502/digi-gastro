@@ -628,6 +628,24 @@
 
             <!-- ⏱️ TAB 3: SPEISEKARTE (speisekarte) -->
             <div id="admin-tab-speisekarte" class="admin-tab-content">
+                <!-- CSV Import/Export Card -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-zinc-500 font-black">table_chart</span> CSV Import / Export
+                        </h3>
+                        <p class="text-[10px] text-zinc-500 mt-1">Laden Sie Ihre Speisekarte als CSV-Datei herunter oder importieren Sie neue Produkte.</p>
+                    </div>
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <a href="/admin/products/export-csv" class="flex-1 sm:flex-initial text-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">download</span> CSV Exportieren
+                        </a>
+                        <button onclick="openCsvImportModal()" class="flex-1 sm:flex-initial bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">upload</span> CSV Importieren
+                        </button>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                     <!-- Category setup card -->
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -1083,6 +1101,40 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════
+         CSV IMPORT MODAL (#csv-import-modal)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="csv-import-modal" class="overlay-backdrop hidden" style="z-index:90;">
+        <div class="popup-card" style="max-width:450px;">
+            <div class="popup-header" style="background: linear-gradient(135deg, #1e3a8a, #3b82f6);">
+                <div style="font-size:18px;font-weight:900;color:#fff;">CSV Importieren</div>
+                <button onclick="closeCsvImportModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            
+            <form action="/admin/products/import-csv" method="POST" enctype="multipart/form-data" class="popup-body space-y-4">
+                <div class="space-y-1">
+                    <label class="block text-[10px] font-bold text-zinc-500 uppercase">CSV-Datei auswählen</label>
+                    <input type="file" name="csv_file" accept=".csv" required class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs focus:ring-gastro focus:border-gastro">
+                </div>
+                
+                <div class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl">
+                    <input type="checkbox" id="overwrite-existing" name="overwrite" value="true" class="custom-checkbox w-4.5 h-4.5 cursor-pointer">
+                    <label for="overwrite-existing" class="text-xs text-amber-200 font-bold select-none cursor-pointer">
+                        ⚠️ Bestehende Produkte &amp; Kategorien überschreiben
+                    </label>
+                </div>
+                
+                <p class="text-[10px] text-zinc-400">
+                    <strong>Hinweis:</strong> Die CSV-Datei sollte Spalten wie <code>name</code>, <code>price</code>, <code>category</code>, <code>category_type</code> und <code>description</code> enthalten. Wenn "Überschreiben" nicht ausgewählt ist, werden neue Produkte hinzugefügt und bestehende aktualisiert.
+                </p>
+                
+                <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm">upload_file</span> Import starten
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
          EDIT PRODUCT MODAL (#edit-product-modal)
     ═══════════════════════════════════════════════════════ -->
     <div id="edit-product-modal" class="overlay-backdrop hidden">
@@ -1391,23 +1443,26 @@
                     order.items.forEach(item => {
                         const status = item.item_status || 'pending';
                         const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                        const key = `${order.id}_${item.product_id}_${noteSlug}_${status}`;
                         
-                        const itemData = {
-                            order_id: order.id,
-                            product_id: item.product_id,
-                            name: item.name,
-                            price: item.price,
-                            quantity: item.quantity,
-                            note: item.note || '',
-                            status: status,
-                            key: key
-                        };
-                        
-                        if (status === 'pending') {
-                            pendingItems.push(itemData);
-                        } else {
-                            deliveredItems.push(itemData);
+                        for (let idx = 0; idx < item.quantity; idx++) {
+                            const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${idx}`;
+                            const itemData = {
+                                order_id: order.id,
+                                product_id: item.product_id,
+                                name: item.name,
+                                price: item.price,
+                                quantity: 1,
+                                note: item.note || '',
+                                status: status,
+                                key: key,
+                                unit_index: idx
+                            };
+                            
+                            if (status === 'pending') {
+                                pendingItems.push(itemData);
+                            } else {
+                                deliveredItems.push(itemData);
+                            }
                         }
                     });
                 }
@@ -1512,7 +1567,6 @@
                 deliveredContainer.classList.remove('hidden');
                 deliveredList.innerHTML = deliveredItems.map(item => {
                     const isChecked = !!selectedControlSplitItems[item.key];
-                    const selectedQty = selectedControlSplitItems[item.key] ? selectedControlSplitItems[item.key].selectedQty : item.quantity;
                     return `
                         <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -1525,15 +1579,6 @@
                                 <div class="flex-1 min-w-0">
                                     <span class="font-extrabold text-white block truncate text-[13px]">${item.quantity}x ${item.name}</span>
                                     ${item.note ? `<span class="text-[10px] text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
-                                    
-                                    <!-- Split Qty controls -->
-                                    ${isChecked && item.quantity > 1 ? `
-                                        <div class="flex items-center gap-2 mt-1.5 bg-zinc-800/80 w-fit px-2 py-0.5 rounded-lg border border-zinc-700">
-                                            <button onclick="adjustControlSplitQty('${item.key}', -1, ${item.quantity})" class="text-zinc-400 hover:text-white font-black text-sm px-1">-</button>
-                                            <span class="text-[11px] font-black text-white font-mono">${selectedQty}</span>
-                                            <button onclick="adjustControlSplitQty('${item.key}', 1, ${item.quantity})" class="text-zinc-400 hover:text-white font-black text-sm px-1">+</button>
-                                        </div>
-                                    ` : ''}
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
@@ -1563,6 +1608,12 @@
                         if (cType.includes('kohle')) {
                             cIcon = '💨';
                             cText = 'Kohle anfordern';
+                        } else if (cType.includes('bar')) {
+                            cIcon = '💵';
+                            cText = 'Bar zahlen';
+                        } else if (cType.includes('karte')) {
+                            cIcon = '💳';
+                            cText = 'Mit Karte zahlen';
                         } else if (cType.includes('rechnung') || cType.includes('zahlen') || cType.includes('kasse') || cType.includes('bill') || cType.includes('pay')) {
                             cIcon = '💵';
                             cText = 'Zahlen / Rechnung';
@@ -1653,13 +1704,54 @@
             // Optimistic DOM Update
             allOrders.forEach(o => {
                 if (o.id === orderId && o.items) {
-                    o.items.forEach(i => {
+                    const parts = itemKey.split('_');
+                    if (parts.length >= 4 && parts[parts.length - 1].match(/^\d+$/)) {
+                        parts.pop();
+                    }
+                    if (parts.length >= 2 && parts[0] === String(orderId)) {
+                        parts.shift();
+                    }
+                    const cleanKey = parts.join('_');
+                    
+                    const matchedItem = o.items.find(i => {
                         const noteSlug = (i.note || '').replace(/\s+/g, '_');
-                        const key = `${i.product_id}_${noteSlug}_${i.item_status || 'pending'}`;
-                        if (key === itemKey) {
-                            i.item_status = 'delivered';
-                        }
+                        const status = i.item_status || 'pending';
+                        return `${i.product_id}_${noteSlug}_${status}` === cleanKey;
                     });
+                    
+                    if (matchedItem) {
+                        if (matchedItem.quantity > 1) {
+                            matchedItem.quantity -= 1;
+                            let delivered = o.items.find(i => {
+                                const noteSlug = (i.note || '').replace(/\s+/g, '_');
+                                return i.product_id === matchedItem.product_id && 
+                                       noteSlug === (matchedItem.note || '').replace(/\s+/g, '_') && 
+                                       i.item_status === 'delivered';
+                            });
+                            if (delivered) {
+                                delivered.quantity += 1;
+                            } else {
+                                o.items.push({
+                                    ...matchedItem,
+                                    quantity: 1,
+                                    item_status: 'delivered'
+                                });
+                            }
+                        } else {
+                            matchedItem.item_status = 'delivered';
+                            let delivered = o.items.find(i => {
+                                const noteSlug = (i.note || '').replace(/\s+/g, '_');
+                                return i !== matchedItem &&
+                                       i.product_id === matchedItem.product_id && 
+                                       noteSlug === (matchedItem.note || '').replace(/\s+/g, '_') && 
+                                       i.item_status === 'delivered';
+                            });
+                            if (delivered) {
+                                delivered.quantity += matchedItem.quantity;
+                                o.items = o.items.filter(i => i !== matchedItem);
+                            }
+                        }
+                    }
                 }
             });
             refreshControlModal();
@@ -1765,13 +1857,23 @@
             
             try {
                 const promises = Object.keys(groups).map(orderId => {
+                    const groupedMap = {};
+                    groups[orderId].forEach(item => {
+                        const noteKey = item.note || "";
+                        const groupKey = `${item.product_id}_${noteKey}`;
+                        if (!groupedMap[groupKey]) {
+                            groupedMap[groupKey] = {
+                                product_id: item.product_id,
+                                quantity: 0,
+                                note: item.note || null
+                            };
+                        }
+                        groupedMap[groupKey].quantity += item.selectedQty;
+                    });
+                    
                     const payload = {
                         order_id: parseInt(orderId),
-                        items: groups[orderId].map(i => ({
-                            product_id: i.product_id,
-                            quantity: i.selectedQty,
-                            note: i.note || null
-                        }))
+                        items: Object.values(groupedMap)
                     };
                     return fetch('/admin/orders/split-pay', {
                         method: 'POST',
@@ -2586,16 +2688,36 @@
                 return;
             }
 
-            root.innerHTML = allCalls.map(c => `
-                <div class="call-bar">
-                    <span style="font-size:11px;font-weight:800;color:#f87171;display:flex;align-items:center;gap:6px;">
-                        🔔 Tisch ${c.table.replace('Tisch ', '')}: <strong>${c.type.toUpperCase()} RUF</strong>
-                    </span>
-                    <button onclick="resolveCall(${c.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
-                        ✓ Erledigt
-                    </button>
-                </div>
-            `).join('');
+            root.innerHTML = allCalls.map(c => {
+                const cType = String(c.type).toLowerCase();
+                let cIcon = '🔔';
+                let cText = c.type.toUpperCase() + ' RUF';
+                
+                if (cType.includes('kohle')) {
+                    cIcon = '💨';
+                    cText = 'KOHLE RUF';
+                } else if (cType.includes('bar')) {
+                    cIcon = '💵';
+                    cText = 'BAR RUF';
+                } else if (cType.includes('karte')) {
+                    cIcon = '💳';
+                    cText = 'KARTE RUF';
+                } else if (cType.includes('rechnung') || cType.includes('zahlen') || cType.includes('kasse') || cType.includes('bill') || cType.includes('pay')) {
+                    cIcon = '💵';
+                    cText = 'RECHNUNG RUF';
+                }
+                
+                return `
+                    <div class="call-bar">
+                        <span style="font-size:11px;font-weight:800;color:#f87171;display:flex;align-items:center;gap:6px;">
+                            <span>${cIcon}</span> Tisch ${c.table.replace('Tisch ', '')}: <strong>${cText}</strong>
+                        </span>
+                        <button onclick="resolveCall(${c.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
+                            ✓ Erledigt
+                        </button>
+                    </div>
+                `;
+            }).join('');
         }
 
         async function resolveCall(id) {
@@ -3305,17 +3427,29 @@
                 const keys = Object.keys(selectedControlSplitItems);
                 if (!keys.length) return;
                 
-                const itemsPayload = {};
-                keys.forEach(key => {
-                    itemsPayload[key] = selectedControlSplitItems[key].selectedQty;
+                const aggregatedKeys = [];
+                const aggregatedItems = {};
+                
+                keys.forEach(k => {
+                    const parts = k.split('_');
+                    if (parts.length >= 4 && parts[parts.length - 1].match(/^\d+$/)) {
+                        parts.pop();
+                    }
+                    const cleanKey = parts.join('_');
+                    
+                    if (!aggregatedItems[cleanKey]) {
+                        aggregatedItems[cleanKey] = 0;
+                        aggregatedKeys.push(cleanKey);
+                    }
+                    aggregatedItems[cleanKey] += selectedControlSplitItems[k].selectedQty;
                 });
                 
                 try {
                     const payload = {
                         source_table: "Tisch " + controlModalActiveTableNum,
                         target_table: "Tisch " + targetTableNumber,
-                        item_keys: keys,
-                        items: itemsPayload
+                        item_keys: aggregatedKeys,
+                        items: aggregatedItems
                     };
                     
                     const res = await fetch('/admin/orders/transfer', {
@@ -3372,6 +3506,14 @@
 
         function closeEditProductModal() {
             document.getElementById('edit-product-modal').classList.add('hidden');
+        }
+
+        function openCsvImportModal() {
+            document.getElementById('csv-import-modal').classList.remove('hidden');
+        }
+
+        function closeCsvImportModal() {
+            document.getElementById('csv-import-modal').classList.add('hidden');
         }
 
         function submitEditProduct(event) {

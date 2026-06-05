@@ -1350,23 +1350,26 @@
                                 order.items.forEach(item => {
                                     const status = item.item_status || 'pending';
                                     const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                                    const key = `${item.product_id}_${noteSlug}_${status}`;
                                     
-                                    const itemData = {
-                                        order_id: order.id,
-                                        product_id: item.product_id,
-                                        name: item.name,
-                                        price: item.price,
-                                        quantity: item.quantity,
-                                        note: item.note || '',
-                                        status: status,
-                                        key: key
-                                    };
-                                    
-                                    if (status === 'pending') {
-                                        pending.push(itemData);
-                                    } else if (status === 'confirmed' || status === 'delivered') {
-                                        delivered.push(itemData);
+                                    for (let idx = 0; idx < item.quantity; idx++) {
+                                        const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${idx}`;
+                                        const itemData = {
+                                            order_id: order.id,
+                                            product_id: item.product_id,
+                                            name: item.name,
+                                            price: item.price,
+                                            quantity: 1,
+                                            note: item.note || '',
+                                            status: status,
+                                            key: key,
+                                            unit_index: idx
+                                        };
+                                        
+                                        if (status === 'pending') {
+                                            pending.push(itemData);
+                                        } else if (status === 'confirmed' || status === 'delivered') {
+                                            delivered.push(itemData);
+                                        }
                                     }
                                 });
                             }

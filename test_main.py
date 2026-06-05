@@ -1353,6 +1353,63 @@ def test_integration():
     assert t4["shape"] == "round"
     print("Save sitzplan positions: OK")
 
+    # ── Test CSV Export ──
+    print("Testing CSV Export...")
+    resp = client.get("/admin/products/export-csv", cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers.get("content-type", "")
+    csv_content = resp.content.decode("utf-8-sig")
+    assert "name" in csv_content
+    assert "price" in csv_content
+    assert "category" in csv_content
+    print("CSV Export: OK")
+
+    # ── Test CSV Import (Merge) ──
+    print("Testing CSV Import (Merge)...")
+    csv_data = (
+        "id;name;price;category;category_type;description;is_vegan;is_glutenfree;is_available;allergens\n"
+        ";Neues Test-Gericht;5,50;Asiatisch;küche;Scharfe Nudeln;true;false;true;A,B\n"
+    )
+    import_file = ("test.csv", csv_data.encode("utf-8"), "text/csv")
+    resp = client.post(
+        "/admin/products/import-csv",
+        files={"csv_file": import_file},
+        data={"overwrite": "false"},
+        cookies=dl_cookies,
+        follow_redirects=False
+    )
+    assert resp.status_code == 303
+    r_data = restaurants["demo"]
+    assert "Asiatisch" in r_data["categories"]
+    nudeln = next(p for p in r_data["products"] if p["name"] == "Neues Test-Gericht")
+    assert nudeln["price"] == 5.50
+    assert nudeln["category"] == "Asiatisch"
+    assert nudeln["category_type"] == "küche"
+    assert nudeln["is_vegan"] is True
+    assert nudeln["allergens"] == ["A", "B"]
+    print("CSV Import (Merge): OK")
+
+    # ── Test CSV Import (Overwrite) ──
+    print("Testing CSV Import (Overwrite)...")
+    csv_data_overwrite = (
+        "id;name;price;category;category_type;description;is_vegan;is_glutenfree;is_available;allergens\n"
+        ";Nur Dieses Gericht;10,00;Einzeln;küche;Beschreibung;false;false;true;\n"
+    )
+    import_file_ow = ("test_ow.csv", csv_data_overwrite.encode("utf-8"), "text/csv")
+    resp = client.post(
+        "/admin/products/import-csv",
+        files={"csv_file": import_file_ow},
+        data={"overwrite": "true"},
+        cookies=dl_cookies,
+        follow_redirects=False
+    )
+    assert resp.status_code == 303
+    r_data = restaurants["demo"]
+    assert len(r_data["products"]) == 1
+    assert r_data["products"][0]["name"] == "Nur Dieses Gericht"
+    assert r_data["categories"] == ["Einzeln"]
+    print("CSV Import (Overwrite): OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":
