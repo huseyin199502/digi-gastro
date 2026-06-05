@@ -4682,6 +4682,8 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     tables = restaurant.get("tables", [])
     base_url = str(request.base_url).rstrip("/")
+    logo_url = restaurant.get("branding", {}).get("logo_url") or "/static/images/digigastrologo.jpeg"
+    import urllib.parse
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -4693,7 +4695,6 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
             .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }}
             .card {{ border: 2px solid #ccc; padding: 15px; border-radius: 8px; text-align: center; page-break-inside: avoid; }}
             h3 {{ margin: 0; color: #333; }}
-            p {{ font-size: 12px; color: #666; margin: 5px 0 0; word-break: break-all; }}
             @media print {{
                 body {{ padding: 0; }}
                 .card {{ border: 1px solid #000; }}
@@ -4710,12 +4711,17 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         table_num = t.get("number")
         token = t.get("security_token", "")
         qr_url = f"{base_url}/{slug}?t={table_num}&tk={token}"
-        qr_image_src = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={qr_url}"
+        qr_url_encoded = urllib.parse.quote(qr_url)
+        qr_image_src = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={qr_url_encoded}"
         html_content += f"""
             <div class="card">
                 <h3>Tisch {table_num}</h3>
-                <img src="{qr_image_src}" alt="QR Tisch {table_num}" style="width: 150px; height: 150px; margin: 10px auto; display: block;" />
-                <p>{qr_url}</p>
+                <div style="position: relative; width: 150px; height: 150px; margin: 15px auto; background: white;">
+                    <img src="{qr_image_src}" alt="QR Tisch {table_num}" style="width: 150px; height: 150px; display: block;" />
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; background: white; padding: 2px; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                        <img src="{logo_url}" style="width: 30px; height: 30px; object-fit: contain; border-radius: 4px;" onerror="this.parentElement.style.display='none'" />
+                    </div>
+                </div>
             </div>
         """
     html_content += """

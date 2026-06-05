@@ -188,9 +188,9 @@
                 <p class="text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
                 
                 <!-- CTA Button to go to Menu -->
-                <button @click="currentView = 'speisekarte'" class="btn-premium px-8 py-3.5 rounded-2xl font-bold text-sm text-black flex items-center gap-2 mx-auto shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+                <button @click="currentView = 'speisekarte'" class="btn-premium btn-premium-primary px-8 py-3.5 rounded-2xl font-bold text-sm text-white flex items-center gap-2 mx-auto shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
                     <span class="material-symbols-outlined">menu_book</span>
-                    <span>Speisekarte ansehen</span>
+                    <span data-translate="view_menu">Speisekarte ansehen</span>
                 </button>
             </div>
 
@@ -281,6 +281,12 @@
                             <span>{{ cat }}</span>
                         </button>
                         {% endfor %}
+                    </div>
+
+                    <!-- Swipe indicator / accessibility tip (mobile only) -->
+                    <div class="flex md:hidden items-center justify-center gap-1.5 text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-2.5 opacity-65 select-none">
+                        <span class="material-symbols-outlined text-xs animate-pulse">swipe</span>
+                        <span data-translate="swipe_hint">← Kategorien wischen →</span>
                     </div>
 
                     <!-- Right Chevron indicator -->
@@ -746,7 +752,9 @@
                 toast_order_error: "Übertragungsfehler bei der Bestellung.",
                 scan_required_header: "QR-Code Scan erforderlich",
                 scan_required_welcome: "Willkommen bei",
-                scan_required_desc: "Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch."
+                scan_required_desc: "Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.",
+                swipe_hint: "← Kategorien wischen →",
+                view_menu: "Speisekarte ansehen"
             },
             en: {
                 token_error: "Invalid or expired table code. Please rescan the barcode.",
@@ -812,7 +820,9 @@
                 toast_order_error: "Transmission error during order.",
                 scan_required_header: "QR Code Scan Required",
                 scan_required_welcome: "Welcome to",
-                scan_required_desc: "To view our menu and place orders directly, please scan the QR code at your table."
+                scan_required_desc: "To view our menu and place orders directly, please scan the QR code at your table.",
+                swipe_hint: "← Swipe Categories →",
+                view_menu: "View Menu"
             }
         };
 
