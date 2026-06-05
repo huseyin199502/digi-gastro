@@ -544,36 +544,7 @@
                 <!-- Interactive canvas -->
                 <div class="seating-canvas" id="admin-tiles-root"></div>
                 
-                <!-- Table config form (shown only in Edit mode) -->
-                <div id="table-creator-panel" class="hidden mt-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                    <h3 class="font-extrabold text-sm text-zinc-800 mb-3 flex items-center gap-1">
-                        <span class="material-symbols-outlined text-zinc-500">add_box</span> Tisch hinzufügen
-                    </h3>
-                    <form action="/admin/table-erstellen" method="POST" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
-                        <div>
-                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
-                            <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
-                            <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                <option value="Drinnen">Drinnen</option>
-                                <option value="Draußen">Draußen</option>
-                                <option value="Innen">Innen</option>
-                                <option value="Terrasse">Terrasse</option>
-                                <option value="Bar">Bar</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
-                            <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                <option value="rect">Rechteckig</option>
-                                <option value="round">Rund</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
-                    </form>
-                </div>
+
             </div>
 
             <!-- 📈 TAB 2: BESTELLUNGEN & STATS (finanzen) -->
@@ -814,7 +785,7 @@
                         <form action="/admin/staff" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                             <div class="sm:col-span-2">
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name</label>
-                                <input type="text" name="name" required placeholder="z.B. Mehmet" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <input type="text" name="name" required placeholder="z.B. Max Mustermann" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">4-stellige PIN</label>
@@ -994,6 +965,37 @@
                             </a>
                         </div>
                     </div>
+
+                    <!-- Tisch hinzufügen card -->
+                    <div id="table-creator-panel" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-zinc-500">add_box</span> Tisch hinzufügen
+                        </h3>
+                        <form action="/admin/table-erstellen" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
+                                <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
+                                <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <option value="Drinnen">Drinnen</option>
+                                    <option value="Draußen">Draußen</option>
+                                    <option value="Innen">Innen</option>
+                                    <option value="Terrasse">Terrasse</option>
+                                    <option value="Bar">Bar</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
+                                <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <option value="rect">Rechteckig</option>
+                                    <option value="round">Rund</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -1076,7 +1078,7 @@
                         <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung aufnehmen
                     </button>
                     <button onclick="stornieren()" class="col-span-2 text-center text-[10px] font-bold text-red-500 hover:text-red-700 py-1">
-                        ⚠️ Ganzen Bon stornieren (Chef-PIN erforderlich)
+                        ⚠️ Ganzen Bon stornieren (PIN erforderlich)
                     </button>
                 </div>
             </div>
@@ -1120,7 +1122,7 @@
                     </button>
                     
                     <button onclick="executeItemAction('cancel')" class="w-full text-red-500 hover:text-red-700 font-bold text-xs py-2.5 rounded-xl transition">
-                        🚫 Artikel stornieren (Chef-PIN)
+                        🚫 Artikel stornieren (PIN erforderlich)
                     </button>
                 </div>
             </div>
@@ -1904,7 +1906,7 @@
                     return;
                 }
             }
-            let pin = prompt('Bitte Chef-PIN eingeben:');
+            let pin = prompt('Bitte Mitarbeiter-PIN eingeben:');
             if (pin === null) return;
             if (!pin.trim()) {
                 showToast('PIN erforderlich', 'error');
@@ -2307,7 +2309,6 @@
             const text = document.getElementById('btn-edit-mode-text');
             const saveBtn = document.getElementById('btn-save-layout');
             const instructions = document.getElementById('edit-instructions');
-            const creatorPanel = document.getElementById('table-creator-panel');
 
             if (isEditMode) {
                 tempTables = JSON.parse(JSON.stringify(allTables));
@@ -2315,13 +2316,11 @@
                 text.textContent = "Bearbeitung beenden";
                 saveBtn.classList.remove('hidden');
                 instructions.classList.remove('hidden');
-                if (creatorPanel) creatorPanel.classList.remove('hidden');
             } else {
                 btn.className = "px-4 py-2 bg-zinc-800 border border-outline-variant hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg";
                 text.textContent = "Sitzplan bearbeiten";
                 saveBtn.classList.add('hidden');
                 instructions.classList.add('hidden');
-                if (creatorPanel) creatorPanel.classList.add('hidden');
             }
             renderSitzplanTiles();
         }
@@ -3059,7 +3058,7 @@
                     return;
                 }
             }
-            let pin = prompt('Bitte Chef-PIN eingeben:');
+            let pin = prompt('Bitte Mitarbeiter-PIN eingeben:');
             if (pin === null) return;
             if (!pin.trim()) {
                 showToast('PIN erforderlich', 'error');
@@ -3177,7 +3176,7 @@
                 document.getElementById('item-action-modal').classList.add('hidden');
                 document.getElementById('table-sel-overlay').classList.remove('hidden');
             } else if (action === 'cancel') {
-                let pin = prompt('Bitte Chef-PIN eingeben:');
+                let pin = prompt('Bitte Mitarbeiter-PIN eingeben:');
                 if (pin === null) return;
                 if (!pin.trim()) {
                     showToast('PIN erforderlich', 'error');
@@ -3366,7 +3365,7 @@
             const keys = Object.keys(selectedTeilrechnung);
             if (!keys.length) return;
 
-            let pin = prompt('Chef-PIN eingeben:');
+            let pin = prompt('Mitarbeiter-PIN eingeben:');
             if (pin === null) return;
             if (!pin.trim()) {
                 showToast('PIN erforderlich', 'error');
@@ -3429,7 +3428,7 @@
 
         async function stornieren() {
             if (!activeOrderId) return;
-            let pin = prompt('Chef-PIN eingeben:');
+            let pin = prompt('PIN eingeben:');
             if (pin === null) return;
             if (!pin.trim()) {
                 showToast('PIN erforderlich', 'error');

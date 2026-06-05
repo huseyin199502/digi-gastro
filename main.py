@@ -2174,9 +2174,9 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
 
     if not is_chef:
         if not pin:
-            raise HTTPException(status_code=400, detail="Chef-PIN erforderlich.")
+            raise HTTPException(status_code=400, detail="Mitarbeiter-PIN erforderlich.")
         employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(pin).strip()), None)
-        if not employee or employee["role"] != "chef":
+        if not employee:
             raise HTTPException(status_code=403, detail="Ungültige PIN oder keine Berechtigung für Stornierung.")
     else:
         employee = chef_employee or {"name": "Chef", "role": "chef"}
@@ -2651,9 +2651,9 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
 
     if not is_chef:
         if not payload.pin:
-            raise HTTPException(status_code=400, detail="Chef-PIN erforderlich.")
+            raise HTTPException(status_code=400, detail="Mitarbeiter-PIN erforderlich.")
         employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
-        if not employee or employee["role"] != "chef":
+        if not employee:
             raise HTTPException(status_code=403, detail="Ungültige PIN.")
     else:
         employee = chef_employee or {"name": "Chef", "role": "chef"}
@@ -2738,9 +2738,9 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
     if not is_chef:
         if not payload.pin:
-            raise HTTPException(status_code=400, detail="Chef-PIN erforderlich.")
+            raise HTTPException(status_code=400, detail="Mitarbeiter-PIN erforderlich.")
         employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
-        if not employee or employee["role"] != "chef":
+        if not employee:
             raise HTTPException(status_code=403, detail="Ungültige PIN.")
     else:
         employee = chef_employee or {"name": "Chef", "role": "chef"}

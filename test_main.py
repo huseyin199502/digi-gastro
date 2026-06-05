@@ -787,16 +787,16 @@ def test_integration():
 
 
 
-    # 4. Säule 4: Chef-PIN storno protection
-    print("Testing Chef-PIN storno protection...")
-    resp = client.post("/demo/tablet/stornieren/2", data={"pin": "1234"})
+    # 4. Säule 4: Mitarbeiter-PIN storno protection
+    print("Testing Mitarbeiter-PIN storno...")
+    resp = client.post("/demo/tablet/stornieren/2", data={"pin": "0000"})
     assert resp.status_code == 403
-    print("Storno with waiter PIN blocked: OK")
+    print("Storno with invalid PIN blocked: OK")
 
-    resp = client.post("/demo/tablet/stornieren/2", data={"pin": "1111"})
+    resp = client.post("/demo/tablet/stornieren/2", data={"pin": "1234"})
     assert resp.status_code == 200
     assert resp.json()["success"] is True
-    print("Storno with chef PIN permitted: OK")
+    print("Storno with waiter PIN permitted: OK")
 
     # 5. Product Update API
     print("Testing Product Update API (PUT /api/products/{product_id})...")
