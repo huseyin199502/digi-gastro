@@ -1503,7 +1503,7 @@ def get_orders_status(slug: str, ids: str, db: Session = Depends(get_db)):
     return {"orders": res}
 
 @app.get("/{slug}", response_class=HTMLResponse)
-def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, db: Session = Depends(get_db)):
+def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, t: Optional[str] = None, tk: Optional[str] = None, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     role = request.query_params.get("role") or ""
     
@@ -1511,15 +1511,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         restaurant["impressum_content"] = f"Impressum\nAngaben gemäß § 5 TMG:\n{restaurant['name']} Gastro GmbH\nInhaber: Chef\n{restaurant.get('branding', {}).get('address', 'Musterstraße 1, 80331 München')}"
     if not restaurant.get("datenschutz_content"):
         restaurant["datenschutz_content"] = f"Datenschutz-Erklärung\nWir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. Personenbezogene Daten werden auf dieser digitalen Speisekarte nur im technisch notwendigen Umfang (Tischzuordnung und Bestellübermittlung) erhoben und verarbeitet."
-
+ 
     is_readonly = False
     set_session_cookie = False
     token_error = False
     reset_session = (request.query_params.get("reset") == "true")
-
+ 
     # Check query parameters first (support both 'table' and 'tisch')
-    query_table = table or request.query_params.get("tisch") or request.query_params.get("table")
-    query_token = token or request.query_params.get("token")
+    query_table = table or t or request.query_params.get("tisch") or request.query_params.get("table") or request.query_params.get("t")
+    query_token = token or tk or request.query_params.get("token") or request.query_params.get("tk")
     master_token = restaurant.get("security_token")
 
     # ── Admin preview bypass ──

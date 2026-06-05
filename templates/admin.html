@@ -2,7 +2,7 @@
 <html lang="de" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Digi-Gastro | Admin Dashboard</title>
     
     <!-- Google Fonts & Material Icons -->
@@ -188,6 +188,25 @@
             margin-top: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            /* Switch seating canvas to a clean grid layout on mobile screens in view mode */
+            .seating-canvas:not(.edit-mode) {
+                display: grid !important;
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important;
+                gap: 12px !important;
+                height: auto !important;
+                min-height: 200px !important;
+                padding: 12px !important;
+                overflow-y: auto !important;
+            }
+            .seating-canvas:not(.edit-mode) .sitzplan-table {
+                position: static !important;
+                width: 100% !important;
+                height: 90px !important;
+                margin: 0 !important;
+            }
         }
 
         /* Table Tiles */
@@ -598,18 +617,18 @@
                         <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
                             <span class="material-symbols-outlined text-zinc-500">add_circle</span> Produkt anlegen
                         </h3>
-                        <form action="/admin/produkt-erstellen" method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <form action="/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktname</label>
                                 <input type="text" name="name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
-                                <input type="number" step="0.01" name="price" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                <input type="number" step="0.01" name="preis" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
-                                <select name="category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <select name="kategorie" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     {% for cat in restaurant.categories %}
                                     <option value="{{ cat }}">{{ cat }}</option>
                                     {% endfor %}
@@ -621,6 +640,10 @@
                                     <option value="bar"> Getränk (Bar)</option>
                                     <option value="küche"> Speise (Küche)</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktbild hochladen</label>
+                                <input type="file" name="image_file" accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <button type="submit" class="sm:col-span-2 w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Produkt anlegen</button>
                         </form>
@@ -888,7 +911,7 @@
                         <span>Teilrechnung Summe:</span>
                         <span id="control-split-sum" class="font-mono text-zinc-900">0,00 €</span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 hidden" style="display: none !important;">
                         <span class="text-[10px] font-bold text-zinc-400 uppercase">Trinkgeld €:</span>
                         <input type="number" id="pay-split-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-2.5 py-1 text-xs text-right font-bold font-mono">
                     </div>
@@ -904,7 +927,7 @@
 
                 <!-- General actions block -->
                 <div class="grid grid-cols-2 gap-2" id="control-general-actions">
-                    <div class="col-span-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
+                    <div class="col-span-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2 hidden" style="display: none !important;">
                         <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5">Trinkgeld €:</span>
                         <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold font-mono">
                     </div>
@@ -951,7 +974,7 @@
 
                 <div class="flex flex-col gap-2">
                     <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
-                        <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" class="w-20 bg-white border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-right font-bold">
+                        <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" class="w-20 bg-white border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-right font-bold hidden" style="display: none !important;">
                         <button onclick="executeItemAction('pay')" class="flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1">
                             💳 Teilmenge bezahlen
                         </button>
@@ -1788,47 +1811,6 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === "update" && data.table_number) {
-                        const card = document.getElementById(`table-card-${data.table_number}`);
-                        if (card) {
-                            card.className = 'w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-2xl relative transition-all duration-300 transform hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center p-3 bg-[#4cbb17] text-white shadow-lg';
-                            
-                            const eyeHtml = `<a href="/?uid=${slug}&tisch=${data.table_number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
-                            const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${data.table_number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
-                            
-                            const now = new Date();
-                            const yyyy = now.getFullYear();
-                            const mm = String(now.getMonth() + 1).padStart(2, '0');
-                            const dd = String(now.getDate()).padStart(2, '0');
-                            const hh = String(now.getHours()).padStart(2, '0');
-                            const min = String(now.getMinutes()).padStart(2, '0');
-                            const ss = String(now.getSeconds()).padStart(2, '0');
-                            const nowLocal = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-                            
-                            card.innerHTML = `
-                                ${eyeHtml}
-                                ${mergeHtml}
-                                <span class="text-2xl sm:text-3xl"><i class="fa-solid fa-arrows-rotate animate-spin"></i></span>
-                                <span class="text-[9px] sm:text-xs font-black tracking-wider uppercase text-center mt-1">Neue Bestellung...</span>
-                                <span class="text-sm sm:text-base font-black mt-1">${data.table_number}</span>
-                                <span class="tile-timer absolute right-8 top-2 text-[9px] sm:text-[10px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded animate-pulse" data-timestamp="${nowLocal}">0m 0s</span>
-                            `;
-                            
-                            // Re-bind the click to open control modal (replacing <a> with <div> dynamically)
-                            if (card.tagName === 'A') {
-                                const newDiv = document.createElement('div');
-                                newDiv.id = card.id;
-                                newDiv.className = card.className;
-                                newDiv.style.display = 'flex';
-                                newDiv.style.flexDirection = 'column';
-                                newDiv.style.alignItems = 'center';
-                                newDiv.style.justifyContent = 'center';
-                                newDiv.onclick = () => openControlModal(data.table_number);
-                                newDiv.innerHTML = card.innerHTML;
-                                card.parentNode.replaceChild(newDiv, card);
-                            }
-                        }
-                    }
                     if (data.type === "update" || data.type === "refresh_tables" || data.type === "service_call") {
                         checkLiveTischeUpdates();
                     }
@@ -2169,6 +2151,12 @@
             const root = document.getElementById('admin-tiles-root');
             if (!root) return;
 
+            if (isEditMode) {
+                root.classList.add('edit-mode');
+            } else {
+                root.classList.remove('edit-mode');
+            }
+
             let filteredTables = isEditMode ? tempTables : allTables;
             if (sitzplanFilterZone !== 'gesamt') {
                 filteredTables = filteredTables.filter(t => (t.zone || '').toLowerCase() === sitzplanFilterZone);
@@ -2411,6 +2399,8 @@
                 const eyeHtml = `<a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-zinc-500 hover:text-zinc-800 text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
                 const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${currentTable.number}')" class="absolute left-2 top-2 text-zinc-500 hover:text-zinc-800 text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                 
+                const revenueText = order ? `${order.total.toFixed(2).replace('.', ',')} €` : '';
+
                 if (activeCall) {
                     let callIcon = '🔔';
                     let callText = 'Ruf';
@@ -2432,25 +2422,25 @@
                         <span class="text-xl sm:text-2xl animate-bounce">${callIcon}</span>
                         <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-amber-800">${callText}</span>
                         <span class="text-xs sm:text-sm font-black text-amber-900">${currentTable.number}</span>
+                        ${revenueText ? `<span class="text-[10px] font-extrabold text-amber-950 mt-0.5">${revenueText}</span>` : ''}
                     `;
                 } else if (order) {
-                    const eyeHtmlOrder = `<a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-white/80 hover:text-white text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
-                    const mergeHtmlOrder = `<button onclick="event.stopPropagation(); openTransferModal('${currentTable.number}')" class="absolute left-2 top-2 text-white/80 hover:text-white text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                     if (hasPending) {
                         inner = `
-                            ${eyeHtmlOrder}
-                            ${mergeHtmlOrder}
-                            <span class="text-xl sm:text-2xl animate-bounce">🔔</span>
-                            <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5">Bestellung</span>
-                            <span class="text-xs sm:text-sm font-black">${currentTable.number}</span>
-                            <span class="tile-timer absolute right-8 top-2 text-[9px] font-bold text-white bg-black/30 px-1.5 py-0.5 rounded" data-timestamp="${order.timestamp}"></span>
+                            ${eyeHtml}
+                            ${mergeHtml}
+                            <span class="text-[9px] font-black tracking-wider uppercase text-center text-rose-800 mt-1">Bestellung</span>
+                            <span class="text-xs sm:text-sm font-black text-rose-950">${currentTable.number}</span>
+                            <span class="text-[10px] font-extrabold text-rose-900 mt-0.5">${revenueText}</span>
+                            <span class="tile-timer absolute right-6 bottom-2 text-[9px] font-bold text-rose-800 bg-rose-200/50 px-1 rounded" data-timestamp="${order.timestamp}"></span>
                         `;
                     } else {
                         inner = `
-                            ${eyeHtmlOrder}
-                            ${mergeHtmlOrder}
-                            <span class="text-xl sm:text-2xl font-black">${currentTable.number}</span>
-                            <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-emerald-100 font-bold">Serviert</span>
+                            ${eyeHtml}
+                            ${mergeHtml}
+                            <span class="text-[9px] font-black tracking-wider uppercase text-center text-emerald-800 mt-1">Serviert</span>
+                            <span class="text-xs sm:text-sm font-black text-emerald-950">${currentTable.number}</span>
+                            <span class="text-[10px] font-extrabold text-emerald-900 mt-0.5">${revenueText}</span>
                         `;
                     }
                 } else {
@@ -2912,7 +2902,7 @@
                         <span style="font-size:16px;font-weight:900;color:#10b981;">${total.toFixed(2).replace('.', ',')} €</span>
                     </div>
 
-                    <div style="display:flex;align-items:center;gap:.5rem;margin-top:0.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:.5rem;padding:4px 8px;">
+                    <div style="display:none !important;align-items:center;gap:.5rem;margin-top:0.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:.5rem;padding:4px 8px;">
                         <span style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;">Trinkgeld (€):</span>
                         <input type="number" id="pay-teil-tip" step="0.1" min="0" placeholder="0,00" style="flex:1;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:4px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
                     </div>
