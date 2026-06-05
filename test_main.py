@@ -896,6 +896,37 @@ def test_integration():
     assert t4_table["security_token"] == t3_table["security_token"]
     print("Table Merge / Transfer API: OK")
 
+    # Let's test the new cockpit split partial transfer
+    print("Testing Cockpit Split Partial Transfer...")
+    # Table 4 has 1x Burger (product 1) and 1x Spezi (product 4). Let's transfer 1x Spezi back to Table 3.
+    spezi_status = spezi_item.get("item_status") or "pending"
+    spezi_key = f"{merged_order['id']}_4__{spezi_status}"
+    
+    # Call the cockpit split transfer endpoint
+    resp = client.post("/admin/orders/transfer", json={
+        "source_table": "Tisch 4",
+        "target_table": "Tisch 3",
+        "item_keys": [spezi_key],
+        "items": {spezi_key: 1}
+    }, cookies=dl_cookies)
+    
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    assert resp.json()["success"] is True
+    
+    # Verify Table 3 now has 1 order containing 1x Spezi
+    tisch3_orders_post = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 3", "3"] and o.get("status") not in ["bezahlt", "storniert"]]
+    assert len(tisch3_orders_post) == 1
+    assert len(tisch3_orders_post[0]["items"]) == 1
+    assert tisch3_orders_post[0]["items"][0]["product_id"] == 4
+    assert tisch3_orders_post[0]["items"][0]["quantity"] == 1
+    
+    # Verify Table 4 order no longer has Spezi (it only has Burger)
+    tisch4_orders_post = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 4", "4"] and o.get("status") not in ["bezahlt", "storniert"]]
+    assert len(tisch4_orders_post) == 1
+    assert len(tisch4_orders_post[0]["items"]) == 1
+    assert tisch4_orders_post[0]["items"][0]["product_id"] == 1
+    print("Cockpit Split Partial Transfer: OK")
+
     # 8. Tisch-Tokens & Sitzung Wiederkehrend-Scan Test
     print("Testing table session printed token scan-to-re-login (Issue 2)...")
     client.cookies.clear() # Clear any session cookies from previous setup/admin/chef tests

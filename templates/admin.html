@@ -1365,6 +1365,7 @@
             document.getElementById('control-modal').classList.add('hidden');
             controlModalActiveTableNum = null;
             selectedControlSplitItems = {};
+            activeOrderId = null;
         }
 
         function refreshControlModal() {
@@ -1372,6 +1373,13 @@
             
             const targetTable = "Tisch " + controlModalActiveTableNum;
             const tableOrders = allOrders.filter(o => (o.table === targetTable || o.table === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            
+            // Dynamically set activeOrderId for cockpit actions
+            if (tableOrders.length > 0) {
+                activeOrderId = tableOrders[0].id;
+            } else {
+                activeOrderId = null;
+            }
             
             let total = 0.0;
             let pendingItems = [];
@@ -1383,7 +1391,7 @@
                     order.items.forEach(item => {
                         const status = item.item_status || 'pending';
                         const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                        const key = `${item.product_id}_${noteSlug}_${status}`;
+                        const key = `${order.id}_${item.product_id}_${noteSlug}_${status}`;
                         
                         const itemData = {
                             order_id: order.id,
@@ -1875,6 +1883,7 @@
         let lastLiveTischeHash = null;
         let ws = null;
         let pollInterval = null;
+        let wsHeartbeatInterval = null;
 
         function connectWebSocket() {
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -1883,6 +1892,8 @@
             console.log("Admin connecting to WebSocket at", wsUrl);
             ws = new WebSocket(wsUrl);
             
+            let pongReceived = true;
+            
             ws.onopen = () => {
                 console.log("Admin WebSocket connected!");
                 if (pollInterval) {
@@ -1890,12 +1901,28 @@
                     pollInterval = null;
                 }
                 checkLiveTischeUpdates();
+                
+                pongReceived = true;
+                if (wsHeartbeatInterval) clearInterval(wsHeartbeatInterval);
+                wsHeartbeatInterval = setInterval(() => {
+                    if (!pongReceived) {
+                        console.warn("WebSocket heartbeat timeout (no pong received). Closing connection...");
+                        if (ws) ws.close();
+                        return;
+                    }
+                    pongReceived = false;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: "ping" }));
+                    }
+                }, 15000);
             };
             
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === "update" || data.type === "refresh_tables" || data.type === "service_call") {
+                    if (data.type === "pong") {
+                        pongReceived = true;
+                    } else if (data.type === "update" || data.type === "refresh_tables" || data.type === "service_call") {
                         checkLiveTischeUpdates();
                     }
                 } catch (e) {
@@ -1906,6 +1933,10 @@
             ws.onclose = (event) => {
                 console.warn("Admin WebSocket closed. Attempting reconnect / falling back to polling...", event.reason);
                 ws = null;
+                if (wsHeartbeatInterval) {
+                    clearInterval(wsHeartbeatInterval);
+                    wsHeartbeatInterval = null;
+                }
                 startFallbackPolling();
                 setTimeout(connectWebSocket, 5000);
             };
@@ -1941,12 +1972,6 @@
         }
 
         function checkLiveTischeUpdates() {
-            const editModal = document.getElementById('edit-product-modal');
-            if (editModal && !editModal.classList.contains('hidden')) return;
-            // Also skip if item-action-modal is open (avoid flicker during user interaction)
-            const itemModal = document.getElementById('item-action-modal');
-            if (itemModal && !itemModal.classList.contains('hidden')) return;
-
             fetch(`/api/tablet-status`)
                 .then(res => {
                     if (res.status === 401 || res.status === 403) return null;
@@ -2604,33 +2629,40 @@
             const order = allOrders.find(o => o.id === orderId);
             if (!order) return;
             renderPopup(order);
-            document.getElementById('order-popup').classList.remove('hidden');
+            const popup = document.getElementById('order-popup');
+            if (popup) popup.classList.remove('hidden');
         }
 
         function closePopup() {
-            document.getElementById('order-popup').classList.add('hidden');
+            const popup = document.getElementById('order-popup');
+            if (popup) popup.classList.add('hidden');
             activeOrderId = null;
             expandedItemKey = null;
             selectedTeilrechnung = {};
         }
 
         function renderPopup(order) {
-            document.getElementById('popup-table-name').textContent = order.table;
-            document.getElementById('popup-bon-id').textContent = `Bon #${order.id}`;
-            document.getElementById('popup-total').textContent = order.total.toFixed(2).replace('.', ',') + ' €';
+            const elTableName = document.getElementById('popup-table-name');
+            if (elTableName) elTableName.textContent = order.table;
+            const elBonId = document.getElementById('popup-bon-id');
+            if (elBonId) elBonId.textContent = `Bon #${order.id}`;
+            const elTotal = document.getElementById('popup-total');
+            if (elTotal) elTotal.textContent = order.total.toFixed(2).replace('.', ',') + ' €';
 
             const hasTeil = Object.keys(selectedTeilrechnung).length > 0;
+            const elFooterNormal = document.getElementById('popup-footer-normal');
             if (hasTeil) {
-                document.getElementById('popup-footer-normal').style.display = 'none';
+                if (elFooterNormal) elFooterNormal.style.display = 'none';
                 renderTeilrechnungView(order);
             } else {
-                document.getElementById('popup-footer-normal').style.display = 'block';
+                if (elFooterNormal) elFooterNormal.style.display = 'block';
                 renderPopupItems(order);
             }
         }
 
         function renderPopupItems(order) {
             const container = document.getElementById('popup-items');
+            if (!container) return;
             if (!order.items || !order.items.length) {
                 container.innerHTML = '<div style="text-align:center;color:#4b5563;padding:2rem;">Keine Artikel</div>';
                 return;
@@ -2816,7 +2848,8 @@
                 const order = allOrders.find(o => o.id === activeOrderId);
                 if (order && order.status !== 'bezahlt' && order.status !== 'storniert') {
                     renderPopup(order);
-                    document.getElementById('order-popup').classList.remove('hidden');
+                    const popup = document.getElementById('order-popup');
+                    if (popup) popup.classList.remove('hidden');
                 } else {
                     // Order is gone/paid – close the parent popup properly
                     closePopup();
@@ -2929,6 +2962,7 @@
 
         function renderTeilrechnungView(order) {
             const container = document.getElementById('popup-items');
+            if (!container) return;
             
             let itemsHtml = '';
             let total = 0;
@@ -3157,6 +3191,11 @@
         }
 
         function openUmbuchenSelectedCockpit() {
+            const keys = Object.keys(selectedControlSplitItems);
+            if (!keys.length) {
+                showToast('Bitte wählen Sie zuerst Artikel aus!', 'info');
+                return;
+            }
             tableSel_mode = 'cockpit_split';
             document.getElementById('table-sel-title').textContent = 'Teilbestellungen umbuchen';
             document.getElementById('table-sel-subtitle').textContent = `Ausgewählte Artikel umbuchen`;
@@ -3266,11 +3305,17 @@
                 const keys = Object.keys(selectedControlSplitItems);
                 if (!keys.length) return;
                 
+                const itemsPayload = {};
+                keys.forEach(key => {
+                    itemsPayload[key] = selectedControlSplitItems[key].selectedQty;
+                });
+                
                 try {
                     const payload = {
                         source_table: "Tisch " + controlModalActiveTableNum,
                         target_table: "Tisch " + targetTableNumber,
-                        item_keys: keys
+                        item_keys: keys,
+                        items: itemsPayload
                     };
                     
                     const res = await fetch('/admin/orders/transfer', {

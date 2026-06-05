@@ -4555,6 +4555,7 @@ class AdminTransferPayload(BaseModel):
     source_table: str
     target_table: str
     item_keys: Optional[List[str]] = None
+    items: Optional[Dict[str, int]] = None
 
 @app.post("/admin/orders/transfer")
 async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Session = Depends(get_db)):
@@ -4606,14 +4607,43 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
             for item in source_order.get("items", []):
                 item_status = item.get("item_status") or "pending"
                 note_slug = (item.get("note") or "").strip().replace(" ", "_")
-                key = f"{item.get('product_id')}_{note_slug}_{item_status}"
                 
-                if key in payload.item_keys:
+                # Check both unique key (with order id) and legacy key
+                unique_key = f"{source_order['id']}_{item.get('product_id')}_{note_slug}_{item_status}"
+                legacy_key = f"{item.get('product_id')}_{note_slug}_{item_status}"
+                
+                matched_key = None
+                if unique_key in payload.item_keys:
+                    matched_key = unique_key
+                elif legacy_key in payload.item_keys:
+                    matched_key = legacy_key
+                
+                if matched_key:
+                    # Determine quantity to move
+                    qty_to_move = item.get("quantity", 0)
+                    if payload.items and matched_key in payload.items:
+                        qty_to_move = min(payload.items[matched_key], item.get("quantity", 0))
+                    
+                    if qty_to_move <= 0:
+                        remaining_items.append(item)
+                        continue
+                        
+                    # Move quantity
+                    moved_item = copy.deepcopy(item)
+                    moved_item["quantity"] = qty_to_move
+                    
+                    # Add to target order
                     t_item = next((i for i in target_order.get("items", []) if i.get("product_id") == item.get("product_id") and (i.get("note") or "").strip() == (item.get("note") or "").strip() and (i.get("item_status") or "pending") == item_status), None)
                     if t_item:
-                        t_item["quantity"] += item.get("quantity", 0)
+                        t_item["quantity"] += qty_to_move
                     else:
-                        target_order["items"].append(copy.deepcopy(item))
+                        target_order["items"].append(moved_item)
+                        
+                    # Keep remaining quantity in source order
+                    rem_qty = item.get("quantity", 0) - qty_to_move
+                    if rem_qty > 0:
+                        item["quantity"] = rem_qty
+                        remaining_items.append(item)
                 else:
                     remaining_items.append(item)
             
