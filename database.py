@@ -239,6 +239,9 @@ def _migrate_database():
     add_column_if_missing('tenants', 'pos_token', "VARCHAR")
     add_column_if_missing('tenants', 'pos_secret', "VARCHAR")
     add_column_if_missing('tenants', 'kds_secret', "VARCHAR")
+    add_column_if_missing('tenants', 'plz', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tenants', 'ort', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tenants', 'landing_page_json', "TEXT DEFAULT '{}'")
 
     # Migrate 'tables' table
     add_column_if_missing('tables', 'security_token', "VARCHAR DEFAULT ''")
@@ -257,6 +260,7 @@ def _migrate_database():
 
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
+    add_column_if_missing('order_items', 'note', "TEXT")
 
 
 try:
@@ -377,14 +381,13 @@ def run_migrations():
         "ALTER TABLE tenants ADD COLUMN ort VARCHAR DEFAULT ''",
         "ALTER TABLE tenants ADD COLUMN landing_page_json TEXT DEFAULT '{}'",
     ]
-    with engine.connect() as conn:
-        for sql in migrations:
-            try:
+    for sql in migrations:
+        try:
+            with engine.begin() as conn:
                 conn.execute(__import__("sqlalchemy").text(sql))
-                conn.commit()
-            except Exception:
-                # Column already exists or similar – safe to ignore
-                pass
+        except Exception:
+            # Column already exists or similar – safe to ignore
+            pass
 # sync comment to trigger git push
 
 
