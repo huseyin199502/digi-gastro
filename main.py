@@ -4683,7 +4683,6 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
     tables = restaurant.get("tables", [])
     base_url = str(request.base_url).rstrip("/")
     logo_url = restaurant.get("branding", {}).get("logo_url") or "/static/images/digigastrologo.jpeg"
-    import urllib.parse
     html_content = f"""
     <!DOCTYPE html>
     <html>
