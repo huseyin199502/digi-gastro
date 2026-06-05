@@ -240,6 +240,49 @@
             border-radius: 50%;
         }
 
+        /* Prevent double-tap to zoom on interactive elements on mobile */
+        button,
+        input,
+        select,
+        textarea,
+        a,
+        .sitzplan-table,
+        .btn-action,
+        .table-sel-tile {
+            touch-action: manipulation;
+        }
+
+        /* Styling for table selection tiles in the transfer popup */
+        .table-sel-tile {
+            background-color: #1f2937 !important; /* slate-800 */
+            border: 1px solid #374151 !important; /* slate-700 */
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+        }
+
+        .table-sel-tile:hover {
+            background-color: #374151 !important; /* slate-700 */
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+
+        .table-sel-tile.busy {
+            border-color: #f59e0b !important; /* amber-500 */
+            background-color: #1e1b15 !important;
+        }
+
+        .table-sel-tile.busy:hover {
+            background-color: #2c2519 !important;
+        }
+
         .sitzplan-table.status-free {
             border-color: #cbd5e1;
         }
@@ -931,11 +974,9 @@
                         <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5">Trinkgeld €:</span>
                         <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold font-mono">
                     </div>
-                    <button onclick="bezahlenAlles()" class="bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
+                    <div id="control-customer-tip-box" class="col-span-2 hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 p-2.5 rounded-xl text-xs font-extrabold flex justify-between items-center shadow"></div>
+                    <button id="btn-bezahlt-all" onclick="bezahlenAlles()" class="col-span-2 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
-                    </button>
-                    <button onclick="openUmbuchenAll()" class="border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1">
-                        <span class="material-symbols-outlined text-sm">sync_alt</span> Tisch umbuchen
                     </button>
                     <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="col-span-2 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1">
                         <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung aufnehmen
@@ -966,9 +1007,9 @@
                 <div id="item-action-qty-container" class="flex flex-col items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl p-3">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase">Teilmenge auswählen</span>
                     <div class="flex items-center gap-4">
-                        <button onclick="changeItemActionQty(-1)" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">-</button>
+                        <button onclick="changeItemActionQty(-1)" style="touch-action: manipulation;" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">-</button>
                         <span id="item-action-qty-text" class="font-black text-lg min-w-[30px] text-center">1</span>
-                        <button onclick="changeItemActionQty(1)" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">+</button>
+                        <button onclick="changeItemActionQty(1)" style="touch-action: manipulation;" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">+</button>
                     </div>
                 </div>
 
@@ -1367,9 +1408,52 @@
             const hasActiveOrder = tableOrders.length > 0;
             const elTip = document.getElementById('pay-all-tip');
             const elTipWrapper = elTip ? elTip.closest('.col-span-2') : null;
-            const elPayBtn = document.querySelector('button[onclick="bezahlenAlles()"]');
+            const elPayBtn = document.getElementById('btn-bezahlt-all');
             const elTransferBtn = document.querySelector('button[onclick="openUmbuchenAll()"]');
             const elCancelBtn = document.querySelector('button[onclick="stornieren()"]');
+
+            // Check for customer tip in active service calls for this table
+            let customerTipVal = 0.0;
+            let tipTextStr = '';
+            
+            const tableCallsForTip = allCalls.filter(c => {
+                const callTableNum = String(c.table).replace('Tisch ', '').trim();
+                return callTableNum === String(controlModalActiveTableNum);
+            });
+            
+            tableCallsForTip.forEach(c => {
+                const cType = String(c.type).toLowerCase();
+                if (cType.includes('trinkgeld:')) {
+                    const match = c.type.match(/Trinkgeld:\s*([0-9.,]+)/i);
+                    if (match) {
+                        const parsed = parseFloat(match[1].replace(',', '.'));
+                        if (!isNaN(parsed) && parsed > 0) {
+                            customerTipVal = parsed;
+                            tipTextStr = `${parsed.toFixed(2).replace('.', ',')} €`;
+                        }
+                    }
+                }
+            });
+
+            // Pre-populate the hidden tip field for paying
+            if (elTip) {
+                elTip.value = customerTipVal > 0 ? customerTipVal.toFixed(2) : '0.00';
+            }
+
+            // Update UI tip box in cockpit
+            const tipBox = document.getElementById('control-customer-tip-box');
+            if (tipBox) {
+                if (customerTipVal > 0) {
+                    tipBox.innerHTML = `
+                        <span>💡 Kunden-Trinkgeld:</span>
+                        <span class="font-mono font-black text-emerald-400">+ ${tipTextStr}</span>
+                    `;
+                    tipBox.classList.remove('hidden');
+                } else {
+                    tipBox.classList.add('hidden');
+                    tipBox.innerHTML = '';
+                }
+            }
 
             if (hasActiveOrder) {
                 if (elTipWrapper) elTipWrapper.classList.remove('hidden');
@@ -2397,9 +2481,17 @@
             } else {
                 let inner = '';
                 const eyeHtml = `<a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-zinc-500 hover:text-zinc-800 text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
-                const mergeHtml = `<button onclick="event.stopPropagation(); openTransferModal('${currentTable.number}')" class="absolute left-2 top-2 text-zinc-500 hover:text-zinc-800 text-base z-10" style="background:none; border:none; cursor:pointer;" title="Tisch umbuchen">⇄</button>`;
                 
                 const revenueText = order ? `${order.total.toFixed(2).replace('.', ',')} €` : '';
+
+                // Check for customer tip in active call
+                let tipText = '';
+                if (activeCall && activeCall.type.includes('Trinkgeld:')) {
+                    const match = activeCall.type.match(/Trinkgeld:\s*([0-9.,]+)/);
+                    if (match) {
+                        tipText = `+${match[1]} € Trinkgeld`;
+                    }
+                }
 
                 if (activeCall) {
                     let callIcon = '🔔';
@@ -2418,17 +2510,16 @@
 
                     inner = `
                         ${eyeHtml}
-                        ${mergeHtml}
                         <span class="text-xl sm:text-2xl animate-bounce">${callIcon}</span>
                         <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-amber-800">${callText}</span>
                         <span class="text-xs sm:text-sm font-black text-amber-900">${currentTable.number}</span>
                         ${revenueText ? `<span class="text-[10px] font-extrabold text-amber-950 mt-0.5">${revenueText}</span>` : ''}
+                        ${tipText ? `<span class="text-[9px] font-bold text-emerald-800 mt-0.5 bg-emerald-100/70 px-1 rounded">${tipText}</span>` : ''}
                     `;
                 } else if (order) {
                     if (hasPending) {
                         inner = `
                             ${eyeHtml}
-                            ${mergeHtml}
                             <span class="text-[9px] font-black tracking-wider uppercase text-center text-rose-800 mt-1">Bestellung</span>
                             <span class="text-xs sm:text-sm font-black text-rose-950">${currentTable.number}</span>
                             <span class="text-[10px] font-extrabold text-rose-900 mt-0.5">${revenueText}</span>
@@ -2437,7 +2528,6 @@
                     } else {
                         inner = `
                             ${eyeHtml}
-                            ${mergeHtml}
                             <span class="text-[9px] font-black tracking-wider uppercase text-center text-emerald-800 mt-1">Serviert</span>
                             <span class="text-xs sm:text-sm font-black text-emerald-950">${currentTable.number}</span>
                             <span class="text-[10px] font-extrabold text-emerald-900 mt-0.5">${revenueText}</span>
@@ -2878,7 +2968,7 @@
                                     <div style="font-size:12px;font-weight:800;color:#fff;margin-right:.5rem;">
                                         ${qty}× ${item.price.toFixed(2).replace('.', ',')} €
                                     </div>
-                                    <button onclick="removeFromTeilrechnung('${key}')" style="width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;">
+                                    <button onclick="removeFromTeilrechnung('${key}')" style="touch-action: manipulation; width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;">
                                         －
                                     </button>
                                 </div>
