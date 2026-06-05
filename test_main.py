@@ -890,10 +890,11 @@ def test_integration():
     assert spezi_item["quantity"] == 1
     assert burger_item["quantity"] == 1
     
-    # Security token of Tisch 4 should match Tisch 3's token
+    # Security token of Tisch 4 should remain Tisch 4's static token, NOT Tisch 3's
     t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
     t4_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "4")
-    assert t4_table["security_token"] == t3_table["security_token"]
+    assert t4_table["security_token"] == "token-tisch-4"
+    assert t3_table["security_token"] == "token-tisch-3"
     print("Table Merge / Transfer API: OK")
 
     # Let's test the new cockpit split partial transfer
@@ -1220,6 +1221,11 @@ def test_integration():
     assert o_t3 is None
     o_t4 = next(o for o in r_data["orders"] if o["id"] == tisch4_order_id)
     assert o_t4["items"][0]["quantity"] == 2
+    # Verify static security tokens remain unchanged after order transfer
+    t3_tab = next(t for t in r_data["tables"] if t["number"] == "3")
+    t4_tab = next(t for t in r_data["tables"] if t["number"] == "4")
+    assert t3_tab["security_token"] == "sec-t3-test"
+    assert t4_tab["security_token"] == "sec-t4-test"
     print("Tisch umbuchen order merge logic: OK")
 
     # ── Test manual product addition via flat endpoint ──

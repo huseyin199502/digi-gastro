@@ -2124,8 +2124,9 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
     t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
     
     if s_db_table and t_db_table:
-        # Copy token from source to target table
-        t_db_table["security_token"] = s_db_table.get("security_token")
+        # Sync the dynamic guest session token so that the source table guest
+        # can join/see the active session of the target table.
+        # DO NOT copy or overwrite the static 'security_token' (which matches the printed QR code).
         t_db_table["active_session_token"] = s_db_table.get("active_session_token")
         
     db = SessionLocal()
@@ -4685,7 +4686,9 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
     t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
     
     if s_db_table and t_db_table:
-        t_db_table["security_token"] = s_db_table.get("security_token")
+        # Sync the dynamic guest session token so that the source table guest
+        # can join/see the active session of the target table.
+        # DO NOT copy or overwrite the static 'security_token' (which matches the printed QR code).
         t_db_table["active_session_token"] = s_db_table.get("active_session_token")
         
     try:
