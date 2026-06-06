@@ -4673,53 +4673,191 @@ def clean_product_name_for_search(name: str) -> str:
     filtered = [w for w in words if w not in stopwords]
     return " ".join(filtered) if filtered else name
 
-def get_wikimedia_image(query: str) -> Optional[str]:
+def find_curated_image(product_name: str) -> Optional[str]:
+    name_lower = product_name.lower().strip()
+    
+    curated_map = {
+        # Softdrinks
+        "cola": "photo-1622483767028-3f66f32aef97",
+        "coke": "photo-1622483767028-3f66f32aef97",
+        "coca cola": "photo-1622483767028-3f66f32aef97",
+        "coca-cola": "photo-1622483767028-3f66f32aef97",
+        "fanta": "photo-1624517452488-04869289c4ca",
+        "sprite": "photo-1625937329935-287441889bcf",
+        "spezi": "photo-1551024709-8f23befc6f87",
+        "mezzo mix": "photo-1551024709-8f23befc6f87",
+        "mezzomix": "photo-1551024709-8f23befc6f87",
+        "red bull": "photo-1607623814075-e51df1bdc82f",
+        "redbull": "photo-1607623814075-e51df1bdc82f",
+        "energy drink": "photo-1543257580-7269da773bf5",
+        "wasser": "photo-1608885898957-a599fb1b1a44",
+        "water": "photo-1608885898957-a599fb1b1a44",
+        "mineralwasser": "photo-1608885898957-a599fb1b1a44",
+        "sparkling water": "photo-1608885898957-a599fb1b1a44",
+        "still water": "photo-1548839140-29a880855b6c",
+        "apfelschorle": "photo-1613478223719-2ab802602423",
+        "apple juice": "photo-1613478223719-2ab802602423",
+        "orangensaft": "photo-1621506289937-a8e4df240d0b",
+        "orange juice": "photo-1621506289937-a8e4df240d0b",
+        "o-saft": "photo-1621506289937-a8e4df240d0b",
+        "limonade": "photo-1513558161293-cdaf765ed2fd",
+        "lemonade": "photo-1513558161293-cdaf765ed2fd",
+        "eistee": "photo-1556679343-c7306c1976bc",
+        "ice tea": "photo-1556679343-c7306c1976bc",
+        "iced tea": "photo-1556679343-c7306c1976bc",
+        
+        # Bier & Wein
+        "bier": "photo-1608270586620-248524c67de9",
+        "beer": "photo-1608270586620-248524c67de9",
+        "pils": "photo-1608270586620-248524c67de9",
+        "weizen": "photo-1608270586620-248524c67de9",
+        "radler": "photo-1608270586620-248524c67de9",
+        "wein": "photo-1510812431401-41d2bd2722f3",
+        "wine": "photo-1510812431401-41d2bd2722f3",
+        "rotwein": "photo-1510812431401-41d2bd2722f3",
+        "weißwein": "photo-1506377247377-2a5b3b417ebb",
+        "rosewein": "photo-1506377247377-2a5b3b417ebb",
+        "rose": "photo-1506377247377-2a5b3b417ebb",
+        "prosecco": "photo-1594487767535-09689b78809e",
+        "champagner": "photo-1594487767535-09689b78809e",
+        "champagne": "photo-1594487767535-09689b78809e",
+        
+        # Cocktails & Spirituosen
+        "aperol": "photo-1560512823-829485b8bf24",
+        "aperol spritz": "photo-1560512823-829485b8bf24",
+        "spritz": "photo-1560512823-829485b8bf24",
+        "hugo": "photo-1513558161293-cdaf765ed2fd",
+        "cocktail": "photo-1514362545857-3bc16c4c7d1b",
+        "cocktails": "photo-1514362545857-3bc16c4c7d1b",
+        "mojito": "photo-1513558161293-cdaf765ed2fd",
+        "caipirinha": "photo-1513558161293-cdaf765ed2fd",
+        "pina colada": "photo-1514362545857-3bc16c4c7d1b",
+        "gin": "photo-1524156868115-e696b44983db",
+        "gin tonic": "photo-1524156868115-e696b44983db",
+        "gintonic": "photo-1524156868115-e696b44983db",
+        "whiskey": "photo-1527061011665-3652c757a4d4",
+        "whisky": "photo-1527061011665-3652c757a4d4",
+        "vodka": "photo-1569158062925-dd276a9c15d4",
+        "wodka": "photo-1569158062925-dd276a9c15d4",
+        "rum": "photo-1614313511387-1436a4480edd",
+        
+        # Kaffee & Tee
+        "kaffee": "photo-1509042239860-f550ce710b93",
+        "coffee": "photo-1509042239860-f550ce710b93",
+        "espresso": "photo-1514432324607-a09d9b4aefdd",
+        "cappuccino": "photo-1517701604599-bb29b565090c",
+        "latte macchiato": "photo-1509042239860-f550ce710b93",
+        "milchkaffee": "photo-1509042239860-f550ce710b93",
+        "tee": "photo-1597481499750-3e6b22637e12",
+        "tea": "photo-1597481499750-3e6b22637e12",
+        "kamillentee": "photo-1597481499750-3e6b22637e12",
+        "pfefferminztee": "photo-1597481499750-3e6b22637e12",
+        "grüner tee": "photo-1597481499750-3e6b22637e12",
+        "schwarzer tee": "photo-1597481499750-3e6b22637e12",
+        "heisse schokolade": "photo-1544787219-7f47ccb76574",
+        "hot chocolate": "photo-1544787219-7f47ccb76574",
+        
+        # Küche (Speisen)
+        "burger": "photo-1568901346375-23c9450c58cd",
+        "hamburger": "photo-1568901346375-23c9450c58cd",
+        "cheeseburger": "photo-1568901346375-23c9450c58cd",
+        "chickenburger": "photo-1568901346375-23c9450c58cd",
+        "pizza": "photo-1513104890138-7c749659a591",
+        "margherita": "photo-1513104890138-7c749659a591",
+        "salami": "photo-1513104890138-7c749659a591",
+        "funghi": "photo-1513104890138-7c749659a591",
+        "tonno": "photo-1513104890138-7c749659a591",
+        "prosciutto": "photo-1513104890138-7c749659a591",
+        "pommes": "photo-1573080496219-bb080dd4f877",
+        "fries": "photo-1573080496219-bb080dd4f877",
+        "french fries": "photo-1573080496219-bb080dd4f877",
+        "süßkartoffelpommes": "photo-1585109649139-366815a0d713",
+        "sweet potato fries": "photo-1585109649139-366815a0d713",
+        "salat": "photo-1512621776951-a57141f2eefd",
+        "salad": "photo-1512621776951-a57141f2eefd",
+        "caesar salad": "photo-1512621776951-a57141f2eefd",
+        "gemischter salat": "photo-1512621776951-a57141f2eefd",
+        "pasta": "photo-1563379091339-03b21ab4a4f8",
+        "spaghetti": "photo-1563379091339-03b21ab4a4f8",
+        "lasagne": "photo-1534422298391-e4f8c172dddb",
+        "tortellini": "photo-1563379091339-03b21ab4a4f8",
+        "penne": "photo-1563379091339-03b21ab4a4f8",
+        "sushi": "photo-1579871494447-9811cf80d66c",
+        "maki": "photo-1579871494447-9811cf80d66c",
+        "nigiri": "photo-1579871494447-9811cf80d66c",
+        "schnitzel": "photo-1599940824399-b87987ceb72a",
+        "wiener schnitzel": "photo-1599940824399-b87987ceb72a",
+        "steak": "photo-1544025162-d76694265947",
+        "rumpsteak": "photo-1544025162-d76694265947",
+        "filetsteak": "photo-1544025162-d76694265947",
+        "kebab": "photo-1626700051175-6518c4793fdf",
+        "döner": "photo-1626700051175-6518c4793fdf",
+        "yufka": "photo-1626700051175-6518c4793fdf",
+        "dürüm": "photo-1626700051175-6518c4793fdf",
+        "nuggets": "photo-1562967914-608f82629710",
+        "chicken nuggets": "photo-1562967914-608f82629710",
+        "chicken wings": "photo-1562967914-608f82629710",
+        "wings": "photo-1562967914-608f82629710",
+        "nachos": "photo-1565299585323-38d6b0865b47",
+        "tacos": "photo-1565299585323-38d6b0865b47",
+        "currywurst": "photo-1628191137573-feb6c3e5cf2c",
+        
+        # Süßspeisen & Desserts
+        "waffel": "photo-1562376502-6f769499c886",
+        "waffle": "photo-1562376502-6f769499c886",
+        "crepe": "photo-1567620905732-2d1ec7ab7445",
+        "crêpe": "photo-1567620905732-2d1ec7ab7445",
+        "pancake": "photo-1567620905732-2d1ec7ab7445",
+        "pancakes": "photo-1567620905732-2d1ec7ab7445",
+        "eis": "photo-1501443762994-82bd5dace89a",
+        "ice cream": "photo-1501443762994-82bd5dace89a",
+        "tiramisu": "photo-1571877227200-a0d98ea607e9",
+        "käsekuchen": "photo-1533134242443-d4fd215305ad",
+        "cheesecake": "photo-1533134242443-d4fd215305ad",
+        "souffle": "photo-1606313564200-e75d5e30476c",
+        "schokosouffle": "photo-1606313564200-e75d5e30476c",
+        "chocolate souffle": "photo-1606313564200-e75d5e30476c",
+        
+        # Shisha & Zubehör
+        "shisha": "photo-1603006905003-be475563bc59",
+        "hookah": "photo-1603006905003-be475563bc59",
+        "waterpipe": "photo-1603006905003-be475563bc59",
+        "wasserpfeife": "photo-1603006905003-be475563bc59",
+        "kohle": "photo-1533240332313-0db49b459ad6",
+    }
+    
+    # 1. Exact match
+    if name_lower in curated_map:
+        return f"https://images.unsplash.com/{curated_map[name_lower]}?w=600&auto=format&fit=crop&q=80"
+        
+    # 2. Match individual words (preferring exact word match)
+    words = name_lower.split()
+    for w in words:
+        w_clean = "".join(c for c in w if c.isalnum())
+        if w_clean in curated_map:
+            return f"https://images.unsplash.com/{curated_map[w_clean]}?w=600&auto=format&fit=crop&q=80"
+            
+    # 3. Substring match
+    for key, img_id in curated_map.items():
+        if key in name_lower:
+            return f"https://images.unsplash.com/{img_id}?w=600&auto=format&fit=crop&q=80"
+            
+    return None
+
+def get_loremflickr_image(query: str) -> Optional[str]:
     import urllib.request
     import urllib.parse
-    import json
-    
-    query_cleaned = query.strip()
-    query_cleaned = "".join(c for c in query_cleaned if c.isalnum() or c in " -_")
-    if not query_cleaned:
-        return None
-        
-    query_encoded = urllib.parse.quote(query_cleaned)
-    # Single request using generator to retrieve search results and image URLs
-    url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={query_encoded}&gsrnamespace=6&prop=imageinfo&iiprop=url&format=json&gsrlimit=10"
+    query_encoded = urllib.parse.quote(query.strip())
+    url = f"https://loremflickr.com/600/600/{query_encoded}"
     req = urllib.request.Request(
         url,
-        headers={'User-Agent': 'DigiGastroProductImageCrawler/1.0 (support@digi-gastro.de)'}
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as r:
-            res = json.loads(r.read().decode('utf-8'))
-            pages = res.get("query", {}).get("pages", {})
-            if not pages:
-                return None
-                
-            candidates = []
-            for page_id, page_data in pages.items():
-                title = page_data.get("title", "").lower()
-                imageinfo = page_data.get("imageinfo", [])
-                if not imageinfo:
-                    continue
-                img_url = imageinfo[0].get("url")
-                if not img_url:
-                    continue
-                    
-                # 1. Filter out non-image extensions
-                if not img_url.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-                    continue
-                    
-                # 2. Exclude common non-product title pattern words
-                exclude_keywords = ("logo", "protest", "poster", "billboard", "sign", "advertisement", "chart", "map", "diagram", "flag", "stamp", "coin", "monument", "building", "historical", "painting", "drawing", "sketch", "text", "book", "label")
-                if any(kw in title for kw in exclude_keywords):
-                    continue
-                    
-                candidates.append(img_url)
-                
-            if candidates:
-                return candidates[0]
+        with urllib.request.urlopen(req, timeout=8) as r:
+            final_url = r.geturl()
+            if final_url and ("loremflickr.com" in final_url or final_url.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))):
+                return final_url
     except Exception:
         pass
     return None
@@ -4763,20 +4901,28 @@ def generate_images(chef_data: tuple = Depends(require_chef_user_flat), db: Sess
         cat_type = prod.get("category_type", "").lower()
         img_url = None
         
-        if cat_type == "bar":
-            # Drinks: try Open Food Facts first (best for consumer packaging)
+        # 1. Look up in Curated Premium Map
+        img_url = find_curated_image(cleaned)
+        
+        # 2. Fallback to Lorem Flickr
+        if not img_url:
+            search_tag = cleaned
+            if cat_type == "bar":
+                search_tag = f"{cleaned},drink"
+            elif cat_type == "küche":
+                search_tag = f"{cleaned},food"
+            img_url = get_loremflickr_image(search_tag) or get_loremflickr_image(cleaned)
+            
+        # 3. Fallback to Open Food Facts (for drinks/bar items only)
+        if not img_url and cat_type == "bar":
             img_url = get_open_food_facts_image(cleaned)
-            if not img_url:
-                # Fallback to Wikimedia with bottle/can keywords
-                img_url = get_wikimedia_image(f"{cleaned} bottle") or get_wikimedia_image(f"{cleaned} can") or get_wikimedia_image(cleaned)
-        elif cat_type == "küche":
-            # Dishes: try Wikimedia with dish/plate/food keywords to get actual cooked food images
-            img_url = get_wikimedia_image(f"{cleaned} dish") or get_wikimedia_image(f"{cleaned} plate") or get_wikimedia_image(f"{cleaned} food") or get_wikimedia_image(cleaned)
-        else:
-            # Other items (e.g. shisha, default)
-            img_url = get_wikimedia_image(cleaned)
-            if not img_url:
-                img_url = get_open_food_facts_image(cleaned)
+            
+        # 4. Ultimate fallback to standard premium category placeholder
+        if not img_url:
+            if cat_type == "bar":
+                img_url = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=600&auto=format&fit=crop&q=80"
+            else:
+                img_url = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80"
                 
         if img_url:
             prod["image"] = img_url
