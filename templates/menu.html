@@ -116,7 +116,10 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body x-data="menuState()" class="flex flex-col min-h-screen bg-background grid-bg radial-glow {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+<body x-data="menuState()" class="flex flex-col min-h-screen bg-background {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+    <!-- Background grid and glow -->
+    <div class="fixed inset-0 grid-bg pointer-events-none z-0"></div>
+    <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
 
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
@@ -411,13 +414,13 @@
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
     <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
-    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
+    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-2">
-            <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
+            <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-surface border border-outline-variant flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
                 <span class="material-symbols-outlined text-xl">notifications_active</span>
             </button>
-            <button onclick="openPaymentModal()" class="w-11 h-11 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
+            <button onclick="openPaymentModal()" class="w-11 h-11 rounded-xl bg-surface border border-outline-variant flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
                 <span class="material-symbols-outlined text-xl">receipt_long</span>
             </button>
         </div>
@@ -436,12 +439,12 @@
     </div>
 
     <!-- Sticky Bottom Navigation (Welcome vs Speisekarte) -->
-    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-[#0a0a0d]/95 backdrop-blur-md border-t border-outline-variant/60 py-3 flex justify-around items-center shadow-xl">
-        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-zinc-500 hover:text-zinc-300 flex flex-col items-center gap-1 font-medium text-xs'">
+    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-md border-t border-outline-variant/60 py-3 flex justify-around items-center shadow-xl">
+        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-on-surface-variant hover:text-on-surface flex flex-col items-center gap-1 font-medium text-xs'">
             <span class="material-symbols-outlined text-xl">home</span>
             <span data-translate="tab_welcome">Willkommen</span>
         </button>
-        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-zinc-500 hover:text-zinc-300 flex flex-col items-center gap-1 font-medium text-xs'">
+        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-on-surface-variant hover:text-on-surface flex flex-col items-center gap-1 font-medium text-xs'">
             <span class="material-symbols-outlined text-xl">menu_book</span>
             <span data-translate="tab_menu">Speisekarte</span>
         </button>
@@ -490,13 +493,13 @@
                     <div class="bg-background/50 border border-outline-variant/80 p-4 rounded-2xl text-sm space-y-2">
                         <div class="flex items-center justify-between">
                             <div>
-                                <span class="font-extrabold text-white block text-sm" style="color: #ffffff !important;" x-text="item.name"></span>
+                                <span class="font-extrabold text-on-surface block text-sm" x-text="item.name"></span>
                                 <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
                             </div>
                             <div class="flex items-center space-x-3.5">
-                                <button @click="changeQty(item.cart_id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-white hover:bg-white/10 transition-colors">-</button>
-                                <span class="font-bold font-mono text-white text-sm w-4 text-center" x-text="item.quantity"></span>
-                                <button @click="changeQty(item.cart_id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-white hover:bg-white/10 transition-colors">+</button>
+                                <button @click="changeQty(item.cart_id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">-</button>
+                                <span class="font-bold font-mono text-on-surface text-sm w-4 text-center" x-text="item.quantity"></span>
+                                <button @click="changeQty(item.cart_id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">+</button>
                             </div>
                         </div>
                         <input
@@ -504,7 +507,7 @@
                             x-model="item.note"
                             data-translate-placeholder="cart_item_note"
                             placeholder="Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)"
-                            class="w-full bg-background border border-outline-variant/60 text-white text-xs rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
+                            class="w-full bg-background border border-outline-variant/60 text-on-surface text-xs rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
                         />
                     </div>
                 </template>
@@ -1942,7 +1945,7 @@
                 <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
                     <span class="material-symbols-outlined text-4xl text-primary">notifications_active</span>
                 </div>
-                <h3 class="text-2xl font-extrabold text-white font-display" data-translate="service_header_modal">Was benötigst du?</h3>
+                <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="service_header_modal">Was benötigst du?</h3>
                 <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="service_desc_modal">Wähle eine Option und unser Service-Team kommt zu dir.</p>
             </div>
             
@@ -1979,7 +1982,7 @@
                 <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
                     <span class="material-symbols-outlined text-4xl text-primary">payments</span>
                 </div>
-                <h3 class="text-2xl font-extrabold text-white font-display" data-translate="payment_header_modal">Rechnung anfordern</h3>
+                <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="payment_header_modal">Rechnung anfordern</h3>
                 <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
             </div>
             
@@ -1991,7 +1994,7 @@
                 </button>
                 
                 <button @click="selectPaymentOption('zahlen_karte')" id="opt-pay-karte" 
-                        :class="selectedPaymentType === 'zahlen_karte' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-[#11131a]/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
+                        :class="selectedPaymentType === 'zahlen_karte' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
                     <span class="text-3xl mb-1">💳</span>
                     <span class="font-extrabold text-xs" data-translate="pay_card">Mit Karte zahlen</span>
                 </button>
@@ -2002,13 +2005,13 @@
                 <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3 font-display" data-translate="tip_question">Trinkgeld für den Service?</label>
                 <div class="grid grid-cols-4 gap-2 font-display">
                     <button @click="selectPaymentTip(5)" id="pay-tip-5" 
-                            :class="selectedPaymentTipPercent === 5 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'">5%</button>
+                            :class="selectedPaymentTipPercent === 5 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">5%</button>
                     <button @click="selectPaymentTip(10)" id="pay-tip-10" 
-                            :class="selectedPaymentTipPercent === 10 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'">10%</button>
+                            :class="selectedPaymentTipPercent === 10 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">10%</button>
                     <button @click="selectPaymentTip(15)" id="pay-tip-15" 
-                            :class="selectedPaymentTipPercent === 15 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'">15%</button>
+                            :class="selectedPaymentTipPercent === 15 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">15%</button>
                     <button @click="selectPaymentCustomTip()" id="pay-tip-custom" 
-                            :class="(selectedPaymentTipPercent === 0 && customPaymentTipAmount > 0) ? 'border border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-white transition active:scale-95'" data-translate="tip_custom">Eigener</button>
+                            :class="(selectedPaymentTipPercent === 0 && customPaymentTipAmount > 0) ? 'border border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'" data-translate="tip_custom">Eigener</button>
                 </div>
                 <div id="payment-custom-tip-container" class="mt-3 hidden">
                     <input type="number" id="payment-custom-tip-input" oninput="calculatePaymentCustomTip()" step="0.50" min="0" placeholder="0.00" class="input-premium w-full text-sm font-semibold text-center font-display focus:border-primary">
@@ -2017,13 +2020,13 @@
                 <div class="space-y-2 mt-4 bg-background/40 p-3 rounded-2xl border border-outline-variant/40 font-display text-xs">
                     <div class="flex justify-between items-center text-on-surface-variant">
                         <span data-translate="basket_subtotal">Zwischensumme:</span>
-                        <span id="payment-subtotal-val" class="font-bold text-white">0,00 €</span>
+                        <span id="payment-subtotal-val" class="font-bold text-on-surface">0,00 €</span>
                     </div>
                     <div class="flex justify-between items-center text-on-surface-variant">
                         <span data-translate="basket_tip">Trinkgeld:</span>
                         <span id="payment-tip-val" class="font-bold text-primary">0,00 €</span>
                     </div>
-                    <div class="flex justify-between items-center text-sm font-black text-white pt-2 border-t border-outline-variant/30">
+                    <div class="flex justify-between items-center text-sm font-black text-on-surface pt-2 border-t border-outline-variant/30">
                         <span data-translate="basket_total">Gesamtsumme:</span>
                         <span id="payment-total-val" class="text-primary font-black glow-text-primary">0,00 €</span>
                     </div>

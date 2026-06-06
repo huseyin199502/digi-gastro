@@ -87,7 +87,7 @@ body {
 
 /* Radial Glow Gradient background */
 .radial-glow {
-  background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
+  background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
 }
 
 /* Glow Elements */
@@ -269,7 +269,7 @@ html:not(.dark) select {
 }
 
 /* Light theme overrides */
-html.light, body.light, :root:has(body.light) {
+html.light, body.light {
   --bg-obsidian: #f9fafb;
   --bg-surface: #ffffff;
   --bg-surface-elevated: #f3f4f6;
@@ -284,6 +284,12 @@ html.light, body.light, :root:has(body.light) {
 
   --text-on-surface: #111827;
   --text-on-surface-variant: #4b5563;
+}
+
+html.light .grid-bg, body.light .grid-bg {
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
 }
 
 html.light body, body.light {
@@ -325,10 +331,15 @@ html.light .btn-premium-secondary:hover, body.light .btn-premium-secondary:hover
 
 /* Override text-white classes to make them readable on light background */
 html.light .text-white,
+body.light .text-white,
 html.light [style*="color: #ffffff"],
+body.light [style*="color: #ffffff"],
 html.light [style*="color:#ffffff"],
+body.light [style*="color:#ffffff"],
 html.light [style*="color: rgb(255, 255, 255)"],
-html.light [style*="color:rgb(255, 255, 255)"] {
+body.light [style*="color: rgb(255, 255, 255)"],
+html.light [style*="color:rgb(255, 255, 255)"],
+body.light [style*="color:rgb(255, 255, 255)"] {
   color: var(--text-on-surface) !important;
 }
 

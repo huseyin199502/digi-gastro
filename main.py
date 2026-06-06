@@ -4635,14 +4635,32 @@ def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_use
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
+def clean_product_name_for_search(name: str) -> str:
+    n = name.lower().strip()
+    stopwords = {
+        "premium", "classic", "klassisch", "klassische", "klassischer", "klassisches",
+        "hausgemacht", "hausgemachte", "hausgemachter", "hausgemachtes",
+        "frisch", "frische", "frischer", "frisches", "spezial", "speziale",
+        "special", "original", "traditionell", "traditionelle", "hausmacher",
+        "unsere", "unser", "unseres", "nur", "dieses", "gericht"
+    }
+    words = n.split()
+    filtered = [w for w in words if w not in stopwords]
+    return " ".join(filtered) if filtered else name
+
 def get_wikimedia_image(query: str) -> Optional[str]:
     import urllib.request
     import urllib.parse
     import json
+    
     query_cleaned = query.strip()
     query_cleaned = "".join(c for c in query_cleaned if c.isalnum() or c in " -_")
+    if not query_cleaned:
+        return None
+        
     query_encoded = urllib.parse.quote(query_cleaned)
-    url = f"https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch={query_encoded}&srnamespace=6&format=json"
+    # Single request using generator to retrieve search results and image URLs
+    url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={query_encoded}&gsrnamespace=6&prop=imageinfo&iiprop=url&format=json&gsrlimit=10"
     req = urllib.request.Request(
         url,
         headers={'User-Agent': 'DigiGastroProductImageCrawler/1.0 (support@digi-gastro.de)'}
@@ -4650,22 +4668,33 @@ def get_wikimedia_image(query: str) -> Optional[str]:
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             res = json.loads(r.read().decode('utf-8'))
-            search_results = res.get("query", {}).get("search", [])
-            if search_results:
-                title = search_results[0].get("title", "")
-                title_encoded = urllib.parse.quote(title)
-                info_url = f"https://commons.wikimedia.org/w/api.php?action=query&titles={title_encoded}&prop=imageinfo&iiprop=url&format=json"
-                info_req = urllib.request.Request(
-                    info_url,
-                    headers={'User-Agent': 'DigiGastroProductImageCrawler/1.0 (support@digi-gastro.de)'}
-                )
-                with urllib.request.urlopen(info_req, timeout=5) as ir:
-                    info_res = json.loads(ir.read().decode('utf-8'))
-                    pages = info_res.get("query", {}).get("pages", {})
-                    for page_id, page_data in pages.items():
-                        imageinfo = page_data.get("imageinfo", [])
-                        if imageinfo:
-                            return imageinfo[0].get("url")
+            pages = res.get("query", {}).get("pages", {})
+            if not pages:
+                return None
+                
+            candidates = []
+            for page_id, page_data in pages.items():
+                title = page_data.get("title", "").lower()
+                imageinfo = page_data.get("imageinfo", [])
+                if not imageinfo:
+                    continue
+                img_url = imageinfo[0].get("url")
+                if not img_url:
+                    continue
+                    
+                # 1. Filter out non-image extensions
+                if not img_url.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                    continue
+                    
+                # 2. Exclude common non-product title pattern words
+                exclude_keywords = ("logo", "protest", "poster", "billboard", "sign", "advertisement", "chart", "map", "diagram", "flag", "stamp", "coin", "monument", "building", "historical", "painting", "drawing", "sketch", "text", "book", "label")
+                if any(kw in title for kw in exclude_keywords):
+                    continue
+                    
+                candidates.append(img_url)
+                
+            if candidates:
+                return candidates[0]
     except Exception:
         pass
     return None
@@ -4705,10 +4734,25 @@ def generate_images(chef_data: tuple = Depends(require_chef_user_flat), db: Sess
         if not p_name:
             continue
             
-        img_url = get_wikimedia_image(p_name)
-        if not img_url:
-            img_url = get_open_food_facts_image(p_name)
-            
+        cleaned = clean_product_name_for_search(p_name)
+        cat_type = prod.get("category_type", "").lower()
+        img_url = None
+        
+        if cat_type == "bar":
+            # Drinks: try Open Food Facts first (best for consumer packaging)
+            img_url = get_open_food_facts_image(cleaned)
+            if not img_url:
+                # Fallback to Wikimedia with bottle/can keywords
+                img_url = get_wikimedia_image(f"{cleaned} bottle") or get_wikimedia_image(f"{cleaned} can") or get_wikimedia_image(cleaned)
+        elif cat_type == "küche":
+            # Dishes: try Wikimedia with dish/plate/food keywords to get actual cooked food images
+            img_url = get_wikimedia_image(f"{cleaned} dish") or get_wikimedia_image(f"{cleaned} plate") or get_wikimedia_image(f"{cleaned} food") or get_wikimedia_image(cleaned)
+        else:
+            # Other items (e.g. shisha, default)
+            img_url = get_wikimedia_image(cleaned)
+            if not img_url:
+                img_url = get_open_food_facts_image(cleaned)
+                
         if img_url:
             prod["image"] = img_url
             updated_count += 1
