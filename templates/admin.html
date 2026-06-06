@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" class="light">
+<html lang="de" class="{{ restaurant.theme or 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -38,20 +38,83 @@
             --gastro-card-bg: #ffffff;
             --gastro-text-main: #1f2937;
             --gastro-text-muted: #6b7280;
+            --gastro-border: #e5e7eb;
+        }
+
+        /* Dark Mode variables */
+        html.dark, :root.dark {
+            --gastro-bg-gray: #09090b;
+            --gastro-card-bg: #18181b;
+            --gastro-text-main: #f4f4f5;
+            --gastro-text-muted: #a1a1aa;
+            --gastro-border: #27272a;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--gastro-bg-gray);
-            color: var(--gastro-text-main);
+            background-color: var(--gastro-bg-gray) !important;
+            color: var(--gastro-text-main) !important;
             overflow-x: hidden;
+        }
+
+        /* Dark theme dashboard overrides for Tailwind classes */
+        html.dark .bg-white {
+            background-color: var(--gastro-card-bg) !important;
+        }
+        html.dark .bg-gray-50 {
+            background-color: var(--gastro-bg-gray) !important;
+        }
+        html.dark .bg-gray-100 {
+            background-color: var(--gastro-bg-gray) !important;
+        }
+        html.dark .bg-zinc-50 {
+            background-color: var(--gastro-bg-gray) !important;
+        }
+        html.dark .text-gray-900 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .text-zinc-800 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .text-zinc-700 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .text-gray-700 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .text-gray-500 {
+            color: var(--gastro-text-muted) !important;
+        }
+        html.dark .text-zinc-500 {
+            color: var(--gastro-text-muted) !important;
+        }
+        html.dark .text-zinc-400 {
+            color: var(--gastro-text-muted) !important;
+        }
+        html.dark .border-gray-200 {
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .border-gray-100 {
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .divide-y > :not([hidden]) ~ :not([hidden]) {
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark input, html.dark select, html.dark textarea {
+            background-color: var(--gastro-bg-gray) !important;
+            color: var(--gastro-text-main) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark input::placeholder, html.dark textarea::placeholder {
+            color: var(--gastro-text-muted) !important;
+            opacity: 0.7;
         }
 
         /* Left Sidebar - Responsive styling */
         aside {
             width: 280px;
-            background-color: #ffffff;
-            border-right: 1px solid #e5e7eb;
+            background-color: var(--gastro-card-bg);
+            border-right: 1px solid var(--gastro-border);
             height: 100vh;
             position: fixed;
             left: 0;

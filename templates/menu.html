@@ -134,9 +134,9 @@
         <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
             <span class="material-symbols-outlined text-4xl">qr_code_scanner</span>
         </div>
-        <h2 class="text-2xl font-extrabold text-white tracking-tight font-display" data-translate="scan_required_header">QR-Code Scan erforderlich</h2>
+        <h2 class="text-2xl font-extrabold text-on-surface tracking-tight font-display" data-translate="scan_required_header">QR-Code Scan erforderlich</h2>
         <p class="text-xs text-on-surface-variant leading-relaxed">
-            <span data-translate="scan_required_welcome">Willkommen bei</span> <strong class="text-white">{{ restaurant.name }}</strong>!<br><br>
+            <span data-translate="scan_required_welcome">Willkommen bei</span> <strong class="text-on-surface">{{ restaurant.name }}</strong>!<br><br>
             <span data-translate="scan_required_desc">Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.</span>
         </p>
     </div>
@@ -195,7 +195,7 @@
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                     <img alt="{{ restaurant.name }} Logo" class="h-24 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
                 {% endif %}
-                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight font-display animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
                 <p class="text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
                 
                 <!-- Actions Group -->
@@ -224,7 +224,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
-                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">schedule</span>
                         <span>Öffnungszeiten</span>
                     </h3>
@@ -233,7 +233,7 @@
                 
                 <!-- Info Card 2: Über uns / Angebote -->
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
-                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
                         <span>Angebote & Specials</span>
                     </h3>
@@ -244,7 +244,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- What we offer -->
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
-                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">restaurant</span>
                         <span>Was wir bieten</span>
                     </h3>
@@ -253,7 +253,7 @@
                 
                 <!-- Announcements / News -->
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
-                    <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">campaign</span>
                         <span>Aktuelles & Events</span>
                     </h3>
@@ -268,15 +268,15 @@
             <!-- Compact Welcome Area -->
             <div class="py-8 text-center border-b border-outline-variant mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div class="text-left font-display">
-                    <h1 class="text-3xl font-extrabold text-white tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
+                    <h1 class="text-3xl font-extrabold text-on-surface tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
                     <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="welcome_desc">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
                 </div>
                 <div class="flex gap-3 justify-center sm:justify-end" x-show="role !== 'admin'">
-                    <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
+                    <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-on-surface hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
                         <span class="material-symbols-outlined text-base">notifications_active</span>
                         <span data-translate="nav_service">Service</span>
                     </button>
-                    <button onclick="openPaymentModal()" class="btn-premium btn-premium-secondary text-xs text-white hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
+                    <button onclick="openPaymentModal()" class="btn-premium btn-premium-secondary text-xs text-on-surface hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
                         <span class="material-symbols-outlined text-base">receipt_long</span>
                         <span data-translate="nav_bill">Rechnung</span>
                     </button>
@@ -351,7 +351,7 @@
 
                         <div class="flex flex-col flex-grow justify-between px-0.5">
                             <div>
-                                <h3 class="text-xs md:text-sm font-black text-white leading-tight font-display tracking-tight mb-1" x-text="currentLang === 'en' ? '{{ (product.name_en or product.name) | replace("'", "\\'") }}' : '{{ product.name | replace("'", "\\'") }}'">{{ product.name }}</h3>
+                                <h3 class="text-xs md:text-sm font-black text-on-surface leading-tight font-display tracking-tight mb-1" x-text="currentLang === 'en' ? '{{ (product.name_en or product.name) | replace("'", "\\'") }}' : '{{ product.name | replace("'", "\\'") }}'">{{ product.name }}</h3>
                                 <p class="text-[10px] md:text-xs text-on-surface-variant line-clamp-2 leading-relaxed mb-2" x-text="currentLang === 'en' ? '{{ (product.description_en or product.description or '') | replace("'", "\\'") }}' : '{{ (product.description or '') | replace("'", "\\'") }}'">{{ product.description }}</p>
                             </div>
                             
@@ -361,7 +361,7 @@
                                     <span class="text-[10px] line-through text-on-surface-variant/50 leading-none mb-0.5 font-bold">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
                                     <span class="text-xs md:text-sm font-black text-primary leading-none">{{ "%.2f" | format(product.display_price) | replace('.', ',') }} €</span>
                                     {% else %}
-                                    <span class="text-xs md:text-sm font-black text-white leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+                                    <span class="text-xs md:text-sm font-black text-on-surface leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
                                     {% endif %}
                                 </div>
                                 
@@ -461,7 +461,7 @@
             <button onclick="closeLegalModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
-            <h3 id="legal-modal-title" class="text-2xl font-extrabold mb-5 font-display text-white">Rechts-Dokument</h3>
+            <h3 id="legal-modal-title" class="text-2xl font-extrabold mb-5 font-display text-on-surface">Rechts-Dokument</h3>
             <div id="legal-modal-body" class="flex-1 overflow-y-auto pr-2 text-sm text-on-surface-variant leading-relaxed whitespace-pre-line font-sans scrollbar-none">
                 <!-- Legal dynamic content pulls here -->
             </div>
@@ -479,7 +479,7 @@
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
-            <h3 class="text-xl font-extrabold mb-5 flex items-center space-x-2 shrink-0 font-display text-white">
+            <h3 class="text-xl font-extrabold mb-5 flex items-center space-x-2 shrink-0 font-display text-on-surface">
                 <span class="material-symbols-outlined text-primary text-2xl">shopping_cart</span>
                 <span data-translate="your_cart">Ihr Warenkorb</span>
             </h3>
@@ -543,7 +543,7 @@
         <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-6 shadow-2xl relative">
             <button @click="closeThankYou()" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors text-xl font-bold flex items-center justify-center p-2 rounded-full hover:bg-white/10 w-9 h-9" title="Schließen">✕</button>
             <span class="material-symbols-outlined text-primary text-7xl animate-bounce glow-text-primary">check_circle</span>
-            <h2 class="text-3xl font-extrabold text-white font-display" data-translate="thank_you">Bestellung erhalten!</h2>
+            <h2 class="text-3xl font-extrabold text-on-surface font-display" data-translate="thank_you">Bestellung erhalten!</h2>
             <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans pb-2" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
             <button @click="closeThankYou()" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg font-bold mt-4">
                 Weitere Bestellungen aufnehmen
@@ -561,7 +561,7 @@
         <div @click="isDrawerOpen = !isDrawerOpen" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-[#1f1f23]/50 hover:bg-white/5 transition-colors shrink-0">
             <div class="flex items-center gap-3">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="font-extrabold text-sm md:text-base text-white tracking-tight">
+                <span class="font-extrabold text-sm md:text-base text-on-surface tracking-tight">
                     Tisch {{ table }} &bull; Offen: <span class="text-primary font-black ml-1" x-text="tableOrders.total.toFixed(2) + ' €'">0,00 €</span>
                 </span>
             </div>
