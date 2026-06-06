@@ -1338,11 +1338,13 @@ def test_integration():
     assert "content-disposition" in resp.headers
     assert "attachment" in resp.headers["content-disposition"]
     assert "gobd-export" in resp.headers["content-disposition"]
-    gobd_data = resp.json()
-    assert gobd_data["restaurant"] == "Demo Lounge"
-    assert gobd_data["slug"] == "demo"
-    assert isinstance(gobd_data["orders"], list)
-    print("GOBD Export: OK")
+    assert ".csv" in resp.headers["content-disposition"]
+    assert "text/csv" in resp.headers.get("content-type", "")
+    csv_text = resp.text
+    assert "Bestell-ID" in csv_text or "\ufeffBestell-ID" in csv_text
+    assert "Zeitstempel" in csv_text
+    assert "Produktname" in csv_text
+    print("GOBD Export (CSV Table): OK")
 
     # ── Test sitzplan positions save ──
     print("Testing save sitzplan positions...")

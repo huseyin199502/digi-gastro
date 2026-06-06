@@ -21,6 +21,9 @@
   --color-accent-rose: #f43f5e; /* Rose Red */
   --color-accent-indigo: #6366f1; /* Cool Indigo */
   
+  --text-on-surface: #f3f4f6;
+  --text-on-surface-variant: #9ca3af;
+  
   /* Font Families */
   --font-display: 'Outfit', 'Inter', sans-serif;
   --font-sans: 'Inter', sans-serif;
@@ -263,6 +266,90 @@ html:not(.dark) select {
 /* Disable double-tap zoom globally to ensure rapid, responsive clicks on all pages */
 *, *::before, *::after {
   touch-action: manipulation;
+}
+
+/* Light theme overrides */
+html.light, body.light, :root:has(body.light) {
+  --bg-obsidian: #f9fafb;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f3f4f6;
+  --bg-surface-overlay: #e5e7eb;
+  
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  
+  --color-primary: #059669; /* Slightly darker emerald for readability */
+  --color-primary-hover: #047857;
+  --color-primary-glow: rgba(5, 150, 105, 0.15);
+
+  --text-on-surface: #111827;
+  --text-on-surface-variant: #4b5563;
+}
+
+html.light body, body.light {
+  background-color: var(--bg-obsidian) !important;
+  color: var(--text-on-surface) !important;
+}
+
+html.light .glass-panel, body.light .glass-panel {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .glass-card, body.light .glass-card {
+  background: rgba(243, 244, 246, 0.8) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+
+html.light .glass-card:hover, body.light .glass-card:hover {
+  border-color: var(--border-strong) !important;
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light .input-premium, body.light .input-premium {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: #111827 !important;
+}
+
+html.light .btn-premium-secondary, body.light .btn-premium-secondary {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: #111827 !important;
+}
+html.light .btn-premium-secondary:hover, body.light .btn-premium-secondary:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: var(--border-strong) !important;
+}
+
+/* Override text-white classes to make them readable on light background */
+html.light .text-white,
+html.light [style*="color: #ffffff"],
+html.light [style*="color:#ffffff"],
+html.light [style*="color: rgb(255, 255, 255)"],
+html.light [style*="color:rgb(255, 255, 255)"] {
+  color: var(--text-on-surface) !important;
+}
+
+/* Ensure specific containers that explicitly have a colored background retain white text */
+html.light .bg-rose-500,
+html.light .bg-rose-500 *,
+html.light .bg-red-500,
+html.light .bg-red-500 *,
+html.light .bg-green-500,
+html.light .bg-green-500 *,
+html.light .bg-emerald-500,
+html.light .bg-emerald-500 * {
+  color: #ffffff !important;
+}
+
+/* Re-adjust text gray elements to have enough contrast */
+html.light .text-zinc-400,
+html.light .text-gray-400,
+html.light .text-slate-400,
+html.light .text-on-surface-variant {
+  color: var(--text-on-surface-variant) !important;
 }
 
 

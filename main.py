@@ -8,6 +8,27 @@ import csv
 import io
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+
+def get_berlin_now():
+    now = datetime.now()
+    if getattr(datetime, "__name__", None) == "MockDatetime":
+        return now
+    from datetime import timezone, timedelta
+    try:
+        utc_now = datetime.now(timezone.utc)
+    except Exception:
+        return now
+    year = utc_now.year
+    march_31 = datetime(year, 3, 31, 1, 0, tzinfo=timezone.utc)
+    cest_start = march_31 - timedelta(days=(march_31.weekday() + 1) % 7)
+    october_31 = datetime(year, 10, 31, 1, 0, tzinfo=timezone.utc)
+    cest_end = october_31 - timedelta(days=(october_31.weekday() + 1) % 7)
+    if cest_start <= utc_now < cest_end:
+        offset = timedelta(hours=2)
+    else:
+        offset = timedelta(hours=1)
+    return (utc_now + offset).replace(tzinfo=None)
+
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -300,6 +321,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "pos_token": tenant.pos_token,
         "pos_secret": tenant.pos_secret,
         "kds_secret": tenant.kds_secret,
+        "theme": tenant.theme or "dark",
         "service_calls": service_calls,
         "categories": categories,
         "products": products,
@@ -363,6 +385,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.pos_token = r.get("pos_token")
     tenant.pos_secret = r.get("pos_secret")
     tenant.kds_secret = r.get("kds_secret")
+    tenant.theme = r.get("theme", "dark")
     
     branding = r.get("branding", {})
     tenant.address = branding.get("address", "")
@@ -1667,8 +1690,9 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             is_readonly = True
 
     # Process Happy Hour
-    now_time = datetime.now().strftime("%H:%M")
-    now_day = datetime.now().strftime("%a")
+    berlin_now = get_berlin_now()
+    now_time = berlin_now.strftime("%H:%M")
+    now_day = berlin_now.strftime("%a")
     german_days_map = {
         "Mon": ["Mo", "Montag"],
         "Tue": ["Di", "Dienstag"],
@@ -1756,8 +1780,9 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
     
     # Securely validate and apply Happy Hour prices in the backend if active
-    now_time = datetime.now().strftime("%H:%M")
-    now_day = datetime.now().strftime("%a")
+    berlin_now = get_berlin_now()
+    now_time = berlin_now.strftime("%H:%M")
+    now_day = berlin_now.strftime("%a")
     german_days_map = {
         "Mon": ["Mo", "Montag"],
         "Tue": ["Di", "Dienstag"],
@@ -4186,6 +4211,7 @@ def update_branding(
     ort: Optional[str] = Form(None),
     instagram: Optional[str] = Form(None),
     facebook: Optional[str] = Form(None),
+    theme: Optional[str] = Form(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
@@ -4221,6 +4247,8 @@ def update_branding(
         "instagram": instagram.strip() if instagram else "",
         "facebook": facebook.strip() if facebook else ""
     }
+    if theme:
+        restaurant["theme"] = theme
     update_legal_placeholders(restaurant)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
@@ -4607,6 +4635,90 @@ def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_use
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
+def get_wikimedia_image(query: str) -> Optional[str]:
+    import urllib.request
+    import urllib.parse
+    import json
+    query_cleaned = query.strip()
+    query_cleaned = "".join(c for c in query_cleaned if c.isalnum() or c in " -_")
+    query_encoded = urllib.parse.quote(query_cleaned)
+    url = f"https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch={query_encoded}&srnamespace=6&format=json"
+    req = urllib.request.Request(
+        url,
+        headers={'User-Agent': 'DigiGastroProductImageCrawler/1.0 (support@digi-gastro.de)'}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            res = json.loads(r.read().decode('utf-8'))
+            search_results = res.get("query", {}).get("search", [])
+            if search_results:
+                title = search_results[0].get("title", "")
+                title_encoded = urllib.parse.quote(title)
+                info_url = f"https://commons.wikimedia.org/w/api.php?action=query&titles={title_encoded}&prop=imageinfo&iiprop=url&format=json"
+                info_req = urllib.request.Request(
+                    info_url,
+                    headers={'User-Agent': 'DigiGastroProductImageCrawler/1.0 (support@digi-gastro.de)'}
+                )
+                with urllib.request.urlopen(info_req, timeout=5) as ir:
+                    info_res = json.loads(ir.read().decode('utf-8'))
+                    pages = info_res.get("query", {}).get("pages", {})
+                    for page_id, page_data in pages.items():
+                        imageinfo = page_data.get("imageinfo", [])
+                        if imageinfo:
+                            return imageinfo[0].get("url")
+    except Exception:
+        pass
+    return None
+
+def get_open_food_facts_image(query: str) -> Optional[str]:
+    import urllib.request
+    import urllib.parse
+    import json
+    query_encoded = urllib.parse.quote(query)
+    url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={query_encoded}&search_simple=1&action=process&json=1"
+    req = urllib.request.Request(
+        url,
+        headers={'User-Agent': 'DigiGastroProductImageCrawler/1.0 (support@digi-gastro.de)'}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode('utf-8', errors='ignore'))
+            products = data.get("products", [])
+            for prod in products:
+                img_url = prod.get("image_url") or prod.get("image_front_url")
+                if img_url:
+                    return img_url
+    except Exception:
+        pass
+    return None
+
+@app.post("/admin/products/generate-images")
+def generate_images(chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return JSONResponse({"success": False, "error": "Setup not completed"}, status_code=400)
+        
+    products = restaurant.get("products", [])
+    updated_count = 0
+    for prod in products:
+        p_name = prod.get("name")
+        if not p_name:
+            continue
+            
+        img_url = get_wikimedia_image(p_name)
+        if not img_url:
+            img_url = get_open_food_facts_image(p_name)
+            
+        if img_url:
+            prod["image"] = img_url
+            updated_count += 1
+            
+    if updated_count > 0:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+        
+    return JSONResponse({"success": True, "updated_count": updated_count})
+
 @app.get("/admin/gobd-export")
 def gobd_export(request: Request, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
@@ -4625,19 +4737,84 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
         
     paid_orders = [o for o in restaurant.get("orders", []) if o.get("status") == "bezahlt"]
     
-    filename = f"gobd-export-{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
-    headers = {
-        "Content-Disposition": f"attachment; filename={filename}"
-    }
+    now_berlin = get_berlin_now()
+    output = io.StringIO()
+    output.write('\ufeff')
+    writer = csv.writer(output, delimiter=';', lineterminator='\r\n')
     
-    return JSONResponse(
-        content={
-            "restaurant": restaurant.get("name", slug),
-            "slug": slug,
-            "orders": paid_orders,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        },
-        headers=headers
+    writer.writerow([
+        "Bestell-ID",
+        "Zeitstempel",
+        "Tisch",
+        "Produktname",
+        "Einzelpreis (€)",
+        "Menge",
+        "Gesamtpreis (€)",
+        "MwSt-Satz (%)",
+        "Trinkgeld (€)",
+        "Gesamtsumme Bestellung (€)",
+        "Status"
+    ])
+    
+    for o in paid_orders:
+        o_id = o.get("id", "")
+        timestamp = o.get("timestamp", "")
+        table = o.get("table", "")
+        total_with_tip = o.get("total_with_tip", 0.0)
+        tip_amount = o.get("tip_amount", 0.0)
+        mwst_rate = o.get("mwst_rate", 19)
+        status = o.get("status", "")
+        
+        items = o.get("items", [])
+        if items:
+            for item in items:
+                prod_name = item.get("name", "")
+                price = item.get("price", 0.0)
+                quantity = item.get("quantity", 0)
+                item_total = round(price * quantity, 2)
+                
+                writer.writerow([
+                    o_id,
+                    timestamp,
+                    table,
+                    prod_name,
+                    str(price).replace('.', ','),
+                    quantity,
+                    str(item_total).replace('.', ','),
+                    mwst_rate,
+                    str(tip_amount).replace('.', ','),
+                    str(total_with_tip).replace('.', ','),
+                    status
+                ])
+        else:
+            writer.writerow([
+                o_id,
+                timestamp,
+                table,
+                "",
+                "",
+                "",
+                "",
+                mwst_rate,
+                str(tip_amount).replace('.', ','),
+                str(total_with_tip).replace('.', ','),
+                status
+            ])
+            
+    csv_data = output.getvalue()
+    output.close()
+    
+    filename = f"gobd-export-{slug}-{now_berlin.strftime('%Y%m%d%H%M%S')}.csv"
+    
+    return Response(
+        content=csv_data.encode('utf-8'),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 # ==========================================

@@ -107,6 +107,7 @@ class Tenant(Base):
     happy_hour_start = Column(String, default="18:00")
     happy_hour_end = Column(String, default="20:00")
     happy_hour_discount = Column(Integer, default=0)
+    theme = Column(String, default="dark")
 
 class Category(Base):
     __tablename__ = 'categories'
@@ -243,6 +244,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'plz', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'ort', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'landing_page_json', "TEXT DEFAULT '{}'")
+    add_column_if_missing('tenants', 'theme', "VARCHAR DEFAULT 'dark'")
 
     # Migrate 'tables' table
     add_column_if_missing('tables', 'security_token', "VARCHAR DEFAULT ''")

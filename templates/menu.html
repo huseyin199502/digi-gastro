@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="dark" lang="de">
+<html class="{{ restaurant.theme or 'dark' }}" lang="de">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -22,14 +22,14 @@
           theme: {
             extend: {
               colors: {
-                "on-surface": "#f3f4f6",
-                "outline-variant": "#1f1f23",
-                "primary": "#10b981",
-                "accent": "#f59e0b",
-                "background": "#050507",
-                "surface": "#0b0c10",
-                "surface-container-high": "#11131a",
-                "on-surface-variant": "#9ca3af"
+                "on-surface": "var(--text-on-surface)",
+                "outline-variant": "var(--border-subtle)",
+                "primary": "var(--color-primary)",
+                "accent": "var(--color-accent-gold)",
+                "background": "var(--bg-obsidian)",
+                "surface": "var(--bg-surface)",
+                "surface-container-high": "var(--bg-surface-elevated)",
+                "on-surface-variant": "var(--text-on-surface-variant)"
               }
             }
           }
@@ -116,7 +116,7 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body x-data="menuState()" class="flex flex-col min-h-screen bg-background grid-bg radial-glow {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+<body x-data="menuState()" class="flex flex-col min-h-screen bg-background grid-bg radial-glow {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
 
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->

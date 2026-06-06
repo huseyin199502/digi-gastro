@@ -637,6 +637,9 @@
                         <button onclick="openCsvImportModal()" class="flex-1 sm:flex-initial bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
                             <span class="material-symbols-outlined text-sm">upload</span> CSV Importieren
                         </button>
+                        <button onclick="generateProductImages()" class="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">image</span> Bilder generieren
+                        </button>
                     </div>
                 </div>
 
@@ -857,6 +860,13 @@
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Facebook URL</label>
                                     <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Farbschema (Theme)</label>
+                                <select name="theme" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <option value="dark" {% if restaurant.theme == 'dark' or not restaurant.theme %}selected{% endif %}>Dunkel (Dark Mode)</option>
+                                    <option value="light" {% if restaurant.theme == 'light' %}selected{% endif %}>Hell (Light Mode)</option>
+                                </select>
                             </div>
                             <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
                         </form>
@@ -3773,6 +3783,31 @@
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+
+        function generateProductImages() {
+            if (!confirm("Möchten Sie Bilder für alle Produkte automatisch generieren? Dies kann einige Sekunden dauern.")) {
+                return;
+            }
+            showToast("Bilder werden generiert...", "success");
+            fetch("/admin/products/generate-images", {
+                method: "POST"
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(`Erfolgreich! ${data.updated_count} Bilder generiert.`, "success");
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast(data.error || "Fehler beim Generieren der Bilder", "error");
+                }
+            })
+            .catch(err => {
+                console.error("Error generating images:", err);
+                showToast("Verbindungsfehler", "error");
+            });
         }
 
         // Copy magic link (relative path → absolute URL) to clipboard
