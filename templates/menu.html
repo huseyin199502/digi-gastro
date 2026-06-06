@@ -40,8 +40,8 @@
             touch-action: manipulation;
         }
         body {
-            background-color: #0a0a0a;
-            color: #e5e2e1;
+            background-color: var(--bg-obsidian);
+            color: var(--text-on-surface);
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
@@ -285,7 +285,7 @@
                 
 
                 <!-- Category Wrapper (Sticky) -->
-                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: #0a0a0a !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
+                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
                     <!-- Left Chevron indicator -->
                     <button id="chevron-left" class="absolute left-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-left" onclick="scrollCategories(-200)">
                         <span class="material-symbols-outlined text-sm font-black">chevron_left</span>

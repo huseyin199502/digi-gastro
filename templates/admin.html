@@ -3789,12 +3789,19 @@
             if (!confirm("Möchten Sie Bilder für alle Produkte automatisch generieren? Dies kann einige Sekunden dauern.")) {
                 return;
             }
+            const overlay = document.getElementById("loading-overlay");
+            if (overlay) {
+                overlay.classList.remove("hidden");
+            }
             showToast("Bilder werden generiert...", "success");
             fetch("/admin/products/generate-images", {
                 method: "POST"
             })
             .then(res => res.json())
             .then(data => {
+                if (overlay) {
+                    overlay.classList.add("hidden");
+                }
                 if (data.success) {
                     showToast(`Erfolgreich! ${data.updated_count} Bilder generiert.`, "success");
                     setTimeout(() => {
@@ -3805,6 +3812,9 @@
                 }
             })
             .catch(err => {
+                if (overlay) {
+                    overlay.classList.add("hidden");
+                }
                 console.error("Error generating images:", err);
                 showToast("Verbindungsfehler", "error");
             });
@@ -3916,5 +3926,11 @@
         }
     
     </script>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex flex-col items-center justify-center space-y-4" style="z-index: 9999;">
+        <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
+    </div>
 </body>
 </html>
