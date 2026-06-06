@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" class="{{ restaurant.theme or 'light' }}">
+<html lang="de" class="{{ restaurant.theme or 'dark' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -58,45 +58,74 @@
         }
 
         /* Dark theme dashboard overrides for Tailwind classes */
-        html.dark .bg-white {
+        html.dark .bg-white,
+        html.dark .bg-gray-50,
+        html.dark .bg-gray-100,
+        html.dark .bg-gray-200,
+        html.dark .bg-zinc-50,
+        html.dark .bg-zinc-100,
+        html.dark .bg-zinc-200,
+        html.dark .bg-slate-50,
+        html.dark .bg-slate-100,
+        html.dark .bg-neutral-50,
+        html.dark .bg-neutral-100,
+        html.dark .bg-stone-50,
+        html.dark .bg-stone-100 {
             background-color: var(--gastro-card-bg) !important;
         }
-        html.dark .bg-gray-50 {
-            background-color: var(--gastro-bg-gray) !important;
-        }
-        html.dark .bg-gray-100 {
-            background-color: var(--gastro-bg-gray) !important;
-        }
-        html.dark .bg-zinc-50 {
-            background-color: var(--gastro-bg-gray) !important;
-        }
-        html.dark .text-gray-900 {
+        
+        html.dark .text-gray-900,
+        html.dark .text-gray-800,
+        html.dark .text-gray-700,
+        html.dark .text-gray-600,
+        html.dark .text-zinc-900,
+        html.dark .text-zinc-800,
+        html.dark .text-zinc-700,
+        html.dark .text-zinc-600,
+        html.dark .text-slate-900,
+        html.dark .text-slate-800,
+        html.dark .text-slate-700,
+        html.dark .text-slate-600,
+        html.dark .text-neutral-900,
+        html.dark .text-neutral-800,
+        html.dark .text-neutral-700,
+        html.dark .text-neutral-600,
+        html.dark .text-stone-900,
+        html.dark .text-stone-800,
+        html.dark .text-stone-700,
+        html.dark .text-stone-600,
+        html.dark .text-black {
             color: var(--gastro-text-main) !important;
         }
-        html.dark .text-zinc-800 {
-            color: var(--gastro-text-main) !important;
-        }
-        html.dark .text-zinc-700 {
-            color: var(--gastro-text-main) !important;
-        }
-        html.dark .text-gray-700 {
-            color: var(--gastro-text-main) !important;
-        }
-        html.dark .text-gray-500 {
+
+        html.dark .text-gray-500,
+        html.dark .text-gray-400,
+        html.dark .text-zinc-500,
+        html.dark .text-zinc-400,
+        html.dark .text-slate-500,
+        html.dark .text-slate-400,
+        html.dark .text-neutral-500,
+        html.dark .text-neutral-400,
+        html.dark .text-stone-500,
+        html.dark .text-stone-400 {
             color: var(--gastro-text-muted) !important;
         }
-        html.dark .text-zinc-500 {
-            color: var(--gastro-text-muted) !important;
-        }
-        html.dark .text-zinc-400 {
-            color: var(--gastro-text-muted) !important;
-        }
-        html.dark .border-gray-200 {
+
+        html.dark .border-gray-100,
+        html.dark .border-gray-200,
+        html.dark .border-gray-300,
+        html.dark .border-zinc-100,
+        html.dark .border-zinc-200,
+        html.dark .border-zinc-300,
+        html.dark .border-slate-100,
+        html.dark .border-slate-200,
+        html.dark .border-neutral-100,
+        html.dark .border-neutral-200,
+        html.dark .border-stone-100,
+        html.dark .border-stone-200 {
             border-color: var(--gastro-border) !important;
         }
-        html.dark .border-gray-100 {
-            border-color: var(--gastro-border) !important;
-        }
+
         html.dark .divide-y > :not([hidden]) ~ :not([hidden]) {
             border-color: var(--gastro-border) !important;
         }

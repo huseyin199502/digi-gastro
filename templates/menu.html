@@ -14,7 +14,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=5">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -154,7 +154,7 @@
 
         {% if tisch_name %}
         <div class="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-            <span class="text-primary font-black text-sm tracking-widest pointer-events-auto bg-[#0b0c10]/80 px-5 py-2 rounded-full border border-primary/20 backdrop-blur-md shadow-lg shadow-primary/5 uppercase font-display">
+            <span class="text-primary font-black text-sm tracking-widest pointer-events-auto bg-surface/80 px-5 py-2 rounded-full border border-primary/20 backdrop-blur-md shadow-lg shadow-primary/5 uppercase font-display">
                 {{ tisch_name }}
             </span>
         </div>
@@ -297,14 +297,14 @@
                     <!-- Category Pills (Horizontal scrolling) -->
                     <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
                         {% for cat in restaurant.categories %}
-                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider{% endif %}">
+                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface hover:scale-102 uppercase tracking-wider{% endif %}">
                             <span>{{ cat }}</span>
                         </button>
                         {% endfor %}
                     </div>
 
                     <!-- Swipe indicator / accessibility tip (mobile only) -->
-                    <div class="flex md:hidden items-center justify-center gap-1.5 text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-2.5 opacity-65 select-none">
+                    <div class="flex md:hidden items-center justify-center gap-1.5 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider mt-2.5 opacity-65 select-none">
                         <span class="material-symbols-outlined text-xs animate-pulse">swipe</span>
                         <span data-translate="swipe_hint">← Kategorien wischen →</span>
                     </div>
@@ -385,7 +385,7 @@
     {% endif %}
 
     <!-- Slender Legal Footer inside clean container -->
-    <footer class="py-12 bg-black border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-3">
+    <footer class="py-12 bg-surface border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-3">
         <div class="flex justify-center space-x-4">
             <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline" data-translate="impressum">Impressum</button>
             <span>&bull;</span>
@@ -396,12 +396,12 @@
         {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook) %}
         <div class="flex justify-center space-x-6 py-2">
             {% if restaurant.branding.instagram %}
-            <a href="{{ restaurant.branding.instagram }}" target="_blank" class="text-zinc-500 hover:text-primary transition text-lg" title="Instagram">
+            <a href="{{ restaurant.branding.instagram }}" target="_blank" class="text-on-surface-variant hover:text-primary transition text-lg" title="Instagram">
                 <i class="fa-brands fa-instagram"></i>
             </a>
             {% endif %}
             {% if restaurant.branding.facebook %}
-            <a href="{{ restaurant.branding.facebook }}" target="_blank" class="text-zinc-500 hover:text-primary transition text-lg" title="Facebook">
+            <a href="{{ restaurant.branding.facebook }}" target="_blank" class="text-on-surface-variant hover:text-primary transition text-lg" title="Facebook">
                 <i class="fa-brands fa-facebook"></i>
             </a>
             {% endif %}
@@ -553,12 +553,12 @@
 
     {% if role == 'admin' %}
     <!-- Sticky Bottom Admin Panel (Drawer) -->
-    <div class="sticky-admin-panel fixed bottom-0 left-0 right-0 z-50 bg-[#050507]/95 backdrop-blur-xl border-t border-[#1f1f23] shadow-2xl flex flex-col transition-all duration-300 font-display"
+    <div class="sticky-admin-panel fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-outline-variant shadow-2xl flex flex-col transition-all duration-300 font-display"
          :class="isDrawerOpen ? 'h-[75vh] max-h-[75vh]' : 'h-16'"
          style="touch-action: none;">
         
         <!-- Header -->
-        <div @click="isDrawerOpen = !isDrawerOpen" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-[#1f1f23]/50 hover:bg-white/5 transition-colors shrink-0">
+        <div @click="isDrawerOpen = !isDrawerOpen" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-outline-variant/50 hover:bg-primary/5 transition-colors shrink-0">
             <div class="flex items-center gap-3">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span class="font-extrabold text-sm md:text-base text-on-surface tracking-tight">
@@ -566,10 +566,10 @@
                 </span>
             </div>
             <div class="flex items-center gap-2">
-                <button x-show="isDrawerOpen" @click.stop="isDrawerOpen = false" class="text-zinc-400 hover:text-white transition-colors flex items-center justify-center">
+                <button x-show="isDrawerOpen" @click.stop="isDrawerOpen = false" class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center">
                     <span class="material-symbols-outlined text-2xl">close</span>
                 </button>
-                <span x-show="!isDrawerOpen" class="material-symbols-outlined text-zinc-400 text-2xl">
+                <span x-show="!isDrawerOpen" class="material-symbols-outlined text-on-surface-variant text-2xl">
                     keyboard_arrow_up
                 </span>
             </div>
@@ -596,18 +596,18 @@
                         <p class="text-xs text-emerald-500/60 font-semibold italic text-center py-2">Keine ausstehenden Bestellungen.</p>
                     </template>
                     <template x-for="item in tableOrders.pending" :key="item.key">
-                        <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <button @click.stop="serveSingleItem(item)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
                                     <span class="material-symbols-outlined text-base">check</span>
                                 </button>
                                 <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-white block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
-                                    <span x-show="item.note" class="text-[10px] text-amber-400 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+                                    <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+                                    <span x-show="item.note" class="text-[10px] text-amber-500 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <span class="font-extrabold text-zinc-300 font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+                                <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
                                 <button @click.stop="cancelItem(item)" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
                                     <span class="material-symbols-outlined text-base">close</span>
                                 </button>
@@ -618,43 +618,43 @@
             </div>
 
             <!-- STUFE 2: Serviert / Geliefert -->
-            <div class="bg-[#0b0c10]/50 border border-[#1f1f23] rounded-2xl p-4 space-y-3">
+            <div class="bg-surface/30 border border-outline-variant rounded-2xl p-4 space-y-3">
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
-                    <h4 class="text-xs font-black uppercase tracking-wider text-zinc-400">Serviert / Geliefert</h4>
-                    <span class="bg-zinc-800 text-zinc-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-zinc-700" x-text="tableOrders.delivered.length">0</span>
+                    <span class="w-2 h-2 rounded-full bg-on-surface-variant/40"></span>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-on-surface-variant">Serviert / Geliefert</h4>
+                    <span class="bg-surface border border-outline-variant text-on-surface-variant text-[10px] font-black px-2 py-0.5 rounded-full" x-text="tableOrders.delivered.length">0</span>
                 </div>
                 
                 <div class="space-y-2">
                     <template x-if="tableOrders.delivered.length === 0">
-                        <p class="text-xs text-zinc-500/60 font-semibold italic text-center py-2">Noch keine Artikel serviert.</p>
+                        <p class="text-xs text-on-surface-variant/60 font-semibold italic text-center py-2">Noch keine Artikel serviert.</p>
                     </template>
                     <template x-for="item in tableOrders.delivered" :key="item.key">
-                        <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <input type="checkbox" 
                                        :checked="selectedSplitItems.some(i => i.key === item.key)"
                                        @change="toggleSplitCheckbox(item)"
-                                       class="w-4.5 h-4.5 rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-0 cursor-pointer">
+                                       class="w-4.5 h-4.5 rounded border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer">
                                 
                                 <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
                                 
                                 <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-white block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
-                                    <span x-show="item.note" class="text-[10px] text-amber-400 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+                                    <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+                                    <span x-show="item.note" class="text-[10px] text-amber-500 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
                                     
                                     <!-- Split Qty controls -->
                                     <template x-if="selectedSplitItems.some(i => i.key === item.key) && item.quantity > 1">
-                                        <div class="flex items-center gap-2 mt-1.5 bg-zinc-800/80 w-fit px-2 py-0.5 rounded-lg border border-zinc-700">
-                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-zinc-400 hover:text-white font-black text-sm px-1">-</button>
-                                            <span class="text-[11px] font-black text-white font-mono" x-text="getSplitQty(item)"></span>
-                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-zinc-400 hover:text-white font-black text-sm px-1">+</button>
+                                        <div class="flex items-center gap-2 mt-1.5 bg-surface w-fit px-2 py-0.5 rounded-lg border border-outline-variant">
+                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">-</button>
+                                            <span class="text-[11px] font-black text-on-surface font-mono" x-text="getSplitQty(item)"></span>
+                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">+</button>
                                         </div>
                                     </template>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <span class="font-extrabold text-zinc-300 font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+                                <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
                             </div>
                         </div>
                     </template>
@@ -663,8 +663,8 @@
         </div>
 
         <!-- Footer -->
-        <div x-show="isDrawerOpen" class="p-4 md:p-6 border-t border-[#1f1f23]/50 bg-[#050507] flex flex-col gap-3 shrink-0">
-            <div class="flex items-center justify-between text-xs text-zinc-400 font-bold px-1" x-show="selectedSplitItems.length > 0">
+        <div x-show="isDrawerOpen" class="p-4 md:p-6 border-t border-outline-variant bg-background flex flex-col gap-3 shrink-0">
+            <div class="flex items-center justify-between text-xs text-on-surface-variant font-bold px-1" x-show="selectedSplitItems.length > 0">
                 <span>Ausgewählt für Teilrechnung:</span>
                 <span class="text-primary font-black text-sm md:text-base font-mono" x-text="splitTotal.toFixed(2) + ' €'">0,00 €</span>
             </div>
@@ -672,14 +672,14 @@
                 <button @click="submitDrawerPayment(true)" 
                         :disabled="selectedSplitItems.length === 0"
                         class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border"
-                        :class="selectedSplitItems.length > 0 ? 'bg-zinc-850 hover:bg-zinc-800 text-white border-zinc-700 cursor-pointer shadow-lg shadow-zinc-950/20' : 'bg-zinc-900/50 text-zinc-600 border-zinc-800/50 cursor-not-allowed'">
+                        :class="selectedSplitItems.length > 0 ? 'bg-surface-container-high hover:bg-surface border-outline-variant text-on-surface cursor-pointer shadow-lg shadow-black/10' : 'bg-surface/50 text-on-surface-variant/40 border-outline-variant/40 cursor-not-allowed'">
                     <span class="material-symbols-outlined text-base font-black">call_split</span>
                     Teilrechnung
                 </button>
                 <button @click="submitDrawerPayment(false)" 
                         :disabled="tableOrders.total <= 0"
                         class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none"
-                        :class="tableOrders.total > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-zinc-900/50 text-zinc-600 border border-zinc-800/50 cursor-not-allowed'">
+                        :class="tableOrders.total > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
                     <span class="material-symbols-outlined text-base font-black">payments</span>
                     Gesamtrechnung
                 </button>
