@@ -3174,17 +3174,11 @@
                     return;
                 }
             }
-            let pin = prompt('Bitte Mitarbeiter-PIN eingeben:');
-            if (pin === null) return;
-            if (!pin.trim()) {
-                showToast('PIN erforderlich', 'error');
-                return;
-            }
             try {
                 const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ item_key: itemKey, quantity: qty, pin: pin })
+                    body: JSON.stringify({ item_key: itemKey, quantity: qty })
                 });
                 if (res.ok) {
                     showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
@@ -3292,17 +3286,11 @@
                 document.getElementById('item-action-modal').classList.add('hidden');
                 document.getElementById('table-sel-overlay').classList.remove('hidden');
             } else if (action === 'cancel') {
-                let pin = prompt('Bitte Mitarbeiter-PIN eingeben:');
-                if (pin === null) return;
-                if (!pin.trim()) {
-                    showToast('PIN erforderlich', 'error');
-                    return;
-                }
                 try {
                     const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty, pin: pin })
+                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty })
                     });
                     if (res.ok) {
                         showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} storniert`, 'success');
@@ -3481,13 +3469,6 @@
             const keys = Object.keys(selectedTeilrechnung);
             if (!keys.length) return;
 
-            let pin = prompt('Mitarbeiter-PIN eingeben:');
-            if (pin === null) return;
-            if (!pin.trim()) {
-                showToast('PIN erforderlich', 'error');
-                return;
-            }
-
             try {
                 const bulkItems = keys.map(key => ({
                     item_key: key,
@@ -3496,7 +3477,7 @@
                 const res = await fetch(`/${slug}/tablet/cancel-items-bulk/${activeOrderId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: bulkItems, pin: pin })
+                    body: JSON.stringify({ items: bulkItems })
                 });
                 if (res.ok) {
                     showToast('Artikel storniert', 'success');
@@ -3544,15 +3525,8 @@
 
         async function stornieren() {
             if (!activeOrderId) return;
-            let pin = prompt('PIN eingeben:');
-            if (pin === null) return;
-            if (!pin.trim()) {
-                showToast('PIN erforderlich', 'error');
-                return;
-            }
             try {
-                const fd = new FormData(); fd.append('pin', pin);
-                const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST', body: fd });
+                const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST' });
                 if (res.ok) {
                     showToast('Bon storniert', 'success');
                     closePopup();

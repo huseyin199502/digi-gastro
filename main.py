@@ -2227,23 +2227,30 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
 async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional[str] = Form(None), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
-    is_chef = False
-    chef_employee = None
-    res = get_current_user_and_slug(request)
-    if res:
-        user, session_slug = res
-        if session_slug == slug and user["role"] == "chef":
-            is_chef = True
-            chef_employee = next((s for s in restaurant.get("staff", []) if s["role"] == "chef"), None)
+    # 1. Check if authorized via POS token or logged-in chef/kellner
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
 
-    if not is_chef:
+    # 2. If not authorized, fall back to PIN check
+    if is_auth:
+        user = get_current_user(request, slug)
+        if user:
+            employee = next((s for s in restaurant.get("staff", []) if s.get("name") == user.get("name")), None)
+            if not employee:
+                employee = {"name": user["name"], "role": user["role"]}
+        else:
+            employee = {"name": "POS-Tablet", "role": "pos"}
+    else:
         if not pin:
             raise HTTPException(status_code=400, detail="Mitarbeiter-PIN erforderlich.")
         employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(pin).strip()), None)
         if not employee:
             raise HTTPException(status_code=403, detail="Ungültige PIN oder keine Berechtigung für Stornierung.")
-    else:
-        employee = chef_employee or {"name": "Chef", "role": "chef"}
         
     order = next((o for o in restaurant["orders"] if o["id"] == order_id), None)
     if not order:
@@ -2704,23 +2711,30 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
     """Cancel a specific line item (partial cancellation) with chef PIN check."""
     restaurant = get_restaurant_or_raise(slug, db)
 
-    is_chef = False
-    chef_employee = None
-    res = get_current_user_and_slug(request)
-    if res:
-        user, session_slug = res
-        if session_slug == slug and user["role"] == "chef":
-            is_chef = True
-            chef_employee = next((s for s in restaurant.get("staff", []) if s["role"] == "chef"), None)
+    # 1. Check if authorized via POS token or logged-in chef/kellner
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
 
-    if not is_chef:
+    # 2. If not authorized, fall back to PIN check
+    if is_auth:
+        user = get_current_user(request, slug)
+        if user:
+            employee = next((s for s in restaurant.get("staff", []) if s.get("name") == user.get("name")), None)
+            if not employee:
+                employee = {"name": user["name"], "role": user["role"]}
+        else:
+            employee = {"name": "POS-Tablet", "role": "pos"}
+    else:
         if not payload.pin:
             raise HTTPException(status_code=400, detail="Mitarbeiter-PIN erforderlich.")
         employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
         if not employee:
             raise HTTPException(status_code=403, detail="Ungültige PIN.")
-    else:
-        employee = chef_employee or {"name": "Chef", "role": "chef"}
 
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
     if not order:
@@ -2791,23 +2805,30 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
     """Cancel multiple specific line items (bulk partial cancellation) with chef PIN check in a single transaction."""
     restaurant = get_restaurant_or_raise(slug, db)
 
-    is_chef = False
-    chef_employee = None
-    res = get_current_user_and_slug(request)
-    if res:
-        user, session_slug = res
-        if session_slug == slug and user["role"] == "chef":
-            is_chef = True
-            chef_employee = next((s for s in restaurant.get("staff", []) if s["role"] == "chef"), None)
+    # 1. Check if authorized via POS token or logged-in chef/kellner
+    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+    expected_pos = restaurant.get("pos_token")
+    is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    if not is_auth:
+        user = get_current_user(request, slug)
+        if user and user["role"] in ["chef", "kellner"]:
+            is_auth = True
 
-    if not is_chef:
+    # 2. If not authorized, fall back to PIN check
+    if is_auth:
+        user = get_current_user(request, slug)
+        if user:
+            employee = next((s for s in restaurant.get("staff", []) if s.get("name") == user.get("name")), None)
+            if not employee:
+                employee = {"name": user["name"], "role": user["role"]}
+        else:
+            employee = {"name": "POS-Tablet", "role": "pos"}
+    else:
         if not payload.pin:
             raise HTTPException(status_code=400, detail="Mitarbeiter-PIN erforderlich.")
         employee = next((s for s in restaurant.get("staff", []) if str(s.get("pin_code", s.get("pin"))) == str(payload.pin).strip()), None)
         if not employee:
             raise HTTPException(status_code=403, detail="Ungültige PIN.")
-    else:
-        employee = chef_employee or {"name": "Chef", "role": "chef"}
 
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
     if not order:
