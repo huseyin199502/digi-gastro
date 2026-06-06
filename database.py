@@ -136,6 +136,7 @@ class Product(Base):
     end_time = Column(String, nullable=True)
     name_en = Column(String, nullable=True)
     description_en = Column(Text, nullable=True)
+    position = Column(Integer, default=0)
 
 
 class Order(Base):
@@ -257,6 +258,7 @@ def _migrate_database():
     # Migrate 'products' table
     add_column_if_missing('products', 'name_en', "VARCHAR")
     add_column_if_missing('products', 'description_en', "TEXT")
+    add_column_if_missing('products', 'position', "INTEGER DEFAULT 0")
 
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")

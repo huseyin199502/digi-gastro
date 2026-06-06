@@ -14,6 +14,7 @@
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -712,13 +713,14 @@
                             <span class="material-symbols-outlined text-zinc-500">folder_open</span> {{ cat }}
                         </h3>
                         
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 product-sortable-list" data-category="{{ cat }}">
                             {% for p in restaurant.products if p.category == cat %}
-                            <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl" data-product-id="{{ p.id }}">
                                 <div class="flex items-center gap-3">
+                                    <span class="material-symbols-outlined text-gray-400 select-none cursor-grab active:cursor-grabbing drag-handle mr-1" title="Verschieben">drag_indicator</span>
                                     <div class="w-10 h-10 rounded-lg bg-zinc-200 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
                                         {% if p.image %}
-                                            <img src="{{ p.image }}" alt="{{ p.name }}" class="w-full h-full object-cover">
+                                            <img src="{{ p.image }}" alt="{{ p.name }}" class="w-full h-full object-contain">
                                         {% else %}
                                             <span class="material-symbols-outlined text-zinc-400">fastfood</span>
                                         {% endif %}
@@ -3626,6 +3628,37 @@
         // Run first check after DOM content loaded, initializing websocket
         document.addEventListener("DOMContentLoaded", () => {
             setTimeout(startPolling, 1500);
+
+            // Initialize SortableJS for product reordering
+            document.querySelectorAll('.product-sortable-list').forEach(list => {
+                new Sortable(list, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function(evt) {
+                        const productIds = Array.from(list.children).map(item => item.getAttribute('data-product-id'));
+                        
+                        fetch('/admin/products/reorder', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ product_ids: productIds })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                showToast("Reihenfolge erfolgreich gespeichert", "success");
+                            } else {
+                                showToast("Fehler beim Speichern der Reihenfolge", "error");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Reorder failed:", err);
+                            showToast("Fehler beim Verbinden zum Server", "error");
+                        });
+                    }
+                });
+            });
         });
 
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }

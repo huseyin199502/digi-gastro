@@ -184,7 +184,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     
     categories = [c.name for c in session.query(Category).filter_by(tenant_slug=slug).order_by(Category.id).all()]
     
-    db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.id).all()
+    db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.position, Product.id).all()
     products = []
     for p in db_products:
         products.append({
@@ -204,7 +204,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "start_time": p.start_time,
             "end_time": p.end_time,
             "name_en": p.name_en,
-            "description_en": p.description_en
+            "description_en": p.description_en,
+            "position": getattr(p, "position", 0) or 0
         })
         
     db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id).all()
@@ -414,6 +415,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         db_p.end_time = p.get("end_time")
         db_p.name_en = p.get("name_en")
         db_p.description_en = p.get("description_en")
+        db_p.position = p.get("position", 0)
 
         
         if db_p.id is None:
@@ -1725,7 +1727,9 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "products": processed_products,
             "reset_session": reset_session,
             "tisch_name": tisch_name,
-            "role": role
+            "role": role,
+            "hh_active_global": hh_active_global,
+            "hh_config": hh_config
         }
     )
     
@@ -1750,6 +1754,39 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     table_num = str(payload.table).replace("Tisch", "").strip()
     tables_list = restaurant.get("tables", [])
     db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+    
+    # Securely validate and apply Happy Hour prices in the backend if active
+    now_time = datetime.now().strftime("%H:%M")
+    now_day = datetime.now().strftime("%a")
+    german_days_map = {
+        "Mon": ["Mo", "Montag"],
+        "Tue": ["Di", "Dienstag"],
+        "Wed": ["Mi", "Mittwoch"],
+        "Thu": ["Do", "Donnerstag"],
+        "Fri": ["Fr", "Freitag"],
+        "Sat": ["Sa", "Samstag"],
+        "Sun": ["So", "Sonntag"]
+    }
+    possible_days = german_days_map.get(now_day, ["Mo", "Montag"])
+    hh_config = restaurant.get("happy_hour", {})
+    hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
+
+    products_map = {p["id"]: p for p in restaurant.get("products", [])}
+    for item in payload.items:
+        prod = products_map.get(item.product_id)
+        if prod:
+            is_hh_active_for_product = False
+            hh_price = prod.get("happy_hour_price")
+            if hh_price is not None:
+                start = prod.get("start_time", "18:00")
+                end = prod.get("end_time", "20:00")
+                if start <= now_time <= end:
+                    is_hh_active_for_product = True
+                    item.price = hh_price
+            
+            if not is_hh_active_for_product and hh_active_global and hh_config.get("discount", 0) > 0:
+                discount_factor = (100 - hh_config["discount"]) / 100.0
+                item.price = round(prod["price"] * discount_factor, 2)
     
     # ── Staff / POS trusted device bypass ──
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -4491,6 +4528,32 @@ async def confirm_order(request: Request, slug: str, order_id: int, db: Session 
         raise HTTPException(status_code=500, detail=f"Fehler beim Bestätigen der Bestellung: {e}")
         
     await manager.broadcast(slug, {"type": "update"})
+    return {"success": True}
+
+@app.post("/admin/products/reorder")
+async def reorder_products_api(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    try:
+        body = await request.json()
+        ordered_ids = body.get("product_ids", [])
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ungültiges JSON-Format")
+        
+    id_to_pos = {int(pid): idx for idx, pid in enumerate(ordered_ids)}
+    products = restaurant.get("products", [])
+    for p in products:
+        p_id = p.get("id")
+        if p_id in id_to_pos:
+            p["position"] = id_to_pos[p_id]
+        else:
+            p["position"] = 9999
+    restaurant["products"] = sorted(products, key=lambda x: x.get("position", 0))
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
     return {"success": True}
 
 @app.post("/admin/product-toggle/{product_id}")

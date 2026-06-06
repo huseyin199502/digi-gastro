@@ -174,6 +174,14 @@
     </div>
     {% endif %}
 
+    {% if hh_active_global %}
+    <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
+        <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+        <span>🔥 Happy Hour ist aktiv! {% if hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+        <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+    </div>
+    {% endif %}
+
     <!-- Main Dynamic Content Canvas -->
     <main class="flex-grow w-full max-w-4xl mx-auto px-4">
         
@@ -286,7 +294,7 @@
                     <!-- Category Pills (Horizontal scrolling) -->
                     <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
                         {% for cat in restaurant.categories %}
-                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider{% endif %}">
+                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider{% endif %}">
                             <span>{{ cat }}</span>
                         </button>
                         {% endfor %}
@@ -315,7 +323,7 @@
                         
                         <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-background flex items-center justify-center border border-outline-variant/60">
                             {% if product.image %}
-                            <img alt="{{ product.name }}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
+                            <img alt="{{ product.name }}" class="w-full h-full object-contain transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
                             {% else %}
                             <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
                                 <span class="material-symbols-outlined text-3xl">restaurant</span>
@@ -346,9 +354,9 @@
                             
                             <div class="flex justify-between items-center mt-auto pt-1">
                                 <div class="flex flex-col">
-                                    {% if product.happy_hour_price is not none %}
+                                    {% if product.is_hh_active %}
                                     <span class="text-[10px] line-through text-on-surface-variant/50 leading-none mb-0.5 font-bold">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
-                                    <span class="text-xs md:text-sm font-black text-primary leading-none">{{ "%.2f" | format(product.happy_hour_price) | replace('.', ',') }} €</span>
+                                    <span class="text-xs md:text-sm font-black text-primary leading-none">{{ "%.2f" | format(product.display_price) | replace('.', ',') }} €</span>
                                     {% else %}
                                     <span class="text-xs md:text-sm font-black text-white leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
                                     {% endif %}
@@ -1133,8 +1141,8 @@
                     pills.forEach(pillBtn => {
                         const isCurrent = pillBtn.id === `btn-${category}`;
                         pillBtn.className = isCurrent ? 
-                            "flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/20 scale-105 border-transparent uppercase tracking-wider" : 
-                            "flex-shrink-0 min-w-[165px] h-[78px] rounded-2xl text-sm md:text-base font-black transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider";
+                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider" : 
+                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider";
                     });
 
                     this.applyAllFilters();

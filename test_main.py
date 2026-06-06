@@ -2,6 +2,17 @@ import sys
 import copy
 import traceback
 from fastapi.testclient import TestClient
+
+# Mock datetime.now() to return a fixed time outside Happy Hour (e.g. Monday 12:00) during test runs
+from datetime import datetime as real_datetime
+class MockDatetime(real_datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return real_datetime(2026, 6, 8, 12, 0, 0)
+
+import main
+main.datetime = MockDatetime
+
 from main import app, restaurants, INITIAL_RESTAURANTS
 
 client = TestClient(app)
