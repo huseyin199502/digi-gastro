@@ -334,6 +334,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "indigo": tenant.indigo,
             "instagram": tenant.instagram,
             "facebook": tenant.facebook,
+            "tiktok": tenant.tiktok or "",
             "logo_url": tenant.logo_url
         },
         "landing_page": json.loads(tenant.landing_page_json or "{}"),
@@ -394,6 +395,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.indigo = branding.get("indigo", "")
     tenant.instagram = branding.get("instagram", "")
     tenant.facebook = branding.get("facebook", "")
+    tenant.tiktok = branding.get("tiktok", "")
     tenant.logo_url = branding.get("logo_url", "")
     
     tenant.landing_page_json = json.dumps(unwrap_live_data(r.get("landing_page", {})))
@@ -4211,6 +4213,7 @@ def update_branding(
     ort: Optional[str] = Form(None),
     instagram: Optional[str] = Form(None),
     facebook: Optional[str] = Form(None),
+    tiktok: Optional[str] = Form(None),
     theme: Optional[str] = Form(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
@@ -4245,7 +4248,8 @@ def update_branding(
         "plz": plz.strip() if plz else "",
         "ort": ort.strip() if ort else "",
         "instagram": instagram.strip() if instagram else "",
-        "facebook": facebook.strip() if facebook else ""
+        "facebook": facebook.strip() if facebook else "",
+        "tiktok": tiktok.strip() if tiktok else ""
     }
     if theme:
         restaurant["theme"] = theme

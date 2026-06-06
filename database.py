@@ -96,6 +96,7 @@ class Tenant(Base):
     indigo = Column(String, default="")
     instagram = Column(String, default="")
     facebook = Column(String, default="")
+    tiktok = Column(String, default="")
     logo_url = Column(Text, default="")
     logo_path = Column(String, nullable=True)
     
@@ -245,6 +246,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'ort', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'landing_page_json', "TEXT DEFAULT '{}'")
     add_column_if_missing('tenants', 'theme', "VARCHAR DEFAULT 'dark'")
+    add_column_if_missing('tenants', 'tiktok', "VARCHAR DEFAULT ''")
 
     # Migrate 'tables' table
     add_column_if_missing('tables', 'security_token', "VARCHAR DEFAULT ''")

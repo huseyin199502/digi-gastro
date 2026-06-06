@@ -14,7 +14,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=5">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=6">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -218,6 +218,27 @@
                             <span data-translate="rate_us">Bewerten Sie uns auf Google</span>
                         </a>
                     </div>
+
+                    <!-- Social Media Links (moved from footer, larger design) -->
+                    {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
+                    <div class="flex justify-center items-center gap-5 mt-2.5">
+                        {% if restaurant.branding.instagram %}
+                        <a href="{{ restaurant.branding.instagram }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Instagram">
+                            <i class="fa-brands fa-instagram text-2xl"></i>
+                        </a>
+                        {% endif %}
+                        {% if restaurant.branding.facebook %}
+                        <a href="{{ restaurant.branding.facebook }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Facebook">
+                            <i class="fa-brands fa-facebook text-2xl"></i>
+                        </a>
+                        {% endif %}
+                        {% if restaurant.branding.tiktok %}
+                        <a href="{{ restaurant.branding.tiktok }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="TikTok">
+                            <i class="fa-brands fa-tiktok text-2xl"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -324,9 +345,9 @@
                              data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
                              data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                         
-                        <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-background flex items-center justify-center border border-outline-variant/60">
+                        <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-white flex items-center justify-center border border-outline-variant/60">
                             {% if product.image %}
-                            <img alt="{{ product.name }}" class="w-full h-full object-contain transition-transform duration-500 hover:scale-105" src="{{ product.image }}">
+                            <img alt="{{ product.name }}" class="w-full h-full object-contain" src="{{ product.image }}">
                             {% else %}
                             <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
                                 <span class="material-symbols-outlined text-3xl">restaurant</span>
@@ -392,22 +413,6 @@
             <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline" data-translate="datenschutz">Datenschutz</button>
         </div>
         
-        <!-- Social Media Links -->
-        {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook) %}
-        <div class="flex justify-center space-x-6 py-2">
-            {% if restaurant.branding.instagram %}
-            <a href="{{ restaurant.branding.instagram }}" target="_blank" class="text-on-surface-variant hover:text-primary transition text-lg" title="Instagram">
-                <i class="fa-brands fa-instagram"></i>
-            </a>
-            {% endif %}
-            {% if restaurant.branding.facebook %}
-            <a href="{{ restaurant.branding.facebook }}" target="_blank" class="text-on-surface-variant hover:text-primary transition text-lg" title="Facebook">
-                <i class="fa-brands fa-facebook"></i>
-            </a>
-            {% endif %}
-        </div>
-        {% endif %}
-
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
