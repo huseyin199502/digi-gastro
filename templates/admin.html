@@ -809,8 +809,9 @@
                                 <div class="flex gap-2">
                                     <input type="text" name="image_url" id="create-product-image-url" placeholder="Optional: https://..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     <button type="button" onclick="generateSingleImage(this, 'create-product-image-url', 'create-product-name', 'create-product-type')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 rounded-xl transition shadow flex items-center gap-1 shrink-0">
-                                        <span class="material-symbols-outlined text-xs">search</span> Bild suchen
+                                        <span class="material-symbols-outlined text-xs">auto_awesome</span> KI-Bild generieren
                                     </button>
+
                                 </div>
                             </div>
                             <div>
@@ -1415,8 +1416,9 @@
                         <div class="flex gap-2">
                             <input type="text" id="edit-product-image-url" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             <button type="button" onclick="generateSingleImage(this, 'edit-product-image-url', 'edit-product-name', 'edit-product-type')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 rounded-xl transition shadow flex items-center gap-1 shrink-0">
-                                <span class="material-symbols-outlined text-xs">search</span> Bild suchen
+                                <span class="material-symbols-outlined text-xs">auto_awesome</span> KI-Bild generieren
                             </button>
+
                         </div>
                     </div>
                     <div>
@@ -3983,7 +3985,7 @@
             btn.disabled = true;
             btn.innerHTML = `<span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Laden...`;
             
-            showToast("KI Bild wird gesucht...", "success");
+            showToast("KI-Bild wird generiert...", "success");
             
             fetch(`/api/products/generate-suggested-image?name=${encodeURIComponent(productName)}&category_type=${encodeURIComponent(productType)}`)
                 .then(res => {
@@ -3995,17 +3997,18 @@
                     btn.innerHTML = originalContent;
                     if (data.success && data.image_url) {
                         document.getElementById(targetInputId).value = data.image_url;
-                        showToast("KI Bild erfolgreich geladen!", "success");
+                        showToast("KI-Bild erfolgreich generiert!", "success");
                     } else {
-                        showToast("Kein passendes Bild gefunden.", "error");
+                        showToast("Fehler beim Generieren des KI-Bildes.", "error");
                     }
                 })
                 .catch(err => {
                     btn.disabled = false;
                     btn.innerHTML = originalContent;
                     console.error("KI Bildfehler:", err);
-                    showToast("Fehler beim Laden des KI Bildes.", "error");
+                    showToast("Fehler beim Generieren des KI-Bildes.", "error");
                 });
+
         }
 
         // Copy magic link (relative path → absolute URL) to clipboard

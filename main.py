@@ -5066,10 +5066,39 @@ def generate_suggested_image(name: str, category_type: str, chef_data: tuple = D
     cat_type = (category_type or "").lower()
     img_url = None
     
-    # 1. Look up in Curated Premium Map
-    img_url = find_curated_image(cleaned)
+    # 1. Generate image using Pollinations.ai
+    import httpx
+    import uuid
+    prompt = f"Professional studio food photography of {name.strip()} on a clean neutral background, centered, delicious"
+    prompt_encoded = urllib.parse.quote(prompt)
+    ai_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=800&height=800&nologo=true&private=true&enhance=false"
     
-    # 2. Fallback to Lorem Flickr
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(ai_url)
+            if resp.status_code == 200:
+                # Process the image with background removal and auto-trim
+                try:
+                    processed_bytes = process_and_crop_product_image(resp.content)
+                except Exception as e:
+                    print(f"[AI Generation] Crop failed: {e}")
+                    processed_bytes = resp.content
+                    
+                # Save locally on the server
+                safe_name = f"ai-{uuid.uuid4().hex[:8]}.png"
+                products_upload_dir = os.path.join(UPLOAD_DIR, "products")
+                os.makedirs(products_upload_dir, exist_ok=True)
+                file_path = os.path.join(products_upload_dir, safe_name)
+                with open(file_path, "wb") as fh:
+                    fh.write(processed_bytes)
+                img_url = f"/uploads/products/{safe_name}"
+    except Exception as e:
+        print(f"[AI Generation] Failed to fetch/save AI image: {e}")
+
+    # Fallback to Curated Premium Map / Lorem Flickr if AI generation failed
+    if not img_url:
+        img_url = find_curated_image(cleaned)
+        
     if not img_url:
         search_tag = cleaned
         if cat_type == "bar":
@@ -5078,11 +5107,6 @@ def generate_suggested_image(name: str, category_type: str, chef_data: tuple = D
             search_tag = f"{cleaned},food"
         img_url = get_loremflickr_image(search_tag) or get_loremflickr_image(cleaned)
         
-    # 3. Fallback to Open Food Facts (for drinks/bar items only)
-    if not img_url and cat_type == "bar":
-        img_url = get_open_food_facts_image(cleaned)
-        
-    # 4. Ultimate fallback to standard premium category placeholder
     if not img_url:
         if cat_type == "bar":
             img_url = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=600&auto=format&fit=crop&q=80"
@@ -5090,6 +5114,7 @@ def generate_suggested_image(name: str, category_type: str, chef_data: tuple = D
             img_url = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80"
             
     return {"success": True, "image_url": img_url}
+
 
 @app.post("/admin/products/generate-images")
 def generate_images(chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
