@@ -10,4 +10,5 @@ httpx
 anyio[trio]
 pillow
 rembg
+onnxruntime
 

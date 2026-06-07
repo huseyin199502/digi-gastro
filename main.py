@@ -35,11 +35,12 @@ def process_and_crop_product_image(image_bytes) -> bytes:
     
     # 1. Try to remove background using rembg
     try:
+        import onnxruntime
         from rembg import remove
         img_no_bg_bytes = remove(image_bytes)
         img = Image.open(BytesIO(img_no_bg_bytes))
-    except Exception as e:
-        print(f"[Image Processing] rembg background removal failed/not installed: {e}")
+    except BaseException as e:
+        print(f"[Image Processing] rembg background removal failed/not installed or exited: {e}")
         img = Image.open(BytesIO(image_bytes))
         
     # 2. Convert to RGBA if not already
