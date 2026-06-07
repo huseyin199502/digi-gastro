@@ -8,3 +8,6 @@ asyncpg
 pytest
 httpx
 anyio[trio]
+pillow
+rembg
+

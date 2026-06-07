@@ -29,6 +29,34 @@ def get_berlin_now():
         offset = timedelta(hours=1)
     return (utc_now + offset).replace(tzinfo=None)
 
+def process_and_crop_product_image(image_bytes) -> bytes:
+    from io import BytesIO
+    from PIL import Image
+    
+    # 1. Try to remove background using rembg
+    try:
+        from rembg import remove
+        img_no_bg_bytes = remove(image_bytes)
+        img = Image.open(BytesIO(img_no_bg_bytes))
+    except Exception as e:
+        print(f"[Image Processing] rembg background removal failed/not installed: {e}")
+        img = Image.open(BytesIO(image_bytes))
+        
+    # 2. Convert to RGBA if not already
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+        
+    # 3. Crop transparent borders (autotrim empty space around product)
+    bbox = img.getbbox()
+    if bbox:
+        img = img.crop(bbox)
+        
+    # 4. Save as PNG to preserve transparency
+    out = BytesIO()
+    img.save(out, format="PNG")
+    return out.getvalue()
+
+
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -3891,16 +3919,17 @@ async def post_produkt_erstellen(
     if image_file and image_file.filename:
         products_upload_dir = os.path.join(UPLOAD_DIR, "products")
         os.makedirs(products_upload_dir, exist_ok=True)
-        ext = "jpg"
-        parts = image_file.filename.split(".")
-        if len(parts) > 1:
-            ext = parts[-1].lower()
-        safe_name = f"{slug}-product-{new_id}.{ext}"
+        safe_name = f"{slug}-product-{new_id}.png"
         file_path = os.path.join(products_upload_dir, safe_name)
         content = await image_file.read()
+        try:
+            content = process_and_crop_product_image(content)
+        except Exception as e:
+            print(f"[Image Processing] Error processing product image: {e}")
         with open(file_path, "wb") as fh:
             fh.write(content)
         final_image = f"/uploads/products/{safe_name}"
+
     elif image_url and image_url.strip():
         final_image = image_url.strip()
     else:
@@ -4640,16 +4669,17 @@ async def update_product_api(
     if image_file and hasattr(image_file, "filename") and image_file.filename:
         products_upload_dir = os.path.join(UPLOAD_DIR, "products")
         os.makedirs(products_upload_dir, exist_ok=True)
-        ext = "jpg"
-        parts = image_file.filename.split(".")
-        if len(parts) > 1:
-            ext = parts[-1].lower()
-        safe_name = f"{slug}-product-{product_id}.{ext}"
+        safe_name = f"{slug}-product-{product_id}.png"
         file_path = os.path.join(products_upload_dir, safe_name)
         content = await image_file.read()
+        try:
+            content = process_and_crop_product_image(content)
+        except Exception as e:
+            print(f"[Image Processing] Error processing product image: {e}")
         with open(file_path, "wb") as fh:
             fh.write(content)
         final_image = f"/uploads/products/{safe_name}"
+
     elif image_url is not None:
         if str(image_url).strip():
             final_image = str(image_url).strip()
