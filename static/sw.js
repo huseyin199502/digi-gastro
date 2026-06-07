@@ -13,14 +13,6 @@ self.addEventListener('activate', event => {
       );
     }).then(() => {
       return self.registration.unregister();
-    }).then(() => {
-      return self.clients.matchAll();
-    }).then(clients => {
-      clients.forEach(client => {
-        if (client.url) {
-          client.navigate(client.url);
-        }
-      });
     })
   );
 });
