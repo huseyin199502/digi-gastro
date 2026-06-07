@@ -15,6 +15,7 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://js.puter.com/v2/"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -3983,12 +3984,16 @@
             
             try {
                 const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
-                const aiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
                 
-                // Fetch image directly from client side (uses client's IP to avoid server-side rate limits)
-                const resp = await fetch(aiUrl);
+                // Generate the image using Puter.js (bypasses all key and server rate limits)
+                const imgElement = await puter.ai.txt2img(prompt);
+                if (!imgElement || !imgElement.src) {
+                    throw new Error("Puter.js lieferte kein Bild-Element");
+                }
+                
+                const resp = await fetch(imgElement.src);
                 if (!resp.ok) {
-                    throw new Error("Pollinations.ai lieferte Status " + resp.status);
+                    throw new Error("Laden des generierten Bildes fehlgeschlagen");
                 }
                 const blob = await resp.blob();
                 
