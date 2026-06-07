@@ -116,6 +116,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     name = Column(String, nullable=False)
+    position = Column(Integer, default=0)
 
 class Product(Base):
     __tablename__ = 'products'
@@ -263,6 +264,9 @@ def _migrate_database():
     add_column_if_missing('products', 'name_en', "VARCHAR")
     add_column_if_missing('products', 'description_en', "TEXT")
     add_column_if_missing('products', 'position', "INTEGER DEFAULT 0")
+
+    # Migrate 'categories' table
+    add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")
 
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")

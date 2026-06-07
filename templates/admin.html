@@ -759,14 +759,15 @@
                         </form>
                         
                         <div class="border-t border-gray-100 pt-3">
-                            <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Kategorien</label>
-                            <div class="flex flex-wrap gap-2">
+                            <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Kategorien (Ziehen zum Sortieren)</label>
+                            <div class="flex flex-wrap gap-2 category-sortable-list">
                                 {% for cat in restaurant.categories %}
-                                <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs">
+                                <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs" data-category-name="{{ cat }}">
+                                    <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
                                     <span>{{ cat }}</span>
-                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
                                         <input type="hidden" name="name" value="{{ cat }}">
-                                        <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center">✕</button>
+                                        <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center ml-1">✕</button>
                                     </form>
                                 </div>
                                 {% endfor %}
@@ -3726,8 +3727,8 @@
         }
 
 
-        // Run first check after DOM content loaded, initializing websocket
-        document.addEventListener("DOMContentLoaded", () => {
+        // Run first check after page fully loaded, initializing websocket
+        window.addEventListener("load", () => {
             setTimeout(startPolling, 1500);
 
             // Initialize SortableJS for product reordering
@@ -3755,6 +3756,37 @@
                         })
                         .catch(err => {
                             console.error("Reorder failed:", err);
+                            showToast("Fehler beim Verbinden zum Server", "error");
+                        });
+                    }
+                });
+            });
+
+            // Initialize SortableJS for category reordering
+            document.querySelectorAll('.category-sortable-list').forEach(list => {
+                new Sortable(list, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function(evt) {
+                        const categories = Array.from(list.children).map(item => item.getAttribute('data-category-name'));
+                        
+                        fetch('/admin/categories/reorder', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ categories: categories })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                showToast("Kategorie-Reihenfolge erfolgreich gespeichert", "success");
+                            } else {
+                                showToast("Fehler beim Speichern der Reihenfolge", "error");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Category reorder failed:", err);
                             showToast("Fehler beim Verbinden zum Server", "error");
                         });
                     }

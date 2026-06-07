@@ -217,7 +217,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     if not tenant:
         return None
     
-    categories = [c.name for c in session.query(Category).filter_by(tenant_slug=slug).order_by(Category.id).all()]
+    categories = [c.name for c in session.query(Category).filter_by(tenant_slug=slug).order_by(Category.position, Category.id).all()]
     
     db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.position, Product.id).all()
     products = []
@@ -423,8 +423,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     session.flush()
     # 1. Update categories
     session.query(Category).filter_by(tenant_slug=slug).delete()
-    for cat_name in r.get("categories", []):
-        session.add(Category(tenant_slug=slug, name=cat_name))
+    for idx, cat_name in enumerate(r.get("categories", [])):
+        session.add(Category(tenant_slug=slug, name=cat_name, position=idx))
         
     # 2. Update products
     existing_products = {p.id: p for p in session.query(Product).filter_by(tenant_slug=slug).all()}
@@ -4635,6 +4635,30 @@ async def reorder_products_api(
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return {"success": True}
+
+@app.post("/admin/categories/reorder")
+async def reorder_categories_api(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    try:
+        body = await request.json()
+        ordered_categories = body.get("categories", [])
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ungültiges JSON-Format")
+        
+    new_order = [cat for cat in ordered_categories if cat in restaurant.get("categories", [])]
+    for cat in restaurant.get("categories", []):
+        if cat not in new_order:
+            new_order.append(cat)
+            
+    restaurant["categories"] = new_order
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return {"success": True}
+
 
 @app.post("/admin/product-toggle/{product_id}")
 def toggle_product_availability(request: Request, product_id: int, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):

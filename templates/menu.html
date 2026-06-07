@@ -952,7 +952,13 @@
 
                     const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
                     if (!isReadonly) {
-                        this.initGuestWebSocket();
+                        if (document.readyState === "complete") {
+                            setTimeout(() => this.initGuestWebSocket(), 1000);
+                        } else {
+                            window.addEventListener("load", () => {
+                                setTimeout(() => this.initGuestWebSocket(), 1000);
+                            });
+                        }
                     }
 
                     if (this.role === 'admin') {

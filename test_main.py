@@ -1423,6 +1423,24 @@ def test_integration():
     assert r_data["categories"] == ["Einzeln"]
     print("CSV Import (Overwrite): OK")
 
+    # ── Test Category Reordering ──
+    print("Testing Category Reordering...")
+    restaurants["demo"]["categories"] = ["Burger", "Drinks", "Desserts", "Salads"]
+    reorder_payload = {"categories": ["Salads", "Burger", "Desserts", "Drinks"]}
+    resp = client.post("/admin/categories/reorder", json=reorder_payload, cookies=dl_cookies)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+    assert resp.json()["success"] is True
+    
+    from database import SessionLocal, Category
+    db_sess = SessionLocal()
+    try:
+        cats = db_sess.query(Category).filter_by(tenant_slug="demo").order_by(Category.position, Category.id).all()
+        cat_names = [c.name for c in cats]
+        assert cat_names == ["Salads", "Burger", "Desserts", "Drinks"], f"Expected reordered categories, got {cat_names}"
+    finally:
+        db_sess.close()
+    print("Category Reordering: OK")
+
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 
 if __name__ == "__main__":
