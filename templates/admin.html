@@ -2200,6 +2200,7 @@
         let ws = null;
         let pollInterval = null;
         let wsHeartbeatInterval = null;
+        let serverTimeOffset = 0;
 
         function connectWebSocket() {
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -2295,6 +2296,9 @@
                 })
                 .then(data => {
                     if (!data) return;
+                    if (data.server_time) {
+                        serverTimeOffset = new Date() - new Date(data.server_time.replace(' ', 'T'));
+                    }
                     try {
                         // Build state hash (including item statuses)
                         const ordersState = data.orders.map(o => {
@@ -2824,7 +2828,7 @@
                 const ts = el.getAttribute('data-timestamp');
                 if (!ts) return;
                 const orderTime = new Date(ts.replace(' ', 'T'));
-                const diffMs = new Date() - orderTime;
+                const diffMs = (new Date() - orderTime) - serverTimeOffset;
                 if (isNaN(diffMs) || diffMs < 0) {
                     el.textContent = '';
                     return;

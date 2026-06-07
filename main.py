@@ -4193,6 +4193,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         "orders": active_orders,
         "service_calls": restaurant.get("service_calls", []),
         "tables": restaurant.get("tables", []),
+        "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "stats": {
             "brutto": round(brutto, 2),
             "netto_7": round(netto_7, 2),
