@@ -1439,7 +1439,63 @@ def test_integration():
         assert cat_names == ["Salads", "Burger", "Desserts", "Drinks"], f"Expected reordered categories, got {cat_names}"
     finally:
         db_sess.close()
-    print("Category Reordering: OK")
+    # ── Test Duplicate Table Numbers & Table Deletion by Zone & Position Saving & Card Payment Toggle ──
+    print("Testing table duplicate numbers and deletion by zone and card payment toggle...")
+    # Clear tables
+    restaurants["demo"]["tables"] = []
+    
+    # Create Table 12 in Drinnen (innen)
+    resp = client.post("/admin/table-erstellen", data={"number": "12", "zone": "innen", "shape": "rect"}, cookies=dl_cookies, follow_redirects=False)
+    assert resp.status_code == 303
+    
+    # Create Table 12 in Draußen (terrasse)
+    resp = client.post("/admin/table-erstellen", data={"number": "12", "zone": "terrasse", "shape": "round"}, cookies=dl_cookies, follow_redirects=False)
+    assert resp.status_code == 303
+    
+    r_data = restaurants["demo"]
+    tables_list = r_data["tables"]
+    # Verify both exist
+    table_innen = next((t for t in tables_list if t["number"] == "12" and t["zone"] == "innen"), None)
+    table_terrasse = next((t for t in tables_list if t["number"] == "12" and t["zone"] == "terrasse"), None)
+    assert table_innen is not None
+    assert table_terrasse is not None
+    assert table_innen["shape"] == "rect"
+    assert table_terrasse["shape"] == "round"
+    
+    # Verify compound key positioning saving
+    layout_payload = {
+        "12:innen": {"pos_x": 10.0, "pos_y": 20.0, "width": 100.0, "height": 80.0, "shape": "rect"},
+        "12:terrasse": {"pos_x": 30.0, "pos_y": 40.0, "width": 120.0, "height": 90.0, "shape": "round"}
+    }
+    resp = client.post("/admin/sitzplan/positions", json=layout_payload, cookies=dl_cookies)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    
+    r_data = restaurants["demo"]
+    table_innen = next((t for t in r_data["tables"] if t["number"] == "12" and t["zone"] == "innen"))
+    table_terrasse = next((t for t in r_data["tables"] if t["number"] == "12" and t["zone"] == "terrasse"))
+    assert table_innen["pos_x"] == 10.0
+    assert table_terrasse["pos_x"] == 30.0
+    
+    # Test card payment toggle
+    assert restaurants["demo"].get("accepts_card_payment") is not False # True by default
+    resp = client.post("/admin/card-payment-toggle", data={"accepts_card_payment": "false"}, cookies=dl_cookies, follow_redirects=False)
+    assert resp.status_code == 303
+    assert restaurants["demo"].get("accepts_card_payment") is False
+    
+    resp = client.post("/admin/card-payment-toggle", data={"accepts_card_payment": "true"}, cookies=dl_cookies, follow_redirects=False)
+    assert resp.status_code == 303
+    assert restaurants["demo"].get("accepts_card_payment") is True
+
+    # Verify table deletion by zone
+    resp = client.post("/admin/table-loeschen/12", params={"zone": "innen"}, cookies=dl_cookies, follow_redirects=False)
+    assert resp.status_code == 303
+    
+    r_data = restaurants["demo"]
+    assert any(t["number"] == "12" and t["zone"] == "terrasse" for t in r_data["tables"])
+    assert not any(t["number"] == "12" and t["zone"] == "innen" for t in r_data["tables"])
+    
+    print("Table duplicate numbers, deletion by zone, positioning, and card payment toggle: OK")
 
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
 

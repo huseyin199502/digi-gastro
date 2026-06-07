@@ -1002,7 +1002,22 @@
                                 </label>
                             </form>
                         </div>
+
+                        <!-- Card Payment toggler -->
+                        <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-xs text-zinc-800">Kartenzahlung akzeptieren</h4>
+                                <p class="text-[10px] text-zinc-400">Aktiviert/Deaktiviert die Option zur Kartenzahlung im Gästemenü</p>
+                            </div>
+                            <form action="/admin/card-payment-toggle" method="POST" class="inline flex items-center">
+                                <label class="switch">
+                                    <input type="checkbox" name="accepts_card_payment" value="true" onchange="this.form.submit()" {% if restaurant.accepts_card_payment != False %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                            </form>
+                        </div>
                     </div>
+
 
                     <!-- Happy Hour Setup -->
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -2459,9 +2474,9 @@
             renderSitzplanTiles();
         }
 
-        function toggleShape(tableNum) {
+        function toggleShape(tableNum, zone) {
             if (!isEditMode) return;
-            const t = tempTables.find(tbl => String(tbl.number) === String(tableNum));
+            const t = tempTables.find(tbl => String(tbl.number) === String(tableNum) && String(tbl.zone || '') === String(zone || ''));
             if (t) {
                 t.shape = t.shape === 'round' ? 'rect' : 'round';
                 renderSitzplanTiles();
@@ -2472,7 +2487,8 @@
             try {
                 const payload = {};
                 tempTables.forEach(t => {
-                    payload[String(t.number)] = {
+                    const key = `${t.number}:${t.zone || ''}`;
+                    payload[key] = {
                         pos_x: t.pos_x,
                         pos_y: t.pos_y,
                         width: t.width,
@@ -2480,6 +2496,7 @@
                         shape: t.shape
                     };
                 });
+
 
                 const response = await fetch('/admin/sitzplan/positions', {
                     method: 'POST',
@@ -2514,7 +2531,29 @@
             }
         }
 
+        async function deleteTableServer(tableNum, zone) {
+            if (!confirm(`Möchten Sie Tisch ${tableNum} (${zone || ''}) wirklich löschen?`)) return;
+            try {
+                const url = `/admin/table-loeschen/${encodeURIComponent(tableNum)}` + (zone ? `?zone=${encodeURIComponent(zone)}` : '');
+                const response = await fetch(url, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    showToast('Tisch erfolgreich gelöscht!', 'success');
+                    allTables = allTables.filter(t => !(String(t.number) === String(tableNum) && String(t.zone || '') === String(zone || '')));
+                    tempTables = tempTables.filter(t => !(String(t.number) === String(tableNum) && String(t.zone || '') === String(zone || '')));
+                    renderSitzplanTiles();
+                } else {
+                    showToast('Fehler beim Löschen des Tisches', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Verbindungsfehler beim Löschen', 'error');
+            }
+        }
+
         async function autoSortTablesGridAndSave() {
+
             if (!confirm("Möchten Sie alle Tische automatisch sortieren und als Grid-Layout speichern?")) {
                 return;
             }
@@ -2669,25 +2708,27 @@
         function initDragAndResize() {
             if (!isEditMode) return;
             tempTables.forEach(t => {
-                const el = document.getElementById(`table-card-${t.number}`);
-                const handle = document.getElementById(`resize-handle-${t.number}`);
+                const zoneClean = (t.zone || '').replace(/\s+/g, '_');
+                const el = document.getElementById(`table-card-${t.number}-${zoneClean}`);
+                const handle = document.getElementById(`resize-handle-${t.number}-${zoneClean}`);
                 if (el) {
-                    makeElementDraggable(el, t.number);
+                    makeElementDraggable(el, t.number, t.zone);
                 }
                 if (el && handle) {
-                    makeElementResizable(el, handle, t.number);
+                    makeElementResizable(el, handle, t.number, t.zone);
                 }
             });
         }
 
-        function makeElementDraggable(el, tableNum) {
+
+        function makeElementDraggable(el, tableNum, zone) {
             let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
             el.onmousedown = dragMouseDown;
             el.addEventListener('touchstart', dragTouchStart, { passive: false });
 
             function dragMouseDown(e) {
                 e = e || window.event;
-                if (e.target.classList.contains('edit-table-shape-btn') || e.target.classList.contains('resize-handle')) return;
+                if (e.target.classList.contains('edit-table-shape-btn') || e.target.classList.contains('resize-handle') || e.target.classList.contains('delete-table-btn')) return;
                 e.preventDefault();
                 pos3 = e.clientX;
                 pos4 = e.clientY;
@@ -2696,7 +2737,7 @@
             }
 
             function dragTouchStart(e) {
-                if (e.target.classList.contains('edit-table-shape-btn') || e.target.classList.contains('resize-handle')) return;
+                if (e.target.classList.contains('edit-table-shape-btn') || e.target.classList.contains('resize-handle') || e.target.classList.contains('delete-table-btn')) return;
                 e.preventDefault();
                 const touch = e.touches[0];
                 pos3 = touch.clientX;
@@ -2746,7 +2787,7 @@
                 el.style.left = pctLeft + "%";
                 el.style.top = pctTop + "%";
 
-                const t = tempTables.find(tbl => String(tbl.number) === String(tableNum));
+                const t = tempTables.find(tbl => String(tbl.number) === String(tableNum) && String(tbl.zone || '') === String(zone || ''));
                 if (t) {
                     t.pos_x = pctLeft;
                     t.pos_y = pctTop;
@@ -2759,7 +2800,8 @@
             }
         }
 
-        function makeElementResizable(el, handle, tableNum) {
+
+        function makeElementResizable(el, handle, tableNum, zone) {
             handle.onmousedown = function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -2815,13 +2857,14 @@
                 el.style.width = newWidth + "px";
                 el.style.height = newHeight + "px";
 
-                const t = tempTables.find(tbl => String(tbl.number) === String(tableNum));
+                const t = tempTables.find(tbl => String(tbl.number) === String(tableNum) && String(tbl.zone || '') === String(zone || ''));
                 if (t) {
                     t.width = newWidth;
                     t.height = newHeight;
                 }
             }
         }
+
 
         function updateTimers() {
             document.querySelectorAll('.tile-timer').forEach(el => {
@@ -2846,16 +2889,17 @@
         function renderTileHtml(table) {
             const isTemp = isEditMode;
             const tableList = isTemp ? tempTables : allTables;
-            const currentTable = tableList.find(t => String(t.number) === String(table.number)) || table;
+            const currentTable = tableList.find(t => String(t.number) === String(table.number) && String(t.zone || '') === String(table.zone || '')) || table;
 
             const ts = 'Tisch ' + currentTable.number;
-            const order = allOrders.find(o => (o.table === ts || o.table === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            const tsZone = `Tisch ${currentTable.number} (${currentTable.zone || ''})`;
+            const order = allOrders.find(o => (o.table === ts || o.table === tsZone || o.table === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
             
             // Search for active service calls (Ruf) for this table
             const tNumStr = String(currentTable.number);
             const activeCall = allCalls.find(c => {
-                const callTableNum = String(c.table).replace('Tisch ', '').trim();
+                const callTableNum = String(c.table).replace('Tisch ', '').split('(')[0].trim();
                 return callTableNum === tNumStr;
             });
 
@@ -2868,23 +2912,28 @@
             }
             
             const shapeClass = currentTable.shape === 'round' ? 'round' : 'rect';
+            const zoneClean = (currentTable.zone || '').replace(/\s+/g, '_');
             
             let html = '';
             if (isEditMode) {
                 html = `
-                    <div id="table-card-${currentTable.number}" 
+                    <div id="table-card-${currentTable.number}-${zoneClean}" 
                          class="sitzplan-table draggable ${shapeClass} status-free"
                          style="left: ${currentTable.pos_x || 0}%; top: ${currentTable.pos_y || 0}%; width: ${currentTable.width || 120}px; height: ${currentTable.height || 80}px;"
-                         ondblclick="toggleShape('${currentTable.number}')">
+                         ondblclick="toggleShape('${currentTable.number}', '${currentTable.zone || ''}')">
+                        <button onclick="event.stopPropagation(); deleteTableServer('${currentTable.number}', '${currentTable.zone || ''}')" 
+                                class="absolute top-1 right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center font-bold text-[10px] z-20 shadow-sm delete-table-btn"
+                                title="Tisch löschen">✕</button>
                         <span class="edit-table-badge">Tisch ${currentTable.number}</span>
                         <span class="text-xs font-bold text-zinc-400 select-none">${currentTable.zone || ''}</span>
-                        <button class="edit-table-shape-btn" onclick="toggleShape('${currentTable.number}')">Form</button>
-                        <div class="resize-handle se" id="resize-handle-${currentTable.number}"></div>
+                        <button class="edit-table-shape-btn" onclick="toggleShape('${currentTable.number}', '${currentTable.zone || ''}')">Form</button>
+                        <div class="resize-handle se" id="resize-handle-${currentTable.number}-${zoneClean}"></div>
                     </div>
                 `;
             } else {
                 let inner = '';
                 const eyeHtml = `<a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-zinc-500 hover:text-zinc-800 text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
+
                 
                 const revenueText = order ? `${order.total.toFixed(2).replace('.', ',')} €` : '';
 

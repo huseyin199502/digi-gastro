@@ -2033,19 +2033,22 @@
                 <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 shrink-0">
+            <div class="grid {% if restaurant.accepts_card_payment != False %}grid-cols-2{% else %}grid-cols-1{% endif %} gap-4 shrink-0">
                 <button @click="selectPaymentOption('zahlen_bar')" id="opt-pay-bar" 
                         :class="selectedPaymentType === 'zahlen_bar' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
                     <span class="text-3xl mb-1">💵</span>
                     <span class="font-extrabold text-xs" data-translate="pay_bar">Bar zahlen</span>
                 </button>
                 
+                {% if restaurant.accepts_card_payment != False %}
                 <button @click="selectPaymentOption('zahlen_karte')" id="opt-pay-karte" 
                         :class="selectedPaymentType === 'zahlen_karte' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
                     <span class="text-3xl mb-1">💳</span>
                     <span class="font-extrabold text-xs" data-translate="pay_card">Mit Karte zahlen</span>
                 </button>
+                {% endif %}
             </div>
+
 
             <!-- Trinkgeld-Sektion -->
             <div id="payment-tip-section" class="border-t border-outline-variant/60 pt-5 text-left hidden">

@@ -336,6 +336,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "pos_secret": tenant.pos_secret,
         "kds_secret": tenant.kds_secret,
         "theme": tenant.theme or "dark",
+        "accepts_card_payment": getattr(tenant, "accepts_card_payment", True) if getattr(tenant, "accepts_card_payment", True) is not None else True,
         "service_calls": service_calls,
         "categories": categories,
         "products": products,
@@ -401,6 +402,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.pos_secret = r.get("pos_secret")
     tenant.kds_secret = r.get("kds_secret")
     tenant.theme = r.get("theme", "dark")
+    tenant.accepts_card_payment = r.get("accepts_card_payment", True)
+
     
     branding = r.get("branding", {})
     tenant.address = branding.get("address", "")
@@ -1798,9 +1801,32 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
-    table_num = str(payload.table).replace("Tisch", "").strip()
+    table_num = str(payload.table).replace("Tisch", "").split("(")[0].strip()
     tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+    
+    # Securely extract token first to match correct table
+    tok = payload.token
+    if not tok:
+        cookie_name = f"guest_session_{slug}"
+        session_val = request.cookies.get(cookie_name)
+        if session_val:
+            try:
+                c_table, c_tok = session_val.split(":", 1)
+                if str(c_table).replace("Tisch", "").split("(")[0].strip() == table_num:
+                    tok = c_tok
+            except Exception:
+                pass
+                
+    db_table = None
+    if tok:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and (t.get("security_token") == tok or t.get("active_session_token") == tok)), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        
+    zone = db_table.get("zone", "") if db_table else ""
+    is_duplicate = len([t for t in tables_list if str(t.get("number")) == table_num]) > 1
+    order_table_name = f"Tisch {table_num} ({zone})" if (zone and is_duplicate) else f"Tisch {table_num}"
+
     
     # Securely validate and apply Happy Hour prices in the backend if active
     berlin_now = get_berlin_now()
@@ -1852,18 +1878,6 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                     is_staff = True
             
     if not is_staff:
-        tok = payload.token
-        if not tok:
-            cookie_name = f"guest_session_{slug}"
-            session_val = request.cookies.get(cookie_name)
-            if session_val:
-                try:
-                    c_table, c_tok = session_val.split(":", 1)
-                    if str(c_table).strip() == table_num:
-                        tok = c_tok
-                except Exception:
-                    pass
-                    
         master_token = restaurant.get("security_token")
         table_token = db_table.get("active_session_token") if db_table else None
         
@@ -1874,8 +1888,9 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     total = sum(item.price * item.quantity for item in payload.items)
     total_with_tip = total + (payload.tip_amount or 0.0)
 
+
     # Look up any active (unpaid) order for this table to merge items
-    active_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")) == str(payload.table) and o.get("status") not in ["bezahlt", "storniert"]), None)
+    active_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")) == order_table_name and o.get("status") not in ["bezahlt", "storniert"]), None)
     if active_order:
         for new_item in payload.items:
             new_note = (new_item.note or "").strip()
@@ -1907,7 +1922,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     # in multi-worker setups where len(orders)+1 can duplicate existing IDs.
     new_order = {
         "id": None,   # will be filled in by save_restaurant_to_db after DB flush
-        "table": payload.table,
+        "table": order_table_name,
         "items": [item.model_dump() for item in payload.items],
         "total": round(total, 2),
         "total_with_tip": round(total_with_tip, 2),
@@ -1924,13 +1939,13 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     await manager.broadcast(slug, {"type": "update", "table_number": table_num})
     return {"success": True, "order_id": new_order.get("id")}
 
+
 @app.post("/{slug}/service-ruf")
 async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
-    table_num = str(payload.table).replace("Tisch", "").strip()
+    table_num = str(payload.table).replace("Tisch", "").split("(")[0].strip()
     tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
     
     tok = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
     if not tok:
@@ -1939,11 +1954,22 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
         if session_val:
             try:
                 c_table, c_tok = session_val.split(":", 1)
-                if str(c_table).strip() == table_num:
+                if str(c_table).replace("Tisch", "").split("(")[0].strip() == table_num:
                     tok = c_tok
             except Exception:
                 pass
                 
+    db_table = None
+    if tok:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and (t.get("security_token") == tok or t.get("active_session_token") == tok)), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        
+    zone = db_table.get("zone", "") if db_table else ""
+    is_duplicate = len([t for t in tables_list if str(t.get("number")) == table_num]) > 1
+    call_table_name = f"Tisch {table_num} ({zone})" if (zone and is_duplicate) else f"Tisch {table_num}"
+
+    
     master_token = restaurant.get("security_token")
     table_token = db_table.get("active_session_token") if db_table else None
     
@@ -1966,6 +1992,7 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
         is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
         if not is_token_valid:
             raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
+
         
     if "service_calls" not in restaurant:
         restaurant["service_calls"] = []
@@ -1974,7 +2001,7 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     new_id = max([c.get("id", 0) for c in existing_calls] + [0]) + 1
     new_call = {
         "id": new_id,
-        "table": payload.table,
+        "table": call_table_name,
         "type": payload.type,
         "timestamp": datetime.now().strftime("%H:%M:%S")
     }
@@ -3486,7 +3513,7 @@ def create_table(
     if "tables" not in restaurant or restaurant["tables"] is None:
         restaurant["tables"] = []
         
-    if not any(t["number"] == table_num for t in restaurant["tables"]):
+    if not any(t["number"] == table_num and t.get("zone") == zone for t in restaurant["tables"]):
         import secrets as _secrets
         table_entry = {
             "number": table_num,
@@ -3509,14 +3536,18 @@ def create_table(
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/table-loeschen/{table_num}")
-def delete_table(request: Request, table_num: str, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+def delete_table(request: Request, table_num: str, zone: Optional[str] = None, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
         
     if "tables" in restaurant:
-        restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
+        if zone:
+            restaurant["tables"] = [t for t in restaurant["tables"] if not (t["number"] == table_num and t.get("zone") == zone)]
+        else:
+            restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
         restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
+
         
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
@@ -3596,12 +3627,16 @@ def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = 
     tables = restaurant.get("tables", [])
     for t in tables:
         num = str(t.get("number"))
-        if num in payload:
-            t["pos_x"] = float(payload[num].get("pos_x", t.get("pos_x", 0.0)))
-            t["pos_y"] = float(payload[num].get("pos_y", t.get("pos_y", 0.0)))
-            t["width"] = float(payload[num].get("width", t.get("width", 120.0)))
-            t["height"] = float(payload[num].get("height", t.get("height", 80.0)))
-            t["shape"] = str(payload[num].get("shape", t.get("shape", "rect")))
+        zone = str(t.get("zone", ""))
+        key = f"{num}:{zone}"
+        payload_key = key if key in payload else (num if num in payload else None)
+        if payload_key:
+            t["pos_x"] = float(payload[payload_key].get("pos_x", t.get("pos_x", 0.0)))
+            t["pos_y"] = float(payload[payload_key].get("pos_y", t.get("pos_y", 0.0)))
+            t["width"] = float(payload[payload_key].get("width", t.get("width", 120.0)))
+            t["height"] = float(payload[payload_key].get("height", t.get("height", 80.0)))
+            t["shape"] = str(payload[payload_key].get("shape", t.get("shape", "rect")))
+
             
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
@@ -4209,17 +4244,42 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/api/{slug}/table-unpaid-sum/{table_num}")
-def get_table_unpaid_sum(slug: str, table_num: str, db: Session = Depends(get_db)):
+def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     unpaid_sum = 0.0
     t_num = str(table_num).replace("Tisch", "").strip()
-    target_table_name = f"Tisch {t_num}"
+    
+    # Try to resolve zone using cookie
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
+    c_token = None
+    if session_val:
+        try:
+            c_table, c_tok = session_val.split(":", 1)
+            c_table_clean = str(c_table).replace("Tisch", "").split("(")[0].strip()
+            if c_table_clean == t_num:
+                c_token = c_tok
+        except Exception:
+            pass
+            
+    tables_list = restaurant.get("tables", [])
+    db_table = None
+    if c_token:
+        db_table = next((t for t in tables_list if str(t.get("number")) == t_num and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == t_num), None)
+        
+    zone = db_table.get("zone", "") if db_table else ""
+    is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_num]) > 1
+    target_table_name = f"Tisch {t_num} ({zone})" if (zone and is_duplicate) else f"Tisch {t_num}"
+
     
     for o in restaurant.get("orders", []):
-        if o["table"] == target_table_name and o["status"] not in ["bezahlt", "storniert"]:
+        if (o["table"] == target_table_name or str(o["table"]).strip() == target_table_name.strip() or str(o["table"]).strip() == f"Tisch {t_num}") and o["status"] not in ["bezahlt", "storniert"]:
             unpaid_sum += o["total"]
             
     return {"unpaid_sum": unpaid_sum}
+
 
 
 
@@ -4381,23 +4441,39 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     cookie_name = f"guest_session_{slug}"
     session_val = request.cookies.get(cookie_name)
     is_valid = True
+    c_token = None
     if session_val:
         try:
-            c_table, c_token = session_val.split(":", 1)
-            if str(c_table).replace("Tisch", "").strip() != str(table_num).replace("Tisch", "").strip():
+            c_table, c_tok = session_val.split(":", 1)
+            c_table_clean = str(c_table).replace("Tisch", "").split("(")[0].strip()
+            if c_table_clean != str(table_num).replace("Tisch", "").strip():
                 is_valid = False
+            else:
+                c_token = c_tok
         except Exception:
             is_valid = False
             
     if not is_valid:
         raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Tisch.")
 
-    target_table_name = f"Tisch {table_num}"
+    # Find the table and its zone
+    tables_list = restaurant.get("tables", [])
+    db_table = None
+    if c_token:
+        db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip()), None)
+        
+    zone = db_table.get("zone", "") if db_table else ""
+    is_duplicate = len([t for t in tables_list if str(t.get("number")) == str(table_num).strip()]) > 1
+    target_table_name = f"Tisch {table_num} ({zone})" if (zone and is_duplicate) else f"Tisch {table_num}"
     table_orders = []
+
     
     for o in restaurant.get("orders", []):
-        if (o.get("table") == target_table_name or str(o.get("table")).strip() == str(table_num).strip()) and o.get("status") not in ["bezahlt", "storniert"]:
+        if (o.get("table") == target_table_name or str(o.get("table")).strip() == str(table_num).strip() or str(o.get("table")).strip() == target_table_name.strip()) and o.get("status") not in ["bezahlt", "storniert"]:
             table_orders.append(o)
+
             
     pending = []
     delivered = []
@@ -4468,6 +4544,18 @@ def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+@app.post("/admin/card-payment-toggle")
+def toggle_card_payment(request: Request, accepts_card_payment: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+        
+    restaurant["accepts_card_payment"] = bool(accepts_card_payment)
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
 
 @app.put("/api/products/{product_id}")
 async def update_product_api(
