@@ -130,11 +130,25 @@ async def apple_touch_icon():
 
 @app.get("/manifest.json", include_in_schema=False)
 async def manifest():
-    return FileResponse("static/manifest.json")
+    return FileResponse(
+        "static/manifest.json",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 @app.get("/sw.js", include_in_schema=False)
 async def service_worker():
-    return FileResponse("static/sw.js")
+    return FileResponse(
+        "static/sw.js",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 # Custom Exception for suspended tenants
 class TenantSuspendedException(Exception):

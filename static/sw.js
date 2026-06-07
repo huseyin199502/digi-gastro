@@ -1,4 +1,4 @@
-const CACHE_NAME = 'digi-gastro-v7';
+const CACHE_NAME = 'digi-gastro-v9';
 const STATIC_ASSETS = [
   '/static/css/design_system.css',
   '/static/images/digigastrologo.jpeg',
@@ -33,11 +33,15 @@ self.addEventListener('activate', event => {
       );
     })
   );
-  self.clients.claim();
 });
 
 // Fetch Event
 self.addEventListener('fetch', event => {
+  // Exclude HTML navigation requests so they are always handled natively by the browser
+  if (event.request.mode === 'navigate') {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   // Exclude root landing page from service worker control so it always hits the network
