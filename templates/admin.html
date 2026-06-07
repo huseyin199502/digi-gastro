@@ -3988,7 +3988,7 @@
                 // Fetch image directly from client side (uses client's IP to avoid server-side rate limits)
                 const resp = await fetch(aiUrl);
                 if (!resp.ok) {
-                    throw new Error("Fehler beim Abrufen von Pollinations.ai");
+                    throw new Error("Pollinations.ai lieferte Status " + resp.status);
                 }
                 const blob = await resp.blob();
                 
@@ -4002,7 +4002,8 @@
                 });
                 
                 if (!uploadResp.ok) {
-                    throw new Error("Fehler beim Verarbeiten auf dem Server");
+                    const errData = await uploadResp.json().catch(() => ({}));
+                    throw new Error(errData.detail || "Serverfehler " + uploadResp.status);
                 }
                 
                 const data = await uploadResp.json();
@@ -4019,7 +4020,7 @@
                 btn.disabled = false;
                 btn.innerHTML = originalContent;
                 console.error("KI Bildfehler:", err);
-                showToast("Fehler beim Generieren des KI-Bildes.", "error");
+                showToast("Fehler: " + err.message, "error");
             }
         }
 
