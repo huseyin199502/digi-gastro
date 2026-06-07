@@ -911,6 +911,8 @@
                 isDrawerOpen: true,
                 currentView: (new URLSearchParams(window.location.search).get('role') === 'waiter' || new URLSearchParams(window.location.search).get('role') === 'admin') ? 'speisekarte' : 'landing',
                 restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
+                guestWs: null,
+                guestWsHeartbeatInterval: null,
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
@@ -968,11 +970,34 @@
                     
                     console.log("Guest connecting to WebSocket...");
                     const ws = new WebSocket(wsUrl);
+                    this.guestWs = ws;
+                    
+                    let pongReceived = true;
+                    
+                    ws.onopen = () => {
+                        console.log("Guest WebSocket connected!");
+                        pongReceived = true;
+                        
+                        if (this.guestWsHeartbeatInterval) clearInterval(this.guestWsHeartbeatInterval);
+                        this.guestWsHeartbeatInterval = setInterval(() => {
+                            if (!pongReceived) {
+                                console.warn("Guest WebSocket heartbeat timeout. Closing connection...");
+                                ws.close();
+                                return;
+                            }
+                            pongReceived = false;
+                            if (ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({ type: "ping" }));
+                            }
+                        }, 15000);
+                    };
                     
                     ws.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
-                            if (data.type === "update") {
+                            if (data.type === "pong") {
+                                pongReceived = true;
+                            } else if (data.type === "update") {
                                 if (this.role === 'admin') {
                                     this.fetchAdminDrawerState();
                                 } else {
@@ -1040,8 +1065,19 @@
                     };
 
                     ws.onclose = () => {
+                        console.warn("Guest WebSocket closed. Reconnecting...");
+                        this.guestWs = null;
+                        if (this.guestWsHeartbeatInterval) {
+                            clearInterval(this.guestWsHeartbeatInterval);
+                            this.guestWsHeartbeatInterval = null;
+                        }
                         // Reconnect after 5 seconds
                         setTimeout(() => this.initGuestWebSocket(), 5000);
+                    };
+
+                    ws.onerror = (err) => {
+                        console.error("Guest WebSocket error:", err);
+                        ws.close();
                     };
                 },
 
