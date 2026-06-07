@@ -127,7 +127,27 @@ UPLOAD_DIR = os.getenv(
 )
 UPLOAD_LOGOS_DIR = os.path.join(UPLOAD_DIR, "logos")
 os.makedirs(UPLOAD_LOGOS_DIR, exist_ok=True)
-os.makedirs(os.path.join(BASE_DIR, "static", "images"), exist_ok=True)
+
+def delete_local_image_if_unused(image_path: str, restaurant: dict, current_product_id: Optional[int] = None):
+    if not image_path or not image_path.startswith("/uploads/"):
+        return
+        
+    products = restaurant.get("products", [])
+    for p in products:
+        if current_product_id is not None and p.get("id") == current_product_id:
+            continue
+        if p.get("image") == image_path:
+            return
+            
+    rel_path = image_path[len("/uploads/"):]
+    full_path = os.path.join(UPLOAD_DIR, rel_path)
+    if os.path.exists(full_path) and os.path.isfile(full_path):
+        try:
+            os.remove(full_path)
+            print(f"[Image Cleanup] Deleted unused image: {full_path}")
+        except Exception as e:
+            print(f"[Image Cleanup] Error deleting unused image {full_path}: {e}")
+
 
 # Secure Platform Admin Password configuration
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "superpassword123")
@@ -3977,6 +3997,13 @@ def delete_produkt(
     """Sicher löschen: nur eingeloggte Chef-User, strikt Tenant-isoliert."""
     user, slug, restaurant = chef_data
 
+    # Find product to check if it had an image
+    product = next((p for p in restaurant.get("products", []) if p["id"] == product_id), None)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
+    
+    old_image = product.get("image", "")
+
     original_len = len(restaurant["products"])
     restaurant["products"] = [
         p for p in restaurant["products"] if p["id"] != product_id
@@ -3992,6 +4019,10 @@ def delete_produkt(
         db_session.commit()
     finally:
         db_session.close()
+
+    # Clean up the image if it is no longer used by any other product
+    if old_image:
+        delete_local_image_if_unused(old_image, restaurant)
 
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
@@ -4604,6 +4635,9 @@ async def update_product_api(
     if not product:
         raise HTTPException(status_code=404, detail="Produkt in Cache nicht gefunden.")
 
+    # Save old image path to clean it up if replaced
+    old_image = product.get("image", "")
+
     # Parse request fields depending on Content-Type
     content_type = request.headers.get("content-type", "")
     
@@ -4695,6 +4729,10 @@ async def update_product_api(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+
+    # Clean up the old image if a new image was set and old image is unused
+    if old_image and old_image != product.get("image"):
+        delete_local_image_if_unused(old_image, restaurant)
 
     return {"success": True}
 
