@@ -3968,14 +3968,8 @@
             }, 3000);
         }
 
-        function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {
+        async function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {
             const productName = document.getElementById(nameInputId).value.trim();
-            let productType = '';
-            const typeElem = document.getElementById(typeInputId);
-            if (typeElem) {
-                productType = typeElem.value;
-            }
-            
             if (!productName) {
                 showToast("Bitte geben Sie zuerst einen Produktnamen ein.", "error");
                 return;
@@ -3987,28 +3981,46 @@
             
             showToast("KI-Bild wird generiert...", "success");
             
-            fetch(`/api/products/generate-suggested-image?name=${encodeURIComponent(productName)}&category_type=${encodeURIComponent(productType)}`)
-                .then(res => {
-                    if (!res.ok) throw new Error("Fehler beim Generieren");
-                    return res.json();
-                })
-                .then(data => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalContent;
-                    if (data.success && data.image_url) {
-                        document.getElementById(targetInputId).value = data.image_url;
-                        showToast("KI-Bild erfolgreich generiert!", "success");
-                    } else {
-                        showToast("Fehler beim Generieren des KI-Bildes.", "error");
-                    }
-                })
-                .catch(err => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalContent;
-                    console.error("KI Bildfehler:", err);
-                    showToast("Fehler beim Generieren des KI-Bildes.", "error");
+            try {
+                const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
+                const aiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+                
+                // Fetch image directly from client side (uses client's IP to avoid server-side rate limits)
+                const resp = await fetch(aiUrl);
+                if (!resp.ok) {
+                    throw new Error("Fehler beim Abrufen von Pollinations.ai");
+                }
+                const blob = await resp.blob();
+                
+                // Upload blob to server to process (remove background and trim)
+                const formData = new FormData();
+                formData.append('file', blob, 'ai-generated.jpg');
+                
+                const uploadResp = await fetch('/api/products/process-generated-image', {
+                    method: 'POST',
+                    body: formData
                 });
-
+                
+                if (!uploadResp.ok) {
+                    throw new Error("Fehler beim Verarbeiten auf dem Server");
+                }
+                
+                const data = await uploadResp.json();
+                
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+                if (data.success && data.image_url) {
+                    document.getElementById(targetInputId).value = data.image_url;
+                    showToast("KI-Bild erfolgreich generiert!", "success");
+                } else {
+                    showToast("Fehler beim Generieren des KI-Bildes.", "error");
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+                console.error("KI Bildfehler:", err);
+                showToast("Fehler beim Generieren des KI-Bildes.", "error");
+            }
         }
 
         // Copy magic link (relative path → absolute URL) to clipboard

@@ -5058,54 +5058,32 @@ def get_open_food_facts_image(query: str) -> Optional[str]:
         pass
     return None
 
-@app.get("/api/products/generate-suggested-image")
-def generate_suggested_image(name: str, category_type: str, chef_data: tuple = Depends(require_chef_user_flat)):
-    if not name:
-        return JSONResponse({"success": False, "error": "Name is required"}, status_code=400)
-    cleaned = clean_product_name_for_search(name)
-    cat_type = (category_type or "").lower()
-    img_url = None
-    error_msg = None
+@app.post("/api/products/process-generated-image")
+async def process_generated_image(
+    file: UploadFile = File(...),
+    chef_data: tuple = Depends(require_chef_user_flat)
+):
+    user, slug, restaurant = chef_data
+    content = await file.read()
     
-    # 1. Generate image using Pollinations.ai
-    import httpx
-    import uuid
-    prompt = f"Professional studio food photography of {name.strip()} on a clean neutral background, centered, delicious"
-    prompt_encoded = urllib.parse.quote(prompt)
-    ai_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}"
-    
+    # Process the image with background removal and auto-trim
     try:
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.get(ai_url)
-            if resp.status_code == 200:
-                # Process the image with background removal and auto-trim
-                try:
-                    processed_bytes = process_and_crop_product_image(resp.content)
-                except Exception as e:
-                    print(f"[AI Generation] Crop failed: {e}")
-                    processed_bytes = resp.content
-                    
-                # Save locally on the server
-                safe_name = f"ai-{uuid.uuid4().hex[:8]}.png"
-                products_upload_dir = os.path.join(UPLOAD_DIR, "products")
-                os.makedirs(products_upload_dir, exist_ok=True)
-                file_path = os.path.join(products_upload_dir, safe_name)
-                with open(file_path, "wb") as fh:
-                    fh.write(processed_bytes)
-                img_url = f"/uploads/products/{safe_name}"
-            else:
-                error_msg = f"Pollinations.ai returned status code {resp.status_code}"
+        processed_bytes = process_and_crop_product_image(content)
     except Exception as e:
-        error_msg = str(e)
-        print(f"[AI Generation] Failed to fetch/save AI image: {e}")
-
-    if img_url:
-        return {"success": True, "image_url": img_url}
-    else:
-        return JSONResponse(
-            {"success": False, "error": error_msg or "AI Image Generation failed"},
-            status_code=500
-        )
+        print(f"[AI Generation] Process failed: {e}")
+        processed_bytes = content
+        
+    # Save locally on the server
+    import uuid
+    safe_name = f"ai-{uuid.uuid4().hex[:8]}.png"
+    products_upload_dir = os.path.join(UPLOAD_DIR, "products")
+    os.makedirs(products_upload_dir, exist_ok=True)
+    file_path = os.path.join(products_upload_dir, safe_name)
+    with open(file_path, "wb") as fh:
+        fh.write(processed_bytes)
+        
+    img_url = f"/uploads/products/{safe_name}"
+    return {"success": True, "image_url": img_url}
 
 
 @app.post("/admin/products/generate-images")
