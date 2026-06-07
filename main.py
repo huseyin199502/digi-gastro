@@ -5101,27 +5101,35 @@ async def process_generated_image(
     file: UploadFile = File(...),
     chef_data: tuple = Depends(require_chef_user_flat)
 ):
-    user, slug, restaurant = chef_data
-    content = await file.read()
-    
-    # Process the image with background removal and auto-trim
+    import traceback
     try:
-        processed_bytes = process_and_crop_product_image(content)
+        user, slug, restaurant = chef_data
+        content = await file.read()
+        
+        print(f"[AI Generation] Uploaded file size: {len(content)} bytes")
+        
+        # Process the image with background removal and auto-trim
+        try:
+            processed_bytes = process_and_crop_product_image(content)
+        except Exception as e:
+            print(f"[AI Generation] Process failed: {e}")
+            processed_bytes = content
+            
+        # Save locally on the server
+        import uuid
+        safe_name = f"ai-{uuid.uuid4().hex[:8]}.png"
+        products_upload_dir = os.path.join(UPLOAD_DIR, "products")
+        os.makedirs(products_upload_dir, exist_ok=True)
+        file_path = os.path.join(products_upload_dir, safe_name)
+        with open(file_path, "wb") as fh:
+            fh.write(processed_bytes)
+            
+        img_url = f"/uploads/products/{safe_name}"
+        return {"success": True, "image_url": img_url}
     except Exception as e:
-        print(f"[AI Generation] Process failed: {e}")
-        processed_bytes = content
-        
-    # Save locally on the server
-    import uuid
-    safe_name = f"ai-{uuid.uuid4().hex[:8]}.png"
-    products_upload_dir = os.path.join(UPLOAD_DIR, "products")
-    os.makedirs(products_upload_dir, exist_ok=True)
-    file_path = os.path.join(products_upload_dir, safe_name)
-    with open(file_path, "wb") as fh:
-        fh.write(processed_bytes)
-        
-    img_url = f"/uploads/products/{safe_name}"
-    return {"success": True, "image_url": img_url}
+        tb = traceback.format_exc()
+        print(f"[AI Generation] Server Error:\n{tb}")
+        raise HTTPException(status_code=500, detail=f"Fehler: {str(e)}\n{tb}")
 
 
 @app.post("/admin/products/generate-images")

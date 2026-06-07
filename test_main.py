@@ -1495,6 +1495,16 @@ def test_integration():
     assert any(t["number"] == "12" and t["zone"] == "terrasse" for t in r_data["tables"])
     assert not any(t["number"] == "12" and t["zone"] == "innen" for t in r_data["tables"])
     
+    # Test process-generated-image API
+    print("Testing process-generated-image API...")
+    import io
+    dummy_image = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82" # 1x1 png
+    resp = client.post("/api/products/process-generated-image", files={"file": ("test.png", io.BytesIO(dummy_image), "image/png")}, cookies=dl_cookies)
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    assert resp.json()["success"] is True
+    assert "/uploads/products/" in resp.json()["image_url"]
+    print("process-generated-image API: OK")
+
     print("Table duplicate numbers, deletion by zone, positioning, and card payment toggle: OK")
 
     print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
