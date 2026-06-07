@@ -4695,6 +4695,10 @@ def find_curated_image(product_name: str) -> Optional[str]:
         "coke": "photo-1622483767028-3f66f32aef97",
         "coca cola": "photo-1622483767028-3f66f32aef97",
         "coca-cola": "photo-1622483767028-3f66f32aef97",
+        "coca cola zero": "photo-1629203851122-3726ecdf080e",
+        "coke zero": "photo-1629203851122-3726ecdf080e",
+        "cola zero": "photo-1629203851122-3726ecdf080e",
+        "coca-cola zero": "photo-1629203851122-3726ecdf080e",
         "fanta": "photo-1624517452488-04869289c4ca",
         "sprite": "photo-1625937329935-287441889bcf",
         "spezi": "photo-1551024709-8f23befc6f87",
@@ -4843,17 +4847,17 @@ def find_curated_image(product_name: str) -> Optional[str]:
     if name_lower in curated_map:
         return f"https://images.unsplash.com/{curated_map[name_lower]}?w=600&auto=format&fit=crop&q=80"
         
-    # 2. Match individual words (preferring exact word match)
+    # 2. Substring match (longest keys first, e.g. "coca cola zero" matched before "cola")
+    for key in sorted(curated_map.keys(), key=len, reverse=True):
+        if key in name_lower:
+            return f"https://images.unsplash.com/{curated_map[key]}?w=600&auto=format&fit=crop&q=80"
+
+    # 3. Match individual words (fallback)
     words = name_lower.split()
     for w in words:
         w_clean = "".join(c for c in w if c.isalnum())
         if w_clean in curated_map:
             return f"https://images.unsplash.com/{curated_map[w_clean]}?w=600&auto=format&fit=crop&q=80"
-            
-    # 3. Substring match
-    for key, img_id in curated_map.items():
-        if key in name_lower:
-            return f"https://images.unsplash.com/{img_id}?w=600&auto=format&fit=crop&q=80"
             
     return None
 
