@@ -5072,7 +5072,7 @@ def generate_suggested_image(name: str, category_type: str, chef_data: tuple = D
     import uuid
     prompt = f"Professional studio food photography of {name.strip()} on a clean neutral background, centered, delicious"
     prompt_encoded = urllib.parse.quote(prompt)
-    ai_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=800&height=800&nologo=true&private=true&enhance=false"
+    ai_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}"
     
     try:
         with httpx.Client(timeout=30.0) as client:
