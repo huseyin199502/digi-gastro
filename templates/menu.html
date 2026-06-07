@@ -2131,15 +2131,21 @@
             }
         }
 
-        // Register PWA Service Worker
+        // Unregister any active PWA Service Workers to prevent unexpected background reloads and cache conflicts
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('Service Worker registered with scope:', registration.scope);
+                navigator.serviceWorker.getRegistrations()
+                    .then(registrations => {
+                        for (let registration of registrations) {
+                            registration.unregister().then(success => {
+                                if (success) {
+                                    console.log('Successfully unregistered service worker');
+                                }
+                            });
+                        }
                     })
                     .catch(err => {
-                        console.error('Service Worker registration failed:', err);
+                        console.error('Failed to get service worker registrations:', err);
                     });
             });
         }
