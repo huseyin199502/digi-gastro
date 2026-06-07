@@ -346,8 +346,8 @@
                              data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
                         
                         <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-zinc-900/30 flex items-center justify-center">
-                            {% if product.image %}
-                            <img alt="{{ product.name }}" class="w-full h-full object-cover" src="{{ product.image }}">
+                            {% if product.image and not product.image.lower().endswith('.pdf') %}
+                            <img alt="{{ product.name }}" class="w-full h-full object-cover" src="{{ product.image }}" loading="lazy">
                             {% else %}
                             <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
                                 <span class="material-symbols-outlined text-3xl">restaurant</span>
