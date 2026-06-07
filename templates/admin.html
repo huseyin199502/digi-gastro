@@ -3986,7 +3986,7 @@
                 const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
                 
                 // Generate the image using Puter.js (bypasses all key and server rate limits)
-                const imgElement = await puter.ai.txt2img(prompt);
+                const imgElement = await puter.ai.txt2img(prompt, { model: 'gpt-image-2' });
                 if (!imgElement || !imgElement.src) {
                     throw new Error("Puter.js lieferte kein Bild-Element");
                 }
