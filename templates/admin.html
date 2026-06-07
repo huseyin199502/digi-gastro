@@ -744,9 +744,6 @@
                         <button onclick="openCsvImportModal()" class="flex-1 sm:flex-initial bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
                             <span class="material-symbols-outlined text-sm">upload</span> CSV Importieren
                         </button>
-                        <button onclick="generateProductImages()" class="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
-                            <span class="material-symbols-outlined text-sm">image</span> Bilder generieren
-                        </button>
                     </div>
                 </div>
 
@@ -785,7 +782,7 @@
                         <form action="/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktname</label>
-                                <input type="text" name="name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <input type="text" name="name" id="create-product-name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
@@ -801,10 +798,19 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Typ</label>
-                                <select name="category_type" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <select name="category_type" id="create-product-type" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     <option value="bar"> Getränk (Bar)</option>
                                     <option value="küche"> Speise (Küche)</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild-URL</label>
+                                <div class="flex gap-2">
+                                    <input type="text" name="image_url" id="create-product-image-url" placeholder="Optional: https://..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <button type="button" onclick="generateSingleImage(this, 'create-product-image-url', 'create-product-name', 'create-product-type')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 rounded-xl transition shadow flex items-center gap-1 shrink-0">
+                                        <span class="material-symbols-outlined text-xs">auto_awesome</span> KI Bild
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktbild hochladen</label>
@@ -828,9 +834,9 @@
                             <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl" data-product-id="{{ p.id }}">
                                 <div class="flex items-center gap-3">
                                     <span class="material-symbols-outlined text-gray-400 select-none cursor-grab active:cursor-grabbing drag-handle mr-1" title="Verschieben">drag_indicator</span>
-                                    <div class="w-10 h-10 rounded-lg bg-zinc-200 border border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
+                                    <div class="w-10 h-10 rounded-lg bg-zinc-100 flex items-center justify-center overflow-hidden shrink-0">
                                         {% if p.image %}
-                                            <img src="{{ p.image }}" alt="{{ p.name }}" class="w-full h-full object-contain">
+                                            <img src="{{ p.image }}" alt="{{ p.name }}" class="w-full h-full object-cover">
                                         {% else %}
                                             <span class="material-symbols-outlined text-zinc-400">fastfood</span>
                                         {% endif %}
@@ -1347,6 +1353,7 @@
             
             <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="popup-body space-y-4">
                 <input type="hidden" id="edit-product-id">
+                <input type="hidden" id="edit-product-type">
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -1388,7 +1395,12 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild-URL</label>
-                        <input type="text" id="edit-product-image-url" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                        <div class="flex gap-2">
+                            <input type="text" id="edit-product-image-url" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            <button type="button" onclick="generateSingleImage(this, 'edit-product-image-url', 'edit-product-name', 'edit-product-type')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 rounded-xl transition shadow flex items-center gap-1 shrink-0">
+                                <span class="material-symbols-outlined text-xs">auto_awesome</span> KI Bild
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktbild hochladen</label>
@@ -3754,6 +3766,7 @@
         function closeQRGenerator()     { /* legacy */ }
 
         function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
+            let productType = 'küche';
             if (id !== undefined && id !== null && name === undefined) {
                 const p = allProducts.find(prod => String(prod.id) === String(id));
                 if (p) {
@@ -3767,6 +3780,7 @@
                     imageUrl = p.image || '';
                     isVegan = p.is_vegan || p.vegan || false;
                     isGlutenfree = p.is_glutenfree || false;
+                    productType = p.category_type || 'küche';
                 }
             } else if (typeof id === 'object' && id !== null) {
                 const p = id;
@@ -3780,8 +3794,10 @@
                 imageUrl = p.image || '';
                 isVegan = p.is_vegan || p.vegan || false;
                 isGlutenfree = p.is_glutenfree || false;
+                productType = p.category_type || 'küche';
             }
             document.getElementById('edit-product-id').value = id;
+            document.getElementById('edit-product-type').value = productType;
             document.getElementById('edit-product-name').value = name;
             document.getElementById('edit-product-name-en').value = nameEn;
             document.getElementById('edit-product-price').value = price;
@@ -3864,39 +3880,46 @@
             }, 3000);
         }
 
-        function generateProductImages() {
-            if (!confirm("Möchten Sie Bilder für alle Produkte automatisch generieren? Dies kann einige Sekunden dauern.")) {
+        function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {
+            const productName = document.getElementById(nameInputId).value.trim();
+            let productType = '';
+            const typeElem = document.getElementById(typeInputId);
+            if (typeElem) {
+                productType = typeElem.value;
+            }
+            
+            if (!productName) {
+                showToast("Bitte geben Sie zuerst einen Produktnamen ein.", "error");
                 return;
             }
-            const overlay = document.getElementById("loading-overlay");
-            if (overlay) {
-                overlay.classList.remove("hidden");
-            }
-            showToast("Bilder werden generiert...", "success");
-            fetch("/admin/products/generate-images", {
-                method: "POST"
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (overlay) {
-                    overlay.classList.add("hidden");
-                }
-                if (data.success) {
-                    showToast(`Erfolgreich! ${data.updated_count} Bilder generiert.`, "success");
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    showToast(data.error || "Fehler beim Generieren der Bilder", "error");
-                }
-            })
-            .catch(err => {
-                if (overlay) {
-                    overlay.classList.add("hidden");
-                }
-                console.error("Error generating images:", err);
-                showToast("Verbindungsfehler", "error");
-            });
+            
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Laden...`;
+            
+            showToast("KI Bild wird gesucht...", "success");
+            
+            fetch(`/api/products/generate-suggested-image?name=${encodeURIComponent(productName)}&category_type=${encodeURIComponent(productType)}`)
+                .then(res => {
+                    if (!res.ok) throw new Error("Fehler beim Generieren");
+                    return res.json();
+                })
+                .then(data => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                    if (data.success && data.image_url) {
+                        document.getElementById(targetInputId).value = data.image_url;
+                        showToast("KI Bild erfolgreich geladen!", "success");
+                    } else {
+                        showToast("Kein passendes Bild gefunden.", "error");
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                    console.error("KI Bildfehler:", err);
+                    showToast("Fehler beim Laden des KI Bildes.", "error");
+                });
         }
 
         // Copy magic link (relative path → absolute URL) to clipboard

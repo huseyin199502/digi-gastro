@@ -3803,6 +3803,7 @@ async def post_produkt_erstellen(
     name: str = Form(...),
     preis: float = Form(...),
     kategorie: str = Form(...),
+    category_type: Optional[str] = Form(""),
     description: Optional[str] = Form(""),
     name_en: Optional[str] = Form(""),
     description_en: Optional[str] = Form(""),
@@ -3824,12 +3825,17 @@ async def post_produkt_erstellen(
     if restaurant["products"]:
         new_id = max(p["id"] for p in restaurant["products"]) + 1
 
-    category_type = "k\u00fcche"
-    cat_lower = cat_name.lower()
-    if any(keyword in cat_lower for keyword in ["drinks", "bar", "getr\u00e4nke", "soft", "alkohol", "bier", "wein", "cocktail", "saft", "kaffee", "tee", "wasser", "limo"]):
-        category_type = "bar"
-    elif any(keyword in cat_lower for keyword in ["shisha", "wasserpfeife", "pfeife", "head", "kohle"]):
-        category_type = "shisha"
+    final_cat_type = "k\u00fcche"
+    if category_type and category_type.strip() in ["bar", "küche", "shisha"]:
+        final_cat_type = category_type.strip()
+    else:
+        cat_lower = cat_name.lower()
+        if any(keyword in cat_lower for keyword in ["drinks", "bar", "getr\u00e4nke", "soft", "alkohol", "bier", "wein", "cocktail", "saft", "kaffee", "tee", "wasser", "limo"]):
+            final_cat_type = "bar"
+        elif any(keyword in cat_lower for keyword in ["shisha", "wasserpfeife", "pfeife", "head", "kohle"]):
+            final_cat_type = "shisha"
+            
+    category_type = final_cat_type
 
     # ── Image handling: file upload wins over URL ─────────────────
     final_image = ""
@@ -4890,6 +4896,39 @@ def get_open_food_facts_image(query: str) -> Optional[str]:
     except Exception:
         pass
     return None
+
+@app.get("/api/products/generate-suggested-image")
+def generate_suggested_image(name: str, category_type: str, chef_data: tuple = Depends(require_chef_user_flat)):
+    if not name:
+        return JSONResponse({"success": False, "error": "Name is required"}, status_code=400)
+    cleaned = clean_product_name_for_search(name)
+    cat_type = (category_type or "").lower()
+    img_url = None
+    
+    # 1. Look up in Curated Premium Map
+    img_url = find_curated_image(cleaned)
+    
+    # 2. Fallback to Lorem Flickr
+    if not img_url:
+        search_tag = cleaned
+        if cat_type == "bar":
+            search_tag = f"{cleaned},drink"
+        elif cat_type == "küche":
+            search_tag = f"{cleaned},food"
+        img_url = get_loremflickr_image(search_tag) or get_loremflickr_image(cleaned)
+        
+    # 3. Fallback to Open Food Facts (for drinks/bar items only)
+    if not img_url and cat_type == "bar":
+        img_url = get_open_food_facts_image(cleaned)
+        
+    # 4. Ultimate fallback to standard premium category placeholder
+    if not img_url:
+        if cat_type == "bar":
+            img_url = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=600&auto=format&fit=crop&q=80"
+        else:
+            img_url = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80"
+            
+    return {"success": True, "image_url": img_url}
 
 @app.post("/admin/products/generate-images")
 def generate_images(chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
