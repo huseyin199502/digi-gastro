@@ -889,7 +889,7 @@
 
         function getTableFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('tisch') || urlParams.get('table') || '';
+            return urlParams.get('tisch') || urlParams.get('table') || urlParams.get('t') || '';
         }
 
         function menuState() {
