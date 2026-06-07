@@ -2437,7 +2437,7 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
     # Find item by status-sensitive composite key
-    matched_item = find_order_item(order.get("items", []), payload.item_key)
+    matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=order_id)
 
     if not matched_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -2523,7 +2523,7 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
     total_paid_amount = 0.0
 
     for item_info in payload.items:
-        matched_item = find_order_item(order.get("items", []), item_info.item_key)
+        matched_item = find_order_item(order.get("items", []), item_info.item_key, order_id=order_id)
 
         if not matched_item:
             continue
@@ -2750,7 +2750,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
     # Find item by status-sensitive composite key
-    matched_item = find_order_item(order.get("items", []), payload.item_key)
+    matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=order_id)
 
     if not matched_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -2847,7 +2847,7 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
     cancelled_details_list = []
 
     for item_info in payload.items:
-        matched_item = find_order_item(order.get("items", []), item_info.item_key)
+        matched_item = find_order_item(order.get("items", []), item_info.item_key, order_id=order_id)
 
         if not matched_item:
             continue
@@ -3026,7 +3026,7 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
     if order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
-    matched_item = find_order_item(order.get("items", []), payload.item_key)
+    matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=order_id)
     if not matched_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
     matched_item["item_status"] = payload.status

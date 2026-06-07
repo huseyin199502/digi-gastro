@@ -2275,7 +2275,7 @@
         }
 
         function checkLiveTischeUpdates() {
-            fetch(`/api/tablet-status`)
+            return fetch(`/api/tablet-status`)
                 .then(res => {
                     if (res.status === 401 || res.status === 403) return null;
                     return res.json();
