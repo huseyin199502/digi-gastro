@@ -5065,6 +5065,7 @@ def generate_suggested_image(name: str, category_type: str, chef_data: tuple = D
     cleaned = clean_product_name_for_search(name)
     cat_type = (category_type or "").lower()
     img_url = None
+    error_msg = None
     
     # 1. Generate image using Pollinations.ai
     import httpx
@@ -5092,28 +5093,19 @@ def generate_suggested_image(name: str, category_type: str, chef_data: tuple = D
                 with open(file_path, "wb") as fh:
                     fh.write(processed_bytes)
                 img_url = f"/uploads/products/{safe_name}"
+            else:
+                error_msg = f"Pollinations.ai returned status code {resp.status_code}"
     except Exception as e:
+        error_msg = str(e)
         print(f"[AI Generation] Failed to fetch/save AI image: {e}")
 
-    # Fallback to Curated Premium Map / Lorem Flickr if AI generation failed
-    if not img_url:
-        img_url = find_curated_image(cleaned)
-        
-    if not img_url:
-        search_tag = cleaned
-        if cat_type == "bar":
-            search_tag = f"{cleaned},drink"
-        elif cat_type == "küche":
-            search_tag = f"{cleaned},food"
-        img_url = get_loremflickr_image(search_tag) or get_loremflickr_image(cleaned)
-        
-    if not img_url:
-        if cat_type == "bar":
-            img_url = "https://images.unsplash.com/photo-1497534446932-c925b458314e?w=600&auto=format&fit=crop&q=80"
-        else:
-            img_url = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&auto=format&fit=crop&q=80"
-            
-    return {"success": True, "image_url": img_url}
+    if img_url:
+        return {"success": True, "image_url": img_url}
+    else:
+        return JSONResponse(
+            {"success": False, "error": error_msg or "AI Image Generation failed"},
+            status_code=500
+        )
 
 
 @app.post("/admin/products/generate-images")
