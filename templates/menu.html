@@ -154,28 +154,28 @@
     {% else %}
 
     <!-- Top Navigation Bar / Header -->
-    <header class="flex justify-between items-center px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant">
-        <div class="text-2xl font-black tracking-tight text-on-surface w-1/3 flex justify-start font-display">
+    <header class="grid grid-cols-3 items-center px-4 sm:px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant">
+        <div class="flex justify-start">
             {% if restaurant.branding and restaurant.branding.logo_url %}
-                <img alt="{{ restaurant.name }} Logo" class="h-10 w-auto object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}">
+                <img alt="{{ restaurant.name }} Logo" class="h-8 sm:h-10 w-auto max-w-[100px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}">
             {% else %}
-                <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">{{ restaurant.name }}</span>
+                <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-lg sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
             {% endif %}
         </div>
 
-        {% if tisch_name %}
-        <div class="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-            <span class="text-primary font-black text-sm tracking-widest pointer-events-auto bg-surface/80 px-5 py-2 rounded-full border border-primary/20 backdrop-blur-md shadow-lg shadow-primary/5 uppercase font-display">
-                {{ tisch_name }}
-            </span>
+        <div class="flex justify-center">
+            {% if tisch_name %}
+                <span class="text-primary font-black text-xs sm:text-sm tracking-widest bg-surface/80 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-primary/20 backdrop-blur-md shadow-lg shadow-primary/5 uppercase font-display whitespace-nowrap">
+                    {{ tisch_name }}
+                </span>
+            {% endif %}
         </div>
-        {% endif %}
 
-        <div class="flex items-center space-x-3 w-1/3 justify-end">
+        <div class="flex justify-end">
             <!-- Language Selection -->
-            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner">
-                <button onclick="setLanguage('de')" id="lang-de-btn" class="px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display">DE</button>
-                <button onclick="setLanguage('en')" id="lang-en-btn" class="px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display">EN</button>
+            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner scale-90 sm:scale-100 origin-right">
+                <button onclick="setLanguage('de')" id="lang-de-btn" class="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold transition bg-primary text-black font-display">DE</button>
+                <button onclick="setLanguage('en')" id="lang-en-btn" class="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold transition text-on-surface-variant font-display">EN</button>
             </div>
         </div>
     </header>

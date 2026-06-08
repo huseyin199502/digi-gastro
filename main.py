@@ -1865,10 +1865,9 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     if table:
         if table == "Vorschau":
             tisch_name = "Vorschau"
-        elif str(table).startswith("Tisch "):
-            tisch_name = table
         else:
-            tisch_name = f"Tisch {table}"
+            clean_num, _ = parse_active_table_num(table)
+            tisch_name = f"Tisch {clean_num}"
 
     response = templates.TemplateResponse(
         request=request,
