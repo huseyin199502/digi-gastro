@@ -1161,7 +1161,8 @@ class ProductUpdatePayload(BaseModel):
     description_en: Optional[str] = None
 
 class CategoryUpdatePayload(BaseModel):
-    name: str
+    old_name: str
+    new_name: str
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, db: Session = Depends(get_db)):
@@ -4601,6 +4602,7 @@ async def update_landingpage(
     slideshow_enabled: Optional[bool] = Form(False),
     offer_images: List[UploadFile] = File(None),
     slideshow_images: List[UploadFile] = File(None),
+    gallery_images: List[UploadFile] = File(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
@@ -5066,23 +5068,18 @@ async def reorder_categories_api(
     db.commit()
     return {"success": True}
 
-@app.patch("/api/categories/{cat_id}")
+@app.patch("/api/categories/edit")
 async def update_category_api(
-    cat_id: int,
     payload: CategoryUpdatePayload,
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
     user, slug, restaurant = chef_data
     
-    category = db.query(Category).filter_by(id=cat_id, tenant_slug=slug).first()
-    if not category:
-        raise HTTPException(status_code=404, detail="Kategorie nicht gefunden.")
+    old_full_name = payload.old_name.strip()
+    new_name_raw = payload.new_name.strip()
     
-    old_full_name = category.name
-    new_name_raw = payload.name.strip()
-    
-    if not new_name_raw:
+    if not old_full_name or not new_name_raw:
         raise HTTPException(status_code=400, detail="Name darf nicht leer sein.")
         
     import html
@@ -5096,29 +5093,36 @@ async def update_category_api(
     if new_full_name == old_full_name:
         return {"success": True, "message": "Keine Änderung."}
         
-    duplicate = db.query(Category).filter_by(tenant_slug=slug, name=new_full_name).first()
-    if duplicate:
+    if new_full_name in restaurant.get("categories", []):
         raise HTTPException(status_code=400, detail="Eine Kategorie mit diesem Namen existiert bereits.")
 
-    # Synchronize products and subcategories
-    products = db.query(Product).filter_by(tenant_slug=slug).all()
     affected_products = 0
-    for prod in products:
-        if prod.category == old_full_name:
-            prod.category = new_full_name
+    
+    # 1. Update Product categories in memory
+    for prod in restaurant.get("products", []):
+        if prod.get("category") == old_full_name:
+            prod["category"] = new_full_name
             affected_products += 1
-        elif prod.category.startswith(old_full_name + " > "):
-            prod.category = prod.category.replace(old_full_name + " > ", new_full_name + " > ", 1)
+        elif prod.get("category", "").startswith(old_full_name + " > "):
+            prod["category"] = prod["category"].replace(old_full_name + " > ", new_full_name + " > ", 1)
             affected_products += 1
 
-    all_cats = db.query(Category).filter_by(tenant_slug=slug).all()
-    for cat in all_cats:
-        if cat.id == cat_id:
-            cat.name = new_full_name
-        elif cat.name.startswith(old_full_name + " > "):
-            cat.name = cat.name.replace(old_full_name + " > ", new_full_name + " > ", 1)
+    # 2. Update Categories list in memory
+    new_categories = []
+    for cat in restaurant.get("categories", []):
+        if cat == old_full_name:
+            new_categories.append(new_full_name)
+        elif cat.startswith(old_full_name + " > "):
+            new_categories.append(cat.replace(old_full_name + " > ", new_full_name + " > ", 1))
+        else:
+            new_categories.append(cat)
+            
+    restaurant["categories"] = new_categories
 
+    # 3. Save to DB (this automatically handles drop/recreate of categories and updates products)
+    save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True, "new_name": new_full_name, "affected": affected_products}
 
