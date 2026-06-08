@@ -131,6 +131,14 @@ html.light .glass-panel, html.light .glass-card {
 }
 
 /* Glassmorphism Buttons for Landing Page */
+.landing-page-wrapper {
+  color: #ffffff !important;
+}
+.landing-page-wrapper .text-on-surface-variant,
+.landing-page-wrapper .text-gray-200 {
+    color: #e5e7eb !important;
+}
+
 .glass-btn-primary {
   background: rgba(16, 185, 129, 0.15) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
@@ -378,7 +386,10 @@ html.light .btn-premium-secondary:hover, body.light .btn-premium-secondary:hover
 
 /* Override text-white classes to make them readable on light background */
 /* EXCEPTION: Landingpage texts (inside main view wrapper) must remain white over the background slideshow */
-html.light .landing-page-wrapper .text-white {
+html.light .landing-page-wrapper .text-white,
+html.light .landing-page-wrapper h2,
+html.light .landing-page-wrapper h3,
+html.light .landing-page-wrapper p {
     color: #ffffff !important;
 }
 
