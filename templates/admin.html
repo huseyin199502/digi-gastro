@@ -754,8 +754,16 @@
                         <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
                             <span class="material-symbols-outlined text-zinc-500">folder</span> Kategorie anlegen
                         </h3>
-                        <form action="/admin/kategorie-erstellen" method="POST" class="flex gap-2">
-                            <input type="text" name="name" required placeholder="z.B. Softdrinks" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                        <form action="/admin/kategorie-erstellen" method="POST" class="flex flex-col gap-2">
+                            <input type="text" name="name" required placeholder="Name z.B. Softdrinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            <select name="parent_category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <option value="none">Keine Hauptkategorie (selbst Hauptkategorie)</option>
+                                {% for cat in restaurant.categories %}
+                                    {% if ' > ' not in cat %}
+                                        <option value="{{ cat }}">Unterkategorie von: {{ cat }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
                             <button type="submit" class="bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow">Anlegen</button>
                         </form>
                         
@@ -763,14 +771,28 @@
                             <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Kategorien (Ziehen zum Sortieren)</label>
                             <div class="flex flex-wrap gap-2 category-sortable-list">
                                 {% for cat in restaurant.categories %}
-                                <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs" data-category-name="{{ cat }}">
-                                    <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
-                                    <span>{{ cat }}</span>
-                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                        <input type="hidden" name="name" value="{{ cat }}">
-                                        <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center ml-1">✕</button>
-                                    </form>
-                                </div>
+                                    {% if ' > ' in cat %}
+                                        {% set parent = cat.split(' > ')[0] %}
+                                        {% set child = cat.split(' > ')[1] %}
+                                        <div class="flex items-center gap-1.5 bg-zinc-200/60 border border-zinc-300/60 text-zinc-800 px-3 py-1.5 rounded-xl font-medium text-xs ml-4" data-category-name="{{ cat }}">
+                                            <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
+                                            <span class="text-[9px] font-black text-zinc-400 uppercase mr-1">{{ parent }} ➔</span>
+                                            <span class="font-bold text-zinc-700">{{ child }}</span>
+                                            <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                                <input type="hidden" name="name" value="{{ cat }}">
+                                                <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center ml-1">✕</button>
+                                            </form>
+                                        </div>
+                                    {% else %}
+                                        <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs" data-category-name="{{ cat }}">
+                                            <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
+                                            <span>{{ cat }}</span>
+                                            <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                                <input type="hidden" name="name" value="{{ cat }}">
+                                                <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center ml-1">✕</button>
+                                            </form>
+                                        </div>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -794,7 +816,11 @@
                                 <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
                                 <select name="kategorie" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     {% for cat in restaurant.categories %}
-                                    <option value="{{ cat }}">{{ cat }}</option>
+                                        {% if ' > ' in cat %}
+                                            <option value="{{ cat }}">&nbsp;&nbsp;&mdash;&nbsp;{{ cat.split(' > ')[1] }}</option>
+                                        {% else %}
+                                            <option value="{{ cat }}" class="font-bold">{{ cat }}</option>
+                                        {% endif %}
                                     {% endfor %}
                                 </select>
                             </div>
@@ -1024,8 +1050,19 @@
 
                     <!-- Happy Hour Setup -->
                     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">schedule</span> Happy Hour
+                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center justify-between w-full">
+                            <div class="flex items-center gap-1">
+                                <span class="material-symbols-outlined text-zinc-500">schedule</span> Happy Hour
+                            </div>
+                            {% if hh_active_global %}
+                                <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Aktiv
+                                </span>
+                            {% else %}
+                                <span class="bg-zinc-100 text-zinc-400 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> Inaktiv
+                                </span>
+                            {% endif %}
                         </h3>
                         <form action="/admin/happy-hour" method="POST" class="space-y-4">
                             <div>
@@ -1063,7 +1100,7 @@
                         <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
                             <span class="material-symbols-outlined text-zinc-500">campaign</span> Landingpage bearbeiten
                         </h3>
-                        <form action="/admin/landingpage" method="POST" class="space-y-4">
+                        <form action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
@@ -1098,6 +1135,64 @@
                                     <textarea name="angebote" rows="3" placeholder="z.B. Täglich 18:00 - 20:00 Uhr alle Cocktails vergünstigt!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote if restaurant.landing_page else '' }}</textarea>
                                 </div>
                             </div>
+
+                            <!-- Bilder & Diashow Sektion -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
+                                <!-- Angebotsfotos -->
+                                <div class="space-y-3">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-zinc-500 text-sm">local_offer</span>
+                                        Angebotsfotos / aktuelle Angebote als Fotos
+                                    </h4>
+                                    <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    
+                                    {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        {% for img in restaurant.landing_page.offer_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Hintergrund-Diashow -->
+                                <div class="space-y-3">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-zinc-500 text-sm">slideshow</span>
+                                        Hintergrund-Diashow
+                                    </h4>
+                                    <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                                        <div>
+                                            <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+                                            <div class="text-[9px] text-zinc-400">Diashow läuft auf der Landingpage im Hintergrund</div>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    
+                                    {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        {% for img in restaurant.landing_page.slideshow_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
                             <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Landingpage speichern</button>
                         </form>
                     </div>
@@ -1394,7 +1489,11 @@
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
                         <select id="edit-product-category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                             {% for cat in restaurant.categories %}
-                            <option value="{{ cat }}">{{ cat }}</option>
+                                {% if ' > ' in cat %}
+                                    <option value="{{ cat }}">&nbsp;&nbsp;&mdash;&nbsp;{{ cat.split(' > ')[1] }}</option>
+                                {% else %}
+                                    <option value="{{ cat }}" class="font-bold">{{ cat }}</option>
+                                {% endif %}
                             {% endfor %}
                         </select>
                     </div>
@@ -1575,6 +1674,7 @@
         
         // ── DIGI-STYLE MODAL CONTROL STATE ──
         let controlModalActiveTableNum = null;
+        let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
 
         // ── QUICK TABLE TRANSFER LOGIC ──
@@ -1691,11 +1791,13 @@
         }
 
         // ── CENTRAL CONTROL MODAL LOGIC ──
-        function openControlModal(tableNumber) {
+        function openControlModal(tableNumber, zone) {
             controlModalActiveTableNum = String(tableNumber);
+            controlModalActiveTableZone = zone || "";
             selectedControlSplitItems = {};
             
-            document.getElementById('control-modal-table-title').textContent = `Tisch ${tableNumber}`;
+            const zoneText = controlModalActiveTableZone ? ` (${controlModalActiveTableZone})` : '';
+            document.getElementById('control-modal-table-title').textContent = `Tisch ${tableNumber}${zoneText}`;
             document.getElementById('control-modal').classList.remove('hidden');
             
             refreshControlModal();
@@ -1704,6 +1806,7 @@
         function closeControlModal() {
             document.getElementById('control-modal').classList.add('hidden');
             controlModalActiveTableNum = null;
+            controlModalActiveTableZone = null;
             selectedControlSplitItems = {};
             activeOrderId = null;
         }
@@ -1711,13 +1814,15 @@
         function refreshControlModal() {
             if (!controlModalActiveTableNum) return;
             
-            const targetTable = "Tisch " + controlModalActiveTableNum;
-            // Match table number with or without zone info (e.g., "Tisch 1" or "Tisch 1 (Drinnen)")
             const tableOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
-                // Check if table name starts with "Tisch {number}" (with or without zone)
-                const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
-                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                if (controlModalActiveTableZone) {
+                    const exactTableStr = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                    return (tableStr === exactTableStr || tableStr === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                } else {
+                    const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                    return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                }
             });
             
             // Dynamically set activeOrderId for cockpit actions
@@ -2068,12 +2173,15 @@
 
         async function serveAllControlPending() {
             if (!controlModalActiveTableNum) return;
-            const targetTable = "Tisch " + controlModalActiveTableNum;
-            // Match table number with or without zone info
             const tableOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
-                const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
-                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                if (controlModalActiveTableZone) {
+                    const exactTableStr = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                    return (tableStr === exactTableStr || tableStr === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                } else {
+                    const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                    return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                }
             });
             
             const orderIds = [];
@@ -2194,12 +2302,15 @@
                 return;
             }
             
-            const targetTable = "Tisch " + controlModalActiveTableNum;
-            // Match table number with or without zone info
             const tableOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
-                const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
-                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                if (controlModalActiveTableZone) {
+                    const exactTableStr = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                    return (tableStr === exactTableStr || tableStr === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                } else {
+                    const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                    return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                }
             });
             
             if (tableOrders.length === 0) return;
@@ -3069,8 +3180,8 @@
                 }
 
                 html = `
-                    <div id="table-card-${currentTable.number}" 
-                         onclick="openControlModal('${currentTable.number}')"
+                    <div id="table-card-${currentTable.number}-${zoneClean}" 
+                         onclick="openControlModal('${currentTable.number}', '${currentTable.zone || ''}')"
                          class="sitzplan-table ${shapeClass} ${statusClass}"
                          style="left: ${currentTable.pos_x || 0}%; top: ${currentTable.pos_y || 0}%; width: ${currentTable.width || 120}px; height: ${currentTable.height || 80}px;">
                         ${inner}
@@ -3729,7 +3840,8 @@
             tableSel_mode = 'cockpit_split';
             document.getElementById('table-sel-title').textContent = 'Teilbestellungen umbuchen';
             document.getElementById('table-sel-subtitle').textContent = `Ausgewählte Artikel umbuchen`;
-            const currentTable = "Tisch " + controlModalActiveTableNum;
+            const zoneSuffix = controlModalActiveTableZone ? ` (${controlModalActiveTableZone})` : '';
+            const currentTable = "Tisch " + controlModalActiveTableNum + zoneSuffix;
             renderTableSelGrid(currentTable);
             document.getElementById('table-sel-overlay').classList.remove('hidden');
         }
@@ -3739,7 +3851,8 @@
             const sortedOthers = allTables
                 .filter(t => {
                     const ts = 'Tisch ' + t.number;
-                    return ts !== currentTableStr && String(t.number) !== currentTableStr;
+                    const tsZone = `Tisch ${t.number} (${t.zone || ''})`;
+                    return ts !== currentTableStr && tsZone !== currentTableStr && String(t.number) !== currentTableStr;
                 });
             sortedOthers.sort((a, b) => {
                 return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
@@ -3754,7 +3867,7 @@
                         const regex = new RegExp(`^Tisch\\s+${t.number}(\\s*\\(|$)`);
                         return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
                     });
-                    return `<div class="table-sel-tile${busy ? ' busy' : ''}" onclick="doTableSel(${t.number})">
+                    return `<div class="table-sel-tile${busy ? ' busy' : ''}" onclick="doTableSel('${t.number}', '${t.zone || ''}')">
                         <div style="font-size:20px;font-weight:900;color:#fff;">${t.number}</div>
                         <div style="font-size:9px;color:#6b7280;font-weight:700;margin-top:2px;">${t.zone || ''}</div>
                         <div style="font-size:10px;font-weight:800;margin-top:4px;color:${busy ? '#f59e0b' : '#10b981'};">${busy ? 'Belegt' : 'Frei'}</div>
@@ -3767,18 +3880,21 @@
             tableSel_mode = null;
         }
 
-        async function doTableSel(targetTableNumber) {
+        async function doTableSel(targetTableNumber, targetZone) {
             const mode = tableSel_mode;
             closeTableSel();
+            const zoneSuffix = targetZone ? ` (${targetZone})` : '';
+            const targetTableStr = `Tisch ${targetTableNumber}${zoneSuffix}`;
+            
             if (mode === 'all') {
                 try {
                     const res = await fetch(`/${slug}/tablet/transfer-order`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ order_id: activeOrderId, target_table: String(targetTableNumber) })
+                        body: JSON.stringify({ order_id: activeOrderId, target_table: targetTableStr })
                     });
                     if (res.ok) {
-                        showToast(`✅ Auf Tisch ${targetTableNumber} umgebucht`, 'success');
+                        showToast(`✅ Auf Tisch ${targetTableNumber}${zoneSuffix} umgebucht`, 'success');
                         closePopup();
                         checkLiveTischeUpdates();
                     } else {
@@ -3797,7 +3913,7 @@
                         const res = await fetch(`/${slug}/tablet/transfer-item/${activeOrderId}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ item_key: key, target_table: String(targetTableNumber), quantity: qty })
+                            body: JSON.stringify({ item_key: key, target_table: targetTableStr, quantity: qty })
                         });
                         if (!res.ok) {
                             const err = await res.json().catch(() => ({}));
@@ -3805,7 +3921,7 @@
                             return;
                         }
                     }
-                    showToast(`✅ Artikel auf Tisch ${targetTableNumber} umgebucht`, 'success');
+                    showToast(`✅ Artikel auf Tisch ${targetTableNumber}${zoneSuffix} umgebucht`, 'success');
                     selectedTeilrechnung = {};
                     closePopup();
                     checkLiveTischeUpdates();
@@ -3818,10 +3934,10 @@
                     const res = await fetch(`/${slug}/tablet/transfer-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ item_key: activeItemActionKey, target_table: String(targetTableNumber), quantity: activeItemActionQty })
+                        body: JSON.stringify({ item_key: activeItemActionKey, target_table: targetTableStr, quantity: activeItemActionQty })
                     });
                     if (res.ok) {
-                        showToast(`✅ Artikel auf Tisch ${targetTableNumber} umgebucht`, 'success');
+                        showToast(`✅ Artikel auf Tisch ${targetTableNumber}${zoneSuffix} umgebucht`, 'success');
                         // Clear item action state without re-opening parent popup (transfer is done)
                         document.getElementById('item-action-modal').classList.add('hidden');
                         activeItemActionKey = null;
@@ -3859,9 +3975,10 @@
                 });
                 
                 try {
+                    const sourceZoneSuffix = controlModalActiveTableZone ? ` (${controlModalActiveTableZone})` : '';
                     const payload = {
-                        source_table: "Tisch " + controlModalActiveTableNum,
-                        target_table: "Tisch " + targetTableNumber,
+                        source_table: "Tisch " + controlModalActiveTableNum + sourceZoneSuffix,
+                        target_table: targetTableStr,
                         item_keys: aggregatedKeys,
                         items: aggregatedItems
                     };
@@ -3873,7 +3990,7 @@
                     });
                     
                     if (res.ok) {
-                        showToast(`✅ Ausgewählte Artikel auf Tisch ${targetTableNumber} umgebucht!`, 'success');
+                        showToast(`✅ Ausgewählte Artikel auf Tisch ${targetTableNumber}${zoneSuffix} umgebucht!`, 'success');
                         selectedControlSplitItems = {};
                         closeControlModal();
                         await checkLiveTischeUpdates();
@@ -4071,6 +4188,35 @@
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+
+        function deleteLandingImage(imageUrl, imageType, buttonElement) {
+            if (!confirm('Dieses Bild wirklich löschen?')) return;
+            
+            const formData = new FormData();
+            formData.append('image_url', imageUrl);
+            formData.append('image_type', imageType);
+            
+            fetch('/admin/landingpage/delete-image', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const container = buttonElement.closest('.image-thumb-container');
+                    if (container) {
+                        container.remove();
+                    }
+                    showToast('Bild erfolgreich gelöscht', 'success');
+                } else {
+                    showToast('Fehler beim Löschen des Bildes: ' + (data.error || 'unbekannt'), 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Fehler beim Löschen des Bildes', 'error');
+            });
         }
 
         async function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {

@@ -121,6 +121,17 @@
     <div class="fixed inset-0 grid-bg pointer-events-none z-0"></div>
     <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
 
+    <!-- Background slideshow overlay (Landing page only) -->
+    {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled and restaurant.landing_page.slideshow_images %}
+    <div id="landing-slideshow" class="fixed inset-0 z-0 pointer-events-none transition-opacity duration-700" x-show="currentView === 'landing'" style="display: none;">
+        <!-- Overlapping image layers for crossfade -->
+        <div id="slide-layer-1" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-100" style="background-image: url('{{ restaurant.landing_page.slideshow_images[0] }}');"></div>
+        <div id="slide-layer-2" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-0"></div>
+        <!-- Semi-transparent backdrop overlay to darken and blur slightly for high text readability -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+    </div>
+    {% endif %}
+
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
     <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-md p-10 text-center space-y-6 shadow-2xl relative z-50">
@@ -177,13 +188,15 @@
     </div>
     {% endif %}
 
-    {% if hh_active_global %}
-    <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
-        <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
-        <span>🔥 Happy Hour ist aktiv! {% if hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
-        <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+    <div id="happy-hour-banner-wrapper">
+        {% if hh_active_global %}
+        <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
+            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+            <span>🔥 Happy Hour ist aktiv! {% if hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <!-- Main Dynamic Content Canvas -->
     <main class="flex-grow w-full max-w-4xl mx-auto px-4">
@@ -241,6 +254,62 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Angebotsfotos (aktuelle Angebote als Slider) -->
+            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
+                    <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
+                    <span>Aktuelle Angebote</span>
+                </h3>
+                
+                <!-- Touch Slider/Carousel Container -->
+                <div class="relative w-full overflow-hidden rounded-2xl aspect-[16/9] bg-zinc-950/40 border border-outline-variant/30 group">
+                    <div id="offer-slider" class="flex w-full h-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
+                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
+                            <div class="w-full h-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
+                                <img :src="img" alt="Angebot" class="w-full h-full object-cover" loading="lazy">
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Prev/Next Controls -->
+                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                        <button type="button" @click="prevOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
+                            <span class="material-symbols-outlined text-sm font-bold">chevron_left</span>
+                        </button>
+                        <button type="button" @click="nextOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
+                            <span class="material-symbols-outlined text-sm font-bold">chevron_right</span>
+                        </button>
+                    </div>
+
+                    <!-- Slide Indicator dots -->
+                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute bottom-4 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
+                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="'dot-'+idx">
+                            <div class="w-1.5 h-1.5 rounded-full transition-all duration-300" :class="currentOfferIdx === idx ? 'bg-primary w-4' : 'bg-white/40'"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            {% if hh_active_global %}
+            <!-- Happy Hour Active Card on Landing Page -->
+            <div class="glass-panel border border-amber-500/30 bg-amber-500/10 rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/5 animate-pulse">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl"></div>
+                <div class="flex items-center gap-4">
+                    <span class="material-symbols-outlined text-amber-400 text-4xl font-black animate-spin" style="animation-duration: 6s;">star</span>
+                    <div>
+                        <h3 class="text-base font-black text-amber-400 font-display uppercase tracking-wider">Happy Hour ist aktiv!</h3>
+                        <p class="text-xs text-zinc-300 mt-1 leading-relaxed">
+                            {% if hh_config.discount > 0 %}
+                                Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ hh_config.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
+                            {% else %}
+                                Sichern Sie sich jetzt unsere exklusiven Happy Hour Spezialpreise!
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
@@ -317,7 +386,7 @@
 
                     <!-- Category Pills (Horizontal scrolling) -->
                     <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
-                        {% for cat in restaurant.categories %}
+                        {% for cat in parent_categories %}
                         <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface hover:scale-102 uppercase tracking-wider{% endif %}">
                             <span>{{ cat }}</span>
                         </button>
@@ -336,9 +405,45 @@
                     </button>
                 </div>
 
+                <!-- Secondary Subcategories Swiper (Alpine.js powered) -->
+                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-3 mb-1" style="display: none;">
+                    <div class="flex gap-2 overflow-x-auto overflow-y-hidden scrollbar-none select-none py-1" style="touch-action: pan-x;">
+                        <!-- 'All' subcategory button -->
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="flex-shrink-0 h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider px-3.5 transition-all border border-outline-variant/30 select-none flex items-center justify-center">
+                            Alle
+                        </button>
+                        <!-- Dynamic subcategory buttons -->
+                        <template x-for="sub in activeSubcategories" :key="sub">
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="flex-shrink-0 h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider px-3.5 transition-all border border-outline-variant/30 select-none flex items-center justify-center" x-text="sub">
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
                 <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
                 <div id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3.5 py-6">
+                    {% set ns = namespace(last_subcat='') %}
                     {% for product in products %}
+                    
+                        {% if ' > ' in product.category %}
+                            {% set parent = product.category.split(' > ')[0] %}
+                            {% set sub = product.category.split(' > ')[1] %}
+                            {% if product.category != ns.last_subcat %}
+                                <!-- Render Subcategory Header -->
+                                <div class="col-span-full py-2 mt-4 first:mt-0 subcategory-header border-b border-outline-variant/20 mb-2" 
+                                     data-full-category="{{ product.category }}"
+                                     data-parent-category="{{ parent }}"
+                                     data-subcategory="{{ sub }}"
+                                     data-subcategory-header="{{ product.category }}">
+                                    <h3 class="text-xs md:text-sm font-black text-primary tracking-widest uppercase font-display flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                        {{ sub }}
+                                    </h3>
+                                </div>
+                                {% set ns.last_subcat = product.category %}
+                            {% endif %}
+                        {% endif %}
+                    
                     {% set is_avail = product.get('is_available', True) %}
                     <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-2.5 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
                              data-category="{{ product.category }}" 
@@ -357,7 +462,7 @@
                             {% endif %}
                             
                             <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                                {% if product.happy_hour_price is not none %}
+                                {% if product.is_hh_active %}
                                 <span class="bg-[#eab308] text-black text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
                                     <span class="material-symbols-outlined text-[10px] font-black">schedule</span>
                                     <span>HH</span>
@@ -900,6 +1005,52 @@
                 currentLang: 'de',
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
+                allCategories: {{ restaurant.categories | tojson | safe }},
+                activeSubcategories: [],
+                currentSubcategory: 'All',
+                currentOfferIdx: 0,
+                prevOfferSlide() {
+                    const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
+                    if (len <= 1) return;
+                    this.currentOfferIdx = (this.currentOfferIdx - 1 + len) % len;
+                    this.updateOfferSlider();
+                },
+                nextOfferSlide() {
+                    const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
+                    if (len <= 1) return;
+                    this.currentOfferIdx = (this.currentOfferIdx + 1) % len;
+                    this.updateOfferSlider();
+                },
+                updateOfferSlider() {
+                    const slider = document.getElementById('offer-slider');
+                    if (slider) {
+                        slider.style.transform = `translateX(-${this.currentOfferIdx * 100}%)`;
+                    }
+                },
+                openLightbox(src) {
+                    const lb = document.getElementById('lightbox');
+                    const lbImg = document.getElementById('lightbox-img');
+                    if (lb && lbImg) {
+                        lbImg.src = src;
+                        lb.classList.remove('hidden');
+                        lb.classList.add('flex');
+                        setTimeout(() => {
+                            lb.classList.remove('opacity-0', 'pointer-events-none');
+                            lb.classList.add('opacity-100');
+                        }, 10);
+                    }
+                },
+                closeLightbox() {
+                    const lb = document.getElementById('lightbox');
+                    if (lb) {
+                        lb.classList.remove('opacity-100');
+                        lb.classList.add('opacity-0', 'pointer-events-none');
+                        setTimeout(() => {
+                            lb.classList.remove('flex');
+                            lb.classList.add('hidden');
+                        }, 300);
+                    }
+                },
                 selectedServiceType: 'kellner',
                 selectedPaymentType: 'zahlen_bar',
                 selectedPaymentTipPercent: 0,
@@ -947,7 +1098,7 @@
                         this.cart = [];
                     }
 
-                    const firstCategory = "{{ restaurant.categories[0] if restaurant.categories else '' }}";
+                    const firstCategory = "{{ parent_categories[0] if parent_categories else '' }}";
                     if (firstCategory) {
                         this.filterCategory(firstCategory);
                     }
@@ -968,6 +1119,38 @@
                     } else {
                         if (!isReadonly) {
                             this.fetchGuestTableStatus();
+                        }
+                    }
+
+                    // Background slideshow cycle
+                    const slideshowEnabled = {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}true{% else %}false{% endif %};
+                    const slideshowImages = {{ (restaurant.landing_page.slideshow_images or []) | tojson | safe }};
+                    
+                    if (slideshowEnabled && slideshowImages.length > 1) {
+                        let currentSlideIdx = 0;
+                        const layer1 = document.getElementById('slide-layer-1');
+                        const layer2 = document.getElementById('slide-layer-2');
+                        
+                        if (layer1 && layer2) {
+                            setInterval(() => {
+                                if (this.currentView !== 'landing') return;
+                                
+                                const nextSlideIdx = (currentSlideIdx + 1) % slideshowImages.length;
+                                const nextUrl = slideshowImages[nextSlideIdx];
+                                
+                                const isLayer1Active = layer1.classList.contains('opacity-100');
+                                const activeLayer = isLayer1Active ? layer1 : layer2;
+                                const inactiveLayer = isLayer1Active ? layer2 : layer1;
+                                
+                                inactiveLayer.style.backgroundImage = `url('${nextUrl}')`;
+                                
+                                activeLayer.classList.remove('opacity-100');
+                                activeLayer.classList.add('opacity-0');
+                                inactiveLayer.classList.remove('opacity-0');
+                                inactiveLayer.classList.add('opacity-100');
+                                
+                                currentSlideIdx = nextSlideIdx;
+                            }, 6000);
                         }
                     }
                 },
@@ -1034,6 +1217,13 @@
                                         const currentGrid = document.getElementById('product-grid-container');
                                         if (newGrid && currentGrid) {
                                             currentGrid.innerHTML = newGrid.innerHTML;
+                                        }
+                                        
+                                        // Update happy hour banner
+                                        const newBanner = doc.getElementById('happy-hour-banner-wrapper');
+                                        const currentBanner = document.getElementById('happy-hour-banner-wrapper');
+                                        if (newBanner && currentBanner) {
+                                            currentBanner.innerHTML = newBanner.innerHTML;
                                         }
                                         
                                         // Re-apply current category filter
@@ -1179,9 +1369,20 @@
 
                 filterCategory(category) {
                     this.currentCategory = category;
+                    this.currentSubcategory = 'All';
+                    
+                    // Compute subcategories under this parent dynamically
+                    this.activeSubcategories = [];
+                    this.allCategories.forEach(cat => {
+                        if (cat.startsWith(category + ' > ')) {
+                            this.activeSubcategories.push(cat.split(' > ')[1]);
+                        }
+                    });
+                    
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
-                        if (item.getAttribute('data-category') === category) {
+                        const itemCat = item.getAttribute('data-category');
+                        if (itemCat === category || itemCat.startsWith(category + ' > ')) {
                             item.setAttribute('data-visible-cat', 'true');
                         } else {
                             item.setAttribute('data-visible-cat', 'false');
@@ -1200,18 +1401,58 @@
                     this.applyAllFilters();
                 },
 
+                filterSubcategory(sub) {
+                    this.currentSubcategory = sub;
+                    this.applyAllFilters();
+                    
+                    // Scroll to subcategory header
+                    if (sub !== 'All') {
+                        const targetHeader = document.querySelector(`[data-subcategory-header="${this.currentCategory} > ${sub}"]`);
+                        if (targetHeader) {
+                            targetHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                },
+
                 applyAllFilters() {
                     const products = document.querySelectorAll('.product-item');
+                    const visibleProductsInSubcat = {};
+                    
                     products.forEach(item => {
-                        const visibleCat = item.getAttribute('data-visible-cat') !== 'false';
+                        const prodCat = item.getAttribute('data-category');
                         const isVegan = item.getAttribute('data-vegan') === 'true';
                         const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
 
-                        let matches = visibleCat;
+                        let matchesParent = (prodCat === this.currentCategory || prodCat.startsWith(this.currentCategory + ' > '));
+                        let matchesSub = true;
+                        if (this.currentSubcategory !== 'All') {
+                            matchesSub = (prodCat === this.currentCategory + ' > ' + this.currentSubcategory);
+                        }
+                        
+                        let matches = matchesParent && matchesSub;
                         if (this.activeFilters.vegan && !isVegan) matches = false;
                         if (this.activeFilters.glutenfree && !isGlutenfree) matches = false;
 
                         item.style.display = matches ? 'flex' : 'none';
+                        if (matches) {
+                            visibleProductsInSubcat[prodCat] = true;
+                        }
+                    });
+
+                    // Show/hide subcategory headers based on visible products inside them
+                    const headers = document.querySelectorAll('.subcategory-header');
+                    headers.forEach(header => {
+                        const fullCat = header.getAttribute('data-full-category');
+                        const parentCat = header.getAttribute('data-parent-category');
+                        const subCat = header.getAttribute('data-subcategory');
+                        
+                        let visible = (parentCat === this.currentCategory);
+                        if (this.currentSubcategory !== 'All') {
+                            visible = visible && (subCat === this.currentSubcategory);
+                        }
+                        visible = visible && !!visibleProductsInSubcat[fullCat];
+                        
+                        header.style.display = visible ? 'block' : 'none';
                     });
                 },
 
@@ -2211,6 +2452,12 @@
             }
         });
     </script>
+    <!-- Beautiful fullscreen Image Lightbox modal -->
+    <div id="lightbox" class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md hidden items-center justify-center transition-all duration-300 opacity-0 pointer-events-none" @click="closeLightbox()">
+        <button class="absolute top-4 right-4 text-white hover:text-primary text-4xl font-bold transition">&times;</button>
+        <img id="lightbox-img" class="max-w-[95vw] max-h-[95vh] object-contain rounded-xl shadow-2xl" src="" alt="Zoomed view">
+    </div>
+
     <!-- Toast Container for Premium UI feedback -->
     <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-[90%] max-w-sm pointer-events-none"></div>
 </body>

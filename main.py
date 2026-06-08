@@ -57,6 +57,29 @@ def process_and_crop_product_image(image_bytes) -> bytes:
     img.save(out, format="PNG")
     return out.getvalue()
 
+def process_and_optimize_general_image(image_bytes) -> bytes:
+    from io import BytesIO
+    from PIL import Image
+    try:
+        img = Image.open(BytesIO(image_bytes))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGBA")
+            format_type = "PNG"
+        else:
+            img = img.convert("RGB")
+            format_type = "JPEG"
+        img.thumbnail((1920, 1080))
+        out = BytesIO()
+        if format_type == "PNG":
+            img.save(out, format="PNG", optimize=True)
+        else:
+            img.save(out, format="JPEG", quality=85, optimize=True)
+        return out.getvalue()
+    except Exception as e:
+        print(f"[Image Processing] Optimization failed, using raw bytes: {e}")
+        return image_bytes
+
+
 
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
@@ -1034,6 +1057,17 @@ def get_current_user_and_slug(request: Request) -> Optional[tuple]:
         pass
     return None
 
+def parse_active_table_num(active_table_num: str):
+    clean_num = str(active_table_num).strip()
+    clean_zone = ""
+    if clean_num.startswith("Tisch "):
+        clean_num = clean_num[len("Tisch "):].strip()
+    if "(" in clean_num and clean_num.endswith(")"):
+        idx_paren = clean_num.find("(")
+        clean_zone = clean_num[idx_paren+1:-1].strip()
+        clean_num = clean_num[:idx_paren].strip()
+    return clean_num, clean_zone
+
 def require_user_and_slug(request: Request, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -1760,7 +1794,12 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 
             if active_table_num:
                 tables_list = restaurant.get("tables", [])
-                db_table = next((t for t in tables_list if str(t.get("number")) == active_table_num), None)
+                clean_num, clean_zone = parse_active_table_num(active_table_num)
+                db_table = None
+                if clean_zone:
+                    db_table = next((t for t in tables_list if str(t.get("number")) == clean_num and t.get("zone") == clean_zone), None)
+                if not db_table:
+                    db_table = next((t for t in tables_list if str(t.get("number")) == clean_num), None)
                 active_session_tok = db_table.get("active_session_token") if db_table else None
                 
                 is_token_valid = (active_token and ((active_session_tok and active_token == active_session_tok) or (master_token and active_token == master_token)))
@@ -1778,17 +1817,10 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     # Process Happy Hour
     berlin_now = get_berlin_now()
     now_time = berlin_now.strftime("%H:%M")
-    now_day = berlin_now.strftime("%a")
-    german_days_map = {
-        "Mon": ["Mo", "Montag"],
-        "Tue": ["Di", "Dienstag"],
-        "Wed": ["Mi", "Mittwoch"],
-        "Thu": ["Do", "Donnerstag"],
-        "Fri": ["Fr", "Freitag"],
-        "Sat": ["Sa", "Samstag"],
-        "Sun": ["So", "Sonntag"]
-    }
-    possible_days = german_days_map.get(now_day, ["Mo", "Montag"])
+    weekday_idx = berlin_now.weekday()
+    days_names = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     
     hh_config = restaurant.get("happy_hour", {})
     hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
@@ -1817,6 +1849,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             
         processed_products.append(prod)
         
+    cat_position = {cat_name: idx for idx, cat_name in enumerate(active_categories)}
+    processed_products.sort(key=lambda p: (cat_position.get(p.get("category"), 999), p.get("position", 0), p.get("id", 0)))
+    
+    parent_categories = []
+    for c in active_categories:
+        parent = c.split(" > ")[0]
+        if parent not in parent_categories:
+            parent_categories.append(parent)
+        
     tisch_name = ""
     if table:
         if table == "Vorschau":
@@ -1835,6 +1876,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "token_error": token_error,
             "is_readonly": is_readonly,
             "products": processed_products,
+            "parent_categories": parent_categories,
             "reset_session": reset_session,
             "tisch_name": tisch_name,
             "role": role,
@@ -1895,17 +1937,10 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     # Securely validate and apply Happy Hour prices in the backend if active
     berlin_now = get_berlin_now()
     now_time = berlin_now.strftime("%H:%M")
-    now_day = berlin_now.strftime("%a")
-    german_days_map = {
-        "Mon": ["Mo", "Montag"],
-        "Tue": ["Di", "Dienstag"],
-        "Wed": ["Mi", "Mittwoch"],
-        "Thu": ["Do", "Donnerstag"],
-        "Fri": ["Fr", "Freitag"],
-        "Sat": ["Sa", "Samstag"],
-        "Sun": ["So", "Sonntag"]
-    }
-    possible_days = german_days_map.get(now_day, ["Mo", "Montag"])
+    weekday_idx = berlin_now.weekday()
+    days_names = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     hh_config = restaurant.get("happy_hour", {})
     hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
 
@@ -2715,14 +2750,24 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     if source_order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
-    target_num = str(payload.target_table).replace("Tisch", "").strip()
-    target_table_str = f"Tisch {target_num}"
-    possible_tables = [target_table_str, target_num]
-
+    target_num, target_zone = parse_active_table_num(payload.target_table)
     tables_list = restaurant.get("tables", [])
-    target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
+    
+    target_db_table = None
+    if target_zone:
+        target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num and t.get("zone") == target_zone), None)
+    if not target_db_table:
+        target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
+        
     if not target_db_table:
         raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
+
+    is_duplicate = len([t for t in tables_list if str(t.get("number")) == target_num]) > 1
+    if target_db_table.get("zone") and is_duplicate:
+        target_table_str = f"Tisch {target_num} ({target_db_table.get('zone')})"
+    else:
+        target_table_str = f"Tisch {target_num}"
+    possible_tables = [target_table_str, target_num]
 
     # Find source item
     pid_str, note_slug, status_str = parse_item_key(payload.item_key)
@@ -3037,14 +3082,24 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
     if order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
 
-    target_num = str(payload.target_table).replace("Tisch", "").strip()
-    target_table_str = f"Tisch {target_num}"
-    possible_tables = [target_table_str, target_num]
-
+    target_num, target_zone = parse_active_table_num(payload.target_table)
     tables_list = restaurant.get("tables", [])
-    target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
+    
+    target_db_table = None
+    if target_zone:
+        target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num and t.get("zone") == target_zone), None)
+    if not target_db_table:
+        target_db_table = next((t for t in tables_list if str(t.get("number")) == target_num), None)
+        
     if not target_db_table:
         raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
+
+    is_duplicate = len([t for t in tables_list if str(t.get("number")) == target_num]) > 1
+    if target_db_table.get("zone") and is_duplicate:
+        target_table_str = f"Tisch {target_num} ({target_db_table.get('zone')})"
+    else:
+        target_table_str = f"Tisch {target_num}"
+    possible_tables = [target_table_str, target_num]
 
     target_order = next(
         (o for o in restaurant.get("orders", [])
@@ -3263,6 +3318,17 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
         
+    # Process Happy Hour status for admin dashboard
+    berlin_now = get_berlin_now()
+    now_time = berlin_now.strftime("%H:%M")
+    weekday_idx = berlin_now.weekday()
+    days_names = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
+    
+    hh_config = restaurant.get("happy_hour", {})
+    hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
+        
     orders = restaurant.get("orders", [])
     now = datetime.now()
     
@@ -3365,7 +3431,8 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             "orders_json": json.dumps(restaurant.get("orders", [])),
             "tables_json": json.dumps(restaurant.get("tables", [])),
             "products_json": json.dumps(restaurant.get("products", [])),
-            "categories_json": json.dumps(restaurant.get("categories", []))
+            "categories_json": json.dumps(restaurant.get("categories", [])),
+            "hh_active_global": hh_active_global
         }
     )
 
@@ -3713,6 +3780,7 @@ def create_category(
     request: Request,
     name: Optional[str] = Form(None),
     category_name: Optional[str] = Form(None, alias="category-name"),
+    parent_category: Optional[str] = Form(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
@@ -3725,6 +3793,9 @@ def create_category(
          raise HTTPException(status_code=400, detail="Kategorie-Name erforderlich.")
          
     cat = final_name.strip()
+    if parent_category and parent_category.strip() and parent_category.strip() != "none":
+        cat = f"{parent_category.strip()} > {cat}"
+        
     if cat and cat not in restaurant["categories"]:
         restaurant["categories"].append(cat)
     save_restaurant_to_db(slug, restaurant, db)
@@ -4083,10 +4154,14 @@ class CallServicePayload(BaseModel):
 async def api_call_service(request: Request, slug: str, payload: CallServicePayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
-    table_num = str(payload.table).replace("Tisch", "").strip()
+    clean_num, clean_zone = parse_active_table_num(payload.table)
     tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
-    
+    db_table = None
+    if clean_zone:
+        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num and t.get("zone") == clean_zone), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num), None)
+        
     tok = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
     if not tok:
         cookie_name = f"guest_session_{slug}"
@@ -4094,7 +4169,8 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         if session_val:
             try:
                 c_table, c_tok = session_val.split(":", 1)
-                if str(c_table).strip() == table_num:
+                c_clean_num, c_clean_zone = parse_active_table_num(c_table)
+                if c_clean_num == clean_num:
                     tok = c_tok
             except Exception:
                 pass
@@ -4189,7 +4265,12 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
         return {"active": False}
         
     tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == active_table_num), None)
+    clean_num, clean_zone = parse_active_table_num(active_table_num)
+    db_table = None
+    if clean_zone:
+        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num and t.get("zone") == clean_zone), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num), None)
     active_session_tok = db_table.get("active_session_token") if db_table else None
     
     master_token = restaurant.get("security_token")
@@ -4325,25 +4406,29 @@ def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Sessio
     unpaid_sum = 0.0
     t_num = str(table_num).replace("Tisch", "").strip()
     
-    # Try to resolve zone using cookie
-    cookie_name = f"guest_session_{slug}"
-    session_val = request.cookies.get(cookie_name)
-    c_token = None
+    cookie_zone = ""
     if session_val:
         try:
             c_table, c_tok = session_val.split(":", 1)
-            c_table_clean = str(c_table).replace("Tisch", "").split("(")[0].strip()
-            if c_table_clean == t_num:
+            c_clean_num, c_clean_zone = parse_active_table_num(c_table)
+            if c_clean_num == t_num:
                 c_token = c_tok
+                cookie_zone = c_clean_zone
         except Exception:
             pass
             
     tables_list = restaurant.get("tables", [])
     db_table = None
     if c_token:
-        db_table = next((t for t in tables_list if str(t.get("number")) == t_num and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+        if cookie_zone:
+            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and t.get("zone") == cookie_zone and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+        if not db_table:
+            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
     if not db_table:
-        db_table = next((t for t in tables_list if str(t.get("number")) == t_num), None)
+        if cookie_zone:
+            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and t.get("zone") == cookie_zone), None)
+        if not db_table:
+            db_table = next((t for t in tables_list if str(t.get("number")) == t_num), None)
         
     zone = db_table.get("zone", "") if db_table else ""
     is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_num]) > 1
@@ -4479,7 +4564,7 @@ def update_legal_placeholders(restaurant: dict) -> None:
         restaurant["datenschutz_content"] = ds
 
 @app.post("/admin/landingpage")
-def update_landingpage(
+async def update_landingpage(
     request: Request,
     welcome_title: Optional[str] = Form(None),
     welcome_subtitle: Optional[str] = Form(None),
@@ -4488,13 +4573,58 @@ def update_landingpage(
     aktuelles: Optional[str] = Form(None),
     oeffnungszeiten: Optional[str] = Form(None),
     angebote: Optional[str] = Form(None),
+    slideshow_enabled: Optional[bool] = Form(False),
+    offer_images: List[UploadFile] = File(None),
+    slideshow_images: List[UploadFile] = File(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
+    from typing import List
+    import time
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
         
+    landing_page = restaurant.get("landing_page", {})
+    if not isinstance(landing_page, dict):
+        landing_page = {}
+        
+    existing_offers = landing_page.get("offer_images", [])
+    if not isinstance(existing_offers, list):
+        existing_offers = []
+        
+    existing_slideshow = landing_page.get("slideshow_images", [])
+    if not isinstance(existing_slideshow, list):
+        existing_slideshow = []
+        
+    # Process new offer images
+    landing_dir = os.path.join(UPLOAD_DIR, "landing")
+    if offer_images:
+        for idx, file in enumerate(offer_images):
+            if file.filename:
+                os.makedirs(landing_dir, exist_ok=True)
+                safe_name = f"{slug}_offer_{int(time.time())}_{idx}.jpg"
+                file_path = os.path.join(landing_dir, safe_name)
+                content = await file.read()
+                content = process_and_optimize_general_image(content)
+                with open(file_path, "wb") as fh:
+                    fh.write(content)
+                existing_offers.append(f"/uploads/landing/{safe_name}")
+                
+    # Process new slideshow images
+    slideshow_dir = os.path.join(UPLOAD_DIR, "slideshow")
+    if slideshow_images:
+        for idx, file in enumerate(slideshow_images):
+            if file.filename:
+                os.makedirs(slideshow_dir, exist_ok=True)
+                safe_name = f"{slug}_slide_{int(time.time())}_{idx}.jpg"
+                file_path = os.path.join(slideshow_dir, safe_name)
+                content = await file.read()
+                content = process_and_optimize_general_image(content)
+                with open(file_path, "wb") as fh:
+                    fh.write(content)
+                existing_slideshow.append(f"/uploads/slideshow/{safe_name}")
+                
     restaurant["landing_page"] = {
         "welcome_title": welcome_title.strip() if welcome_title else f"Willkommen bei {restaurant.get('name', slug)}",
         "welcome_subtitle": welcome_subtitle.strip() if welcome_subtitle else "",
@@ -4502,12 +4632,49 @@ def update_landingpage(
         "google_rating_url": google_rating_url.strip() if google_rating_url else "",
         "aktuelles": aktuelles.strip() if aktuelles else "",
         "oeffnungszeiten": oeffnungszeiten.strip() if oeffnungszeiten else "",
-        "angebote": angebote.strip() if angebote else ""
+        "angebote": angebote.strip() if angebote else "",
+        "slideshow_enabled": bool(slideshow_enabled),
+        "offer_images": existing_offers,
+        "slideshow_images": existing_slideshow
     }
     
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
+
+@app.post("/admin/landingpage/delete-image")
+def delete_landing_image(
+    request: Request,
+    image_url: str = Form(...),
+    image_type: str = Form(...),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    landing_page = restaurant.get("landing_page", {})
+    if not isinstance(landing_page, dict):
+        return {"success": False, "error": "No landing page configuration"}
+        
+    if image_type == "offer":
+        images_list = landing_page.get("offer_images", [])
+    else:
+        images_list = landing_page.get("slideshow_images", [])
+        
+    if image_url in images_list:
+        images_list.remove(image_url)
+        # Delete file locally
+        filename = os.path.basename(image_url)
+        subdir = "landing" if image_type == "offer" else "slideshow"
+        full_path = os.path.join(UPLOAD_DIR, subdir, filename)
+        if os.path.exists(full_path):
+            try:
+                os.remove(full_path)
+            except Exception as e:
+                print(f"[Cleanup] Failed to delete file {full_path}: {e}")
+                
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    return {"success": True}
 
 @app.get("/api/{slug}/table-status/{table_num}")
 def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
@@ -4518,14 +4685,16 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     session_val = request.cookies.get(cookie_name)
     is_valid = True
     c_token = None
+    cookie_zone = ""
     if session_val:
         try:
             c_table, c_tok = session_val.split(":", 1)
-            c_table_clean = str(c_table).replace("Tisch", "").split("(")[0].strip()
-            if c_table_clean != str(table_num).replace("Tisch", "").strip():
+            c_clean_num, c_clean_zone = parse_active_table_num(c_table)
+            if c_clean_num != str(table_num).strip():
                 is_valid = False
             else:
                 c_token = c_tok
+                cookie_zone = c_clean_zone
         except Exception:
             is_valid = False
             
@@ -4536,9 +4705,15 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     tables_list = restaurant.get("tables", [])
     db_table = None
     if c_token:
-        db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+        if cookie_zone:
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+        if not db_table:
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
     if not db_table:
-        db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip()), None)
+        if cookie_zone:
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone), None)
+        if not db_table:
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip()), None)
         
     zone = db_table.get("zone", "") if db_table else ""
     is_duplicate = len([t for t in tables_list if str(t.get("number")) == str(table_num).strip()]) > 1
@@ -5763,10 +5938,11 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         if not target_order:
             existing_ids = [o["id"] for o in restaurant.get("orders", [])]
             new_order_id = max(existing_ids) + 1 if existing_ids else 1
-            # Use zone-inclusive table name for target
-            t_table_display = f"Tisch {t_table_num}"
-            if t_zone:
+            is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_table_num]) > 1
+            if t_zone and is_duplicate:
                 t_table_display = f"Tisch {t_table_num} ({t_zone})"
+            else:
+                t_table_display = f"Tisch {t_table_num}"
             target_order = {
                 "id": new_order_id,
                 "table": t_table_display,
@@ -5838,13 +6014,14 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
         target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
-        
     else:
         # Full table transfer
-        # Use zone-inclusive table name for target
-        t_table_display = f"Tisch {t_table_num}"
-        if t_zone:
+        # Use zone-inclusive table name for target if duplicate
+        is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_table_num]) > 1
+        if t_zone and is_duplicate:
             t_table_display = f"Tisch {t_table_num} ({t_zone})"
+        else:
+            t_table_display = f"Tisch {t_table_num}"
         
         for source_order in source_orders:
             if not target_order:
