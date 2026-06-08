@@ -523,41 +523,41 @@
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
     <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
-    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
+    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
-        <div class="flex items-center gap-2">
-            <button onclick="openServiceModal()" class="w-[60px] h-12 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
-                <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">notifications_active</span>
-                <span class="text-[9px] font-bold leading-none tracking-wide" data-translate="nav_service">Service</span>
+        <div class="flex items-center gap-1.5">
+            <button onclick="openServiceModal()" class="w-[50px] h-10 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
+                <span class="material-symbols-outlined text-[18px] leading-none mb-0.5">notifications_active</span>
+                <span class="text-[8px] font-bold leading-none tracking-wide uppercase" data-translate="nav_service">Service</span>
             </button>
-            <button onclick="openPaymentModal()" class="w-[60px] h-12 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
-                <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">receipt_long</span>
-                <span class="text-[9px] font-bold leading-none tracking-wide" data-translate="nav_bill">Rechnung</span>
+            <button onclick="openPaymentModal()" class="w-[50px] h-10 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
+                <span class="material-symbols-outlined text-[18px] leading-none mb-0.5">receipt_long</span>
+                <span class="text-[8px] font-bold leading-none tracking-wide uppercase" data-translate="nav_bill">Rechnung</span>
             </button>
         </div>
         
         <!-- Right Side: Unified Cart Trigger and Total -->
-        <button onclick="openCartModal()" class="flex-grow ml-3 bg-primary text-black font-extrabold h-12 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
-            <div class="flex items-center gap-2">
+        <button onclick="openCartModal()" class="flex-grow ml-2 bg-primary text-black font-extrabold h-10 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
+            <div class="flex items-center gap-1.5">
                 <div class="relative">
-                    <span class="material-symbols-outlined text-xl font-black mt-0.5">shopping_basket</span>
-                    <span id="cart-badge" class="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
+                    <span class="material-symbols-outlined text-lg font-black mt-0.5">shopping_basket</span>
+                    <span id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
                 </div>
                 <span class="text-xs font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
             </div>
-            <span id="total-val-sticky" class="text-xs font-black bg-black/10 px-2 py-1 rounded-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
+            <span id="total-val-sticky" class="text-[11px] font-black bg-black/10 px-2 py-0.5 rounded-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
         </button>
     </div>
 
     <!-- Sticky Bottom Navigation (Welcome vs Speisekarte) -->
-    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-md border-t border-outline-variant/60 py-3 flex justify-around items-center shadow-xl">
-        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-on-surface-variant hover:text-on-surface flex flex-col items-center gap-1 font-medium text-xs'">
-            <span class="material-symbols-outlined text-xl">home</span>
-            <span data-translate="tab_welcome">Willkommen</span>
+    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/50 py-1 flex justify-around items-center shadow-2xl pb-safe h-[3.25rem]">
+        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+            <span class="material-symbols-outlined text-[18px] leading-none">home</span>
+            <span data-translate="tab_welcome" class="text-[9px] font-bold leading-none tracking-wide">Willkommen</span>
         </button>
-        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary flex flex-col items-center gap-1 font-bold text-xs' : 'text-on-surface-variant hover:text-on-surface flex flex-col items-center gap-1 font-medium text-xs'">
-            <span class="material-symbols-outlined text-xl">menu_book</span>
-            <span data-translate="tab_menu">Speisekarte</span>
+        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+            <span class="material-symbols-outlined text-[18px] leading-none">menu_book</span>
+            <span data-translate="tab_menu" class="text-[9px] font-bold leading-none tracking-wide">Speisekarte</span>
         </button>
     </div>
     {% endif %}
