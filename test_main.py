@@ -1487,6 +1487,18 @@ def test_integration():
     assert resp.status_code == 303
     assert restaurants["demo"].get("accepts_card_payment") is True
 
+    # Test impersonation with zone query param for table 12
+    # Impersonate Table 12 in terrasse zone
+    resp = client.get("/admin/impersonate/12", params={"z": "terrasse"}, cookies=dl_cookies, follow_redirects=False)
+    assert resp.status_code == 303
+    # Check that it redirected to client menu with table 12 and zone terrasse
+    assert "tisch=12" in resp.headers["location"]
+    assert "z=terrasse" in resp.headers["location"]
+    # Check that guest_session_demo cookie was set with the zone in display name
+    cookie = resp.headers.get("set-cookie", "")
+    import urllib.parse
+    assert "Tisch 12 (terrasse)" in urllib.parse.unquote(cookie)
+
     # Verify table deletion by zone
     resp = client.post("/admin/table-loeschen/12", params={"zone": "innen"}, cookies=dl_cookies, follow_redirects=False)
     assert resp.status_code == 303

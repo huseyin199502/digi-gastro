@@ -1702,7 +1702,10 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             active_session_tok = db_table.get("active_session_token")
             
             # Build table display name with zone
-            table_display_name = f"Tisch {query_table}"
+            clean_q_table = str(query_table).strip()
+            if clean_q_table.startswith("Tisch "):
+                clean_q_table = clean_q_table[len("Tisch "):].strip()
+            table_display_name = f"Tisch {clean_q_table}"
             if db_table.get("zone"):
                 table_display_name += f" ({db_table.get('zone')})"
             
@@ -1862,6 +1865,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     if table:
         if table == "Vorschau":
             tisch_name = "Vorschau"
+        elif str(table).startswith("Tisch "):
+            tisch_name = table
         else:
             tisch_name = f"Tisch {table}"
 
@@ -3273,7 +3278,7 @@ def post_onboarding(
     return resp
 
 @app.get("/admin/impersonate/{table_number}")
-def admin_impersonate(request: Request, table_number: str, db: Session = Depends(get_db)):
+def admin_impersonate(request: Request, table_number: str, z: Optional[str] = None, db: Session = Depends(get_db)):
     # Server-side auth check: strictly require chef
     res = get_current_user_and_slug(request)
     if not res:
@@ -3284,18 +3289,29 @@ def admin_impersonate(request: Request, table_number: str, db: Session = Depends
     
     table_num = str(table_number).strip()
     tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+    
+    # Try to match both table number and zone
+    db_table = None
+    if z:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and t.get("zone") == z), None)
+    if not db_table:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
     
     if not db_table:
         raise HTTPException(status_code=404, detail="Tisch nicht gefunden.")
         
     table_token = db_table.get("security_token") or restaurant.get("security_token")
     
+    table_display_name = f"Tisch {table_num}"
+    if db_table.get("zone"):
+        table_display_name += f" ({db_table.get('zone')})"
+        
     # Redirect to customer menu and set session cookie
-    resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}", status_code=303)
+    zone_param = f"&z={z}" if z else ""
+    resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}{zone_param}", status_code=303)
     resp.set_cookie(
         key=f"guest_session_{slug}",
-        value=f"{table_num}:{table_token}",
+        value=f"{table_display_name}:{table_token}",
         max_age=14400,
         path="/"
     )
@@ -5615,7 +5631,10 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         qr_url = f"{base_url}/{slug}?t={table_num}&z={urllib.parse.quote(table_zone)}&tk={token}"
         qr_url_encoded = urllib.parse.quote(qr_url)
         qr_image_src = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={qr_url_encoded}&ecc=H"
-        table_display_name = f"Tisch {table_num}" + (f" ({table_zone})" if table_zone else "")
+        display_num = table_num
+        if str(display_num).startswith("Tisch "):
+            display_num = display_num[len("Tisch "):].strip()
+        table_display_name = f"Tisch {display_num}" + (f" ({table_zone})" if table_zone else "")
         html_content += f"""
             <div class="card">
                 <h3>{table_display_name}</h3>
