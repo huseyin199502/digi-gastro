@@ -1446,6 +1446,50 @@
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════
+         ORDER POPUP MODAL (#order-popup)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="order-popup" class="overlay-backdrop hidden" style="z-index:100;">
+        <div class="popup-card" style="max-width:550px;">
+            <div class="popup-header">
+                <div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Bestellung</div>
+                    <div style="font-size:18px;font-weight:900;color:#fff;" id="popup-table-name">Tisch --</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:.75rem;">
+                    <div style="text-align:right;">
+                        <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Bon-ID</div>
+                        <div style="font-size:14px;font-weight:900;color:#fff;font-family:monospace;" id="popup-bon-id">#--</div>
+                    </div>
+                    <button onclick="closePopup()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+                </div>
+            </div>
+
+            <div class="popup-body space-y-3" style="max-height:55vh;">
+                <div id="popup-items" class="space-y-2"></div>
+            </div>
+
+            <div class="popup-footer">
+                <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <span class="text-xs font-bold text-zinc-600 uppercase">Gesamt</span>
+                    <span class="text-lg font-black text-zinc-900" id="popup-total">0,00 €</span>
+                </div>
+                
+                <div id="popup-footer-normal" class="space-y-2">
+                    <button onclick="bezahlen()" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow">
+                        <span class="material-symbols-outlined text-sm">payments</span> Bezahlen
+                    </button>
+                    <button onclick="openUmbuchung()" class="w-full border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-sm">move_item</span> Umbuchen
+                    </button>
+                    <button onclick="stornieren()" class="w-full text-center text-xs font-bold text-red-500 hover:text-red-700 py-2">
+                        ⚠️ Stornieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST POPUP NOTIFICATION -->
     <div id="toast" class="toast toast-success"></div>
 
@@ -3610,6 +3654,38 @@
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
             }
+        }
+
+        // Wrapper functions for the order popup buttons
+        async function bezahlen() {
+            if (!activeOrderId) return;
+            const order = allOrders.find(o => o.id === activeOrderId);
+            if (!order) return;
+            
+            const tipVal = prompt('Trinkgeld in €:', '0.00');
+            if (tipVal === null) return;
+            
+            try {
+                const fd = new FormData();
+                fd.append('tip', parseFloat(tipVal).toFixed(2));
+                const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, {
+                    method: 'POST',
+                    body: fd
+                });
+                if (res.ok) {
+                    showToast('Zahlung gebucht', 'success');
+                    closePopup();
+                    checkLiveTischeUpdates();
+                } else {
+                    showToast('Zahlungsfehler', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        function openUmbuchung() {
+            openUmbuchenAll();
         }
 
         function openUmbuchenAll() {

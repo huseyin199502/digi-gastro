@@ -1605,7 +1605,7 @@ def get_orders_status(slug: str, ids: str, db: Session = Depends(get_db)):
     return {"orders": res}
 
 @app.get("/{slug}", response_class=HTMLResponse)
-def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, t: Optional[str] = None, tk: Optional[str] = None, db: Session = Depends(get_db)):
+def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, t: Optional[str] = None, tk: Optional[str] = None, z: Optional[str] = None, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     role = request.query_params.get("role") or ""
     
@@ -1622,6 +1622,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     # Check query parameters first (support both 'table' and 'tisch')
     query_table = table or t or request.query_params.get("tisch") or request.query_params.get("table") or request.query_params.get("t")
     query_token = token or tk or request.query_params.get("token") or request.query_params.get("tk")
+    query_zone = z or request.query_params.get("z") or ""
     master_token = restaurant.get("security_token")
 
     # ── Admin preview bypass ──
@@ -1647,9 +1648,18 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             if not query_token:
                 return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
             
-            # Check if table exists
+            # Check if table exists (with optional zone matching)
             tables_list = restaurant.get("tables", [])
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(query_table).strip()), None)
+            db_table = None
+            
+            # Try to match both table number and zone
+            if query_zone:
+                db_table = next((t for t in tables_list if str(t.get("number")) == str(query_table).strip() and t.get("zone") == query_zone), None)
+            
+            # If zone didn't match or wasn't provided, just match by table number
+            if not db_table:
+                db_table = next((t for t in tables_list if str(t.get("number")) == str(query_table).strip()), None)
+            
             if not db_table:
                 return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
                 
@@ -1657,8 +1667,13 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             printed_token = db_table.get("security_token")
             active_session_tok = db_table.get("active_session_token")
             
+            # Build table display name with zone
+            table_display_name = f"Tisch {query_table}"
+            if db_table.get("zone"):
+                table_display_name += f" ({db_table.get('zone')})"
+            
             # Verify if table has any active (open) orders
-            table_orders = [o for o in restaurant.get("orders", []) if o.get("table") in [f"Tisch {query_table}", str(query_table).strip()]]
+            table_orders = [o for o in restaurant.get("orders", []) if o.get("table") in [table_display_name, f"Tisch {query_table}", str(query_table).strip()]]
             open_orders = [o for o in table_orders if o.get("status") not in ["bezahlt", "storniert"]]
             
             # A query token is valid if it matches the printed token, the active session token, or the static master token
@@ -1685,7 +1700,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 finally:
                     db.close()
                     
-                table = str(query_table).strip()
+                table = table_display_name
                 token = new_session_tok
                 reset_session = True
             else:
@@ -1701,7 +1716,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                         db.commit()
                     finally:
                         db.close()
-                table = str(query_table).strip()
+                table = table_display_name
                 token = active_session_tok
                 reset_session = False
 
@@ -5420,15 +5435,17 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
     """
     for t in tables:
         table_num = t.get("number")
+        table_zone = t.get("zone", "")
         token = t.get("security_token", "")
-        qr_url = f"{base_url}/{slug}?t={table_num}&tk={token}"
+        qr_url = f"{base_url}/{slug}?t={table_num}&z={urllib.parse.quote(table_zone)}&tk={token}"
         qr_url_encoded = urllib.parse.quote(qr_url)
         qr_image_src = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={qr_url_encoded}&ecc=H"
+        table_display_name = f"Tisch {table_num}" + (f" ({table_zone})" if table_zone else "")
         html_content += f"""
             <div class="card">
-                <h3>Tisch {table_num}</h3>
+                <h3>{table_display_name}</h3>
                 <div style="position: relative; width: 150px; height: 150px; margin: 15px auto; background: white;">
-                    <img src="{qr_image_src}" alt="QR Tisch {table_num}" style="width: 150px; height: 150px; display: block;" />
+                    <img src="{qr_image_src}" alt="QR {table_display_name}" style="width: 150px; height: 150px; display: block;" />
                     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: white; padding: 2px; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
                         <img src="{logo_url}" style="width: 26px; height: 26px; object-fit: contain; border-radius: 4px;" onerror="this.parentElement.style.display='none'" />
                     </div>
