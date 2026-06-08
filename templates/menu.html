@@ -1527,7 +1527,10 @@
                         tip_amount: 0.0
                     };
 
-                    fetch('/{{ slug }}/bestellen', {
+                    const roleForBypass = (this.role === 'admin' || this.role === 'waiter') ? this.role : '';
+                    const url = roleForBypass ? `/{{ slug }}/bestellen?role=${encodeURIComponent(roleForBypass)}` : `/{{ slug }}/bestellen`;
+
+                    fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
