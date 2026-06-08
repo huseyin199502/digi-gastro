@@ -5708,24 +5708,68 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
     s_table_num = str(payload.source_table).replace("Tisch", "").strip()
     t_table_num = str(payload.target_table).replace("Tisch", "").strip()
     
-    s_table = f"Tisch {s_table_num}"
-    t_table = f"Tisch {t_table_num}"
+    # Try to find exact zone-inclusive table names first, then fallback to simple names
+    source_orders = []
+    target_order = None
     
-    # Locate active orders
-    source_orders = [o for o in restaurant.get("orders", []) if (o.get("table") == s_table or str(o.get("table")).strip() == s_table_num) and o.get("status") not in ["bezahlt", "storniert"]]
+    # Extract zone info from table database if available
+    tables_list = restaurant.get("tables", [])
+    s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)
+    t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
+    
+    s_zone = s_db_table.get("zone", "") if s_db_table else ""
+    t_zone = t_db_table.get("zone", "") if t_db_table else ""
+    
+    # Build search patterns - with zone first, then without
+    search_patterns = []
+    if s_zone:
+        search_patterns.append(f"Tisch {s_table_num} ({s_zone})")
+    search_patterns.append(f"Tisch {s_table_num}")
+    search_patterns.append(s_table_num)
+    
+    # Search for source orders with any matching pattern
+    for o in restaurant.get("orders", []):
+        if o.get("status") in ["bezahlt", "storniert"]:
+            continue
+        o_table = str(o.get("table", "")).strip()
+        for pattern in search_patterns:
+            if o_table == pattern:
+                source_orders.append(o)
+                break
+    
     if not source_orders:
         raise HTTPException(status_code=400, detail="Keine offene Bestellung auf dem Quelltisch gefunden.")
         
-    target_order = next((o for o in restaurant.get("orders", []) if (o.get("table") == t_table or str(o.get("table")).strip() == t_table_num) and o.get("status") not in ["bezahlt", "storniert"]), None)
+    # Search for target order
+    t_search_patterns = []
+    if t_zone:
+        t_search_patterns.append(f"Tisch {t_table_num} ({t_zone})")
+    t_search_patterns.append(f"Tisch {t_table_num}")
+    t_search_patterns.append(t_table_num)
+    
+    for o in restaurant.get("orders", []):
+        if o.get("status") in ["bezahlt", "storniert"]:
+            continue
+        o_table = str(o.get("table", "")).strip()
+        for pattern in t_search_patterns:
+            if o_table == pattern:
+                target_order = o
+                break
+        if target_order:
+            break
     
     if payload.item_keys:
         # Move ONLY selected items
         if not target_order:
             existing_ids = [o["id"] for o in restaurant.get("orders", [])]
             new_order_id = max(existing_ids) + 1 if existing_ids else 1
+            # Use zone-inclusive table name for target
+            t_table_display = f"Tisch {t_table_num}"
+            if t_zone:
+                t_table_display = f"Tisch {t_table_num} ({t_zone})"
             target_order = {
                 "id": new_order_id,
-                "table": t_table,
+                "table": t_table_display,
                 "items": [],
                 "total": 0.0,
                 "total_with_tip": 0.0,
@@ -5797,9 +5841,14 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         
     else:
         # Full table transfer
+        # Use zone-inclusive table name for target
+        t_table_display = f"Tisch {t_table_num}"
+        if t_zone:
+            t_table_display = f"Tisch {t_table_num} ({t_zone})"
+        
         for source_order in source_orders:
             if not target_order:
-                source_order["table"] = t_table
+                source_order["table"] = t_table_display
                 target_order = source_order
             else:
                 for s_item in source_order.get("items", []):
