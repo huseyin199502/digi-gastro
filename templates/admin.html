@@ -1591,7 +1591,12 @@
 
             // Populate items checklists
             const sourceTable = "Tisch " + tableNumber;
-            const sourceOrders = allOrders.filter(o => (o.table === sourceTable || String(o.table) === String(tableNumber)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            // Match table number with or without zone info (e.g., "Tisch 1" or "Tisch 1 (Drinnen)")
+            const sourceOrders = allOrders.filter(o => {
+                const tableStr = String(o.table || '').trim();
+                const regex = new RegExp(`^Tisch\\s+${tableNumber}(\\s*\\(|$)`);
+                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+            });
             
             const listContainer = document.getElementById('transfer-items-container');
             const itemsList = document.getElementById('transfer-items-list');
@@ -1707,7 +1712,13 @@
             if (!controlModalActiveTableNum) return;
             
             const targetTable = "Tisch " + controlModalActiveTableNum;
-            const tableOrders = allOrders.filter(o => (o.table === targetTable || o.table === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            // Match table number with or without zone info (e.g., "Tisch 1" or "Tisch 1 (Drinnen)")
+            const tableOrders = allOrders.filter(o => {
+                const tableStr = String(o.table || '').trim();
+                // Check if table name starts with "Tisch {number}" (with or without zone)
+                const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+            });
             
             // Dynamically set activeOrderId for cockpit actions
             if (tableOrders.length > 0) {
@@ -2058,7 +2069,12 @@
         async function serveAllControlPending() {
             if (!controlModalActiveTableNum) return;
             const targetTable = "Tisch " + controlModalActiveTableNum;
-            const tableOrders = allOrders.filter(o => (o.table === targetTable || o.table === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            // Match table number with or without zone info
+            const tableOrders = allOrders.filter(o => {
+                const tableStr = String(o.table || '').trim();
+                const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+            });
             
             const orderIds = [];
             tableOrders.forEach(o => {
@@ -2179,7 +2195,12 @@
             }
             
             const targetTable = "Tisch " + controlModalActiveTableNum;
-            const tableOrders = allOrders.filter(o => (o.table === targetTable || o.table === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            // Match table number with or without zone info
+            const tableOrders = allOrders.filter(o => {
+                const tableStr = String(o.table || '').trim();
+                const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+            });
             
             if (tableOrders.length === 0) return;
             
@@ -3725,7 +3746,13 @@
             grid.innerHTML = sortedOthers
                 .map(t => {
                     const ts = 'Tisch ' + t.number;
-                    const busy = allOrders.some(o => (o.table === ts || o.table === String(t.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+                    const tsZone = `Tisch ${t.number} (${t.zone || ''})`;
+                    // Match table number with or without zone info
+                    const busy = allOrders.some(o => {
+                        const tableStr = String(o.table || '').trim();
+                        const regex = new RegExp(`^Tisch\\s+${t.number}(\\s*\\(|$)`);
+                        return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                    });
                     return `<div class="table-sel-tile${busy ? ' busy' : ''}" onclick="doTableSel(${t.number})">
                         <div style="font-size:20px;font-weight:900;color:#fff;">${t.number}</div>
                         <div style="font-size:9px;color:#6b7280;font-weight:700;margin-top:2px;">${t.zone || ''}</div>
