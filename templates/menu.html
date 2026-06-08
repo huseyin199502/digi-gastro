@@ -128,7 +128,7 @@
         <div id="slide-layer-1" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-100" style="background-image: url('{{ restaurant.landing_page.slideshow_images[0] }}');"></div>
         <div id="slide-layer-2" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-0"></div>
         <!-- Semi-transparent backdrop overlay to darken and blur slightly for high text readability -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-[2px]"></div>
     </div>
     {% endif %}
 
@@ -203,13 +203,12 @@
         
         <!-- ================= LANDING VIEW ================= -->
         <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6">
-            <div class="glass-panel border border-outline-variant rounded-3xl p-6 md:p-8 text-center space-y-6 shadow-2xl relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+            <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                     <img alt="{{ restaurant.name }} Logo" class="h-24 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
                 {% endif %}
-                <h2 class="text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight font-display animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
-                <p class="text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-md animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+                <p class="text-sm text-gray-200 max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
                 
                 <!-- Actions Group -->
                 <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
@@ -256,8 +255,8 @@
             </div>
 
             <!-- Angebotsfotos (aktuelle Angebote als Slider) -->
-            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
+            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
                     <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
                     <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
                 </h3>
@@ -293,13 +292,13 @@
             
             {% if hh_active_global %}
             <!-- Happy Hour Active Card on Landing Page -->
-            <div class="glass-panel border border-amber-500/30 bg-amber-500/10 rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/5 animate-pulse">
-                <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl"></div>
+            <div class="border border-amber-500/50 bg-amber-500/20 backdrop-blur-md rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/10 animate-pulse">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/30 rounded-full blur-2xl"></div>
                 <div class="flex items-center gap-4">
-                    <span class="material-symbols-outlined text-amber-400 text-4xl font-black animate-spin" style="animation-duration: 6s;">star</span>
+                    <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
                     <div>
-                        <h3 class="text-base font-black text-amber-400 font-display uppercase tracking-wider">Happy Hour ist aktiv!</h3>
-                        <p class="text-xs text-zinc-300 mt-1 leading-relaxed">
+                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">Happy Hour ist aktiv!</h3>
+                        <p class="text-xs text-white drop-shadow-md mt-1 leading-relaxed">
                             {% if hh_config.discount > 0 %}
                                 Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ hh_config.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
                             {% else %}
@@ -312,8 +311,8 @@
             {% endif %}
 
             <!-- Responsive Bildergalerie -->
-            <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
+            <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
                     <span class="material-symbols-outlined text-primary font-bold">collections</span>
                     <span>Galerie</span>
                 </h3>
@@ -329,41 +328,41 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
-                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
-                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold">schedule</span>
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">schedule</span>
                         <span x-text="restaurantLandingPage.title_hours || 'Öffnungszeiten'">Öffnungszeiten</span>
                     </h3>
-                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed font-mono" x-text="restaurantLandingPage.oeffnungszeiten"></p>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
                 </div>
                 
                 <!-- Info Card 2: Über uns / Angebote -->
-                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
-                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">local_offer</span>
                         <span x-text="restaurantLandingPage.title_happyhour || 'Angebote & Specials'">Angebote & Specials</span>
                     </h3>
-                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.angebote"></p>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- What we offer -->
-                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
-                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold">restaurant</span>
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">restaurant</span>
                         <span x-text="restaurantLandingPage.title_about || 'Was wir bieten'">Was wir bieten</span>
                     </h3>
-                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.what_we_offer"></p>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
                 </div>
                 
                 <!-- Announcements / News -->
-                <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
-                    <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold">campaign</span>
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">campaign</span>
                         <span x-text="restaurantLandingPage.title_news || 'Aktuelles & Events'">Aktuelles & Events</span>
                     </h3>
-                    <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.aktuelles"></p>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
                 </div>
             </div>
 
