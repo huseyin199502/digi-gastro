@@ -259,7 +259,7 @@
             <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
                 <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                     <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
-                    <span>Aktuelle Angebote</span>
+                    <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
                 </h3>
                 
                 <!-- Touch Slider/Carousel Container -->
@@ -311,12 +311,28 @@
             </div>
             {% endif %}
 
+            <!-- Responsive Bildergalerie -->
+            <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
+                    <span class="material-symbols-outlined text-primary font-bold">collections</span>
+                    <span>Galerie</span>
+                </h3>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
+                        <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
+                            <img :src="img" class="w-full h-full object-cover" loading="lazy">
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
                     <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">schedule</span>
-                        <span>Öffnungszeiten</span>
+                        <span x-text="restaurantLandingPage.title_hours || 'Öffnungszeiten'">Öffnungszeiten</span>
                     </h3>
                     <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed font-mono" x-text="restaurantLandingPage.oeffnungszeiten"></p>
                 </div>
@@ -325,7 +341,7 @@
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
                     <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
-                        <span>Angebote & Specials</span>
+                        <span x-text="restaurantLandingPage.title_happyhour || 'Angebote & Specials'">Angebote & Specials</span>
                     </h3>
                     <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.angebote"></p>
                 </div>
@@ -336,7 +352,7 @@
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
                     <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">restaurant</span>
-                        <span>Was wir bieten</span>
+                        <span x-text="restaurantLandingPage.title_about || 'Was wir bieten'">Was wir bieten</span>
                     </h3>
                     <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.what_we_offer"></p>
                 </div>
@@ -345,7 +361,7 @@
                 <div class="glass-panel border border-outline-variant/60 rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
                     <h3 class="text-lg font-bold text-on-surface flex items-center gap-2 font-display">
                         <span class="material-symbols-outlined text-primary font-bold">campaign</span>
-                        <span>Aktuelles & Events</span>
+                        <span x-text="restaurantLandingPage.title_news || 'Aktuelles & Events'">Aktuelles & Events</span>
                     </h3>
                     <p class="text-xs text-on-surface-variant whitespace-pre-line leading-relaxed" x-text="restaurantLandingPage.aktuelles"></p>
                 </div>
@@ -407,14 +423,14 @@
 
                 <!-- Secondary Subcategories Swiper (Alpine.js powered) -->
                 <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-3 mb-1" style="display: none;">
-                    <div class="flex gap-2 overflow-x-auto overflow-y-hidden scrollbar-none select-none py-1" style="touch-action: pan-x;">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 select-none py-1">
                         <!-- 'All' subcategory button -->
-                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="flex-shrink-0 h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider px-3.5 transition-all border border-outline-variant/30 select-none flex items-center justify-center">
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="h-9 rounded-lg text-[10px] font-black uppercase tracking-wider px-2 transition-all border border-outline-variant/30 select-none flex items-center justify-center text-center leading-tight">
                             Alle
                         </button>
                         <!-- Dynamic subcategory buttons -->
                         <template x-for="sub in activeSubcategories" :key="sub">
-                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="flex-shrink-0 h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider px-3.5 transition-all border border-outline-variant/30 select-none flex items-center justify-center" x-text="sub">
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="h-9 rounded-lg text-[10px] font-black uppercase tracking-wider px-2 transition-all border border-outline-variant/30 select-none flex items-center justify-center text-center leading-tight" x-text="sub">
                             </button>
                         </template>
                     </div>

@@ -774,23 +774,37 @@
                                     {% if ' > ' in cat %}
                                         {% set parent = cat.split(' > ')[0] %}
                                         {% set child = cat.split(' > ')[1] %}
-                                        <div class="flex items-center gap-1.5 bg-zinc-200/60 border border-zinc-300/60 text-zinc-800 px-3 py-1.5 rounded-xl font-medium text-xs ml-4" data-category-name="{{ cat }}">
+                                        {% set cat_obj = (restaurant.category_data | selectattr("name", "equalto", cat) | first) %}
+                                        <div class="flex items-center gap-1.5 bg-zinc-200/60 border border-zinc-300/60 text-zinc-800 px-3 py-1.5 rounded-xl font-medium text-xs ml-4" data-category-name="{{ cat }}" data-category-id="{{ cat_obj.id if cat_obj else '' }}">
                                             <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
                                             <span class="text-[9px] font-black text-zinc-400 uppercase mr-1">{{ parent }} ➔</span>
-                                            <span class="font-bold text-zinc-700">{{ child }}</span>
-                                            <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                                <input type="hidden" name="name" value="{{ cat }}">
-                                                <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center ml-1">✕</button>
-                                            </form>
+                                            <span class="font-bold text-zinc-700 category-display-name">{{ child }}</span>
+                                            
+                                            <div class="flex items-center ml-1 gap-1">
+                                                <button onclick="editCategoryInline('{{ cat }}', '{{ cat_obj.id if cat_obj else '' }}', '{{ child }}')" class="text-zinc-500 hover:text-emerald-500 transition-colors">
+                                                    <span class="material-symbols-outlined text-[12px]">edit</span>
+                                                </button>
+                                                <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                                    <input type="hidden" name="name" value="{{ cat }}">
+                                                    <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center">✕</button>
+                                                </form>
+                                            </div>
                                         </div>
                                     {% else %}
-                                        <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs" data-category-name="{{ cat }}">
+                                        {% set cat_obj = (restaurant.category_data | selectattr("name", "equalto", cat) | first) %}
+                                        <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs" data-category-name="{{ cat }}" data-category-id="{{ cat_obj.id if cat_obj else '' }}">
                                             <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
-                                            <span>{{ cat }}</span>
-                                            <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                                <input type="hidden" name="name" value="{{ cat }}">
-                                                <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center ml-1">✕</button>
-                                            </form>
+                                            <span class="category-display-name">{{ cat }}</span>
+                                            
+                                            <div class="flex items-center ml-1 gap-1">
+                                                <button onclick="editCategoryInline('{{ cat }}', '{{ cat_obj.id if cat_obj else '' }}', '{{ cat }}')" class="text-zinc-500 hover:text-emerald-500 transition-colors">
+                                                    <span class="material-symbols-outlined text-[12px]">edit</span>
+                                                </button>
+                                                <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                                    <input type="hidden" name="name" value="{{ cat }}">
+                                                    <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center">✕</button>
+                                                </form>
+                                            </div>
                                         </div>
                                     {% endif %}
                                 {% endfor %}
@@ -1113,7 +1127,9 @@
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Über uns / Unsere Angebote (Beschreibung)</label>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Über uns</label>
+                                    <input type="text" name="title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Standard: Über uns" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung</label>
                                     <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
                                 </div>
                                 <div>
@@ -1123,15 +1139,18 @@
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Aktuelles / Ankündigungen</label>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Aktuelles</label>
+                                    <input type="text" name="title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelles / Ankündigungen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
                                     <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Öffnungszeiten</label>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Öffnungszeiten</label>
+                                    <input type="text" name="title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Standard: Öffnungszeiten" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
                                     <textarea name="oeffnungszeiten" rows="3" placeholder="z.B. Mo - So: 17:00 - 01:00 Uhr" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">{{ restaurant.landing_page.oeffnungszeiten if restaurant.landing_page else '' }}</textarea>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Happy Hour Aktionen</label>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Happy Hour Aktionen</label>
+                                    <input type="text" name="title_happyhour" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Standard: Happy Hour Aktionen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
                                     <textarea name="angebote" rows="3" placeholder="z.B. Täglich 18:00 - 20:00 Uhr alle Cocktails vergünstigt!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote if restaurant.landing_page else '' }}</textarea>
                                 </div>
                             </div>
@@ -1140,6 +1159,8 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
                                 <!-- Angebotsfotos -->
                                 <div class="space-y-3">
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Unsere Angebote</label>
+                                    <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Unsere Angebote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
                                     <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
                                         <span class="material-symbols-outlined text-zinc-500 text-sm">local_offer</span>
                                         Angebotsfotos / aktuelle Angebote als Fotos
@@ -1184,6 +1205,30 @@
                                         <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
                                             <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
                                             <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Galerie Fotos Sektion -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
+                                <div class="space-y-3 col-span-1 md:col-span-2">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-zinc-500 text-sm">collections</span>
+                                        Bildergalerie (für die Landingpage)
+                                    </h4>
+                                    <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    
+                                    {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        {% for img in restaurant.landing_page.gallery_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
                                                 <span class="material-symbols-outlined text-base">delete</span>
                                             </button>
                                         </div>
@@ -1597,6 +1642,79 @@
         
         const slug = "{{ slug }}";
         const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-error'} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function editCategoryInline(fullCatName, catId, displayPart) {
+            if (!catId) {
+                showToast("Fehler: Kategorie-ID nicht gefunden.", "error");
+                return;
+            }
+            
+            const newName = prompt(`Neuen Namen für "${displayPart}" eingeben:`, displayPart);
+            if (newName === null) return; // Cancel
+            
+            const trimmed = newName.trim();
+            if (!trimmed) {
+                showToast("Name darf nicht leer sein.", "error");
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/categories/${catId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: trimmed })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(`Kategorie erfolgreich aktualisiert! (${data.affected} Produkte angepasst)`, "success");
+                    
+                    // Update UI without reload
+                    // Find all elements with this category name and update them
+                    const elements = document.querySelectorAll(`[data-category-name="${fullCatName}"]`);
+                    const newFullName = data.new_name;
+                    
+                    elements.forEach(el => {
+                        el.setAttribute('data-category-name', newFullName);
+                        const nameEl = el.querySelector('.category-display-name');
+                        if (nameEl) nameEl.textContent = trimmed;
+                        
+                        // Update the edit button's onclick call for future edits
+                        const editBtn = el.querySelector('button[onclick^="editCategoryInline"]');
+                        if (editBtn) {
+                            editBtn.setAttribute('onclick', `editCategoryInline('${newFullName}', '${catId}', '${trimmed}')`);
+                        }
+                    });
+
+                    // Also update any other references in the DOM if needed
+                    // (e.g. product filter headings, dropdowns, etc.)
+                    // Simplest for now: update all [data-category] or [data-category-name]
+                    document.querySelectorAll(`[data-category="${fullCatName}"]`).forEach(el => {
+                        el.setAttribute('data-category', newFullName);
+                    });
+                    
+                    // Note: For a fully consistent state without reload,
+                    // more complex state management would be needed.
+                    // But for this MVP dashboard, updating the visible names and data attrs is a great start.
+                    
+                } else {
+                    showToast(data.detail || "Fehler beim Aktualisieren", "error");
+                }
+            } catch (error) {
+                console.error("Error updating category:", error);
+                showToast("Verbindungsfehler.", "error");
+            }
+        }
 
         // Prevent pinch-zoom (multi-touch) on mobile browsers
         document.addEventListener('touchstart', function (e) {
@@ -4179,16 +4297,6 @@
             });
         }
         
-        // Clean implementation of showToast using the existing #toast element
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            if (!toast) return;
-            toast.textContent = message;
-            toast.className = `toast toast-${type === 'error' ? 'error' : 'success'} show`;
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
 
         function deleteLandingImage(imageUrl, imageType, buttonElement) {
             if (!confirm('Dieses Bild wirklich löschen?')) return;

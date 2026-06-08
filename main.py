@@ -289,7 +289,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     if not tenant:
         return None
     
-    categories = [c.name for c in session.query(Category).filter_by(tenant_slug=slug).order_by(Category.position, Category.id).all()]
+    db_categories = session.query(Category).filter_by(tenant_slug=slug).order_by(Category.position, Category.id).all()
+    categories = [c.name for c in db_categories]
+    category_data = [{"id": c.id, "name": c.name} for c in db_categories]
     
     db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.position, Product.id).all()
     products = []
@@ -411,6 +413,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "accepts_card_payment": getattr(tenant, "accepts_card_payment", True) if getattr(tenant, "accepts_card_payment", True) is not None else True,
         "service_calls": service_calls,
         "categories": categories,
+        "category_data": category_data,
         "products": products,
         "orders": orders,
         "staff": staff,
@@ -1157,6 +1160,8 @@ class ProductUpdatePayload(BaseModel):
     name_en: Optional[str] = None
     description_en: Optional[str] = None
 
+class CategoryUpdatePayload(BaseModel):
+    name: str
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, db: Session = Depends(get_db)):
@@ -4588,6 +4593,11 @@ async def update_landingpage(
     aktuelles: Optional[str] = Form(None),
     oeffnungszeiten: Optional[str] = Form(None),
     angebote: Optional[str] = Form(None),
+    title_about: Optional[str] = Form(None),
+    title_offers: Optional[str] = Form(None),
+    title_news: Optional[str] = Form(None),
+    title_hours: Optional[str] = Form(None),
+    title_happyhour: Optional[str] = Form(None),
     slideshow_enabled: Optional[bool] = Form(False),
     offer_images: List[UploadFile] = File(None),
     slideshow_images: List[UploadFile] = File(None),
@@ -4612,11 +4622,20 @@ async def update_landingpage(
     if not isinstance(existing_slideshow, list):
         existing_slideshow = []
         
+    existing_gallery = landing_page.get("gallery_images", [])
+    if not isinstance(existing_gallery, list):
+        existing_gallery = []
+        
+    # Helper for validation
+    def is_valid_image(filename: str) -> bool:
+        allowed = {'.png', '.jpg', '.jpeg', '.webp'}
+        return os.path.splitext(filename.lower())[1] in allowed
+
     # Process new offer images
     landing_dir = os.path.join(UPLOAD_DIR, "landing")
     if offer_images:
         for idx, file in enumerate(offer_images):
-            if file.filename:
+            if file.filename and is_valid_image(file.filename):
                 os.makedirs(landing_dir, exist_ok=True)
                 safe_name = f"{slug}_offer_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(landing_dir, safe_name)
@@ -4630,7 +4649,7 @@ async def update_landingpage(
     slideshow_dir = os.path.join(UPLOAD_DIR, "slideshow")
     if slideshow_images:
         for idx, file in enumerate(slideshow_images):
-            if file.filename:
+            if file.filename and is_valid_image(file.filename):
                 os.makedirs(slideshow_dir, exist_ok=True)
                 safe_name = f"{slug}_slide_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(slideshow_dir, safe_name)
@@ -4640,6 +4659,23 @@ async def update_landingpage(
                     fh.write(content)
                 existing_slideshow.append(f"/uploads/slideshow/{safe_name}")
                 
+    # Process new gallery images
+    gallery_dir = os.path.join(UPLOAD_DIR, "gallery")
+    if gallery_images:
+        for idx, file in enumerate(gallery_images):
+            if file.filename and is_valid_image(file.filename):
+                os.makedirs(gallery_dir, exist_ok=True)
+                safe_name = f"{slug}_gal_{int(time.time())}_{idx}.jpg"
+                file_path = os.path.join(gallery_dir, safe_name)
+                content = await file.read()
+                # Check size (e.g. 5MB limit)
+                if len(content) > 5 * 1024 * 1024:
+                    continue
+                content = process_and_optimize_general_image(content)
+                with open(file_path, "wb") as fh:
+                    fh.write(content)
+                existing_gallery.append(f"/uploads/gallery/{safe_name}")
+                
     restaurant["landing_page"] = {
         "welcome_title": welcome_title.strip() if welcome_title else f"Willkommen bei {restaurant.get('name', slug)}",
         "welcome_subtitle": welcome_subtitle.strip() if welcome_subtitle else "",
@@ -4648,9 +4684,15 @@ async def update_landingpage(
         "aktuelles": aktuelles.strip() if aktuelles else "",
         "oeffnungszeiten": oeffnungszeiten.strip() if oeffnungszeiten else "",
         "angebote": angebote.strip() if angebote else "",
+        "title_about": title_about.strip() if title_about else "",
+        "title_offers": title_offers.strip() if title_offers else "",
+        "title_news": title_news.strip() if title_news else "",
+        "title_hours": title_hours.strip() if title_hours else "",
+        "title_happyhour": title_happyhour.strip() if title_happyhour else "",
         "slideshow_enabled": bool(slideshow_enabled),
         "offer_images": existing_offers,
-        "slideshow_images": existing_slideshow
+        "slideshow_images": existing_slideshow,
+        "gallery_images": existing_gallery
     }
     
     save_restaurant_to_db(slug, restaurant, db)
@@ -4672,6 +4714,8 @@ def delete_landing_image(
         
     if image_type == "offer":
         images_list = landing_page.get("offer_images", [])
+    elif image_type == "gallery":
+        images_list = landing_page.get("gallery_images", [])
     else:
         images_list = landing_page.get("slideshow_images", [])
         
@@ -4679,7 +4723,7 @@ def delete_landing_image(
         images_list.remove(image_url)
         # Delete file locally
         filename = os.path.basename(image_url)
-        subdir = "landing" if image_type == "offer" else "slideshow"
+        subdir = "landing" if image_type == "offer" else ("gallery" if image_type == "gallery" else "slideshow")
         full_path = os.path.join(UPLOAD_DIR, subdir, filename)
         if os.path.exists(full_path):
             try:
@@ -5021,6 +5065,62 @@ async def reorder_categories_api(
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return {"success": True}
+
+@app.patch("/api/categories/{cat_id}")
+async def update_category_api(
+    cat_id: int,
+    payload: CategoryUpdatePayload,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    user, slug, restaurant = chef_data
+    
+    category = db.query(Category).filter_by(id=cat_id, tenant_slug=slug).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Kategorie nicht gefunden.")
+    
+    old_full_name = category.name
+    new_name_raw = payload.name.strip()
+    
+    if not new_name_raw:
+        raise HTTPException(status_code=400, detail="Name darf nicht leer sein.")
+        
+    import html
+    new_name_raw = html.escape(new_name_raw)
+
+    new_full_name = new_name_raw
+    if " > " in old_full_name:
+        parent_part = old_full_name.rsplit(" > ", 1)[0]
+        new_full_name = f"{parent_part} > {new_name_raw}"
+    
+    if new_full_name == old_full_name:
+        return {"success": True, "message": "Keine Änderung."}
+        
+    duplicate = db.query(Category).filter_by(tenant_slug=slug, name=new_full_name).first()
+    if duplicate:
+        raise HTTPException(status_code=400, detail="Eine Kategorie mit diesem Namen existiert bereits.")
+
+    # Synchronize products and subcategories
+    products = db.query(Product).filter_by(tenant_slug=slug).all()
+    affected_products = 0
+    for prod in products:
+        if prod.category == old_full_name:
+            prod.category = new_full_name
+            affected_products += 1
+        elif prod.category.startswith(old_full_name + " > "):
+            prod.category = prod.category.replace(old_full_name + " > ", new_full_name + " > ", 1)
+            affected_products += 1
+
+    all_cats = db.query(Category).filter_by(tenant_slug=slug).all()
+    for cat in all_cats:
+        if cat.id == cat_id:
+            cat.name = new_full_name
+        elif cat.name.startswith(old_full_name + " > "):
+            cat.name = cat.name.replace(old_full_name + " > ", new_full_name + " > ", 1)
+
+    db.commit()
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "new_name": new_full_name, "affected": affected_products}
 
 
 @app.post("/admin/product-toggle/{product_id}")
