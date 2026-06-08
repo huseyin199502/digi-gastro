@@ -377,8 +377,13 @@ html.light .btn-premium-secondary:hover, body.light .btn-premium-secondary:hover
 }
 
 /* Override text-white classes to make them readable on light background */
-html.light .text-white,
-body.light .text-white,
+/* EXCEPTION: Landingpage texts (inside main view wrapper) must remain white over the background slideshow */
+html.light .landing-page-wrapper .text-white {
+    color: #ffffff !important;
+}
+
+html.light :not(.landing-page-wrapper) .text-white,
+body.light :not(.landing-page-wrapper) .text-white,
 html.light [style*="color: #ffffff"],
 body.light [style*="color: #ffffff"],
 html.light [style*="color:#ffffff"],
@@ -423,10 +428,21 @@ html.light .glass-btn-secondary:hover {
 }
 
 /* Re-adjust text gray elements to have enough contrast */
-html.light .text-zinc-400,
-html.light .text-gray-400,
-html.light .text-slate-400,
-html.light .text-on-surface-variant {
+/* EXCEPTION: Landingpage texts must remain light over the background slideshow */
+html.light .landing-page-wrapper .text-gray-200 {
+    color: #e5e7eb !important;
+}
+html.light .landing-page-wrapper .text-zinc-300 {
+    color: #d4d4d8 !important;
+}
+html.light .landing-page-wrapper .text-zinc-400 {
+    color: #a1a1aa !important;
+}
+
+html.light :not(.landing-page-wrapper) .text-zinc-400,
+html.light :not(.landing-page-wrapper) .text-gray-400,
+html.light :not(.landing-page-wrapper) .text-slate-400,
+html.light :not(.landing-page-wrapper) .text-on-surface-variant {
   color: var(--text-on-surface-variant) !important;
 }
 

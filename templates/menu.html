@@ -202,7 +202,7 @@
     <main class="flex-grow w-full max-w-4xl mx-auto px-4">
         
         <!-- ================= LANDING VIEW ================= -->
-        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6">
+        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                     <img alt="{{ restaurant.name }} Logo" class="h-24 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
