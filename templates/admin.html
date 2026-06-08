@@ -3138,7 +3138,8 @@
 
         function adminTakeOrder(tableNumber) {
             if (confirm(`Tisch ${tableNumber}: Neue Bestellung aufnehmen?`)) {
-                window.open(`/admin/impersonate/${tableNumber}`, '_blank');
+                const zoneParam = controlModalActiveTableZone ? `&z=${encodeURIComponent(controlModalActiveTableZone)}` : '';
+                window.open(`/admin/impersonate/${tableNumber}?role=waiter${zoneParam}`, '_blank');
             }
         }
 
