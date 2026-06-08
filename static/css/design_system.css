@@ -130,6 +130,35 @@ html.light .glass-panel, html.light .glass-card {
   transform: scale(0.97);
 }
 
+/* Glassmorphism Buttons for Landing Page */
+.glass-btn-primary {
+  background: rgba(16, 185, 129, 0.15) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+}
+.glass-btn-primary:hover {
+  background: rgba(16, 185, 129, 0.25) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  color: #fff !important;
+}
+
+.glass-btn-secondary {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f3f4f6 !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+}
+.glass-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #fff !important;
+}
+
 .btn-premium-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: #030712;
@@ -371,6 +400,26 @@ html.light .bg-green-500 *,
 html.light .bg-emerald-500,
 html.light .bg-emerald-500 * {
   color: #ffffff !important;
+}
+
+html.light .glass-btn-primary {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border: 1px solid rgba(16, 185, 129, 0.5) !important;
+  color: #047857 !important;
+}
+html.light .glass-btn-primary:hover {
+  background: rgba(16, 185, 129, 0.25) !important;
+  color: #022c22 !important;
+}
+
+html.light .glass-btn-secondary {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  color: #111827 !important;
+}
+html.light .glass-btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.1) !important;
+  border-color: rgba(0, 0, 0, 0.35) !important;
 }
 
 /* Re-adjust text gray elements to have enough contrast */

@@ -214,14 +214,14 @@
                 <!-- Actions Group -->
                 <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
                     <!-- CTA Button to go to Menu -->
-                    <button @click="currentView = 'speisekarte'" class="btn-premium btn-premium-primary w-full py-3.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+                    <button @click="currentView = 'speisekarte'" class="btn-premium glass-btn-primary w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
                         <span class="material-symbols-outlined">menu_book</span>
                         <span data-translate="view_menu">Speisekarte ansehen</span>
                     </button>
 
                     <!-- Google Review Link -->
                     <div x-show="restaurantLandingPage.google_rating_url" class="w-full">
-                        <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold text-zinc-300 hover:text-white transition-all bg-zinc-800/40 hover:bg-zinc-800/70 py-3 rounded-xl border border-outline-variant shadow-lg active:scale-95">
+                        <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -371,24 +371,6 @@
 
         <!-- ================= SPEISEKARTE VIEW ================= -->
         <div x-show="currentView === 'speisekarte'" class="animate-fade-in">
-            <!-- Compact Welcome Area -->
-            <div class="py-8 text-center border-b border-outline-variant mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div class="text-left font-display">
-                    <h1 class="text-3xl font-extrabold text-on-surface tracking-tight font-display"><span data-translate="welcome_title">Willkommen im</span> {{ restaurant.name }}!</h1>
-                    <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="welcome_desc">Schön, dass Sie unser Gast sind. Guten Appetit!</p>
-                </div>
-                <div class="flex gap-3 justify-center sm:justify-end" x-show="role !== 'admin'">
-                    <button onclick="openServiceModal()" class="btn-premium btn-premium-secondary text-xs text-on-surface hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
-                        <span class="material-symbols-outlined text-base">notifications_active</span>
-                        <span data-translate="nav_service">Service</span>
-                    </button>
-                    <button onclick="openPaymentModal()" class="btn-premium btn-premium-secondary text-xs text-on-surface hover:text-primary px-5 py-3 rounded-xl flex items-center gap-2 active:scale-95">
-                        <span class="material-symbols-outlined text-base">receipt_long</span>
-                        <span data-translate="nav_bill">Rechnung</span>
-                    </button>
-                </div>
-            </div>
-
             <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
             <div id="tab-speisekarte" class="py-2">
                 
@@ -423,14 +405,14 @@
 
                 <!-- Secondary Subcategories Swiper (Alpine.js powered) -->
                 <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-3 mb-1" style="display: none;">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 select-none py-1">
+                    <div class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none py-1.5 px-1" style="touch-action: pan-x;">
                         <!-- 'All' subcategory button -->
-                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="h-9 rounded-lg text-[10px] font-black uppercase tracking-wider px-2 transition-all border border-outline-variant/30 select-none flex items-center justify-center text-center leading-tight">
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center">
                             Alle
                         </button>
                         <!-- Dynamic subcategory buttons -->
                         <template x-for="sub in activeSubcategories" :key="sub">
-                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant/40 text-on-surface-variant'" class="h-9 rounded-lg text-[10px] font-black uppercase tracking-wider px-2 transition-all border border-outline-variant/30 select-none flex items-center justify-center text-center leading-tight" x-text="sub">
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center" x-text="sub">
                             </button>
                         </template>
                     </div>
@@ -545,19 +527,21 @@
     <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-2">
-            <button onclick="openServiceModal()" class="w-11 h-11 rounded-xl bg-surface border border-outline-variant flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
-                <span class="material-symbols-outlined text-xl">notifications_active</span>
+            <button onclick="openServiceModal()" class="w-[60px] h-12 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
+                <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">notifications_active</span>
+                <span class="text-[9px] font-bold leading-none tracking-wide" data-translate="nav_service">Service</span>
             </button>
-            <button onclick="openPaymentModal()" class="w-11 h-11 rounded-xl bg-surface border border-outline-variant flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
-                <span class="material-symbols-outlined text-xl">receipt_long</span>
+            <button onclick="openPaymentModal()" class="w-[60px] h-12 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
+                <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">receipt_long</span>
+                <span class="text-[9px] font-bold leading-none tracking-wide" data-translate="nav_bill">Rechnung</span>
             </button>
         </div>
         
         <!-- Right Side: Unified Cart Trigger and Total -->
-        <button onclick="openCartModal()" class="flex-grow ml-3 bg-primary text-black font-extrabold h-11 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
+        <button onclick="openCartModal()" class="flex-grow ml-3 bg-primary text-black font-extrabold h-12 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
             <div class="flex items-center gap-2">
                 <div class="relative">
-                    <span class="material-symbols-outlined text-xl font-black">shopping_basket</span>
+                    <span class="material-symbols-outlined text-xl font-black mt-0.5">shopping_basket</span>
                     <span id="cart-badge" class="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
                 </div>
                 <span class="text-xs font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
