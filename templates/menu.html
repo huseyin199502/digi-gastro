@@ -254,18 +254,18 @@
                 </div>
             </div>
 
-            <!-- Angebotsfotos (aktuelle Angebote als Slider) -->
-            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
+            <!-- Angebotsfotos (aktuelle Angebote als Slider) - FULL WIDTH -->
+            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-white drop-shadow-md font-display px-3">
                     <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
                 </h3>
                 
-                <!-- Touch Slider/Carousel Container -->
+                <!-- Touch Slider/Carousel Container - Full Width -->
                 <div class="relative w-full overflow-hidden rounded-2xl bg-zinc-950/40 border border-outline-variant/30 group">
                     <div id="offer-slider" class="flex w-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
                         <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
                             <div class="w-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
-                                <img :src="img" alt="Angebot" class="w-full object-contain" loading="lazy">
+                                <img :src="img" alt="Angebot" class="w-full h-auto object-cover" loading="lazy">
                             </div>
                         </template>
                     </div>
@@ -366,7 +366,7 @@
                     <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
                         <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
                             <h3 class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
-                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-contain" :alt="section.title" loading="lazy">
+                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-cover" :alt="section.title" loading="lazy">
                             <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-show="section.content" x-text="section.content"></p>
                         </div>
                     </template>

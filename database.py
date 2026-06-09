@@ -379,6 +379,11 @@ STANDARD_PRODUCTS = [
     }
 ]
 
+# ── Public migration runner (called by main.py at startup) ──
+def run_migrations():
+    """Run all pending database migrations. Called once at app startup."""
+    _migrate_database()
+
 def get_db():
     db = SessionLocal()
     try:
