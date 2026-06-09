@@ -118,61 +118,67 @@
             position: relative;
             overflow: hidden;
             width: 100%;
-            height: 64px;
+            height: 72px;
             display: flex;
             align-items: center;
             justify-content: center;
+            touch-action: pan-x;
         }
         #category-carousel-track {
             display: flex;
             align-items: center;
-            gap: 8px;
-            transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+            gap: 10px;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
             will-change: transform;
-            padding: 0 20px;
+            padding: 0 50px;
         }
         #category-carousel-track.dragging {
-            transition: none;
+            transition: none !important;
         }
         .cat-pill {
             flex-shrink: 0;
-            height: 40px;
-            padding: 0 16px;
-            border-radius: 14px;
-            font-size: 11px;
-            font-weight: 700;
+            height: 44px;
+            min-width: 100px;
+            padding: 0 20px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             display: flex;
             align-items: center;
             justify-content: center;
             white-space: nowrap;
-            transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+            transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
-            border: 1.5px solid transparent;
+            border: 2px solid transparent;
             position: relative;
             z-index: 1;
+            font-family: 'Outfit', 'Inter', sans-serif;
+            transform: scale(1);
+            opacity: 1;
         }
         .cat-pill.active {
-            background: var(--color-primary);
-            color: #000;
-            box-shadow: 0 4px 20px -4px var(--color-primary);
-            border-color: transparent;
+            background: var(--color-primary) !important;
+            color: #000 !important;
+            box-shadow: 0 6px 24px -4px var(--color-primary), 0 0 0 2px rgba(244, 63, 94, 0.2);
+            border-color: transparent !important;
             z-index: 2;
         }
         .cat-pill.inactive {
-            background: var(--bg-surface);
-            color: var(--text-on-surface-variant);
-            border-color: var(--border-subtle);
+            background: rgba(39, 39, 42, 0.8);
+            color: rgba(161, 161, 170, 0.9);
+            border-color: rgba(63, 63, 70, 0.5);
         }
-        /* Scale is controlled by JS via CSS custom property --cat-scale */
-        .cat-pill {
-            transform: scale(var(--cat-scale, 0.85));
-            opacity: var(--cat-opacity, 0.6);
+        .cat-pill.inactive:hover {
+            background: rgba(63, 63, 70, 0.6);
+            color: rgba(228, 228, 231, 0.9);
         }
+        /* Scale and opacity are controlled entirely by JS via inline styles */
+        /* JS sets pill.style.transform and pill.style.opacity in centerCarouselAt() */
         /* Video full-size display - no crop, no max-height restriction */
         .landing-video-full {
             width: 100%;
@@ -1225,8 +1231,18 @@
                         this.filterCategory(firstCategory);
                     }
                     
-                    // Initialize category carousel (center-lock + swipe)
-                    setTimeout(() => this.initCategoryCarousel(), 50);
+                    // Initialize category carousel when speisekarte view becomes visible
+                    // Use MutationObserver + delay to ensure DOM is rendered with correct dimensions
+                    const initCarouselWhenReady = () => {
+                        const speisekarteView = document.querySelector('[x-show="currentView === \'speisekarte\'"]');
+                        if (speisekarteView && speisekarteView.offsetHeight > 0) {
+                            setTimeout(() => this.initCategoryCarousel(), 100);
+                        } else {
+                            // Retry after a short delay if the view is not visible yet
+                            setTimeout(() => initCarouselWhenReady(), 300);
+                        }
+                    };
+                    setTimeout(() => initCarouselWhenReady(), 300);
                     
                     // Recenter carousel on window resize
                     window.addEventListener('resize', () => {
@@ -1578,7 +1594,7 @@
                     // Calculate offset to center this pill
                     let offset = 0;
                     for (let i = 0; i < index; i++) {
-                        offset += pills[i].offsetWidth + 8; // 8 = gap
+                        offset += pills[i].offsetWidth + 10; // 10 = gap
                     }
                     offset += pillWidth / 2; // center of the active pill
                     
@@ -1594,7 +1610,7 @@
                         requestAnimationFrame(() => track.classList.remove('dragging'));
                     }
                     
-                    // Apply fisheye scale effect to all pills
+                    // Apply fisheye scale effect to all pills based on distance
                     pills.forEach((pill, i) => {
                         const distance = Math.abs(i - index);
                         let scale, opacity;
@@ -1603,16 +1619,16 @@
                             opacity = 1;
                         } else if (distance === 1) {
                             scale = 0.9;
-                            opacity = 0.7;
+                            opacity = 0.75;
                         } else if (distance === 2) {
-                            scale = 0.78;
-                            opacity = 0.45;
+                            scale = 0.8;
+                            opacity = 0.5;
                         } else {
-                            scale = 0.7;
-                            opacity = 0.3;
+                            scale = 0.72;
+                            opacity = 0.35;
                         }
-                        pill.style.setProperty('--cat-scale', scale);
-                        pill.style.setProperty('--cat-opacity', opacity);
+                        pill.style.transform = `scale(${scale})`;
+                        pill.style.opacity = opacity;
                     });
                 },
 
@@ -1622,11 +1638,14 @@
                     if (!track || !wrapper) return;
                     
                     const pills = track.querySelectorAll('.cat-pill');
+                    if (!pills.length) return;
+                    
                     let isDragging = false;
                     let startX = 0;
                     let currentTranslate = 0;
                     let prevTranslate = 0;
                     let dragMoved = false;
+                    const self = this;
                     
                     const getCategoryIndex = (category) => {
                         for (let i = 0; i < pills.length; i++) {
@@ -1659,15 +1678,17 @@
                         track.style.transform = `translateX(${currentTranslate}px)`;
                         
                         // Live fisheye update during drag
-                        const wrapperCenter = wrapper.getBoundingClientRect().left + wrapper.getBoundingClientRect().width / 2;
+                        const wrapperRect = wrapper.getBoundingClientRect();
+                        const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
+                        const halfWidth = wrapperRect.width / 2;
                         pills.forEach(pill => {
                             const pillRect = pill.getBoundingClientRect();
                             const pillCenter = pillRect.left + pillRect.width / 2;
-                            const distance = Math.abs(pillCenter - wrapperCenter) / (wrapper.getBoundingClientRect().width / 2);
-                            const scale = Math.max(0.7, 1.15 - distance * 0.5);
-                            const opacity = Math.max(0.3, 1 - distance * 0.7);
-                            pill.style.setProperty('--cat-scale', scale);
-                            pill.style.setProperty('--cat-opacity', opacity);
+                            const distance = Math.abs(pillCenter - wrapperCenter) / halfWidth;
+                            const scale = Math.max(0.72, 1.15 - distance * 0.5);
+                            const opacity = Math.max(0.35, 1 - distance * 0.65);
+                            pill.style.transform = `scale(${scale})`;
+                            pill.style.opacity = opacity;
                         });
                     };
                     
@@ -1679,7 +1700,8 @@
                         if (!dragMoved) return; // It was a click, not a drag
                         
                         // Determine which pill is closest to center after drag
-                        const wrapperCenter = wrapper.getBoundingClientRect().left + wrapper.getBoundingClientRect().width / 2;
+                        const wrapperRect = wrapper.getBoundingClientRect();
+                        const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
                         let closestIdx = 0;
                         let closestDist = Infinity;
                         pills.forEach((pill, i) => {
@@ -1694,12 +1716,17 @@
                         
                         // Snap to the closest category
                         const category = pills[closestIdx].getAttribute('data-category');
-                        this.filterCategory(category);
+                        self.filterCategory(category);
                     };
                     
-                    // Touch events
-                    wrapper.addEventListener('touchstart', dragStart, { passive: true });
-                    wrapper.addEventListener('touchmove', dragMove, { passive: true });
+                    // Touch events - NOT passive so we can prevent scrolling during horizontal swipe
+                    wrapper.addEventListener('touchstart', dragStart, { passive: false });
+                    wrapper.addEventListener('touchmove', (e) => {
+                        if (isDragging && dragMoved) {
+                            e.preventDefault(); // Prevent page scroll during horizontal swipe
+                        }
+                        dragMove(e);
+                    }, { passive: false });
                     wrapper.addEventListener('touchend', dragEnd);
                     
                     // Mouse events
@@ -1711,21 +1738,13 @@
                     // Prevent default drag behavior
                     wrapper.addEventListener('dragstart', (e) => e.preventDefault());
                     
-                    // Initial center
-                    const firstCategory = "{{ parent_categories[0] if parent_categories else '' }}";
+                    // Initial center on first category
+                    const firstCategory = this.currentCategory || "{{ parent_categories[0] if parent_categories else '' }}";
                     if (firstCategory) {
                         const idx = getCategoryIndex(firstCategory);
-                        this.centerCarouselAt(idx, true);
-                        // Apply initial fisheye
-                        pills.forEach((pill, i) => {
-                            const distance = Math.abs(i - idx);
-                            let scale, opacity;
-                            if (distance === 0) { scale = 1.15; opacity = 1; }
-                            else if (distance === 1) { scale = 0.9; opacity = 0.7; }
-                            else if (distance === 2) { scale = 0.78; opacity = 0.45; }
-                            else { scale = 0.7; opacity = 0.3; }
-                            pill.style.setProperty('--cat-scale', scale);
-                            pill.style.setProperty('--cat-opacity', opacity);
+                        // Use requestAnimationFrame to ensure DOM is fully rendered
+                        requestAnimationFrame(() => {
+                            self.centerCarouselAt(idx, true);
                         });
                     }
                 },
