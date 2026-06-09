@@ -1170,12 +1170,59 @@
                                     <input type="time" name="end" value="{{ restaurant.happy_hour.end if restaurant.happy_hour else '20:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%)</label>
-                                    <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Modus</label>
+                                    <select name="mode" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-bold">
+                                        <option value="selected" {% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') == 'selected' %}selected{% endif %}>Nur ausgewählte Produkte</option>
+                                        <option value="discount" {% if restaurant.happy_hour and restaurant.happy_hour.get('mode') == 'discount' %}selected{% endif %}>Rabatt auf fast alles</option>
+                                    </select>
                                 </div>
+                            </div>
+                            <div id="hh-discount-row" class="{% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') != 'discount' %}hidden{% endif %}">
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%) — gilt nur im Modus "Rabatt auf fast alles"</label>
+                                <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
                             </div>
                             <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
                         </form>
+                    </div>
+
+                    <!-- Happy Hour Product Selector -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 mt-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-zinc-500">local_offer</span> Happy Hour Produkte
+                            </h3>
+                            <span id="hh-product-count" class="bg-amber-500/10 text-amber-600 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase">
+                                {{ restaurant.products | selectattr('happy_hour_price', 'ne', none) | list | length }} ausgewählt
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-zinc-500 leading-relaxed">
+                            Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt.
+                        </p>
+                        <div class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                            {% for cat in restaurant.categories %}
+                            <div class="sticky top-0 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-[10px] font-extrabold text-zinc-600 uppercase tracking-wider z-10">{{ cat }}</div>
+                            {% for p in restaurant.products if p.category == cat %}
+                            <div class="flex items-center gap-3 p-2.5 rounded-xl border {{ 'border-amber-300 bg-amber-50' if p.happy_hour_price else 'border-gray-100 bg-gray-50' }} transition-colors">
+                                <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+                                    <input type="checkbox" class="hh-product-toggle rounded text-amber-500 focus:ring-amber-400 shrink-0" data-product-id="{{ p.id }}" {% if p.happy_hour_price %}checked{% endif %} onchange="toggleHHProductRow({{ p.id }}, this.checked)">
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-xs text-zinc-800 truncate">{{ p.name }}</div>
+                                        <div class="text-[10px] text-zinc-500 font-mono">{{ "%.2f"|format(p.price) }} €</div>
+                                    </div>
+                                </label>
+                                <div class="hh-price-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-fields-{{ p.id }}">
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" step="0.01" min="0" placeholder="HH-Preis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-20 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
+                                        <span class="text-[10px] text-zinc-400">€</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% endfor %}
+                        </div>
+                        <button type="button" onclick="saveAllHHProducts()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-sm">save</span> Happy Hour Produkte speichern
+                        </button>
                     </div>
                 </div>
 
@@ -4477,6 +4524,93 @@
                 form.classList.toggle('hidden');
             }
         }
+
+        // Toggle HH product row highlight and price field visibility
+        function toggleHHProductRow(productId, isChecked) {
+            const fields = document.getElementById('hh-fields-' + productId);
+            const row = fields ? fields.closest('.flex.items-center') : null;
+            if (isChecked) {
+                if (fields) fields.classList.remove('hidden');
+                if (row) {
+                    row.classList.remove('border-gray-100', 'bg-gray-50');
+                    row.classList.add('border-amber-300', 'bg-amber-50');
+                }
+                // Focus the price input
+                const priceInput = document.getElementById('hh-price-' + productId);
+                if (priceInput) priceInput.focus();
+            } else {
+                if (fields) fields.classList.add('hidden');
+                if (row) {
+                    row.classList.remove('border-amber-300', 'bg-amber-50');
+                    row.classList.add('border-gray-100', 'bg-gray-50');
+                }
+                // Clear the price
+                const priceInput = document.getElementById('hh-price-' + productId);
+                if (priceInput) priceInput.value = '';
+            }
+            updateHHProductCount();
+        }
+
+        function updateHHProductCount() {
+            const checked = document.querySelectorAll('.hh-product-toggle:checked');
+            const countEl = document.getElementById('hh-product-count');
+            if (countEl) countEl.textContent = checked.length + ' ausgewählt';
+        }
+
+        // Save all HH product assignments via API
+        function saveAllHHProducts() {
+            const toggles = document.querySelectorAll('.hh-product-toggle');
+            const updates = [];
+
+            toggles.forEach(cb => {
+                const pid = cb.dataset.productId;
+                const isChecked = cb.checked;
+                const priceInput = document.getElementById('hh-price-' + pid);
+                const hhPrice = isChecked && priceInput && priceInput.value ? parseFloat(priceInput.value) : null;
+
+                updates.push({
+                    product_id: parseInt(pid),
+                    happy_hour_price: hhPrice
+                });
+            });
+
+            // Get global HH time range for the products
+            const hhStart = document.querySelector('input[name="start"]')?.value || '18:00';
+            const hhEnd = document.querySelector('input[name="end"]')?.value || '20:00';
+
+            fetch('/admin/happy-hour-products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ products: updates, start_time: hhStart, end_time: hhEnd })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Happy Hour Produkte gespeichert!', 'success');
+                } else {
+                    showToast('Fehler: ' + (data.error || 'Unbekannt'), 'error');
+                }
+            })
+            .catch(err => {
+                console.error('HH save error:', err);
+                showToast('Verbindungsfehler', 'error');
+            });
+        }
+
+        // Show/hide discount row based on mode selection
+        document.addEventListener('DOMContentLoaded', function() {
+            const modeSelect = document.querySelector('select[name="mode"]');
+            const discountRow = document.getElementById('hh-discount-row');
+            if (modeSelect && discountRow) {
+                modeSelect.addEventListener('change', function() {
+                    if (this.value === 'discount') {
+                        discountRow.classList.remove('hidden');
+                    } else {
+                        discountRow.classList.add('hidden');
+                    }
+                });
+            }
+        });
 
         function closeEditProductModal() {
             document.getElementById('edit-product-modal').classList.add('hidden');

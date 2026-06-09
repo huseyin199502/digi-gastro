@@ -108,6 +108,7 @@ class Tenant(Base):
     happy_hour_start = Column(String, default="18:00")
     happy_hour_end = Column(String, default="20:00")
     happy_hour_discount = Column(Integer, default=0)
+    happy_hour_mode = Column(String, default="discount")  # "selected" = only chosen products, "discount" = % on everything
     theme = Column(String, default="dark")
     accepts_card_payment = Column(Boolean, default=True)
 
@@ -251,6 +252,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'theme', "VARCHAR DEFAULT 'dark'")
     add_column_if_missing('tenants', 'tiktok', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'accepts_card_payment', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('tenants', 'happy_hour_mode', "VARCHAR DEFAULT 'discount'")
 
 
     # Migrate 'tables' table
@@ -268,6 +270,9 @@ def _migrate_database():
     add_column_if_missing('products', 'name_en', "VARCHAR")
     add_column_if_missing('products', 'description_en', "TEXT")
     add_column_if_missing('products', 'position', "INTEGER DEFAULT 0")
+    add_column_if_missing('products', 'happy_hour_price', "FLOAT")
+    add_column_if_missing('products', 'start_time', "VARCHAR")
+    add_column_if_missing('products', 'end_time', "VARCHAR")
 
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")

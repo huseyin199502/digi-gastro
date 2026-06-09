@@ -108,6 +108,7 @@ class Tenant(Base):
     happy_hour_start = Column(String, default="18:00")
     happy_hour_end = Column(String, default="20:00")
     happy_hour_discount = Column(Integer, default=0)
+    happy_hour_mode = Column(String, default="discount")  # "selected" = only chosen products, "discount" = % on everything
     theme = Column(String, default="dark")
     accepts_card_payment = Column(Boolean, default=True)
 
@@ -251,6 +252,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'theme', "VARCHAR DEFAULT 'dark'")
     add_column_if_missing('tenants', 'tiktok', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'accepts_card_payment', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('tenants', 'happy_hour_mode', "VARCHAR DEFAULT 'discount'")
 
 
     # Migrate 'tables' table
@@ -268,6 +270,9 @@ def _migrate_database():
     add_column_if_missing('products', 'name_en', "VARCHAR")
     add_column_if_missing('products', 'description_en', "TEXT")
     add_column_if_missing('products', 'position', "INTEGER DEFAULT 0")
+    add_column_if_missing('products', 'happy_hour_price', "FLOAT")
+    add_column_if_missing('products', 'start_time', "VARCHAR")
+    add_column_if_missing('products', 'end_time', "VARCHAR")
 
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")
@@ -379,29 +384,15 @@ STANDARD_PRODUCTS = [
     }
 ]
 
+# ── Public migration runner (called by main.py at startup) ──
+def run_migrations():
+    """Run all pending database migrations. Called once at app startup."""
+    _migrate_database()
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-def run_migrations():
-    """Apply incremental ALTER TABLE migrations safely (idempotent)."""
-    migrations = [
-        # 2024-06: Add customer note field to order items
-        "ALTER TABLE order_items ADD COLUMN note TEXT",
-        "ALTER TABLE tenants ADD COLUMN plz VARCHAR DEFAULT ''",
-        "ALTER TABLE tenants ADD COLUMN ort VARCHAR DEFAULT ''",
-        "ALTER TABLE tenants ADD COLUMN landing_page_json TEXT DEFAULT '{}'",
-    ]
-    for sql in migrations:
-        try:
-            with engine.begin() as conn:
-                conn.execute(__import__("sqlalchemy").text(sql))
-        except Exception:
-            # Column already exists or similar – safe to ignore
-            pass
-# sync comment to trigger git push
-
 

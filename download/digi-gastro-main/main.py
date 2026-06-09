@@ -432,7 +432,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "days": json.loads(tenant.happy_hour_days or "[]"),
             "start": tenant.happy_hour_start,
             "end": tenant.happy_hour_end,
-            "discount": tenant.happy_hour_discount
+            "discount": tenant.happy_hour_discount,
+            "mode": getattr(tenant, 'happy_hour_mode', None) or 'discount'
         },
         "tables": tables,
         "audit_log": audit_log
@@ -497,6 +498,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.happy_hour_start = hh.get("start", "18:00")
     tenant.happy_hour_end = hh.get("end", "20:00")
     tenant.happy_hour_discount = hh.get("discount", 0)
+    if hasattr(tenant, 'happy_hour_mode'):
+        tenant.happy_hour_mode = hh.get("mode", "discount")
     
     session.flush()
     # 1. Update categories
@@ -1236,11 +1239,13 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/impressum", response_class=HTMLResponse)
 def platform_impressum(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="landing.html", context={"show_impressum": True})
+    # Pass request context properly for template rendering
+    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_impressum": True, "is_logged_in": False})
 
 @app.get("/datenschutz", response_class=HTMLResponse)
 def platform_datenschutz(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="landing.html", context={"show_datenschutz": True})
+    # Pass request context properly for template rendering
+    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_datenschutz": True, "is_logged_in": False})
 
 
 
@@ -1293,28 +1298,24 @@ def global_login_post(
             "landing.html",
             {"request": request, "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.", "show_login": True}
         )
-    db = SessionLocal()
-    try:
-        tenant = db.query(Tenant).filter_by(email=email.strip()).first()
-        if tenant and tenant.password == password.strip():
-            slug = tenant.slug
-            target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
-            resp = RedirectResponse(url=target, status_code=303)
-            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
-            return resp
-            
-        if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
-            resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-            resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
-            return resp
-            
-        return templates.TemplateResponse(
-            request,
-            "landing.html",
-            {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True}
-        )
-    finally:
-        db.close()
+    tenant = db.query(Tenant).filter_by(email=email.strip()).first()
+    if tenant and tenant.password == password.strip():
+        slug = tenant.slug
+        target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+        resp = RedirectResponse(url=target, status_code=303)
+        resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
+        return resp
+        
+    if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
+        resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
+        resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+        return resp
+        
+    return templates.TemplateResponse(
+        request,
+        "landing.html",
+        {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True}
+    )
 
 
 # ==========================================
@@ -1832,6 +1833,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     
     hh_config = restaurant.get("happy_hour", {})
+    hh_mode = hh_config.get("mode", "discount")  # "selected" = only chosen products, "discount" = % on everything
     hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
     
     processed_products = []
@@ -1845,13 +1847,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         prod["is_hh_active"] = False
         prod["display_price"] = prod["price"]
         
+        # Priority 1: Per-product fixed HH price (respects both day AND time)
         if prod.get("happy_hour_price") is not None:
             start = prod.get("start_time", "18:00")
             end = prod.get("end_time", "20:00")
-            if start <= now_time <= end:
+            if hh_active_global and start <= now_time <= end:
                 prod["is_hh_active"] = True
                 prod["display_price"] = prod["happy_hour_price"]
-        elif hh_active_global and hh_config.get("discount", 0) > 0:
+        # Priority 2: Global discount (only in "discount" mode)
+        elif hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
             discount_factor = (100 - hh_config["discount"]) / 100.0
             prod["is_hh_active"] = True
             prod["display_price"] = round(prod["price"] * discount_factor, 2)
@@ -1952,6 +1956,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     hh_config = restaurant.get("happy_hour", {})
+    hh_mode = hh_config.get("mode", "discount")
     hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
 
     products_map = {p["id"]: p for p in restaurant.get("products", [])}
@@ -1963,11 +1968,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             if hh_price is not None:
                 start = prod.get("start_time", "18:00")
                 end = prod.get("end_time", "20:00")
-                if start <= now_time <= end:
+                if hh_active_global and start <= now_time <= end:
                     is_hh_active_for_product = True
                     item.price = hh_price
             
-            if not is_hh_active_for_product and hh_active_global and hh_config.get("discount", 0) > 0:
+            if not is_hh_active_for_product and hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
                 discount_factor = (100 - hh_config["discount"]) / 100.0
                 item.price = round(prod["price"] * discount_factor, 2)
     
@@ -3334,10 +3339,7 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
     restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
-        restaurant["is_setup_completed"] = True
-        restaurant["is_onboarded"] = True
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        return RedirectResponse(url="/admin/setup")
         
     # Process Happy Hour status for admin dashboard
     berlin_now = get_berlin_now()
@@ -3465,11 +3467,6 @@ def get_login(request: Request, redirect: Optional[str] = None, db: Session = De
         restaurant = get_restaurant_or_raise(slug, db)
         role = user["role"]
         if role == "chef":
-            if not restaurant.get("is_setup_completed", False):
-                restaurant["is_setup_completed"] = True
-                restaurant["is_onboarded"] = True
-                save_restaurant_to_db(slug, restaurant, db)
-                db.commit()
             return RedirectResponse(url="/admin/dashboard")
         elif role == "kellner":
             return RedirectResponse(url=f"/{slug}/tablet")
@@ -4589,22 +4586,18 @@ async def update_landingpage(
     request: Request,
     welcome_title: Optional[str] = Form(None),
     welcome_subtitle: Optional[str] = Form(None),
-    what_we_offer: Optional[str] = Form(None),
     google_rating_url: Optional[str] = Form(None),
-    aktuelles: Optional[str] = Form(None),
-    oeffnungszeiten: Optional[str] = Form(None),
-    angebote: Optional[str] = Form(None),
-    title_about: Optional[str] = Form(None),
     title_offers: Optional[str] = Form(None),
-    title_news: Optional[str] = Form(None),
-    title_hours: Optional[str] = Form(None),
-    title_happyhour: Optional[str] = Form(None),
+    title_gallery: Optional[str] = Form(None),
+    title_videos: Optional[str] = Form(None),
     slideshow_enabled: Optional[bool] = Form(False),
+    landing_sections_json: Optional[str] = Form(None),
     custom_sections_json: Optional[str] = Form(None),
     offer_images: List[UploadFile] = File(None),
     slideshow_images: List[UploadFile] = File(None),
     gallery_images: List[UploadFile] = File(None),
     custom_section_images: List[UploadFile] = File(None),
+    landing_videos: List[UploadFile] = File(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
@@ -4622,25 +4615,78 @@ async def update_landingpage(
     existing_offers = landing_page.get("offer_images", [])
     if not isinstance(existing_offers, list):
         existing_offers = []
+    existing_offer_videos = landing_page.get("offer_videos", [])
+    if not isinstance(existing_offer_videos, list):
+        existing_offer_videos = []
         
     existing_slideshow = landing_page.get("slideshow_images", [])
     if not isinstance(existing_slideshow, list):
         existing_slideshow = []
+    existing_slideshow_videos = landing_page.get("slideshow_videos", [])
+    if not isinstance(existing_slideshow_videos, list):
+        existing_slideshow_videos = []
         
     existing_gallery = landing_page.get("gallery_images", [])
     if not isinstance(existing_gallery, list):
         existing_gallery = []
+    existing_gallery_videos = landing_page.get("gallery_videos", [])
+    if not isinstance(existing_gallery_videos, list):
+        existing_gallery_videos = []
+    
+    existing_videos = landing_page.get("videos", [])
+    if not isinstance(existing_videos, list):
+        existing_videos = []
         
     # Helper for validation
     def is_valid_image(filename: str) -> bool:
         allowed = {'.png', '.jpg', '.jpeg', '.webp'}
         return os.path.splitext(filename.lower())[1] in allowed
+    
+    def is_valid_video(filename: str) -> bool:
+        allowed = {'.mp4', '.webm', '.mov', '.avi', '.mkv'}
+        return os.path.splitext(filename.lower())[1] in allowed
 
-    # Process new offer images
+    # Helper to save a video with duration check
+    async def save_video_file(file, slug_prefix, upload_subdir, idx):
+        ext = os.path.splitext(file.filename.lower())[1]
+        vdir = os.path.join(UPLOAD_DIR, upload_subdir)
+        os.makedirs(vdir, exist_ok=True)
+        safe_name = f"{slug}_{slug_prefix}_{int(time.time())}_{idx}{ext}"
+        file_path = os.path.join(vdir, safe_name)
+        content = await file.read()
+        if len(content) > 50 * 1024 * 1024:
+            return None
+        with open(file_path, "wb") as fh:
+            fh.write(content)
+        # Validate duration using ffprobe if available
+        try:
+            import subprocess
+            probe_cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_format", "-show_streams", file_path
+            ]
+            result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                probe_data = json_module.loads(result.stdout)
+                duration = float(probe_data.get("format", {}).get("duration", 0))
+                if duration > 41:
+                    os.remove(file_path)
+                    return None
+        except Exception:
+            pass
+        return f"/uploads/{upload_subdir}/{safe_name}"
+
+    # Process new offer images (and videos mixed in)
     landing_dir = os.path.join(UPLOAD_DIR, "landing")
     if offer_images:
         for idx, file in enumerate(offer_images):
-            if file.filename and is_valid_image(file.filename):
+            if not file.filename:
+                continue
+            if is_valid_video(file.filename):
+                url = await save_video_file(file, "offer_vid", "videos", idx)
+                if url:
+                    existing_offer_videos.append(url)
+            elif is_valid_image(file.filename):
                 os.makedirs(landing_dir, exist_ok=True)
                 safe_name = f"{slug}_offer_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(landing_dir, safe_name)
@@ -4650,11 +4696,17 @@ async def update_landingpage(
                     fh.write(content)
                 existing_offers.append(f"/uploads/landing/{safe_name}")
                 
-    # Process new slideshow images
+    # Process new slideshow images (and videos mixed in)
     slideshow_dir = os.path.join(UPLOAD_DIR, "slideshow")
     if slideshow_images:
         for idx, file in enumerate(slideshow_images):
-            if file.filename and is_valid_image(file.filename):
+            if not file.filename:
+                continue
+            if is_valid_video(file.filename):
+                url = await save_video_file(file, "slide_vid", "videos", idx)
+                if url:
+                    existing_slideshow_videos.append(url)
+            elif is_valid_image(file.filename):
                 os.makedirs(slideshow_dir, exist_ok=True)
                 safe_name = f"{slug}_slide_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(slideshow_dir, safe_name)
@@ -4664,16 +4716,21 @@ async def update_landingpage(
                     fh.write(content)
                 existing_slideshow.append(f"/uploads/slideshow/{safe_name}")
                 
-    # Process new gallery images
+    # Process new gallery images (and videos mixed in)
     gallery_dir = os.path.join(UPLOAD_DIR, "gallery")
     if gallery_images:
         for idx, file in enumerate(gallery_images):
-            if file.filename and is_valid_image(file.filename):
+            if not file.filename:
+                continue
+            if is_valid_video(file.filename):
+                url = await save_video_file(file, "gal_vid", "videos", idx)
+                if url:
+                    existing_gallery_videos.append(url)
+            elif is_valid_image(file.filename):
                 os.makedirs(gallery_dir, exist_ok=True)
                 safe_name = f"{slug}_gal_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(gallery_dir, safe_name)
                 content = await file.read()
-                # Check size (e.g. 5MB limit)
                 if len(content) > 5 * 1024 * 1024:
                     continue
                 content = process_and_optimize_general_image(content)
@@ -4681,22 +4738,113 @@ async def update_landingpage(
                     fh.write(content)
                 existing_gallery.append(f"/uploads/gallery/{safe_name}")
     
-    # Parse custom sections JSON
+    # Process video uploads (max 40 seconds, no crop)
+    video_dir = os.path.join(UPLOAD_DIR, "videos")
+    if landing_videos:
+        for idx, file in enumerate(landing_videos):
+            if file.filename and is_valid_video(file.filename):
+                os.makedirs(video_dir, exist_ok=True)
+                ext = os.path.splitext(file.filename.lower())[1]
+                safe_name = f"{slug}_vid_{int(time.time())}_{idx}{ext}"
+                file_path = os.path.join(video_dir, safe_name)
+                content = await file.read()
+                # Size limit: 50MB for videos
+                if len(content) > 50 * 1024 * 1024:
+                    continue
+                # Write video as-is (no crop, no re-encode)
+                with open(file_path, "wb") as fh:
+                    fh.write(content)
+                # Validate duration using ffprobe if available, otherwise trust the upload
+                try:
+                    import subprocess
+                    probe_cmd = [
+                        "ffprobe", "-v", "quiet", "-print_format", "json",
+                        "-show_format", "-show_streams", file_path
+                    ]
+                    result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        probe_data = json_module.loads(result.stdout)
+                        duration = float(probe_data.get("format", {}).get("duration", 0))
+                        if duration > 41:  # small buffer for rounding
+                            os.remove(file_path)
+                            continue
+                except Exception:
+                    pass  # ffprobe not available, trust the upload
+                existing_videos.append(f"/uploads/videos/{safe_name}")
+    
+    # Parse landing sections JSON (new dynamic sections system)
+    landing_sections = []
+    if landing_sections_json:
+        try:
+            landing_sections = json_module.loads(landing_sections_json)
+            if not isinstance(landing_sections, list):
+                landing_sections = []
+        except Exception:
+            landing_sections = []
+    
+    # Extract built-in section data from landing_sections
+    what_we_offer = ""
+    title_about = ""
+    oeffnungszeiten = ""
+    title_hours = ""
+    angebote = ""
+    title_happyhour = ""
+    aktuelles = ""
+    title_news = ""
     custom_sections = []
+    
+    for sec in landing_sections:
+        sec_type = sec.get("type", "custom")
+        sec_title = sec.get("title", "").strip()
+        sec_content = sec.get("content", "").strip()
+        
+        if sec_type == "about":
+            what_we_offer = sec_content
+            title_about = sec_title
+        elif sec_type == "hours":
+            oeffnungszeiten = sec_content
+            title_hours = sec_title
+        elif sec_type == "offers":
+            angebote = sec_content
+            title_happyhour = sec_title
+        elif sec_type == "news":
+            aktuelles = sec_content
+            title_news = sec_title
+        elif sec_type == "custom":
+            custom_sections.append({
+                "title": sec_title,
+                "content": sec_content,
+                "image": ""
+            })
+    
+    # Also check custom_sections_json for backward compatibility (image-bearing custom sections)
     if custom_sections_json:
         try:
-            custom_sections = json_module.loads(custom_sections_json)
-            if not isinstance(custom_sections, list):
-                custom_sections = []
+            compat_sections = json_module.loads(custom_sections_json)
+            if isinstance(compat_sections, list):
+                # Merge with image data from existing custom sections
+                for i, sec in enumerate(compat_sections):
+                    if isinstance(sec, dict):
+                        # Check if this section already exists by title match
+                        found = False
+                        for existing in custom_sections:
+                            if existing.get("title") == sec.get("title", "").strip():
+                                existing["image"] = sec.get("image", "")
+                                found = True
+                                break
+                        if not found and (sec.get("title") or sec.get("content") or sec.get("image")):
+                            custom_sections.append({
+                                "title": str(sec.get("title", "")).strip(),
+                                "content": str(sec.get("content", "")).strip(),
+                                "image": str(sec.get("image", "")).strip()
+                            })
         except Exception:
-            custom_sections = []
+            pass
     
     # Process custom section image uploads
-    # Match uploaded images to sections that have _has_new_image flag
     custom_image_idx = 0
     if custom_section_images:
         os.makedirs(landing_dir, exist_ok=True)
-        # First count how many sections need new images (for matching order)
         new_image_section_indices = []
         for i, section in enumerate(custom_sections):
             if section.get("_has_new_image"):
@@ -4715,7 +4863,17 @@ async def update_landingpage(
                     custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
                 custom_image_idx += 1
     
-    # Clean up custom sections - ensure proper structure, remove internal flags
+    # Preserve existing custom section images
+    old_custom = landing_page.get("custom_sections", [])
+    if isinstance(old_custom, list):
+        for old_sec in old_custom:
+            if isinstance(old_sec, dict) and old_sec.get("image"):
+                for new_sec in custom_sections:
+                    if new_sec.get("title") == old_sec.get("title") and not new_sec.get("image"):
+                        new_sec["image"] = old_sec["image"]
+                        break
+    
+    # Clean up custom sections
     cleaned_custom_sections = []
     for sec in custom_sections:
         if isinstance(sec, dict) and (sec.get("title") or sec.get("content") or sec.get("image")):
@@ -4728,20 +4886,26 @@ async def update_landingpage(
     restaurant["landing_page"] = {
         "welcome_title": welcome_title.strip() if welcome_title else f"Willkommen bei {restaurant.get('name', slug)}",
         "welcome_subtitle": welcome_subtitle.strip() if welcome_subtitle else "",
-        "what_we_offer": what_we_offer.strip() if what_we_offer else "",
+        "what_we_offer": what_we_offer,
         "google_rating_url": google_rating_url.strip() if google_rating_url else "",
-        "aktuelles": aktuelles.strip() if aktuelles else "",
-        "oeffnungszeiten": oeffnungszeiten.strip() if oeffnungszeiten else "",
-        "angebote": angebote.strip() if angebote else "",
-        "title_about": title_about.strip() if title_about else "",
+        "aktuelles": aktuelles,
+        "oeffnungszeiten": oeffnungszeiten,
+        "angebote": angebote,
+        "title_about": title_about,
         "title_offers": title_offers.strip() if title_offers else "",
-        "title_news": title_news.strip() if title_news else "",
-        "title_hours": title_hours.strip() if title_hours else "",
-        "title_happyhour": title_happyhour.strip() if title_happyhour else "",
+        "title_news": title_news,
+        "title_hours": title_hours,
+        "title_happyhour": title_happyhour,
+        "title_gallery": title_gallery.strip() if title_gallery else "",
+        "title_videos": title_videos.strip() if title_videos else "",
         "slideshow_enabled": bool(slideshow_enabled),
         "offer_images": existing_offers,
+        "offer_videos": existing_offer_videos,
         "slideshow_images": existing_slideshow,
+        "slideshow_videos": existing_slideshow_videos,
         "gallery_images": existing_gallery,
+        "gallery_videos": existing_gallery_videos,
+        "videos": existing_videos,
         "custom_sections": cleaned_custom_sections
     }
     
@@ -4761,25 +4925,83 @@ def delete_landing_image(
     landing_page = restaurant.get("landing_page", {})
     if not isinstance(landing_page, dict):
         return {"success": False, "error": "No landing page configuration"}
-        
-    if image_type == "offer":
-        images_list = landing_page.get("offer_images", [])
-    elif image_type == "gallery":
-        images_list = landing_page.get("gallery_images", [])
+    
+    if image_type == "video":
+        videos_list = landing_page.get("videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "offer_video":
+        videos_list = landing_page.get("offer_videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "slideshow_video":
+        videos_list = landing_page.get("slideshow_videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "gallery_video":
+        videos_list = landing_page.get("gallery_videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "custom":
+        # Remove image from custom sections
+        custom_sections = landing_page.get("custom_sections", [])
+        for sec in custom_sections:
+            if isinstance(sec, dict) and sec.get("image") == image_url:
+                sec["image"] = ""
+                filename = os.path.basename(image_url)
+                full_path = os.path.join(UPLOAD_DIR, "landing", filename)
+                if os.path.exists(full_path):
+                    try:
+                        os.remove(full_path)
+                    except Exception as e:
+                        print(f"[Cleanup] Failed to delete file {full_path}: {e}")
+                break
     else:
-        images_list = landing_page.get("slideshow_images", [])
-        
-    if image_url in images_list:
-        images_list.remove(image_url)
-        # Delete file locally
-        filename = os.path.basename(image_url)
-        subdir = "landing" if image_type == "offer" else ("gallery" if image_type == "gallery" else "slideshow")
-        full_path = os.path.join(UPLOAD_DIR, subdir, filename)
-        if os.path.exists(full_path):
-            try:
-                os.remove(full_path)
-            except Exception as e:
-                print(f"[Cleanup] Failed to delete file {full_path}: {e}")
+        if image_type == "offer":
+            images_list = landing_page.get("offer_images", [])
+        elif image_type == "gallery":
+            images_list = landing_page.get("gallery_images", [])
+        else:
+            images_list = landing_page.get("slideshow_images", [])
+            
+        if image_url in images_list:
+            images_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            subdir = "landing" if image_type == "offer" else ("gallery" if image_type == "gallery" else "slideshow")
+            full_path = os.path.join(UPLOAD_DIR, subdir, filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete file {full_path}: {e}")
                 
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
@@ -4870,7 +5092,7 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
 
 
 @app.post("/admin/happy-hour")
-def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -4879,11 +5101,52 @@ def update_happy_hour(request: Request, days: List[str] = Form(default=[]), star
         "days": days,
         "start": start,
         "end": end,
-        "discount": discount
+        "discount": discount if mode == "discount" else 0,
+        "mode": mode
     }
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+@app.post("/admin/happy-hour-products")
+async def update_happy_hour_products(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Bulk update Happy Hour product assignments with fixed prices."""
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
+    
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
+    
+    products_updates = body.get("products", [])
+    start_time = body.get("start_time", "18:00")
+    end_time = body.get("end_time", "20:00")
+    
+    for update in products_updates:
+        pid = update.get("product_id")
+        hh_price = update.get("happy_hour_price")
+        
+        product = next((p for p in restaurant.get("products", []) if p["id"] == pid), None)
+        if product:
+            if hh_price is not None and hh_price > 0:
+                product["happy_hour_price"] = round(float(hh_price), 2)
+                product["start_time"] = start_time
+                product["end_time"] = end_time
+            else:
+                product["happy_hour_price"] = None
+                product["start_time"] = None
+                product["end_time"] = None
+    
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    
+    return JSONResponse({"success": True})
 
 @app.post("/admin/shishabar-toggle")
 def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
@@ -5652,11 +5915,24 @@ def get_setup(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/admin/login")
         
     restaurant = get_restaurant_or_raise(slug, db)
-    restaurant["is_setup_completed"] = True
-    restaurant["is_onboarded"] = True
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    return RedirectResponse(url="/admin/dashboard")
+    
+    # If setup is already completed, redirect to dashboard
+    if restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/dashboard")
+    
+    # Otherwise show the setup page
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {
+            "request": request,
+            "restaurant": restaurant,
+            "current_user": user,
+            "stats": {"brutto": 0, "netto_7": 0, "netto_19": 0, "tip": 0, "orders_count": 0, "avg_basket": 0},
+            "hh_active_global": False,
+            "active_tab": "konfiguration"
+        }
+    )
 
 @app.post("/admin/upload-logo")
 async def upload_logo(request: Request, file: UploadFile = File(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
