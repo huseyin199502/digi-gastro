@@ -148,7 +148,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: transform 0.35s cubic-bezier(0.25, 1, 0.35, 1);
             will-change: transform;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
@@ -170,12 +170,12 @@
             align-items: center;
             justify-content: center;
             white-space: nowrap;
-            transition: background 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                        color 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                        box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                        border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
-                        opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: background 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        box-shadow 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        border-color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        transform 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        opacity 0.25s cubic-bezier(0.25, 1, 0.35, 1);
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
@@ -1725,41 +1725,54 @@
                     
                     // Live fisheye: apply scale/opacity based on distance from center
                     // This makes the green highlight follow the drag in real-time
+                    // Optimized with RAF throttling for 60fps buttery smoothness
+                    let fisheyeRAF = null;
+                    let fisheyeQueued = false;
                     const applyLiveFisheye = () => {
-                        const wrapperRect = wrapper.getBoundingClientRect();
-                        const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
-                        const halfWidth = wrapperRect.width / 2;
-                        
-                        pills.forEach(pill => {
-                            const pillRect = pill.getBoundingClientRect();
-                            const pillCenter = pillRect.left + pillRect.width / 2;
-                            const normalizedDist = Math.abs(pillCenter - wrapperCenter) / halfWidth;
+                        if (fisheyeQueued) return; // already scheduled
+                        fisheyeQueued = true;
+                        fisheyeRAF = requestAnimationFrame(() => {
+                            fisheyeQueued = false;
+                            const wrapperRect = wrapper.getBoundingClientRect();
+                            const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
+                            const halfWidth = wrapperRect.width / 2;
                             
-                            // Scale: 1.08 at center, 0.88 far away
-                            const scale = Math.max(0.88, 1.08 - normalizedDist * 0.25);
-                            // Opacity: 1 at center, 0.5 far away  
-                            const opacity = Math.max(0.5, 1 - normalizedDist * 0.65);
-                            // Green glow strength based on proximity to center
-                            const greenGlow = Math.max(0, 1 - normalizedDist * 2.5);
-                            
-                            pill.style.transform = `scale(${scale})`;
-                            pill.style.opacity = opacity;
-                            
-                            // Live green highlight that follows the closest pill
-                            if (greenGlow > 0.1) {
-                                pill.style.background = `rgba(16, 185, 129, ${greenGlow * 0.9})`;
-                                pill.style.color = greenGlow > 0.5 ? '#000' : '';
-                                pill.style.boxShadow = `0 4px ${20 * greenGlow}px -2px rgba(16, 185, 129, ${greenGlow * 0.5})`;
-                            } else {
-                                pill.style.background = '';
-                                pill.style.color = '';
-                                pill.style.boxShadow = '';
-                            }
+                            pills.forEach(pill => {
+                                const pillRect = pill.getBoundingClientRect();
+                                const pillCenter = pillRect.left + pillRect.width / 2;
+                                const normalizedDist = Math.abs(pillCenter - wrapperCenter) / halfWidth;
+                                
+                                // Scale: 1.08 at center, 0.88 far away - steeper curve for snappier feel
+                                const scale = Math.max(0.88, 1.08 - normalizedDist * 0.22);
+                                // Opacity: 1 at center, 0.55 far away
+                                const opacity = Math.max(0.55, 1 - normalizedDist * 0.55);
+                                // Green glow: wider spread (1.8 vs 2.5) so green appears sooner/faster
+                                // and stronger intensity for more vivid tracking
+                                const greenGlow = Math.max(0, 1 - normalizedDist * 1.8);
+                                
+                                pill.style.transform = `scale(${scale})`;
+                                pill.style.opacity = opacity;
+                                
+                                // Live green highlight that follows the closest pill
+                                if (greenGlow > 0.05) {
+                                    const intensity = greenGlow * 0.95;
+                                    pill.style.background = `rgba(16, 185, 129, ${intensity})`;
+                                    pill.style.color = greenGlow > 0.4 ? '#000' : '';
+                                    pill.style.boxShadow = `0 4px ${Math.round(22 * greenGlow)}px -2px rgba(16, 185, 129, ${greenGlow * 0.55})`;
+                                } else {
+                                    pill.style.background = '';
+                                    pill.style.color = '';
+                                    pill.style.boxShadow = '';
+                                }
+                            });
                         });
                     };
                     
                     // Reset all inline styles after drag/momentum ends
                     const resetPillStyles = () => {
+                        if (fisheyeRAF) cancelAnimationFrame(fisheyeRAF);
+                        fisheyeRAF = null;
+                        fisheyeQueued = false;
                         pills.forEach(pill => {
                             pill.style.transform = '';
                             pill.style.opacity = '';
@@ -1784,7 +1797,7 @@
                     const applyMomentum = (initialVelocity) => {
                         if (animationId) cancelAnimationFrame(animationId);
                         
-                        const friction = 0.94; // smoother deceleration
+                        const friction = 0.935; // slightly faster deceleration for snappier stop
                         let currentV = initialVelocity;
                         let currentTx = getCurrentTranslate();
                         let lastTime = performance.now();
@@ -1800,7 +1813,7 @@
                             applyLiveFisheye();
                             
                             // Stop when velocity is very small
-                            if (Math.abs(currentV) > 0.3) {
+                            if (Math.abs(currentV) > 0.25) {
                                 animationId = requestAnimationFrame(momentumStep);
                             } else {
                                 animationId = null;
@@ -1855,21 +1868,23 @@
                         if (!isDragging) return;
                         const currentX = getPositionX(e);
                         const diff = currentX - startX;
-                        if (Math.abs(diff) > 3) dragMoved = true;
+                        if (Math.abs(diff) > 2) dragMoved = true;
                         
-                        // Track velocity for momentum
+                        // Track velocity for momentum - use exponential moving average for smoother tracking
                         const now = performance.now();
                         const dt = now - lastMoveTime;
                         if (dt > 0) {
                             const dx = currentX - lastMoveX;
-                            velocity = (dx / dt) * 16; // px per frame at 60fps
+                            const instantV = (dx / dt) * 16;
+                            // Smooth velocity: blend new with old for less jitter
+                            velocity = velocity * 0.6 + instantV * 0.4;
                         }
                         lastMoveTime = now;
                         lastMoveX = currentX;
                         
                         const newTranslate = prevTranslate + diff;
                         setTrackTranslate(newTranslate);
-                        // Live fisheye so green highlight follows the drag
+                        // Live fisheye so green highlight follows the drag (RAF-throttled)
                         applyLiveFisheye();
                     };
                     
@@ -1884,7 +1899,7 @@
                         }
                         
                         // Apply momentum if velocity is significant
-                        if (Math.abs(velocity) > 1.5) {
+                        if (Math.abs(velocity) > 1.0) {
                             applyMomentum(velocity);
                         } else {
                             track.classList.remove('no-transition');

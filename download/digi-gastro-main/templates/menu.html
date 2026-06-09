@@ -36,6 +36,9 @@
         }
     </script>
     <style>
+        /* Alpine.js x-cloak: hide elements until Alpine initializes */
+        [x-cloak] { display: none !important; }
+        
         html, body {
             touch-action: manipulation;
         }
@@ -113,6 +116,127 @@
         .animate-bounce-horizontal-left {
             animation: bounceHorizontalLeft 1.2s infinite;
         }
+        /* ===== Center-Lock Carousel Category Navigation ===== */
+        #category-carousel-wrapper {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            touch-action: pan-x;
+            -webkit-touch-callout: none;
+            padding: 12px 0 14px 0;
+        }
+        /* Gradient fade edges */
+        #category-carousel-wrapper::before,
+        #category-carousel-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 32px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #category-carousel-wrapper::before {
+            left: 0;
+            background: linear-gradient(to right, var(--bg-obsidian) 0%, transparent 100%);
+        }
+        #category-carousel-wrapper::after {
+            right: 0;
+            background: linear-gradient(to left, var(--bg-obsidian) 0%, transparent 100%);
+        }
+        #category-carousel-track {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.35s cubic-bezier(0.25, 1, 0.35, 1);
+            will-change: transform;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            padding: 0 16px;
+        }
+        #category-carousel-track.no-transition {
+            transition: none !important;
+        }
+        .cat-pill {
+            flex-shrink: 0;
+            height: 44px;
+            padding: 0 20px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            transition: background 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        box-shadow 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        border-color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        transform 0.25s cubic-bezier(0.25, 1, 0.35, 1),
+                        opacity 0.25s cubic-bezier(0.25, 1, 0.35, 1);
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            border: 2px solid transparent;
+            font-family: 'Outfit', 'Inter', sans-serif;
+            will-change: transform, opacity;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+        }
+        /* During drag, disable pill transitions for instant live fisheye response */
+        #category-carousel-track.no-transition .cat-pill {
+            transition: none !important;
+        }
+        .cat-pill.active {
+            background: var(--color-primary) !important;
+            color: #000 !important;
+            box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.5);
+            border-color: transparent !important;
+            font-weight: 900;
+            transform: scale(1.08);
+            opacity: 1;
+        }
+        .cat-pill.inactive {
+            background: rgba(39, 39, 42, 0.6);
+            color: rgba(161, 161, 170, 0.8);
+            border-color: rgba(63, 63, 70, 0.3);
+            transform: scale(0.88);
+            opacity: 0.6;
+        }
+        .cat-pill.inactive.near {
+            transform: scale(0.93);
+            opacity: 0.75;
+        }
+        .cat-pill.inactive:hover {
+            background: rgba(63, 63, 70, 0.7);
+            color: rgba(228, 228, 231, 0.95);
+        }
+        /* Light theme */
+        html.light .cat-pill.inactive {
+            background: rgba(0, 0, 0, 0.05);
+            color: rgba(75, 85, 99, 0.85);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+        html.light .cat-pill.inactive:hover {
+            background: rgba(0, 0, 0, 0.1);
+            color: rgba(17, 24, 39, 0.9);
+        }
+        html.light #category-carousel-wrapper::before {
+            background: linear-gradient(to right, var(--bg-obsidian) 0%, transparent 100%);
+        }
+        html.light #category-carousel-wrapper::after {
+            background: linear-gradient(to left, var(--bg-obsidian) 0%, transparent 100%);
+        }
+        /* Video full-size display - no crop, no max-height restriction */
+        .landing-video-full {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -121,12 +245,22 @@
     <div class="fixed inset-0 grid-bg pointer-events-none z-0"></div>
     <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
 
-    <!-- Background slideshow overlay (Landing page only) -->
-    {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled and restaurant.landing_page.slideshow_images %}
+    <!-- Background slideshow overlay (Landing page only - supports images & videos) -->
+    {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled and (restaurant.landing_page.slideshow_images or restaurant.landing_page.slideshow_videos) %}
     <div id="landing-slideshow" class="fixed inset-0 z-0 pointer-events-none transition-opacity duration-700" x-show="currentView === 'landing'" style="display: none;">
+        <!-- Background video layer (if slideshow videos exist) -->
+        {% if restaurant.landing_page.slideshow_videos %}
+        <div id="slideshow-video-layer" class="absolute inset-0">
+            {% for vid in restaurant.landing_page.slideshow_videos %}
+            <video :class="currentBgVideoIdx === {{ loop.index0 }} ? 'opacity-100' : 'opacity-0'" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000" src="{{ vid }}" autoplay loop muted playsinline></video>
+            {% endfor %}
+        </div>
+        {% endif %}
         <!-- Overlapping image layers for crossfade -->
-        <div id="slide-layer-1" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-100" style="background-image: url('{{ restaurant.landing_page.slideshow_images[0] }}');"></div>
+        {% if restaurant.landing_page.slideshow_images %}
+        <div id="slide-layer-1" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 {% if not restaurant.landing_page.slideshow_videos %}opacity-100{% else %}opacity-0{% endif %}" style="background-image: url('{{ restaurant.landing_page.slideshow_images[0] }}');"></div>
         <div id="slide-layer-2" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-0"></div>
+        {% endif %}
         <!-- Semi-transparent backdrop overlay to darken and blur slightly for high text readability -->
         <div class="absolute inset-0 bg-black/30 backdrop-blur-[2px]"></div>
     </div>
@@ -254,18 +388,30 @@
                 </div>
             </div>
 
-            <!-- Angebotsfotos (aktuelle Angebote als Slider) -->
-            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                    <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
+            <!-- Angebote (Bilder & Videos) - FULL WIDTH -->
+            <div x-show="(restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0) || (restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0)" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 x-show="restaurantLandingPage.title_offers" class="text-lg font-bold text-white drop-shadow-md font-display px-3">
+                    <span x-text="restaurantLandingPage.title_offers"></span>
                 </h3>
                 
-                <!-- Touch Slider/Carousel Container -->
+                <!-- Offer Videos -->
+                <template x-if="restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 px-3">
+                        <template x-for="vid in restaurantLandingPage.offer_videos" :key="vid">
+                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Offer Images Slider -->
+                <template x-if="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0">
                 <div class="relative w-full overflow-hidden rounded-2xl bg-zinc-950/40 border border-outline-variant/30 group">
                     <div id="offer-slider" class="flex w-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
                         <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
                             <div class="w-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
-                                <img :src="img" alt="Angebot" class="w-full object-contain" loading="lazy">
+                                <img :src="img" alt="Angebot" class="w-full h-auto object-cover" loading="lazy">
                             </div>
                         </template>
                     </div>
@@ -287,6 +433,7 @@
                         </template>
                     </div>
                 </div>
+                </template>
             </div>
             
             {% if hh_active_global %}
@@ -309,16 +456,45 @@
             </div>
             {% endif %}
 
-            <!-- Responsive Bildergalerie -->
-            <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                    <span>Galerie</span>
+            <!-- Galerie (Bilder & Videos) -->
+            <div x-show="(restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0) || (restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0)" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 x-show="restaurantLandingPage.title_gallery" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <span x-text="restaurantLandingPage.title_gallery"></span>
                 </h3>
                 
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
-                        <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
-                            <img :src="img" class="w-full h-full object-cover" loading="lazy">
+                <!-- Gallery Videos -->
+                <template x-if="restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                        <template x-for="vid in restaurantLandingPage.gallery_videos" :key="vid">
+                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Gallery Images -->
+                <template x-if="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
+                            <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
+                                <img :src="img" class="w-full h-full object-cover" loading="lazy">
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Video Section (eigenständig) -->
+            <div x-show="restaurantLandingPage.videos && restaurantLandingPage.videos.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 x-show="restaurantLandingPage.title_videos" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <span x-text="restaurantLandingPage.title_videos"></span>
+                </h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <template x-for="vid in restaurantLandingPage.videos" :key="vid">
+                        <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                            <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
                         </div>
                     </template>
                 </div>
@@ -327,16 +503,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_hours || 'Öffnungszeiten'">Öffnungszeiten</span>
+                    <h3 x-show="restaurantLandingPage.title_hours" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_hours"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
                 </div>
                 
-                <!-- Info Card 2: Über uns / Angebote -->
+                <!-- Info Card 2: Angebote -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_happyhour || 'Angebote & Specials'">Angebote & Specials</span>
+                    <h3 x-show="restaurantLandingPage.title_happyhour" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_happyhour"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
                 </div>
@@ -345,16 +521,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- What we offer -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_about || 'Was wir bieten'">Was wir bieten</span>
+                    <h3 x-show="restaurantLandingPage.title_about" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_about"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
                 </div>
                 
                 <!-- Announcements / News -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_news || 'Aktuelles & Events'">Aktuelles & Events</span>
+                    <h3 x-show="restaurantLandingPage.title_news" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_news"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
                 </div>
@@ -365,8 +541,8 @@
                 <div class="space-y-6 mt-6">
                     <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
                         <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
-                            <h3 class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
-                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-contain" :alt="section.title" loading="lazy">
+                            <h3 x-show="section.title" class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
+                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-cover" :alt="section.title" loading="lazy">
                             <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-show="section.content" x-text="section.content"></p>
                         </div>
                     </template>
@@ -381,44 +557,34 @@
             <div id="tab-speisekarte" class="py-2">
                 
 
-                <!-- Category Wrapper (Sticky) -->
-                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
-                    <!-- Left Chevron indicator -->
-                    <button id="chevron-left" class="absolute left-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-left" onclick="scrollCategories(-200)">
-                        <span class="material-symbols-outlined text-sm font-black">chevron_left</span>
-                    </button>
-
-                    <!-- Category Pills (Horizontal scrolling) -->
-                    <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
-                        {% for cat in parent_categories %}
-                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface hover:scale-102 uppercase tracking-wider{% endif %}">
-                            <span>{{ cat }}</span>
-                        </button>
-                        {% endfor %}
+                <!-- Category Wrapper (Sticky) - Center-Lock Carousel -->
+                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky py-1 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important;">
+                    
+                    <!-- Center-Lock Category Carousel -->
+                    <div id="category-carousel-wrapper">
+                        <div id="category-carousel-track">
+                            {% for cat in parent_categories %}
+                            <button class="cat-pill {% if loop.first %}active{% else %}inactive{% endif %}" 
+                                    data-category="{{ cat }}" 
+                                    data-original-index="{{ loop.index0 }}"
+                                    onclick="filterCategory('{{ cat }}')">
+                                {{ cat }}
+                            </button>
+                            {% endfor %}
+                        </div>
                     </div>
-
-                    <!-- Swipe indicator / accessibility tip (mobile only) -->
-                    <div class="flex md:hidden items-center justify-center gap-1.5 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider mt-2.5 opacity-65 select-none">
-                        <span class="material-symbols-outlined text-xs animate-pulse">swipe</span>
-                        <span data-translate="swipe_hint">← Kategorien wischen →</span>
-                    </div>
-
-                    <!-- Right Chevron indicator -->
-                    <button id="chevron-right" class="absolute right-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-right" onclick="scrollCategories(200)">
-                        <span class="material-symbols-outlined text-sm font-black">chevron_right</span>
-                    </button>
                 </div>
 
-                <!-- Secondary Subcategories Swiper (Alpine.js powered) -->
-                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-3 mb-1" style="display: none;">
-                    <div class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none py-1.5 px-1" style="touch-action: pan-x;">
+                <!-- Secondary Subcategories - Compact wrapping chips (better for 100+ subcategories) -->
+                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-2 mb-1" style="display: none;">
+                    <div class="flex flex-wrap gap-1.5 select-none py-1 px-1">
                         <!-- 'All' subcategory button -->
-                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center">
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-7 rounded-full text-[10px] font-bold uppercase tracking-wider px-3 transition-all border border-outline-variant/40 select-none flex items-center justify-center">
                             Alle
                         </button>
                         <!-- Dynamic subcategory buttons -->
                         <template x-for="sub in activeSubcategories" :key="sub">
-                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center" x-text="sub">
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-7 rounded-full text-[10px] font-bold uppercase tracking-wider px-3 transition-all border border-outline-variant/40 select-none flex items-center justify-center" x-text="sub">
                             </button>
                         </template>
                     </div>
@@ -1015,6 +1181,7 @@
                 activeSubcategories: [],
                 currentSubcategory: 'All',
                 currentOfferIdx: 0,
+                currentBgVideoIdx: 0,
                 prevOfferSlide() {
                     const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
                     if (len <= 1) return;
@@ -1072,6 +1239,7 @@
                 restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
                 guestWs: null,
                 guestWsHeartbeatInterval: null,
+                carouselInitialized: false,
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
@@ -1108,6 +1276,34 @@
                     if (firstCategory) {
                         this.filterCategory(firstCategory);
                     }
+                    
+                    // Initialize category carousel - will be triggered when speisekarte view becomes visible
+                    // carouselInitialized is already set in data
+                    
+                    // Watch for view changes to initialize carousel when speisekarte becomes visible
+                    this.$watch('currentView', (newView) => {
+                        if (newView === 'speisekarte') {
+                            setTimeout(() => {
+                                if (!this.carouselInitialized) {
+                                    this.initCategoryCarousel();
+                                } else {
+                                    this.updateCarousel(this.currentCategory);
+                                }
+                            }, 200);
+                        }
+                    });
+                    
+                    // If speisekarte is the default view (waiter/admin), init immediately
+                    if (this.currentView === 'speisekarte') {
+                        setTimeout(() => this.initCategoryCarousel(), 300);
+                    }
+                    
+                    // Recenter carousel on window resize
+                    window.addEventListener('resize', () => {
+                        if (this.carouselInitialized && this.currentCategory) {
+                            this.updateCarousel(this.currentCategory);
+                        }
+                    });
 
                     const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
                     if (!isReadonly) {
@@ -1128,35 +1324,47 @@
                         }
                     }
 
-                    // Background slideshow cycle
+                    // Background slideshow cycle (supports both images and videos)
                     const slideshowEnabled = {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}true{% else %}false{% endif %};
                     const slideshowImages = {{ (restaurant.landing_page.slideshow_images or []) | tojson | safe }};
+                    const slideshowVideos = {{ (restaurant.landing_page.slideshow_videos or []) | tojson | safe }};
                     
-                    if (slideshowEnabled && slideshowImages.length > 1) {
-                        let currentSlideIdx = 0;
-                        const layer1 = document.getElementById('slide-layer-1');
-                        const layer2 = document.getElementById('slide-layer-2');
-                        
-                        if (layer1 && layer2) {
+                    if (slideshowEnabled) {
+                        // Cycle through background videos if they exist
+                        if (slideshowVideos.length > 1) {
                             setInterval(() => {
                                 if (this.currentView !== 'landing') return;
-                                
-                                const nextSlideIdx = (currentSlideIdx + 1) % slideshowImages.length;
-                                const nextUrl = slideshowImages[nextSlideIdx];
-                                
-                                const isLayer1Active = layer1.classList.contains('opacity-100');
-                                const activeLayer = isLayer1Active ? layer1 : layer2;
-                                const inactiveLayer = isLayer1Active ? layer2 : layer1;
-                                
-                                inactiveLayer.style.backgroundImage = `url('${nextUrl}')`;
-                                
-                                activeLayer.classList.remove('opacity-100');
-                                activeLayer.classList.add('opacity-0');
-                                inactiveLayer.classList.remove('opacity-0');
-                                inactiveLayer.classList.add('opacity-100');
-                                
-                                currentSlideIdx = nextSlideIdx;
-                            }, 6000);
+                                this.currentBgVideoIdx = (this.currentBgVideoIdx + 1) % slideshowVideos.length;
+                            }, 8000);
+                        }
+                        
+                        // Cycle through background images if they exist
+                        if (slideshowImages.length > 1) {
+                            let currentSlideIdx = 0;
+                            const layer1 = document.getElementById('slide-layer-1');
+                            const layer2 = document.getElementById('slide-layer-2');
+                            
+                            if (layer1 && layer2) {
+                                setInterval(() => {
+                                    if (this.currentView !== 'landing') return;
+                                    
+                                    const nextSlideIdx = (currentSlideIdx + 1) % slideshowImages.length;
+                                    const nextUrl = slideshowImages[nextSlideIdx];
+                                    
+                                    const isLayer1Active = layer1.classList.contains('opacity-100');
+                                    const activeLayer = isLayer1Active ? layer1 : layer2;
+                                    const inactiveLayer = isLayer1Active ? layer2 : layer1;
+                                    
+                                    inactiveLayer.style.backgroundImage = `url('${nextUrl}')`;
+                                    
+                                    activeLayer.classList.remove('opacity-100');
+                                    activeLayer.classList.add('opacity-0');
+                                    inactiveLayer.classList.remove('opacity-0');
+                                    inactiveLayer.classList.add('opacity-100');
+                                    
+                                    currentSlideIdx = nextSlideIdx;
+                                }, 6000);
+                            }
                         }
                     }
                 },
@@ -1211,11 +1419,11 @@
                                         const parser = new DOMParser();
                                         const doc = parser.parseFromString(html, 'text/html');
                                         
-                                        // Update category pills
-                                        const newPills = doc.getElementById('category-pills');
-                                        const currentPills = document.getElementById('category-pills');
-                                        if (newPills && currentPills) {
-                                            currentPills.innerHTML = newPills.innerHTML;
+                                        // Update category carousel
+                                        const newTrack = doc.getElementById('category-carousel-track');
+                                        const currentTrack = document.getElementById('category-carousel-track');
+                                        if (newTrack && currentTrack) {
+                                            currentTrack.innerHTML = newTrack.innerHTML;
                                         }
                                         
                                         // Update product grid container
@@ -1232,23 +1440,18 @@
                                             currentBanner.innerHTML = newBanner.innerHTML;
                                         }
                                         
-                                        // Re-apply current category filter
+                                        // Re-apply current category filter and reinitialize carousel
                                         if (this.currentCategory) {
                                             this.filterCategory(this.currentCategory);
                                         } else {
-                                            const firstBtn = document.querySelector('#category-pills button');
-                                            if (firstBtn) {
-                                                const catName = firstBtn.id.replace('btn-', '');
-                                                this.filterCategory(catName);
+                                            const firstPill = document.querySelector('.cat-pill');
+                                            if (firstPill) {
+                                                this.filterCategory(firstPill.getAttribute('data-category'));
                                             }
                                         }
                                         
-                                        // Re-initialize category pills scroll events and chevron logic
-                                        const catPills = document.getElementById('category-pills');
-                                        if (catPills && typeof updateCategoryChevrons === 'function') {
-                                            catPills.addEventListener('scroll', updateCategoryChevrons);
-                                            setTimeout(updateCategoryChevrons, 500);
-                                        }
+                                        // Reinitialize carousel after DOM update
+                                        setTimeout(() => this.initCategoryCarousel(), 100);
                                     })
                                     .catch(err => console.error("Error loading live menu updates:", err));
 
@@ -1395,27 +1598,364 @@
                         }
                     });
                     
-                    // Sync highlight on category pills dynamically without layout shift
-                    const pills = document.querySelectorAll('#category-pills button');
-                    pills.forEach(pillBtn => {
-                        const isCurrent = pillBtn.id === `btn-${category}`;
-                        pillBtn.className = isCurrent ? 
-                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider" : 
-                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider";
-                    });
+                    // Update carousel: center the active pill
+                    this.updateCarousel(category);
 
                     this.applyAllFilters();
+                },
+
+                updateCarousel(activeCategory) {
+                    const track = document.getElementById('category-carousel-track');
+                    const wrapper = document.getElementById('category-carousel-wrapper');
+                    if (!track || !wrapper) return;
+                    
+                    const pills = track.querySelectorAll('.cat-pill');
+                    let activeIndex = -1;
+                    
+                    // First pass: find active index
+                    pills.forEach((pill, idx) => {
+                        if (pill.getAttribute('data-category') === activeCategory && activeIndex === -1) {
+                            activeIndex = idx;
+                        }
+                    });
+                    
+                    // Second pass: apply classes
+                    pills.forEach((pill, idx) => {
+                        pill.classList.remove('active', 'near');
+                        if (idx === activeIndex) {
+                            pill.classList.add('active');
+                            pill.classList.remove('inactive');
+                        } else {
+                            pill.classList.add('inactive');
+                            const dist = Math.abs(idx - activeIndex);
+                            if (dist === 1) {
+                                pill.classList.add('near');
+                            }
+                        }
+                    });
+                    
+                    if (activeIndex >= 0) {
+                        this.centerCarouselAt(activeIndex, false);
+                    }
+                },
+
+                centerCarouselAt(index, instant) {
+                    const track = document.getElementById('category-carousel-track');
+                    const wrapper = document.getElementById('category-carousel-wrapper');
+                    if (!track || !wrapper) return;
+                    
+                    const pills = track.querySelectorAll('.cat-pill');
+                    if (!pills.length || index < 0 || index >= pills.length) return;
+                    
+                    const wrapperWidth = wrapper.getBoundingClientRect().width;
+                    const gap = 8;
+                    
+                    let pillOffsetX = 0;
+                    for (let i = 0; i < index; i++) {
+                        pillOffsetX += pills[i].offsetWidth + gap;
+                    }
+                    pillOffsetX += pills[index].offsetWidth / 2;
+                    
+                    const paddingLeft = 16;
+                    const tx = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                    
+                    if (instant) {
+                        track.classList.add('no-transition');
+                    }
+                    // translate3d forces GPU compositing = buttery smooth
+                    track.style.transform = `translate3d(${tx}px, 0, 0)`;
+                    if (instant) {
+                        track.offsetHeight;
+                        requestAnimationFrame(() => track.classList.remove('no-transition'));
+                    }
+                },
+
+                initCategoryCarousel() {
+                    const track = document.getElementById('category-carousel-track');
+                    const wrapper = document.getElementById('category-carousel-wrapper');
+                    if (!track || !wrapper) return;
+                    
+                    const pills = track.querySelectorAll('.cat-pill');
+                    if (!pills.length) return;
+                    
+                    if (pills[0].offsetWidth === 0) {
+                        setTimeout(() => this.initCategoryCarousel(), 150);
+                        return;
+                    }
+                    
+                    if (this.carouselInitialized) {
+                        const pills = track.querySelectorAll('.cat-pill');
+                        let idx = 0;
+                        pills.forEach((pill, i) => {
+                            if (pill.getAttribute('data-category') === this.currentCategory && idx === 0) {
+                                idx = i;
+                            }
+                        });
+                        this.centerCarouselAt(idx, true);
+                        return;
+                    }
+                    
+                    this.carouselInitialized = true;
+                    const self = this;
+                    const gap = 8;
+                    const totalPills = pills.length;
+                    
+                    let isDragging = false;
+                    let startX = 0;
+                    let prevTranslate = 0;
+                    let dragMoved = false;
+                    let lastMoveTime = 0;
+                    let lastMoveX = 0;
+                    let velocity = 0;
+                    let animationId = null;
+                    
+                    const getPositionX = (e) => {
+                        return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
+                    };
+                    
+                    const getCurrentTranslate = () => {
+                        const style = window.getComputedStyle(track);
+                        const matrix = new DOMMatrix(style.transform);
+                        return matrix.m41;
+                    };
+                    
+                    const setTrackTranslate = (tx) => {
+                        track.style.transform = `translate3d(${tx}px, 0, 0)`;
+                    };
+                    
+                    // Live fisheye: apply scale/opacity based on distance from center
+                    // This makes the green highlight follow the drag in real-time
+                    // Optimized with RAF throttling for 60fps buttery smoothness
+                    let fisheyeRAF = null;
+                    let fisheyeQueued = false;
+                    const applyLiveFisheye = () => {
+                        if (fisheyeQueued) return; // already scheduled
+                        fisheyeQueued = true;
+                        fisheyeRAF = requestAnimationFrame(() => {
+                            fisheyeQueued = false;
+                            const wrapperRect = wrapper.getBoundingClientRect();
+                            const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
+                            const halfWidth = wrapperRect.width / 2;
+                            
+                            pills.forEach(pill => {
+                                const pillRect = pill.getBoundingClientRect();
+                                const pillCenter = pillRect.left + pillRect.width / 2;
+                                const normalizedDist = Math.abs(pillCenter - wrapperCenter) / halfWidth;
+                                
+                                // Scale: 1.08 at center, 0.88 far away - steeper curve for snappier feel
+                                const scale = Math.max(0.88, 1.08 - normalizedDist * 0.22);
+                                // Opacity: 1 at center, 0.55 far away
+                                const opacity = Math.max(0.55, 1 - normalizedDist * 0.55);
+                                // Green glow: wider spread (1.8 vs 2.5) so green appears sooner/faster
+                                // and stronger intensity for more vivid tracking
+                                const greenGlow = Math.max(0, 1 - normalizedDist * 1.8);
+                                
+                                pill.style.transform = `scale(${scale})`;
+                                pill.style.opacity = opacity;
+                                
+                                // Live green highlight that follows the closest pill
+                                if (greenGlow > 0.05) {
+                                    const intensity = greenGlow * 0.95;
+                                    pill.style.background = `rgba(16, 185, 129, ${intensity})`;
+                                    pill.style.color = greenGlow > 0.4 ? '#000' : '';
+                                    pill.style.boxShadow = `0 4px ${Math.round(22 * greenGlow)}px -2px rgba(16, 185, 129, ${greenGlow * 0.55})`;
+                                } else {
+                                    pill.style.background = '';
+                                    pill.style.color = '';
+                                    pill.style.boxShadow = '';
+                                }
+                            });
+                        });
+                    };
+                    
+                    // Reset all inline styles after drag/momentum ends
+                    const resetPillStyles = () => {
+                        if (fisheyeRAF) cancelAnimationFrame(fisheyeRAF);
+                        fisheyeRAF = null;
+                        fisheyeQueued = false;
+                        pills.forEach(pill => {
+                            pill.style.transform = '';
+                            pill.style.opacity = '';
+                            pill.style.background = '';
+                            pill.style.color = '';
+                            pill.style.boxShadow = '';
+                        });
+                    };
+                    
+                    const calcTranslateForIndex = (idx) => {
+                        const wrapperWidth = wrapper.getBoundingClientRect().width;
+                        let pillOffsetX = 0;
+                        for (let i = 0; i < idx; i++) {
+                            pillOffsetX += pills[i].offsetWidth + gap;
+                        }
+                        pillOffsetX += pills[idx].offsetWidth / 2;
+                        const paddingLeft = 16;
+                        return (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                    };
+                    
+                    // Momentum animation after drag release
+                    const applyMomentum = (initialVelocity) => {
+                        if (animationId) cancelAnimationFrame(animationId);
+                        
+                        const friction = 0.935; // slightly faster deceleration for snappier stop
+                        let currentV = initialVelocity;
+                        let currentTx = getCurrentTranslate();
+                        let lastTime = performance.now();
+                        
+                        const momentumStep = (now) => {
+                            const dt = Math.min(now - lastTime, 32); // cap at ~30fps min
+                            lastTime = now;
+                            
+                            currentV *= friction;
+                            currentTx += currentV * (dt / 16);
+                            
+                            setTrackTranslate(currentTx);
+                            applyLiveFisheye();
+                            
+                            // Stop when velocity is very small
+                            if (Math.abs(currentV) > 0.25) {
+                                animationId = requestAnimationFrame(momentumStep);
+                            } else {
+                                animationId = null;
+                                track.classList.remove('no-transition');
+                                resetPillStyles();
+                                snapToNearest();
+                            }
+                        };
+                        
+                        animationId = requestAnimationFrame(momentumStep);
+                    };
+                    
+                    // Snap to nearest pill and filter
+                    const snapToNearest = () => {
+                        const wrapperRect = wrapper.getBoundingClientRect();
+                        const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
+                        let closestIdx = 0;
+                        let closestDist = Infinity;
+                        pills.forEach((pill, i) => {
+                            const pillRect = pill.getBoundingClientRect();
+                            const pillCenter = pillRect.left + pillRect.width / 2;
+                            const dist = Math.abs(pillCenter - wrapperCenter);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestIdx = i;
+                            }
+                        });
+                        const category = pills[closestIdx].getAttribute('data-category');
+                        if (category && category !== self.currentCategory) {
+                            self.filterCategory(category);
+                        } else {
+                            self.centerCarouselAt(closestIdx, false);
+                        }
+                    };
+                    
+                    const dragStart = (e) => {
+                        if (animationId) {
+                            cancelAnimationFrame(animationId);
+                            animationId = null;
+                        }
+                        isDragging = true;
+                        startX = getPositionX(e);
+                        dragMoved = false;
+                        prevTranslate = getCurrentTranslate();
+                        velocity = 0;
+                        lastMoveTime = performance.now();
+                        lastMoveX = startX;
+                        track.classList.add('no-transition');
+                    };
+                    
+                    const dragMove = (e) => {
+                        if (!isDragging) return;
+                        const currentX = getPositionX(e);
+                        const diff = currentX - startX;
+                        if (Math.abs(diff) > 2) dragMoved = true;
+                        
+                        // Track velocity for momentum - use exponential moving average for smoother tracking
+                        const now = performance.now();
+                        const dt = now - lastMoveTime;
+                        if (dt > 0) {
+                            const dx = currentX - lastMoveX;
+                            const instantV = (dx / dt) * 16;
+                            // Smooth velocity: blend new with old for less jitter
+                            velocity = velocity * 0.6 + instantV * 0.4;
+                        }
+                        lastMoveTime = now;
+                        lastMoveX = currentX;
+                        
+                        const newTranslate = prevTranslate + diff;
+                        setTrackTranslate(newTranslate);
+                        // Live fisheye so green highlight follows the drag (RAF-throttled)
+                        applyLiveFisheye();
+                    };
+                    
+                    const dragEnd = (e) => {
+                        if (!isDragging) return;
+                        isDragging = false;
+                        
+                        if (!dragMoved) {
+                            track.classList.remove('no-transition');
+                            resetPillStyles();
+                            return;
+                        }
+                        
+                        // Apply momentum if velocity is significant
+                        if (Math.abs(velocity) > 1.0) {
+                            applyMomentum(velocity);
+                        } else {
+                            track.classList.remove('no-transition');
+                            resetPillStyles();
+                            snapToNearest();
+                        }
+                    };
+                    
+                    // Touch events
+                    wrapper.addEventListener('touchstart', dragStart, { passive: true });
+                    wrapper.addEventListener('touchmove', (e) => {
+                        if (isDragging && dragMoved) {
+                            e.preventDefault();
+                        }
+                        dragMove(e);
+                    }, { passive: false });
+                    wrapper.addEventListener('touchend', dragEnd);
+                    
+                    // Mouse events
+                    wrapper.addEventListener('mousedown', dragStart);
+                    wrapper.addEventListener('mousemove', dragMove);
+                    wrapper.addEventListener('mouseup', dragEnd);
+                    wrapper.addEventListener('mouseleave', () => { if (isDragging) dragEnd(); });
+                    wrapper.addEventListener('dragstart', (e) => e.preventDefault());
+                    
+                    // Initial center on first category
+                    const firstCategory = this.currentCategory || "{{ parent_categories[0] if parent_categories else '' }}";
+                    if (firstCategory) {
+                        let idx = 0;
+                        pills.forEach((pill, i) => {
+                            if (pill.getAttribute('data-category') === firstCategory && idx === 0) {
+                                idx = i;
+                            }
+                        });
+                        requestAnimationFrame(() => {
+                            self.centerCarouselAt(idx, true);
+                        });
+                    }
                 },
 
                 filterSubcategory(sub) {
                     this.currentSubcategory = sub;
                     this.applyAllFilters();
                     
-                    // Scroll to subcategory header
+                    // Scroll to subcategory header with offset so heading stays visible above first products
                     if (sub !== 'All') {
                         const targetHeader = document.querySelector(`[data-subcategory-header="${this.currentCategory} > ${sub}"]`);
                         if (targetHeader) {
-                            targetHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            const headerRect = targetHeader.getBoundingClientRect();
+                            const headerTop = headerRect.top + window.scrollY;
+                            // Sticky header 80px + carousel ~70px + subcategory chips ~40px + padding
+                            const offset = 180;
+                            window.scrollTo({
+                                top: headerTop - offset,
+                                behavior: 'smooth'
+                            });
                         }
                     }
                 },
@@ -2184,51 +2724,14 @@
             };
         }
 
-        function updateCategoryChevrons() {
-            const container = document.getElementById('category-pills');
-            const leftBtn = document.getElementById('chevron-left');
-            const rightBtn = document.getElementById('chevron-right');
-            if (!container) return;
-            
-            const scrollLeft = container.scrollLeft;
-            const maxScrollLeft = container.scrollWidth - container.clientWidth;
-            
-            if (leftBtn) {
-                if (scrollLeft > 5) {
-                    leftBtn.classList.remove('hidden');
-                } else {
-                    leftBtn.classList.add('hidden');
-                }
-            }
-            
-            if (rightBtn) {
-                if (scrollLeft < maxScrollLeft - 5 && container.scrollWidth > container.clientWidth) {
-                    rightBtn.classList.remove('hidden');
-                } else {
-                    rightBtn.classList.add('hidden');
-                }
-            }
-        }
-        
-        function scrollCategories(amount) {
-            const container = document.getElementById('category-pills');
-            if (container) {
-                container.scrollBy({ left: amount, behavior: 'smooth' });
-            }
-        }
+        // Category carousel uses swipe gestures instead of chevron buttons
+        // scrollCategories and updateCategoryChevrons are no longer needed
 
         // Initialize default category and check for session reset
         document.addEventListener("DOMContentLoaded", () => {
             const resetSession = {% if reset_session %}true{% else %}false{% endif %};
             if (resetSession) {
                 localStorage.removeItem(`dl_orders_{{ slug }}`);
-            }
-            
-            const catPills = document.getElementById('category-pills');
-            if (catPills) {
-                catPills.addEventListener('scroll', updateCategoryChevrons);
-                window.addEventListener('resize', updateCategoryChevrons);
-                setTimeout(updateCategoryChevrons, 500);
             }
         });
     </script>
@@ -2423,40 +2926,6 @@
             }
         });
 
-        // Horizontal drag-to-slide Category Pills on desktop
-        window.addEventListener('DOMContentLoaded', () => {
-            const slider = document.getElementById('category-pills');
-            if (slider) {
-                let isDown = false;
-                let startX;
-                let scrollLeft;
-
-                slider.addEventListener('mousedown', (e) => {
-                    isDown = true;
-                    slider.classList.add('active');
-                    startX = e.pageX - slider.offsetLeft;
-                    scrollLeft = slider.scrollLeft;
-                    slider.style.cursor = 'grabbing';
-                });
-                slider.addEventListener('mouseleave', () => {
-                    isDown = false;
-                    slider.classList.remove('active');
-                    slider.style.cursor = 'default';
-                });
-                slider.addEventListener('mouseup', () => {
-                    isDown = false;
-                    slider.classList.remove('active');
-                    slider.style.cursor = 'default';
-                });
-                slider.addEventListener('mousemove', (e) => {
-                    if (!isDown) return;
-                    e.preventDefault();
-                    const x = e.pageX - slider.offsetLeft;
-                    const walk = (x - startX) * 2; // scroll-fast multiplier
-                    slider.scrollLeft = scrollLeft - walk;
-                });
-            }
-        });
     </script>
     <!-- Beautiful fullscreen Image Lightbox modal -->
     <div id="lightbox" class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md hidden items-center justify-center transition-all duration-300 opacity-0 pointer-events-none" @click="closeLightbox()">
