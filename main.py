@@ -432,7 +432,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "days": json.loads(tenant.happy_hour_days or "[]"),
             "start": tenant.happy_hour_start,
             "end": tenant.happy_hour_end,
-            "discount": tenant.happy_hour_discount
+            "discount": tenant.happy_hour_discount,
+            "mode": getattr(tenant, 'happy_hour_mode', None) or 'discount'
         },
         "tables": tables,
         "audit_log": audit_log
@@ -497,6 +498,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.happy_hour_start = hh.get("start", "18:00")
     tenant.happy_hour_end = hh.get("end", "20:00")
     tenant.happy_hour_discount = hh.get("discount", 0)
+    if hasattr(tenant, 'happy_hour_mode'):
+        tenant.happy_hour_mode = hh.get("mode", "discount")
     
     session.flush()
     # 1. Update categories
@@ -1830,6 +1833,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     
     hh_config = restaurant.get("happy_hour", {})
+    hh_mode = hh_config.get("mode", "discount")  # "selected" = only chosen products, "discount" = % on everything
     hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
     
     processed_products = []
@@ -1843,13 +1847,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         prod["is_hh_active"] = False
         prod["display_price"] = prod["price"]
         
+        # Priority 1: Per-product fixed HH price (respects both day AND time)
         if prod.get("happy_hour_price") is not None:
             start = prod.get("start_time", "18:00")
             end = prod.get("end_time", "20:00")
-            if start <= now_time <= end:
+            if hh_active_global and start <= now_time <= end:
                 prod["is_hh_active"] = True
                 prod["display_price"] = prod["happy_hour_price"]
-        elif hh_active_global and hh_config.get("discount", 0) > 0:
+        # Priority 2: Global discount (only in "discount" mode)
+        elif hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
             discount_factor = (100 - hh_config["discount"]) / 100.0
             prod["is_hh_active"] = True
             prod["display_price"] = round(prod["price"] * discount_factor, 2)
@@ -1950,6 +1956,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     hh_config = restaurant.get("happy_hour", {})
+    hh_mode = hh_config.get("mode", "discount")
     hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
 
     products_map = {p["id"]: p for p in restaurant.get("products", [])}
@@ -1961,11 +1968,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             if hh_price is not None:
                 start = prod.get("start_time", "18:00")
                 end = prod.get("end_time", "20:00")
-                if start <= now_time <= end:
+                if hh_active_global and start <= now_time <= end:
                     is_hh_active_for_product = True
                     item.price = hh_price
             
-            if not is_hh_active_for_product and hh_active_global and hh_config.get("discount", 0) > 0:
+            if not is_hh_active_for_product and hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
                 discount_factor = (100 - hh_config["discount"]) / 100.0
                 item.price = round(prod["price"] * discount_factor, 2)
     
@@ -5085,7 +5092,7 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
 
 
 @app.post("/admin/happy-hour")
-def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -5094,11 +5101,52 @@ def update_happy_hour(request: Request, days: List[str] = Form(default=[]), star
         "days": days,
         "start": start,
         "end": end,
-        "discount": discount
+        "discount": discount if mode == "discount" else 0,
+        "mode": mode
     }
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+@app.post("/admin/happy-hour-products")
+async def update_happy_hour_products(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Bulk update Happy Hour product assignments with fixed prices."""
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
+    
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
+    
+    products_updates = body.get("products", [])
+    start_time = body.get("start_time", "18:00")
+    end_time = body.get("end_time", "20:00")
+    
+    for update in products_updates:
+        pid = update.get("product_id")
+        hh_price = update.get("happy_hour_price")
+        
+        product = next((p for p in restaurant.get("products", []) if p["id"] == pid), None)
+        if product:
+            if hh_price is not None and hh_price > 0:
+                product["happy_hour_price"] = round(float(hh_price), 2)
+                product["start_time"] = start_time
+                product["end_time"] = end_time
+            else:
+                product["happy_hour_price"] = None
+                product["start_time"] = None
+                product["end_time"] = None
+    
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    
+    return JSONResponse({"success": True})
 
 @app.post("/admin/shishabar-toggle")
 def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):

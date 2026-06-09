@@ -326,7 +326,7 @@
         {% if hh_active_global %}
         <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
             <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
-            <span>🔥 Happy Hour ist aktiv! {% if hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+            <span>🔥 Happy Hour ist aktiv! {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
             <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
         </div>
         {% endif %}
@@ -445,10 +445,10 @@
                     <div>
                         <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">Happy Hour ist aktiv!</h3>
                         <p class="text-xs text-white drop-shadow-md mt-1 leading-relaxed">
-                            {% if hh_config.discount > 0 %}
+                            {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}
                                 Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ hh_config.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
                             {% else %}
-                                Sichern Sie sich jetzt unsere exklusiven Happy Hour Spezialpreise!
+                                Sichern Sie sich jetzt unsere exklusiven Happy Hour Spezialpreise auf ausgewählte Artikel!
                             {% endif %}
                         </p>
                     </div>
