@@ -543,6 +543,43 @@
                 overflow-y: auto !important;
             }
         }
+        .config-subtab-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.55rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .config-subtab-btn:hover {
+            background-color: #f3f4f6;
+            color: var(--gastro-text-main);
+        }
+        html.dark .config-subtab-btn:hover {
+            background-color: #27272a;
+        }
+        .config-subtab-btn.active {
+            background-color: #e6f5e6;
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        html.dark .config-subtab-btn.active {
+            background-color: rgba(0, 153, 0, 0.15);
+            color: #22c55e;
+            border-color: #22c55e;
+        }
+        .config-tab-content {
+            display: none;
+        }
+        .config-tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -572,23 +609,18 @@
         
         <nav class="flex-1 py-4 space-y-1">
             <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
-                <span class="material-symbols-outlined">table_restaurant</span>
                 <span>🛋️ Sitzplan</span>
             </button>
             <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
-                <span class="material-symbols-outlined">payments</span>
                 <span>📈 Bestellungen & Reports</span>
             </button>
             <button id="tab-btn-speisekarte" onclick="switchAdminTab('speisekarte')" class="nav-btn">
-                <span class="material-symbols-outlined">restaurant_menu</span>
                 <span>⏱️ Speisekarte</span>
             </button>
             <button id="tab-btn-personal" onclick="switchAdminTab('personal')" class="nav-btn">
-                <span class="material-symbols-outlined">group</span>
                 <span>👤 Personal & Account</span>
             </button>
             <button id="tab-btn-konfiguration" onclick="switchAdminTab('konfiguration')" class="nav-btn">
-                <span class="material-symbols-outlined">settings</span>
                 <span>⚙️ Konfiguration</span>
             </button>
         </nav>
@@ -975,398 +1007,375 @@
 
             <!-- ⚙️ TAB 5: KONFIGURATION (konfiguration) -->
             <div id="admin-tab-konfiguration" class="admin-tab-content">
-                <div class="space-y-3">
+                <!-- Sub-tab navigation pills -->
+                <div class="flex flex-wrap gap-2 mb-6">
+                    <button onclick="switchConfigTab('profil')" id="config-btn-profil" class="config-subtab-btn active">
+                        Profil
+                    </button>
+                    <button onclick="switchConfigTab('einstellungen')" id="config-btn-einstellungen" class="config-subtab-btn">
+                        Einstellungen
+                    </button>
+                    <button onclick="switchConfigTab('happyhour')" id="config-btn-happyhour" class="config-subtab-btn">
+                        Happy Hour
+                    </button>
+                    <button onclick="switchConfigTab('landingpage')" id="config-btn-landingpage" class="config-subtab-btn">
+                        Landingpage
+                    </button>
+                    <button onclick="switchConfigTab('qrcodes')" id="config-btn-qrcodes" class="config-subtab-btn">
+                        QR & Tische
+                    </button>
+                </div>
 
-                    <!-- ==================== ACCORDION SECTION 1: Restaurant Profil ==================== -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <button type="button" onclick="toggleAccordion('accordion-profil')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-zinc-500">store</span> Restaurant Profil
-                            </h3>
-                            <span id="chevron-accordion-profil" class="material-symbols-outlined text-zinc-400 text-lg transition-transform duration-200">expand_more</span>
-                        </button>
-                        <div id="accordion-profil" class="hidden border-t border-gray-100">
-                            <div class="p-5 space-y-4">
-                                <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
-                                    {% if restaurant.branding and restaurant.branding.logo_url %}
-                                    <div class="flex items-center gap-3">
-                                        <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200">
-                                        <span class="text-[10px] text-zinc-400 font-bold">Aktuelles Logo</span>
-                                    </div>
-                                    {% endif %}
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Logo hochladen</label>
-                                        <input type="file" name="logo_file" accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse (Straße & Hausnummer)</label>
-                                        <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">PLZ</label>
-                                            <input type="text" name="plz" value="{{ restaurant.branding.plz if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Ort</label>
-                                            <input type="text" name="ort" value="{{ restaurant.branding.ort if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-3 gap-3">
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Instagram URL</label>
-                                            <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Facebook URL</label>
-                                            <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">TikTok URL</label>
-                                            <input type="text" name="tiktok" value="{{ restaurant.branding.tiktok if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Farbschema (Theme)</label>
-                                        <select name="theme" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                            <option value="dark" {% if restaurant.theme == 'dark' or not restaurant.theme %}selected{% endif %}>Dunkel (Dark Mode)</option>
-                                            <option value="light" {% if restaurant.theme == 'light' %}selected{% endif %}>Hell (Light Mode)</option>
-                                        </select>
-                                    </div>
-                                    <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
-                                </form>
+                <!-- ==================== SUB-TAB: Profil ==================== -->
+                <div id="config-tab-profil" class="config-tab-content active">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+                        <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
+                            {% if restaurant.branding and restaurant.branding.logo_url %}
+                            <div class="flex items-center gap-3">
+                                <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200">
+                                <span class="text-[10px] text-zinc-400 font-bold">Aktuelles Logo</span>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- ==================== ACCORDION SECTION 2: Einstellungen ==================== -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <button type="button" onclick="toggleAccordion('accordion-einstellungen')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-zinc-500">settings</span> Einstellungen
-                            </h3>
-                            <span id="chevron-accordion-einstellungen" class="material-symbols-outlined text-zinc-400 text-lg transition-transform duration-200">expand_more</span>
-                        </button>
-                        <div id="accordion-einstellungen" class="hidden border-t border-gray-100">
-                            <div class="p-5 space-y-4">
-                                <!-- Shishabar toggler -->
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <h4 class="font-bold text-xs text-zinc-800">Shisha-Bar Modus</h4>
-                                        <p class="text-[10px] text-zinc-400">Aktiviert Kohle/Shisha-Rufoptionen im Gästemenü</p>
-                                    </div>
-                                    <form action="/admin/shishabar-toggle" method="POST" class="inline flex items-center">
-                                        <label class="switch">
-                                            <input type="checkbox" name="is_shishabar" value="true" onchange="this.form.submit()" {% if restaurant.is_shishabar %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </form>
+                            {% endif %}
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Logo hochladen</label>
+                                <input type="file" name="logo_file" accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse (Straße & Hausnummer)</label>
+                                <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">PLZ</label>
+                                    <input type="text" name="plz" value="{{ restaurant.branding.plz if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 </div>
-
-                                <!-- Card Payment toggler -->
-                                <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
-                                    <div>
-                                        <h4 class="font-bold text-xs text-zinc-800">Kartenzahlung akzeptieren</h4>
-                                        <p class="text-[10px] text-zinc-400">Aktiviert/Deaktiviert die Option zur Kartenzahlung im Gästemenü</p>
-                                    </div>
-                                    <form action="/admin/card-payment-toggle" method="POST" class="inline flex items-center">
-                                        <label class="switch">
-                                            <input type="checkbox" name="accepts_card_payment" value="true" onchange="this.form.submit()" {% if restaurant.accepts_card_payment != False %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </form>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Ort</label>
+                                    <input type="text" name="ort" value="{{ restaurant.branding.ort if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- ==================== ACCORDION SECTION 3: Happy Hour ==================== -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <button type="button" onclick="toggleAccordion('accordion-happyhour')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-zinc-500">schedule</span> Happy Hour
-                                {% if hh_active_global %}
-                                    <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1 ml-2">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Aktiv
-                                    </span>
-                                {% else %}
-                                    <span class="bg-zinc-100 text-zinc-400 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1 ml-2">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> Inaktiv
-                                    </span>
-                                {% endif %}
-                            </h3>
-                            <span id="chevron-accordion-happyhour" class="material-symbols-outlined text-zinc-400 text-lg transition-transform duration-200">expand_more</span>
-                        </button>
-                        <div id="accordion-happyhour" class="hidden border-t border-gray-100">
-                            <div class="p-5 space-y-4">
-                                <form action="/admin/happy-hour" method="POST" class="space-y-4">
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5">Happy Hour Tage</label>
-                                        <div class="flex flex-wrap gap-2">
-                                            {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
-                                            {% for day in days %}
-                                            <label class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none">
-                                                <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0" {% if restaurant.happy_hour and day in restaurant.happy_hour.days %}checked{% endif %}>
-                                                <span>{{ day }}</span>
-                                            </label>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-3 gap-3">
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Startzeit</label>
-                                            <input type="time" name="start" value="{{ restaurant.happy_hour.start if restaurant.happy_hour else '18:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Endzeit</label>
-                                            <input type="time" name="end" value="{{ restaurant.happy_hour.end if restaurant.happy_hour else '20:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%)</label>
-                                            <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
-                                        </div>
-                                    </div>
-                                    <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
-                                </form>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Instagram URL</label>
+                                    <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Facebook URL</label>
+                                    <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">TikTok URL</label>
+                                    <input type="text" name="tiktok" value="{{ restaurant.branding.tiktok if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
                             </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Farbschema (Theme)</label>
+                                <select name="theme" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <option value="dark" {% if restaurant.theme == 'dark' or not restaurant.theme %}selected{% endif %}>Dunkel (Dark Mode)</option>
+                                    <option value="light" {% if restaurant.theme == 'light' %}selected{% endif %}>Hell (Light Mode)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ==================== SUB-TAB: Einstellungen ==================== -->
+                <div id="config-tab-einstellungen" class="config-tab-content">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+                        <!-- Shishabar toggler -->
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-xs text-zinc-800">Shisha-Bar Modus</h4>
+                                <p class="text-[10px] text-zinc-400">Aktiviert Kohle/Shisha-Rufoptionen im Gästemenü</p>
+                            </div>
+                            <form action="/admin/shishabar-toggle" method="POST" class="inline flex items-center">
+                                <label class="switch">
+                                    <input type="checkbox" name="is_shishabar" value="true" onchange="this.form.submit()" {% if restaurant.is_shishabar %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                            </form>
+                        </div>
+
+                        <!-- Card Payment toggler -->
+                        <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-xs text-zinc-800">Kartenzahlung akzeptieren</h4>
+                                <p class="text-[10px] text-zinc-400">Aktiviert/Deaktiviert die Option zur Kartenzahlung im Gästemenü</p>
+                            </div>
+                            <form action="/admin/card-payment-toggle" method="POST" class="inline flex items-center">
+                                <label class="switch">
+                                    <input type="checkbox" name="accepts_card_payment" value="true" onchange="this.form.submit()" {% if restaurant.accepts_card_payment != False %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                            </form>
                         </div>
                     </div>
+                </div>
 
-                    <!-- ==================== ACCORDION SECTION 4: Landingpage bearbeiten (DEFAULT OPEN) ==================== -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <button type="button" onclick="toggleAccordion('accordion-landingpage')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-zinc-500">campaign</span> Landingpage bearbeiten
-                            </h3>
-                            <span id="chevron-accordion-landingpage" class="material-symbols-outlined text-zinc-400 text-lg transition-transform duration-200 rotate-180">expand_more</span>
-                        </button>
-                        <div id="accordion-landingpage" class="border-t border-gray-100">
-                            <div class="p-5 space-y-4">
-                                <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return collectCustomSections()">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
-                                            <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
-                                            <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Über uns</label>
-                                            <input type="text" name="title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Standard: Über uns" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung</label>
-                                            <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
-                                            <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Aktuelles</label>
-                                            <input type="text" name="title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelles / Ankündigungen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                            <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Öffnungszeiten</label>
-                                            <input type="text" name="title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Standard: Öffnungszeiten" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                            <textarea name="oeffnungszeiten" rows="3" placeholder="z.B. Mo - So: 17:00 - 01:00 Uhr" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">{{ restaurant.landing_page.oeffnungszeiten if restaurant.landing_page else '' }}</textarea>
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Happy Hour Aktionen</label>
-                                            <input type="text" name="title_happyhour" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Standard: Happy Hour Aktionen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                            <textarea name="angebote" rows="3" placeholder="z.B. Täglich 18:00 - 20:00 Uhr alle Cocktails vergünstigt!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote if restaurant.landing_page else '' }}</textarea>
-                                        </div>
-                                    </div>
+                <!-- ==================== SUB-TAB: Happy Hour ==================== -->
+                <div id="config-tab-happyhour" class="config-tab-content">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="font-extrabold text-sm text-zinc-800">Happy Hour</h3>
+                            {% if hh_active_global %}
+                                <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1 ml-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Aktiv
+                                </span>
+                            {% else %}
+                                <span class="bg-zinc-100 text-zinc-400 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1 ml-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> Inaktiv
+                                </span>
+                            {% endif %}
+                        </div>
+                        <form action="/admin/happy-hour" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5">Happy Hour Tage</label>
+                                <div class="flex flex-wrap gap-2">
+                                    {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
+                                    {% for day in days %}
+                                    <label class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none">
+                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0" {% if restaurant.happy_hour and day in restaurant.happy_hour.days %}checked{% endif %}>
+                                        <span>{{ day }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Startzeit</label>
+                                    <input type="time" name="start" value="{{ restaurant.happy_hour.start if restaurant.happy_hour else '18:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Endzeit</label>
+                                    <input type="time" name="end" value="{{ restaurant.happy_hour.end if restaurant.happy_hour else '20:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%)</label>
+                                    <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
+                        </form>
+                    </div>
+                </div>
 
-                                    <!-- Bilder & Diashow Sektion -->
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                                        <!-- Angebotsfotos -->
-                                        <div class="space-y-3">
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Unsere Angebote</label>
-                                            <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Unsere Angebote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                            <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                                Angebotsfotos / aktuelle Angebote als Fotos
-                                            </h4>
-                                            <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                            
-                                            {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
-                                            <div class="flex flex-wrap gap-2 mt-2">
-                                                {% for img in restaurant.landing_page.offer_images %}
-                                                <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
-                                                    <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                        <span class="material-symbols-outlined text-base">delete</span>
-                                                    </button>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-
-                                        <!-- Hintergrund-Diashow -->
-                                        <div class="space-y-3">
-                                            <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                                Hintergrund-Diashow
-                                            </h4>
-                                            <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                                                <div>
-                                                    <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
-                                                    <div class="text-[9px] text-zinc-400">Diashow läuft auf der Landingpage im Hintergrund</div>
-                                                </div>
-                                                <label class="switch">
-                                                    <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
-                                                    <span class="slider"></span>
-                                                </label>
-                                            </div>
-                                            <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                            
-                                            {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
-                                            <div class="flex flex-wrap gap-2 mt-2">
-                                                {% for img in restaurant.landing_page.slideshow_images %}
-                                                <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
-                                                    <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                        <span class="material-symbols-outlined text-base">delete</span>
-                                                    </button>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
+                <!-- ==================== SUB-TAB: Landingpage ==================== -->
+                <div id="config-tab-landingpage" class="config-tab-content">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+                        <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return collectCustomSections()">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
+                                    <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
+                                    <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Über uns</label>
+                                    <input type="text" name="title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Standard: Über uns" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung</label>
+                                    <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
+                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Aktuelles</label>
+                                    <input type="text" name="title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelles / Ankündigungen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                    <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Öffnungszeiten</label>
+                                    <input type="text" name="title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Standard: Öffnungszeiten" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                    <div id="opening-hours-fields" class="space-y-2">
+                                        <!-- Dynamic opening hour rows will be here -->
                                     </div>
+                                    <button type="button" onclick="addOpeningHourRow()" class="mt-2 flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
+                                        + Zeile hinzufügen
+                                    </button>
+                                    <input type="hidden" id="opening-hours-json" name="oeffnungszeiten" value="">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Happy Hour Aktionen</label>
+                                    <input type="text" name="title_happyhour" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Standard: Happy Hour Aktionen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                    <div id="offers-fields" class="space-y-2"></div>
+                                    <button type="button" onclick="addOfferRow()" class="mt-2 flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
+                                        + Angebot hinzufügen
+                                    </button>
+                                    <input type="hidden" id="offers-json" name="angebote" value="">
+                                </div>
+                            </div>
 
-                                    <!-- Galerie Fotos Sektion -->
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                                        <div class="space-y-3 col-span-1 md:col-span-2">
-                                            <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                                Bildergalerie (für die Landingpage)
-                                            </h4>
-                                            <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                            
-                                            {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
-                                            <div class="flex flex-wrap gap-2 mt-2">
-                                                {% for img in restaurant.landing_page.gallery_images %}
-                                                <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
-                                                    <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                        <span class="material-symbols-outlined text-base">delete</span>
-                                                    </button>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-
-                                    <!-- Eigene Sektionen (Custom Sections) -->
-                                    <div class="border-t border-gray-100 pt-4 space-y-3">
-                                        <div class="flex items-center justify-between">
-                                            <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                                Eigene Sektionen
-                                            </h4>
-                                            <button type="button" onclick="addCustomSection()" class="flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
-                                                <span class="material-symbols-outlined text-sm">add</span> Sektion hinzufügen
+                            <!-- Bilder & Diashow Sektion -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
+                                <!-- Angebotsfotos -->
+                                <div class="space-y-3">
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Unsere Angebote</label>
+                                    <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Unsere Angebote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        Angebotsfotos / aktuelle Angebote als Fotos
+                                    </h4>
+                                    <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    
+                                    {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        {% for img in restaurant.landing_page.offer_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
                                             </button>
                                         </div>
-                                        <div id="custom-sections-container" class="space-y-3">
-                                            {% if restaurant.landing_page and restaurant.landing_page.custom_sections %}
-                                                {% for sec in restaurant.landing_page.custom_sections %}
-                                                <div class="custom-section-item bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3 relative">
-                                                    <button type="button" onclick="removeCustomSection(this)" class="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center justify-center transition shadow" title="Sektion entfernen">
-                                                        <span class="material-symbols-outlined text-sm">remove</span>
-                                                    </button>
-                                                    <div>
-                                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel</label>
-                                                        <input type="text" class="custom-section-title w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" value="{{ sec.title | default('') }}">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Inhalt</label>
-                                                        <textarea class="custom-section-content w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" rows="3">{{ sec.content | default('') }}</textarea>
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild hochladen</label>
-                                                        <input type="file" name="custom_section_images" class="custom-section-image w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" accept="image/*">
-                                                        {% if sec.image %}
-                                                        <input type="hidden" class="custom-section-existing-image" value="{{ sec.image }}">
-                                                        <div class="mt-2 flex items-center gap-2">
-                                                            <img src="{{ sec.image }}" class="h-10 w-10 object-cover rounded-lg border border-gray-200" alt="Sektionsbild">
-                                                            <span class="text-[9px] text-zinc-400">Aktuelles Bild</span>
-                                                        </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </div>
-                                                {% endfor %}
-                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Hintergrund-Diashow -->
+                                <div class="space-y-3">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        Hintergrund-Diashow
+                                    </h4>
+                                    <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                                        <div>
+                                            <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+                                            <div class="text-[9px] text-zinc-400">Diashow läuft auf der Landingpage im Hintergrund</div>
                                         </div>
-                                        <input type="hidden" id="custom-sections-json" name="custom_sections_json" value="">
+                                        <label class="switch">
+                                            <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+                                            <span class="slider"></span>
+                                        </label>
                                     </div>
-
-                                    <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Landingpage speichern</button>
-                                </form>
+                                    <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    
+                                    {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        {% for img in restaurant.landing_page.slideshow_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- ==================== ACCORDION SECTION 5: QR-Codes ==================== -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <button type="button" onclick="toggleAccordion('accordion-qrcodes')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-zinc-500">qr_code</span> QR-Codes
-                            </h3>
-                            <span id="chevron-accordion-qrcodes" class="material-symbols-outlined text-zinc-400 text-lg transition-transform duration-200">expand_more</span>
-                        </button>
-                        <div id="accordion-qrcodes" class="hidden border-t border-gray-100">
-                            <div class="p-5 space-y-4">
-                                <a href="/admin/qr-print" target="_blank" class="w-full text-center py-3 bg-zinc-800 text-white hover:bg-zinc-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
-                                    <span class="material-symbols-outlined text-sm">print</span> QR-Codes drucken
-                                </a>
+                            <!-- Galerie Fotos Sektion -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
+                                <div class="space-y-3 col-span-1 md:col-span-2">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        Bildergalerie (für die Landingpage)
+                                    </h4>
+                                    <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    
+                                    {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        {% for img in restaurant.landing_page.gallery_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- ==================== ACCORDION SECTION 6: Tische verwalten ==================== -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <button type="button" onclick="toggleAccordion('accordion-tische')" class="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-zinc-500">add_box</span> Tische verwalten
-                            </h3>
-                            <span id="chevron-accordion-tische" class="material-symbols-outlined text-zinc-400 text-lg transition-transform duration-200">expand_more</span>
-                        </button>
-                        <div id="accordion-tische" class="hidden border-t border-gray-100">
-                            <div id="table-creator-panel" class="p-5 space-y-4">
-                                <form action="/admin/table-erstellen" method="POST" class="space-y-4">
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
-                                        <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
-                                        <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                            <option value="Drinnen">Drinnen</option>
-                                            <option value="Draußen">Draußen</option>
-                                            <option value="Innen">Innen</option>
-                                            <option value="Terrasse">Terrasse</option>
-                                            <option value="Bar">Bar</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
-                                        <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                            <option value="rect">Rechteckig</option>
-                                            <option value="round">Rund</option>
-                                        </select>
-                                    </div>
-                                    <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
-                                </form>
+                            <!-- Eigene Sektionen (Custom Sections) -->
+                            <div class="border-t border-gray-100 pt-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                        Eigene Sektionen
+                                    </h4>
+                                    <button type="button" onclick="addCustomSection()" class="flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
+                                        + Sektion hinzufügen
+                                    </button>
+                                </div>
+                                <div id="custom-sections-container" class="space-y-3">
+                                    {% if restaurant.landing_page and restaurant.landing_page.custom_sections %}
+                                        {% for sec in restaurant.landing_page.custom_sections %}
+                                        <div class="custom-section-item bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3 relative">
+                                            <button type="button" onclick="removeCustomSection(this)" class="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center justify-center transition shadow" title="Sektion entfernen">
+                                                <span class="material-symbols-outlined text-sm">remove</span>
+                                            </button>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel</label>
+                                                <input type="text" class="custom-section-title w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" value="{{ sec.title | default('') }}">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Inhalt</label>
+                                                <textarea class="custom-section-content w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" rows="3">{{ sec.content | default('') }}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild hochladen</label>
+                                                <input type="file" name="custom_section_images" class="custom-section-image w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" accept="image/*">
+                                                {% if sec.image %}
+                                                <input type="hidden" class="custom-section-existing-image" value="{{ sec.image }}">
+                                                <div class="mt-2 flex items-center gap-2">
+                                                    <img src="{{ sec.image }}" class="h-10 w-10 object-cover rounded-lg border border-gray-200" alt="Sektionsbild">
+                                                    <span class="text-[9px] text-zinc-400">Aktuelles Bild</span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                                <input type="hidden" id="custom-sections-json" name="custom_sections_json" value="">
                             </div>
-                        </div>
-                    </div>
 
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Landingpage speichern</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ==================== SUB-TAB: QR & Tische ==================== -->
+                <div id="config-tab-qrcodes" class="config-tab-content">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+                        <a href="/admin/qr-print" target="_blank" class="w-full text-center py-3 bg-zinc-800 text-white hover:bg-zinc-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+                            <span class="material-symbols-outlined text-sm">print</span> QR-Codes drucken
+                        </a>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4 mt-3">
+                        <h4 class="font-extrabold text-sm text-zinc-800">Tische verwalten</h4>
+                        <form action="/admin/table-erstellen" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
+                                <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
+                                <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <option value="Drinnen">Drinnen</option>
+                                    <option value="Draußen">Draußen</option>
+                                    <option value="Innen">Innen</option>
+                                    <option value="Terrasse">Terrasse</option>
+                                    <option value="Bar">Bar</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
+                                <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    <option value="rect">Rechteckig</option>
+                                    <option value="round">Rund</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -1857,9 +1866,152 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
-            switchAdminTab(activeTab);
+            // Check URL params for tab selection
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlTab = urlParams.get('tab');
+            if (urlTab === 'config' || urlTab === 'konfiguration') {
+                switchAdminTab('konfiguration');
+            } else {
+                const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+                switchAdminTab(activeTab);
+            }
+            // Initialize dynamic fields for landingpage editor
+            initOpeningHours();
+            initOffers();
         });
+
+        // ── CONFIG SUB-TAB SWITCHING ──
+        function switchConfigTab(tabId) {
+            // Hide all config tab contents
+            document.querySelectorAll('.config-tab-content').forEach(el => el.classList.remove('active'));
+            // Deactivate all sub-tab buttons
+            document.querySelectorAll('.config-subtab-btn').forEach(el => el.classList.remove('active'));
+            // Show selected tab
+            document.getElementById('config-tab-' + tabId).classList.add('active');
+            // Activate button
+            document.getElementById('config-btn-' + tabId).classList.add('active');
+        }
+
+        // ── DYNAMIC OPENING HOURS FIELDS ──
+        let openingHourRows = [];
+
+        function initOpeningHours() {
+            const existing = {{ restaurant.landing_page.oeffnungszeiten | tojson if restaurant.landing_page and restaurant.landing_page.oeffnungszeiten else '""' }};
+            const container = document.getElementById('opening-hours-fields');
+            if (!container) return;
+            
+            openingHourRows = [];
+            if (existing && existing.trim()) {
+                const lines = existing.split('\n').filter(l => l.trim());
+                lines.forEach(line => {
+                    // Split only on the FIRST colon to handle times like "17:00 - 01:00"
+                    const colonIdx = line.indexOf(':');
+                    if (colonIdx > 0) {
+                        const day = line.substring(0, colonIdx).trim();
+                        const time = line.substring(colonIdx + 1).trim();
+                        openingHourRows.push({day: day, time: time});
+                    } else {
+                        openingHourRows.push({day: '', time: line.trim()});
+                    }
+                });
+            }
+            
+            if (openingHourRows.length === 0) {
+                openingHourRows = [
+                    {day: 'Montag - Freitag', time: '17:00 - 01:00'},
+                    {day: 'Samstag', time: '12:00 - 02:00'},
+                    {day: 'Sonntag', time: '12:00 - 00:00'}
+                ];
+            }
+            
+            renderOpeningHours();
+        }
+
+        function renderOpeningHours() {
+            const container = document.getElementById('opening-hours-fields');
+            if (!container) return;
+            
+            container.innerHTML = openingHourRows.map((row, idx) => `
+                <div class="flex items-center gap-2">
+                    <input type="text" value="${row.day}" placeholder="Tag" onchange="openingHourRows[${idx}].day=this.value" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                    <input type="text" value="${row.time}" placeholder="Zeiten" onchange="openingHourRows[${idx}].time=this.value" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                    <button type="button" onclick="removeOpeningHourRow(${idx})" class="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-xl flex items-center justify-center text-sm font-bold transition shrink-0">-</button>
+                </div>
+            `).join('');
+            
+            updateOpeningHoursJson();
+        }
+
+        function addOpeningHourRow() {
+            openingHourRows.push({day: '', time: ''});
+            renderOpeningHours();
+        }
+
+        function removeOpeningHourRow(idx) {
+            openingHourRows.splice(idx, 1);
+            renderOpeningHours();
+        }
+
+        function updateOpeningHoursJson() {
+            const jsonField = document.getElementById('opening-hours-json');
+            if (jsonField) {
+                const text = openingHourRows.map(r => r.day + ': ' + r.time).join('\n');
+                jsonField.value = text;
+            }
+        }
+
+        // ── DYNAMIC OFFERS FIELDS ──
+        let offerRows = [];
+
+        function initOffers() {
+            const existing = {{ restaurant.landing_page.angebote | tojson if restaurant.landing_page and restaurant.landing_page.angebote else '""' }};
+            const container = document.getElementById('offers-fields');
+            if (!container) return;
+            
+            offerRows = [];
+            if (existing && existing.trim()) {
+                existing.split('\n').filter(l => l.trim()).forEach(line => {
+                    offerRows.push({text: line.trim()});
+                });
+            }
+            
+            if (offerRows.length === 0) {
+                offerRows.push({text: ''});
+            }
+            
+            renderOffers();
+        }
+
+        function renderOffers() {
+            const container = document.getElementById('offers-fields');
+            if (!container) return;
+            
+            container.innerHTML = offerRows.map((row, idx) => `
+                <div class="flex items-center gap-2">
+                    <input type="text" value="${row.text.replace(/"/g, '&quot;')}" placeholder="z.B. Täglich 18-20 Uhr alle Cocktails -20%" onchange="offerRows[${idx}].text=this.value" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                    <button type="button" onclick="removeOfferRow(${idx})" class="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-xl flex items-center justify-center text-sm font-bold transition shrink-0">-</button>
+                </div>
+            `).join('');
+            
+            updateOffersJson();
+        }
+
+        function addOfferRow() {
+            offerRows.push({text: ''});
+            renderOffers();
+        }
+
+        function removeOfferRow(idx) {
+            offerRows.splice(idx, 1);
+            renderOffers();
+        }
+
+        function updateOffersJson() {
+            const jsonField = document.getElementById('offers-json');
+            if (jsonField) {
+                jsonField.value = offerRows.map(r => r.text).join('\n');
+            }
+        }
 
         // ── SITZPLAN / WAITER POS GLOBAL STATE ──
         let allOrders  = {{ orders_json | safe }} || [];
@@ -4591,6 +4743,10 @@
         }
 
         function collectCustomSections() {
+            // Update opening hours and offers hidden fields before submit
+            if (typeof updateOpeningHoursJson === 'function') updateOpeningHoursJson();
+            if (typeof updateOffersJson === 'function') updateOffersJson();
+
             const sections = [];
             const items = document.querySelectorAll('.custom-section-item');
             items.forEach(item => {

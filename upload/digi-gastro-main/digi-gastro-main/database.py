@@ -386,22 +386,3 @@ def get_db():
     finally:
         db.close()
 
-def run_migrations():
-    """Apply incremental ALTER TABLE migrations safely (idempotent)."""
-    migrations = [
-        # 2024-06: Add customer note field to order items
-        "ALTER TABLE order_items ADD COLUMN note TEXT",
-        "ALTER TABLE tenants ADD COLUMN plz VARCHAR DEFAULT ''",
-        "ALTER TABLE tenants ADD COLUMN ort VARCHAR DEFAULT ''",
-        "ALTER TABLE tenants ADD COLUMN landing_page_json TEXT DEFAULT '{}'",
-    ]
-    for sql in migrations:
-        try:
-            with engine.begin() as conn:
-                conn.execute(__import__("sqlalchemy").text(sql))
-        except Exception:
-            # Column already exists or similar – safe to ignore
-            pass
-# sync comment to trigger git push
-
-
