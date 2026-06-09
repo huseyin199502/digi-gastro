@@ -36,6 +36,9 @@
         }
     </script>
     <style>
+        /* Alpine.js x-cloak: hide elements until Alpine initializes */
+        [x-cloak] { display: none !important; }
+        
         html, body {
             touch-action: manipulation;
         }
@@ -118,21 +121,18 @@
             position: relative;
             overflow: hidden;
             width: 100%;
-            height: 88px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             touch-action: pan-x;
             -webkit-touch-callout: none;
+            padding: 12px 0 14px 0;
         }
-        /* Gradient fade edges for polished look */
+        /* Gradient fade edges */
         #category-carousel-wrapper::before,
         #category-carousel-wrapper::after {
             content: '';
             position: absolute;
             top: 0;
             bottom: 0;
-            width: 48px;
+            width: 32px;
             z-index: 10;
             pointer-events: none;
         }
@@ -144,78 +144,67 @@
             right: 0;
             background: linear-gradient(to left, var(--bg-obsidian) 0%, transparent 100%);
         }
-        /* Center indicator line */
-        #category-carousel-wrapper .center-indicator {
-            position: absolute;
-            left: 50%;
-            top: 6px;
-            transform: translateX(-50%);
-            width: 32px;
-            height: 3px;
-            border-radius: 2px;
-            background: var(--color-primary);
-            box-shadow: 0 0 12px var(--color-primary);
-            z-index: 11;
-            pointer-events: none;
-            opacity: 0.7;
-        }
         #category-carousel-track {
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
             will-change: transform;
-            padding: 0 40%;
+            padding: 0 16px;
         }
-        #category-carousel-track.dragging {
+        #category-carousel-track.no-transition {
             transition: none !important;
         }
         .cat-pill {
             flex-shrink: 0;
-            height: 48px;
-            min-width: 110px;
-            padding: 0 22px;
-            border-radius: 18px;
+            height: 44px;
+            padding: 0 20px;
+            border-radius: 16px;
             font-size: 13px;
-            font-weight: 800;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.03em;
             display: flex;
             align-items: center;
             justify-content: center;
             white-space: nowrap;
-            transition: background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
             border: 2px solid transparent;
-            position: relative;
-            z-index: 1;
             font-family: 'Outfit', 'Inter', sans-serif;
         }
         .cat-pill.active {
             background: var(--color-primary) !important;
             color: #000 !important;
-            box-shadow: 0 6px 28px -4px var(--color-primary), 0 0 0 3px rgba(16, 185, 129, 0.25);
+            box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.5);
             border-color: transparent !important;
-            z-index: 3;
             font-weight: 900;
+            transform: scale(1.08);
+            opacity: 1;
         }
         .cat-pill.inactive {
-            background: rgba(39, 39, 42, 0.7);
-            color: rgba(161, 161, 170, 0.85);
-            border-color: rgba(63, 63, 70, 0.4);
+            background: rgba(39, 39, 42, 0.6);
+            color: rgba(161, 161, 170, 0.8);
+            border-color: rgba(63, 63, 70, 0.3);
+            transform: scale(0.88);
+            opacity: 0.6;
+        }
+        .cat-pill.inactive.near {
+            transform: scale(0.93);
+            opacity: 0.75;
         }
         .cat-pill.inactive:hover {
-            background: rgba(63, 63, 70, 0.6);
+            background: rgba(63, 63, 70, 0.7);
             color: rgba(228, 228, 231, 0.95);
         }
-        /* Light theme adjustments for carousel */
+        /* Light theme */
         html.light .cat-pill.inactive {
-            background: rgba(0, 0, 0, 0.06);
-            color: rgba(75, 85, 99, 0.9);
-            border-color: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.05);
+            color: rgba(75, 85, 99, 0.85);
+            border-color: rgba(0, 0, 0, 0.08);
         }
         html.light .cat-pill.inactive:hover {
             background: rgba(0, 0, 0, 0.1);
@@ -555,16 +544,15 @@
                 
 
                 <!-- Category Wrapper (Sticky) - Center-Lock Carousel -->
-                <div class="sticky py-2 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
+                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky py-1 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important;">
                     
                     <!-- Center-Lock Category Carousel -->
                     <div id="category-carousel-wrapper">
-                        <div class="center-indicator"></div>
                         <div id="category-carousel-track">
                             {% for cat in parent_categories %}
                             <button class="cat-pill {% if loop.first %}active{% else %}inactive{% endif %}" 
                                     data-category="{{ cat }}" 
-                                    data-index="{{ loop.index0 }}"
+                                    data-original-index="{{ loop.index0 }}"
                                     onclick="filterCategory('{{ cat }}')">
                                 {{ cat }}
                             </button>
@@ -1237,7 +1225,7 @@
                 restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
                 guestWs: null,
                 guestWsHeartbeatInterval: null,
-                _carouselInitialized: false,
+                carouselInitialized: false,
 
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
@@ -1276,42 +1264,30 @@
                     }
                     
                     // Initialize category carousel - will be triggered when speisekarte view becomes visible
-                    // _carouselInitialized is already set in data
+                    // carouselInitialized is already set in data
                     
                     // Watch for view changes to initialize carousel when speisekarte becomes visible
                     this.$watch('currentView', (newView) => {
                         if (newView === 'speisekarte') {
-                            // Give Alpine time to show the view and render DOM
                             setTimeout(() => {
-                                if (!this._carouselInitialized) {
+                                if (!this.carouselInitialized) {
                                     this.initCategoryCarousel();
                                 } else {
-                                    // Just re-center if already initialized
-                                    const pills = document.querySelectorAll('.cat-pill');
-                                    pills.forEach((pill, i) => {
-                                        if (pill.getAttribute('data-category') === this.currentCategory) {
-                                            this.centerCarouselAt(i, true);
-                                        }
-                                    });
+                                    this.updateCarousel(this.currentCategory);
                                 }
-                            }, 150);
+                            }, 200);
                         }
                     });
                     
                     // If speisekarte is the default view (waiter/admin), init immediately
                     if (this.currentView === 'speisekarte') {
-                        setTimeout(() => this.initCategoryCarousel(), 200);
+                        setTimeout(() => this.initCategoryCarousel(), 300);
                     }
                     
                     // Recenter carousel on window resize
                     window.addEventListener('resize', () => {
-                        if (this._carouselInitialized && this.currentCategory) {
-                            const pills = document.querySelectorAll('.cat-pill');
-                            pills.forEach((pill, i) => {
-                                if (pill.getAttribute('data-category') === this.currentCategory) {
-                                    this.centerCarouselAt(i, true);
-                                }
-                            });
+                        if (this.carouselInitialized && this.currentCategory) {
+                            this.updateCarousel(this.currentCategory);
                         }
                     });
 
@@ -1608,7 +1584,7 @@
                         }
                     });
                     
-                    // Update carousel: center the active pill, apply fisheye scaling
+                    // Update carousel: center the active pill
                     this.updateCarousel(category);
 
                     this.applyAllFilters();
@@ -1620,22 +1596,33 @@
                     if (!track || !wrapper) return;
                     
                     const pills = track.querySelectorAll('.cat-pill');
-                    let activeIndex = 0;
+                    let activeIndex = -1;
                     
+                    // First pass: find active index
                     pills.forEach((pill, idx) => {
-                        const cat = pill.getAttribute('data-category');
-                        if (cat === activeCategory) {
+                        if (pill.getAttribute('data-category') === activeCategory && activeIndex === -1) {
                             activeIndex = idx;
-                            pill.classList.add('active');
-                            pill.classList.remove('inactive');
-                        } else {
-                            pill.classList.remove('active');
-                            pill.classList.add('inactive');
                         }
                     });
                     
-                    // Center the active pill in the wrapper
-                    this.centerCarouselAt(activeIndex, false);
+                    // Second pass: apply classes
+                    pills.forEach((pill, idx) => {
+                        pill.classList.remove('active', 'near');
+                        if (idx === activeIndex) {
+                            pill.classList.add('active');
+                            pill.classList.remove('inactive');
+                        } else {
+                            pill.classList.add('inactive');
+                            const dist = Math.abs(idx - activeIndex);
+                            if (dist === 1) {
+                                pill.classList.add('near');
+                            }
+                        }
+                    });
+                    
+                    if (activeIndex >= 0) {
+                        this.centerCarouselAt(activeIndex, false);
+                    }
                 },
 
                 centerCarouselAt(index, instant) {
@@ -1644,54 +1631,32 @@
                     if (!track || !wrapper) return;
                     
                     const pills = track.querySelectorAll('.cat-pill');
-                    if (index < 0 || index >= pills.length) return;
+                    if (!pills.length || index < 0 || index >= pills.length) return;
                     
                     const wrapperWidth = wrapper.getBoundingClientRect().width;
-                    const gap = 8; // must match CSS gap
+                    const gap = 8;
                     
-                    // Calculate the x position of the center of the target pill
-                    let pillCenterX = 0;
+                    // Calculate the x offset to center the active pill
+                    let pillOffsetX = 0;
                     for (let i = 0; i < index; i++) {
-                        pillCenterX += pills[i].offsetWidth + gap;
+                        pillOffsetX += pills[i].offsetWidth + gap;
                     }
-                    pillCenterX += pills[index].offsetWidth / 2;
+                    pillOffsetX += pills[index].offsetWidth / 2;
                     
-                    // The track has padding: 0 40%, so the first pill starts at 40% of wrapper width
-                    const trackPaddingLeft = wrapperWidth * 0.4;
+                    // Track padding is 16px on each side
+                    const paddingLeft = 16;
                     
-                    // To center the pill, we need: trackPaddingLeft + pillCenterX + translateX = wrapperWidth/2
-                    // So: translateX = wrapperWidth/2 - trackPaddingLeft - pillCenterX
-                    const translateX = (wrapperWidth / 2) - trackPaddingLeft - pillCenterX;
+                    // translateX needed so that pillOffsetX + paddingLeft lands at wrapperWidth/2
+                    const translateX = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
                     
                     if (instant) {
-                        track.classList.add('dragging');
+                        track.classList.add('no-transition');
                     }
                     track.style.transform = `translateX(${translateX}px)`;
                     if (instant) {
-                        track.offsetHeight; // force reflow
-                        requestAnimationFrame(() => track.classList.remove('dragging'));
+                        track.offsetHeight;
+                        requestAnimationFrame(() => track.classList.remove('no-transition'));
                     }
-                    
-                    // Apply fisheye scale effect - moderate and readable
-                    pills.forEach((pill, i) => {
-                        const distance = Math.abs(i - index);
-                        let scale, opacity;
-                        if (distance === 0) {
-                            scale = 1.12;
-                            opacity = 1;
-                        } else if (distance === 1) {
-                            scale = 0.92;
-                            opacity = 0.8;
-                        } else if (distance === 2) {
-                            scale = 0.82;
-                            opacity = 0.55;
-                        } else {
-                            scale = 0.75;
-                            opacity = 0.4;
-                        }
-                        pill.style.transform = `scale(${scale})`;
-                        pill.style.opacity = opacity;
-                    });
                 },
 
                 initCategoryCarousel() {
@@ -1702,102 +1667,65 @@
                     const pills = track.querySelectorAll('.cat-pill');
                     if (!pills.length) return;
                     
-                    // Check if pills have actual dimensions (view must be visible)
+                    // Check if view is visible (pills have dimensions)
                     if (pills[0].offsetWidth === 0) {
-                        // View not yet visible, retry
                         setTimeout(() => this.initCategoryCarousel(), 150);
                         return;
                     }
                     
-                    // Prevent duplicate event listener registration
-                    if (this._carouselInitialized) {
-                        // Already initialized, just re-center
-                        const firstCategory = this.currentCategory || "{{ parent_categories[0] if parent_categories else '' }}";
+                    // Prevent duplicate init
+                    if (this.carouselInitialized) {
+                        // Just re-center
                         const pills = track.querySelectorAll('.cat-pill');
+                        let idx = 0;
                         pills.forEach((pill, i) => {
-                            if (pill.getAttribute('data-category') === firstCategory) {
-                                this.centerCarouselAt(i, true);
+                            if (pill.getAttribute('data-category') === this.currentCategory && idx === 0) {
+                                idx = i;
                             }
                         });
+                        this.centerCarouselAt(idx, true);
                         return;
                     }
                     
-                    this._carouselInitialized = true;
+                    this.carouselInitialized = true;
+                    const self = this;
+                    const gap = 8;
+                    const totalPills = pills.length;
+                    
+                    // Get category from pill index
+                    const getCategoryByIndex = (idx) => {
+                        const realIdx = ((idx % totalPills) + totalPills) % totalPills;
+                        return pills[realIdx].getAttribute('data-category');
+                    };
                     
                     let isDragging = false;
                     let startX = 0;
-                    let currentTranslate = 0;
                     let prevTranslate = 0;
                     let dragMoved = false;
-                    const self = this;
-                    const gap = 8;
-                    
-                    const getCategoryIndex = (category) => {
-                        for (let i = 0; i < pills.length; i++) {
-                            if (pills[i].getAttribute('data-category') === category) return i;
-                        }
-                        return 0;
-                    };
-                    
-                    const calcTranslateForIndex = (idx) => {
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        let pillCenterX = 0;
-                        for (let i = 0; i < idx; i++) {
-                            pillCenterX += pills[i].offsetWidth + gap;
-                        }
-                        pillCenterX += pills[idx].offsetWidth / 2;
-                        const trackPaddingLeft = wrapperWidth * 0.4;
-                        return (wrapperWidth / 2) - trackPaddingLeft - pillCenterX;
-                    };
                     
                     const getPositionX = (e) => {
                         return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
                     };
                     
-                    const applyLiveFisheye = () => {
-                        const wrapperRect = wrapper.getBoundingClientRect();
-                        const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
-                        const halfWidth = wrapperRect.width / 2;
-                        pills.forEach(pill => {
-                            const pillRect = pill.getBoundingClientRect();
-                            const pillCenter = pillRect.left + pillRect.width / 2;
-                            const normalizedDist = Math.abs(pillCenter - wrapperCenter) / halfWidth;
-                            const scale = Math.max(0.75, 1.12 - normalizedDist * 0.45);
-                            const opacity = Math.max(0.4, 1 - normalizedDist * 0.7);
-                            pill.style.transform = `scale(${scale})`;
-                            pill.style.opacity = opacity;
-                        });
-                    };
-                    
-                    const dragStart = (e) => {
-                        isDragging = true;
-                        startX = getPositionX(e);
-                        dragMoved = false;
+                    const getCurrentTranslate = () => {
                         const style = window.getComputedStyle(track);
                         const matrix = new DOMMatrix(style.transform);
-                        prevTranslate = matrix.m41;
-                        currentTranslate = prevTranslate;
-                        track.classList.add('dragging');
+                        return matrix.m41;
                     };
                     
-                    const dragMove = (e) => {
-                        if (!isDragging) return;
-                        const currentX = getPositionX(e);
-                        const diff = currentX - startX;
-                        if (Math.abs(diff) > 5) dragMoved = true;
-                        currentTranslate = prevTranslate + diff;
-                        track.style.transform = `translateX(${currentTranslate}px)`;
-                        applyLiveFisheye();
+                    const calcTranslateForIndex = (idx) => {
+                        const wrapperWidth = wrapper.getBoundingClientRect().width;
+                        let pillOffsetX = 0;
+                        for (let i = 0; i < idx; i++) {
+                            pillOffsetX += pills[i].offsetWidth + gap;
+                        }
+                        pillOffsetX += pills[idx].offsetWidth / 2;
+                        const paddingLeft = 16;
+                        return (wrapperWidth / 2) - paddingLeft - pillOffsetX;
                     };
                     
-                    const dragEnd = (e) => {
-                        if (!isDragging) return;
-                        isDragging = false;
-                        track.classList.remove('dragging');
-                        
-                        if (!dragMoved) return; // It was a click, not a drag
-                        
-                        // Find pill closest to center after drag
+                    // Snap to nearest pill and filter
+                    const snapToNearest = () => {
                         const wrapperRect = wrapper.getBoundingClientRect();
                         const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
                         let closestIdx = 0;
@@ -1811,10 +1739,39 @@
                                 closestIdx = i;
                             }
                         });
-                        
-                        // Snap to the closest category
                         const category = pills[closestIdx].getAttribute('data-category');
-                        self.filterCategory(category);
+                        if (category && category !== this.currentCategory) {
+                            self.filterCategory(category);
+                        } else {
+                            // Just re-center without filtering
+                            self.centerCarouselAt(closestIdx, false);
+                        }
+                    };
+                    
+                    const dragStart = (e) => {
+                        isDragging = true;
+                        startX = getPositionX(e);
+                        dragMoved = false;
+                        prevTranslate = getCurrentTranslate();
+                        track.classList.add('no-transition');
+                    };
+                    
+                    const dragMove = (e) => {
+                        if (!isDragging) return;
+                        const currentX = getPositionX(e);
+                        const diff = currentX - startX;
+                        if (Math.abs(diff) > 5) dragMoved = true;
+                        const newTranslate = prevTranslate + diff;
+                        track.style.transform = `translateX(${newTranslate}px)`;
+                    };
+                    
+                    const dragEnd = (e) => {
+                        if (!isDragging) return;
+                        isDragging = false;
+                        track.classList.remove('no-transition');
+                        
+                        if (!dragMoved) return;
+                        snapToNearest();
                     };
                     
                     // Touch events
@@ -1837,7 +1794,12 @@
                     // Initial center on first category
                     const firstCategory = this.currentCategory || "{{ parent_categories[0] if parent_categories else '' }}";
                     if (firstCategory) {
-                        const idx = getCategoryIndex(firstCategory);
+                        let idx = 0;
+                        pills.forEach((pill, i) => {
+                            if (pill.getAttribute('data-category') === firstCategory && idx === 0) {
+                                idx = i;
+                            }
+                        });
                         requestAnimationFrame(() => {
                             self.centerCarouselAt(idx, true);
                         });
