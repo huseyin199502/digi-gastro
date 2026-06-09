@@ -1236,11 +1236,11 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/impressum", response_class=HTMLResponse)
 def platform_impressum(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="landing.html", context={"show_impressum": True})
+    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_impressum": True})
 
 @app.get("/datenschutz", response_class=HTMLResponse)
 def platform_datenschutz(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="landing.html", context={"show_datenschutz": True})
+    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_datenschutz": True})
 
 
 
@@ -1293,28 +1293,24 @@ def global_login_post(
             "landing.html",
             {"request": request, "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.", "show_login": True}
         )
-    db = SessionLocal()
-    try:
-        tenant = db.query(Tenant).filter_by(email=email.strip()).first()
-        if tenant and tenant.password == password.strip():
-            slug = tenant.slug
-            target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
-            resp = RedirectResponse(url=target, status_code=303)
-            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
-            return resp
-            
-        if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
-            resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-            resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
-            return resp
-            
-        return templates.TemplateResponse(
-            request,
-            "landing.html",
-            {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True}
-        )
-    finally:
-        db.close()
+    tenant = db.query(Tenant).filter_by(email=email.strip()).first()
+    if tenant and tenant.password == password.strip():
+        slug = tenant.slug
+        target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+        resp = RedirectResponse(url=target, status_code=303)
+        resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
+        return resp
+        
+    if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
+        resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
+        resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+        return resp
+        
+    return templates.TemplateResponse(
+        request,
+        "landing.html",
+        {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True}
+    )
 
 
 # ==========================================
@@ -3334,10 +3330,7 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
     restaurant = get_restaurant_or_raise(slug, db)
     
     if not restaurant.get("is_setup_completed", False):
-        restaurant["is_setup_completed"] = True
-        restaurant["is_onboarded"] = True
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        return RedirectResponse(url="/admin/setup")
         
     # Process Happy Hour status for admin dashboard
     berlin_now = get_berlin_now()
@@ -3465,11 +3458,6 @@ def get_login(request: Request, redirect: Optional[str] = None, db: Session = De
         restaurant = get_restaurant_or_raise(slug, db)
         role = user["role"]
         if role == "chef":
-            if not restaurant.get("is_setup_completed", False):
-                restaurant["is_setup_completed"] = True
-                restaurant["is_onboarded"] = True
-                save_restaurant_to_db(slug, restaurant, db)
-                db.commit()
             return RedirectResponse(url="/admin/dashboard")
         elif role == "kellner":
             return RedirectResponse(url=f"/{slug}/tablet")
@@ -4600,14 +4588,17 @@ async def update_landingpage(
     title_hours: Optional[str] = Form(None),
     title_happyhour: Optional[str] = Form(None),
     slideshow_enabled: Optional[bool] = Form(False),
+    custom_sections_json: Optional[str] = Form(None),
     offer_images: List[UploadFile] = File(None),
     slideshow_images: List[UploadFile] = File(None),
     gallery_images: List[UploadFile] = File(None),
+    custom_section_images: List[UploadFile] = File(None),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
     from typing import List
     import time
+    import json as json_module
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -4677,6 +4668,50 @@ async def update_landingpage(
                 with open(file_path, "wb") as fh:
                     fh.write(content)
                 existing_gallery.append(f"/uploads/gallery/{safe_name}")
+    
+    # Parse custom sections JSON
+    custom_sections = []
+    if custom_sections_json:
+        try:
+            custom_sections = json_module.loads(custom_sections_json)
+            if not isinstance(custom_sections, list):
+                custom_sections = []
+        except Exception:
+            custom_sections = []
+    
+    # Process custom section image uploads
+    # Match uploaded images to sections that have _has_new_image flag
+    custom_image_idx = 0
+    if custom_section_images:
+        os.makedirs(landing_dir, exist_ok=True)
+        # First count how many sections need new images (for matching order)
+        new_image_section_indices = []
+        for i, section in enumerate(custom_sections):
+            if section.get("_has_new_image"):
+                new_image_section_indices.append(i)
+        
+        for sec_idx in new_image_section_indices:
+            if custom_image_idx < len(custom_section_images):
+                file = custom_section_images[custom_image_idx]
+                if file.filename and is_valid_image(file.filename):
+                    safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.jpg"
+                    file_path = os.path.join(landing_dir, safe_name)
+                    content = await file.read()
+                    content = process_and_optimize_general_image(content)
+                    with open(file_path, "wb") as fh:
+                        fh.write(content)
+                    custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
+                custom_image_idx += 1
+    
+    # Clean up custom sections - ensure proper structure, remove internal flags
+    cleaned_custom_sections = []
+    for sec in custom_sections:
+        if isinstance(sec, dict) and (sec.get("title") or sec.get("content") or sec.get("image")):
+            cleaned_custom_sections.append({
+                "title": str(sec.get("title", "")).strip(),
+                "content": str(sec.get("content", "")).strip(),
+                "image": str(sec.get("image", "")).strip()
+            })
                 
     restaurant["landing_page"] = {
         "welcome_title": welcome_title.strip() if welcome_title else f"Willkommen bei {restaurant.get('name', slug)}",
@@ -4694,7 +4729,8 @@ async def update_landingpage(
         "slideshow_enabled": bool(slideshow_enabled),
         "offer_images": existing_offers,
         "slideshow_images": existing_slideshow,
-        "gallery_images": existing_gallery
+        "gallery_images": existing_gallery,
+        "custom_sections": cleaned_custom_sections
     }
     
     save_restaurant_to_db(slug, restaurant, db)
@@ -5604,11 +5640,24 @@ def get_setup(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/admin/login")
         
     restaurant = get_restaurant_or_raise(slug, db)
-    restaurant["is_setup_completed"] = True
-    restaurant["is_onboarded"] = True
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    return RedirectResponse(url="/admin/dashboard")
+    
+    # If setup is already completed, redirect to dashboard
+    if restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/dashboard")
+    
+    # Otherwise show the setup page
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {
+            "request": request,
+            "restaurant": restaurant,
+            "current_user": user,
+            "stats": {"brutto": 0, "netto_7": 0, "netto_19": 0, "tip": 0, "orders_count": 0, "avg_basket": 0},
+            "hh_active_global": False,
+            "active_tab": "konfiguration"
+        }
+    )
 
 @app.post("/admin/upload-logo")
 async def upload_logo(request: Request, file: UploadFile = File(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):

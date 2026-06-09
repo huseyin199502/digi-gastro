@@ -256,17 +256,16 @@
 
             <!-- Angebotsfotos (aktuelle Angebote als Slider) -->
             <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
-                    <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
+                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
                     <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
                 </h3>
                 
                 <!-- Touch Slider/Carousel Container -->
-                <div class="relative w-full overflow-hidden rounded-2xl aspect-[16/9] bg-zinc-950/40 border border-outline-variant/30 group">
-                    <div id="offer-slider" class="flex w-full h-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
+                <div class="relative w-full overflow-hidden rounded-2xl bg-zinc-950/40 border border-outline-variant/30 group">
+                    <div id="offer-slider" class="flex w-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
                         <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
-                            <div class="w-full h-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
-                                <img :src="img" alt="Angebot" class="w-full h-full object-cover" loading="lazy">
+                            <div class="w-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
+                                <img :src="img" alt="Angebot" class="w-full object-contain" loading="lazy">
                             </div>
                         </template>
                     </div>
@@ -312,8 +311,7 @@
 
             <!-- Responsive Bildergalerie -->
             <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
-                    <span class="material-symbols-outlined text-primary font-bold">collections</span>
+                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
                     <span>Galerie</span>
                 </h3>
                 
@@ -329,8 +327,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">schedule</span>
+                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
                         <span x-text="restaurantLandingPage.title_hours || 'Öffnungszeiten'">Öffnungszeiten</span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
@@ -338,8 +335,7 @@
                 
                 <!-- Info Card 2: Über uns / Angebote -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">local_offer</span>
+                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
                         <span x-text="restaurantLandingPage.title_happyhour || 'Angebote & Specials'">Angebote & Specials</span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
@@ -349,8 +345,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- What we offer -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">restaurant</span>
+                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
                         <span x-text="restaurantLandingPage.title_about || 'Was wir bieten'">Was wir bieten</span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
@@ -358,13 +353,25 @@
                 
                 <!-- Announcements / News -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
-                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">campaign</span>
+                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
                         <span x-text="restaurantLandingPage.title_news || 'Aktuelles & Events'">Aktuelles & Events</span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
                 </div>
             </div>
+
+            <!-- Custom Sections (Eigene Sektionen) -->
+            <template x-if="restaurantLandingPage.custom_sections && restaurantLandingPage.custom_sections.length > 0">
+                <div class="space-y-6 mt-6">
+                    <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
+                        <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
+                            <h3 class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
+                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-contain" :alt="section.title" loading="lazy">
+                            <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-show="section.content" x-text="section.content"></p>
+                        </div>
+                    </template>
+                </div>
+            </template>
 
         </div>
 
