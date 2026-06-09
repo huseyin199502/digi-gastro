@@ -1236,11 +1236,13 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/impressum", response_class=HTMLResponse)
 def platform_impressum(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_impressum": True})
+    # Pass request context properly for template rendering
+    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_impressum": True, "is_logged_in": False})
 
 @app.get("/datenschutz", response_class=HTMLResponse)
 def platform_datenschutz(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_datenschutz": True})
+    # Pass request context properly for template rendering
+    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_datenschutz": True, "is_logged_in": False})
 
 
 

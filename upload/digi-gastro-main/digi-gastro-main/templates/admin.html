@@ -580,6 +580,23 @@
         .config-tab-content.active {
             display: block;
         }
+
+        /* Remove annoying browser-native icons from form fields */
+        input[type="text"]::-webkit-search-cancel-button,
+        input[type="search"]::-webkit-search-cancel-button,
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            -webkit-appearance: none;
+            appearance: none;
+            display: none !important;
+            margin: 0;
+            padding: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -1007,22 +1024,28 @@
 
             <!-- ⚙️ TAB 5: KONFIGURATION (konfiguration) -->
             <div id="admin-tab-konfiguration" class="admin-tab-content">
-                <!-- Sub-tab navigation pills -->
+                <!-- Sub-tab navigation pills - Restructured for multi-tenant clarity -->
                 <div class="flex flex-wrap gap-2 mb-6">
+                    <!-- Gruppe: Restaurant-Identität -->
+                    <span class="text-[9px] font-black text-zinc-400 uppercase tracking-widest self-center mr-1">Identität</span>
                     <button onclick="switchConfigTab('profil')" id="config-btn-profil" class="config-subtab-btn active">
-                        Profil
+                        🏪 Profil & Branding
                     </button>
+                    <!-- Gruppe: Betrieb -->
+                    <span class="text-[9px] font-black text-zinc-400 uppercase tracking-widest self-center ml-3 mr-1">Betrieb</span>
                     <button onclick="switchConfigTab('einstellungen')" id="config-btn-einstellungen" class="config-subtab-btn">
-                        Einstellungen
+                        ⚙️ Einstellungen
                     </button>
                     <button onclick="switchConfigTab('happyhour')" id="config-btn-happyhour" class="config-subtab-btn">
-                        Happy Hour
+                        🕐 Happy Hour
                     </button>
+                    <!-- Gruppe: Online-Präsenz -->
+                    <span class="text-[9px] font-black text-zinc-400 uppercase tracking-widest self-center ml-3 mr-1">Online</span>
                     <button onclick="switchConfigTab('landingpage')" id="config-btn-landingpage" class="config-subtab-btn">
-                        Landingpage
+                        🌐 Landingpage
                     </button>
                     <button onclick="switchConfigTab('qrcodes')" id="config-btn-qrcodes" class="config-subtab-btn">
-                        QR & Tische
+                        📱 QR & Tische
                     </button>
                 </div>
 
@@ -1162,144 +1185,179 @@
 
                 <!-- ==================== SUB-TAB: Landingpage ==================== -->
                 <div id="config-tab-landingpage" class="config-tab-content">
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
-                        <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return collectCustomSections()">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
-                                    <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-5">
+                        <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-5" onsubmit="return collectCustomSections()">
+
+                            <!-- Section 1: Begrüßung -->
+                            <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-6 h-6 bg-emerald-100 text-emerald-700 rounded-lg flex items-center justify-center text-xs font-black">1</span>
+                                    <h4 class="font-extrabold text-xs text-zinc-800">Begrüßung & Titel</h4>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
-                                    <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Über uns</label>
-                                    <input type="text" name="title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Standard: Über uns" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung</label>
-                                    <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
-                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Aktuelles</label>
-                                    <input type="text" name="title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelles / Ankündigungen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Öffnungszeiten</label>
-                                    <input type="text" name="title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Standard: Öffnungszeiten" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <div id="opening-hours-fields" class="space-y-2">
-                                        <!-- Dynamic opening hour rows will be here -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
+                                        <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     </div>
-                                    <button type="button" onclick="addOpeningHourRow()" class="mt-2 flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
-                                        + Zeile hinzufügen
-                                    </button>
-                                    <input type="hidden" id="opening-hours-json" name="oeffnungszeiten" value="">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Happy Hour Aktionen</label>
-                                    <input type="text" name="title_happyhour" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Standard: Happy Hour Aktionen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <div id="offers-fields" class="space-y-2"></div>
-                                    <button type="button" onclick="addOfferRow()" class="mt-2 flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
-                                        + Angebot hinzufügen
-                                    </button>
-                                    <input type="hidden" id="offers-json" name="angebote" value="">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
+                                        <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Bilder & Diashow Sektion -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                                <!-- Angebotsfotos -->
-                                <div class="space-y-3">
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Unsere Angebote</label>
-                                    <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Unsere Angebote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        Angebotsfotos / aktuelle Angebote als Fotos
-                                    </h4>
-                                    <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    
-                                    {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
-                                    <div class="flex flex-wrap gap-2 mt-2">
-                                        {% for img in restaurant.landing_page.offer_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
+                            <!-- Section 2: Über uns -->
+                            <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-6 h-6 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center text-xs font-black">2</span>
+                                    <h4 class="font-extrabold text-xs text-zinc-800">Über uns & Google Bewertung</h4>
                                 </div>
-
-                                <!-- Hintergrund-Diashow -->
-                                <div class="space-y-3">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        Hintergrund-Diashow
-                                    </h4>
-                                    <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                                        <div>
-                                            <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
-                                            <div class="text-[9px] text-zinc-400">Diashow läuft auf der Landingpage im Hintergrund</div>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Über uns</label>
+                                        <input type="text" name="title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Standard: Über uns" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung</label>
+                                        <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
                                     </div>
-                                    <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    
-                                    {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
-                                    <div class="flex flex-wrap gap-2 mt-2">
-                                        {% for img in restaurant.landing_page.slideshow_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
-                                        </div>
-                                        {% endfor %}
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
+                                        <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                     </div>
-                                    {% endif %}
                                 </div>
                             </div>
 
-                            <!-- Galerie Fotos Sektion -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                                <div class="space-y-3 col-span-1 md:col-span-2">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        Bildergalerie (für die Landingpage)
-                                    </h4>
-                                    <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    
-                                    {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
-                                    <div class="flex flex-wrap gap-2 mt-2">
-                                        {% for img in restaurant.landing_page.gallery_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
-                                        </div>
-                                        {% endfor %}
+                            <!-- Section 3: Aktuelles & Öffnungszeiten & Angebote -->
+                            <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-6 h-6 bg-amber-100 text-amber-700 rounded-lg flex items-center justify-center text-xs font-black">3</span>
+                                    <h4 class="font-extrabold text-xs text-zinc-800">Aktuelles, Öffnungszeiten & Angebote</h4>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Aktuelles</label>
+                                        <input type="text" name="title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelles / Ankündigungen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                        <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
                                     </div>
-                                    {% endif %}
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Öffnungszeiten</label>
+                                        <input type="text" name="title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Standard: Öffnungszeiten" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                        <div id="opening-hours-fields" class="space-y-2">
+                                            <!-- Dynamic opening hour rows will be here -->
+                                        </div>
+                                        <button type="button" onclick="addOpeningHourRow()" class="mt-2 flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
+                                            + Zeile hinzufügen
+                                        </button>
+                                        <input type="hidden" id="opening-hours-json" name="oeffnungszeiten" value="">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Happy Hour Aktionen</label>
+                                        <input type="text" name="title_happyhour" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Standard: Happy Hour Aktionen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                        <div id="offers-fields" class="space-y-2"></div>
+                                        <button type="button" onclick="addOfferRow()" class="mt-2 flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
+                                            + Angebot hinzufügen
+                                        </button>
+                                        <input type="hidden" id="offers-json" name="angebote" value="">
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Eigene Sektionen (Custom Sections) -->
-                            <div class="border-t border-gray-100 pt-4 space-y-3">
+                            <!-- Section 4: Bilder & Diashow -->
+                            <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-6 h-6 bg-purple-100 text-purple-700 rounded-lg flex items-center justify-center text-xs font-black">4</span>
+                                    <h4 class="font-extrabold text-xs text-zinc-800">Bilder & Diashow</h4>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <!-- Angebotsfotos -->
+                                    <div class="space-y-3">
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Unsere Angebote</label>
+                                        <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Unsere Angebote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
+                                        <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                            Angebotsfotos / aktuelle Angebote als Fotos
+                                        </h4>
+                                        <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        
+                                        {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
+                                        <div class="flex flex-wrap gap-2 mt-2">
+                                            {% for img in restaurant.landing_page.offer_images %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Hintergrund-Diashow -->
+                                    <div class="space-y-3">
+                                        <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
+                                            Hintergrund-Diashow
+                                        </h4>
+                                        <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                                            <div>
+                                                <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+                                                <div class="text-[9px] text-zinc-400">Diashow läuft auf der Landingpage im Hintergrund</div>
+                                            </div>
+                                            <label class="switch">
+                                                <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                        <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        
+                                        {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
+                                        <div class="flex flex-wrap gap-2 mt-2">
+                                            {% for img in restaurant.landing_page.slideshow_images %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
+                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 5: Galerie -->
+                            <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-6 h-6 bg-rose-100 text-rose-700 rounded-lg flex items-center justify-center text-xs font-black">5</span>
+                                    <h4 class="font-extrabold text-xs text-zinc-800">Bildergalerie</h4>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-3 col-span-1 md:col-span-2">
+                                        <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        
+                                        {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
+                                        <div class="flex flex-wrap gap-2 mt-2">
+                                            {% for img in restaurant.landing_page.gallery_images %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
+                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 6: Eigene Sektionen (Custom Sections) -->
+                            <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="w-6 h-6 bg-teal-100 text-teal-700 rounded-lg flex items-center justify-center text-xs font-black">6</span>
+                                    <h4 class="font-extrabold text-xs text-zinc-800">Eigene Sektionen</h4>
+                                </div>
                                 <div class="flex items-center justify-between">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        Eigene Sektionen
-                                    </h4>
+                                    <p class="text-[10px] text-zinc-400">Füge eigene Inhaltsblöcke hinzu (z.B. Sonderaktionen, Events, Geburtstagsangebote)</p>
                                     <button type="button" onclick="addCustomSection()" class="flex items-center gap-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition shadow">
                                         + Sektion hinzufügen
                                     </button>
