@@ -254,13 +254,25 @@
                 </div>
             </div>
 
-            <!-- Angebotsfotos (aktuelle Angebote als Slider) - FULL WIDTH -->
-            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md font-display px-3">
-                    <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
+            <!-- Angebote (Bilder & Videos) - FULL WIDTH -->
+            <div x-show="(restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0) || (restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0)" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 x-show="restaurantLandingPage.title_offers" class="text-lg font-bold text-white drop-shadow-md font-display px-3">
+                    <span x-text="restaurantLandingPage.title_offers"></span>
                 </h3>
                 
-                <!-- Touch Slider/Carousel Container - Full Width -->
+                <!-- Offer Videos -->
+                <template x-if="restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 px-3">
+                        <template x-for="vid in restaurantLandingPage.offer_videos" :key="vid">
+                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                                <video :src="vid" autoplay loop muted playsinline class="w-full h-auto object-contain" style="max-height: 400px;"></video>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Offer Images Slider -->
+                <template x-if="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0">
                 <div class="relative w-full overflow-hidden rounded-2xl bg-zinc-950/40 border border-outline-variant/30 group">
                     <div id="offer-slider" class="flex w-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
                         <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
@@ -287,6 +299,7 @@
                         </template>
                     </div>
                 </div>
+                </template>
             </div>
             
             {% if hh_active_global %}
@@ -309,25 +322,39 @@
             </div>
             {% endif %}
 
-            <!-- Responsive Bildergalerie -->
-            <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                    <span x-text="restaurantLandingPage.title_gallery || 'Galerie'">Galerie</span>
+            <!-- Galerie (Bilder & Videos) -->
+            <div x-show="(restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0) || (restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0)" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 x-show="restaurantLandingPage.title_gallery" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <span x-text="restaurantLandingPage.title_gallery"></span>
                 </h3>
                 
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
-                        <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
-                            <img :src="img" class="w-full h-full object-cover" loading="lazy">
-                        </div>
-                    </template>
-                </div>
+                <!-- Gallery Videos -->
+                <template x-if="restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                        <template x-for="vid in restaurantLandingPage.gallery_videos" :key="vid">
+                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                                <video :src="vid" autoplay loop muted playsinline class="w-full h-auto object-contain" style="max-height: 400px;"></video>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Gallery Images -->
+                <template x-if="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
+                            <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
+                                <img :src="img" class="w-full h-full object-cover" loading="lazy">
+                            </div>
+                        </template>
+                    </div>
+                </template>
             </div>
 
-            <!-- Video Section -->
+            <!-- Video Section (eigenständig) -->
             <div x-show="restaurantLandingPage.videos && restaurantLandingPage.videos.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                    <span x-text="restaurantLandingPage.title_videos || 'Videos'">Videos</span>
+                <h3 x-show="restaurantLandingPage.title_videos" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <span x-text="restaurantLandingPage.title_videos"></span>
                 </h3>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -342,16 +369,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_hours || 'Öffnungszeiten'">Öffnungszeiten</span>
+                    <h3 x-show="restaurantLandingPage.title_hours" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_hours"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
                 </div>
                 
-                <!-- Info Card 2: Über uns / Angebote -->
+                <!-- Info Card 2: Angebote -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_happyhour || 'Angebote & Specials'">Angebote & Specials</span>
+                    <h3 x-show="restaurantLandingPage.title_happyhour" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_happyhour"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
                 </div>
@@ -360,16 +387,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- What we offer -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_about || 'Was wir bieten'">Was wir bieten</span>
+                    <h3 x-show="restaurantLandingPage.title_about" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_about"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
                 </div>
                 
                 <!-- Announcements / News -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
-                    <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                        <span x-text="restaurantLandingPage.title_news || 'Aktuelles & Events'">Aktuelles & Events</span>
+                    <h3 x-show="restaurantLandingPage.title_news" class="text-lg font-bold text-white drop-shadow-md font-display">
+                        <span x-text="restaurantLandingPage.title_news"></span>
                     </h3>
                     <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
                 </div>
@@ -380,7 +407,7 @@
                 <div class="space-y-6 mt-6">
                     <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
                         <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
-                            <h3 class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
+                            <h3 x-show="section.title" class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
                             <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-cover" :alt="section.title" loading="lazy">
                             <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-show="section.content" x-text="section.content"></p>
                         </div>
@@ -424,16 +451,16 @@
                     </button>
                 </div>
 
-                <!-- Secondary Subcategories Swiper (Alpine.js powered) -->
-                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-3 mb-1" style="display: none;">
-                    <div class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none py-1.5 px-1" style="touch-action: pan-x;">
+                <!-- Secondary Subcategories - Compact wrapping chips (better for 100+ subcategories) -->
+                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-2 mb-1" style="display: none;">
+                    <div class="flex flex-wrap gap-1.5 select-none py-1 px-1">
                         <!-- 'All' subcategory button -->
-                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center">
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-7 rounded-full text-[10px] font-bold uppercase tracking-wider px-3 transition-all border border-outline-variant/40 select-none flex items-center justify-center">
                             Alle
                         </button>
                         <!-- Dynamic subcategory buttons -->
                         <template x-for="sub in activeSubcategories" :key="sub">
-                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center" x-text="sub">
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-7 rounded-full text-[10px] font-bold uppercase tracking-wider px-3 transition-all border border-outline-variant/40 select-none flex items-center justify-center" x-text="sub">
                             </button>
                         </template>
                     </div>

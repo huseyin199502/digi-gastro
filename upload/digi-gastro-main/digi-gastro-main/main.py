@@ -4608,14 +4608,23 @@ async def update_landingpage(
     existing_offers = landing_page.get("offer_images", [])
     if not isinstance(existing_offers, list):
         existing_offers = []
+    existing_offer_videos = landing_page.get("offer_videos", [])
+    if not isinstance(existing_offer_videos, list):
+        existing_offer_videos = []
         
     existing_slideshow = landing_page.get("slideshow_images", [])
     if not isinstance(existing_slideshow, list):
         existing_slideshow = []
+    existing_slideshow_videos = landing_page.get("slideshow_videos", [])
+    if not isinstance(existing_slideshow_videos, list):
+        existing_slideshow_videos = []
         
     existing_gallery = landing_page.get("gallery_images", [])
     if not isinstance(existing_gallery, list):
         existing_gallery = []
+    existing_gallery_videos = landing_page.get("gallery_videos", [])
+    if not isinstance(existing_gallery_videos, list):
+        existing_gallery_videos = []
     
     existing_videos = landing_page.get("videos", [])
     if not isinstance(existing_videos, list):
@@ -4630,11 +4639,47 @@ async def update_landingpage(
         allowed = {'.mp4', '.webm', '.mov', '.avi', '.mkv'}
         return os.path.splitext(filename.lower())[1] in allowed
 
-    # Process new offer images
+    # Helper to save a video with duration check
+    async def save_video_file(file, slug_prefix, upload_subdir, idx):
+        ext = os.path.splitext(file.filename.lower())[1]
+        vdir = os.path.join(UPLOAD_DIR, upload_subdir)
+        os.makedirs(vdir, exist_ok=True)
+        safe_name = f"{slug}_{slug_prefix}_{int(time.time())}_{idx}{ext}"
+        file_path = os.path.join(vdir, safe_name)
+        content = await file.read()
+        if len(content) > 50 * 1024 * 1024:
+            return None
+        with open(file_path, "wb") as fh:
+            fh.write(content)
+        # Validate duration using ffprobe if available
+        try:
+            import subprocess
+            probe_cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_format", "-show_streams", file_path
+            ]
+            result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                probe_data = json_module.loads(result.stdout)
+                duration = float(probe_data.get("format", {}).get("duration", 0))
+                if duration > 41:
+                    os.remove(file_path)
+                    return None
+        except Exception:
+            pass
+        return f"/uploads/{upload_subdir}/{safe_name}"
+
+    # Process new offer images (and videos mixed in)
     landing_dir = os.path.join(UPLOAD_DIR, "landing")
     if offer_images:
         for idx, file in enumerate(offer_images):
-            if file.filename and is_valid_image(file.filename):
+            if not file.filename:
+                continue
+            if is_valid_video(file.filename):
+                url = await save_video_file(file, "offer_vid", "videos", idx)
+                if url:
+                    existing_offer_videos.append(url)
+            elif is_valid_image(file.filename):
                 os.makedirs(landing_dir, exist_ok=True)
                 safe_name = f"{slug}_offer_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(landing_dir, safe_name)
@@ -4644,11 +4689,17 @@ async def update_landingpage(
                     fh.write(content)
                 existing_offers.append(f"/uploads/landing/{safe_name}")
                 
-    # Process new slideshow images
+    # Process new slideshow images (and videos mixed in)
     slideshow_dir = os.path.join(UPLOAD_DIR, "slideshow")
     if slideshow_images:
         for idx, file in enumerate(slideshow_images):
-            if file.filename and is_valid_image(file.filename):
+            if not file.filename:
+                continue
+            if is_valid_video(file.filename):
+                url = await save_video_file(file, "slide_vid", "videos", idx)
+                if url:
+                    existing_slideshow_videos.append(url)
+            elif is_valid_image(file.filename):
                 os.makedirs(slideshow_dir, exist_ok=True)
                 safe_name = f"{slug}_slide_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(slideshow_dir, safe_name)
@@ -4658,16 +4709,21 @@ async def update_landingpage(
                     fh.write(content)
                 existing_slideshow.append(f"/uploads/slideshow/{safe_name}")
                 
-    # Process new gallery images
+    # Process new gallery images (and videos mixed in)
     gallery_dir = os.path.join(UPLOAD_DIR, "gallery")
     if gallery_images:
         for idx, file in enumerate(gallery_images):
-            if file.filename and is_valid_image(file.filename):
+            if not file.filename:
+                continue
+            if is_valid_video(file.filename):
+                url = await save_video_file(file, "gal_vid", "videos", idx)
+                if url:
+                    existing_gallery_videos.append(url)
+            elif is_valid_image(file.filename):
                 os.makedirs(gallery_dir, exist_ok=True)
                 safe_name = f"{slug}_gal_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(gallery_dir, safe_name)
                 content = await file.read()
-                # Check size (5MB limit)
                 if len(content) > 5 * 1024 * 1024:
                     continue
                 content = process_and_optimize_general_image(content)
@@ -4837,8 +4893,11 @@ async def update_landingpage(
         "title_videos": title_videos.strip() if title_videos else "",
         "slideshow_enabled": bool(slideshow_enabled),
         "offer_images": existing_offers,
+        "offer_videos": existing_offer_videos,
         "slideshow_images": existing_slideshow,
+        "slideshow_videos": existing_slideshow_videos,
         "gallery_images": existing_gallery,
+        "gallery_videos": existing_gallery_videos,
         "videos": existing_videos,
         "custom_sections": cleaned_custom_sections
     }
@@ -4862,6 +4921,39 @@ def delete_landing_image(
     
     if image_type == "video":
         videos_list = landing_page.get("videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "offer_video":
+        videos_list = landing_page.get("offer_videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "slideshow_video":
+        videos_list = landing_page.get("slideshow_videos", [])
+        if image_url in videos_list:
+            videos_list.remove(image_url)
+            filename = os.path.basename(image_url)
+            full_path = os.path.join(UPLOAD_DIR, "videos", filename)
+            if os.path.exists(full_path):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    print(f"[Cleanup] Failed to delete video {full_path}: {e}")
+    elif image_type == "gallery_video":
+        videos_list = landing_page.get("gallery_videos", [])
         if image_url in videos_list:
             videos_list.remove(image_url)
             filename = os.path.basename(image_url)
