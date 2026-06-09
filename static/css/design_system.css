@@ -441,8 +441,18 @@ html.light :not(.landing-page-wrapper) .text-on-surface-variant {
 /* ===== LANDING PAGE EXCEPTIONS — MUST be LAST to win specificity battles ===== */
 /* Landingpage texts MUST remain white over the background slideshow in light mode */
 /* Nuclear approach: force ALL children white, then add back gray exceptions */
+/* NOTE: Using doubled class (.landing-page-wrapper.landing-page-wrapper) to beat
+   the :not(.landing-page-wrapper) .text-white rule specificity (0,3,1 vs 0,3,1 → last wins) */
 html.light .landing-page-wrapper,
-html.light .landing-page-wrapper * {
+html.light .landing-page-wrapper.landing-page-wrapper * {
+    color: #ffffff !important;
+}
+
+/* Explicitly force .text-white elements white — wins over :not(.landing-page-wrapper) .text-white */
+html.light .landing-page-wrapper .text-white,
+html.light .landing-page-wrapper h2,
+html.light .landing-page-wrapper h3,
+html.light .landing-page-wrapper strong.text-on-surface {
     color: #ffffff !important;
 }
 

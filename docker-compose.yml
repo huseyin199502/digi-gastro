@@ -20,8 +20,11 @@ services:
       POSTGRES_DB:       digi_gastro
       POSTGRES_USER:     gastro_user
       POSTGRES_PASSWORD: gastro_secret   # change before going to prod!
+      TZ:                Europe/Berlin   # Zeitzone für korrekte Uhrzeiten in Logs
     volumes:
       - pgdata:/var/lib/postgresql/data  # named volume → survives restarts
+      - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)
+      - /etc/localtime:/etc/localtime:ro  # Host-Localtime (Hetzner DE)
     ports:
       - "127.0.0.1:5432:5432"                      # expose locally only (invisible to public internet)
     healthcheck:
@@ -51,8 +54,11 @@ services:
       # ── App tuning ────────────────────────────────────────────
       PYTHONUNBUFFERED: "1"
       PORT: "8000"
+      TZ: Europe/Berlin                 # Zeitzone für korrekte Uhrzeiten in Logs
     volumes:
       - uploads:/app/data              # logos & images survive rebuilds
+      - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)
+      - /etc/localtime:/etc/localtime:ro  # Host-Localtime (Hetzner DE)
     ports:
       - "8090:8000"                    # → http://localhost:8000
     healthcheck:
