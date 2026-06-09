@@ -113,27 +113,65 @@
         .animate-bounce-horizontal-left {
             animation: bounceHorizontalLeft 1.2s infinite;
         }
-        /* Active category sliding indicator */
-        #category-pills-wrapper {
+        /* Center-lock carousel category navigation */
+        #category-carousel-wrapper {
             position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        #category-indicator {
-            position: absolute;
-            height: 44px;
-            min-width: 110px;
-            border-radius: 12px;
-            background: var(--color-primary);
-            box-shadow: 0 4px 14px -3px var(--color-primary);
-            transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 0;
-            pointer-events: none;
+        #category-carousel-track {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+            will-change: transform;
+            padding: 0 20px;
         }
-        #category-indicator.active-pulse {
-            transform: scale(1.06);
+        #category-carousel-track.dragging {
+            transition: none;
         }
-        #category-pills button {
+        .cat-pill {
+            flex-shrink: 0;
+            height: 40px;
+            padding: 0 16px;
+            border-radius: 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            border: 1.5px solid transparent;
             position: relative;
             z-index: 1;
+        }
+        .cat-pill.active {
+            background: var(--color-primary);
+            color: #000;
+            box-shadow: 0 4px 20px -4px var(--color-primary);
+            border-color: transparent;
+            z-index: 2;
+        }
+        .cat-pill.inactive {
+            background: var(--bg-surface);
+            color: var(--text-on-surface-variant);
+            border-color: var(--border-subtle);
+        }
+        /* Scale is controlled by JS via CSS custom property --cat-scale */
+        .cat-pill {
+            transform: scale(var(--cat-scale, 0.85));
+            opacity: var(--cat-opacity, 0.6);
         }
         /* Video full-size display - no crop, no max-height restriction */
         .landing-video-full {
@@ -462,35 +500,28 @@
             <div id="tab-speisekarte" class="py-2">
                 
 
-                <!-- Category Wrapper (Sticky) -->
-                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
-                    <!-- Left Chevron indicator -->
-                    <button id="chevron-left" class="absolute left-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-left" onclick="scrollCategories(-200)">
-                        <span class="material-symbols-outlined text-sm font-black">chevron_left</span>
-                    </button>
-
-                    <!-- Category Pills (Horizontal scrolling) with sliding indicator -->
-                    <div id="category-pills-wrapper" class="relative">
-                        <div id="category-indicator"></div>
-                        <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
+                <!-- Category Wrapper (Sticky) - Center-Lock Carousel -->
+                <div class="sticky py-3 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
+                    
+                    <!-- Center-Lock Category Carousel -->
+                    <div id="category-carousel-wrapper">
+                        <div id="category-carousel-track">
                             {% for cat in parent_categories %}
-                            <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-colors duration-200 font-display select-none flex items-center justify-center px-4 {% if loop.first %}text-black{% else %}text-on-surface-variant{% endif %} uppercase tracking-wider bg-transparent border border-transparent">
-                                <span>{{ cat }}</span>
+                            <button class="cat-pill {% if loop.first %}active{% else %}inactive{% endif %}" 
+                                    data-category="{{ cat }}" 
+                                    data-index="{{ loop.index0 }}"
+                                    onclick="filterCategory('{{ cat }}')">
+                                {{ cat }}
                             </button>
                             {% endfor %}
                         </div>
                     </div>
 
-                    <!-- Swipe indicator / accessibility tip (mobile only) -->
-                    <div class="flex md:hidden items-center justify-center gap-1.5 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider mt-2.5 opacity-65 select-none">
+                    <!-- Swipe hint (mobile only) -->
+                    <div class="flex md:hidden items-center justify-center gap-1.5 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider mt-1 opacity-50 select-none">
                         <span class="material-symbols-outlined text-xs animate-pulse">swipe</span>
                         <span data-translate="swipe_hint">← Kategorien wischen →</span>
                     </div>
-
-                    <!-- Right Chevron indicator -->
-                    <button id="chevron-right" class="absolute right-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-right" onclick="scrollCategories(200)">
-                        <span class="material-symbols-outlined text-sm font-black">chevron_right</span>
-                    </button>
                 </div>
 
                 <!-- Secondary Subcategories - Compact wrapping chips (better for 100+ subcategories) -->
@@ -1194,15 +1225,20 @@
                         this.filterCategory(firstCategory);
                     }
                     
-                    // Initialize category indicator position after DOM is ready
-                    setTimeout(() => this.moveCategoryIndicator(), 100);
+                    // Initialize category carousel (center-lock + swipe)
+                    setTimeout(() => this.initCategoryCarousel(), 50);
                     
-                    // Update indicator position when category pills are scrolled
-                    const catPillsEl = document.getElementById('category-pills');
-                    if (catPillsEl) {
-                        catPillsEl.addEventListener('scroll', () => this.moveCategoryIndicator());
-                    }
-                    window.addEventListener('resize', () => this.moveCategoryIndicator());
+                    // Recenter carousel on window resize
+                    window.addEventListener('resize', () => {
+                        if (this.currentCategory) {
+                            const pills = document.querySelectorAll('.cat-pill');
+                            pills.forEach((pill, i) => {
+                                if (pill.getAttribute('data-category') === this.currentCategory) {
+                                    this.centerCarouselAt(i, true);
+                                }
+                            });
+                        }
+                    });
 
                     const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
                     if (!isReadonly) {
@@ -1318,11 +1354,11 @@
                                         const parser = new DOMParser();
                                         const doc = parser.parseFromString(html, 'text/html');
                                         
-                                        // Update category pills
-                                        const newPills = doc.getElementById('category-pills');
-                                        const currentPills = document.getElementById('category-pills');
-                                        if (newPills && currentPills) {
-                                            currentPills.innerHTML = newPills.innerHTML;
+                                        // Update category carousel
+                                        const newTrack = doc.getElementById('category-carousel-track');
+                                        const currentTrack = document.getElementById('category-carousel-track');
+                                        if (newTrack && currentTrack) {
+                                            currentTrack.innerHTML = newTrack.innerHTML;
                                         }
                                         
                                         // Update product grid container
@@ -1339,23 +1375,18 @@
                                             currentBanner.innerHTML = newBanner.innerHTML;
                                         }
                                         
-                                        // Re-apply current category filter
+                                        // Re-apply current category filter and reinitialize carousel
                                         if (this.currentCategory) {
                                             this.filterCategory(this.currentCategory);
                                         } else {
-                                            const firstBtn = document.querySelector('#category-pills button');
-                                            if (firstBtn) {
-                                                const catName = firstBtn.id.replace('btn-', '');
-                                                this.filterCategory(catName);
+                                            const firstPill = document.querySelector('.cat-pill');
+                                            if (firstPill) {
+                                                this.filterCategory(firstPill.getAttribute('data-category'));
                                             }
                                         }
                                         
-                                        // Re-initialize category pills scroll events and chevron logic
-                                        const catPills = document.getElementById('category-pills');
-                                        if (catPills && typeof updateCategoryChevrons === 'function') {
-                                            catPills.addEventListener('scroll', updateCategoryChevrons);
-                                            setTimeout(updateCategoryChevrons, 500);
-                                        }
+                                        // Reinitialize carousel after DOM update
+                                        setTimeout(() => this.initCategoryCarousel(), 100);
                                     })
                                     .catch(err => console.error("Error loading live menu updates:", err));
 
@@ -1502,61 +1533,200 @@
                         }
                     });
                     
-                    // Animate sliding indicator + update text colors
-                    const activeBtn = document.getElementById(`btn-${category}`);
-                    const indicator = document.getElementById('category-indicator');
-                    const pillsContainer = document.getElementById('category-pills');
-                    
-                    if (activeBtn && indicator && pillsContainer) {
-                        const containerRect = pillsContainer.getBoundingClientRect();
-                        const btnRect = activeBtn.getBoundingClientRect();
-                        const scrollLeft = pillsContainer.scrollLeft;
-                        
-                        // Position indicator relative to the wrapper
-                        indicator.style.left = (btnRect.left - containerRect.left + scrollLeft) + 'px';
-                        indicator.style.width = btnRect.width + 'px';
-                        
-                        // Pulse animation on the indicator
-                        indicator.classList.add('active-pulse');
-                        setTimeout(() => indicator.classList.remove('active-pulse'), 300);
-                        
-                        // Auto-scroll to keep active pill visible
-                        const pillLeft = btnRect.left - containerRect.left;
-                        const pillRight = pillLeft + btnRect.width;
-                        const visibleWidth = containerRect.width;
-                        
-                        if (pillLeft < 0 || pillRight > visibleWidth) {
-                            pillsContainer.scrollTo({
-                                left: scrollLeft + pillLeft - visibleWidth / 2 + btnRect.width / 2,
-                                behavior: 'smooth'
-                            });
-                        }
-                    }
-                    
-                    // Update text color of all pills
-                    const pills = document.querySelectorAll('#category-pills button');
-                    pills.forEach(pillBtn => {
-                        const isCurrent = pillBtn.id === `btn-${category}`;
-                        pillBtn.className = isCurrent ? 
-                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-colors duration-200 font-display select-none flex items-center justify-center px-4 text-black uppercase tracking-wider bg-transparent border border-transparent" : 
-                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-colors duration-200 font-display select-none flex items-center justify-center px-4 text-on-surface-variant uppercase tracking-wider bg-transparent border border-transparent";
-                    });
+                    // Update carousel: center the active pill, apply fisheye scaling
+                    this.updateCarousel(category);
 
                     this.applyAllFilters();
                 },
 
-                moveCategoryIndicator() {
-                    const activeBtn = document.getElementById(`btn-${this.currentCategory}`);
-                    const indicator = document.getElementById('category-indicator');
-                    const pillsContainer = document.getElementById('category-pills');
+                updateCarousel(activeCategory) {
+                    const track = document.getElementById('category-carousel-track');
+                    const wrapper = document.getElementById('category-carousel-wrapper');
+                    if (!track || !wrapper) return;
                     
-                    if (activeBtn && indicator && pillsContainer) {
-                        const containerRect = pillsContainer.getBoundingClientRect();
-                        const btnRect = activeBtn.getBoundingClientRect();
-                        const scrollLeft = pillsContainer.scrollLeft;
+                    const pills = track.querySelectorAll('.cat-pill');
+                    let activeIndex = 0;
+                    
+                    pills.forEach((pill, idx) => {
+                        const cat = pill.getAttribute('data-category');
+                        if (cat === activeCategory) {
+                            activeIndex = idx;
+                            pill.classList.add('active');
+                            pill.classList.remove('inactive');
+                        } else {
+                            pill.classList.remove('active');
+                            pill.classList.add('inactive');
+                        }
+                    });
+                    
+                    // Center the active pill in the wrapper
+                    this.centerCarouselAt(activeIndex, false);
+                },
+
+                centerCarouselAt(index, instant) {
+                    const track = document.getElementById('category-carousel-track');
+                    const wrapper = document.getElementById('category-carousel-wrapper');
+                    if (!track || !wrapper) return;
+                    
+                    const pills = track.querySelectorAll('.cat-pill');
+                    if (index < 0 || index >= pills.length) return;
+                    
+                    const wrapperWidth = wrapper.getBoundingClientRect().width;
+                    const activePill = pills[index];
+                    const pillWidth = activePill.offsetWidth;
+                    
+                    // Calculate offset to center this pill
+                    let offset = 0;
+                    for (let i = 0; i < index; i++) {
+                        offset += pills[i].offsetWidth + 8; // 8 = gap
+                    }
+                    offset += pillWidth / 2; // center of the active pill
+                    
+                    const translateX = (wrapperWidth / 2) - offset;
+                    
+                    if (instant) {
+                        track.classList.add('dragging');
+                    }
+                    track.style.transform = `translateX(${translateX}px)`;
+                    if (instant) {
+                        // Force reflow then remove dragging class
+                        track.offsetHeight;
+                        requestAnimationFrame(() => track.classList.remove('dragging'));
+                    }
+                    
+                    // Apply fisheye scale effect to all pills
+                    pills.forEach((pill, i) => {
+                        const distance = Math.abs(i - index);
+                        let scale, opacity;
+                        if (distance === 0) {
+                            scale = 1.15;
+                            opacity = 1;
+                        } else if (distance === 1) {
+                            scale = 0.9;
+                            opacity = 0.7;
+                        } else if (distance === 2) {
+                            scale = 0.78;
+                            opacity = 0.45;
+                        } else {
+                            scale = 0.7;
+                            opacity = 0.3;
+                        }
+                        pill.style.setProperty('--cat-scale', scale);
+                        pill.style.setProperty('--cat-opacity', opacity);
+                    });
+                },
+
+                initCategoryCarousel() {
+                    const track = document.getElementById('category-carousel-track');
+                    const wrapper = document.getElementById('category-carousel-wrapper');
+                    if (!track || !wrapper) return;
+                    
+                    const pills = track.querySelectorAll('.cat-pill');
+                    let isDragging = false;
+                    let startX = 0;
+                    let currentTranslate = 0;
+                    let prevTranslate = 0;
+                    let dragMoved = false;
+                    
+                    const getCategoryIndex = (category) => {
+                        for (let i = 0; i < pills.length; i++) {
+                            if (pills[i].getAttribute('data-category') === category) return i;
+                        }
+                        return 0;
+                    };
+                    
+                    const getPositionX = (e) => {
+                        return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
+                    };
+                    
+                    const dragStart = (e) => {
+                        isDragging = true;
+                        startX = getPositionX(e);
+                        dragMoved = false;
+                        const style = window.getComputedStyle(track);
+                        const matrix = new DOMMatrix(style.transform);
+                        prevTranslate = matrix.m41;
+                        currentTranslate = prevTranslate;
+                        track.classList.add('dragging');
+                    };
+                    
+                    const dragMove = (e) => {
+                        if (!isDragging) return;
+                        const currentX = getPositionX(e);
+                        const diff = currentX - startX;
+                        if (Math.abs(diff) > 5) dragMoved = true;
+                        currentTranslate = prevTranslate + diff;
+                        track.style.transform = `translateX(${currentTranslate}px)`;
                         
-                        indicator.style.left = (btnRect.left - containerRect.left + scrollLeft) + 'px';
-                        indicator.style.width = btnRect.width + 'px';
+                        // Live fisheye update during drag
+                        const wrapperCenter = wrapper.getBoundingClientRect().left + wrapper.getBoundingClientRect().width / 2;
+                        pills.forEach(pill => {
+                            const pillRect = pill.getBoundingClientRect();
+                            const pillCenter = pillRect.left + pillRect.width / 2;
+                            const distance = Math.abs(pillCenter - wrapperCenter) / (wrapper.getBoundingClientRect().width / 2);
+                            const scale = Math.max(0.7, 1.15 - distance * 0.5);
+                            const opacity = Math.max(0.3, 1 - distance * 0.7);
+                            pill.style.setProperty('--cat-scale', scale);
+                            pill.style.setProperty('--cat-opacity', opacity);
+                        });
+                    };
+                    
+                    const dragEnd = (e) => {
+                        if (!isDragging) return;
+                        isDragging = false;
+                        track.classList.remove('dragging');
+                        
+                        if (!dragMoved) return; // It was a click, not a drag
+                        
+                        // Determine which pill is closest to center after drag
+                        const wrapperCenter = wrapper.getBoundingClientRect().left + wrapper.getBoundingClientRect().width / 2;
+                        let closestIdx = 0;
+                        let closestDist = Infinity;
+                        pills.forEach((pill, i) => {
+                            const pillRect = pill.getBoundingClientRect();
+                            const pillCenter = pillRect.left + pillRect.width / 2;
+                            const dist = Math.abs(pillCenter - wrapperCenter);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestIdx = i;
+                            }
+                        });
+                        
+                        // Snap to the closest category
+                        const category = pills[closestIdx].getAttribute('data-category');
+                        this.filterCategory(category);
+                    };
+                    
+                    // Touch events
+                    wrapper.addEventListener('touchstart', dragStart, { passive: true });
+                    wrapper.addEventListener('touchmove', dragMove, { passive: true });
+                    wrapper.addEventListener('touchend', dragEnd);
+                    
+                    // Mouse events
+                    wrapper.addEventListener('mousedown', dragStart);
+                    wrapper.addEventListener('mousemove', dragMove);
+                    wrapper.addEventListener('mouseup', dragEnd);
+                    wrapper.addEventListener('mouseleave', () => { if (isDragging) dragEnd(); });
+                    
+                    // Prevent default drag behavior
+                    wrapper.addEventListener('dragstart', (e) => e.preventDefault());
+                    
+                    // Initial center
+                    const firstCategory = "{{ parent_categories[0] if parent_categories else '' }}";
+                    if (firstCategory) {
+                        const idx = getCategoryIndex(firstCategory);
+                        this.centerCarouselAt(idx, true);
+                        // Apply initial fisheye
+                        pills.forEach((pill, i) => {
+                            const distance = Math.abs(i - idx);
+                            let scale, opacity;
+                            if (distance === 0) { scale = 1.15; opacity = 1; }
+                            else if (distance === 1) { scale = 0.9; opacity = 0.7; }
+                            else if (distance === 2) { scale = 0.78; opacity = 0.45; }
+                            else { scale = 0.7; opacity = 0.3; }
+                            pill.style.setProperty('--cat-scale', scale);
+                            pill.style.setProperty('--cat-opacity', opacity);
+                        });
                     }
                 },
 
@@ -2344,51 +2514,14 @@
             };
         }
 
-        function updateCategoryChevrons() {
-            const container = document.getElementById('category-pills');
-            const leftBtn = document.getElementById('chevron-left');
-            const rightBtn = document.getElementById('chevron-right');
-            if (!container) return;
-            
-            const scrollLeft = container.scrollLeft;
-            const maxScrollLeft = container.scrollWidth - container.clientWidth;
-            
-            if (leftBtn) {
-                if (scrollLeft > 5) {
-                    leftBtn.classList.remove('hidden');
-                } else {
-                    leftBtn.classList.add('hidden');
-                }
-            }
-            
-            if (rightBtn) {
-                if (scrollLeft < maxScrollLeft - 5 && container.scrollWidth > container.clientWidth) {
-                    rightBtn.classList.remove('hidden');
-                } else {
-                    rightBtn.classList.add('hidden');
-                }
-            }
-        }
-        
-        function scrollCategories(amount) {
-            const container = document.getElementById('category-pills');
-            if (container) {
-                container.scrollBy({ left: amount, behavior: 'smooth' });
-            }
-        }
+        // Category carousel uses swipe gestures instead of chevron buttons
+        // scrollCategories and updateCategoryChevrons are no longer needed
 
         // Initialize default category and check for session reset
         document.addEventListener("DOMContentLoaded", () => {
             const resetSession = {% if reset_session %}true{% else %}false{% endif %};
             if (resetSession) {
                 localStorage.removeItem(`dl_orders_{{ slug }}`);
-            }
-            
-            const catPills = document.getElementById('category-pills');
-            if (catPills) {
-                catPills.addEventListener('scroll', updateCategoryChevrons);
-                window.addEventListener('resize', updateCategoryChevrons);
-                setTimeout(updateCategoryChevrons, 500);
             }
         });
     </script>
@@ -2583,40 +2716,6 @@
             }
         });
 
-        // Horizontal drag-to-slide Category Pills on desktop
-        window.addEventListener('DOMContentLoaded', () => {
-            const slider = document.getElementById('category-pills');
-            if (slider) {
-                let isDown = false;
-                let startX;
-                let scrollLeft;
-
-                slider.addEventListener('mousedown', (e) => {
-                    isDown = true;
-                    slider.classList.add('active');
-                    startX = e.pageX - slider.offsetLeft;
-                    scrollLeft = slider.scrollLeft;
-                    slider.style.cursor = 'grabbing';
-                });
-                slider.addEventListener('mouseleave', () => {
-                    isDown = false;
-                    slider.classList.remove('active');
-                    slider.style.cursor = 'default';
-                });
-                slider.addEventListener('mouseup', () => {
-                    isDown = false;
-                    slider.classList.remove('active');
-                    slider.style.cursor = 'default';
-                });
-                slider.addEventListener('mousemove', (e) => {
-                    if (!isDown) return;
-                    e.preventDefault();
-                    const x = e.pageX - slider.offsetLeft;
-                    const walk = (x - startX) * 2; // scroll-fast multiplier
-                    slider.scrollLeft = scrollLeft - walk;
-                });
-            }
-        });
     </script>
     <!-- Beautiful fullscreen Image Lightbox modal -->
     <div id="lightbox" class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md hidden items-center justify-center transition-all duration-300 opacity-0 pointer-events-none" @click="closeLightbox()">
