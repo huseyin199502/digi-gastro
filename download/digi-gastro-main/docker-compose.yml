@@ -53,6 +53,8 @@ services:
       PORT: "8000"
     volumes:
       - uploads:/app/data              # logos & images survive rebuilds
+      - /etc/timezone:/etc/timezone:ro          # Host-Zeitzone (Hetzner DE)
+      - /etc/localtime:/etc/localtime:ro        # Host-Localtime (Hetzner DE)
     ports:
       - "8090:8000"                    # → http://localhost:8000
     healthcheck:
