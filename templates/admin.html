@@ -2084,6 +2084,13 @@
         let allCategories = {{ restaurant.categories | tojson | safe }} || [];
         let allCalls   = [];
         let isEditMode = false;
+
+        // Helper: get category name for an order item by matching product_id
+        function getProductCategory(item) {
+            const pid = item.product_id || item.id;
+            const prod = allProducts.find(p => p.id === pid);
+            return prod ? prod.category : 'Sonstiges';
+        }
         let tempTables = [];
         
         // ── DIGI-STYLE MODAL CONTROL STATE ──
@@ -2293,7 +2300,7 @@
             let tipTextStr = '';
             
             const tableCallsForTip = allCalls.filter(c => {
-                const callTableNum = String(c.table).replace('Tisch ', '').trim();
+                const callTableNum = String(c.table).replace(/Tisch\s*/gi, '').split('(')[0].trim();
                 return callTableNum === String(controlModalActiveTableNum);
             });
             
@@ -2408,7 +2415,7 @@
             const alertsBox = document.getElementById('control-alerts-box');
             if (alertsBox) {
                 const tableCalls = allCalls.filter(c => {
-                    const callTableNum = String(c.table).replace('Tisch ', '').trim();
+                    const callTableNum = String(c.table).replace(/Tisch\s*/gi, '').split('(')[0].trim();
                     return callTableNum === String(controlModalActiveTableNum);
                 });
                 
@@ -2810,18 +2817,28 @@
         let pollInterval = null;
         let wsHeartbeatInterval = null;
         let serverTimeOffset = 0;
+        let wsRetryCount = 0;
+        const WS_MAX_RETRIES = 10;
 
         function connectWebSocket() {
+            if (wsRetryCount >= WS_MAX_RETRIES) {
+                console.warn(`WebSocket: Max retries (${WS_MAX_RETRIES}) reached. Using polling only.`);
+                startFallbackPolling();
+                return;
+            }
+
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             const wsUrl = `${protocol}//${window.location.host}/ws/${slug}`;
             
-            console.log("Admin connecting to WebSocket at", wsUrl);
+            console.log("Admin connecting to WebSocket at", wsUrl, `(attempt ${wsRetryCount + 1}/${WS_MAX_RETRIES})`);
             ws = new WebSocket(wsUrl);
             
             let pongReceived = true;
             
             ws.onopen = () => {
                 console.log("Admin WebSocket connected!");
+                wsRetryCount = 0; // Reset on successful connect
+                // Stop fallback polling when WS is active
                 if (pollInterval) {
                     clearInterval(pollInterval);
                     pollInterval = null;
@@ -2864,7 +2881,10 @@
                     wsHeartbeatInterval = null;
                 }
                 startFallbackPolling();
-                setTimeout(connectWebSocket, 5000);
+                wsRetryCount++;
+                // Exponential backoff: 5s, 10s, 20s, 40s... capped at 30s
+                const delay = Math.min(5000 * Math.pow(2, wsRetryCount - 1), 30000);
+                setTimeout(connectWebSocket, delay);
             };
             
             ws.onerror = (err) => {
@@ -3492,10 +3512,11 @@
             
             // Search for active service calls (Ruf) for this table
             const tNumStr = String(currentTable.number);
-            const activeCall = allCalls.find(c => {
-                const callTableNum = String(c.table).replace('Tisch ', '').split('(')[0].trim();
+            const tableCallsForTile = allCalls.filter(c => {
+                const callTableNum = String(c.table).replace(/Tisch\s*/gi, '').split('(')[0].trim();
                 return callTableNum === tNumStr;
             });
+            const activeCall = tableCallsForTile.length > 0 ? tableCallsForTile[0] : null;
 
             let statusClass = 'status-free';
             if (order) {
@@ -3636,7 +3657,7 @@
                 return `
                     <div class="call-bar">
                         <span style="font-size:11px;font-weight:800;color:#f87171;display:flex;align-items:center;gap:6px;">
-                            <span>${cIcon}</span> Tisch ${c.table.replace('Tisch ', '')}: <strong>${cText}</strong>
+                            <span>${cIcon}</span> Tisch ${String(c.table).replace(/Tisch\s*/gi, '')}: <strong>${cText}</strong>
                         </span>
                         <button onclick="resolveCall(${c.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
                             ✓ Erledigt

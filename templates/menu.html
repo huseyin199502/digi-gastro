@@ -2295,12 +2295,14 @@
                 },
 
                 sendServiceRequestAPI(type) {
-                    const table = getTableFromUrl() || "{{ table }}";
+                    const rawTable = getTableFromUrl() || "{{ table }}";
                     const token = '{{ token }}' || '';
+                    // Normalize: strip any existing "Tisch" prefix to avoid double "Tisch Tisch"
+                    const cleanTable = String(rawTable).replace(/^Tisch\s*/i, '').trim();
 
                     const payload = {
                         type: type,
-                        table: "Tisch " + table,
+                        table: cleanTable,
                         token: token,
                         tip_amount: (type === 'zahlen_bar' || type === 'zahlen_karte') ? this.paymentTipVal : 0.0
                     };
@@ -2327,11 +2329,13 @@
                 },
 
                 submitOrder() {
-                    const table = getTableFromUrl() || "{{ table }}";
+                    const rawTable = getTableFromUrl() || "{{ table }}";
                     const token = '{{ token }}' || '';
+                    // Normalize: strip any existing "Tisch" prefix to avoid double "Tisch Tisch"
+                    const cleanTable = String(rawTable).replace(/^Tisch\s*/i, '').trim();
 
                     const payload = {
-                        table: "Tisch " + table,
+                        table: cleanTable,
                         token: token,
                         items: this.cart.map(i => ({
                             product_id: i.id,

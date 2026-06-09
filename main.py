@@ -995,20 +995,9 @@ class RestaurantsProxy(UserDict):
             db.close()
             
     def clear(self):
-        db = SessionLocal()
-        try:
-            db.query(AuditLog).delete()
-            db.query(Table).delete()
-            db.query(ServiceCall).delete()
-            db.query(Staff).delete()
-            db.query(DBOrderItem).delete()
-            db.query(Order).delete()
-            db.query(Product).delete()
-            db.query(Category).delete()
-            db.query(Tenant).delete()
-            db.commit()
-        finally:
-            db.close()
+        """SAFETY: This method is intentionally disabled to prevent accidental data loss.
+        Use individual tenant deletion via admin API instead."""
+        raise NotImplementedError("RestaurantsProxy.clear() is disabled for safety. Delete tenants individually via the admin API.")
             
     def update(self, other_dict):
         db = SessionLocal()
@@ -2075,8 +2064,9 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     return {"success": True, "order_id": new_order.get("id")}
 
 
-@app.post("/{slug}/service-ruf")
+@app.post("/{slug}/service-ruf", deprecated=True)
 async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
+    """DEPRECATED: Use POST /api/{slug}/call-service instead. This endpoint is kept for backwards compatibility."""
     restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").split("(")[0].strip()
@@ -4251,9 +4241,14 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         
     existing_calls = restaurant.get("service_calls", [])
     new_id = max([c.get("id", 0) for c in existing_calls] + [0]) + 1
+    
+    # Normalize table name: always store as "Tisch {number}" or "Tisch {number} ({zone})"
+    is_dup = len([t for t in tables_list if str(t.get("number")) == clean_num]) > 1
+    normalized_table = f"Tisch {clean_num} ({clean_zone})" if (clean_zone and is_dup) else f"Tisch {clean_num}"
+    
     new_call = {
         "id": new_id,
-        "table": payload.table,
+        "table": normalized_table,
         "type": service_type,
         "timestamp": datetime.now().strftime("%H:%M:%S")
     }
@@ -4445,7 +4440,11 @@ def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Sessio
     unpaid_sum = 0.0
     t_num = str(table_num).replace("Tisch", "").strip()
     
+    # Parse guest session cookie to get zone + token
     cookie_zone = ""
+    c_token = None
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
     if session_val:
         try:
             c_table, c_tok = session_val.split(":", 1)
