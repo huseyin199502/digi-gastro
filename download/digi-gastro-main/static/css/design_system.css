@@ -385,14 +385,6 @@ html.light .btn-premium-secondary:hover, body.light .btn-premium-secondary:hover
 }
 
 /* Override text-white classes to make them readable on light background */
-/* EXCEPTION: Landingpage texts (inside main view wrapper) must remain white over the background slideshow */
-html.light .landing-page-wrapper .text-white,
-html.light .landing-page-wrapper h2,
-html.light .landing-page-wrapper h3,
-html.light .landing-page-wrapper p {
-    color: #ffffff !important;
-}
-
 html.light :not(.landing-page-wrapper) .text-white,
 body.light :not(.landing-page-wrapper) .text-white,
 html.light [style*="color: #ffffff"],
@@ -439,7 +431,32 @@ html.light .glass-btn-secondary:hover {
 }
 
 /* Re-adjust text gray elements to have enough contrast */
-/* EXCEPTION: Landingpage texts must remain light over the background slideshow */
+html.light :not(.landing-page-wrapper) .text-zinc-400,
+html.light :not(.landing-page-wrapper) .text-gray-400,
+html.light :not(.landing-page-wrapper) .text-slate-400,
+html.light :not(.landing-page-wrapper) .text-on-surface-variant {
+  color: var(--text-on-surface-variant) !important;
+}
+
+/* ===== LANDING PAGE EXCEPTIONS — MUST be LAST to win specificity battles ===== */
+/* Landingpage texts MUST remain white over the background slideshow in light mode */
+/* These rules MUST come after all global light-mode overrides to take priority */
+html.light .landing-page-wrapper .text-white,
+html.light .landing-page-wrapper h1,
+html.light .landing-page-wrapper h2,
+html.light .landing-page-wrapper h3,
+html.light .landing-page-wrapper h4,
+html.light .landing-page-wrapper p,
+html.light .landing-page-wrapper span,
+html.light .landing-page-wrapper .font-display,
+html.light .landing-page-wrapper .drop-shadow-md,
+html.light .landing-page-wrapper [style*="color: #ffffff"],
+html.light .landing-page-wrapper [style*="color:#ffffff"],
+html.light .landing-page-wrapper [style*="color: rgb(255, 255, 255)"],
+html.light .landing-page-wrapper [style*="color:rgb(255, 255, 255)"] {
+    color: #ffffff !important;
+}
+
 html.light .landing-page-wrapper .text-gray-200 {
     color: #e5e7eb !important;
 }
@@ -449,12 +466,11 @@ html.light .landing-page-wrapper .text-zinc-300 {
 html.light .landing-page-wrapper .text-zinc-400 {
     color: #a1a1aa !important;
 }
-
-html.light :not(.landing-page-wrapper) .text-zinc-400,
-html.light :not(.landing-page-wrapper) .text-gray-400,
-html.light :not(.landing-page-wrapper) .text-slate-400,
-html.light :not(.landing-page-wrapper) .text-on-surface-variant {
-  color: var(--text-on-surface-variant) !important;
+html.light .landing-page-wrapper .text-on-surface {
+    color: #ffffff !important;
+}
+html.light .landing-page-wrapper .text-on-surface-variant {
+    color: #d4d4d8 !important;
 }
 
 
