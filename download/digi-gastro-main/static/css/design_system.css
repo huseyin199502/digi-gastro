@@ -440,24 +440,16 @@ html.light :not(.landing-page-wrapper) .text-on-surface-variant {
 
 /* ===== LANDING PAGE EXCEPTIONS — MUST be LAST to win specificity battles ===== */
 /* Landingpage texts MUST remain white over the background slideshow in light mode */
-/* These rules MUST come after all global light-mode overrides to take priority */
-html.light .landing-page-wrapper .text-white,
-html.light .landing-page-wrapper h1,
-html.light .landing-page-wrapper h2,
-html.light .landing-page-wrapper h3,
-html.light .landing-page-wrapper h4,
-html.light .landing-page-wrapper p,
-html.light .landing-page-wrapper span,
-html.light .landing-page-wrapper .font-display,
-html.light .landing-page-wrapper .drop-shadow-md,
-html.light .landing-page-wrapper [style*="color: #ffffff"],
-html.light .landing-page-wrapper [style*="color:#ffffff"],
-html.light .landing-page-wrapper [style*="color: rgb(255, 255, 255)"],
-html.light .landing-page-wrapper [style*="color:rgb(255, 255, 255)"] {
+/* Nuclear approach: force ALL children white, then add back gray exceptions */
+html.light .landing-page-wrapper,
+html.light .landing-page-wrapper * {
     color: #ffffff !important;
 }
 
-html.light .landing-page-wrapper .text-gray-200 {
+/* Gray text exceptions — subtitles, descriptions should stay light gray for readability */
+html.light .landing-page-wrapper .text-gray-200,
+html.light .landing-page-wrapper p.text-gray-200,
+html.light .landing-page-wrapper p.text-sm {
     color: #e5e7eb !important;
 }
 html.light .landing-page-wrapper .text-zinc-300 {
@@ -466,11 +458,30 @@ html.light .landing-page-wrapper .text-zinc-300 {
 html.light .landing-page-wrapper .text-zinc-400 {
     color: #a1a1aa !important;
 }
-html.light .landing-page-wrapper .text-on-surface {
-    color: #ffffff !important;
-}
 html.light .landing-page-wrapper .text-on-surface-variant {
     color: #d4d4d8 !important;
+}
+/* Amber text in Happy Hour card must stay amber */
+html.light .landing-page-wrapper .text-amber-400,
+html.light .landing-page-wrapper .text-amber-300 {
+    color: #fbbf24 !important;
+}
+/* Button text should keep its own colors */
+html.light .landing-page-wrapper .glass-btn-primary,
+html.light .landing-page-wrapper .glass-btn-primary span {
+    color: #047857 !important;
+}
+html.light .landing-page-wrapper .glass-btn-secondary,
+html.light .landing-page-wrapper .glass-btn-secondary span {
+    color: #111827 !important;
+}
+/* SVG icons inside buttons keep their fill */
+html.light .landing-page-wrapper svg path {
+    color: inherit !important;
+}
+/* Google review stars SVG — keep original fill colors */
+html.light .landing-page-wrapper svg {
+    color: inherit !important;
 }
 
 
