@@ -1185,127 +1185,239 @@
                         <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
                             <span class="material-symbols-outlined text-zinc-500">campaign</span> Landingpage bearbeiten
                         </h3>
-                        <form action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
-                                    <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                        <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
+                            <input type="hidden" name="custom_sections_json" id="custom_sections_json">
+                            <input type="hidden" name="landing_sections_json" id="landing_sections_json">
+
+                            <!-- Willkommens-Bereich -->
+                            <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-100 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-emerald-600 text-sm">waving_hand</span>
+                                        Willkommens-Bereich
+                                    </h4>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
-                                    <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Über uns</label>
-                                    <input type="text" name="title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Standard: Über uns" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Beschreibung</label>
-                                    <textarea name="what_we_offer" rows="3" placeholder="z.B. Täglich frische Burger, Cocktails und Shisha." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer if restaurant.landing_page else '' }}</textarea>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
+                                        <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
+                                        <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                    </div>
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
-                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Aktuelles</label>
-                                    <input type="text" name="title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelles / Ankündigungen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <textarea name="aktuelles" rows="3" placeholder="z.B. Live Musik am Samstag ab 20:00 Uhr!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles if restaurant.landing_page else '' }}</textarea>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Öffnungszeiten</label>
-                                    <input type="text" name="title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Standard: Öffnungszeiten" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <textarea name="oeffnungszeiten" rows="3" placeholder="z.B. Mo - So: 17:00 - 01:00 Uhr" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">{{ restaurant.landing_page.oeffnungszeiten if restaurant.landing_page else '' }}</textarea>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Happy Hour Aktionen</label>
-                                    <input type="text" name="title_happyhour" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Standard: Happy Hour Aktionen" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <textarea name="angebote" rows="3" placeholder="z.B. Täglich 18:00 - 20:00 Uhr alle Cocktails vergünstigt!" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote if restaurant.landing_page else '' }}</textarea>
+                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                 </div>
                             </div>
 
-                            <!-- Bilder & Diashow Sektion -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                                <!-- Angebotsfotos -->
-                                <div class="space-y-3">
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Unsere Angebote</label>
-                                    <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Unsere Angebote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro mb-2">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-zinc-500 text-sm">local_offer</span>
-                                        Angebotsfotos / aktuelle Angebote als Fotos
+                            <!-- Dynamische Sektionen (Öffnungszeiten, Über uns, etc.) -->
+                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-2xl border border-blue-100 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-extrabold text-xs text-blue-800 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-blue-600 text-sm">dashboard_customize</span>
+                                        Sektionen der Landingpage
                                     </h4>
-                                    <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    
-                                    {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
-                                    <div class="flex flex-wrap gap-2 mt-2">
-                                        {% for img in restaurant.landing_page.offer_images %}
+                                    <button type="button" onclick="addLandingSection()" class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow">
+                                        <span class="material-symbols-outlined text-sm">add</span> Neue Sektion
+                                    </button>
+                                </div>
+                                <p class="text-[9px] text-blue-500">Hier kannst du beliebig viele Sektionen hinzufügen, bearbeiten oder löschen. Diese erscheinen auf deiner Landingpage.</p>
+                                <div id="landing-sections-container" class="space-y-3">
+                                    {% if restaurant.landing_page %}
+                                    {% if restaurant.landing_page.what_we_offer %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="about">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-blue-500 text-sm">info</span>
+                                                <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Über uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            </div>
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer }}</textarea>
+                                    </div>
+                                    {% endif %}
+                                    {% if restaurant.landing_page.oeffnungszeiten %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="hours">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-blue-500 text-sm">schedule</span>
+                                                <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Öffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            </div>
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <textarea name="section_content_hours" rows="2" placeholder="Mo - So: 17:00 - 01:00 Uhr" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
+                                    </div>
+                                    {% endif %}
+                                    {% if restaurant.landing_page.angebote %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="offers">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-blue-500 text-sm">local_offer</span>
+                                                <input type="text" name="section_title_offers" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Angebote & Specials" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            </div>
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <textarea name="section_content_offers" rows="2" placeholder="Angebote und Specials..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote }}</textarea>
+                                    </div>
+                                    {% endif %}
+                                    {% if restaurant.landing_page.aktuelles %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="news">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-blue-500 text-sm">newspaper</span>
+                                                <input type="text" name="section_title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Aktuelles & Events" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            </div>
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <textarea name="section_content_news" rows="2" placeholder="Neuigkeiten und Ankündigungen..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles }}</textarea>
+                                    </div>
+                                    {% endif %}
+                                    {% endif %}
+                                    <!-- Custom sections from previous saves -->
+                                    {% if restaurant.landing_page and restaurant.landing_page.custom_sections %}
+                                    {% for csec in restaurant.landing_page.custom_sections %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
+                                                <input type="text" name="section_title_custom_{{ loop.index0 }}" value="{{ csec.title if csec.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            </div>
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <textarea name="section_content_custom_{{ loop.index0 }}" rows="2" placeholder="Inhalt der Sektion..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ csec.content if csec.content else '' }}</textarea>
+                                        {% if csec.image %}
                                         <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                            <img src="{{ csec.image }}" class="w-full h-full object-cover" alt="Custom">
+                                            <button type="button" onclick="deleteLandingImage('{{ csec.image }}', 'custom', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
                                                 <span class="material-symbols-outlined text-base">delete</span>
                                             </button>
                                         </div>
-                                        {% endfor %}
+                                        {% endif %}
                                     </div>
+                                    {% endfor %}
                                     {% endif %}
                                 </div>
+                            </div>
 
-                                <!-- Hintergrund-Diashow -->
-                                <div class="space-y-3">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-zinc-500 text-sm">slideshow</span>
-                                        Hintergrund-Diashow
-                                    </h4>
-                                    <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                            <!-- Angebotsfotos & Diashow -->
+                            <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-2xl border border-amber-100 space-y-3">
+                                <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-amber-600 text-sm">local_offer</span>
+                                    Angebotsfotos & Hintergrund-Diashow
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- Angebotsfotos -->
+                                    <div class="space-y-2">
                                         <div>
-                                            <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
-                                            <div class="text-[9px] text-zinc-400">Diashow läuft auf der Landingpage im Hintergrund</div>
+                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Angebote</label>
+                                            <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelle Angebote" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                         </div>
-                                        <label class="switch">
-                                            <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    
-                                    {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
-                                    <div class="flex flex-wrap gap-2 mt-2">
-                                        {% for img in restaurant.landing_page.slideshow_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
+                                        <input type="file" name="offer_images" multiple accept="image/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
+                                        <div class="flex flex-wrap gap-2 mt-1">
+                                            {% for img in restaurant.landing_page.offer_images %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
                                         </div>
-                                        {% endfor %}
+                                        {% endif %}
                                     </div>
-                                    {% endif %}
+                                    <!-- Diashow -->
+                                    <div class="space-y-2">
+                                        <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
+                                            <div>
+                                                <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+                                                <div class="text-[9px] text-zinc-400">Läuft im Hintergrund der Landingpage</div>
+                                            </div>
+                                            <label class="switch">
+                                                <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                        <input type="file" name="slideshow_images" multiple accept="image/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
+                                        <div class="flex flex-wrap gap-2 mt-1">
+                                            {% for img in restaurant.landing_page.slideshow_images %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
+                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Galerie Fotos Sektion -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                                <div class="space-y-3 col-span-1 md:col-span-2">
-                                    <h4 class="font-extrabold text-xs text-zinc-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-zinc-500 text-sm">collections</span>
-                                        Bildergalerie (für die Landingpage)
-                                    </h4>
-                                    <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    
-                                    {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
-                                    <div class="flex flex-wrap gap-2 mt-2">
-                                        {% for img in restaurant.landing_page.gallery_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
+                            <!-- Galerie & Videos -->
+                            <div class="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4 rounded-2xl border border-violet-100 space-y-3">
+                                <h4 class="font-extrabold text-xs text-violet-800 flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-violet-600 text-sm">collections</span>
+                                    Galerie & Videos
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- Bildergalerie -->
+                                    <div class="space-y-2">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Galerie</label>
+                                            <input type="text" name="title_gallery" value="{{ restaurant.landing_page.title_gallery if restaurant.landing_page else '' }}" placeholder="Standard: Galerie" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                                         </div>
-                                        {% endfor %}
+                                        <input type="file" name="gallery_images" multiple accept="image/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
+                                        <div class="flex flex-wrap gap-2 mt-1">
+                                            {% for img in restaurant.landing_page.gallery_images %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
+                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
                                     </div>
-                                    {% endif %}
+                                    <!-- Videos -->
+                                    <div class="space-y-2">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Videos</label>
+                                            <input type="text" name="title_videos" value="{{ restaurant.landing_page.title_videos if restaurant.landing_page else '' }}" placeholder="Standard: Videos" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        </div>
+                                        <div class="bg-violet-100/50 p-2 rounded-xl border border-violet-200">
+                                            <div class="text-[9px] text-violet-600 font-bold mb-1.5">Max. 40 Sekunden | MP4, WebM, MOV | Autoplay & Dauerschleife</div>
+                                            <input type="file" name="landing_videos" multiple accept="video/mp4,video/webm,video/quicktime,video/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        </div>
+                                        {% if restaurant.landing_page and restaurant.landing_page.videos %}
+                                        <div class="flex flex-wrap gap-2 mt-1">
+                                            {% for vid in restaurant.landing_page.videos %}
+                                            <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
+                                                <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+                                                <button type="button" onclick="deleteLandingImage('{{ vid }}', 'video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
 
@@ -4380,7 +4492,7 @@
         
 
         function deleteLandingImage(imageUrl, imageType, buttonElement) {
-            if (!confirm('Dieses Bild wirklich löschen?')) return;
+            if (!confirm('Dieses Datei wirklich löschen?')) return;
             
             const formData = new FormData();
             formData.append('image_url', imageUrl);
@@ -4397,15 +4509,79 @@
                     if (container) {
                         container.remove();
                     }
-                    showToast('Bild erfolgreich gelöscht', 'success');
+                    showToast('Datei erfolgreich gelöscht', 'success');
                 } else {
-                    showToast('Fehler beim Löschen des Bildes: ' + (data.error || 'unbekannt'), 'error');
+                    showToast('Fehler beim Löschen: ' + (data.error || 'unbekannt'), 'error');
                 }
             })
             .catch(err => {
                 console.error(err);
-                showToast('Fehler beim Löschen des Bildes', 'error');
+                showToast('Fehler beim Löschen', 'error');
             });
+        }
+
+        // ── Landing Page Dynamic Sections ──
+        let landingSectionCounter = Date.now();
+
+        function addLandingSection(title, content) {
+            const container = document.getElementById('landing-sections-container');
+            const id = 'csec_' + (landingSectionCounter++);
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2';
+            sectionDiv.setAttribute('data-section-type', 'custom');
+            sectionDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
+                        <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                    </div>
+                    <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                </div>
+                <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">${content || ''}</textarea>
+            `;
+            container.appendChild(sectionDiv);
+            sectionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function removeLandingSection(btn) {
+            const section = btn.closest('.landing-section-item');
+            if (section) {
+                const title = section.querySelector('input[type="text"]')?.value || 'diese Sektion';
+                if (confirm(`Sektion "${title}" wirklich löschen?`)) {
+                    section.remove();
+                }
+            }
+        }
+
+        function prepareLandingFormSubmit() {
+            // Collect all dynamic sections into landing_sections_json
+            const sections = [];
+            const sectionItems = document.querySelectorAll('.landing-section-item');
+            sectionItems.forEach(item => {
+                const type = item.getAttribute('data-section-type');
+                const titleInput = item.querySelector('input[type="text"]');
+                const contentTextarea = item.querySelector('textarea');
+                if (titleInput || contentTextarea) {
+                    sections.push({
+                        type: type,
+                        title: titleInput ? titleInput.value.trim() : '',
+                        content: contentTextarea ? contentTextarea.value.trim() : ''
+                    });
+                }
+            });
+            document.getElementById('landing_sections_json').value = JSON.stringify(sections);
+            
+            // Also build custom_sections_json for backward compatibility
+            const customSections = sections.filter(s => s.type === 'custom').map(s => ({
+                title: s.title,
+                content: s.content,
+                image: ''
+            }));
+            document.getElementById('custom_sections_json').value = JSON.stringify(customSections);
+            
+            return true;
         }
 
         async function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {

@@ -312,13 +312,28 @@
             <!-- Responsive Bildergalerie -->
             <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
                 <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
-                    <span>Galerie</span>
+                    <span x-text="restaurantLandingPage.title_gallery || 'Galerie'">Galerie</span>
                 </h3>
                 
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
                         <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
                             <img :src="img" class="w-full h-full object-cover" loading="lazy">
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Video Section -->
+            <div x-show="restaurantLandingPage.videos && restaurantLandingPage.videos.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <span x-text="restaurantLandingPage.title_videos || 'Videos'">Videos</span>
+                </h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <template x-for="vid in restaurantLandingPage.videos" :key="vid">
+                        <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                            <video :src="vid" autoplay loop muted playsinline class="w-full h-auto object-contain" style="max-height: 500px;"></video>
                         </div>
                     </template>
                 </div>
