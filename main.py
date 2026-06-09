@@ -312,6 +312,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "happy_hour_price": p.happy_hour_price,
             "start_time": p.start_time,
             "end_time": p.end_time,
+            "happy_hour_days": json.loads(p.happy_hour_days) if p.happy_hour_days else None,
             "name_en": p.name_en,
             "description_en": p.description_en,
             "position": getattr(p, "position", 0) or 0
@@ -533,6 +534,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         db_p.happy_hour_price = p.get("happy_hour_price")
         db_p.start_time = p.get("start_time")
         db_p.end_time = p.get("end_time")
+        hh_days_val = p.get("happy_hour_days")
+        db_p.happy_hour_days = json.dumps(unwrap_live_data(hh_days_val)) if hh_days_val else None
         db_p.name_en = p.get("name_en")
         db_p.description_en = p.get("description_en")
         db_p.position = p.get("position", 0)
@@ -1847,14 +1850,21 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         prod["is_hh_active"] = False
         prod["display_price"] = prod["price"]
         
-        # Priority 1: Per-product fixed HH price (respects both day AND time)
+        # Determine which days apply for this product:
+        # - If product has its own happy_hour_days → use those
+        # - Otherwise → fall back to global HH days
+        prod_hh_days = prod.get("happy_hour_days")  # list or None
+        effective_days = prod_hh_days if prod_hh_days else hh_config.get("days", [])
+        prod_hh_active = any(day in effective_days for day in possible_days)
+        
+        # Priority 1: Per-product fixed HH price (requires day match AND time window)
         if prod.get("happy_hour_price") is not None:
             start = prod.get("start_time", "18:00")
             end = prod.get("end_time", "20:00")
-            if hh_active_global and start <= now_time <= end:
+            if prod_hh_active and start <= now_time <= end:
                 prod["is_hh_active"] = True
                 prod["display_price"] = prod["happy_hour_price"]
-        # Priority 2: Global discount (only in "discount" mode)
+        # Priority 2: Global discount (only in "discount" mode AND product has no own days)
         elif hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
             discount_factor = (100 - hh_config["discount"]) / 100.0
             prod["is_hh_active"] = True
@@ -1863,7 +1873,14 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         processed_products.append(prod)
         
     cat_position = {cat_name: idx for idx, cat_name in enumerate(active_categories)}
-    processed_products.sort(key=lambda p: (cat_position.get(p.get("category"), 999), p.get("position", 0), p.get("id", 0)))
+    def product_sort_key(p):
+        cat = p.get("category", "")
+        # For subcategories ("Parent > Child"), use the parent's position
+        parent_cat = cat.split(" > ")[0] if " > " in cat else cat
+        # Try exact match first, then parent match
+        pos = cat_position.get(cat, cat_position.get(parent_cat, 999))
+        return (pos, p.get("position", 0), p.get("id", 0))
+    processed_products.sort(key=product_sort_key)
     
     parent_categories = []
     for c in active_categories:
@@ -1966,9 +1983,13 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             is_hh_active_for_product = False
             hh_price = prod.get("happy_hour_price")
             if hh_price is not None:
+                # Use product-specific days if set, otherwise global days
+                prod_hh_days = prod.get("happy_hour_days")
+                effective_days = prod_hh_days if prod_hh_days else hh_config.get("days", [])
+                prod_hh_active = any(day in effective_days for day in possible_days)
                 start = prod.get("start_time", "18:00")
                 end = prod.get("end_time", "20:00")
-                if hh_active_global and start <= now_time <= end:
+                if prod_hh_active and start <= now_time <= end:
                     is_hh_active_for_product = True
                     item.price = hh_price
             
@@ -5127,6 +5148,7 @@ async def update_happy_hour_products(request: Request, chef_data: tuple = Depend
     for update in products_updates:
         pid = update.get("product_id")
         hh_price = update.get("happy_hour_price")
+        hh_days = update.get("happy_hour_days")  # e.g. ["Samstag", "Donnerstag"] or null
         
         product = next((p for p in restaurant.get("products", []) if p["id"] == pid), None)
         if product:
@@ -5134,10 +5156,12 @@ async def update_happy_hour_products(request: Request, chef_data: tuple = Depend
                 product["happy_hour_price"] = round(float(hh_price), 2)
                 product["start_time"] = start_time
                 product["end_time"] = end_time
+                product["happy_hour_days"] = hh_days  # per-product days
             else:
                 product["happy_hour_price"] = None
                 product["start_time"] = None
                 product["end_time"] = None
+                product["happy_hour_days"] = None
     
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -5473,6 +5497,7 @@ def update_product_hh(
     product["happy_hour_price"] = hh_price if hh_price is not None else None
     product["start_time"] = start_time if start_time else None
     product["end_time"] = end_time if end_time else None
+    # happy_hour_days is not updated via this endpoint (use bulk endpoint instead)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     return RedirectResponse(url="/admin/dashboard", status_code=303)

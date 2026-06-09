@@ -140,6 +140,7 @@ class Product(Base):
     happy_hour_price = Column(Float, nullable=True)
     start_time = Column(String, nullable=True)
     end_time = Column(String, nullable=True)
+    happy_hour_days = Column(Text, default=None)  # JSON array of day names, e.g. ["Samstag","Donnerstag"] — None = use global HH days
     name_en = Column(String, nullable=True)
     description_en = Column(Text, nullable=True)
     position = Column(Integer, default=0)
@@ -273,6 +274,7 @@ def _migrate_database():
     add_column_if_missing('products', 'happy_hour_price', "FLOAT")
     add_column_if_missing('products', 'start_time', "VARCHAR")
     add_column_if_missing('products', 'end_time', "VARCHAR")
+    add_column_if_missing('products', 'happy_hour_days', "TEXT DEFAULT NULL")
 
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")

@@ -1196,24 +1196,41 @@
                             </span>
                         </div>
                         <p class="text-[11px] text-zinc-500 leading-relaxed">
-                            Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt.
+                            Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt. Du kannst pro Produkt eigene Tage festlegen — z.B. nur samstags oder nur donnerstags.
                         </p>
-                        <div class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                        <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
                             {% for cat in restaurant.categories %}
                             <div class="sticky top-0 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-[10px] font-extrabold text-zinc-600 uppercase tracking-wider z-10">{{ cat }}</div>
                             {% for p in restaurant.products if p.category == cat %}
-                            <div class="flex items-center gap-3 p-2.5 rounded-xl border {{ 'border-amber-300 bg-amber-50' if p.happy_hour_price else 'border-gray-100 bg-gray-50' }} transition-colors">
-                                <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
-                                    <input type="checkbox" class="hh-product-toggle rounded text-amber-500 focus:ring-amber-400 shrink-0" data-product-id="{{ p.id }}" {% if p.happy_hour_price %}checked{% endif %} onchange="toggleHHProductRow({{ p.id }}, this.checked)">
-                                    <div class="min-w-0">
-                                        <div class="font-bold text-xs text-zinc-800 truncate">{{ p.name }}</div>
-                                        <div class="text-[10px] text-zinc-500 font-mono">{{ "%.2f"|format(p.price) }} €</div>
+                            <div class="p-2.5 rounded-xl border {{ 'border-amber-300 bg-amber-50' if p.happy_hour_price else 'border-gray-100 bg-gray-50' }} transition-colors space-y-2">
+                                <div class="flex items-center gap-3">
+                                    <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+                                        <input type="checkbox" class="hh-product-toggle rounded text-amber-500 focus:ring-amber-400 shrink-0" data-product-id="{{ p.id }}" {% if p.happy_hour_price %}checked{% endif %} onchange="toggleHHProductRow({{ p.id }}, this.checked)">
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-xs text-zinc-800 truncate">{{ p.name }}</div>
+                                            <div class="text-[10px] text-zinc-500 font-mono">{{ "%.2f"|format(p.price) }} €</div>
+                                        </div>
+                                    </label>
+                                    <div class="hh-price-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-fields-{{ p.id }}">
+                                        <div class="flex items-center gap-2">
+                                            <input type="number" step="0.01" min="0" placeholder="HH-Preis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-20 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
+                                            <span class="text-[10px] text-zinc-400">€</span>
+                                        </div>
                                     </div>
-                                </label>
-                                <div class="hh-price-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-fields-{{ p.id }}">
-                                    <div class="flex items-center gap-2">
-                                        <input type="number" step="0.01" min="0" placeholder="HH-Preis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-20 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
-                                        <span class="text-[10px] text-zinc-400">€</span>
+                                </div>
+                                <!-- Per-product day selection (only visible when HH is enabled for this product) -->
+                                <div class="hh-days-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-days-{{ p.id }}">
+                                    <div class="flex items-center gap-1 flex-wrap">
+                                        <span class="text-[9px] font-bold text-zinc-400 uppercase mr-1">Tage:</span>
+                                        {% set all_days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
+                                        {% set prod_days = p.happy_hour_days or [] %}
+                                        {% for day in all_days %}
+                                        <label class="flex items-center gap-0.5 bg-white border {{ 'border-amber-300 bg-amber-50' if day in prod_days else 'border-gray-200' }} px-1.5 py-0.5 rounded-md text-[9px] font-bold cursor-pointer select-none transition-colors">
+                                            <input type="checkbox" class="hh-day-check rounded text-amber-500 focus:ring-0 shrink-0 w-2.5 h-2.5" data-product-id="{{ p.id }}" data-day="{{ day }}" {% if day in prod_days or not prod_days %}checked{% endif %}>
+                                            <span>{{ day[:2] }}</span>
+                                        </label>
+                                        {% endfor %}
+                                        <span class="text-[8px] text-zinc-400 ml-1">alle = global</span>
                                     </div>
                                 </div>
                             </div>
@@ -4528,9 +4545,11 @@
         // Toggle HH product row highlight and price field visibility
         function toggleHHProductRow(productId, isChecked) {
             const fields = document.getElementById('hh-fields-' + productId);
-            const row = fields ? fields.closest('.flex.items-center') : null;
+            const daysFields = document.getElementById('hh-days-' + productId);
+            const row = fields ? fields.closest('[class*="rounded-xl"][class*="border"]') : null;
             if (isChecked) {
                 if (fields) fields.classList.remove('hidden');
+                if (daysFields) daysFields.classList.remove('hidden');
                 if (row) {
                     row.classList.remove('border-gray-100', 'bg-gray-50');
                     row.classList.add('border-amber-300', 'bg-amber-50');
@@ -4540,6 +4559,7 @@
                 if (priceInput) priceInput.focus();
             } else {
                 if (fields) fields.classList.add('hidden');
+                if (daysFields) daysFields.classList.add('hidden');
                 if (row) {
                     row.classList.remove('border-amber-300', 'bg-amber-50');
                     row.classList.add('border-gray-100', 'bg-gray-50');
@@ -4557,6 +4577,23 @@
             if (countEl) countEl.textContent = checked.length + ' ausgewählt';
         }
 
+        // Collect per-product HH days from checkboxes
+        function getProductHHDays(productId) {
+            const checks = document.querySelectorAll(`.hh-day-check[data-product-id="${productId}"]`);
+            const selected = [];
+            const allDays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+            checks.forEach(cb => {
+                if (cb.checked) {
+                    selected.push(cb.dataset.day);
+                }
+            });
+            // If all 7 days are selected, return null (= use global days)
+            if (selected.length === 7) return null;
+            // If no days selected, also fall back to global
+            if (selected.length === 0) return null;
+            return selected;
+        }
+
         // Save all HH product assignments via API
         function saveAllHHProducts() {
             const toggles = document.querySelectorAll('.hh-product-toggle');
@@ -4567,10 +4604,12 @@
                 const isChecked = cb.checked;
                 const priceInput = document.getElementById('hh-price-' + pid);
                 const hhPrice = isChecked && priceInput && priceInput.value ? parseFloat(priceInput.value) : null;
+                const hhDays = isChecked ? getProductHHDays(pid) : null;
 
                 updates.push({
                     product_id: parseInt(pid),
-                    happy_hour_price: hhPrice
+                    happy_hour_price: hhPrice,
+                    happy_hour_days: hhDays
                 });
             });
 
