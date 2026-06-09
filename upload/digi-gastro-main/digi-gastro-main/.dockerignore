@@ -1,0 +1,58 @@
+# ── Python runtime artifacts ──────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+
+# ── Local virtual environments ────────────────
+.venv/
+venv/
+env/
+.env/
+ENV/
+
+# ── Local databases (never ship SQLite into prod) ─
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Local upload cache (will be mounted as volume) ─
+static/uploads/
+data/
+
+# ── Test artifacts ────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+coverage.xml
+test_*.py
+tests/
+
+# ── IDE & OS noise ────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Git & CI ──────────────────────────────────
+.git/
+.gitignore
+.github/
+
+# ── Secrets & environment files ───────────────
+.env
+.env.*
+*.env
+secrets.toml
+
+# ── Docs & build artifacts ────────────────────
+README*
+docs/
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html class="{{ restaurant.theme or 'dark' }}" lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>{{ restaurant.name }} - Speisekarte</title>
+    <!-- PWA settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f43f5e">
+    <link rel="manifest" href="/manifest.json">
+    <!-- Tailwind and FontAwesome / Material Symbols -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=6">
+    
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-surface": "var(--text-on-surface)",
+                "outline-variant": "var(--border-subtle)",
+                "primary": "var(--color-primary)",
+                "accent": "var(--color-accent-gold)",
+                "background": "var(--bg-obsidian)",
+                "surface": "var(--bg-surface)",
+                "surface-container-high": "var(--bg-surface-elevated)",
+                "on-surface-variant": "var(--text-on-surface-variant)"
+              }
+            }
+          }
+        }
+    </script>
+    <style>
+        html, body {
+            touch-action: manipulation;
+        }
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-on-surface);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        .slide-up-modal {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-none {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .select-none {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        @keyframes cartPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-cart-pulse {
+            animation: cartPulse 0.3s ease-in-out;
+        }
+        @keyframes badgePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+        .animate-badge-pulse {
+            animation: badgePulse 0.3s ease-in-out;
+        }
+        @keyframes btnSuccessPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-btn-success {
+            animation: btnSuccessPulse 0.3s ease-in-out;
+        }
+        @keyframes bounceHorizontalRight {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(4px); }
+        }
+        @keyframes bounceHorizontalLeft {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(-4px); }
+        }
+        .animate-bounce-horizontal-right {
+            animation: bounceHorizontalRight 1.2s infinite;
+        }
+        .animate-bounce-horizontal-left {
+            animation: bounceHorizontalLeft 1.2s infinite;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body x-data="menuState()" class="flex flex-col min-h-screen bg-background {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+    <!-- Background grid and glow -->
+    <div class="fixed inset-0 grid-bg pointer-events-none z-0"></div>
+    <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
+
+    <!-- Background slideshow overlay (Landing page only) -->
+    {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled and restaurant.landing_page.slideshow_images %}
+    <div id="landing-slideshow" class="fixed inset-0 z-0 pointer-events-none transition-opacity duration-700" x-show="currentView === 'landing'" style="display: none;">
+        <!-- Overlapping image layers for crossfade -->
+        <div id="slide-layer-1" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-100" style="background-image: url('{{ restaurant.landing_page.slideshow_images[0] }}');"></div>
+        <div id="slide-layer-2" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-0"></div>
+        <!-- Semi-transparent backdrop overlay to darken and blur slightly for high text readability -->
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-[2px]"></div>
+    </div>
+    {% endif %}
+
+    {% if is_readonly %}
+    <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
+    <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-md p-10 text-center space-y-6 shadow-2xl relative z-50">
+        <div class="flex justify-end -mt-4 -mr-4">
+            <!-- Compact Language Selection for Read-only -->
+            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner scale-90">
+                <button onclick="setLanguage('de')" id="lang-de-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display">DE</button>
+                <button onclick="setLanguage('en')" id="lang-en-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display">EN</button>
+            </div>
+        </div>
+        <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
+            <span class="material-symbols-outlined text-4xl">qr_code_scanner</span>
+        </div>
+        <h2 class="text-2xl font-extrabold text-on-surface tracking-tight font-display" data-translate="scan_required_header">QR-Code Scan erforderlich</h2>
+        <p class="text-xs text-on-surface-variant leading-relaxed">
+            <span data-translate="scan_required_welcome">Willkommen bei</span> <strong class="text-on-surface">{{ restaurant.name }}</strong>!<br><br>
+            <span data-translate="scan_required_desc">Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.</span>
+        </p>
+    </div>
+    {% else %}
+
+    <!-- Top Navigation Bar / Header -->
+    <header class="grid grid-cols-3 items-center px-4 sm:px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant">
+        <div class="flex justify-start">
+            {% if restaurant.branding and restaurant.branding.logo_url %}
+                <img alt="{{ restaurant.name }} Logo" class="h-8 sm:h-10 w-auto max-w-[100px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}">
+            {% else %}
+                <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-lg sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
+            {% endif %}
+        </div>
+
+        <div class="flex justify-center">
+            {% if tisch_name %}
+                <span class="text-primary font-black text-xs sm:text-sm tracking-widest bg-surface/80 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-primary/20 backdrop-blur-md shadow-lg shadow-primary/5 uppercase font-display whitespace-nowrap">
+                    {{ tisch_name }}
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="flex justify-end">
+            <!-- Language Selection -->
+            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner scale-90 sm:scale-100 origin-right">
+                <button onclick="setLanguage('de')" id="lang-de-btn" class="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold transition bg-primary text-black font-display">DE</button>
+                <button onclick="setLanguage('en')" id="lang-en-btn" class="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold transition text-on-surface-variant font-display">EN</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Alert Banner for Token/Table missing -->
+    {% if token_error %}
+    <div class="bg-red-950/40 border-b border-red-500/20 text-red-200 py-3.5 px-4 text-center text-xs backdrop-blur-md flex items-center justify-center space-x-2 relative z-40">
+        <span class="material-symbols-outlined text-[18px] text-red-400">error</span>
+        <span data-translate="token_error" class="font-medium">Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie den Barcode neu.</span>
+    </div>
+    {% endif %}
+
+    <div id="happy-hour-banner-wrapper">
+        {% if hh_active_global %}
+        <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
+            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+            <span>🔥 Happy Hour ist aktiv! {% if hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Main Dynamic Content Canvas -->
+    <main class="flex-grow w-full max-w-4xl mx-auto px-4">
+        
+        <!-- ================= LANDING VIEW ================= -->
+        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper">
+            <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
+                {% if restaurant.branding and restaurant.branding.logo_url %}
+                    <img alt="{{ restaurant.name }} Logo" class="h-24 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
+                {% endif %}
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-md animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+                <p class="text-sm text-gray-200 max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
+                
+                <!-- Actions Group -->
+                <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
+                    <!-- CTA Button to go to Menu -->
+                    <button @click="currentView = 'speisekarte'" class="btn-premium glass-btn-primary w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <span data-translate="view_menu">Speisekarte ansehen</span>
+                    </button>
+
+                    <!-- Google Review Link -->
+                    <div x-show="restaurantLandingPage.google_rating_url" class="w-full">
+                        <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+                            </svg>
+                            <span data-translate="rate_us">Bewerten Sie uns auf Google</span>
+                        </a>
+                    </div>
+
+                    <!-- Social Media Links (moved from footer, larger design) -->
+                    {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
+                    <div class="flex justify-center items-center gap-5 mt-2.5">
+                        {% if restaurant.branding.instagram %}
+                        <a href="{{ restaurant.branding.instagram }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Instagram">
+                            <i class="fa-brands fa-instagram text-2xl"></i>
+                        </a>
+                        {% endif %}
+                        {% if restaurant.branding.facebook %}
+                        <a href="{{ restaurant.branding.facebook }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Facebook">
+                            <i class="fa-brands fa-facebook text-2xl"></i>
+                        </a>
+                        {% endif %}
+                        {% if restaurant.branding.tiktok %}
+                        <a href="{{ restaurant.branding.tiktok }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="TikTok">
+                            <i class="fa-brands fa-tiktok text-2xl"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Angebotsfotos (aktuelle Angebote als Slider) -->
+            <div x-show="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                    <span class="material-symbols-outlined text-primary font-bold">local_offer</span>
+                    <span x-text="restaurantLandingPage.title_offers || 'Aktuelle Angebote'">Aktuelle Angebote</span>
+                </h3>
+                
+                <!-- Touch Slider/Carousel Container -->
+                <div class="relative w-full overflow-hidden rounded-2xl aspect-[16/9] bg-zinc-950/40 border border-outline-variant/30 group">
+                    <div id="offer-slider" class="flex w-full h-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
+                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
+                            <div class="w-full h-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
+                                <img :src="img" alt="Angebot" class="w-full h-full object-cover" loading="lazy">
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Prev/Next Controls -->
+                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                        <button type="button" @click="prevOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
+                            <span class="material-symbols-outlined text-sm font-bold">chevron_left</span>
+                        </button>
+                        <button type="button" @click="nextOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
+                            <span class="material-symbols-outlined text-sm font-bold">chevron_right</span>
+                        </button>
+                    </div>
+
+                    <!-- Slide Indicator dots -->
+                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute bottom-4 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
+                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="'dot-'+idx">
+                            <div class="w-1.5 h-1.5 rounded-full transition-all duration-300" :class="currentOfferIdx === idx ? 'bg-primary w-4' : 'bg-white/40'"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            {% if hh_active_global %}
+            <!-- Happy Hour Active Card on Landing Page -->
+            <div class="border border-amber-500/50 bg-amber-500/20 backdrop-blur-md rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/10 animate-pulse">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/30 rounded-full blur-2xl"></div>
+                <div class="flex items-center gap-4">
+                    <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
+                    <div>
+                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">Happy Hour ist aktiv!</h3>
+                        <p class="text-xs text-white drop-shadow-md mt-1 leading-relaxed">
+                            {% if hh_config.discount > 0 %}
+                                Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ hh_config.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
+                            {% else %}
+                                Sichern Sie sich jetzt unsere exklusiven Happy Hour Spezialpreise!
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Responsive Bildergalerie -->
+            <div x-show="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+                <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                    <span class="material-symbols-outlined text-primary font-bold">collections</span>
+                    <span>Galerie</span>
+                </h3>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
+                        <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
+                            <img :src="img" class="w-full h-full object-cover" loading="lazy">
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- Info Card 1: Öffnungszeiten -->
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">schedule</span>
+                        <span x-text="restaurantLandingPage.title_hours || 'Öffnungszeiten'">Öffnungszeiten</span>
+                    </h3>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
+                </div>
+                
+                <!-- Info Card 2: Über uns / Angebote -->
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">local_offer</span>
+                        <span x-text="restaurantLandingPage.title_happyhour || 'Angebote & Specials'">Angebote & Specials</span>
+                    </h3>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- What we offer -->
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">restaurant</span>
+                        <span x-text="restaurantLandingPage.title_about || 'Was wir bieten'">Was wir bieten</span>
+                    </h3>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
+                </div>
+                
+                <!-- Announcements / News -->
+                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
+                    <h3 class="text-lg font-bold text-white drop-shadow-md flex items-center gap-2 font-display">
+                        <span class="material-symbols-outlined text-primary font-bold drop-shadow-sm">campaign</span>
+                        <span x-text="restaurantLandingPage.title_news || 'Aktuelles & Events'">Aktuelles & Events</span>
+                    </h3>
+                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= SPEISEKARTE VIEW ================= -->
+        <div x-show="currentView === 'speisekarte'" class="animate-fade-in">
+            <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
+            <div id="tab-speisekarte" class="py-2">
+                
+
+                <!-- Category Wrapper (Sticky) -->
+                <div class="sticky py-4 border-b border-outline-variant -mx-4 px-4 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0);">
+                    <!-- Left Chevron indicator -->
+                    <button id="chevron-left" class="absolute left-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-left" onclick="scrollCategories(-200)">
+                        <span class="material-symbols-outlined text-sm font-black">chevron_left</span>
+                    </button>
+
+                    <!-- Category Pills (Horizontal scrolling) -->
+                    <div id="category-pills" class="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-none select-none scroll-indicator" style="touch-action: pan-x;" ondragstart="return false;">
+                        {% for cat in parent_categories %}
+                        <button draggable="false" ondragstart="return false;" onclick="filterCategory('{{ cat }}')" id="btn-{{ cat }}" class="{% if loop.first %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider{% else %}flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface hover:scale-102 uppercase tracking-wider{% endif %}">
+                            <span>{{ cat }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Swipe indicator / accessibility tip (mobile only) -->
+                    <div class="flex md:hidden items-center justify-center gap-1.5 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider mt-2.5 opacity-65 select-none">
+                        <span class="material-symbols-outlined text-xs animate-pulse">swipe</span>
+                        <span data-translate="swipe_hint">← Kategorien wischen →</span>
+                    </div>
+
+                    <!-- Right Chevron indicator -->
+                    <button id="chevron-right" class="absolute right-1 top-1/2 -translate-y-1/2 z-50 bg-black/80 hover:bg-black text-primary rounded-full w-8 h-8 flex items-center justify-center border border-outline-variant/60 focus:outline-none transition-all hidden animate-bounce-horizontal-right" onclick="scrollCategories(200)">
+                        <span class="material-symbols-outlined text-sm font-black">chevron_right</span>
+                    </button>
+                </div>
+
+                <!-- Secondary Subcategories Swiper (Alpine.js powered) -->
+                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-3 mb-1" style="display: none;">
+                    <div class="flex gap-2.5 overflow-x-auto overflow-y-hidden scrollbar-none select-none py-1.5 px-1" style="touch-action: pan-x;">
+                        <!-- 'All' subcategory button -->
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center">
+                            Alle
+                        </button>
+                        <!-- Dynamic subcategory buttons -->
+                        <template x-for="sub in activeSubcategories" :key="sub">
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary/10 border-primary/50 text-primary shadow-sm shadow-primary/5' : 'bg-surface border-outline-variant/50 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'" class="flex-shrink-0 h-9 rounded-full text-[11px] font-bold uppercase tracking-wider px-4 transition-all border select-none flex items-center justify-center" x-text="sub">
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
+                <div id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3.5 py-6">
+                    {% set ns = namespace(last_subcat='') %}
+                    {% for product in products %}
+                    
+                        {% if ' > ' in product.category %}
+                            {% set parent = product.category.split(' > ')[0] %}
+                            {% set sub = product.category.split(' > ')[1] %}
+                            {% if product.category != ns.last_subcat %}
+                                <!-- Render Subcategory Header -->
+                                <div class="col-span-full py-2 mt-4 first:mt-0 subcategory-header border-b border-outline-variant/20 mb-2" 
+                                     data-full-category="{{ product.category }}"
+                                     data-parent-category="{{ parent }}"
+                                     data-subcategory="{{ sub }}"
+                                     data-subcategory-header="{{ product.category }}">
+                                    <h3 class="text-xs md:text-sm font-black text-primary tracking-widest uppercase font-display flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                        {{ sub }}
+                                    </h3>
+                                </div>
+                                {% set ns.last_subcat = product.category %}
+                            {% endif %}
+                        {% endif %}
+                    
+                    {% set is_avail = product.get('is_available', True) %}
+                    <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-2.5 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
+                             data-category="{{ product.category }}" 
+                             data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
+                             data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
+                        
+                        <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-zinc-900/50 flex items-center justify-center">
+                            {% if product.image and not product.image.lower().endswith('.pdf') %}
+                            <img alt="{{ product.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-110 pointer-events-none" src="{{ product.image }}" loading="lazy">
+                            <img alt="{{ product.name }}" class="relative z-10 max-w-full max-h-full object-contain" src="{{ product.image }}" loading="lazy">
+                            {% else %}
+
+                            <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
+                                <span class="material-symbols-outlined text-3xl">restaurant</span>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                                {% if product.is_hh_active %}
+                                <span class="bg-[#eab308] text-black text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+                                    <span class="material-symbols-outlined text-[10px] font-black">schedule</span>
+                                    <span>HH</span>
+                                </span>
+                                {% endif %}
+                                {% if product.is_vegan or product.vegan %}
+                                <span class="bg-emerald-500/90 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+                                    <span class="material-symbols-outlined text-[10px] font-bold">grass</span>
+                                    <span>Vegan</span>
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col flex-grow justify-between px-0.5">
+                            <div>
+                                <h3 class="text-xs md:text-sm font-black text-on-surface leading-tight font-display tracking-tight mb-1" x-text="currentLang === 'en' ? '{{ (product.name_en or product.name) | replace("'", "\\'") }}' : '{{ product.name | replace("'", "\\'") }}'">{{ product.name }}</h3>
+                                <p class="text-[10px] md:text-xs text-on-surface-variant line-clamp-2 leading-relaxed mb-2" x-text="currentLang === 'en' ? '{{ (product.description_en or product.description or '') | replace("'", "\\'") }}' : '{{ (product.description or '') | replace("'", "\\'") }}'">{{ product.description }}</p>
+                            </div>
+                            
+                            <div class="flex justify-between items-center mt-auto pt-1">
+                                <div class="flex flex-col">
+                                    {% if product.is_hh_active %}
+                                    <span class="text-[10px] line-through text-on-surface-variant/50 leading-none mb-0.5 font-bold">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+                                    <span class="text-xs md:text-sm font-black text-primary leading-none">{{ "%.2f" | format(product.display_price) | replace('.', ',') }} €</span>
+                                    {% else %}
+                                    <span class="text-xs md:text-sm font-black text-on-surface leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if is_avail %}
+                                <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-9 h-9 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
+                                    <span class="material-symbols-outlined font-black text-lg">add</span>
+                                </button>
+                                {% else %}
+                                <button disabled class="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
+                                    <span class="material-symbols-outlined text-lg">block</span>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+    {% endif %}
+
+    <!-- Slender Legal Footer inside clean container -->
+    <footer class="py-12 bg-surface border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-3">
+        <div class="flex justify-center space-x-4">
+            <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline" data-translate="impressum">Impressum</button>
+            <span>&bull;</span>
+            <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline" data-translate="datenschutz">Datenschutz</button>
+        </div>
+        
+        <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
+    </footer>
+
+    <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
+    {% if not is_readonly and table and not token_error %}
+    <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
+    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300">
+        <!-- Left Side: Thumb-Zone Service & Payment Callers -->
+        <div class="flex items-center gap-1.5">
+            <button onclick="openServiceModal()" class="w-[50px] h-10 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
+                <span class="material-symbols-outlined text-[18px] leading-none mb-0.5">notifications_active</span>
+                <span class="text-[8px] font-bold leading-none tracking-wide uppercase" data-translate="nav_service">Service</span>
+            </button>
+            <button onclick="openPaymentModal()" class="w-[50px] h-10 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
+                <span class="material-symbols-outlined text-[18px] leading-none mb-0.5">receipt_long</span>
+                <span class="text-[8px] font-bold leading-none tracking-wide uppercase" data-translate="nav_bill">Rechnung</span>
+            </button>
+        </div>
+        
+        <!-- Right Side: Unified Cart Trigger and Total -->
+        <button onclick="openCartModal()" class="flex-grow ml-2 bg-primary text-black font-extrabold h-10 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
+            <div class="flex items-center gap-1.5">
+                <div class="relative">
+                    <span class="material-symbols-outlined text-lg font-black mt-0.5">shopping_basket</span>
+                    <span id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
+                </div>
+                <span class="text-xs font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
+            </div>
+            <span id="total-val-sticky" class="text-[11px] font-black bg-black/10 px-2 py-0.5 rounded-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
+        </button>
+    </div>
+
+    <!-- Sticky Bottom Navigation (Welcome vs Speisekarte) -->
+    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/50 py-1 flex justify-around items-center shadow-2xl pb-safe h-[3.25rem]">
+        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+            <span class="material-symbols-outlined text-[18px] leading-none">home</span>
+            <span data-translate="tab_welcome" class="text-[9px] font-bold leading-none tracking-wide">Willkommen</span>
+        </button>
+        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+            <span class="material-symbols-outlined text-[18px] leading-none">menu_book</span>
+            <span data-translate="tab_menu" class="text-[9px] font-bold leading-none tracking-wide">Speisekarte</span>
+        </button>
+    </div>
+    {% endif %}
+
+        <!-- Hidden Legal Contents to prevent JS escaping issues -->
+    <div id="impressum-content-data" class="hidden">{{ restaurant.impressum_content }}</div>
+    <div id="datenschutz-content-data" class="hidden">{{ restaurant.datenschutz_content }}</div>
+
+    <!-- Legal Documents Modal -->
+    <div id="legal-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-lg p-8 relative flex flex-col max-h-[80vh] shadow-2xl">
+            <button onclick="closeLegalModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            <h3 id="legal-modal-title" class="text-2xl font-extrabold mb-5 font-display text-on-surface">Rechts-Dokument</h3>
+            <div id="legal-modal-body" class="flex-1 overflow-y-auto pr-2 text-sm text-on-surface-variant leading-relaxed whitespace-pre-line font-sans scrollbar-none">
+                <!-- Legal dynamic content pulls here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- CHECKOUT MODAL (BASKET BOTTOM-SHEET) -->
+    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end justify-center hidden" onclick="if(event.target === this) closeCartModal()">
+        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant rounded-t-[2.5rem] w-full max-w-md p-8 relative flex flex-col h-[82vh] max-h-[82vh] shadow-2xl transition-transform duration-300 translate-y-full pb-8">
+            
+            <!-- Drag Handle Indicator -->
+            <div class="w-16 h-1 bg-zinc-800 rounded-full mx-auto mb-6 shrink-0"></div>
+
+            <button onclick="closeCartModal()" class="absolute top-8 right-8 text-on-surface-variant hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            
+            <h3 class="text-xl font-extrabold mb-5 flex items-center space-x-2 shrink-0 font-display text-on-surface">
+                <span class="material-symbols-outlined text-primary text-2xl">shopping_cart</span>
+                <span data-translate="your_cart">Ihr Warenkorb</span>
+            </h3>
+
+            <!-- Cart Items -->
+            <div id="cart-modal-items" class="flex-1 overflow-y-auto space-y-3 mb-6 pr-1 font-display">
+                <template x-if="cart.length === 0">
+                    <div class="text-center py-8 text-on-surface-variant text-sm font-semibold" x-text="translations[currentLang].empty_cart">Ihr Warenkorb ist leer.</div>
+                </template>
+                <template x-for="item in cart" :key="item.cart_id">
+                    <div class="bg-background/50 border border-outline-variant/80 p-4 rounded-2xl text-sm space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="font-extrabold text-on-surface block text-sm" x-text="item.name"></span>
+                                <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
+                            </div>
+                            <div class="flex items-center space-x-3.5">
+                                <button @click="changeQty(item.cart_id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">-</button>
+                                <span class="font-bold font-mono text-on-surface text-sm w-4 text-center" x-text="item.quantity"></span>
+                                <button @click="changeQty(item.cart_id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">+</button>
+                            </div>
+                        </div>
+                        <input
+                            type="text"
+                            x-model="item.note"
+                            data-translate-placeholder="cart_item_note"
+                            placeholder="Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)"
+                            class="w-full bg-background border border-outline-variant/60 text-on-surface text-xs rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
+                        />
+                    </div>
+                </template>
+            </div>
+
+            <!-- Total display -->
+            <div class="space-y-1 mb-6 text-sm shrink-0 border-t border-outline-variant/60 pt-4 font-display">
+                <div class="flex justify-between text-lg font-black text-white">
+                    <span data-translate="basket_total">Gesamtsumme:</span>
+                    <span id="total-val" class="text-primary text-xl glow-text-primary" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
+                </div>
+            </div>
+
+            <!-- Checkout actions -->
+            <div class="shrink-0 font-display">
+                {% if table and not token_error %}
+                    <button onclick="submitOrder()" class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-lg">send</span>
+                        <span data-translate="order_pay">Jetzt bestellen</span>
+                    </button>
+                {% else %}
+                    <button disabled class="w-full bg-surface-container-high text-on-surface-variant/20 h-[78px] rounded-2xl flex items-center justify-center space-x-2 cursor-not-allowed border border-outline-variant text-sm md:text-base font-black uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-lg">block</span>
+                        <span data-translate="order_locked">Bestellung gesperrt (Tisch scannen)</span>
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- POST-PAYMENT THANK YOU OVERLAY -->
+    <div id="thankyou-overlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 hidden">
+        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-6 shadow-2xl relative">
+            <button @click="closeThankYou()" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors text-xl font-bold flex items-center justify-center p-2 rounded-full hover:bg-white/10 w-9 h-9" title="Schließen">✕</button>
+            <span class="material-symbols-outlined text-primary text-7xl animate-bounce glow-text-primary">check_circle</span>
+            <h2 class="text-3xl font-extrabold text-on-surface font-display" data-translate="thank_you">Bestellung erhalten!</h2>
+            <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans pb-2" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
+            <button @click="closeThankYou()" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg font-bold mt-4">
+                Weitere Bestellungen aufnehmen
+            </button>
+        </div>
+    </div>
+
+    {% if role == 'admin' %}
+    <!-- Sticky Bottom Admin Panel (Drawer) -->
+    <div class="sticky-admin-panel fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-outline-variant shadow-2xl flex flex-col transition-all duration-300 font-display"
+         :class="isDrawerOpen ? 'h-[75vh] max-h-[75vh]' : 'h-16'"
+         style="touch-action: none;">
+        
+        <!-- Header -->
+        <div @click="isDrawerOpen = !isDrawerOpen" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-outline-variant/50 hover:bg-primary/5 transition-colors shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="font-extrabold text-sm md:text-base text-on-surface tracking-tight">
+                    Tisch {{ table }} &bull; Offen: <span class="text-primary font-black ml-1" x-text="tableOrders.total.toFixed(2) + ' €'">0,00 €</span>
+                </span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button x-show="isDrawerOpen" @click.stop="isDrawerOpen = false" class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center">
+                    <span class="material-symbols-outlined text-2xl">close</span>
+                </button>
+                <span x-show="!isDrawerOpen" class="material-symbols-outlined text-on-surface-variant text-2xl">
+                    keyboard_arrow_up
+                </span>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div x-show="isDrawerOpen" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar">
+            <!-- STUFE 1: Ausstehend / Zubereitung -->
+            <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3 shadow-lg shadow-emerald-950/10">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-emerald-400">Ausstehend / Zubereitung</h4>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/20" x-text="tableOrders.pending.length">0</span>
+                    </div>
+                    <button x-show="tableOrders.pending.length > 0" @click="serveAllPending()" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/10">
+                        <span class="material-symbols-outlined text-sm font-black">done_all</span>
+                        Alle serviert
+                    </button>
+                </div>
+                
+                <div class="space-y-2">
+                    <template x-if="tableOrders.pending.length === 0">
+                        <p class="text-xs text-emerald-500/60 font-semibold italic text-center py-2">Keine ausstehenden Bestellungen.</p>
+                    </template>
+                    <template x-for="item in tableOrders.pending" :key="item.key">
+                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <button @click.stop="serveSingleItem(item)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
+                                    <span class="material-symbols-outlined text-base">check</span>
+                                </button>
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+                                    <span x-show="item.note" class="text-[10px] text-amber-500 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+                                <button @click.stop="cancelItem(item)" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
+                                    <span class="material-symbols-outlined text-base">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- STUFE 2: Serviert / Geliefert -->
+            <div class="bg-surface/30 border border-outline-variant rounded-2xl p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-on-surface-variant/40"></span>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-on-surface-variant">Serviert / Geliefert</h4>
+                    <span class="bg-surface border border-outline-variant text-on-surface-variant text-[10px] font-black px-2 py-0.5 rounded-full" x-text="tableOrders.delivered.length">0</span>
+                </div>
+                
+                <div class="space-y-2">
+                    <template x-if="tableOrders.delivered.length === 0">
+                        <p class="text-xs text-on-surface-variant/60 font-semibold italic text-center py-2">Noch keine Artikel serviert.</p>
+                    </template>
+                    <template x-for="item in tableOrders.delivered" :key="item.key">
+                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <input type="checkbox" 
+                                       :checked="selectedSplitItems.some(i => i.key === item.key)"
+                                       @change="toggleSplitCheckbox(item)"
+                                       class="w-4.5 h-4.5 rounded border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer">
+                                
+                                <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
+                                
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+                                    <span x-show="item.note" class="text-[10px] text-amber-500 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+                                    
+                                    <!-- Split Qty controls -->
+                                    <template x-if="selectedSplitItems.some(i => i.key === item.key) && item.quantity > 1">
+                                        <div class="flex items-center gap-2 mt-1.5 bg-surface w-fit px-2 py-0.5 rounded-lg border border-outline-variant">
+                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">-</button>
+                                            <span class="text-[11px] font-black text-on-surface font-mono" x-text="getSplitQty(item)"></span>
+                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">+</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div x-show="isDrawerOpen" class="p-4 md:p-6 border-t border-outline-variant bg-background flex flex-col gap-3 shrink-0">
+            <div class="flex items-center justify-between text-xs text-on-surface-variant font-bold px-1" x-show="selectedSplitItems.length > 0">
+                <span>Ausgewählt für Teilrechnung:</span>
+                <span class="text-primary font-black text-sm md:text-base font-mono" x-text="splitTotal.toFixed(2) + ' €'">0,00 €</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3.5">
+                <button @click="submitDrawerPayment(true)" 
+                        :disabled="selectedSplitItems.length === 0"
+                        class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border"
+                        :class="selectedSplitItems.length > 0 ? 'bg-surface-container-high hover:bg-surface border-outline-variant text-on-surface cursor-pointer shadow-lg shadow-black/10' : 'bg-surface/50 text-on-surface-variant/40 border-outline-variant/40 cursor-not-allowed'">
+                    <span class="material-symbols-outlined text-base font-black">call_split</span>
+                    Teilrechnung
+                </button>
+                <button @click="submitDrawerPayment(false)" 
+                        :disabled="tableOrders.total <= 0"
+                        class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none"
+                        :class="tableOrders.total > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
+                    <span class="material-symbols-outlined text-base font-black">payments</span>
+                    Gesamtrechnung
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        // Prevent pinch-to-zoom on iOS devices globally
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('gesturechange', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('gestureend', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+
+        const slug = "{{ slug }}";
+        const translations = {
+            de: {
+                token_error: "Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie den Barcode neu.",
+                read_only_banner: "Lesemodus: Bitte scannen Sie den QR-Code an Ihrem Tisch, um zu bestellen.",
+                filters_label: "Filter:",
+                filter_vegan: "🌱 Vegan",
+                filter_glutenfree: "🌾 Glutenfrei",
+                ausverkauft_badge: "Ausverkauft",
+                service_header: "Service anfordern",
+                service_desc: "Teilen Sie uns direkt mit, wie wir Ihnen helfen können.",
+                pay_card: "Mit Karte zahlen",
+                pay_card_desc: "EC, Visa, Mastercard",
+                pay_cash: "Bar zahlen",
+                pay_cash_desc: "Bargeld bereithalten",
+                clear_table: "Tisch abräumen",
+                clear_table_desc: "Leeres Geschirr abholen",
+                refill_coal: "Kohle nachlegen",
+                refill_coal_desc: "Für frischen Shisha-Genuss",
+
+                nav_service: "Service Rufen",
+                nav_bill: "Rechnung Anfordern",
+                your_cart: "Ihr Warenkorb",
+                tip_question: "Trinkgeld für den Service?",
+                tip_custom: "Eigener",
+                basket_subtotal: "Zwischensumme:",
+                basket_tip: "Trinkgeld:",
+                basket_total: "Gesamtsumme:",
+                order_pay: "Jetzt bestellen",
+                order_locked: "Bestellung gesperrt (Tisch scannen)",
+                thank_you: "Bestellung erhalten!",
+                thank_you_desc: "Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.",
+                close: "Schließen",
+                empty_cart: "Ihr Warenkorb ist leer.",
+
+                service_header_modal: "Was benötigst du?",
+                service_desc_modal: "Wähle eine Option und unser Service-Team kommt zu dir.",
+                btn_kellner: "🛎️ Kellner rufen",
+                btn_kohle: "💨 Kohle bestellen",
+                btn_send_request: "Anfrage senden",
+                payment_header_modal: "Rechnung anfordern",
+                payment_desc_modal: "Wie möchtest du deine Rechnung begleichen?",
+                pay_bar: "Bar zahlen",
+                btn_pay_confirm: "Abschließen & Bezahlen",
+                cart_item_note: "Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)",
+                
+                // Added translation keys
+                sold_out: "Ausverkauft",
+                sold_out_desc: "In Kürze wieder da",
+                impressum: "Impressum",
+                datenschutz: "Datenschutz",
+                cookie_header: "Datenschutz & Cookies",
+                cookie_desc: "Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen. Ohne diese Cookies kann der Dienst nicht angeboten werden.",
+                cookie_privacy: "Datenschutzerklärung",
+                cookie_btn: "Einverstanden",
+                welcome_title: "Willkommen im",
+                welcome_desc: "Schön, dass Sie unser Gast sind. Guten Appetit!",
+                toast_added: "hinzugefügt",
+                toast_read_only: "Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.",
+                toast_request_success: "Anfrage erfolgreich an das Personal gesendet!",
+                toast_request_failed: "Übertragung fehlgeschlagen.",
+                toast_request_error: "Übertragungsfehler.",
+                toast_token_error: "Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.",
+                toast_order_error: "Übertragungsfehler bei der Bestellung.",
+                scan_required_header: "QR-Code Scan erforderlich",
+                scan_required_welcome: "Willkommen bei",
+                scan_required_desc: "Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.",
+                swipe_hint: "← Kategorien wischen →",
+                view_menu: "Speisekarte ansehen",
+                rate_us: "Bewerten Sie uns auf Google"
+            },
+            en: {
+                token_error: "Invalid or expired table code. Please rescan the barcode.",
+                read_only_banner: "Read-only: Please scan the table QR-code to place orders.",
+                filters_label: "Filters:",
+                filter_vegan: "🌱 Vegan",
+                filter_glutenfree: "🌾 Glutenfree",
+                ausverkauft_badge: "Sold Out",
+                service_header: "Call Service Staff",
+                service_desc: "Let us know how we can assist you directly.",
+                pay_card: "Pay with Card",
+                pay_card_desc: "EC, Visa, Mastercard",
+                pay_cash: "Pay with Cash",
+                pay_cash_desc: "Please hold cash ready",
+                clear_table: "Clear Table",
+                clear_table_desc: "Request plate/glass removal",
+                refill_coal: "Replenish Shisha Coal",
+                refill_coal_desc: "For fresh waterpipe coals",
+
+                nav_service: "Call Service",
+                nav_bill: "Request Bill",
+                your_cart: "Your Basket",
+                tip_question: "Leave a tip for the staff?",
+                tip_custom: "Custom",
+                basket_subtotal: "Subtotal:",
+                basket_tip: "Tip amount:",
+                basket_total: "Grand Total:",
+                order_pay: "Order Now",
+                order_locked: "Ordering locked (scan table)",
+                thank_you: "Order Received!",
+                thank_you_desc: "Your meal is being freshly prepared. Payment is settled with the waiter later.",
+                close: "Close",
+                empty_cart: "Your basket is empty.",
+
+                service_header_modal: "What do you need?",
+                service_desc_modal: "Select an option and our service team will come to you.",
+                btn_kellner: "🛎️ Call Waiter",
+                btn_kohle: "💨 Order Shisha Coal",
+                btn_send_request: "Send Request",
+                payment_header_modal: "Request Bill",
+                payment_desc_modal: "How would you like to settle your bill?",
+                pay_bar: "Pay Cash",
+                btn_pay_confirm: "Complete & Pay",
+                cart_item_note: "Note (e.g. no onions, medium, extra spicy…)",
+
+                // Added translation keys
+                sold_out: "Sold Out",
+                sold_out_desc: "Back soon",
+                impressum: "Legal Notice",
+                datenschutz: "Privacy Policy",
+                cookie_header: "Privacy & Cookies",
+                cookie_desc: "We only use technically essential session cookies to enable table assignment, ordering, and logins. Without these cookies, the service cannot be provided.",
+                cookie_privacy: "Privacy Policy",
+                cookie_btn: "I Agree",
+                welcome_title: "Welcome to",
+                welcome_desc: "Nice to have you as our guest. Enjoy your meal!",
+                toast_added: "added",
+                toast_read_only: "Read-only mode: Please scan a table QR code first.",
+                toast_request_success: "Request successfully sent to staff!",
+                toast_request_failed: "Transmission failed.",
+                toast_request_error: "Transmission error.",
+                toast_token_error: "Invalid or expired table code. Please scan again.",
+                toast_order_error: "Transmission error during order.",
+                scan_required_header: "QR Code Scan Required",
+                scan_required_welcome: "Welcome to",
+                scan_required_desc: "To view our menu and place orders directly, please scan the QR code at your table.",
+                swipe_hint: "← Swipe Categories →",
+                view_menu: "View Menu",
+                rate_us: "Rate us on Google"
+            }
+        };
+
+        // Beautiful glassmorphic Toast-Notification helper
+        function showToast(message, type = 'info') {
+            const container = document.getElementById("toast-container");
+            if (!container) return;
+            
+            const toast = document.createElement("div");
+            toast.className = `p-4 rounded-xl shadow-lg backdrop-blur-md transition-all duration-300 transform translate-y-[-20px] opacity-0 flex items-center gap-3 border pointer-events-auto text-xs font-semibold ${
+                type === 'success' ? 'bg-green-950/90 border-green-500/30 text-green-300 shadow-[0_4px_20px_rgba(34,197,94,0.15)]' :
+                type === 'error' ? 'bg-red-950/90 border-red-500/30 text-red-300 shadow-[0_4px_20px_rgba(239,68,68,0.15)]' :
+                'bg-[#1a1a1a]/95 border-[#262626] text-white shadow-[0_4px_20px_rgba(255,255,255,0.05)]'
+            }`;
+            
+            const icon = type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info';
+            toast.innerHTML = `
+                <span class="material-symbols-outlined text-[18px]">${icon}</span>
+                <span class="flex-1">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Trigger transition
+            setTimeout(() => {
+                toast.classList.remove("translate-y-[-20px]", "opacity-0");
+            }, 10);
+            
+            // Auto remove
+            setTimeout(() => {
+                toast.classList.add("translate-y-[-20px]", "opacity-0");
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 4000);
+        }
+
+        function getTableFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('tisch') || urlParams.get('table') || urlParams.get('t') || '';
+        }
+
+        function menuState() {
+            return {
+                cart: [],
+                currentLang: 'de',
+                activeFilters: { vegan: false, glutenfree: false },
+                currentCategory: '',
+                allCategories: {{ restaurant.categories | tojson | safe }},
+                activeSubcategories: [],
+                currentSubcategory: 'All',
+                currentOfferIdx: 0,
+                prevOfferSlide() {
+                    const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
+                    if (len <= 1) return;
+                    this.currentOfferIdx = (this.currentOfferIdx - 1 + len) % len;
+                    this.updateOfferSlider();
+                },
+                nextOfferSlide() {
+                    const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
+                    if (len <= 1) return;
+                    this.currentOfferIdx = (this.currentOfferIdx + 1) % len;
+                    this.updateOfferSlider();
+                },
+                updateOfferSlider() {
+                    const slider = document.getElementById('offer-slider');
+                    if (slider) {
+                        slider.style.transform = `translateX(-${this.currentOfferIdx * 100}%)`;
+                    }
+                },
+                openLightbox(src) {
+                    const lb = document.getElementById('lightbox');
+                    const lbImg = document.getElementById('lightbox-img');
+                    if (lb && lbImg) {
+                        lbImg.src = src;
+                        lb.classList.remove('hidden');
+                        lb.classList.add('flex');
+                        setTimeout(() => {
+                            lb.classList.remove('opacity-0', 'pointer-events-none');
+                            lb.classList.add('opacity-100');
+                        }, 10);
+                    }
+                },
+                closeLightbox() {
+                    const lb = document.getElementById('lightbox');
+                    if (lb) {
+                        lb.classList.remove('opacity-100');
+                        lb.classList.add('opacity-0', 'pointer-events-none');
+                        setTimeout(() => {
+                            lb.classList.remove('flex');
+                            lb.classList.add('hidden');
+                        }, 300);
+                    }
+                },
+                selectedServiceType: 'kellner',
+                selectedPaymentType: 'zahlen_bar',
+                selectedPaymentTipPercent: 0,
+                customPaymentTipAmount: 0,
+                paymentTipVal: 0,
+                currentPaymentSubtotal: 0,
+                translations: translations,
+                role: new URLSearchParams(window.location.search).get('role') || '',
+                tableOrders: { pending: [], delivered: [], total: 0.0 },
+                selectedSplitItems: [],
+                isDrawerOpen: true,
+                currentView: (new URLSearchParams(window.location.search).get('role') === 'waiter' || new URLSearchParams(window.location.search).get('role') === 'admin') ? 'speisekarte' : 'landing',
+                restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
+                guestWs: null,
+                guestWsHeartbeatInterval: null,
+
+                init() {
+                    // Expose functions on the window object for 100% legacy/DOM event compatibility
+                    window.addToCart = (id, nameDe, nameEn, price, categoryType, btnElement) => this.addToCart(id, nameDe, nameEn, price, categoryType, btnElement);
+                    window.openCartModal = () => this.openCartModal();
+                    window.closeCartModal = () => this.closeCartModal();
+                    window.openServiceModal = () => this.openServiceModal();
+                    window.closeServiceModal = () => this.closeServiceModal();
+                    window.openPaymentModal = () => this.openPaymentModal();
+                    window.closePaymentModal = () => this.closePaymentModal();
+                    window.requestService = (type) => this.requestService(type);
+                    window.openLegalModal = (type) => this.openLegalModal(type);
+                    window.closeLegalModal = () => this.closeLegalModal();
+                    window.setLanguage = (lang) => this.setLanguage(lang);
+                    window.toggleDietaryFilter = (type) => this.toggleDietaryFilter(type);
+                    window.filterCategory = (cat) => this.filterCategory(cat);
+                    window.submitOrder = () => this.submitOrder();
+                    window.closeThankYou = () => this.closeThankYou();
+                    window.selectServiceOption = (type) => this.selectServiceOption(type);
+                    window.confirmServiceRequest = () => this.confirmServiceRequest();
+                    window.selectPaymentOption = (type) => this.selectPaymentOption(type);
+                    window.selectPaymentTip = (percent) => this.selectPaymentTip(percent);
+                    window.selectPaymentCustomTip = () => this.selectPaymentCustomTip();
+                    window.calculatePaymentCustomTip = () => this.calculatePaymentCustomTip();
+                    window.confirmPaymentRequest = () => this.confirmPaymentRequest();
+
+                    const resetSession = {% if reset_session %}true{% else %}false{% endif %};
+                    if (resetSession) {
+                        localStorage.removeItem(`dl_orders_{{ slug }}`);
+                        this.cart = [];
+                    }
+
+                    const firstCategory = "{{ parent_categories[0] if parent_categories else '' }}";
+                    if (firstCategory) {
+                        this.filterCategory(firstCategory);
+                    }
+
+                    const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
+                    if (!isReadonly) {
+                        if (document.readyState === "complete") {
+                            setTimeout(() => this.initGuestWebSocket(), 1000);
+                        } else {
+                            window.addEventListener("load", () => {
+                                setTimeout(() => this.initGuestWebSocket(), 1000);
+                            });
+                        }
+                    }
+
+                    if (this.role === 'admin') {
+                        this.fetchAdminDrawerState();
+                    } else {
+                        if (!isReadonly) {
+                            this.fetchGuestTableStatus();
+                        }
+                    }
+
+                    // Background slideshow cycle
+                    const slideshowEnabled = {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}true{% else %}false{% endif %};
+                    const slideshowImages = {{ (restaurant.landing_page.slideshow_images or []) | tojson | safe }};
+                    
+                    if (slideshowEnabled && slideshowImages.length > 1) {
+                        let currentSlideIdx = 0;
+                        const layer1 = document.getElementById('slide-layer-1');
+                        const layer2 = document.getElementById('slide-layer-2');
+                        
+                        if (layer1 && layer2) {
+                            setInterval(() => {
+                                if (this.currentView !== 'landing') return;
+                                
+                                const nextSlideIdx = (currentSlideIdx + 1) % slideshowImages.length;
+                                const nextUrl = slideshowImages[nextSlideIdx];
+                                
+                                const isLayer1Active = layer1.classList.contains('opacity-100');
+                                const activeLayer = isLayer1Active ? layer1 : layer2;
+                                const inactiveLayer = isLayer1Active ? layer2 : layer1;
+                                
+                                inactiveLayer.style.backgroundImage = `url('${nextUrl}')`;
+                                
+                                activeLayer.classList.remove('opacity-100');
+                                activeLayer.classList.add('opacity-0');
+                                inactiveLayer.classList.remove('opacity-0');
+                                inactiveLayer.classList.add('opacity-100');
+                                
+                                currentSlideIdx = nextSlideIdx;
+                            }, 6000);
+                        }
+                    }
+                },
+
+                initGuestWebSocket() {
+                    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                    const wsUrl = `${protocol}//${window.location.host}/ws/{{ slug }}`;
+                    
+                    console.log("Guest connecting to WebSocket...");
+                    const ws = new WebSocket(wsUrl);
+                    this.guestWs = ws;
+                    
+                    let pongReceived = true;
+                    
+                    ws.onopen = () => {
+                        console.log("Guest WebSocket connected!");
+                        pongReceived = true;
+                        
+                        if (this.guestWsHeartbeatInterval) clearInterval(this.guestWsHeartbeatInterval);
+                        this.guestWsHeartbeatInterval = setInterval(() => {
+                            if (!pongReceived) {
+                                console.warn("Guest WebSocket heartbeat timeout. Closing connection...");
+                                ws.close();
+                                return;
+                            }
+                            pongReceived = false;
+                            if (ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({ type: "ping" }));
+                            }
+                        }, 15000);
+                    };
+                    
+                    ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data.type === "pong") {
+                                pongReceived = true;
+                            } else if (data.type === "update") {
+                                if (this.role === 'admin') {
+                                    this.fetchAdminDrawerState();
+                                } else {
+                                    this.fetchGuestTableStatus();
+                                }
+
+                                // Fetch latest product details (prices, availability, happy hour) in real-time
+                                fetch(window.location.href)
+                                    .then(res => {
+                                        if (!res.ok) throw new Error("Failed to fetch menu");
+                                        return res.text();
+                                    })
+                                    .then(html => {
+                                        const parser = new DOMParser();
+                                        const doc = parser.parseFromString(html, 'text/html');
+                                        
+                                        // Update category pills
+                                        const newPills = doc.getElementById('category-pills');
+                                        const currentPills = document.getElementById('category-pills');
+                                        if (newPills && currentPills) {
+                                            currentPills.innerHTML = newPills.innerHTML;
+                                        }
+                                        
+                                        // Update product grid container
+                                        const newGrid = doc.getElementById('product-grid-container');
+                                        const currentGrid = document.getElementById('product-grid-container');
+                                        if (newGrid && currentGrid) {
+                                            currentGrid.innerHTML = newGrid.innerHTML;
+                                        }
+                                        
+                                        // Update happy hour banner
+                                        const newBanner = doc.getElementById('happy-hour-banner-wrapper');
+                                        const currentBanner = document.getElementById('happy-hour-banner-wrapper');
+                                        if (newBanner && currentBanner) {
+                                            currentBanner.innerHTML = newBanner.innerHTML;
+                                        }
+                                        
+                                        // Re-apply current category filter
+                                        if (this.currentCategory) {
+                                            this.filterCategory(this.currentCategory);
+                                        } else {
+                                            const firstBtn = document.querySelector('#category-pills button');
+                                            if (firstBtn) {
+                                                const catName = firstBtn.id.replace('btn-', '');
+                                                this.filterCategory(catName);
+                                            }
+                                        }
+                                        
+                                        // Re-initialize category pills scroll events and chevron logic
+                                        const catPills = document.getElementById('category-pills');
+                                        if (catPills && typeof updateCategoryChevrons === 'function') {
+                                            catPills.addEventListener('scroll', updateCategoryChevrons);
+                                            setTimeout(updateCategoryChevrons, 500);
+                                        }
+                                    })
+                                    .catch(err => console.error("Error loading live menu updates:", err));
+
+                                // Check if guest session is still active
+                                fetch("/api/{{ slug }}/check-session")
+                                    .then(res => res.json())
+                                    .then(sessionData => {
+                                        if (sessionData && sessionData.active === false) {
+                                            console.warn("Session expired! Redirecting...");
+                                            window.location.href = "/{{ slug }}/sitz-expired";
+                                        }
+                                    })
+                                    .catch(err => console.error("Error checking session:", err));
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse websocket message:", e);
+                        }
+                    };
+
+                    ws.onclose = () => {
+                        console.warn("Guest WebSocket closed. Reconnecting...");
+                        this.guestWs = null;
+                        if (this.guestWsHeartbeatInterval) {
+                            clearInterval(this.guestWsHeartbeatInterval);
+                            this.guestWsHeartbeatInterval = null;
+                        }
+                        // Reconnect after 5 seconds
+                        setTimeout(() => this.initGuestWebSocket(), 5000);
+                    };
+
+                    ws.onerror = (err) => {
+                        console.error("Guest WebSocket error:", err);
+                        ws.close();
+                    };
+                },
+
+                get cartTotal() {
+                    return this.cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                },
+
+                get cartCount() {
+                    return this.cart.reduce((acc, i) => acc + i.quantity, 0);
+                },
+
+                setLanguage(lang) {
+                    this.currentLang = lang;
+                    
+                    const deBtn = document.getElementById('lang-de-btn');
+                    if (deBtn) deBtn.className = lang === 'de' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
+                    const enBtn = document.getElementById('lang-en-btn');
+                    if (enBtn) enBtn.className = lang === 'en' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
+                    
+                    const deBtnRo = document.getElementById('lang-de-btn-ro');
+                    if (deBtnRo) deBtnRo.className = lang === 'de' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+                    const enBtnRo = document.getElementById('lang-en-btn-ro');
+                    if (enBtnRo) enBtnRo.className = lang === 'en' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+
+                    // Translate elements
+                    document.querySelectorAll('[data-translate]').forEach(el => {
+                        const key = el.getAttribute('data-translate');
+                        if (translations[lang] && translations[lang][key]) {
+                            el.textContent = translations[lang][key];
+                        }
+                    });
+
+                    // Translate placeholders
+                    document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+                        const key = el.getAttribute('data-translate-placeholder');
+                        if (translations[lang] && translations[lang][key]) {
+                            el.placeholder = translations[lang][key];
+                        }
+                    });
+
+                    // Translate titles
+                    document.querySelectorAll('[data-translate-title]').forEach(el => {
+                        const key = el.getAttribute('data-translate-title');
+                        if (translations[lang] && translations[lang][key]) {
+                            el.title = translations[lang][key];
+                        }
+                    });
+
+                    // Translate dynamic categories
+                    const categoryMapping = {
+                        'Burger': { de: 'Burger', en: 'Burgers' },
+                        'Drinks': { de: 'Getränke', en: 'Drinks' },
+                        'Desserts': { de: 'Desserts', en: 'Desserts' },
+                        'Salads': { de: 'Salate', en: 'Salads' },
+                        'Shisha': { de: 'Shisha', en: 'Shisha' },
+                        'Spezialitäten': { de: 'Spezialitäten', en: 'Specialties' }
+                    };
+                    document.querySelectorAll('[id^="btn-"]').forEach(el => {
+                        const originalText = el.id.replace('btn-', '');
+                        if (categoryMapping[originalText]) {
+                            el.textContent = categoryMapping[originalText][lang];
+                        }
+                    });
+
+                    // Translate product names and descriptions in the DOM dynamically
+                    document.querySelectorAll('.product-name').forEach(el => {
+                        el.textContent = lang === 'en' ? el.getAttribute('data-name-en') : el.getAttribute('data-name-de');
+                    });
+                    document.querySelectorAll('.product-desc').forEach(el => {
+                        el.textContent = lang === 'en' ? el.getAttribute('data-desc-en') : el.getAttribute('data-desc-de');
+                    });
+                    
+                    // Translate cart items
+                    if (this.cart) {
+                        this.cart.forEach(item => {
+                            item.name = lang === 'en' ? item.name_en : item.name_de;
+                        });
+                    }
+                },
+
+                toggleDietaryFilter(type) {
+                    this.activeFilters[type] = !this.activeFilters[type];
+                    const btn = document.getElementById(`filter-${type}-btn`);
+                    if (this.activeFilters[type]) {
+                        btn.classList.add("bg-primary", "text-black");
+                    } else {
+                        btn.classList.remove("bg-primary", "text-black");
+                    }
+                    this.applyAllFilters();
+                },
+
+                filterCategory(category) {
+                    this.currentCategory = category;
+                    this.currentSubcategory = 'All';
+                    
+                    // Compute subcategories under this parent dynamically
+                    this.activeSubcategories = [];
+                    this.allCategories.forEach(cat => {
+                        if (cat.startsWith(category + ' > ')) {
+                            this.activeSubcategories.push(cat.split(' > ')[1]);
+                        }
+                    });
+                    
+                    const products = document.querySelectorAll('.product-item');
+                    products.forEach(item => {
+                        const itemCat = item.getAttribute('data-category');
+                        if (itemCat === category || itemCat.startsWith(category + ' > ')) {
+                            item.setAttribute('data-visible-cat', 'true');
+                        } else {
+                            item.setAttribute('data-visible-cat', 'false');
+                        }
+                    });
+                    
+                    // Sync highlight on category pills dynamically without layout shift
+                    const pills = document.querySelectorAll('#category-pills button');
+                    pills.forEach(pillBtn => {
+                        const isCurrent = pillBtn.id === `btn-${category}`;
+                        pillBtn.className = isCurrent ? 
+                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-primary text-black shadow-lg shadow-primary/10 scale-105 border-transparent uppercase tracking-wider" : 
+                            "flex-shrink-0 min-w-[110px] h-11 rounded-xl text-xs font-bold transition-all duration-300 font-display select-none flex items-center justify-center px-4 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-white hover:scale-102 uppercase tracking-wider";
+                    });
+
+                    this.applyAllFilters();
+                },
+
+                filterSubcategory(sub) {
+                    this.currentSubcategory = sub;
+                    this.applyAllFilters();
+                    
+                    // Scroll to subcategory header
+                    if (sub !== 'All') {
+                        const targetHeader = document.querySelector(`[data-subcategory-header="${this.currentCategory} > ${sub}"]`);
+                        if (targetHeader) {
+                            targetHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                },
+
+                applyAllFilters() {
+                    const products = document.querySelectorAll('.product-item');
+                    const visibleProductsInSubcat = {};
+                    
+                    products.forEach(item => {
+                        const prodCat = item.getAttribute('data-category');
+                        const isVegan = item.getAttribute('data-vegan') === 'true';
+                        const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
+
+                        let matchesParent = (prodCat === this.currentCategory || prodCat.startsWith(this.currentCategory + ' > '));
+                        let matchesSub = true;
+                        if (this.currentSubcategory !== 'All') {
+                            matchesSub = (prodCat === this.currentCategory + ' > ' + this.currentSubcategory);
+                        }
+                        
+                        let matches = matchesParent && matchesSub;
+                        if (this.activeFilters.vegan && !isVegan) matches = false;
+                        if (this.activeFilters.glutenfree && !isGlutenfree) matches = false;
+
+                        item.style.display = matches ? 'flex' : 'none';
+                        if (matches) {
+                            visibleProductsInSubcat[prodCat] = true;
+                        }
+                    });
+
+                    // Show/hide subcategory headers based on visible products inside them
+                    const headers = document.querySelectorAll('.subcategory-header');
+                    headers.forEach(header => {
+                        const fullCat = header.getAttribute('data-full-category');
+                        const parentCat = header.getAttribute('data-parent-category');
+                        const subCat = header.getAttribute('data-subcategory');
+                        
+                        let visible = (parentCat === this.currentCategory);
+                        if (this.currentSubcategory !== 'All') {
+                            visible = visible && (subCat === this.currentSubcategory);
+                        }
+                        visible = visible && !!visibleProductsInSubcat[fullCat];
+                        
+                        header.style.display = visible ? 'block' : 'none';
+                    });
+                },
+
+                addToCart(id, nameDe, nameEn, price, categoryType, btnElement = null) {
+                    if (this.role === 'admin') {
+                        this.addToCartAdmin(id, nameDe, nameEn, price, categoryType, btnElement);
+                        return;
+                    }
+                    const name = this.currentLang === 'en' ? nameEn : nameDe;
+                    const existing = this.cart.find(i => i.id === id && (!i.note || i.note.trim() === ''));
+                    if (existing) {
+                        existing.quantity++;
+                    } else {
+                        const newCartId = id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        this.cart.push({ cart_id: newCartId, id, name, name_de: nameDe, name_en: nameEn, price, quantity: 1, category_type: categoryType, note: null });
+                    }
+                    
+                    const addedMsg = translations[this.currentLang].toast_added || "hinzugefügt";
+                    showToast(name + " " + addedMsg, "success");
+
+                    // Bounce animation on floating cart bar
+                    const floatingBar = document.getElementById("cart-floating-bar");
+                    if (floatingBar) {
+                        floatingBar.classList.remove("animate-cart-pulse");
+                        void floatingBar.offsetWidth; // Trigger reflow
+                        floatingBar.classList.add("animate-cart-pulse");
+                    }
+                    
+                    // Bounce animation on cart badge
+                    const cartBadge = document.getElementById("cart-badge");
+                    if (cartBadge) {
+                        cartBadge.classList.remove("animate-badge-pulse");
+                        void cartBadge.offsetWidth; // Trigger reflow
+                        cartBadge.classList.add("animate-badge-pulse");
+                    }
+
+                    // Clicked button animation to green checkmark
+                    if (btnElement) {
+                        const iconEl = btnElement.querySelector('span.material-symbols-outlined');
+                        if (iconEl && iconEl.textContent === "add") {
+                            btnElement.classList.remove("bg-primary", "text-black");
+                            btnElement.classList.add("bg-green-500", "text-white");
+                            iconEl.textContent = "check";
+                            btnElement.classList.add("animate-btn-success");
+                            
+                            setTimeout(() => {
+                                iconEl.textContent = "add";
+                                btnElement.classList.remove("bg-green-500", "text-white", "animate-btn-success");
+                                btnElement.classList.add("bg-primary", "text-black");
+                            }, 800);
+                        }
+                    }
+                },
+
+                changeQty(cartId, delta) {
+                    const item = this.cart.find(i => i.cart_id === cartId);
+                    if (item) {
+                        item.quantity += delta;
+                        if (item.quantity <= 0) {
+                            this.cart = this.cart.filter(i => i.cart_id !== cartId);
+                        }
+                    }
+                },
+
+                openCartModal() {
+                    const modal = document.getElementById("cart-modal");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                        setTimeout(() => {
+                            const inner = document.getElementById("cart-modal-inner");
+                            if (inner) {
+                                inner.classList.remove("translate-y-full");
+                                inner.classList.add("translate-y-0");
+                            }
+                        }, 10);
+                    }
+                },
+
+                closeCartModal() {
+                    const inner = document.getElementById("cart-modal-inner");
+                    if (inner) {
+                        inner.classList.remove("translate-y-0");
+                        inner.classList.add("translate-y-full");
+                        setTimeout(() => {
+                            const modal = document.getElementById("cart-modal");
+                            if (modal) {
+                                modal.classList.add("hidden");
+                                document.body.style.overflow = '';
+                            }
+                        }, 300);
+                    }
+                },
+
+                openServiceModal() {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    if (!table) {
+                        showToast(translations[this.currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+                        return;
+                    }
+                    this.selectServiceOption('kellner');
+                    const modal = document.getElementById("service-modal");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                    }
+                },
+
+                closeServiceModal() {
+                    const modal = document.getElementById("service-modal");
+                    if (modal) {
+                        modal.classList.add("hidden");
+                        document.body.style.overflow = '';
+                    }
+                },
+
+                selectServiceOption(type) {
+                    this.selectedServiceType = type;
+                    const isShisha = {% if restaurant.is_shishabar %}true{% else %}false{% endif %};
+                    
+                    const btnKellner = document.getElementById("opt-service-kellner");
+                    const btnKohle = document.getElementById("opt-service-kohle");
+                    
+                    if (type === 'kellner' && btnKellner) {
+                        btnKellner.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
+                        const chk = btnKellner.querySelector('span.material-symbols-outlined');
+                        if (chk) chk.classList.remove('opacity-0');
+                        
+                        if (isShisha && btnKohle) {
+                            btnKohle.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
+                            const chk2 = btnKohle.querySelector('span.material-symbols-outlined');
+                            if (chk2) chk2.classList.add('opacity-0');
+                        }
+                    } else if (type === 'kohle' && btnKohle) {
+                        if (btnKellner) {
+                            btnKellner.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
+                            const chk = btnKellner.querySelector('span.material-symbols-outlined');
+                            if (chk) chk.classList.add('opacity-0');
+                        }
+                        
+                        btnKohle.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
+                        const chk2 = btnKohle.querySelector('span.material-symbols-outlined');
+                        if (chk2) chk2.classList.remove('opacity-0');
+                    }
+                },
+
+                confirmServiceRequest() {
+                    this.sendServiceRequestAPI(this.selectedServiceType);
+                    this.closeServiceModal();
+                },
+
+                openPaymentModal() {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    if (!table) {
+                        showToast(translations[this.currentLang].toast_read_only || "Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+                        return;
+                    }
+                    
+                    this.selectedPaymentTipPercent = 0;
+                    this.customPaymentTipAmount = 0;
+                    this.paymentTipVal = 0.0;
+                    
+                    const customInput = document.getElementById("payment-custom-tip-input");
+                    if (customInput) customInput.value = "";
+                    const customContainer = document.getElementById("payment-custom-tip-container");
+                    if (customContainer) customContainer.classList.add("hidden");
+
+                    this.currentPaymentSubtotal = 0.0;
+                    
+                    // Fetch unpaid orders total for the current table directly from server database
+                    fetch(`/api/{{ slug }}/table-unpaid-sum/${table}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.unpaid_sum > 0) {
+                            this.currentPaymentSubtotal = data.unpaid_sum;
+                        } else {
+                            // Fallback to current cart total if no orders placed yet
+                            this.currentPaymentSubtotal = this.cartTotal;
+                        }
+                        this.recalcPaymentTip();
+                    })
+                    .catch(err => {
+                        console.error("Fehler beim Abrufen der Tisch-Summe:", err);
+                        this.currentPaymentSubtotal = this.cartTotal;
+                        this.recalcPaymentTip();
+                    });
+
+                    this.selectPaymentOption('zahlen_bar');
+                    const modal = document.getElementById("payment-modal");
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                    }
+                },
+
+                closePaymentModal() {
+                    const modal = document.getElementById("payment-modal");
+                    if (modal) {
+                        modal.classList.add("hidden");
+                        document.body.style.overflow = '';
+                    }
+                },
+
+                selectPaymentOption(type) {
+                    this.selectedPaymentType = type;
+                    const tipSection = document.getElementById("payment-tip-section");
+                    if (tipSection) {
+                        tipSection.classList.remove("hidden");
+                    }
+                },
+
+                selectPaymentTip(percent) {
+                    this.selectedPaymentTipPercent = percent;
+                    this.customPaymentTipAmount = 0;
+                    const customContainer = document.getElementById("payment-custom-tip-container");
+                    if (customContainer) customContainer.classList.add("hidden");
+                    this.recalcPaymentTip();
+                },
+
+                selectPaymentCustomTip() {
+                    this.selectedPaymentTipPercent = 0;
+                    const customContainer = document.getElementById("payment-custom-tip-container");
+                    if (customContainer) {
+                        customContainer.classList.remove("hidden");
+                        const input = document.getElementById("payment-custom-tip-input");
+                        if (input) {
+                            this.customPaymentTipAmount = parseFloat(input.value) || 0.0;
+                        }
+                    }
+                    this.recalcPaymentTip();
+                },
+
+                calculatePaymentCustomTip() {
+                    const input = document.getElementById("payment-custom-tip-input");
+                    if (input) {
+                        this.customPaymentTipAmount = parseFloat(input.value) || 0.0;
+                    }
+                    this.recalcPaymentTip();
+                },
+
+                recalcPaymentTip() {
+                    let tip = 0.0;
+                    if (this.selectedPaymentTipPercent > 0) {
+                        tip = this.currentPaymentSubtotal * (this.selectedPaymentTipPercent / 100.0);
+                    } else if (this.customPaymentTipAmount > 0) {
+                        tip = this.customPaymentTipAmount;
+                    }
+                    this.paymentTipVal = tip;
+                    
+                    const total = this.currentPaymentSubtotal + this.paymentTipVal;
+                    
+                    const subtotalEl = document.getElementById("payment-subtotal-val");
+                    if (subtotalEl) subtotalEl.textContent = this.currentPaymentSubtotal.toFixed(2) + " €";
+                    
+                    const tipEl = document.getElementById("payment-tip-val");
+                    if (tipEl) tipEl.textContent = this.paymentTipVal.toFixed(2) + " €";
+                    
+                    const totalEl = document.getElementById("payment-total-val");
+                    if (totalEl) totalEl.textContent = total.toFixed(2) + " €";
+                },
+
+                confirmPaymentRequest() {
+                    this.sendServiceRequestAPI(this.selectedPaymentType);
+                    this.closePaymentModal();
+                },
+
+                sendServiceRequestAPI(type) {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    const token = '{{ token }}' || '';
+
+                    const payload = {
+                        type: type,
+                        table: "Tisch " + table,
+                        token: token,
+                        tip_amount: (type === 'zahlen_bar' || type === 'zahlen_karte') ? this.paymentTipVal : 0.0
+                    };
+
+                    fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-Token': token
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => {
+                        if (res.ok) {
+                            showToast("Anfrage erfolgreich an das Personal gesendet!", "success");
+                        } else {
+                            showToast("Übertragung fehlgeschlagen.", "error");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Fehler bei Service-Ruf", err);
+                        showToast("Übertragungsfehler.", "error");
+                    });
+                },
+
+                submitOrder() {
+                    const table = getTableFromUrl() || "{{ table }}";
+                    const token = '{{ token }}' || '';
+
+                    const payload = {
+                        table: "Tisch " + table,
+                        token: token,
+                        items: this.cart.map(i => ({
+                            product_id: i.id,
+                            name: i.name_de || i.name,
+                            price: i.price,
+                            quantity: i.quantity,
+                            note: i.note || null
+                        })),
+                        tip_amount: 0.0
+                    };
+
+                    const roleForBypass = (this.role === 'admin' || this.role === 'waiter') ? this.role : '';
+                    const url = roleForBypass ? `/{{ slug }}/bestellen?role=${encodeURIComponent(roleForBypass)}` : `/{{ slug }}/bestellen`;
+
+                    fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => {
+                        if (res.ok) {
+                            return res.json();
+                        } else if (res.status === 403) {
+                            showToast("Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.", "error");
+                            throw new Error("Expired session");
+                        } else {
+                            showToast("Übertragungsfehler bei der Bestellung.", "error");
+                            throw new Error("Network error");
+                        }
+                    })
+                    .then(data => {
+                        let myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
+                        myOrders.push(data.order_id);
+                        localStorage.setItem(`dl_orders_{{ slug }}`, JSON.stringify(myOrders));
+
+                        this.cart = [];
+                        this.closeCartModal();
+
+                        const thankyou = document.getElementById("thankyou-overlay");
+                        if (thankyou) thankyou.classList.remove("hidden");
+                    })
+                    .catch(err => console.error(err));
+                },
+
+                closeThankYou() {
+                    const thankyou = document.getElementById("thankyou-overlay");
+                    if (thankyou) thankyou.classList.add("hidden");
+                },
+
+                openLegalModal(type) {
+                    const modal = document.getElementById("legal-modal");
+                    const title = document.getElementById("legal-modal-title");
+                    const body = document.getElementById("legal-modal-body");
+
+                    if (type === 'impressum') {
+                        if (title) title.textContent = "Impressum";
+                        if (body) body.textContent = document.getElementById("impressum-content-data").textContent;
+                    } else {
+                        if (title) title.textContent = "Datenschutzerklärung";
+                        if (body) body.textContent = document.getElementById("datenschutz-content-data").textContent;
+                    }
+                    if (modal) {
+                        modal.classList.remove("hidden");
+                        document.body.style.overflow = 'hidden';
+                    }
+                },
+
+                closeLegalModal() {
+                    const modal = document.getElementById("legal-modal");
+                    if (modal) {
+                        modal.classList.add("hidden");
+                        document.body.style.overflow = '';
+                    }
+                },
+
+                async fetchAdminDrawerState() {
+                    try {
+                        const tableNum = getTableFromUrl();
+                        if (!tableNum) return;
+                        
+                        const res = await fetch('/api/tablet-status');
+                        if (!res.ok) return;
+                        
+                        const data = await res.json();
+                        const targetTable = "Tisch " + tableNum;
+                        
+                        const tableOrders = data.orders.filter(o => o.table === targetTable || o.table === tableNum);
+                        
+                        let pending = [];
+                        let delivered = [];
+                        let total = 0.0;
+                        
+                        tableOrders.forEach(order => {
+                            total += order.total;
+                            if (order.items) {
+                                order.items.forEach(item => {
+                                    const status = item.item_status || 'pending';
+                                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                                    
+                                    for (let idx = 0; idx < item.quantity; idx++) {
+                                        const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${idx}`;
+                                        const itemData = {
+                                            order_id: order.id,
+                                            product_id: item.product_id,
+                                            name: item.name,
+                                            price: item.price,
+                                            quantity: 1,
+                                            note: item.note || '',
+                                            status: status,
+                                            key: key,
+                                            unit_index: idx
+                                        };
+                                        
+                                        if (status === 'pending') {
+                                            pending.push(itemData);
+                                        } else if (status === 'confirmed' || status === 'delivered') {
+                                            delivered.push(itemData);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                        
+                        this.tableOrders = { pending, delivered, total };
+                        
+                        if (total <= 0.0) {
+                            this.isDrawerOpen = false;
+                        }
+                    } catch (e) {
+                        console.error("Error fetching drawer state:", e);
+                    }
+                },
+
+                async fetchGuestTableStatus() {
+                    try {
+                        const tableNum = getTableFromUrl();
+                        if (!tableNum) return;
+                        
+                        const res = await fetch(`/api/{{ slug }}/table-status/${tableNum}`);
+                        if (!res.ok) return;
+                        
+                        const data = await res.json();
+                        this.tableOrders = data;
+                        
+                        if (data.total <= 0.0) {
+                            this.isDrawerOpen = false;
+                        }
+                    } catch (e) {
+                        console.error("Error fetching guest table status:", e);
+                    }
+                },
+
+                async serveSingleItem(item) {
+                    try {
+                        const res = await fetch('/admin/orders/serve', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order_id: item.order_id, item_key: item.key })
+                        });
+                        if (res.ok) {
+                            showToast(`✔️ ${item.name} als serviert markiert`, "success");
+                            this.tableOrders.pending = this.tableOrders.pending.filter(i => i.key !== item.key);
+                            
+                            const newKey = `${item.product_id}_${item.note.replace(/\s+/g, '_')}_delivered`;
+                            const existing = this.tableOrders.delivered.find(i => i.key === newKey);
+                            if (existing) {
+                                existing.quantity += item.quantity;
+                            } else {
+                                this.tableOrders.delivered.push({
+                                    ...item,
+                                    status: 'delivered',
+                                    key: newKey
+                                });
+                            }
+                            
+                            this.fetchAdminDrawerState();
+                        } else {
+                            showToast("Fehler beim Servieren", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler beim Servieren", "error");
+                    }
+                },
+
+                async serveAllPending() {
+                    const orderIds = [...new Set(this.tableOrders.pending.map(i => i.order_id))];
+                    if (orderIds.length === 0) return;
+                    
+                    try {
+                        const promises = orderIds.map(orderId => 
+                            fetch('/admin/orders/serve', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ order_id: orderId })
+                            })
+                        );
+                        const results = await Promise.all(promises);
+                        if (results.every(r => r.ok)) {
+                            showToast("✔️ Alle ausstehenden Artikel serviert", "success");
+                            
+                            this.tableOrders.pending.forEach(item => {
+                                const newKey = `${item.product_id}_${item.note.replace(/\s+/g, '_')}_delivered`;
+                                const existing = this.tableOrders.delivered.find(i => i.key === newKey);
+                                if (existing) {
+                                    existing.quantity += item.quantity;
+                                } else {
+                                    this.tableOrders.delivered.push({
+                                        ...item,
+                                        status: 'delivered',
+                                        key: newKey
+                                    });
+                                }
+                            });
+                            this.tableOrders.pending = [];
+                            
+                            this.fetchAdminDrawerState();
+                        } else {
+                            showToast("Fehler beim Servieren der Artikel", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler", "error");
+                    }
+                },
+
+                async cancelItem(item) {
+                    let qty = item.quantity;
+                    if (qty > 1) {
+                        const qtyStr = prompt(`Wie viele ${item.name} stornieren? (Max: ${qty})`, qty);
+                        if (qtyStr === null) return;
+                        qty = parseInt(qtyStr, 10);
+                        if (isNaN(qty) || qty < 1 || qty > item.quantity) {
+                            showToast("Ungültige Menge", "error");
+                            return;
+                        }
+                    }
+                    
+                    let pin = prompt("Bitte Chef-PIN eingeben:");
+                    if (pin === null) return;
+                    if (!pin.trim()) {
+                        showToast("PIN erforderlich", "error");
+                        return;
+                    }
+                    
+                    try {
+                        const res = await fetch(`/${slug}/tablet/cancel-item/${item.order_id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ item_key: item.key, quantity: qty, pin: pin })
+                        });
+                        
+                        if (res.ok) {
+                            showToast(`✔️ ${qty}x ${item.name} storniert`, "success");
+                            
+                            item.quantity -= qty;
+                            if (item.quantity <= 0) {
+                                this.tableOrders.pending = this.tableOrders.pending.filter(i => i.key !== item.key);
+                            }
+                            
+                            this.fetchAdminDrawerState();
+                        } else {
+                            const err = await res.json().catch(() => ({}));
+                            showToast(err.detail || "Fehler beim Stornieren", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler beim Stornieren", "error");
+                    }
+                },
+
+                toggleSplitCheckbox(item) {
+                    const idx = this.selectedSplitItems.findIndex(i => i.key === item.key);
+                    if (idx > -1) {
+                        this.selectedSplitItems.splice(idx, 1);
+                    } else {
+                        this.selectedSplitItems.push({
+                            key: item.key,
+                            order_id: item.order_id,
+                            product_id: item.product_id,
+                            name: item.name,
+                            price: item.price,
+                            quantity: item.quantity,
+                            note: item.note,
+                            selectedQty: item.quantity
+                        });
+                    }
+                },
+
+                adjustSplitQty(item, delta) {
+                    const found = this.selectedSplitItems.find(i => i.key === item.key);
+                    if (found) {
+                        const newQty = found.selectedQty + delta;
+                        if (newQty >= 1 && newQty <= found.quantity) {
+                            found.selectedQty = newQty;
+                        }
+                    }
+                },
+
+                getSplitQty(item) {
+                    const found = this.selectedSplitItems.find(i => i.key === item.key);
+                    return found ? found.selectedQty : 0;
+                },
+
+                get splitTotal() {
+                    return this.selectedSplitItems.reduce((sum, item) => sum + item.price * item.selectedQty, 0);
+                },
+
+                async submitDrawerPayment(isSplit) {
+                    if (isSplit) {
+                        const groups = {};
+                        this.selectedSplitItems.forEach(i => {
+                            if (!groups[i.order_id]) groups[i.order_id] = [];
+                            groups[i.order_id].push(i);
+                        });
+                        
+                        try {
+                            const promises = Object.keys(groups).map(orderId => {
+                                const payload = {
+                                    items: groups[orderId].map(i => ({
+                                        product_id: i.product_id,
+                                        quantity: i.selectedQty,
+                                        note: i.note || null
+                                    }))
+                                };
+                                return fetch(`/${slug}/tablet/teilzahlung/${orderId}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                            });
+                            
+                            const results = await Promise.all(promises);
+                            if (results.every(r => r.ok)) {
+                                showToast("✔️ Teilzahlung erfolgreich gebucht!", "success");
+                                this.selectedSplitItems = [];
+                                await this.fetchAdminDrawerState();
+                            } else {
+                                showToast("Fehler bei der Teilzahlung", "error");
+                            }
+                        } catch (e) {
+                            showToast("Verbindungsfehler bei Teilzahlung", "error");
+                        }
+                    } else {
+                        const orderIds = [...new Set([
+                            ...this.tableOrders.pending.map(i => i.order_id),
+                            ...this.tableOrders.delivered.map(i => i.order_id)
+                        ])];
+                        
+                        if (orderIds.length === 0) return;
+                        
+                        try {
+                            const promises = orderIds.map(orderId => {
+                                const fd = new FormData();
+                                fd.append('tip', '0.0');
+                                return fetch(`/${slug}/tablet/bezahlen/${orderId}`, {
+                                    method: 'POST',
+                                    body: fd
+                                });
+                            });
+                            
+                            const results = await Promise.all(promises);
+                            if (results.every(r => r.ok)) {
+                                showToast("✔️ Tisch vollständig bezahlt!", "success");
+                                this.selectedSplitItems = [];
+                                await this.fetchAdminDrawerState();
+                            } else {
+                                showToast("Fehler beim Abschließen der Rechnung", "error");
+                            }
+                        } catch (e) {
+                            showToast("Verbindungsfehler bei Zahlung", "error");
+                        }
+                    }
+                },
+
+                async addToCartAdmin(id, nameDe, nameEn, price, categoryType, btnElement = null) {
+                    const tableNum = getTableFromUrl();
+                    if (!tableNum) {
+                        showToast("Fehler: Kein Tisch ausgewählt.", "error");
+                        return;
+                    }
+                    
+                    if (btnElement) {
+                        const iconEl = btnElement.querySelector('span.material-symbols-outlined');
+                        if (iconEl && iconEl.textContent === "add") {
+                            btnElement.classList.remove("bg-primary", "text-black");
+                            btnElement.classList.add("bg-green-500", "text-white");
+                            iconEl.textContent = "check";
+                            btnElement.classList.add("animate-btn-success");
+                            
+                            setTimeout(() => {
+                                iconEl.textContent = "add";
+                                btnElement.classList.remove("bg-green-500", "text-white", "animate-btn-success");
+                                btnElement.classList.add("bg-primary", "text-black");
+                            }, 800);
+                        }
+                    }
+                    
+                    try {
+                        const res = await fetch('/api/admin/orders/add-manual', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                table_number: tableNum,
+                                product_id: id,
+                                quantity: 1
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            const name = this.currentLang === 'en' ? nameEn : nameDe;
+                            showToast(`${name} hinzugefügt`, "success");
+                            await this.fetchAdminDrawerState();
+                        } else {
+                            const err = await res.json().catch(() => ({}));
+                            showToast(err.detail || "Fehler beim Hinzufügen", "error");
+                        }
+                    } catch (e) {
+                        showToast("Verbindungsfehler beim Hinzufügen", "error");
+                    }
+                }
+            };
+        }
+
+        function updateCategoryChevrons() {
+            const container = document.getElementById('category-pills');
+            const leftBtn = document.getElementById('chevron-left');
+            const rightBtn = document.getElementById('chevron-right');
+            if (!container) return;
+            
+            const scrollLeft = container.scrollLeft;
+            const maxScrollLeft = container.scrollWidth - container.clientWidth;
+            
+            if (leftBtn) {
+                if (scrollLeft > 5) {
+                    leftBtn.classList.remove('hidden');
+                } else {
+                    leftBtn.classList.add('hidden');
+                }
+            }
+            
+            if (rightBtn) {
+                if (scrollLeft < maxScrollLeft - 5 && container.scrollWidth > container.clientWidth) {
+                    rightBtn.classList.remove('hidden');
+                } else {
+                    rightBtn.classList.add('hidden');
+                }
+            }
+        }
+        
+        function scrollCategories(amount) {
+            const container = document.getElementById('category-pills');
+            if (container) {
+                container.scrollBy({ left: amount, behavior: 'smooth' });
+            }
+        }
+
+        // Initialize default category and check for session reset
+        document.addEventListener("DOMContentLoaded", () => {
+            const resetSession = {% if reset_session %}true{% else %}false{% endif %};
+            if (resetSession) {
+                localStorage.removeItem(`dl_orders_{{ slug }}`);
+            }
+            
+            const catPills = document.getElementById('category-pills');
+            if (catPills) {
+                catPills.addEventListener('scroll', updateCategoryChevrons);
+                window.addEventListener('resize', updateCategoryChevrons);
+                setTimeout(updateCategoryChevrons, 500);
+            }
+        });
+    </script>
+
+    <!-- Dynamic Service Request Modal -->
+    <div id="service-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm p-8 relative flex flex-col text-center space-y-6 shadow-2xl">
+            <button onclick="closeServiceModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            
+            <div>
+                <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
+                    <span class="material-symbols-outlined text-4xl text-primary">notifications_active</span>
+                </div>
+                <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="service_header_modal">Was benötigst du?</h3>
+                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="service_desc_modal">Wähle eine Option und unser Service-Team kommt zu dir.</p>
+            </div>
+            
+            <div class="space-y-3 font-display">
+                <button @click="selectedServiceType = 'kellner'" id="opt-service-kellner" 
+                        :class="selectedServiceType === 'kellner' ? 'w-full bg-background border border-primary text-primary rounded-2xl p-4 flex items-center justify-between transition-all' : 'w-full bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/5 active:scale-98'">
+                    <span class="font-bold text-sm flex items-center gap-3" data-translate="btn_kellner">🛎️ Kellner rufen</span>
+                    <span class="material-symbols-outlined text-xl text-primary transition-opacity" :class="selectedServiceType === 'kellner' ? 'opacity-100' : 'opacity-0'">check_circle</span>
+                </button>
+                
+                {% if restaurant.is_shishabar %}
+                <button @click="selectedServiceType = 'kohle'" id="opt-service-kohle" 
+                        :class="selectedServiceType === 'kohle' ? 'w-full bg-background border border-primary text-primary rounded-2xl p-4 flex items-center justify-between transition-all' : 'w-full bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/5 active:scale-98'">
+                    <span class="font-bold text-sm flex items-center gap-3" data-translate="btn_kohle">💨 Kohle bestellen</span>
+                    <span class="material-symbols-outlined text-xl text-primary transition-opacity" :class="selectedServiceType === 'kohle' ? 'opacity-100' : 'opacity-0'">check_circle</span>
+                </button>
+                {% endif %}
+            </div>
+            
+            <button onclick="confirmServiceRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20" data-translate="btn_send_request">
+                Anfrage senden
+            </button>
+        </div>
+    </div>
+
+    <!-- Dynamic Payment Request Modal -->
+    <div id="payment-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm p-8 relative flex flex-col text-center space-y-6 max-h-[92vh] overflow-y-auto shadow-2xl">
+            <button onclick="closePaymentModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+            
+            <div>
+                <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
+                    <span class="material-symbols-outlined text-4xl text-primary">payments</span>
+                </div>
+                <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="payment_header_modal">Rechnung anfordern</h3>
+                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
+            </div>
+            
+            <div class="grid {% if restaurant.accepts_card_payment != False %}grid-cols-2{% else %}grid-cols-1{% endif %} gap-4 shrink-0">
+                <button @click="selectPaymentOption('zahlen_bar')" id="opt-pay-bar" 
+                        :class="selectedPaymentType === 'zahlen_bar' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
+                    <span class="text-3xl mb-1">💵</span>
+                    <span class="font-extrabold text-xs" data-translate="pay_bar">Bar zahlen</span>
+                </button>
+                
+                {% if restaurant.accepts_card_payment != False %}
+                <button @click="selectPaymentOption('zahlen_karte')" id="opt-pay-karte" 
+                        :class="selectedPaymentType === 'zahlen_karte' ? 'bg-background border border-primary text-primary rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display shadow-lg shadow-primary/5' : 'bg-background/50 border border-outline-variant text-on-surface rounded-2xl p-4 flex flex-col items-center gap-2 transition-all font-display hover:bg-white/5 active:scale-98'">
+                    <span class="text-3xl mb-1">💳</span>
+                    <span class="font-extrabold text-xs" data-translate="pay_card">Mit Karte zahlen</span>
+                </button>
+                {% endif %}
+            </div>
+
+
+            <!-- Trinkgeld-Sektion -->
+            <div id="payment-tip-section" class="border-t border-outline-variant/60 pt-5 text-left hidden">
+                <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3 font-display" data-translate="tip_question">Trinkgeld für den Service?</label>
+                <div class="grid grid-cols-4 gap-2 font-display">
+                    <button @click="selectPaymentTip(5)" id="pay-tip-5" 
+                            :class="selectedPaymentTipPercent === 5 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">5%</button>
+                    <button @click="selectPaymentTip(10)" id="pay-tip-10" 
+                            :class="selectedPaymentTipPercent === 10 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">10%</button>
+                    <button @click="selectPaymentTip(15)" id="pay-tip-15" 
+                            :class="selectedPaymentTipPercent === 15 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">15%</button>
+                    <button @click="selectPaymentCustomTip()" id="pay-tip-custom" 
+                            :class="(selectedPaymentTipPercent === 0 && customPaymentTipAmount > 0) ? 'border border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'" data-translate="tip_custom">Eigener</button>
+                </div>
+                <div id="payment-custom-tip-container" class="mt-3 hidden">
+                    <input type="number" id="payment-custom-tip-input" oninput="calculatePaymentCustomTip()" step="0.50" min="0" placeholder="0.00" class="input-premium w-full text-sm font-semibold text-center font-display focus:border-primary">
+                </div>
+                
+                <div class="space-y-2 mt-4 bg-background/40 p-3 rounded-2xl border border-outline-variant/40 font-display text-xs">
+                    <div class="flex justify-between items-center text-on-surface-variant">
+                        <span data-translate="basket_subtotal">Zwischensumme:</span>
+                        <span id="payment-subtotal-val" class="font-bold text-on-surface">0,00 €</span>
+                    </div>
+                    <div class="flex justify-between items-center text-on-surface-variant">
+                        <span data-translate="basket_tip">Trinkgeld:</span>
+                        <span id="payment-tip-val" class="font-bold text-primary">0,00 €</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm font-black text-on-surface pt-2 border-t border-outline-variant/30">
+                        <span data-translate="basket_total">Gesamtsumme:</span>
+                        <span id="payment-total-val" class="text-primary font-black glow-text-primary">0,00 €</span>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="confirmPaymentRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20 shrink-0" data-translate="btn_pay_confirm">
+                Abschließen & Bezahlen
+            </button>
+        </div>
+    </div>
+
+    <!-- MODERN GLASSMORPHIC COOKIE BANNER -->
+    <div id="cookieBanner" class="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:max-w-md glass-panel border border-outline-variant p-6 rounded-3xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-500 pointer-events-none">
+        <div class="flex flex-col gap-4">
+            <div class="flex items-start gap-3">
+                <div class="p-2.5 bg-primary/10 rounded-xl text-primary mt-1 shrink-0 pulse-green">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5Z" />
+                      <path d="M8.5 8.5v.01" />
+                      <path d="M16 15.5v.01" />
+                      <path d="M12 12v.01" />
+                      <path d="M11 16v.01" />
+                      <path d="M6 12v.01" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-white font-extrabold text-sm font-display" data-translate="cookie_header">Datenschutz & Cookies</h3>
+                    <p class="text-on-surface-variant text-xs mt-1.5 leading-relaxed font-medium" data-translate="cookie_desc">
+                        Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen. Ohne diese Cookies kann der Dienst nicht angeboten werden.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center justify-between gap-4 mt-2 font-display">
+                <button onclick="openLegalModal('datenschutz')" class="text-xs text-primary hover:text-primary-hover underline font-bold transition-colors" data-translate="cookie_privacy">Datenschutzerklärung</button>
+                <button onclick="acceptCookies()" class="btn-premium btn-premium-primary text-xs px-5 py-2.5 rounded-xl font-bold active:scale-95 shadow-md shadow-primary/10" data-translate="cookie_btn">Einverstanden</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cookie Banner Consent Logic
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('cookie_consent_accepted')) {
+                setTimeout(() => {
+                    const banner = document.getElementById('cookieBanner');
+                    if (banner) {
+                        banner.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+                        banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+                    }
+                }, 1000);
+            }
+        });
+
+        function acceptCookies() {
+            localStorage.setItem('cookie_consent_accepted', 'true');
+            const banner = document.getElementById('cookieBanner');
+            if (banner) {
+                banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+                banner.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }
+        }
+
+        // Unregister any active PWA Service Workers to prevent unexpected background reloads and cache conflicts
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.getRegistrations()
+                    .then(registrations => {
+                        for (let registration of registrations) {
+                            registration.unregister().then(success => {
+                                if (success) {
+                                    console.log('Successfully unregistered service worker');
+                                }
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to get service worker registrations:', err);
+                    });
+            });
+        }
+
+        // Clean up address bar query parameters to hide ?reset=true or any other params but preserve role=admin
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.history && window.history.replaceState) {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('role') === 'admin') {
+                    window.history.replaceState({}, document.title, window.location.pathname + "?role=admin");
+                } else {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }
+        });
+
+        // Horizontal drag-to-slide Category Pills on desktop
+        window.addEventListener('DOMContentLoaded', () => {
+            const slider = document.getElementById('category-pills');
+            if (slider) {
+                let isDown = false;
+                let startX;
+                let scrollLeft;
+
+                slider.addEventListener('mousedown', (e) => {
+                    isDown = true;
+                    slider.classList.add('active');
+                    startX = e.pageX - slider.offsetLeft;
+                    scrollLeft = slider.scrollLeft;
+                    slider.style.cursor = 'grabbing';
+                });
+                slider.addEventListener('mouseleave', () => {
+                    isDown = false;
+                    slider.classList.remove('active');
+                    slider.style.cursor = 'default';
+                });
+                slider.addEventListener('mouseup', () => {
+                    isDown = false;
+                    slider.classList.remove('active');
+                    slider.style.cursor = 'default';
+                });
+                slider.addEventListener('mousemove', (e) => {
+                    if (!isDown) return;
+                    e.preventDefault();
+                    const x = e.pageX - slider.offsetLeft;
+                    const walk = (x - startX) * 2; // scroll-fast multiplier
+                    slider.scrollLeft = scrollLeft - walk;
+                });
+            }
+        });
+    </script>
+    <!-- Beautiful fullscreen Image Lightbox modal -->
+    <div id="lightbox" class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md hidden items-center justify-center transition-all duration-300 opacity-0 pointer-events-none" @click="closeLightbox()">
+        <button class="absolute top-4 right-4 text-white hover:text-primary text-4xl font-bold transition">&times;</button>
+        <img id="lightbox-img" class="max-w-[95vw] max-h-[95vh] object-contain rounded-xl shadow-2xl" src="" alt="Zoomed view">
+    </div>
+
+    <!-- Toast Container for Premium UI feedback -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-[90%] max-w-sm pointer-events-none"></div>
+</body>
+</html>
