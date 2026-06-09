@@ -148,8 +148,10 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
             will-change: transform;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
             padding: 0 16px;
         }
         #category-carousel-track.no-transition {
@@ -168,13 +170,21 @@
             align-items: center;
             justify-content: center;
             white-space: nowrap;
-            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: background 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                        color 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                        box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                        border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
             border: 2px solid transparent;
             font-family: 'Outfit', 'Inter', sans-serif;
+            will-change: transform, opacity;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
         .cat-pill.active {
             background: var(--color-primary) !important;
@@ -1636,23 +1646,20 @@
                     const wrapperWidth = wrapper.getBoundingClientRect().width;
                     const gap = 8;
                     
-                    // Calculate the x offset to center the active pill
                     let pillOffsetX = 0;
                     for (let i = 0; i < index; i++) {
                         pillOffsetX += pills[i].offsetWidth + gap;
                     }
                     pillOffsetX += pills[index].offsetWidth / 2;
                     
-                    // Track padding is 16px on each side
                     const paddingLeft = 16;
-                    
-                    // translateX needed so that pillOffsetX + paddingLeft lands at wrapperWidth/2
-                    const translateX = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                    const tx = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
                     
                     if (instant) {
                         track.classList.add('no-transition');
                     }
-                    track.style.transform = `translateX(${translateX}px)`;
+                    // translate3d forces GPU compositing = buttery smooth
+                    track.style.transform = `translate3d(${tx}px, 0, 0)`;
                     if (instant) {
                         track.offsetHeight;
                         requestAnimationFrame(() => track.classList.remove('no-transition'));
@@ -1667,15 +1674,12 @@
                     const pills = track.querySelectorAll('.cat-pill');
                     if (!pills.length) return;
                     
-                    // Check if view is visible (pills have dimensions)
                     if (pills[0].offsetWidth === 0) {
                         setTimeout(() => this.initCategoryCarousel(), 150);
                         return;
                     }
                     
-                    // Prevent duplicate init
                     if (this.carouselInitialized) {
-                        // Just re-center
                         const pills = track.querySelectorAll('.cat-pill');
                         let idx = 0;
                         pills.forEach((pill, i) => {
@@ -1692,16 +1696,14 @@
                     const gap = 8;
                     const totalPills = pills.length;
                     
-                    // Get category from pill index
-                    const getCategoryByIndex = (idx) => {
-                        const realIdx = ((idx % totalPills) + totalPills) % totalPills;
-                        return pills[realIdx].getAttribute('data-category');
-                    };
-                    
                     let isDragging = false;
                     let startX = 0;
                     let prevTranslate = 0;
                     let dragMoved = false;
+                    let lastMoveTime = 0;
+                    let lastMoveX = 0;
+                    let velocity = 0;
+                    let animationId = null;
                     
                     const getPositionX = (e) => {
                         return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
@@ -1713,6 +1715,10 @@
                         return matrix.m41;
                     };
                     
+                    const setTrackTranslate = (tx) => {
+                        track.style.transform = `translate3d(${tx}px, 0, 0)`;
+                    };
+                    
                     const calcTranslateForIndex = (idx) => {
                         const wrapperWidth = wrapper.getBoundingClientRect().width;
                         let pillOffsetX = 0;
@@ -1722,6 +1728,38 @@
                         pillOffsetX += pills[idx].offsetWidth / 2;
                         const paddingLeft = 16;
                         return (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                    };
+                    
+                    // Momentum animation after drag release
+                    const applyMomentum = (initialVelocity) => {
+                        if (animationId) cancelAnimationFrame(animationId);
+                        
+                        const friction = 0.92; // deceleration factor
+                        let currentV = initialVelocity;
+                        let currentTx = getCurrentTranslate();
+                        let lastTime = performance.now();
+                        
+                        const momentumStep = (now) => {
+                            const dt = Math.min(now - lastTime, 32); // cap at ~30fps min
+                            lastTime = now;
+                            
+                            currentV *= friction;
+                            currentTx += currentV * (dt / 16);
+                            
+                            setTrackTranslate(currentTx);
+                            
+                            // Stop when velocity is very small
+                            if (Math.abs(currentV) > 0.3) {
+                                animationId = requestAnimationFrame(momentumStep);
+                            } else {
+                                animationId = null;
+                                // Snap to nearest
+                                track.classList.remove('no-transition');
+                                snapToNearest();
+                            }
+                        };
+                        
+                        animationId = requestAnimationFrame(momentumStep);
                     };
                     
                     // Snap to nearest pill and filter
@@ -1740,19 +1778,25 @@
                             }
                         });
                         const category = pills[closestIdx].getAttribute('data-category');
-                        if (category && category !== this.currentCategory) {
+                        if (category && category !== self.currentCategory) {
                             self.filterCategory(category);
                         } else {
-                            // Just re-center without filtering
                             self.centerCarouselAt(closestIdx, false);
                         }
                     };
                     
                     const dragStart = (e) => {
+                        if (animationId) {
+                            cancelAnimationFrame(animationId);
+                            animationId = null;
+                        }
                         isDragging = true;
                         startX = getPositionX(e);
                         dragMoved = false;
                         prevTranslate = getCurrentTranslate();
+                        velocity = 0;
+                        lastMoveTime = performance.now();
+                        lastMoveX = startX;
                         track.classList.add('no-transition');
                     };
                     
@@ -1760,18 +1804,38 @@
                         if (!isDragging) return;
                         const currentX = getPositionX(e);
                         const diff = currentX - startX;
-                        if (Math.abs(diff) > 5) dragMoved = true;
+                        if (Math.abs(diff) > 3) dragMoved = true;
+                        
+                        // Track velocity for momentum
+                        const now = performance.now();
+                        const dt = now - lastMoveTime;
+                        if (dt > 0) {
+                            const dx = currentX - lastMoveX;
+                            velocity = (dx / dt) * 16; // px per frame at 60fps
+                        }
+                        lastMoveTime = now;
+                        lastMoveX = currentX;
+                        
                         const newTranslate = prevTranslate + diff;
-                        track.style.transform = `translateX(${newTranslate}px)`;
+                        setTrackTranslate(newTranslate);
                     };
                     
                     const dragEnd = (e) => {
                         if (!isDragging) return;
                         isDragging = false;
-                        track.classList.remove('no-transition');
                         
-                        if (!dragMoved) return;
-                        snapToNearest();
+                        if (!dragMoved) {
+                            track.classList.remove('no-transition');
+                            return;
+                        }
+                        
+                        // Apply momentum if velocity is significant
+                        if (Math.abs(velocity) > 1.5) {
+                            applyMomentum(velocity);
+                        } else {
+                            track.classList.remove('no-transition');
+                            snapToNearest();
+                        }
                     };
                     
                     // Touch events
