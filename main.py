@@ -6117,20 +6117,23 @@ async def update_happy_hour_products(request: Request, chef_data: tuple = Depend
         return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
     
     products_updates = body.get("products", [])
-    start_time = body.get("start_time", "18:00")
-    end_time = body.get("end_time", "20:00")
+    global_start_time = body.get("start_time", "18:00")
+    global_end_time = body.get("end_time", "20:00")
     
     for update in products_updates:
         pid = update.get("product_id")
         hh_price = update.get("happy_hour_price")
         hh_days = update.get("happy_hour_days")  # e.g. ["Samstag", "Donnerstag"] or null
+        # Per-product time range (overrides global if set)
+        prod_start_time = update.get("start_time") or global_start_time
+        prod_end_time = update.get("end_time") or global_end_time
         
         product = next((p for p in restaurant.get("products", []) if p["id"] == pid), None)
         if product:
             if hh_price is not None and hh_price > 0:
                 product["happy_hour_price"] = round(float(hh_price), 2)
-                product["start_time"] = start_time
-                product["end_time"] = end_time
+                product["start_time"] = prod_start_time
+                product["end_time"] = prod_end_time
                 product["happy_hour_days"] = hh_days  # per-product days
             else:
                 product["happy_hour_price"] = None

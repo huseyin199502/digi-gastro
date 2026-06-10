@@ -2277,7 +2277,7 @@
                         </div>
                         <div class="section-card-body">
                             <p class="text-[11px] text-zinc-500 leading-relaxed mb-4">
-                                Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt. Du kannst pro Produkt eigene Tage festlegen — z.B. nur samstags oder nur donnerstags.
+                                Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt. Du kannst pro Produkt eigene Tage und Uhrzeiten festlegen — z.B. Cola Mo-So 17:00-18:00, Shisha Mo-So 20:00-22:00. Wenn keine Uhrzeit gesetzt wird, gilt die globale Start-/Endzeit.
                             </p>
                             <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
                                 {% for cat in restaurant.categories %}
@@ -2312,6 +2312,16 @@
                                             </label>
                                             {% endfor %}
                                             <span class="text-[8px] text-zinc-400 ml-1">alle = global</span>
+                                        </div>
+                                    </div>
+                                    <!-- Per-product time range (only visible when HH is enabled for this product) -->
+                                    <div class="hh-time-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-time-{{ p.id }}">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="text-[9px] font-bold text-zinc-400 uppercase">Uhrzeit:</span>
+                                            <input type="time" value="{{ p.start_time or '17:00' }}" class="bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-start-{{ p.id }}" style="width:90px;">
+                                            <span class="text-[10px] text-zinc-400 font-bold">—</span>
+                                            <input type="time" value="{{ p.end_time or '18:00' }}" class="bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-end-{{ p.id }}" style="width:90px;">
+                                            <span class="text-[8px] text-zinc-400">leer = global</span>
                                         </div>
                                     </div>
                                 </div>
@@ -3552,12 +3562,14 @@
                 }
             });
             
-            // Dynamically set activeOrderId for cockpit actions
-            if (tableOrders.length > 0) {
-                activeOrderId = tableOrders[0].id;
-            } else {
-                activeOrderId = null;
+            // Auto-close control modal if no more active orders for this table
+            if (tableOrders.length === 0) {
+                closeControlModal();
+                return;
             }
+            
+            // Dynamically set activeOrderId for cockpit actions
+            activeOrderId = tableOrders[0].id;
             
             let total = 0.0;
             let pendingItems = [];
@@ -4029,6 +4041,19 @@
                     showToast("Teilzahlung gebucht!", "success");
                     selectedControlSplitItems = {};
                     await checkLiveTischeUpdates();
+                    // Check if table has no more active orders → auto-close control modal
+                    if (controlModalActiveTableNum) {
+                        const remainingOrders = allOrders.filter(o => {
+                            const t = String(o.table || '').trim();
+                            if (controlModalActiveTableZone) {
+                                const exact = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                                return (t === exact || t === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                            }
+                            const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                            return regex.test(t) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                        });
+                        if (remainingOrders.length === 0) { closeControlModal(); }
+                    }
                 } else {
                     showToast("Fehler bei Teilzahlung", "error");
                 }
@@ -4342,14 +4367,22 @@
                 // Live API only returns active orders, but allOrders contains
                 // the full history from server-side rendering.
                 const liveOrdersMap = {};
-                (orders || []).forEach(o => { liveOrdersMap[o.id] = o; });
+                const liveOrderIds = new Set();
+                (orders || []).forEach(o => { liveOrdersMap[o.id] = o; liveOrderIds.add(o.id); });
                 
-                // Update existing orders with live data, add new ones
+                // Update existing orders with live data, add new ones,
+                // and mark orders that disappeared from live API as completed
                 const updatedIds = new Set();
                 allOrders = allOrders.map(o => {
                     updatedIds.add(o.id);
                     if (liveOrdersMap[o.id]) {
                         return liveOrdersMap[o.id]; // Use fresh live data
+                    }
+                    // Order was in allOrders but NOT in live API anymore.
+                    // If it was still in an active state, it must have been
+                    // cancelled or paid elsewhere — mark it accordingly.
+                    if (o.status !== 'bezahlt' && o.status !== 'storniert') {
+                        return { ...o, status: 'bezahlt' };
                     }
                     return o;
                 });
@@ -5703,6 +5736,29 @@
                 if (res.ok) {
                     showToast('Teilzahlung erfolgreich gebucht', 'success');
                     selectedTeilrechnung = {};
+                    // Check if the order is now fully paid (all items bezahlt/storniert)
+                    // If control modal is open and no active orders remain, close it
+                    if (controlModalActiveTableNum) {
+                        // Let checkLiveTischeUpdates handle the rest, but also
+                        // proactively check if this was the last active order for the table
+                        const tableOrders = allOrders.filter(o => {
+                            const t = String(o.table || '').trim();
+                            if (controlModalActiveTableZone) {
+                                const exact = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                                return (t === exact || t === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                            }
+                            const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                            return regex.test(t) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                        });
+                        // If only one order left and it's the current one, mark it paid
+                        if (tableOrders.length === 1 && tableOrders[0].id === activeOrderId) {
+                            const idx = allOrders.findIndex(o => o.id === activeOrderId);
+                            if (idx !== -1) allOrders[idx] = { ...allOrders[idx], status: 'bezahlt' };
+                            closeControlModal();
+                        } else if (tableOrders.length === 0) {
+                            closeControlModal();
+                        }
+                    }
                     closePopup();
                     checkLiveTischeUpdates();
                 } else {
@@ -5771,6 +5827,23 @@
                 const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST', body: fd });
                 if (res.ok) {
                     showToast('✅ Alles bezahlt!', 'success');
+                    // Immediately update local status so tiles update in real-time
+                    const paidId = activeOrderId;
+                    const idx = allOrders.findIndex(o => o.id === paidId);
+                    if (idx !== -1) allOrders[idx] = { ...allOrders[idx], status: 'bezahlt' };
+                    // If control modal is open and no active orders remain, close it
+                    if (controlModalActiveTableNum) {
+                        const tableOrders = allOrders.filter(o => {
+                            const t = String(o.table || '').trim();
+                            if (controlModalActiveTableZone) {
+                                const exact = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                                return (t === exact || t === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                            }
+                            const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                            return regex.test(t) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                        });
+                        if (tableOrders.length === 0) { closeControlModal(); }
+                    }
                     closePopup();
                     checkLiveTischeUpdates();
                 } else {
@@ -5789,6 +5862,22 @@
                 const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST' });
                 if (res.ok) {
                     showToast('Bon storniert', 'success');
+                    // Immediately update local status so tiles update in real-time
+                    const idx = allOrders.findIndex(o => o.id === activeOrderId);
+                    if (idx !== -1) allOrders[idx] = { ...allOrders[idx], status: 'storniert' };
+                    // If control modal is open and no active orders remain, close it
+                    if (controlModalActiveTableNum) {
+                        const tableOrders = allOrders.filter(o => {
+                            const t = String(o.table || '').trim();
+                            if (controlModalActiveTableZone) {
+                                const exact = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                                return (t === exact || t === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                            }
+                            const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                            return regex.test(t) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                        });
+                        if (tableOrders.length === 0) { closeControlModal(); }
+                    }
                     closePopup();
                     checkLiveTischeUpdates();
                 } else if (res.status === 403) {
@@ -6144,10 +6233,12 @@
         function toggleHHProductRow(productId, isChecked) {
             const fields = document.getElementById('hh-fields-' + productId);
             const daysFields = document.getElementById('hh-days-' + productId);
+            const timeFields = document.getElementById('hh-time-' + productId);
             const row = fields ? fields.closest('[class*="rounded-xl"][class*="border"]') : null;
             if (isChecked) {
                 if (fields) fields.classList.remove('hidden');
                 if (daysFields) daysFields.classList.remove('hidden');
+                if (timeFields) timeFields.classList.remove('hidden');
                 if (row) {
                     row.classList.remove('border-gray-100', 'bg-gray-50');
                     row.classList.add('border-amber-300', 'bg-amber-50');
@@ -6158,6 +6249,7 @@
             } else {
                 if (fields) fields.classList.add('hidden');
                 if (daysFields) daysFields.classList.add('hidden');
+                if (timeFields) timeFields.classList.add('hidden');
                 if (row) {
                     row.classList.remove('border-amber-300', 'bg-amber-50');
                     row.classList.add('border-gray-100', 'bg-gray-50');
@@ -6204,21 +6296,33 @@
                 const hhPrice = isChecked && priceInput && priceInput.value ? parseFloat(priceInput.value) : null;
                 const hhDays = isChecked ? getProductHHDays(pid) : null;
 
+                // Per-product time range (if set, overrides global)
+                let hhStartTime = null;
+                let hhEndTime = null;
+                if (isChecked && hhPrice) {
+                    const startInput = document.getElementById('hh-start-' + pid);
+                    const endInput = document.getElementById('hh-end-' + pid);
+                    if (startInput && startInput.value) hhStartTime = startInput.value;
+                    if (endInput && endInput.value) hhEndTime = endInput.value;
+                }
+
                 updates.push({
                     product_id: parseInt(pid),
                     happy_hour_price: hhPrice,
-                    happy_hour_days: hhDays
+                    happy_hour_days: hhDays,
+                    start_time: hhStartTime,
+                    end_time: hhEndTime
                 });
             });
 
-            // Get global HH time range for the products
-            const hhStart = document.querySelector('input[name="start"]')?.value || '18:00';
-            const hhEnd = document.querySelector('input[name="end"]')?.value || '20:00';
+            // Get global HH time range as fallback
+            const globalStart = document.querySelector('input[name="start"]')?.value || '18:00';
+            const globalEnd = document.querySelector('input[name="end"]')?.value || '20:00';
 
             fetch('/admin/happy-hour-products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ products: updates, start_time: hhStart, end_time: hhEnd })
+                body: JSON.stringify({ products: updates, start_time: globalStart, end_time: globalEnd })
             })
             .then(res => res.json())
             .then(data => {
