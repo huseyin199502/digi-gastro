@@ -1108,6 +1108,261 @@
                 padding: 1rem;
             }
         }
+
+        /* ===== LIVE NOTIFICATION BAR ===== */
+        .live-notification-bar {
+            position: sticky;
+            top: 52px;
+            z-index: 39;
+            background: transparent;
+            padding: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .live-notification-bar:empty {
+            display: none;
+        }
+        .live-notification-bar.has-items {
+            padding: 0.5rem 1.5rem;
+        }
+
+        .notif-card {
+            display: flex;
+            align-items: stretch;
+            border-radius: 0.875rem;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 4px 12px -2px rgba(0,0,0,0.15);
+            animation: notifSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.3s;
+        }
+        .notif-card:last-child {
+            margin-bottom: 0;
+        }
+        .notif-card.notif-order {
+            border: 2px solid #3b82f6;
+        }
+        .notif-card.notif-service {
+            border: 2px solid #f59e0b;
+        }
+        html.dark .notif-card.notif-order {
+            border-color: #60a5fa;
+        }
+        html.dark .notif-card.notif-service {
+            border-color: #fbbf24;
+        }
+
+        .notif-accent {
+            width: 6px;
+            flex-shrink: 0;
+        }
+        .notif-order .notif-accent {
+            background: linear-gradient(180deg, #3b82f6, #2563eb);
+        }
+        .notif-service .notif-accent {
+            background: linear-gradient(180deg, #f59e0b, #d97706);
+        }
+
+        .notif-body {
+            flex: 1;
+            min-width: 0;
+            padding: 0.75rem 1rem;
+            background: var(--gastro-card-bg);
+        }
+        .notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .notif-title {
+            font-size: 0.75rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            white-space: nowrap;
+        }
+        .notif-order .notif-title {
+            color: #3b82f6;
+        }
+        .notif-service .notif-title {
+            color: #f59e0b;
+        }
+        html.dark .notif-order .notif-title {
+            color: #60a5fa;
+        }
+        html.dark .notif-service .notif-title {
+            color: #fbbf24;
+        }
+        .notif-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+        .notif-badge.badge-new {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            animation: notifPulse 1.5s infinite;
+        }
+        .notif-badge.badge-items {
+            background: rgba(59, 130, 246, 0.08);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+        html.dark .notif-badge.badge-items {
+            background: rgba(96, 165, 250, 0.1);
+            color: #60a5fa;
+            border-color: rgba(96, 165, 250, 0.2);
+        }
+
+        .notif-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+        }
+        .notif-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            transition: all 0.2s;
+            cursor: default;
+        }
+        .notif-item.item-served {
+            opacity: 0.4;
+            text-decoration: line-through;
+        }
+        .notif-item .item-qty {
+            font-weight: 900;
+            color: var(--gastro-text-muted);
+            font-size: 0.6rem;
+        }
+        .notif-item .item-name {
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .notif-item .btn-serve-item {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            background: var(--gastro-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 900;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            padding: 0;
+            line-height: 1;
+        }
+        .notif-item .btn-serve-item:hover {
+            transform: scale(1.15);
+            box-shadow: 0 2px 6px rgba(0, 153, 0, 0.3);
+        }
+        .notif-item.item-served .btn-serve-item {
+            background: #9ca3af;
+            pointer-events: none;
+        }
+
+        .notif-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            flex-shrink: 0;
+            padding: 0.5rem 0.75rem;
+            background: var(--gastro-card-bg);
+            border-left: 1px solid var(--gastro-border);
+        }
+        .notif-btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.625rem;
+            font-size: 0.65rem;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            white-space: nowrap;
+        }
+        .notif-btn-serve-all {
+            background: var(--gastro-primary);
+            color: white;
+            box-shadow: 0 2px 6px rgba(0, 153, 0, 0.2);
+        }
+        .notif-btn-serve-all:hover {
+            background: var(--gastro-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 153, 0, 0.3);
+        }
+        .notif-btn-done {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+        }
+        .notif-btn-done:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+        .notif-btn-details {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-muted);
+            border: 1px solid var(--gastro-border);
+        }
+        .notif-btn-details:hover {
+            color: var(--gastro-text-main);
+            border-color: var(--gastro-primary);
+        }
+
+        @keyframes notifSlideIn {
+            from { opacity: 0; transform: translateY(-12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes notifPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @media (max-width: 640px) {
+            .live-notification-bar.has-items {
+                padding: 0.375rem 0.75rem;
+            }
+            .notif-card {
+                flex-direction: column;
+            }
+            .notif-actions {
+                border-left: none;
+                border-top: 1px solid var(--gastro-border);
+                padding: 0.5rem;
+                justify-content: flex-end;
+            }
+            .notif-items {
+                gap: 0.25rem;
+            }
+            .notif-item .item-name {
+                max-width: 80px;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -1190,6 +1445,9 @@
                 </span>
             </div>
         </header>
+
+        <!-- LIVE NOTIFICATION BAR – Neue Bestellungen & Service-Rufe -->
+        <div id="live-notification-bar" class="live-notification-bar"></div>
 
         <div class="content-area">
             
@@ -3672,11 +3930,212 @@
                     renderServiceCallsAlerts();
                 }
                 
+                // Update live notification bar (always visible across tabs)
+                renderLiveNotificationBar(orders, serviceCalls);
+                
                 if (controlModalActiveTableNum) {
                     refreshControlModal();
                 }
             } catch (e) {
                 console.error("Error updating live tiles:", e);
+            }
+        }
+
+        // ── LIVE NOTIFICATION BAR ──
+        // Shows new orders with unserved items and active service calls
+        // at the very top of the dashboard so waiters never miss them.
+        let _notifDismissedOrders = new Set(); // order IDs manually dismissed
+        let _notifDismissedCalls = new Set();  // call IDs manually dismissed
+
+        function renderLiveNotificationBar(orders, serviceCalls) {
+            const bar = document.getElementById('live-notification-bar');
+            if (!bar) return;
+
+            // Clean up dismissed sets: remove IDs that no longer exist in active data
+            const activeOrderIds = new Set((orders || []).map(o => o.id));
+            const activeCallIds = new Set((serviceCalls || []).map(c => c.id));
+            for (const id of _notifDismissedOrders) {
+                if (!activeOrderIds.has(id)) _notifDismissedOrders.delete(id);
+            }
+            for (const id of _notifDismissedCalls) {
+                if (!activeCallIds.has(id)) _notifDismissedCalls.delete(id);
+            }
+
+            let html = '';
+
+            // 1. Active orders with unserved (pending/confirmed) items
+            const activeOrders = (orders || []).filter(o => 
+                o.status !== 'bezahlt' && 
+                o.status !== 'storniert' && 
+                !_notifDismissedOrders.has(o.id) &&
+                o.items && o.items.some(i => (i.item_status || 'pending') !== 'delivered')
+            );
+
+            activeOrders.forEach(order => {
+                const unservedItems = (order.items || []).filter(i => (i.item_status || 'pending') !== 'delivered');
+                const totalItems = unservedItems.length;
+                if (totalItems === 0) return;
+
+                const displayTable = /^Tisch\s/i.test(String(order.table)) ? order.table : `Tisch ${order.table}`;
+                const isNew = seenOrderIds.has(order.id) ? '' : '<span class="notif-badge badge-new">NEU</span>';
+
+                let itemsHtml = unservedItems.map(item => {
+                    const status = item.item_status || 'pending';
+                    const isServed = status === 'delivered';
+                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                    const key = `${item.product_id}_${noteSlug}_${status}`;
+                    
+                    return `<span class="notif-item ${isServed ? 'item-served' : ''}" data-order-id="${order.id}" data-item-key="${key}">
+                        <span class="item-qty">${item.quantity}×</span>
+                        <span class="item-name" title="${item.name}${item.note ? ' ('+item.note+')' : ''}">${item.name}</span>
+                        ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}')" title="Als serviert markieren">✓</button>` : ''}
+                    </span>`;
+                }).join('');
+
+                html += `
+                    <div class="notif-card notif-order" data-notif-order="${order.id}">
+                        <div class="notif-accent"></div>
+                        <div class="notif-body">
+                            <div class="notif-header">
+                                <div class="notif-title">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
+                                    ${displayTable}
+                                    <span class="notif-badge badge-items">${totalItems} offene Artikel</span>
+                                    ${isNew}
+                                </div>
+                            </div>
+                            <div class="notif-items">
+                                ${itemsHtml}
+                            </div>
+                        </div>
+                        <div class="notif-actions">
+                            <button class="notif-btn notif-btn-serve-all" onclick="notifServeAll(${order.id})" title="Alle als serviert markieren">
+                                <span class="material-symbols-outlined" style="font-size:13px;">done_all</span> Serviert
+                            </button>
+                            <button class="notif-btn notif-btn-details" onclick="openPopup(${order.id})" title="Bestellung öffnen">
+                                <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 2. Active service calls
+            const activeCalls = (serviceCalls || []).filter(c => !_notifDismissedCalls.has(c.id));
+
+            activeCalls.forEach(c => {
+                const cType = String(c.type).toLowerCase();
+                let cIcon = '🔔';
+                let cText = c.type.toUpperCase() + ' RUF';
+                
+                if (cType.includes('kohle')) {
+                    cIcon = '💨';
+                    cText = 'KOHLE RUF';
+                } else if (cType.includes('bar')) {
+                    cIcon = '💵';
+                    cText = 'BAR RUF';
+                } else if (cType.includes('karte')) {
+                    cIcon = '💳';
+                    cText = 'KARTE RUF';
+                } else if (cType.includes('rechnung') || cType.includes('zahlen') || cType.includes('kasse') || cType.includes('bill') || cType.includes('pay')) {
+                    cIcon = '💵';
+                    cText = 'RECHNUNG RUF';
+                }
+
+                const displayTableName = /^Tisch\s/i.test(String(c.table)) ? String(c.table) : `Tisch ${c.table}`;
+                const isNewCall = !seenCallIds.has(c.id) ? '<span class="notif-badge badge-new">NEU</span>' : '';
+
+                html += `
+                    <div class="notif-card notif-service" data-notif-call="${c.id}">
+                        <div class="notif-accent"></div>
+                        <div class="notif-body">
+                            <div class="notif-header">
+                                <div class="notif-title">
+                                    <span>${cIcon}</span>
+                                    ${displayTableName}: <strong>${cText}</strong>
+                                    ${isNewCall}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="notif-actions">
+                            <button class="notif-btn notif-btn-done" onclick="notifResolveCall(${c.id})" title="Als erledigt markieren">
+                                <span class="material-symbols-outlined" style="font-size:13px;">check</span> Erledigt
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            bar.innerHTML = html;
+            if (html) {
+                bar.classList.add('has-items');
+            } else {
+                bar.classList.remove('has-items');
+            }
+        }
+
+        async function notifServeItem(orderId, itemKey) {
+            try {
+                const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_key: itemKey, status: 'delivered' })
+                });
+                if (res.ok) {
+                    // Optimistically update local state
+                    const order = allOrders.find(o => o.id === orderId);
+                    if (order) {
+                        const parts = itemKey.split('_');
+                        const pid = parts[0];
+                        const status = parts[parts.length - 1];
+                        const noteParts = parts.slice(1, parts.length - 1).join('_');
+                        const item = order.items.find(i => String(i.product_id) === pid 
+                            && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
+                            && (i.item_status || 'pending') === status);
+                        if (item) item.item_status = 'delivered';
+                    }
+                    // Re-render notification bar immediately
+                    renderLiveNotificationBar(allOrders, allCalls);
+                    await checkLiveTischeUpdates();
+                } else {
+                    showToast('Fehler beim Servieren', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        async function notifServeAll(orderId) {
+            try {
+                const res = await fetch('/admin/orders/serve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                if (res.ok) {
+                    // Optimistically mark all items as delivered locally
+                    const order = allOrders.find(o => o.id === orderId);
+                    if (order && order.items) {
+                        order.items.forEach(i => { i.item_status = 'delivered'; });
+                    }
+                    renderLiveNotificationBar(allOrders, allCalls);
+                    await checkLiveTischeUpdates();
+                } else {
+                    showToast('Fehler beim Servieren', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
+        async function notifResolveCall(callId) {
+            try {
+                await fetch(`/${slug}/service-erledigt/${callId}`, { method: 'POST' });
+                _notifDismissedCalls.add(callId);
+                renderLiveNotificationBar(allOrders, allCalls);
+                await checkLiveTischeUpdates();
+            } catch (e) {
+                showToast('Fehler beim Erledigen des Rufs', 'error');
             }
         }
 
