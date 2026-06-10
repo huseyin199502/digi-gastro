@@ -1373,6 +1373,182 @@
                 max-width: 80px;
             }
         }
+
+        /* ===== ORDERS FILTER BAR ===== */
+        .orders-filter-bar {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .orders-search-wrap {
+            position: relative;
+            max-width: 320px;
+        }
+        .orders-search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: var(--gastro-text-muted);
+            pointer-events: none;
+        }
+        .orders-search-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.625rem;
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .orders-search-input:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+        html.dark .orders-search-input:focus {
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+        }
+        .orders-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .orders-filter-label {
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gastro-text-muted);
+            min-width: 50px;
+        }
+        .orders-filter-btns {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+        .orders-filter-btn {
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+        .orders-filter-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+        }
+        html.dark .orders-filter-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+        }
+        .orders-filter-btn.active {
+            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+            box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.15);
+        }
+        html.dark .orders-filter-btn.active {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+            color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 2px 6px -1px rgba(34, 197, 94, 0.15);
+        }
+
+        /* ===== ORDERS PAGINATION ===== */
+        .orders-pagination {
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .orders-pagination-info {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--gastro-text-muted);
+        }
+        .orders-pagination-btns {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .orders-page-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 28px;
+            padding: 0 0.375rem;
+            border-radius: 0.5rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .orders-page-btn:hover:not(:disabled) {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+        }
+        .orders-page-btn.active {
+            background: var(--gastro-primary);
+            color: white;
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+        }
+        .orders-page-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .orders-page-btn.nav-arrow {
+            font-size: 0.8rem;
+        }
+
+        /* Mobile responsive filter bar */
+        @media (max-width: 640px) {
+            .orders-search-wrap {
+                max-width: 100%;
+            }
+            .orders-filter-bar {
+                padding: 0.75rem;
+            }
+            .dash-table {
+                font-size: 0.65rem;
+            }
+            .dash-table thead th {
+                padding: 0.625rem 0.5rem;
+                font-size: 0.55rem;
+            }
+            .dash-table tbody td {
+                padding: 0.625rem 0.5rem;
+            }
+            .orders-pagination {
+                padding: 0.5rem 0.75rem;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .orders-pagination-btns {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -1546,53 +1722,77 @@
                     </div>
                 </div>
 
-                <!-- Orders management bar -->
+                <!-- Orders management bar with filters -->
                 <div class="section-card mb-6">
-                    <div class="section-card-header">
+                    <div class="section-card-header flex-wrap gap-3">
                         <div class="flex items-center gap-2">
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">receipt_long</span>
                             <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
+                            <span id="orders-count-badge" class="text-[9px] font-black bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-200">0</span>
                         </div>
-                        <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs">
-                            <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU Export
-                        </a>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs">
+                                <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU Export
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Filter Bar -->
+                    <div class="orders-filter-bar">
+                        <!-- Search -->
+                        <div class="orders-search-wrap">
+                            <span class="material-symbols-outlined orders-search-icon">search</span>
+                            <input type="text" id="orders-search" class="orders-search-input" placeholder="Bon-Nr. oder Tisch suchen..." oninput="renderOrdersTable()">
+                        </div>
+                        <!-- Date Filter -->
+                        <div class="orders-filter-group">
+                            <span class="orders-filter-label">Zeitraum</span>
+                            <div class="orders-filter-btns">
+                                <button onclick="setOrdersDateFilter('today')" class="orders-filter-btn active" data-filter="today">Heute</button>
+                                <button onclick="setOrdersDateFilter('7d')" class="orders-filter-btn" data-filter="7d">7 Tage</button>
+                                <button onclick="setOrdersDateFilter('30d')" class="orders-filter-btn" data-filter="30d">30 Tage</button>
+                                <button onclick="setOrdersDateFilter('all')" class="orders-filter-btn" data-filter="all">Alle</button>
+                            </div>
+                        </div>
+                        <!-- Status Filter -->
+                        <div class="orders-filter-group">
+                            <span class="orders-filter-label">Status</span>
+                            <div class="orders-filter-btns">
+                                <button onclick="setOrdersStatusFilter('all')" class="orders-filter-btn active" data-status="all">Alle</button>
+                                <button onclick="setOrdersStatusFilter('aktiv')" class="orders-filter-btn" data-status="aktiv">Aktiv</button>
+                                <button onclick="setOrdersStatusFilter('bezahlt')" class="orders-filter-btn" data-status="bezahlt">Bezahlt</button>
+                                <button onclick="setOrdersStatusFilter('storniert')" class="orders-filter-btn" data-status="storniert">Storniert</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Orders Table -->
+                <!-- Orders Table (dynamic) -->
                 <div class="section-card">
-                    <table class="dash-table">
-                        <thead>
-                            <tr>
-                                <th>Bon ID</th>
-                                <th>Tisch</th>
-                                <th>Zeitstempel</th>
-                                <th>Gesamt</th>
-                                <th>MwSt</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            {% for o in restaurant.orders | sort(attribute='timestamp', reverse=true) %}
-                            <tr>
-                                <td class="font-bold text-zinc-800">Bon #{{ o.id }}</td>
-                                <td class="font-extrabold">{{ o.table }}</td>
-                                <td class="text-zinc-500 font-mono">{{ o.timestamp }}</td>
-                                <td class="font-extrabold text-zinc-900 font-mono">{{ "%.2f"|format(o.total) }} €</td>
-                                <td class="text-zinc-500">{{ o.mwst_rate }}%</td>
-                                <td>
-                                    {% if o.status == 'bezahlt' %}
-                                        <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Bezahlt</span>
-                                    {% elif o.status == 'storniert' %}
-                                        <span class="bg-rose-500/10 text-rose-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Storniert</span>
-                                    {% else %}
-                                        <span class="bg-amber-500/10 text-amber-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide animate-pulse">Aktiv</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="overflow-x-auto">
+                        <table class="dash-table">
+                            <thead>
+                                <tr>
+                                    <th>Bon ID</th>
+                                    <th>Tisch</th>
+                                    <th>Zeitstempel</th>
+                                    <th>Gesamt</th>
+                                    <th>MwSt</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-tbody" class="divide-y divide-gray-100">
+                                <!-- Rendered by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Empty state -->
+                    <div id="orders-empty-state" class="hidden py-10 text-center">
+                        <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">receipt_long</span>
+                        <p class="text-xs text-zinc-400 font-semibold mt-2">Keine Bestellungen gefunden</p>
+                        <p class="text-[10px] text-zinc-300 mt-1">Versuche andere Filter oder Suchbegriffe</p>
+                    </div>
+                    <!-- Pagination -->
+                    <div id="orders-pagination" class="orders-pagination"></div>
                 </div>
             </div>
 
@@ -2957,6 +3157,9 @@
                 renderSitzplanTiles();
                 renderServiceCallsAlerts();
             }
+            if (tabId === 'finanzen') {
+                renderOrdersTable();
+            }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -2988,6 +3191,214 @@
         }
         let tempTables = [];
         
+        // ── ORDERS TABLE: FILTER + PAGINATION STATE ──
+        let _ordersDateFilter = 'today';    // today | 7d | 30d | all
+        let _ordersStatusFilter = 'all';    // all | aktiv | bezahlt | storniert
+        let _ordersPage = 1;
+        const _ordersPerPage = 25;
+
+        function setOrdersDateFilter(filter) {
+            _ordersDateFilter = filter;
+            _ordersPage = 1;
+            // Update active button
+            document.querySelectorAll('.orders-filter-btn[data-filter]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+            renderOrdersTable();
+        }
+
+        function setOrdersStatusFilter(filter) {
+            _ordersStatusFilter = filter;
+            _ordersPage = 1;
+            // Update active button
+            document.querySelectorAll('.orders-filter-btn[data-status]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.status === filter);
+            });
+            renderOrdersTable();
+        }
+
+        function getFilteredOrders() {
+            if (!allOrders || !allOrders.length) return [];
+            
+            const now = new Date();
+            const searchEl = document.getElementById('orders-search');
+            const searchVal = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            
+            return allOrders.filter(o => {
+                // 1. Date filter
+                if (_ordersDateFilter !== 'all' && o.timestamp) {
+                    try {
+                        // Parse timestamp like "2025-06-10 14:30:00"
+                        const ts = o.timestamp.replace(' ', 'T');
+                        const orderDate = new Date(ts);
+                        if (isNaN(orderDate.getTime())) return true; // If can't parse, show it
+                        
+                        const diffMs = now - orderDate;
+                        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                        
+                        if (_ordersDateFilter === 'today') {
+                            // Same calendar day
+                            if (orderDate.getFullYear() !== now.getFullYear() ||
+                                orderDate.getMonth() !== now.getMonth() ||
+                                orderDate.getDate() !== now.getDate()) {
+                                return false;
+                            }
+                        } else if (_ordersDateFilter === '7d') {
+                            if (diffDays > 7) return false;
+                        } else if (_ordersDateFilter === '30d') {
+                            if (diffDays > 30) return false;
+                        }
+                    } catch (e) {
+                        // If timestamp can't be parsed, include the order
+                    }
+                }
+                
+                // 2. Status filter
+                if (_ordersStatusFilter !== 'all') {
+                    const oStatus = (o.status || '').toLowerCase();
+                    if (_ordersStatusFilter === 'aktiv') {
+                        if (oStatus === 'bezahlt' || oStatus === 'storniert') return false;
+                    } else if (_ordersStatusFilter === 'bezahlt') {
+                        if (oStatus !== 'bezahlt') return false;
+                    } else if (_ordersStatusFilter === 'storniert') {
+                        if (oStatus !== 'storniert') return false;
+                    }
+                }
+                
+                // 3. Search filter
+                if (searchVal) {
+                    const bonId = String(o.id).toLowerCase();
+                    const tableStr = String(o.table || '').toLowerCase();
+                    const nameMatch = bonId.includes(searchVal) || tableStr.includes(searchVal);
+                    if (!nameMatch) return false;
+                }
+                
+                return true;
+            }).sort((a, b) => {
+                // Sort by timestamp descending (newest first)
+                const tA = a.timestamp ? a.timestamp.replace(' ', 'T') : '';
+                const tB = b.timestamp ? b.timestamp.replace(' ', 'T') : '';
+                return tB.localeCompare(tA);
+            });
+        }
+
+        function renderOrdersTable() {
+            const tbody = document.getElementById('orders-tbody');
+            const emptyState = document.getElementById('orders-empty-state');
+            const paginationEl = document.getElementById('orders-pagination');
+            const countBadge = document.getElementById('orders-count-badge');
+            
+            if (!tbody) return;
+            
+            const filtered = getFilteredOrders();
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / _ordersPerPage));
+            
+            // Clamp current page
+            if (_ordersPage > totalPages) _ordersPage = totalPages;
+            if (_ordersPage < 1) _ordersPage = 1;
+            
+            // Update count badge
+            if (countBadge) {
+                countBadge.textContent = totalItems;
+            }
+            
+            // Paginate
+            const startIdx = (_ordersPage - 1) * _ordersPerPage;
+            const endIdx = Math.min(startIdx + _ordersPerPage, totalItems);
+            const pageItems = filtered.slice(startIdx, endIdx);
+            
+            // Render table rows
+            if (pageItems.length === 0) {
+                tbody.innerHTML = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+            } else {
+                if (emptyState) emptyState.classList.add('hidden');
+                
+                tbody.innerHTML = pageItems.map(o => {
+                    const oStatus = (o.status || '').toLowerCase();
+                    let statusHtml = '';
+                    if (oStatus === 'bezahlt') {
+                        statusHtml = '<span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Bezahlt</span>';
+                    } else if (oStatus === 'storniert') {
+                        statusHtml = '<span class="bg-rose-500/10 text-rose-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Storniert</span>';
+                    } else {
+                        statusHtml = '<span class="bg-amber-500/10 text-amber-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide animate-pulse">Aktiv</span>';
+                    }
+                    
+                    const total = typeof o.total === 'number' ? o.total.toFixed(2).replace('.', ',') : '0,00';
+                    const mwst = o.mwst_rate || 19;
+                    const displayTable = String(o.table || '');
+                    const timestamp = o.timestamp || '';
+                    
+                    return `<tr>
+                        <td class="font-bold text-zinc-800">Bon #${o.id}</td>
+                        <td class="font-extrabold">${displayTable}</td>
+                        <td class="text-zinc-500 font-mono">${timestamp}</td>
+                        <td class="font-extrabold text-zinc-900 font-mono">${total} €</td>
+                        <td class="text-zinc-500">${mwst}%</td>
+                        <td>${statusHtml}</td>
+                    </tr>`;
+                }).join('');
+            }
+            
+            // Render pagination
+            if (paginationEl) {
+                if (totalItems <= _ordersPerPage) {
+                    paginationEl.innerHTML = totalItems > 0 
+                        ? `<span class="orders-pagination-info">${totalItems} Bestellung${totalItems !== 1 ? 'en' : ''}</span>`
+                        : '';
+                } else {
+                    let pageBtnsHtml = '';
+                    
+                    // Previous button
+                    pageBtnsHtml += `<button class="orders-page-btn nav-arrow" onclick="goOrdersPage(${_ordersPage - 1})" ${_ordersPage <= 1 ? 'disabled' : ''}>&#8249;</button>`;
+                    
+                    // Smart page range: show first, last, current ± 1, with ellipsis
+                    const pages = [];
+                    if (totalPages <= 7) {
+                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                        pages.push(1);
+                        if (_ordersPage > 3) pages.push('...');
+                        for (let i = Math.max(2, _ordersPage - 1); i <= Math.min(totalPages - 1, _ordersPage + 1); i++) {
+                            pages.push(i);
+                        }
+                        if (_ordersPage < totalPages - 2) pages.push('...');
+                        pages.push(totalPages);
+                    }
+                    
+                    pages.forEach(p => {
+                        if (p === '...') {
+                            pageBtnsHtml += `<span class="orders-page-btn" style="cursor:default;border:none;opacity:0.5;">…</span>`;
+                        } else {
+                            pageBtnsHtml += `<button class="orders-page-btn ${p === _ordersPage ? 'active' : ''}" onclick="goOrdersPage(${p})">${p}</button>`;
+                        }
+                    });
+                    
+                    // Next button
+                    pageBtnsHtml += `<button class="orders-page-btn nav-arrow" onclick="goOrdersPage(${_ordersPage + 1})" ${_ordersPage >= totalPages ? 'disabled' : ''}>&#8250;</button>`;
+                    
+                    const startNum = startIdx + 1;
+                    const endNum = endIdx;
+                    paginationEl.innerHTML = `
+                        <span class="orders-pagination-info">${startNum}–${endNum} von ${totalItems}</span>
+                        <div class="orders-pagination-btns">${pageBtnsHtml}</div>
+                    `;
+                }
+            }
+        }
+
+        function goOrdersPage(page) {
+            _ordersPage = page;
+            renderOrdersTable();
+            // Scroll to top of orders table smoothly
+            const tableEl = document.getElementById('orders-tbody');
+            if (tableEl) {
+                tableEl.closest('.section-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
         // ── DIGI-STYLE MODAL CONTROL STATE ──
         let controlModalActiveTableNum = null;
         let controlModalActiveTableZone = null;
@@ -3927,7 +4338,28 @@
 
         function updateLiveTiles(orders, serviceCalls, tables) {
             try {
-                allOrders = orders;
+                // Merge live orders into allOrders instead of replacing.
+                // Live API only returns active orders, but allOrders contains
+                // the full history from server-side rendering.
+                const liveOrdersMap = {};
+                (orders || []).forEach(o => { liveOrdersMap[o.id] = o; });
+                
+                // Update existing orders with live data, add new ones
+                const updatedIds = new Set();
+                allOrders = allOrders.map(o => {
+                    updatedIds.add(o.id);
+                    if (liveOrdersMap[o.id]) {
+                        return liveOrdersMap[o.id]; // Use fresh live data
+                    }
+                    return o;
+                });
+                // Add any new orders that weren't in allOrders
+                (orders || []).forEach(o => {
+                    if (!updatedIds.has(o.id)) {
+                        allOrders.push(o);
+                    }
+                });
+                
                 allTables = tables;
                 allCalls = serviceCalls;
 
@@ -3942,6 +4374,11 @@
                 
                 // Update live notification bar (always visible across tabs)
                 renderLiveNotificationBar(orders, serviceCalls);
+                
+                // Update orders table if finanzen tab is active
+                if (activeTab === 'finanzen') {
+                    renderOrdersTable();
+                }
                 
                 if (controlModalActiveTableNum) {
                     refreshControlModal();
