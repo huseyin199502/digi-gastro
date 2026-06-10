@@ -11,4 +11,5 @@ anyio[trio]
 pillow
 rembg
 onnxruntime
+qrcode[pil]
 

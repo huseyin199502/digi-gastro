@@ -636,8 +636,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     for t in r.get("tables", []):
         tok = t.get("security_token")
         if not tok:
-            import secrets
-            tok = secrets.token_hex(4)
+            import secrets as _secrets_inner
+            tok = _secrets_inner.token_hex(16)
         db_t = Table(
             tenant_slug=slug,
             number=t.get("number"),
@@ -726,7 +726,7 @@ def ensure_tenant_seeded(slug: str, db) -> Tenant:
             "[Bitte passen Sie diesen Text an Ihre individuellen Gegebenheiten an "
             "und lassen Sie ihn von einem Rechtsanwalt prüfen.]"
         ),
-        security_token=f"{slug_lower}2026",
+        security_token=secrets.token_hex(16),
         logo_url="/static/images/digigastrologo.jpeg",
         happy_hour_days="[]",
         happy_hour_start="18:00",
@@ -1618,7 +1618,14 @@ def get_expired(request: Request, slug: str, db: Session = Depends(get_db)):
     )
 
 @app.get("/{slug}/orders/status")
-def get_orders_status(slug: str, ids: str, db: Session = Depends(get_db)):
+def get_orders_status(request: Request, slug: str, ids: str, db: Session = Depends(get_db)):
+    # Auth: require at least guest session or admin/staff
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
+    is_admin = get_current_user_and_slug(request) is not None
+    if not session_val and not is_admin:
+        raise HTTPException(status_code=403, detail="Nicht autorisiert.")
+    
     restaurant = get_restaurant_or_raise(slug, db)
     try:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
@@ -1775,13 +1782,16 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
+            # Security: httponly=True prevents XSS token theft, samesite=strict blocks cross-site
+            # secure=True only on HTTPS (localhost is exempt)
+            _is_secure = not (request.url.hostname in ["localhost", "127.0.0.1", "testserver"])
             response.set_cookie(
                 key=cookie_name,
                 value=cookie_val,
                 max_age=1800, # 30 minutes
-                httponly=False,
-                samesite="lax",
-                secure=False,
+                httponly=True,
+                samesite="strict",
+                secure=_is_secure,
                 path="/"
             )
             return response
@@ -1804,9 +1814,13 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                     db_table = next((t for t in tables_list if str(t.get("number")) == clean_num), None)
                 active_session_tok = db_table.get("active_session_token") if db_table else None
                 
-                is_token_valid = (active_token and ((active_session_tok and active_token == active_session_tok) or (master_token and active_token == master_token)))
+                # Security: Only active_session_token is valid for customer sessions
+                is_token_valid = (active_token and active_session_tok and active_token == active_session_tok)
                 if not is_token_valid:
-                    return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
+                    # Session expired or token rotated → redirect with clear message
+                    response = RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
+                    response.delete_cookie(key=f"guest_session_{slug}", path="/")
+                    return response
                 
                 table = active_table_num
                 token = active_token
@@ -1910,11 +1924,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     response.headers["Expires"] = "0"
     
     if set_session_cookie and table and token:
+        # Security: Same settings as QR redirect cookie for consistency
+        _is_secure_2 = not (request.url.hostname in ["localhost", "127.0.0.1", "testserver"])
         response.set_cookie(
             key=f"guest_session_{slug}",
             value=f"{table}:{token}",
             httponly=True,
-            max_age=14400,
+            samesite="strict",
+            secure=_is_secure_2,
+            max_age=1800, # 30 minutes (consistent with QR redirect)
             path="/"
         )
     elif reset_session:
@@ -2027,8 +2045,10 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     if not is_staff:
         master_token = restaurant.get("security_token")
         table_token = db_table.get("active_session_token") if db_table else None
-        
-        is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
+        # Security: Customers must use active_session_token, NOT the permanent security_token
+        # The security_token is only for initial QR scan authentication (menu page load)
+        # This prevents indefinite ordering from a photographed QR code
+        is_token_valid = (tok and table_token and tok == table_token)
         if not is_token_valid:
             raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
         
@@ -2158,7 +2178,8 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
                     is_staff = True
             
     if not is_staff:
-        is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
+        # Security: Customers must use active_session_token only
+        is_token_valid = (tok and table_token and tok == table_token)
         if not is_token_valid:
             raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
 
@@ -2257,9 +2278,9 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         restaurant["bestellungen_gesamt"] += 1
         
         # Rotate table active session token upon payment to clear session
-        table_num = str(order["table"]).replace("Tisch", "").strip()
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
         tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
@@ -2335,9 +2356,9 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
         
     # Rotate table active session token upon split payment to clear session ONLY if fully paid
     if order["status"] == "bezahlt":
-        table_num = str(order["table"]).replace("Tisch", "").strip()
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
         tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
@@ -2375,23 +2396,19 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
     if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
         
-    s_table_num = str(source_table).replace("Tisch", "").strip()
-    t_table_num = str(target_table).replace("Tisch", "").strip()
+    s_table_num, s_zone = parse_active_table_num(str(source_table))
+    t_table_num, t_zone = parse_active_table_num(str(target_table))
     
-    s_table = f"Tisch {s_table_num}"
-    t_table = f"Tisch {t_table_num}"
+    s_table = f"Tisch {s_table_num} ({s_zone})" if s_zone else f"Tisch {s_table_num}"
+    t_table = f"Tisch {t_table_num} ({t_zone})" if t_zone else f"Tisch {t_table_num}"
     
-    # Locate active orders
-    source_order = next((o for o in restaurant.get("orders", []) if o.get("table") == s_table and o.get("status") not in ["bezahlt", "storniert"]), None)
-    if not source_order:
-        source_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")).strip() == s_table_num and o.get("status") not in ["bezahlt", "storniert"]), None)
+    # Locate active orders (match with and without zone for compatibility)
+    source_order = next((o for o in restaurant.get("orders", []) if (o.get("table") == s_table or o.get("table") == f"Tisch {s_table_num}") and o.get("status") not in ["bezahlt", "storniert"]), None)
         
     if not source_order:
         raise HTTPException(status_code=400, detail="Keine offene Bestellung auf dem Quelltisch gefunden.")
         
-    target_order = next((o for o in restaurant.get("orders", []) if o.get("table") == t_table and o.get("status") not in ["bezahlt", "storniert"]), None)
-    if not target_order:
-        target_order = next((o for o in restaurant.get("orders", []) if str(o.get("table")).strip() == t_table_num and o.get("status") not in ["bezahlt", "storniert"]), None)
+    target_order = next((o for o in restaurant.get("orders", []) if (o.get("table") == t_table or o.get("table") == f"Tisch {t_table_num}") and o.get("status") not in ["bezahlt", "storniert"]), None)
 
     # 1. Update/Merge active order
     if not target_order:
@@ -2476,9 +2493,9 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
     order["status"] = "storniert"
     
     # Rotate table active session token upon cancellation to clear session
-    table_num = str(order["table"]).replace("Tisch", "").strip()
+    _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
     tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+    db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
     if db_table:
         import secrets
         db_table["active_session_token"] = secrets.token_hex(4)
@@ -2676,8 +2693,8 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
         # Rotate session token
-        table_num = str(order["table"]).replace("Tisch", "").strip()
-        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == table_num), None)
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
+        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             db_table["active_session_token"] = secrets.token_hex(4)
     else:
@@ -2763,8 +2780,8 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
         # Rotate session token
-        table_num = str(order["table"]).replace("Tisch", "").strip()
-        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == table_num), None)
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
+        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             db_table["active_session_token"] = secrets.token_hex(4)
     else:
@@ -2987,9 +3004,9 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
     if not order["items"]:
         order["status"] = "storniert"
         # Rotate table active session token upon cancellation to clear session
-        table_num = str(order["table"]).replace("Tisch", "").strip()
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
         tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
@@ -3086,9 +3103,9 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
     if not order["items"]:
         order["status"] = "storniert"
         # Rotate table active session token upon cancellation to clear session
-        table_num = str(order["table"]).replace("Tisch", "").strip()
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
         tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
@@ -3363,7 +3380,19 @@ def admin_impersonate(request: Request, table_number: str, z: Optional[str] = No
     if not db_table:
         raise HTTPException(status_code=404, detail="Tisch nicht gefunden.")
         
-    table_token = db_table.get("security_token") or restaurant.get("security_token")
+    # For admin impersonate: ensure active_session_token exists so ordering works
+    if not db_table.get("active_session_token"):
+        import secrets as _secrets_imp
+        db_table["active_session_token"] = _secrets_imp.token_hex(4)
+        # Save the new active session token
+        db_imp = SessionLocal()
+        try:
+            save_restaurant_to_db(slug, restaurant, db_imp)
+            db_imp.commit()
+        finally:
+            db_imp.close()
+    
+    table_token = db_table.get("active_session_token")
     
     table_display_name = f"Tisch {table_num}"
     if db_table.get("zone"):
@@ -3372,10 +3401,14 @@ def admin_impersonate(request: Request, table_number: str, z: Optional[str] = No
     # Redirect to customer menu and set session cookie
     zone_param = f"&z={z}" if z else ""
     resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}{zone_param}", status_code=303)
+    _is_secure_imp = not (request.url.hostname in ["localhost", "127.0.0.1", "testserver"])
     resp.set_cookie(
         key=f"guest_session_{slug}",
         value=f"{table_display_name}:{table_token}",
-        max_age=14400,
+        httponly=True,
+        samesite="strict",
+        secure=_is_secure_imp,
+        max_age=1800,
         path="/"
     )
     return resp
@@ -3720,7 +3753,7 @@ def create_table(
         table_entry = {
             "number": table_num,
             "zone": zone,
-            "security_token": _secrets.token_hex(4),
+            "security_token": _secrets.token_hex(16),
             "active_session_token": None,
             "pos_x": 0.0,
             "pos_y": 0.0,
@@ -4283,7 +4316,8 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
                     is_staff = True
             
     if not is_staff:
-        is_token_valid = (tok and ((table_token and tok == table_token) or (master_token and tok == master_token)))
+        # Security: Customers must use active_session_token only
+        is_token_valid = (tok and table_token and tok == table_token)
         if not is_token_valid:
             raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
             
@@ -4367,9 +4401,45 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
         db_table = next((t for t in tables_list if str(t.get("number")) == clean_num), None)
     active_session_tok = db_table.get("active_session_token") if db_table else None
     
-    master_token = restaurant.get("security_token")
-    is_token_valid = (active_token and ((active_session_tok and active_token == active_session_tok) or (master_token and active_token == master_token)))
+    # Security: Only active_session_token validates a customer session
+    is_token_valid = (active_token and active_session_tok and active_token == active_session_tok)
     return {"active": bool(is_token_valid)}
+
+@app.get("/api/qr")
+def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = ""):
+    """Server-side QR code generation. Keeps tokens private (not sent to external APIs)."""
+    import qrcode
+    from io import BytesIO
+    import base64
+    
+    # Validate: only admin/staff can generate QR codes
+    res = get_current_user_and_slug(request)
+    if not res:
+        pos_session = request.cookies.get("pos_session")
+        if not pos_session:
+            for key, val in request.cookies.items():
+                if key.startswith("pos_token_"):
+                    break
+            else:
+                raise HTTPException(status_code=403, detail="Nicht autorisiert.")
+    
+    data = d or request.query_params.get("d", "")
+    if not data:
+        raise HTTPException(status_code=400, detail="Keine Daten für QR-Code.")
+    
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    
+    return StreamingResponse(buffer, media_type="image/png", headers={
+        "Cache-Control": "public, max-age=86400",
+        "Content-Disposition": f"inline; filename=qr-tisch-{t}-{z}.png"
+    })
 
 @app.get("/api/tablet-status")
 def get_tablet_status(request: Request, db: Session = Depends(get_db)):
@@ -4519,9 +4589,10 @@ def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Sessio
     db_table = None
     if c_token:
         if cookie_zone:
-            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and t.get("zone") == cookie_zone and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+            # Security: Only accept active_session_token for customer access
+            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and t.get("zone") == cookie_zone and t.get("active_session_token") == c_token), None)
         if not db_table:
-            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+            db_table = next((t for t in tables_list if str(t.get("number")) == t_num and t.get("active_session_token") == c_token), None)
     if not db_table:
         if cookie_zone:
             db_table = next((t for t in tables_list if str(t.get("number")) == t_num and t.get("zone") == cookie_zone), None)
@@ -5116,9 +5187,10 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     db_table = None
     if c_token:
         if cookie_zone:
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+            # Security: Only accept active_session_token for customer access
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone and t.get("active_session_token") == c_token), None)
         if not db_table:
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and (t.get("security_token") == c_token or t.get("active_session_token") == c_token)), None)
+            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("active_session_token") == c_token), None)
     if not db_table:
         if cookie_zone:
             db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone), None)
@@ -5565,7 +5637,7 @@ def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_use
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
          
-    new_token = secrets.token_hex(4)
+    new_token = secrets.token_hex(16)
     restaurant["security_token"] = new_token
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
@@ -6138,8 +6210,9 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         table_zone = t.get("zone", "")
         token = t.get("security_token", "")
         qr_url = f"{base_url}/{slug}?t={table_num}&z={urllib.parse.quote(table_zone)}&tk={token}"
-        qr_url_encoded = urllib.parse.quote(qr_url)
-        qr_image_src = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={qr_url_encoded}&ecc=H"
+        # Server-side QR generation: no token sent to external API
+        qr_params = urllib.parse.urlencode({"d": qr_url, "t": table_num, "z": table_zone})
+        qr_image_src = f"/api/qr?{qr_params}"
         display_num = table_num
         if str(display_num).startswith("Tisch "):
             display_num = display_num[len("Tisch "):].strip()
@@ -6368,9 +6441,9 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
         restaurant["bestellungen_gesamt"] += 1
         
         # Rotate table active session token upon payment to clear session
-        table_num = str(order["table"]).replace("Tisch", "").strip()
+        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
         tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
+        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
         if db_table:
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
