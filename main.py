@@ -1438,7 +1438,7 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         alert_html = f'<div class="alert alert-success"><span class="material-symbols-outlined" style="font-size:16px;">check_circle</span> {success}</div>'
     
     # Fetch real tenant data from database
-    all_tenants = db.query(Tenant).order_by(Tenant.id).all()
+    all_tenants = db.query(Tenant).order_by(Tenant.slug).all()
     total_tenants = len(all_tenants)
     active_tenants = sum(1 for t in all_tenants if t.active)
     inactive_tenants = total_tenants - active_tenants
