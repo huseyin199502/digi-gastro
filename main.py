@@ -1423,7 +1423,7 @@ def global_login_post(
 # ==========================================
 
 @app.get("/digi-gastro-admin", response_class=HTMLResponse)
-def get_global_admin(request: Request):
+def get_global_admin(request: Request, db: Session = Depends(get_db)):
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         return RedirectResponse(url="/digi-gastro-admin/login")
@@ -1433,104 +1433,681 @@ def get_global_admin(request: Request):
     
     alert_html = ""
     if error:
-        alert_html = f'<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-xs text-red-400 font-bold">{error}</div>'
+        alert_html = f'<div class="alert alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {error}</div>'
     elif success:
-        alert_html = f'<div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-xs text-emerald-400 font-bold">{success}</div>'
+        alert_html = f'<div class="alert alert-success"><span class="material-symbols-outlined" style="font-size:16px;">check_circle</span> {success}</div>'
+    
+    # Fetch real tenant data from database
+    all_tenants = db.query(Tenant).order_by(Tenant.id).all()
+    total_tenants = len(all_tenants)
+    active_tenants = sum(1 for t in all_tenants if t.active)
+    inactive_tenants = total_tenants - active_tenants
+    
+    # Calculate total revenue across all tenants
+    total_revenue = sum(t.tagesumsatz or 0 for t in all_tenants)
+    total_orders = sum(t.bestellungen_gesamt or 0 for t in all_tenants)
+    
+    tenant_cards = ""
+    for t in all_tenants:
+        is_active = t.active if t.active is not None else True
+        status_class = "tenant-active" if is_active else "tenant-inactive"
+        status_text = "Aktiv" if is_active else "Inaktiv"
+        status_dot = "bg-emerald-500" if is_active else "bg-red-500"
+        toggle_label = "Deaktivieren" if is_active else "Aktivieren"
+        toggle_class = "btn-toggle-off" if is_active else "btn-toggle-on"
         
-    tenant_rows = ""
-    for slug, t in restaurants.items():
-        status_badge = '<span class="bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold">Aktiv</span>' if t.get("active", True) else '<span class="bg-red-500/10 text-red-500 px-2 py-0.5 rounded text-[10px] font-bold">Inaktiv</span>'
-        toggle_label = "Deaktivieren" if t.get("active", True) else "Aktivieren"
-        
-        tenant_rows += f"""
-        <tr class="hover:bg-zinc-900/30">
-          <td class="py-4 px-4 font-bold text-white">
-            <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{slug}" class="flex items-center gap-2">
-              <input type="text" name="name" value="{t.get('name', slug)}" class="bg-transparent border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:outline-none py-0.5 font-bold text-white w-32" />
-              <button type="submit" class="text-[10px] text-zinc-500 hover:text-emerald-400">💾</button>
-            </form>
-          </td>
-          <td class="py-4 px-4 text-zinc-400 font-mono">{slug}</td>
-          <td class="py-4 px-4 space-y-1">
-            <div class="text-zinc-500 font-mono text-[10px]">{t.get('email', '')}</div>
-            <div class="text-zinc-500 font-mono text-[10px]">{t.get('password', '')}</div>
-          </td>
-          <td class="py-4 px-4">{status_badge}</td>
-          <td class="py-4 px-4 text-right">
-            <div class="flex items-center justify-end gap-2">
-              <form method="POST" action="/digi-gastro-admin/tenant-reset-password/{slug}" class="inline">
-                <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2.5 py-1 rounded text-[10px] font-bold transition">Passwort Reset</button>
+        tenant_cards += f"""
+        <div class="tenant-card {status_class}">
+          <div class="tenant-card-header">
+            <div class="tenant-avatar">{(t.name or t.slug)[:2].upper()}</div>
+            <div class="tenant-info">
+              <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{t.slug}" class="tenant-name-form">
+                <input type="text" name="name" value="{t.name or t.slug}" class="tenant-name-input" />
+                <button type="submit" class="tenant-name-save" title="Name speichern">
+                  <span class="material-symbols-outlined" style="font-size:14px;">save</span>
+                </button>
               </form>
-              <form method="POST" action="/digi-gastro-admin/tenant-toggle/{slug}" class="inline">
-                <button type="submit" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2.5 py-1 rounded text-[10px] font-bold transition">{toggle_label}</button>
-              </form>
+              <div class="tenant-slug">
+                <span class="material-symbols-outlined" style="font-size:12px;">link</span> {t.slug}
+              </div>
             </div>
-          </td>
-        </tr>
+            <div class="tenant-status">
+              <span class="status-dot {status_dot}"></span>
+              <span class="status-text">{status_text}</span>
+            </div>
+          </div>
+          <div class="tenant-card-body">
+            <div class="tenant-credentials">
+              <div class="cred-item">
+                <span class="material-symbols-outlined" style="font-size:13px;">mail</span>
+                <span>{t.email or ''}</span>
+              </div>
+              <div class="cred-item">
+                <span class="material-symbols-outlined" style="font-size:13px;">key</span>
+                <span class="cred-pw">{t.password or ''}</span>
+              </div>
+            </div>
+          </div>
+          <div class="tenant-card-actions">
+            <form method="POST" action="/digi-gastro-admin/tenant-reset-password/{t.slug}" class="inline">
+              <button type="submit" class="tenant-btn btn-pw-reset" title="Passwort zurücksetzen">
+                <span class="material-symbols-outlined" style="font-size:14px;">lock_reset</span>
+                <span>Passwort Reset</span>
+              </button>
+            </form>
+            <form method="POST" action="/digi-gastro-admin/tenant-toggle/{t.slug}" class="inline">
+              <button type="submit" class="tenant-btn {toggle_class}" title="{toggle_label}">
+                <span class="material-symbols-outlined" style="font-size:14px;">{'power_settings_new' if is_active else 'play_arrow'}</span>
+                <span>{toggle_label}</span>
+              </button>
+            </form>
+            <a href="/{t.slug}/admin" target="_blank" class="tenant-btn btn-open" title="Restaurant Dashboard öffnen">
+              <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span>
+            </a>
+          </div>
+        </div>
         """
         
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global Control Center – Digi-Gastro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Platform Control Center – digi-gastro</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#009900">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #09090b;
+      color: #f4f4f5;
+      min-height: 100vh;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }}
+    .layout {{
+      display: flex;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }}
+    /* Sidebar */
+    .sidebar {{
+      width: 260px;
+      background: #18181b;
+      border-right: 1px solid #27272a;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 50;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }}
+    .sidebar-header {{
+      padding: 1.25rem;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }}
+    .sidebar-logo {{
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      object-fit: cover;
+    }}
+    .sidebar-brand {{
+      font-weight: 900; font-size: 0.85rem;
+      color: #f4f4f5;
+      line-height: 1.2;
+    }}
+    .sidebar-brand-sub {{
+      font-size: 0.6rem; font-weight: 700;
+      color: #71717a; letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }}
+    .sidebar-nav {{
+      flex: 1;
+      padding: 0.75rem 0;
+      overflow-y: auto;
+    }}
+    .nav-section {{
+      padding: 0.5rem 1.25rem 0.25rem;
+      font-size: 0.6rem; font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #52525b;
+    }}
+    .nav-item {{
+      display: flex; align-items: center; gap: 0.625rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.8rem; font-weight: 600;
+      color: #a1a1aa;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+      cursor: pointer;
+      text-decoration: none;
+    }}
+    .nav-item:hover {{ background: rgba(0,153,0,0.04); color: #f4f4f5; padding-left: 1.5rem; }}
+    .nav-item.active {{ background: rgba(0,153,0,0.08); color: #22c55e; border-left-color: #22c55e; font-weight: 700; }}
+    .nav-item .material-symbols-outlined {{ font-size: 18px; }}
+    .sidebar-footer {{
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid #27272a;
+    }}
+    .sidebar-footer a {{
+      display: flex; align-items: center; gap: 0.5rem;
+      color: #ef4444; font-weight: 700; font-size: 0.75rem;
+      padding: 0.5rem 0.75rem; border-radius: 0.75rem;
+      text-decoration: none; transition: background 0.15s;
+    }}
+    .sidebar-footer a:hover {{ background: rgba(239,68,68,0.08); }}
+
+    /* Main Content */
+    .main {{
+      flex: 1;
+      margin-left: 260px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }}
+    .topbar {{
+      background: rgba(24,24,27,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #27272a;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }}
+    .topbar-title {{
+      font-size: 0.9rem; font-weight: 800;
+      color: #f4f4f5;
+    }}
+    .topbar-right {{
+      display: flex; align-items: center; gap: 0.75rem;
+    }}
+    .hamburger {{
+      display: none;
+      width: 36px; height: 36px;
+      border-radius: 0.625rem;
+      border: 1px solid #27272a;
+      background: #18181b;
+      color: #a1a1aa;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }}
+    .backdrop {{
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 45;
+      backdrop-filter: blur(2px);
+    }}
+    .backdrop.show {{ display: block; }}
+
+    .content {{
+      flex: 1;
+      padding: 1.5rem;
+    }}
+
+    /* Stat Cards */
+    .stats-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }}
+    .stat-card {{
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 1rem;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }}
+    .stat-card:hover {{ transform: translateY(-2px); box-shadow: 0 8px 24px -6px rgba(0,0,0,0.3); }}
+    .stat-card .stat-icon {{
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 0.75rem;
+    }}
+    .stat-card .stat-label {{
+      font-size: 0.6rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: #71717a; margin-bottom: 0.25rem;
+    }}
+    .stat-card .stat-value {{
+      font-size: 1.5rem; font-weight: 900;
+      color: #f4f4f5; font-family: 'Inter', monospace;
+      line-height: 1.2;
+    }}
+    .stat-card .stat-sub {{
+      font-size: 0.6rem; color: #71717a; margin-top: 0.375rem;
+    }}
+    .stat-card::before {{
+      content: ''; position: absolute; top: 0; right: 0;
+      width: 80px; height: 80px; border-radius: 50%;
+      opacity: 0.04; transform: translate(20px, -20px);
+    }}
+    .stat-card.sc-partners::before {{ background: #22c55e; }}
+    .stat-card.sc-active::before {{ background: #3b82f6; }}
+    .stat-card.sc-revenue::before {{ background: #f59e0b; }}
+    .stat-card.sc-orders::before {{ background: #8b5cf6; }}
+
+    /* Section Card */
+    .section-card {{
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 1rem;
+      overflow: hidden;
+    }}
+    .section-header {{
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }}
+    .section-title {{
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.85rem; font-weight: 800; color: #f4f4f5;
+    }}
+    .section-title .material-symbols-outlined {{ font-size: 18px; color: #71717a; }}
+    .section-body {{ padding: 1.25rem; }}
+
+    /* Alert */
+    .alert {{
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }}
+    .alert-error {{ background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #f87171; }}
+    .alert-success {{ background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); color: #4ade80; }}
+
+    /* Tenant Cards */
+    .tenants-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }}
+    .tenant-card {{
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 1rem;
+      overflow: hidden;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }}
+    .tenant-card:hover {{ box-shadow: 0 4px 12px -2px rgba(0,0,0,0.3); }}
+    .tenant-card.tenant-active {{ border-left: 3px solid #22c55e; }}
+    .tenant-card.tenant-inactive {{ border-left: 3px solid #ef4444; opacity: 0.7; }}
+    .tenant-card-header {{
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }}
+    .tenant-avatar {{
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #009900, #065f06);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 0.8rem;
+      flex-shrink: 0;
+    }}
+    .tenant-info {{ flex: 1; min-width: 0; }}
+    .tenant-name-form {{
+      display: flex; align-items: center; gap: 0.25rem;
+    }}
+    .tenant-name-input {{
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid transparent;
+      color: #f4f4f5;
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 0.125rem 0;
+      width: 140px;
+      outline: none;
+      transition: border-color 0.15s;
+    }}
+    .tenant-name-input:hover {{ border-bottom-color: #3f3f46; }}
+    .tenant-name-input:focus {{ border-bottom-color: #22c55e; }}
+    .tenant-name-save {{
+      background: none; border: none;
+      color: #52525b; cursor: pointer;
+      padding: 2px; transition: color 0.15s;
+      display: flex; align-items: center;
+    }}
+    .tenant-name-save:hover {{ color: #22c55e; }}
+    .tenant-slug {{
+      font-size: 0.65rem; color: #52525b;
+      display: flex; align-items: center; gap: 0.25rem;
+      margin-top: 0.125rem;
+      font-weight: 600;
+    }}
+    .tenant-status {{
+      display: flex; align-items: center; gap: 0.375rem;
+      flex-shrink: 0;
+    }}
+    .status-dot {{
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }}
+    .status-text {{
+      font-size: 0.65rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: #a1a1aa;
+    }}
+    .tenant-card-body {{
+      padding: 0 1rem 0.75rem;
+    }}
+    .tenant-credentials {{
+      background: #09090b;
+      border-radius: 0.75rem;
+      padding: 0.625rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }}
+    .cred-item {{
+      display: flex; align-items: center; gap: 0.375rem;
+      font-size: 0.7rem; color: #71717a;
+      font-family: 'Inter', monospace;
+    }}
+    .cred-item .material-symbols-outlined {{ color: #52525b; }}
+    .cred-pw {{
+      color: #a1a1aa; font-weight: 600;
+    }}
+    .tenant-card-actions {{
+      padding: 0.75rem 1rem;
+      border-top: 1px solid #1c1c1e;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }}
+    .tenant-btn {{
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      padding: 0.375rem 0.625rem;
+      border-radius: 0.625rem;
+      font-size: 0.65rem; font-weight: 700;
+      border: none; cursor: pointer;
+      transition: all 0.15s;
+      text-decoration: none;
+    }}
+    .btn-pw-reset {{
+      background: #27272a; color: #a1a1aa;
+    }}
+    .btn-pw-reset:hover {{ background: #3f3f46; color: #f4f4f5; }}
+    .btn-toggle-off {{
+      background: rgba(239,68,68,0.08); color: #f87171;
+      border: 1px solid rgba(239,68,68,0.15);
+    }}
+    .btn-toggle-off:hover {{ background: rgba(239,68,68,0.15); }}
+    .btn-toggle-on {{
+      background: rgba(34,197,94,0.08); color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.15);
+    }}
+    .btn-toggle-on:hover {{ background: rgba(34,197,94,0.15); }}
+    .btn-open {{
+      background: rgba(59,130,246,0.08); color: #60a5fa;
+      border: 1px solid rgba(59,130,246,0.15);
+      margin-left: auto;
+    }}
+    .btn-open:hover {{ background: rgba(59,130,246,0.15); }}
+
+    /* Create Form */
+    .create-form-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }}
+    .form-group {{
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }}
+    .form-group.full {{ grid-column: 1 / -1; }}
+    .form-label {{
+      font-size: 0.6rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      color: #71717a;
+    }}
+    .form-input {{
+      width: 100%;
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 0.75rem;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.8rem;
+      color: #f4f4f5;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: 'Inter', sans-serif;
+    }}
+    .form-input:focus {{ border-color: #22c55e; }}
+    .form-input::placeholder {{ color: #3f3f46; }}
+    .btn-submit {{
+      width: 100%;
+      background: linear-gradient(135deg, #009900, #008000);
+      color: white;
+      font-weight: 800;
+      font-size: 0.8rem;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 6px rgba(0,153,0,0.2);
+    }}
+    .btn-submit:hover {{
+      box-shadow: 0 4px 12px rgba(0,153,0,0.3);
+      transform: translateY(-1px);
+    }}
+
+    /* Responsive */
+    @media (max-width: 1023px) {{
+      .sidebar {{ transform: translateX(-100%); }}
+      .sidebar.open {{ transform: translateX(0); box-shadow: 10px 0 25px -5px rgba(0,0,0,0.3); }}
+      .main {{ margin-left: 0 !important; }}
+      .hamburger {{ display: flex; }}
+    }}
+    @media (max-width: 768px) {{
+      .stats-grid {{ grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }}
+      .content {{ padding: 1rem; }}
+      .tenants-grid {{ grid-template-columns: 1fr; }}
+      .create-form-grid {{ grid-template-columns: 1fr; }}
+    }}
+    @media (max-width: 480px) {{
+      .stats-grid {{ grid-template-columns: 1fr 1fr; }}
+      .stat-card .stat-value {{ font-size: 1.25rem; }}
+      .topbar {{ padding: 0.625rem 1rem; }}
+    }}
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {{ width: 6px; }}
+    ::-webkit-scrollbar-track {{ background: transparent; }}
+    ::-webkit-scrollbar-thumb {{ background: #27272a; border-radius: 3px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: #3f3f46; }}
+
+    /* Safe area for notched phones */
+    .sidebar {{ padding-top: env(safe-area-inset-top); }}
+    .topbar {{ padding-top: max(0.75rem, env(safe-area-inset-top)); }}
+  </style>
 </head>
-<body class="bg-[#0a0a0a] text-zinc-100 min-h-screen p-6">
-  <div class="max-w-6xl mx-auto space-y-8">
-    <!-- Header -->
-    <header class="flex items-center justify-between border-b border-zinc-800 pb-6">
-      <div>
-        <h1 class="text-2xl font-black text-white tracking-tight">Global Control Center</h1>
-        <p class="text-xs text-zinc-500 mt-0.5">Plattform Master-Liste & Tenant-Verwaltung</p>
+<body>
+  <!-- Mobile backdrop -->
+  <div id="backdrop" class="backdrop" onclick="closeSidebar()"></div>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro" class="sidebar-logo">
+        <div>
+          <div class="sidebar-brand">digi-gastro</div>
+          <div class="sidebar-brand-sub">Platform Control</div>
+        </div>
       </div>
-      <a href="/digi-gastro-admin/logout" class="bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-500/20 font-bold text-xs px-4 py-2 rounded-xl transition">
-        Ausloggen
-      </a>
-    </header>
-    
-    {alert_html}
-    
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Tenant Creator Form -->
-      <div class="bg-[#141313] border border-zinc-800 rounded-3xl p-6 space-y-4 h-fit">
-        <h2 class="font-extrabold text-sm text-white">Neuen Partner / Tenant erstellen</h2>
-        <form method="POST" action="/digi-gastro-admin/tenant-erstellen" class="space-y-4">
-          <div>
-            <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Restaurant Name</label>
-            <input type="text" name="name" placeholder="z.B. Moonlight Shisha Bar" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Subdomain / Slug</label>
-            <input type="text" name="slug" placeholder="z.B. moonlight" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
-          </div>
-          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow">Tenant erstellen</button>
-        </form>
+      <nav class="sidebar-nav">
+        <div class="nav-section">Übersicht</div>
+        <a href="/digi-gastro-admin" class="nav-item active">
+          <span class="material-symbols-outlined">dashboard</span>
+          Dashboard
+        </a>
+        <div class="nav-section" style="margin-top:0.5rem;">Verwaltung</div>
+        <a href="/digi-gastro-admin" class="nav-item" onclick="document.getElementById('tenant-section').scrollIntoView({{behavior:'smooth'}})">
+          <span class="material-symbols-outlined">store</span>
+          Partner
+        </a>
+        <a href="/" target="_blank" class="nav-item">
+          <span class="material-symbols-outlined">language</span>
+          Landingpage
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/digi-gastro-admin/logout">
+          <span class="material-symbols-outlined" style="font-size:16px;">logout</span>
+          Ausloggen
+        </a>
       </div>
-      
-      <!-- Tenant List -->
-      <div class="lg:col-span-2 bg-[#141313] border border-zinc-800 rounded-3xl p-6 space-y-4">
-        <h2 class="font-extrabold text-sm text-white">Registrierte Partner-Restaurants</h2>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr class="border-b border-zinc-800 text-zinc-500 font-bold uppercase text-[10px]">
-                <th class="py-3 px-4">Restaurant</th>
-                <th class="py-3 px-4">Slug</th>
-                <th class="py-3 px-4">Anmeldedaten</th>
-                <th class="py-3 px-4">Status</th>
-                <th class="py-3 px-4 text-right">Aktionen</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-zinc-800/50">
-              {tenant_rows}
-            </tbody>
-          </table>
+    </aside>
+
+    <!-- Main content -->
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <button class="hamburger" onclick="toggleSidebar()">
+            <span class="material-symbols-outlined" style="font-size:20px;">menu</span>
+          </button>
+          <span class="topbar-title">Dashboard</span>
+        </div>
+        <div class="topbar-right">
+          <span style="font-size:0.6rem;font-weight:800;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">
+            Super Admin
+          </span>
+        </div>
+      </div>
+
+      <div class="content">
+        {alert_html}
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card sc-partners">
+            <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#4ade80;">store</span>
+            </div>
+            <div class="stat-label">Partner</div>
+            <div class="stat-value">{total_tenants}</div>
+            <div class="stat-sub">Registrierte Restaurants</div>
+          </div>
+          <div class="stat-card sc-active">
+            <div class="stat-icon" style="background:rgba(59,130,246,0.1);">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#60a5fa;">check_circle</span>
+            </div>
+            <div class="stat-label">Aktiv</div>
+            <div class="stat-value">{active_tenants}</div>
+            <div class="stat-sub">{inactive_tenants} inaktiv</div>
+          </div>
+          <div class="stat-card sc-revenue">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.1);">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#fbbf24;">euro</span>
+            </div>
+            <div class="stat-label">Tagesumsatz</div>
+            <div class="stat-value">{total_revenue:.2f} €</div>
+            <div class="stat-sub">Alle Partner Gesamt</div>
+          </div>
+          <div class="stat-card sc-orders">
+            <div class="stat-icon" style="background:rgba(139,92,246,0.1);">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#a78bfa;">receipt</span>
+            </div>
+            <div class="stat-label">Bestellungen</div>
+            <div class="stat-value">{total_orders}</div>
+            <div class="stat-sub">Gesamt über alle Partner</div>
+          </div>
+        </div>
+
+        <!-- Create Tenant Section -->
+        <div class="section-card" style="margin-bottom:1.5rem;">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="material-symbols-outlined">add_circle</span>
+              Neuen Partner erstellen
+            </div>
+          </div>
+          <div class="section-body">
+            <form method="POST" action="/digi-gastro-admin/tenant-erstellen">
+              <div class="create-form-grid">
+                <div class="form-group">
+                  <label class="form-label">Restaurant Name</label>
+                  <input type="text" name="name" placeholder="z.B. Moonlight Shisha Bar" required class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Subdomain / Slug</label>
+                  <input type="text" name="slug" placeholder="z.B. moonlight" required class="form-input">
+                </div>
+                <div class="form-group full">
+                  <button type="submit" class="btn-submit">
+                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">add</span>
+                    Partner erstellen
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tenant List Section -->
+        <div class="section-card" id="tenant-section">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="material-symbols-outlined">store</span>
+              Partner-Restaurants
+            </div>
+            <span style="font-size:0.65rem;font-weight:700;color:#52525b;">{total_tenants} registriert</span>
+          </div>
+          <div class="section-body">
+            <div class="tenants-grid">
+              {tenant_cards}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  <script>
+    function toggleSidebar() {{
+      const sb = document.getElementById('sidebar');
+      const bd = document.getElementById('backdrop');
+      sb.classList.toggle('open');
+      bd.classList.toggle('show');
+    }}
+    function closeSidebar() {{
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('backdrop').classList.remove('show');
+    }}
+  </script>
 </body>
 </html>"""
     return HTMLResponse(content=html_content)
@@ -1543,39 +2120,185 @@ def get_global_login(request: Request, error: Optional[str] = None):
         
     error_html = ""
     if error:
-        error_html = f'<div class="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400 font-bold">{error}</div>'
+        error_html = f'<div class="alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {error}</div>'
         
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Global Admin Login – Digi-Gastro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Platform Login – digi-gastro</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#009900">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #09090b;
+      color: #f4f4f5;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      -webkit-font-smoothing: antialiased;
+    }}
+    .login-card {{
+      width: 100%;
+      max-width: 400px;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 1.5rem;
+      overflow: hidden;
+    }}
+    .login-header {{
+      background: linear-gradient(135deg, #1f2937, #111827);
+      padding: 2rem 1.5rem 1.5rem;
+      text-align: center;
+    }}
+    .login-logo {{
+      width: 48px; height: 48px;
+      border-radius: 14px;
+      object-fit: cover;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 12px rgba(0,153,0,0.2);
+    }}
+    .login-title {{
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: #f4f4f5;
+      letter-spacing: -0.01em;
+    }}
+    .login-subtitle {{
+      font-size: 0.7rem;
+      color: #71717a;
+      margin-top: 0.375rem;
+      font-weight: 600;
+    }}
+    .login-body {{
+      padding: 1.5rem;
+    }}
+    .alert-error {{
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      color: #f87171;
+    }}
+    .form-group {{
+      margin-bottom: 1rem;
+    }}
+    .form-label {{
+      display: block;
+      font-size: 0.6rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #71717a;
+      margin-bottom: 0.375rem;
+    }}
+    .form-input {{
+      width: 100%;
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #f4f4f5;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: 'Inter', sans-serif;
+    }}
+    .form-input:focus {{
+      border-color: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+    }}
+    .form-input::placeholder {{
+      color: #3f3f46;
+    }}
+    .btn-login {{
+      width: 100%;
+      background: linear-gradient(135deg, #009900, #008000);
+      color: white;
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 0.875rem;
+      border-radius: 0.75rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 6px rgba(0,153,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }}
+    .btn-login:hover {{
+      box-shadow: 0 4px 12px rgba(0,153,0,0.3);
+      transform: translateY(-1px);
+    }}
+    .login-footer {{
+      padding: 1rem 1.5rem;
+      text-align: center;
+      border-top: 1px solid #27272a;
+    }}
+    .login-footer a {{
+      font-size: 0.7rem;
+      color: #71717a;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s;
+    }}
+    .login-footer a:hover {{ color: #22c55e; }}
+
+    @media (max-width: 480px) {{
+      body {{ padding: 1rem; }}
+      .login-card {{ border-radius: 1rem; }}
+      .login-header {{ padding: 1.5rem 1.25rem 1.25rem; }}
+      .login-body {{ padding: 1.25rem; }}
+    }}
+  </style>
 </head>
-<body class="bg-[#0a0a0a] text-zinc-100 flex items-center justify-center min-h-screen p-6">
-  <div class="w-full max-w-md bg-[#141313] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-2xl">
-    <div class="text-center">
-      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 mb-3">
-        👑
-      </div>
-      <h1 class="text-xl font-black tracking-tight text-white">Admin Login</h1>
-      <p class="text-xs text-zinc-500 mt-1">Global Platform Control Center</p>
+<body>
+  <div class="login-card">
+    <div class="login-header">
+      <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro" class="login-logo">
+      <div class="login-title">Platform Control</div>
+      <div class="login-subtitle">Super Admin Login</div>
     </div>
-    
-    {error_html}
-    
-    <form method="POST" action="/digi-gastro-admin/login" class="space-y-4">
-      <div>
-        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">E-Mail-Adresse</label>
-        <input type="email" name="email" placeholder="admin@digi-gastro.de" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
-      </div>
-      <div>
-        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Passwort</label>
-        <input type="password" name="password" placeholder="••••••••" required class="w-full bg-[#1c1c1c] border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition" />
-      </div>
-      <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-lg">Log-In</button>
-    </form>
+    <div class="login-body">
+      {error_html}
+      <form method="POST" action="/digi-gastro-admin/login">
+        <div class="form-group">
+          <label class="form-label">E-Mail-Adresse</label>
+          <input type="email" name="email" placeholder="admin@digi-gastro.de" required class="form-input" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Passwort</label>
+          <input type="password" name="password" placeholder="••••••••" required class="form-input" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-login">
+          <span class="material-symbols-outlined" style="font-size:18px;">login</span>
+          Anmelden
+        </button>
+      </form>
+    </div>
+    <div class="login-footer">
+      <a href="/">← Zurück zur Startseite</a>
+    </div>
   </div>
 </body>
 </html>"""
