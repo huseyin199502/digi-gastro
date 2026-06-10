@@ -1882,8 +1882,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         if table == "Vorschau":
             tisch_name = "Vorschau"
         else:
-            clean_num, _ = parse_active_table_num(table)
-            tisch_name = f"Tisch {clean_num}"
+            clean_num, clean_zone_name = parse_active_table_num(table)
+            tisch_name = f"Tisch {clean_num} ({clean_zone_name})" if clean_zone_name else f"Tisch {clean_num}"
 
     response = templates.TemplateResponse(
         request=request,
@@ -1927,31 +1927,54 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
-    table_num = str(payload.table).replace("Tisch", "").split("(")[0].strip()
+    # Parse table number and optional zone from payload (e.g. "1 (Drinnen)" or "1")
+    payload_table_raw = str(payload.table)
+    table_num = payload_table_raw.replace("Tisch", "").split("(")[0].strip()
+    payload_zone = ""
+    if "(" in payload_table_raw and payload_table_raw.strip().endswith(")"):
+        idx_p = payload_table_raw.find("(")
+        payload_zone = payload_table_raw[idx_p+1:payload_table_raw.rfind(")")].strip()
     tables_list = restaurant.get("tables", [])
+    
+    # Also extract zone from cookie if available (more reliable)
+    cookie_zone = ""
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
+    if session_val:
+        try:
+            c_table, c_tok = session_val.split(":", 1)
+            _, c_zone = parse_active_table_num(c_table)
+            if c_zone:
+                cookie_zone = c_zone
+        except Exception:
+            pass
+    
+    # Use the most specific zone info available
+    resolved_zone = payload_zone or cookie_zone
     
     # Securely extract token first to match correct table
     tok = payload.token
-    if not tok:
-        cookie_name = f"guest_session_{slug}"
-        session_val = request.cookies.get(cookie_name)
-        if session_val:
-            try:
-                c_table, c_tok = session_val.split(":", 1)
-                if str(c_table).replace("Tisch", "").split("(")[0].strip() == table_num:
-                    tok = c_tok
-            except Exception:
-                pass
+    if not tok and session_val:
+        try:
+            c_table, c_tok = session_val.split(":", 1)
+            if str(c_table).replace("Tisch", "").split("(")[0].strip() == table_num:
+                tok = c_tok
+        except Exception:
+            pass
                 
     db_table = None
+    # 1. Try token-based lookup (most secure)
     if tok:
         db_table = next((t for t in tables_list if str(t.get("number")) == table_num and (t.get("security_token") == tok or t.get("active_session_token") == tok)), None)
+    # 2. Try zone-specific lookup (resolves Drinnen/Draußen correctly)
+    if not db_table and resolved_zone:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and t.get("zone") == resolved_zone), None)
+    # 3. Fallback: number only (legacy / no zone available)
     if not db_table:
         db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
         
     zone = db_table.get("zone", "") if db_table else ""
-    is_duplicate = len([t for t in tables_list if str(t.get("number")) == table_num]) > 1
-    order_table_name = f"Tisch {table_num} ({zone})" if (zone and is_duplicate) else f"Tisch {table_num}"
+    order_table_name = f"Tisch {table_num} ({zone})" if zone else f"Tisch {table_num}"
 
     
     # Securely validate and apply Happy Hour prices in the backend if active
@@ -2070,29 +2093,50 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     restaurant = get_restaurant_or_raise(slug, db)
     
     table_num = str(payload.table).replace("Tisch", "").split("(")[0].strip()
+    # Also extract zone from payload
+    payload_zone = ""
+    payload_raw = str(payload.table)
+    if "(" in payload_raw and payload_raw.strip().endswith(")"):
+        idx_p = payload_raw.find("(")
+        payload_zone = payload_raw[idx_p+1:payload_raw.rfind(")")].strip()
     tables_list = restaurant.get("tables", [])
     
+    # Extract zone from cookie if available
+    cookie_zone = ""
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
+    if session_val:
+        try:
+            c_table, c_tok_cookie = session_val.split(":", 1)
+            _, c_z = parse_active_table_num(c_table)
+            if c_z:
+                cookie_zone = c_z
+        except Exception:
+            pass
+    resolved_zone = payload_zone or cookie_zone
+    
     tok = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
-    if not tok:
-        cookie_name = f"guest_session_{slug}"
-        session_val = request.cookies.get(cookie_name)
-        if session_val:
-            try:
-                c_table, c_tok = session_val.split(":", 1)
-                if str(c_table).replace("Tisch", "").split("(")[0].strip() == table_num:
-                    tok = c_tok
-            except Exception:
-                pass
+    if not tok and session_val:
+        try:
+            c_table, c_tok = session_val.split(":", 1)
+            if str(c_table).replace("Tisch", "").split("(")[0].strip() == table_num:
+                tok = c_tok
+        except Exception:
+            pass
                 
     db_table = None
+    # 1. Try token-based lookup
     if tok:
         db_table = next((t for t in tables_list if str(t.get("number")) == table_num and (t.get("security_token") == tok or t.get("active_session_token") == tok)), None)
+    # 2. Try zone-specific lookup
+    if not db_table and resolved_zone:
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and t.get("zone") == resolved_zone), None)
+    # 3. Fallback: number only
     if not db_table:
         db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
         
     zone = db_table.get("zone", "") if db_table else ""
-    is_duplicate = len([t for t in tables_list if str(t.get("number")) == table_num]) > 1
-    call_table_name = f"Tisch {table_num} ({zone})" if (zone and is_duplicate) else f"Tisch {table_num}"
+    call_table_name = f"Tisch {table_num} ({zone})" if zone else f"Tisch {table_num}"
 
     
     master_token = restaurant.get("security_token")
@@ -2788,8 +2832,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     if not target_db_table:
         raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
 
-    is_duplicate = len([t for t in tables_list if str(t.get("number")) == target_num]) > 1
-    if target_db_table.get("zone") and is_duplicate:
+    if target_db_table.get("zone"):
         target_table_str = f"Tisch {target_num} ({target_db_table.get('zone')})"
     else:
         target_table_str = f"Tisch {target_num}"
@@ -3120,8 +3163,7 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
     if not target_db_table:
         raise HTTPException(status_code=404, detail="Ziel-Tisch nicht gefunden.")
 
-    is_duplicate = len([t for t in tables_list if str(t.get("number")) == target_num]) > 1
-    if target_db_table.get("zone") and is_duplicate:
+    if target_db_table.get("zone"):
         target_table_str = f"Tisch {target_num} ({target_db_table.get('zone')})"
     else:
         target_table_str = f"Tisch {target_num}"
@@ -4185,24 +4227,42 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
     
     clean_num, clean_zone = parse_active_table_num(payload.table)
     tables_list = restaurant.get("tables", [])
+    
+    # Also extract zone from cookie if payload doesn't include one
+    cookie_zone = ""
+    cookie_name = f"guest_session_{slug}"
+    session_val = request.cookies.get(cookie_name)
+    if session_val:
+        try:
+            c_table, c_tok = session_val.split(":", 1)
+            _, c_z = parse_active_table_num(c_table)
+            if c_z:
+                cookie_zone = c_z
+        except Exception:
+            pass
+    resolved_zone = clean_zone or cookie_zone
+    
     db_table = None
-    if clean_zone:
-        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num and t.get("zone") == clean_zone), None)
+    # 1. Try zone-specific lookup
+    if resolved_zone:
+        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num and t.get("zone") == resolved_zone), None)
+    # 2. Try token-based lookup
+    tok_lookup = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
+    if not db_table and tok_lookup:
+        db_table = next((t for t in tables_list if str(t.get("number")) == clean_num and (t.get("security_token") == tok_lookup or t.get("active_session_token") == tok_lookup)), None)
+    # 3. Fallback: number only
     if not db_table:
         db_table = next((t for t in tables_list if str(t.get("number")) == clean_num), None)
         
     tok = payload.token or request.query_params.get("token") or request.headers.get("X-Token")
-    if not tok:
-        cookie_name = f"guest_session_{slug}"
-        session_val = request.cookies.get(cookie_name)
-        if session_val:
-            try:
-                c_table, c_tok = session_val.split(":", 1)
-                c_clean_num, c_clean_zone = parse_active_table_num(c_table)
-                if c_clean_num == clean_num:
-                    tok = c_tok
-            except Exception:
-                pass
+    if not tok and session_val:
+        try:
+            c_table, c_tok = session_val.split(":", 1)
+            c_clean_num, c_clean_zone = parse_active_table_num(c_table)
+            if c_clean_num == clean_num:
+                tok = c_tok
+        except Exception:
+            pass
                 
     master_token = restaurant.get("security_token")
     table_token = db_table.get("active_session_token") if db_table else None
@@ -4242,9 +4302,9 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
     existing_calls = restaurant.get("service_calls", [])
     new_id = max([c.get("id", 0) for c in existing_calls] + [0]) + 1
     
-    # Normalize table name: always store as "Tisch {number}" or "Tisch {number} ({zone})"
-    is_dup = len([t for t in tables_list if str(t.get("number")) == clean_num]) > 1
-    normalized_table = f"Tisch {clean_num} ({clean_zone})" if (clean_zone and is_dup) else f"Tisch {clean_num}"
+    # Normalize table name: always include zone if available
+    final_zone = db_table.get("zone", "") if db_table else (resolved_zone or clean_zone)
+    normalized_table = f"Tisch {clean_num} ({final_zone})" if final_zone else f"Tisch {clean_num}"
     
     new_call = {
         "id": new_id,
@@ -4469,8 +4529,7 @@ def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Sessio
             db_table = next((t for t in tables_list if str(t.get("number")) == t_num), None)
         
     zone = db_table.get("zone", "") if db_table else ""
-    is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_num]) > 1
-    target_table_name = f"Tisch {t_num} ({zone})" if (zone and is_duplicate) else f"Tisch {t_num}"
+    target_table_name = f"Tisch {t_num} ({zone})" if zone else f"Tisch {t_num}"
 
     
     for o in restaurant.get("orders", []):
@@ -5067,8 +5126,7 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
             db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip()), None)
         
     zone = db_table.get("zone", "") if db_table else ""
-    is_duplicate = len([t for t in tables_list if str(t.get("number")) == str(table_num).strip()]) > 1
-    target_table_name = f"Tisch {table_num} ({zone})" if (zone and is_duplicate) else f"Tisch {table_num}"
+    target_table_name = f"Tisch {table_num} ({zone})" if zone else f"Tisch {table_num}"
     table_orders = []
 
     
@@ -6408,8 +6466,7 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         if not target_order:
             existing_ids = [o["id"] for o in restaurant.get("orders", [])]
             new_order_id = max(existing_ids) + 1 if existing_ids else 1
-            is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_table_num]) > 1
-            if t_zone and is_duplicate:
+            if t_zone:
                 t_table_display = f"Tisch {t_table_num} ({t_zone})"
             else:
                 t_table_display = f"Tisch {t_table_num}"
@@ -6486,9 +6543,8 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
     else:
         # Full table transfer
-        # Use zone-inclusive table name for target if duplicate
-        is_duplicate = len([t for t in tables_list if str(t.get("number")) == t_table_num]) > 1
-        if t_zone and is_duplicate:
+        # Use zone-inclusive table name for target
+        if t_zone:
             t_table_display = f"Tisch {t_table_num} ({t_zone})"
         else:
             t_table_display = f"Tisch {t_table_num}"

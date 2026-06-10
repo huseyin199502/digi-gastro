@@ -2300,8 +2300,15 @@
             let tipTextStr = '';
             
             const tableCallsForTip = allCalls.filter(c => {
-                const callTableNum = String(c.table).replace(/Tisch\s*/gi, '').split('(')[0].trim();
-                return callTableNum === String(controlModalActiveTableNum);
+                const callTableStr = String(c.table);
+                const callNum = callTableStr.replace(/Tisch\s*/gi, '').split('(')[0].trim();
+                if (callNum !== String(controlModalActiveTableNum)) return false;
+                // If zone is known, only match zone-specific calls
+                if (controlModalActiveTableZone) {
+                    const zoneMatch = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                    return callTableStr === zoneMatch;
+                }
+                return true;
             });
             
             tableCallsForTip.forEach(c => {
@@ -2415,8 +2422,15 @@
             const alertsBox = document.getElementById('control-alerts-box');
             if (alertsBox) {
                 const tableCalls = allCalls.filter(c => {
-                    const callTableNum = String(c.table).replace(/Tisch\s*/gi, '').split('(')[0].trim();
-                    return callTableNum === String(controlModalActiveTableNum);
+                    const callTableStr = String(c.table);
+                    const callNum = callTableStr.replace(/Tisch\s*/gi, '').split('(')[0].trim();
+                    if (callNum !== String(controlModalActiveTableNum)) return false;
+                    // If zone is known, only match zone-specific calls
+                    if (controlModalActiveTableZone) {
+                        const zoneMatch = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                        return callTableStr === zoneMatch;
+                    }
+                    return true;
                 });
                 
                 if (tableCalls.length > 0) {
@@ -3507,14 +3521,36 @@
 
             const ts = 'Tisch ' + currentTable.number;
             const tsZone = `Tisch ${currentTable.number} (${currentTable.zone || ''})`;
-            const order = allOrders.find(o => (o.table === ts || o.table === tsZone || o.table === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert');
+            // Match orders with zone-specific name first, then plain name (legacy)
+            const order = allOrders.find(o => {
+                const t = String(o.table || '');
+                if (currentTable.zone) {
+                    // With zone: match "Tisch 1 (Drinnen)" or plain "Tisch 1" (legacy)
+                    return (t === tsZone || t === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                }
+                // No zone: match plain "Tisch 1"
+                return (t === ts || t === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert';
+            });
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
             
-            // Search for active service calls (Ruf) for this table
+            // Search for active service calls (Ruf) for this table - MUST match zone!
             const tNumStr = String(currentTable.number);
+            const currentZone = currentTable.zone || '';
             const tableCallsForTile = allCalls.filter(c => {
-                const callTableNum = String(c.table).replace(/Tisch\s*/gi, '').split('(')[0].trim();
-                return callTableNum === tNumStr;
+                const callTableStr = String(c.table);
+                // Try exact match with zone first: "Tisch 1 (Drinnen)"
+                if (currentZone) {
+                    const exactMatch = `Tisch ${tNumStr} (${currentZone})`;
+                    if (callTableStr === exactMatch) return true;
+                }
+                // Try plain match: "Tisch 1" (legacy orders without zone)
+                const plainMatch = `Tisch ${tNumStr}`;
+                if (callTableStr === plainMatch) {
+                    // Only match plain "Tisch 1" if no zone-specific call exists
+                    // or if this table has no zone configured
+                    return !currentZone;
+                }
+                return false;
             });
             const activeCall = tableCallsForTile.length > 0 ? tableCallsForTile[0] : null;
 
@@ -3654,10 +3690,12 @@
                     cText = 'RECHNUNG RUF';
                 }
                 
+                // Display table name - ensure "Tisch" prefix appears exactly once
+                const displayTableName = /^Tisch\s/i.test(String(c.table)) ? String(c.table) : `Tisch ${c.table}`;
                 return `
                     <div class="call-bar">
                         <span style="font-size:11px;font-weight:800;color:#f87171;display:flex;align-items:center;gap:6px;">
-                            <span>${cIcon}</span> Tisch ${String(c.table).replace(/Tisch\s*/gi, '')}: <strong>${cText}</strong>
+                            <span>${cIcon}</span> ${displayTableName}: <strong>${cText}</strong>
                         </span>
                         <button onclick="resolveCall(${c.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
                             ✓ Erledigt

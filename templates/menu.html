@@ -1168,7 +1168,13 @@
 
         function getTableFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('tisch') || urlParams.get('table') || urlParams.get('t') || '';
+            const tableNum = urlParams.get('tisch') || urlParams.get('table') || urlParams.get('t') || '';
+            const zone = urlParams.get('z') || urlParams.get('zone') || '';
+            // If zone is available, return "number (zone)" format for proper zone resolution
+            if (tableNum && zone) {
+                return tableNum + ' (' + zone + ')';
+            }
+            return tableNum;
         }
 
         function menuState() {
@@ -2413,16 +2419,23 @@
 
                 async fetchAdminDrawerState() {
                     try {
-                        const tableNum = getTableFromUrl();
-                        if (!tableNum) return;
+                        const rawTable = getTableFromUrl();
+                        if (!rawTable) return;
+                        // Build table identifiers to match (with and without zone)
+                        const cleanNum = String(rawTable).replace(/^Tisch\s*/i, '').split('(')[0].trim();
+                        const cleanFull = String(rawTable).replace(/^Tisch\s*/i, '').trim();
+                        const tischPlain = "Tisch " + cleanNum;
+                        const tischZone = cleanFull.includes('(') ? "Tisch " + cleanFull : '';
                         
                         const res = await fetch('/api/tablet-status');
                         if (!res.ok) return;
                         
                         const data = await res.json();
-                        const targetTable = "Tisch " + tableNum;
                         
-                        const tableOrders = data.orders.filter(o => o.table === targetTable || o.table === tableNum);
+                        const tableOrders = data.orders.filter(o => {
+                            const t = o.table || '';
+                            return t === tischZone || t === tischPlain || t === cleanFull || t === cleanNum;
+                        });
                         
                         let pending = [];
                         let delivered = [];
