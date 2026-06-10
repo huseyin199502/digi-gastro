@@ -3562,14 +3562,12 @@
                 }
             });
             
-            // Auto-close control modal if no more active orders for this table
-            if (tableOrders.length === 0) {
-                closeControlModal();
-                return;
-            }
-            
             // Dynamically set activeOrderId for cockpit actions
-            activeOrderId = tableOrders[0].id;
+            if (tableOrders.length > 0) {
+                activeOrderId = tableOrders[0].id;
+            } else {
+                activeOrderId = null;
+            }
             
             let total = 0.0;
             let pendingItems = [];
