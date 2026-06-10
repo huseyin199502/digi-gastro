@@ -599,6 +599,515 @@
         input[type="number"] {
             -moz-appearance: textfield;
         }
+
+        /* ===== PREMIUM DASHBOARD ENHANCEMENTS ===== */
+
+        /* Sidebar enhancements */
+        .sidebar-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-card {
+            padding: 1.25rem 1.25rem 1rem;
+            background: linear-gradient(145deg, #1f2937, #111827);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .profile-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 3rem;
+            height: 3px;
+            border-radius: 3px;
+            background: var(--gastro-primary);
+            opacity: 0.6;
+        }
+
+        .avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            background-color: var(--gastro-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin-bottom: 0.625rem;
+            box-shadow: 0 4px 12px rgba(0, 153, 0, 0.25);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 153, 0, 0.35);
+        }
+
+        .nav-group-label {
+            padding: 0.5rem 1.25rem 0.25rem;
+            font-size: 0.625rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--gastro-text-muted);
+            opacity: 0.6;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background-color: var(--gastro-border);
+            margin: 0.5rem 1.25rem;
+        }
+
+        nav .nav-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.7rem 1.25rem;
+            color: var(--gastro-text-muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-left: 3px solid transparent;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            background: none;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 0;
+            position: relative;
+        }
+
+        nav .nav-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            padding-left: 1.5rem;
+        }
+        html.dark nav .nav-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+        }
+
+        nav .nav-btn.active {
+            background: linear-gradient(90deg, rgba(0, 153, 0, 0.08), rgba(0, 153, 0, 0.02));
+            color: var(--gastro-primary);
+            border-left-color: var(--gastro-primary);
+            font-weight: 700;
+        }
+        html.dark nav .nav-btn.active {
+            background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03));
+            color: #22c55e;
+            border-left-color: #22c55e;
+        }
+
+        nav .nav-btn .material-symbols-outlined {
+            font-size: 20px;
+            transition: transform 0.2s;
+        }
+        nav .nav-btn:hover .material-symbols-outlined {
+            transform: scale(1.1);
+        }
+
+        .sidebar-logout {
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+        }
+        .sidebar-logout a {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #ef4444;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+        }
+        .sidebar-logout a:hover {
+            background-color: rgba(239, 68, 68, 0.08);
+        }
+        html.dark .sidebar-logout a:hover {
+            background-color: rgba(239, 68, 68, 0.12);
+        }
+
+        /* Header enhancements */
+        .dash-header {
+            padding: 0.875rem 1.5rem;
+            background-color: var(--gastro-card-bg);
+            border-bottom: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.85);
+        }
+        html.dark .dash-header {
+            background-color: rgba(24, 24, 27, 0.85);
+        }
+
+        .breadcrumb-sep {
+            color: var(--gastro-text-muted);
+            opacity: 0.4;
+            margin: 0 0.25rem;
+        }
+
+        .hamburger-btn {
+            display: none;
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            align-items: center;
+            justify-content: center;
+        }
+        .hamburger-btn:hover {
+            background-color: rgba(0, 153, 0, 0.06);
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        @media (max-width: 1023px) {
+            .hamburger-btn { display: flex; }
+        }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background-color: rgba(16, 185, 129, 0.08);
+            color: #059669;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            letter-spacing: 0.02em;
+        }
+        html.dark .live-badge {
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        .live-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #10b981;
+            animation: livePulse 2s infinite;
+        }
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+        }
+
+        /* Stat card enhancements */
+        .stat-card {
+            background-color: var(--gastro-card-bg);
+            border: 1px solid var(--gastro-border);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.1);
+        }
+        .stat-card .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+        }
+        .stat-card .stat-icon .material-symbols-outlined {
+            font-size: 18px;
+        }
+        .stat-card .stat-label {
+            font-size: 0.625rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--gastro-text-muted);
+            margin-bottom: 0.25rem;
+        }
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--gastro-text-main);
+            font-family: 'Inter', monospace;
+            line-height: 1.2;
+        }
+        .stat-card .stat-sub {
+            font-size: 0.6rem;
+            color: var(--gastro-text-muted);
+            margin-top: 0.375rem;
+            line-height: 1.4;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            opacity: 0.04;
+            transform: translate(20px, -20px);
+        }
+        .stat-card.stat-revenue::before { background: var(--gastro-primary); }
+        .stat-card.stat-tips::before { background: #f59e0b; }
+        .stat-card.stat-orders::before { background: #3b82f6; }
+        .stat-card.stat-avg::before { background: #8b5cf6; }
+
+        /* Section card enhancements */
+        .section-card {
+            background-color: var(--gastro-card-bg);
+            border: 1px solid var(--gastro-border);
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .section-card:hover {
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+        }
+        .section-card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .section-card-body {
+            padding: 1.25rem;
+        }
+
+        /* Enhanced table styling */
+        .dash-table {
+            width: 100%;
+            text-align: left;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .dash-table thead tr {
+            background: linear-gradient(135deg, #1f2937, #111827);
+        }
+        .dash-table thead th {
+            padding: 0.875rem 1rem;
+            color: white;
+            font-weight: 800;
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .dash-table tbody tr {
+            transition: background-color 0.15s;
+        }
+        .dash-table tbody tr:hover {
+            background-color: rgba(0, 153, 0, 0.03);
+        }
+        .dash-table tbody td {
+            padding: 0.875rem 1rem;
+        }
+
+        /* Product card enhancement */
+        .product-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+        }
+        .product-item:hover {
+            border-color: var(--gastro-primary);
+            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.12);
+        }
+
+        /* Staff member row enhancement */
+        .staff-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.625rem 0;
+            transition: background-color 0.15s;
+        }
+        .staff-row:not(:last-child) {
+            border-bottom: 1px solid var(--gastro-border);
+        }
+        .staff-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--gastro-primary), #065f06);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        /* Config sub-tab enhancements */
+        .config-subtab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 0.875rem;
+            border-radius: 0.625rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+        .config-subtab-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+            transform: translateY(-1px);
+        }
+        html.dark .config-subtab-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+        .config-subtab-btn.active {
+            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.2);
+        }
+        html.dark .config-subtab-btn.active {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+            color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 2px 8px -2px rgba(34, 197, 94, 0.2);
+        }
+
+        /* Form field enhancements */
+        .form-field {
+            width: 100%;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color: var(--gastro-text-main);
+        }
+        .form-field:focus {
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+            outline: none;
+        }
+        html.dark .form-field:focus {
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.625rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gastro-text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .btn-primary {
+            background: var(--gastro-primary);
+            color: white;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 0.625rem 1rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.3);
+        }
+        .btn-primary:hover {
+            background: var(--gastro-primary-hover);
+            box-shadow: 0 4px 12px -2px rgba(0, 153, 0, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #1f2937;
+            color: white;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 0.625rem 1rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background: #374151;
+            transform: translateY(-1px);
+        }
+
+        /* Category card in sidebar */
+        .cat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.7rem;
+            transition: all 0.2s;
+        }
+        .cat-chip:hover {
+            border-color: var(--gastro-primary);
+        }
+        .cat-chip.sub {
+            margin-left: 1rem;
+            background: rgba(0, 153, 0, 0.04);
+            border-color: rgba(0, 153, 0, 0.15);
+        }
+
+        /* Responsive stat cards */
+        @media (max-width: 640px) {
+            .stat-card .stat-value {
+                font-size: 1.25rem;
+            }
+            .stat-card {
+                padding: 1rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -608,50 +1117,55 @@
 
     <!-- LEFT SIDEBAR -->
     <aside>
-        <div class="sidebar-header p-4 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-center">
-            <a href="/" class="flex items-center gap-2 justify-center">
-                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro" class="h-9 w-auto object-contain rounded-lg shadow-sm">
+        <div class="sidebar-header">
+            <a href="/" class="flex items-center gap-2.5 justify-center">
+                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro" class="h-8 w-auto object-contain rounded-lg shadow-sm">
             </a>
         </div>
         
         <div class="profile-card">
-            <div class="avatar {% if restaurant.branding and restaurant.branding.logo_url %}bg-white p-1{% else %}bg-[var(--gastro-primary)] text-white{% endif %} overflow-hidden flex items-center justify-center">
+            <div class="avatar {% if restaurant.branding and restaurant.branding.logo_url %}bg-white p-1{% endif %} overflow-hidden flex items-center justify-center">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-                    <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }}" class="w-full h-full object-contain rounded-full">
+                    <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }}" class="w-full h-full object-contain rounded-[12px]">
                 {% else %}
                     {{ restaurant.name[:2].upper() if restaurant.name else 'DG' }}
                 {% endif %}
             </div>
-            <div class="font-black text-sm text-white truncate max-w-[200px]">{{ restaurant.name }}</div>
-            <div class="text-[10px] text-zinc-400 font-bold tracking-wide mt-0.5">{{ current_user.email }}</div>
+            <div class="font-black text-sm text-white truncate max-w-[200px] leading-tight">{{ restaurant.name }}</div>
+            <div class="text-[10px] text-zinc-500 font-bold tracking-wide mt-1">{{ current_user.email }}</div>
         </div>
         
-        <nav class="flex-1 py-4 space-y-1">
+        <nav class="flex-1 py-2 overflow-y-auto">
+            <div class="nav-group-label">Live-Betrieb</div>
             <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
                 <span class="material-symbols-outlined">table_restaurant</span>
-                <span>🛋️ Sitzplan</span>
+                <span>Sitzplan</span>
             </button>
             <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
                 <span class="material-symbols-outlined">payments</span>
-                <span>📈 Bestellungen & Reports</span>
+                <span>Bestellungen & Reports</span>
             </button>
+
+            <div class="nav-divider"></div>
+            <div class="nav-group-label">Verwaltung</div>
+
             <button id="tab-btn-speisekarte" onclick="switchAdminTab('speisekarte')" class="nav-btn">
                 <span class="material-symbols-outlined">restaurant_menu</span>
-                <span>⏱️ Speisekarte</span>
+                <span>Speisekarte</span>
             </button>
             <button id="tab-btn-personal" onclick="switchAdminTab('personal')" class="nav-btn">
                 <span class="material-symbols-outlined">group</span>
-                <span>👤 Personal & Account</span>
+                <span>Personal & Account</span>
             </button>
             <button id="tab-btn-konfiguration" onclick="switchAdminTab('konfiguration')" class="nav-btn">
                 <span class="material-symbols-outlined">settings</span>
-                <span>⚙️ Konfiguration</span>
+                <span>Konfiguration</span>
             </button>
         </nav>
         
-        <div class="p-4 border-t border-gray-200">
-            <a href="/admin/logout" class="flex items-center gap-2 text-red-500 hover:text-red-700 font-bold text-sm px-4 py-2 rounded-lg hover:bg-red-50 transition">
-                <span class="material-symbols-outlined text-lg">logout</span>
+        <div class="sidebar-logout">
+            <a href="/admin/logout">
+                <span class="material-symbols-outlined" style="font-size:18px;">logout</span>
                 <span>Ausloggen</span>
             </a>
         </div>
@@ -659,17 +1173,20 @@
 
     <!-- MAIN CONTENT CONTAINER -->
     <main class="flex-1">
-        <header>
-            <div class="flex items-center gap-2">
-                <button onclick="toggleSidebar()" class="lg:hidden text-zinc-500 hover:text-zinc-700 mr-2 p-1.5 rounded-xl hover:bg-gray-100 flex items-center justify-center border border-gray-200">
-                    <span class="material-symbols-outlined">menu</span>
+        <header class="dash-header">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="hamburger-btn">
+                    <span class="material-symbols-outlined" style="font-size:20px;">menu</span>
                 </button>
-                <span class="text-zinc-400 font-bold text-xs uppercase tracking-wider">Dashboard /</span>
-                <span id="breadcrumb-current" class="text-zinc-800 font-extrabold text-xs uppercase tracking-wider">🛋️ Sitzplan</span>
+                <div class="hidden lg:flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Dashboard</span>
+                    <span class="breadcrumb-sep">/</span>
+                </div>
+                <span id="breadcrumb-current" class="text-sm font-extrabold text-zinc-800 tracking-tight">Sitzplan</span>
             </div>
-            <div class="flex items-center gap-4">
-                <span class="bg-emerald-500/10 text-emerald-600 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-500/20">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live-Betrieb
+            <div class="flex items-center gap-3">
+                <span class="live-badge">
+                    <span class="dot"></span> Live-Betrieb
                 </span>
             </div>
         </header>
@@ -714,67 +1231,94 @@
 
             <!-- 📈 TAB 2: BESTELLUNGEN & STATS (finanzen) -->
             <div id="admin-tab-finanzen" class="admin-tab-content">
+                <!-- Overview Summary -->
+                <div class="section-card mb-6">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">insights</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Tagesübersicht</h3>
+                        </div>
+                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{{ restaurant.name }}</span>
+                    </div>
+                </div>
+
                 <!-- Sales Statistics Overview Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Tagesumsatz (Brutto)</div>
-                        <div class="text-2xl font-black text-zinc-800 mt-1 font-mono">{{ "%.2f"|format(stats.brutto) }} €</div>
-                        <div class="text-[9px] text-zinc-400 mt-1">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € | Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    <div class="stat-card stat-revenue">
+                        <div class="stat-icon bg-emerald-500/10">
+                            <span class="material-symbols-outlined text-emerald-600">euro</span>
+                        </div>
+                        <div class="stat-label">Tagesumsatz (Brutto)</div>
+                        <div class="stat-value">{{ "%.2f"|format(stats.brutto) }} €</div>
+                        <div class="stat-sub">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € · Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
                     </div>
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Trinkgeld heute</div>
-                        <div class="text-2xl font-black text-emerald-600 mt-1 font-mono">{{ "%.2f"|format(stats.tip) }} €</div>
-                        <div class="text-[9px] text-zinc-400 mt-1">Zusätzliches waiter Trinkgeld</div>
+                    <div class="stat-card stat-tips">
+                        <div class="stat-icon bg-amber-500/10">
+                            <span class="material-symbols-outlined text-amber-600">volunteer_activism</span>
+                        </div>
+                        <div class="stat-label">Trinkgeld heute</div>
+                        <div class="stat-value text-emerald-600">{{ "%.2f"|format(stats.tip) }} €</div>
+                        <div class="stat-sub">Zusätzliches waiter Trinkgeld</div>
                     </div>
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Bestellungen</div>
-                        <div class="text-2xl font-black text-zinc-800 mt-1 font-mono">{{ stats.orders_count }}</div>
-                        <div class="text-[9px] text-zinc-400 mt-1">Erfolgreich abgerechnete Bons</div>
+                    <div class="stat-card stat-orders">
+                        <div class="stat-icon bg-blue-500/10">
+                            <span class="material-symbols-outlined text-blue-600">receipt</span>
+                        </div>
+                        <div class="stat-label">Bestellungen</div>
+                        <div class="stat-value">{{ stats.orders_count }}</div>
+                        <div class="stat-sub">Erfolgreich abgerechnete Bons</div>
                     </div>
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-[10px] font-bold text-zinc-500 uppercase">Schnitt / Bon</div>
-                        <div class="text-2xl font-black text-zinc-800 mt-1 font-mono">{{ "%.2f"|format(stats.avg_basket) }} €</div>
-                        <div class="text-[9px] text-zinc-400 mt-1">Ø Warenkorb pro Abrechnung</div>
+                    <div class="stat-card stat-avg">
+                        <div class="stat-icon bg-violet-500/10">
+                            <span class="material-symbols-outlined text-violet-600">shopping_cart</span>
+                        </div>
+                        <div class="stat-label">Schnitt / Bon</div>
+                        <div class="stat-value">{{ "%.2f"|format(stats.avg_basket) }} €</div>
+                        <div class="stat-sub">Ø Warenkorb pro Abrechnung</div>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 mb-6 bg-white p-4 rounded-2xl shadow-sm justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-zinc-500">receipt_long</span>
-                        <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
+                <!-- Orders management bar -->
+                <div class="section-card mb-6">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">receipt_long</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
+                        </div>
+                        <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs">
+                            <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU Export
+                        </a>
                     </div>
-                    <a href="/admin/gobd-export" download class="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-sm">download</span> GOBD / GDPdU Export
-                    </a>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <table class="w-full text-left border-collapse text-xs">
+                <!-- Orders Table -->
+                <div class="section-card">
+                    <table class="dash-table">
                         <thead>
-                            <tr class="bg-zinc-800 text-white font-extrabold uppercase text-[10px]">
-                                <th class="p-4">Bon ID</th>
-                                <th class="p-4">Tisch</th>
-                                <th class="p-4">Zeitstempel</th>
-                                <th class="p-4">Gesamt</th>
-                                <th class="p-4">MwSt</th>
-                                <th class="p-4">Status</th>
+                            <tr>
+                                <th>Bon ID</th>
+                                <th>Tisch</th>
+                                <th>Zeitstempel</th>
+                                <th>Gesamt</th>
+                                <th>MwSt</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             {% for o in restaurant.orders | sort(attribute='timestamp', reverse=true) %}
-                            <tr class="hover:bg-gray-50 font-medium">
-                                <td class="p-4 font-bold text-zinc-800">Bon #{{ o.id }}</td>
-                                <td class="p-4 font-extrabold">{{ o.table }}</td>
-                                <td class="p-4 text-zinc-500 font-mono">{{ o.timestamp }}</td>
-                                <td class="p-4 font-extrabold text-zinc-900 font-mono">{{ "%.2f"|format(o.total) }} €</td>
-                                <td class="p-4 text-zinc-500">{{ o.mwst_rate }}%</td>
-                                <td class="p-4">
+                            <tr>
+                                <td class="font-bold text-zinc-800">Bon #{{ o.id }}</td>
+                                <td class="font-extrabold">{{ o.table }}</td>
+                                <td class="text-zinc-500 font-mono">{{ o.timestamp }}</td>
+                                <td class="font-extrabold text-zinc-900 font-mono">{{ "%.2f"|format(o.total) }} €</td>
+                                <td class="text-zinc-500">{{ o.mwst_rate }}%</td>
+                                <td>
                                     {% if o.status == 'bezahlt' %}
-                                        <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase">Bezahlt</span>
+                                        <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Bezahlt</span>
                                     {% elif o.status == 'storniert' %}
-                                        <span class="bg-rose-500/10 text-rose-600 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase">Storniert</span>
+                                        <span class="bg-rose-500/10 text-rose-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Storniert</span>
                                     {% else %}
-                                        <span class="bg-amber-500/10 text-amber-600 font-extrabold px-2 py-0.5 rounded text-[10px] uppercase animate-pulse">Aktiv</span>
+                                        <span class="bg-amber-500/10 text-amber-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide animate-pulse">Aktiv</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -787,185 +1331,210 @@
             <!-- ⏱️ TAB 3: SPEISEKARTE (speisekarte) -->
             <div id="admin-tab-speisekarte" class="admin-tab-content">
                 <!-- CSV Import/Export Card -->
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div>
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-zinc-500 font-black">table_chart</span> CSV Import / Export
-                        </h3>
-                        <p class="text-[10px] text-zinc-500 mt-1">Laden Sie Ihre Speisekarte als CSV-Datei herunter oder importieren Sie neue Produkte.</p>
-                    </div>
-                    <div class="flex items-center gap-3 w-full sm:w-auto">
-                        <a href="/admin/products/export-csv" class="flex-1 sm:flex-initial text-center bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
-                            <span class="material-symbols-outlined text-sm">download</span> CSV Exportieren
-                        </a>
-                        <button onclick="openCsvImportModal()" class="flex-1 sm:flex-initial bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
-                            <span class="material-symbols-outlined text-sm">upload</span> CSV Importieren
-                        </button>
+                <div class="section-card mb-6">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">table_chart</span>
+                            <div>
+                                <h3 class="font-extrabold text-sm text-zinc-800">CSV Import / Export</h3>
+                                <p class="text-[10px] text-zinc-400 mt-0.5">Laden Sie Ihre Speisekarte als CSV-Datei herunter oder importieren Sie neue Produkte.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="/admin/products/export-csv" class="btn-secondary flex items-center gap-1.5 text-xs">
+                                <span class="material-symbols-outlined" style="font-size:14px;">download</span> Exportieren
+                            </a>
+                            <button onclick="openCsvImportModal()" class="btn-primary flex items-center gap-1.5 text-xs">
+                                <span class="material-symbols-outlined" style="font-size:14px;">upload</span> Importieren
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                     <!-- Category setup card -->
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">folder</span> Kategorie anlegen
-                        </h3>
-                        <form action="/admin/kategorie-erstellen" method="POST" class="flex flex-col gap-2">
-                            <input type="text" name="name" required placeholder="Name z.B. Softdrinks" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                            <select name="parent_category" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                <option value="none">Keine Hauptkategorie (selbst Hauptkategorie)</option>
-                                {% for cat in restaurant.categories %}
-                                    {% if ' > ' not in cat %}
-                                        <option value="{{ cat }}">Unterkategorie von: {{ cat }}</option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="bg-gastro hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow">Anlegen</button>
-                        </form>
-                        
-                        <div class="border-t border-gray-100 pt-3">
-                            <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Kategorien (Ziehen zum Sortieren)</label>
-                            <div class="flex flex-wrap gap-2 category-sortable-list">
-                                {% for cat in restaurant.categories %}
-                                    {% if ' > ' in cat %}
-                                        {% set parent = cat.split(' > ')[0] %}
-                                        {% set child = cat.split(' > ')[1] %}
-                                        <div class="flex items-center gap-1.5 bg-zinc-200/60 border border-zinc-300/60 text-zinc-800 px-3 py-1.5 rounded-xl font-medium text-xs ml-4" data-category-name="{{ cat }}">
-                                            <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
-                                            <span class="text-[9px] font-black text-zinc-400 uppercase mr-1">{{ parent }} ➔</span>
-                                            <span class="font-bold text-zinc-700 category-display-name">{{ child }}</span>
-                                            
-                                            <div class="flex items-center ml-1 gap-1">
-                                                <button onclick="editCategoryInline('{{ cat }}', '{{ child }}')" class="text-zinc-500 hover:text-emerald-500 transition-colors">
-                                                    <span class="material-symbols-outlined text-[12px]">edit</span>
-                                                </button>
-                                                <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                                    <input type="hidden" name="name" value="{{ cat }}">
-                                                    <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center">✕</button>
-                                                </form>
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">folder</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Kategorie anlegen</h3>
+                            </div>
+                        </div>
+                        <div class="section-card-body space-y-4">
+                            <form action="/admin/kategorie-erstellen" method="POST" class="flex flex-col gap-3">
+                                <div>
+                                    <label class="form-label">Name</label>
+                                    <input type="text" name="name" required placeholder="z.B. Softdrinks" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Hauptkategorie</label>
+                                    <select name="parent_category" class="form-field">
+                                        <option value="none">Keine (selbst Hauptkategorie)</option>
+                                        {% for cat in restaurant.categories %}
+                                            {% if ' > ' not in cat %}
+                                                <option value="{{ cat }}">Unterkategorie von: {{ cat }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn-primary w-full">Anlegen</button>
+                            </form>
+                            
+                            <div class="border-t border-gray-100 pt-4">
+                                <label class="form-label mb-3">Bestehende Kategorien <span class="text-[9px] font-normal opacity-60">(Ziehen zum Sortieren)</span></label>
+                                <div class="flex flex-wrap gap-2 category-sortable-list">
+                                    {% for cat in restaurant.categories %}
+                                        {% if ' > ' in cat %}
+                                            {% set parent = cat.split(' > ')[0] %}
+                                            {% set child = cat.split(' > ')[1] %}
+                                            <div class="cat-chip sub" data-category-name="{{ cat }}">
+                                                <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:12px;" title="Verschieben">drag_indicator</span>
+                                                <span class="text-[9px] font-black text-zinc-400 uppercase">{{ parent }} ➔</span>
+                                                <span class="font-bold text-zinc-700 category-display-name">{{ child }}</span>
+                                                
+                                                <div class="flex items-center ml-0.5 gap-0.5">
+                                                    <button onclick="editCategoryInline('{{ cat }}', '{{ child }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
+                                                        <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
+                                                    </button>
+                                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                                        <input type="hidden" name="name" value="{{ cat }}">
+                                                        <button type="submit" class="text-red-400 hover:text-red-600 font-bold flex items-center justify-center p-0.5">✕</button>
+                                                    </form>
+                                                </div>
                                             </div>
-                                        </div>
-                                    {% else %}
-                                        <div class="flex items-center gap-1.5 bg-gray-100 text-zinc-700 px-3 py-1.5 rounded-xl font-bold text-xs" data-category-name="{{ cat }}">
-                                            <span class="material-symbols-outlined text-gray-400 drag-handle mr-0.5 cursor-grab active:cursor-grabbing select-none text-[14px]" title="Verschieben">drag_indicator</span>
-                                            <span class="category-display-name">{{ cat }}</span>
-                                            
-                                            <div class="flex items-center ml-1 gap-1">
-                                                <button onclick="editCategoryInline('{{ cat }}', '{{ cat }}')" class="text-zinc-500 hover:text-emerald-500 transition-colors">
-                                                    <span class="material-symbols-outlined text-[12px]">edit</span>
-                                                </button>
-                                                <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                                    <input type="hidden" name="name" value="{{ cat }}">
-                                                    <button type="submit" class="text-red-500 hover:text-red-700 text-[10px] font-bold flex items-center justify-center">✕</button>
-                                                </form>
+                                        {% else %}
+                                            <div class="cat-chip" data-category-name="{{ cat }}">
+                                                <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:12px;" title="Verschieben">drag_indicator</span>
+                                                <span class="category-display-name font-bold">{{ cat }}</span>
+                                                
+                                                <div class="flex items-center ml-0.5 gap-0.5">
+                                                    <button onclick="editCategoryInline('{{ cat }}', '{{ cat }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
+                                                        <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
+                                                    </button>
+                                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                                        <input type="hidden" name="name" value="{{ cat }}">
+                                                        <button type="submit" class="text-red-400 hover:text-red-600 font-bold flex items-center justify-center p-0.5">✕</button>
+                                                    </form>
+                                                </div>
                                             </div>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Product creator card -->
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">add_circle</span> Produkt anlegen
-                        </h3>
-                        <form action="/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktname</label>
-                                <input type="text" name="name" id="create-product-name" required placeholder="Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">add_circle</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Produkt anlegen</h3>
                             </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (€)</label>
-                                <input type="number" step="0.01" name="preis" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Kategorie</label>
-                                <select name="kategorie" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    {% for cat in restaurant.categories %}
-                                        {% if ' > ' in cat %}
-                                            <option value="{{ cat }}">&nbsp;&nbsp;&mdash;&nbsp;{{ cat.split(' > ')[1] }}</option>
-                                        {% else %}
-                                            <option value="{{ cat }}" class="font-bold">{{ cat }}</option>
-                                        {% endif %}
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Typ</label>
-                                <select name="category_type" id="create-product-type" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    <option value="bar"> Getränk (Bar)</option>
-                                    <option value="küche"> Speise (Küche)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bild-URL</label>
-                                <div class="flex gap-2">
-                                    <input type="text" name="image_url" id="create-product-image-url" placeholder="Optional: https://..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    <button type="button" onclick="generateSingleImage(this, 'create-product-image-url', 'create-product-name', 'create-product-type')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-3 rounded-xl transition shadow flex items-center gap-1 shrink-0">
-                                        <span class="material-symbols-outlined text-xs">auto_awesome</span> KI-Bild generieren
-                                    </button>
-
+                        </div>
+                        <div class="section-card-body">
+                            <form action="/admin/produkt-erstellen" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="form-label">Produktname</label>
+                                    <input type="text" name="name" id="create-product-name" required placeholder="Coca Cola 0.33L" class="form-field">
                                 </div>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Produktbild hochladen</label>
-                                <input type="file" name="image_file" accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                            </div>
-                            <button type="submit" class="sm:col-span-2 w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Produkt anlegen</button>
-                        </form>
+                                <div>
+                                    <label class="form-label">Preis (€)</label>
+                                    <input type="number" step="0.01" name="preis" required placeholder="3.50" class="form-field font-mono">
+                                </div>
+                                <div>
+                                    <label class="form-label">Kategorie</label>
+                                    <select name="kategorie" class="form-field">
+                                        {% for cat in restaurant.categories %}
+                                            {% if ' > ' in cat %}
+                                                <option value="{{ cat }}">&nbsp;&nbsp;&mdash;&nbsp;{{ cat.split(' > ')[1] }}</option>
+                                            {% else %}
+                                                <option value="{{ cat }}" class="font-bold">{{ cat }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label">Typ</label>
+                                    <select name="category_type" id="create-product-type" class="form-field">
+                                        <option value="bar">Getränk (Bar)</option>
+                                        <option value="küche">Speise (Küche)</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="form-label">Bild-URL</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" name="image_url" id="create-product-image-url" placeholder="Optional: https://..." class="form-field flex-1">
+                                        <button type="button" onclick="generateSingleImage(this, 'create-product-image-url', 'create-product-name', 'create-product-type')" class="btn-secondary flex items-center gap-1 shrink-0 text-[10px] px-2.5">
+                                            <span class="material-symbols-outlined" style="font-size:12px;">auto_awesome</span> KI-Bild
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label">Produktbild hochladen</label>
+                                    <input type="file" name="image_file" accept="image/*" class="form-field">
+                                </div>
+                                <div class="flex items-end">
+                                    <button type="submit" class="btn-primary w-full">Produkt anlegen</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Products listings -->
-                <div class="space-y-6">
+                <div class="space-y-4">
                     {% for cat in restaurant.categories %}
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 class="font-extrabold text-sm text-zinc-800 mb-4 border-b border-gray-100 pb-2 flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-zinc-500">folder_open</span> {{ cat }}
-                        </h3>
-                        
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 product-sortable-list" data-category="{{ cat }}">
-                            {% for p in restaurant.products if p.category == cat %}
-                            <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl" data-product-id="{{ p.id }}">
-                                <div class="flex items-center gap-3">
-                                    <span class="material-symbols-outlined text-gray-400 select-none cursor-grab active:cursor-grabbing drag-handle mr-1" title="Verschieben">drag_indicator</span>
-                                    <div class="w-10 h-10 rounded-lg bg-zinc-200/50 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                        {% if p.image and not p.image.lower().endswith('.pdf') %}
-                                            <img src="{{ p.image }}" alt="{{ p.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-sm opacity-40 scale-110 pointer-events-none" loading="lazy">
-                                            <img src="{{ p.image }}" alt="{{ p.name }}" class="relative z-10 max-w-full max-h-full object-contain" loading="lazy">
-                                        {% else %}
-                                            <span class="material-symbols-outlined text-zinc-400">fastfood</span>
-                                        {% endif %}
-                                    </div>
-                                    <div>
-                                        <div class="font-extrabold text-xs text-zinc-800">{{ p.name }}</div>
-                                        <div class="text-[10px] text-zinc-500 font-bold font-mono mt-0.5">{{ "%.2f"|format(p.price) }} €</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex items-center gap-2">
-                                    <!-- Availability toggle switch -->
-                                    <form action="/admin/product-toggle/{{ p.id }}" method="POST" class="inline flex items-center">
-                                        <label class="switch">
-                                            <input type="checkbox" onchange="this.form.submit()" {% if p.is_available %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </form>
-                                    
-                                    <button onclick="openEditProductModal({{ p.id }})" class="p-2 border border-gray-200 hover:bg-gray-100 text-zinc-700 rounded-lg transition" title="Bearbeiten">
-                                        <span class="material-symbols-outlined text-sm">edit</span>
-                                    </button>
-                                    
-                                    <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" class="inline" onsubmit="return confirm('Produkt löschen?')">
-                                        <button type="submit" class="p-2 border border-gray-200 hover:bg-red-50 text-red-500 rounded-lg transition" title="Löschen">
-                                            <span class="material-symbols-outlined text-sm">delete</span>
-                                        </button>
-                                    </form>
-                                </div>
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">folder_open</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">{{ cat }}</h3>
                             </div>
-                            {% endfor %}
+                            <span class="text-[10px] font-bold text-zinc-400">{{ restaurant.products | selectattr('category', 'eq', cat) | list | length }} Produkte</span>
+                        </div>
+                        <div class="section-card-body">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 product-sortable-list" data-category="{{ cat }}">
+                                {% for p in restaurant.products if p.category == cat %}
+                                <div class="product-item" data-product-id="{{ p.id }}">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-outlined text-zinc-300 select-none cursor-grab active:cursor-grabbing drag-handle" title="Verschieben" style="font-size:16px;">drag_indicator</span>
+                                        <div class="w-10 h-10 rounded-lg bg-zinc-200/50 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                            {% if p.image and not p.image.lower().endswith('.pdf') %}
+                                                <img src="{{ p.image }}" alt="{{ p.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-sm opacity-40 scale-110 pointer-events-none" loading="lazy">
+                                                <img src="{{ p.image }}" alt="{{ p.name }}" class="relative z-10 max-w-full max-h-full object-contain" loading="lazy">
+                                            {% else %}
+                                                <span class="material-symbols-outlined text-zinc-400" style="font-size:18px;">fastfood</span>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <div class="font-extrabold text-xs text-zinc-800">{{ p.name }}</div>
+                                            <div class="text-[10px] text-zinc-500 font-bold font-mono mt-0.5">{{ "%.2f"|format(p.price) }} €</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-1.5">
+                                        <!-- Availability toggle switch -->
+                                        <form action="/admin/product-toggle/{{ p.id }}" method="POST" class="inline flex items-center">
+                                            <label class="switch">
+                                                <input type="checkbox" onchange="this.form.submit()" {% if p.is_available %}checked{% endif %}>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </form>
+                                        
+                                        <button onclick="openEditProductModal({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                        </button>
+                                        
+                                        <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" class="inline" onsubmit="return confirm('Produkt löschen?')">
+                                            <button type="submit" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -976,54 +1545,70 @@
             <div id="admin-tab-personal" class="admin-tab-content">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <!-- Profile card -->
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">lock</span> Login-Passwort ändern
-                        </h3>
-                        <form action="/admin/profile-update" method="POST" class="space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Neuer Name</label>
-                                <input type="text" name="name" value="{{ current_user.name }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">lock</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Login-Passwort ändern</h3>
                             </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Neues Passwort</label>
-                                <input type="password" name="password" placeholder="Passwort eingeben" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                            </div>
-                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Speichern</button>
-                        </form>
+                        </div>
+                        <div class="section-card-body">
+                            <form action="/admin/profile-update" method="POST" class="space-y-4">
+                                <div>
+                                    <label class="form-label">Neuer Name</label>
+                                    <input type="text" name="name" value="{{ current_user.name }}" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Neues Passwort</label>
+                                    <input type="password" name="password" placeholder="Passwort eingeben" class="form-field">
+                                </div>
+                                <button type="submit" class="btn-primary w-full">Speichern</button>
+                            </form>
+                        </div>
                     </div>
 
                     <!-- Staff pins card -->
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">badge</span> Service-Personal verwalten (PINs)
-                        </h3>
-                        <form action="/admin/staff" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                            <div class="sm:col-span-2">
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name</label>
-                                <input type="text" name="name" required placeholder="z.B. Max Mustermann" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">badge</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Service-Personal</h3>
                             </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">4-stellige PIN</label>
-                                <input type="text" name="pin" pattern="[0-9]{4}" required placeholder="1234" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
-                            </div>
-                            <input type="hidden" name="role" value="kellner">
-                            <button type="submit" class="sm:col-span-3 w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Personal hinzufügen</button>
-                        </form>
-
-                        <div class="border-t border-gray-100 pt-3 divide-y divide-gray-50">
-                            <label class="block text-[10px] font-bold text-zinc-400 uppercase mb-2">Bestehende Mitarbeiter</label>
-                            {% for member in restaurant.staff %}
-                            <div class="flex items-center justify-between py-2 text-xs">
-                                <div>
-                                    <span class="font-bold text-zinc-800">{{ member.name }}</span>
-                                    <span class="bg-gray-100 text-zinc-500 px-1.5 py-0.5 rounded text-[10px] ml-2 font-mono">PIN: {{ member.pin }}</span>
+                            <span class="text-[10px] font-bold text-zinc-400">{{ restaurant.staff | length }} Mitarbeiter</span>
+                        </div>
+                        <div class="section-card-body space-y-4">
+                            <form action="/admin/staff" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                                <div class="sm:col-span-2">
+                                    <label class="form-label">Name</label>
+                                    <input type="text" name="name" required placeholder="z.B. Max Mustermann" class="form-field">
                                 </div>
-                                <form action="/admin/staff-loeschen/{{ member.pin }}" method="POST" class="inline" onsubmit="return confirm('Mitarbeiter löschen?')">
-                                    <button type="submit" class="text-red-500 hover:text-red-700 font-bold text-xs">Entfernen</button>
-                                </form>
+                                <div>
+                                    <label class="form-label">4-stellige PIN</label>
+                                    <input type="text" name="pin" pattern="[0-9]{4}" required placeholder="1234" class="form-field font-mono">
+                                </div>
+                                <input type="hidden" name="role" value="kellner">
+                                <button type="submit" class="sm:col-span-3 btn-primary w-full">Personal hinzufügen</button>
+                            </form>
+
+                            <div class="border-t border-gray-100 pt-4">
+                                <label class="form-label mb-3">Bestehende Mitarbeiter</label>
+                                <div class="space-y-0">
+                                    {% for member in restaurant.staff %}
+                                    <div class="staff-row">
+                                        <div class="flex items-center gap-3">
+                                            <div class="staff-avatar">{{ member.name[:2].upper() }}</div>
+                                            <div>
+                                                <span class="font-bold text-xs text-zinc-800">{{ member.name }}</span>
+                                                <span class="text-[10px] text-zinc-400 font-mono ml-2">PIN: {{ member.pin }}</span>
+                                            </div>
+                                        </div>
+                                        <form action="/admin/staff-loeschen/{{ member.pin }}" method="POST" class="inline" onsubmit="return confirm('Mitarbeiter löschen?')">
+                                            <button type="submit" class="text-red-400 hover:text-red-600 font-bold text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition">Entfernen</button>
+                                        </form>
+                                    </div>
+                                    {% endfor %}
+                                </div>
                             </div>
-                            {% endfor %}
                         </div>
                     </div>
                 </div>
@@ -1033,403 +1618,436 @@
             <div id="admin-tab-konfiguration" class="admin-tab-content">
                 <!-- Sub-tab navigation pills -->
                 <div class="flex flex-wrap gap-2 mb-6">
-                    <button onclick="switchConfigTab('profil')" id="config-btn-profil" class="config-subtab-btn active">🏪 Profil & Branding</button>
-                    <button onclick="switchConfigTab('einstellungen')" id="config-btn-einstellungen" class="config-subtab-btn">⚙️ Einstellungen</button>
-                    <button onclick="switchConfigTab('happyhour')" id="config-btn-happyhour" class="config-subtab-btn">🕐 Happy Hour</button>
-                    <button onclick="switchConfigTab('landingpage')" id="config-btn-landingpage" class="config-subtab-btn">🌐 Landingpage</button>
-                    <button onclick="switchConfigTab('qrcodes')" id="config-btn-qrcodes" class="config-subtab-btn">📱 QR & Tische</button>
+                    <button onclick="switchConfigTab('profil')" id="config-btn-profil" class="config-subtab-btn active">
+                        <span class="material-symbols-outlined" style="font-size:14px;">store</span> Profil & Branding
+                    </button>
+                    <button onclick="switchConfigTab('einstellungen')" id="config-btn-einstellungen" class="config-subtab-btn">
+                        <span class="material-symbols-outlined" style="font-size:14px;">tune</span> Einstellungen
+                    </button>
+                    <button onclick="switchConfigTab('happyhour')" id="config-btn-happyhour" class="config-subtab-btn">
+                        <span class="material-symbols-outlined" style="font-size:14px;">schedule</span> Happy Hour
+                    </button>
+                    <button onclick="switchConfigTab('landingpage')" id="config-btn-landingpage" class="config-subtab-btn">
+                        <span class="material-symbols-outlined" style="font-size:14px;">language</span> Landingpage
+                    </button>
+                    <button onclick="switchConfigTab('qrcodes')" id="config-btn-qrcodes" class="config-subtab-btn">
+                        <span class="material-symbols-outlined" style="font-size:14px;">qr_code</span> QR & Tische
+                    </button>
                 </div>
 
                 <!-- ==================== SUB-TAB: Profil & Branding ==================== -->
                 <div id="config-tab-profil" class="config-tab-content active">
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">store</span> Restaurant Profil
-                        </h3>
-                        <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
-                            {% if restaurant.branding and restaurant.branding.logo_url %}
-                            <div class="flex items-center gap-3">
-                                <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200">
-                                <span class="text-[10px] text-zinc-400 font-bold">Aktuelles Logo</span>
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">store</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Restaurant Profil</h3>
                             </div>
-                            {% endif %}
+                        </div>
+                        <div class="section-card-body">
+                            <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
+                                {% if restaurant.branding and restaurant.branding.logo_url %}
+                                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200">
+                                    <span class="text-[10px] text-zinc-400 font-bold">Aktuelles Logo</span>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <label class="form-label">Logo hochladen</label>
+                                    <input type="file" name="logo_file" accept="image/*" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Adresse (Straße & Hausnummer)</label>
+                                    <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" class="form-field">
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="form-label">PLZ</label>
+                                        <input type="text" name="plz" value="{{ restaurant.branding.plz if restaurant.branding else '' }}" class="form-field">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Ort</label>
+                                        <input type="text" name="ort" value="{{ restaurant.branding.ort if restaurant.branding else '' }}" class="form-field">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="form-label">Instagram URL</label>
+                                        <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" class="form-field">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Facebook URL</label>
+                                        <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" class="form-field">
+                                    </div>
+                                <div>
+                                    <label class="form-label">TikTok URL</label>
+                                    <input type="text" name="tiktok" value="{{ restaurant.branding.tiktok if restaurant.branding else '' }}" class="form-field">
+                                </div>
+                            </div>
                             <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Logo hochladen</label>
-                                <input type="file" name="logo_file" accept="image/*" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Adresse (Straße & Hausnummer)</label>
-                                <input type="text" name="address" value="{{ restaurant.branding.address if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                            </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">PLZ</label>
-                                    <input type="text" name="plz" value="{{ restaurant.branding.plz if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Ort</label>
-                                    <input type="text" name="ort" value="{{ restaurant.branding.ort if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Instagram URL</label>
-                                    <input type="text" name="instagram" value="{{ restaurant.branding.instagram if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Facebook URL</label>
-                                    <input type="text" name="facebook" value="{{ restaurant.branding.facebook if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">TikTok URL</label>
-                                    <input type="text" name="tiktok" value="{{ restaurant.branding.tiktok if restaurant.branding else '' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Farbschema (Theme)</label>
-                                <select name="theme" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                <label class="form-label">Farbschema (Theme)</label>
+                                <select name="theme" class="form-field">
                                     <option value="dark" {% if restaurant.theme == 'dark' or not restaurant.theme %}selected{% endif %}>Dunkel (Dark Mode)</option>
                                     <option value="light" {% if restaurant.theme == 'light' %}selected{% endif %}>Hell (Light Mode)</option>
                                 </select>
                             </div>
-                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Profil speichern</button>
+                            <button type="submit" class="btn-primary w-full">Profil speichern</button>
                         </form>
+                        </div>
                     </div>
                 </div>
 
                 <!-- ==================== SUB-TAB: Einstellungen ==================== -->
                 <div id="config-tab-einstellungen" class="config-tab-content">
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <!-- Shishabar toggler -->
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h4 class="font-bold text-xs text-zinc-800">Shisha-Bar Modus</h4>
-                                <p class="text-[10px] text-zinc-400">Aktiviert Kohle/Shisha-Rufoptionen im Gästemenü</p>
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">tune</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Einstellungen</h3>
                             </div>
-                            <form action="/admin/shishabar-toggle" method="POST" class="inline flex items-center">
-                                <label class="switch">
-                                    <input type="checkbox" name="is_shishabar" value="true" onchange="this.form.submit()" {% if restaurant.is_shishabar %}checked{% endif %}>
-                                    <span class="slider"></span>
-                                </label>
-                            </form>
                         </div>
-
-                        <!-- Card Payment toggler -->
-                        <div class="border-t border-gray-100 pt-4 flex items-center justify-between">
-                            <div>
-                                <h4 class="font-bold text-xs text-zinc-800">Kartenzahlung akzeptieren</h4>
-                                <p class="text-[10px] text-zinc-400">Aktiviert/Deaktiviert die Option zur Kartenzahlung im Gästemenü</p>
+                        <div class="section-card-body space-y-4">
+                            <!-- Shishabar toggler -->
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                <div>
+                                    <h4 class="font-bold text-xs text-zinc-800">Shisha-Bar Modus</h4>
+                                    <p class="text-[10px] text-zinc-400 mt-0.5">Aktiviert Kohle/Shisha-Rufoptionen im Gästemenü</p>
+                                </div>
+                                <form action="/admin/shishabar-toggle" method="POST" class="inline flex items-center">
+                                    <label class="switch">
+                                        <input type="checkbox" name="is_shishabar" value="true" onchange="this.form.submit()" {% if restaurant.is_shishabar %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                </form>
                             </div>
-                            <form action="/admin/card-payment-toggle" method="POST" class="inline flex items-center">
-                                <label class="switch">
-                                    <input type="checkbox" name="accepts_card_payment" value="true" onchange="this.form.submit()" {% if restaurant.accepts_card_payment != False %}checked{% endif %}>
-                                    <span class="slider"></span>
-                                </label>
-                            </form>
+
+                            <!-- Card Payment toggler -->
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                <div>
+                                    <h4 class="font-bold text-xs text-zinc-800">Kartenzahlung akzeptieren</h4>
+                                    <p class="text-[10px] text-zinc-400 mt-0.5">Aktiviert/Deaktiviert die Option zur Kartenzahlung im Gästemenü</p>
+                                </div>
+                                <form action="/admin/card-payment-toggle" method="POST" class="inline flex items-center">
+                                    <label class="switch">
+                                        <input type="checkbox" name="accepts_card_payment" value="true" onchange="this.form.submit()" {% if restaurant.accepts_card_payment != False %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ==================== SUB-TAB: Happy Hour ==================== -->
                 <div id="config-tab-happyhour" class="config-tab-content">
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center justify-between w-full">
-                            <div class="flex items-center gap-1">
-                                <span class="material-symbols-outlined text-zinc-500">schedule</span> Happy Hour
+                    <div class="section-card mb-4">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">schedule</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Happy Hour</h3>
                             </div>
                             {% if hh_active_global %}
-                                <span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Aktiv
+                                <span class="live-badge">
+                                    <span class="dot"></span> Aktiv
                                 </span>
                             {% else %}
-                                <span class="bg-zinc-100 text-zinc-400 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase flex items-center gap-1">
+                                <span class="text-[10px] font-bold text-zinc-400 uppercase flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 border border-zinc-200">
                                     <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> Inaktiv
                                 </span>
                             {% endif %}
-                        </h3>
-                        <form action="/admin/happy-hour" method="POST" class="space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5">Happy Hour Tage</label>
-                                <div class="flex flex-wrap gap-2">
-                                    {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
-                                    {% for day in days %}
-                                    <label class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer select-none">
-                                        <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0" {% if restaurant.happy_hour and day in restaurant.happy_hour.days %}checked{% endif %}>
-                                        <span>{{ day }}</span>
-                                    </label>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-3 gap-3">
+                        </div>
+                        <div class="section-card-body">
+                            <form action="/admin/happy-hour" method="POST" class="space-y-4">
                                 <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Startzeit</label>
-                                    <input type="time" name="start" value="{{ restaurant.happy_hour.start if restaurant.happy_hour else '18:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                    <label class="form-label mb-2">Happy Hour Tage</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
+                                        {% for day in days %}
+                                        <label class="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer select-none transition-colors hover:border-gastro {% if restaurant.happy_hour and day in restaurant.happy_hour.days %}bg-emerald-50 border-emerald-300 text-emerald-700{% endif %}">
+                                            <input type="checkbox" name="days" value="{{ day }}" class="rounded text-gastro focus:ring-0" {% if restaurant.happy_hour and day in restaurant.happy_hour.days %}checked{% endif %}>
+                                            <span>{{ day }}</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Endzeit</label>
-                                    <input type="time" name="end" value="{{ restaurant.happy_hour.end if restaurant.happy_hour else '20:00' }}" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="form-label">Startzeit</label>
+                                        <input type="time" name="start" value="{{ restaurant.happy_hour.start if restaurant.happy_hour else '18:00' }}" class="form-field font-mono">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Endzeit</label>
+                                        <input type="time" name="end" value="{{ restaurant.happy_hour.end if restaurant.happy_hour else '20:00' }}" class="form-field font-mono">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Modus</label>
+                                        <select name="mode" class="form-field font-bold">
+                                            <option value="selected" {% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') == 'selected' %}selected{% endif %}>Nur ausgewählte Produkte</option>
+                                            <option value="discount" {% if restaurant.happy_hour and restaurant.happy_hour.get('mode') == 'discount' %}selected{% endif %}>Rabatt auf fast alles</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Modus</label>
-                                    <select name="mode" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-bold">
-                                        <option value="selected" {% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') == 'selected' %}selected{% endif %}>Nur ausgewählte Produkte</option>
-                                        <option value="discount" {% if restaurant.happy_hour and restaurant.happy_hour.get('mode') == 'discount' %}selected{% endif %}>Rabatt auf fast alles</option>
-                                    </select>
+                                <div id="hh-discount-row" class="{% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') != 'discount' %}hidden{% endif %}">
+                                    <label class="form-label">Rabatt (%) — gilt nur im Modus "Rabatt auf fast alles"</label>
+                                    <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="form-field font-mono">
                                 </div>
-                            </div>
-                            <div id="hh-discount-row" class="{% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') != 'discount' %}hidden{% endif %}">
-                                <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Rabatt (%) — gilt nur im Modus "Rabatt auf fast alles"</label>
-                                <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
-                            </div>
-                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Happy Hour speichern</button>
-                        </form>
+                                <button type="submit" class="btn-primary w-full">Happy Hour speichern</button>
+                            </form>
+                        </div>
                     </div>
 
                     <!-- Happy Hour Product Selector -->
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 mt-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-zinc-500">local_offer</span> Happy Hour Produkte
-                            </h3>
-                            <span id="hh-product-count" class="bg-amber-500/10 text-amber-600 font-extrabold px-2.5 py-1 rounded-full text-[10px] uppercase">
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">local_offer</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Happy Hour Produkte</h3>
+                            </div>
+                            <span id="hh-product-count" class="text-[10px] font-bold text-amber-600 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">
                                 {{ restaurant.products | selectattr('happy_hour_price', 'ne', none) | list | length }} ausgewählt
                             </span>
                         </div>
-                        <p class="text-[11px] text-zinc-500 leading-relaxed">
-                            Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt. Du kannst pro Produkt eigene Tage festlegen — z.B. nur samstags oder nur donnerstags.
-                        </p>
-                        <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-                            {% for cat in restaurant.categories %}
-                            <div class="sticky top-0 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-[10px] font-extrabold text-zinc-600 uppercase tracking-wider z-10">{{ cat }}</div>
-                            {% for p in restaurant.products if p.category == cat %}
-                            <div class="p-2.5 rounded-xl border {{ 'border-amber-300 bg-amber-50' if p.happy_hour_price else 'border-gray-100 bg-gray-50' }} transition-colors space-y-2">
-                                <div class="flex items-center gap-3">
-                                    <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
-                                        <input type="checkbox" class="hh-product-toggle rounded text-amber-500 focus:ring-amber-400 shrink-0" data-product-id="{{ p.id }}" {% if p.happy_hour_price %}checked{% endif %} onchange="toggleHHProductRow({{ p.id }}, this.checked)">
-                                        <div class="min-w-0">
-                                            <div class="font-bold text-xs text-zinc-800 truncate">{{ p.name }}</div>
-                                            <div class="text-[10px] text-zinc-500 font-mono">{{ "%.2f"|format(p.price) }} €</div>
-                                        </div>
-                                    </label>
-                                    <div class="hh-price-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-fields-{{ p.id }}">
-                                        <div class="flex items-center gap-2">
-                                            <input type="number" step="0.01" min="0" placeholder="HH-Preis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-20 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
-                                            <span class="text-[10px] text-zinc-400">€</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- Per-product day selection (only visible when HH is enabled for this product) -->
-                                <div class="hh-days-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-days-{{ p.id }}">
-                                    <div class="flex items-center gap-1 flex-wrap">
-                                        <span class="text-[9px] font-bold text-zinc-400 uppercase mr-1">Tage:</span>
-                                        {% set all_days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
-                                        {% set prod_days = p.happy_hour_days or [] %}
-                                        {% for day in all_days %}
-                                        <label class="flex items-center gap-0.5 bg-white border {{ 'border-amber-300 bg-amber-50' if day in prod_days else 'border-gray-200' }} px-1.5 py-0.5 rounded-md text-[9px] font-bold cursor-pointer select-none transition-colors">
-                                            <input type="checkbox" class="hh-day-check rounded text-amber-500 focus:ring-0 shrink-0 w-2.5 h-2.5" data-product-id="{{ p.id }}" data-day="{{ day }}" {% if day in prod_days or not prod_days %}checked{% endif %}>
-                                            <span>{{ day[:2] }}</span>
+                        <div class="section-card-body">
+                            <p class="text-[11px] text-zinc-500 leading-relaxed mb-4">
+                                Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt. Du kannst pro Produkt eigene Tage festlegen — z.B. nur samstags oder nur donnerstags.
+                            </p>
+                            <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                                {% for cat in restaurant.categories %}
+                                <div class="sticky top-0 bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-[10px] font-extrabold text-zinc-600 uppercase tracking-wider z-10">{{ cat }}</div>
+                                {% for p in restaurant.products if p.category == cat %}
+                                <div class="p-3 rounded-xl border {{ 'border-amber-300 bg-amber-50' if p.happy_hour_price else 'border-gray-100 bg-gray-50' }} transition-colors space-y-2">
+                                    <div class="flex items-center gap-3">
+                                        <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+                                            <input type="checkbox" class="hh-product-toggle rounded text-amber-500 focus:ring-amber-400 shrink-0" data-product-id="{{ p.id }}" {% if p.happy_hour_price %}checked{% endif %} onchange="toggleHHProductRow({{ p.id }}, this.checked)">
+                                            <div class="min-w-0">
+                                                <div class="font-bold text-xs text-zinc-800 truncate">{{ p.name }}</div>
+                                                <div class="text-[10px] text-zinc-500 font-mono">{{ "%.2f"|format(p.price) }} €</div>
+                                            </div>
                                         </label>
-                                        {% endfor %}
-                                        <span class="text-[8px] text-zinc-400 ml-1">alle = global</span>
+                                        <div class="hh-price-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-fields-{{ p.id }}">
+                                            <div class="flex items-center gap-2">
+                                                <input type="number" step="0.01" min="0" placeholder="HH-Preis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-20 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
+                                                <span class="text-[10px] text-zinc-400">€</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Per-product day selection (only visible when HH is enabled for this product) -->
+                                    <div class="hh-days-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-days-{{ p.id }}">
+                                        <div class="flex items-center gap-1 flex-wrap">
+                                            <span class="text-[9px] font-bold text-zinc-400 uppercase mr-1">Tage:</span>
+                                            {% set all_days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
+                                            {% set prod_days = p.happy_hour_days or [] %}
+                                            {% for day in all_days %}
+                                            <label class="flex items-center gap-0.5 bg-white border {{ 'border-amber-300 bg-amber-50' if day in prod_days else 'border-gray-200' }} px-1.5 py-0.5 rounded-md text-[9px] font-bold cursor-pointer select-none transition-colors">
+                                                <input type="checkbox" class="hh-day-check rounded text-amber-500 focus:ring-0 shrink-0 w-2.5 h-2.5" data-product-id="{{ p.id }}" data-day="{{ day }}" {% if day in prod_days or not prod_days %}checked{% endif %}>
+                                                <span>{{ day[:2] }}</span>
+                                            </label>
+                                            {% endfor %}
+                                            <span class="text-[8px] text-zinc-400 ml-1">alle = global</span>
+                                        </div>
                                     </div>
                                 </div>
+                                {% endfor %}
+                                {% endfor %}
                             </div>
-                            {% endfor %}
-                            {% endfor %}
+                            <button type="button" onclick="saveAllHHProducts()" class="btn-primary w-full mt-4 flex items-center justify-center gap-1.5" style="background:#f59e0b;box-shadow:0 2px 6px -1px rgba(245,158,11,0.3);">
+                                <span class="material-symbols-outlined" style="font-size:14px;">save</span> Happy Hour Produkte speichern
+                            </button>
                         </div>
-                        <button type="button" onclick="saveAllHHProducts()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1.5">
-                            <span class="material-symbols-outlined text-sm">save</span> Happy Hour Produkte speichern
-                        </button>
                     </div>
                 </div>
 
                 <!-- ==================== SUB-TAB: Landingpage ==================== -->
                 <div id="config-tab-landingpage" class="config-tab-content">
-                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                        <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-zinc-500">campaign</span> Landingpage bearbeiten
-                        </h3>
-                        <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
-                            <input type="hidden" name="custom_sections_json" id="custom_sections_json">
-                            <input type="hidden" name="landing_sections_json" id="landing_sections_json">
-
-                            <!-- Willkommens-Bereich -->
-                            <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-100 space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-emerald-600 text-sm">waving_hand</span>
-                                        Willkommens-Bereich
-                                    </h4>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Titel</label>
-                                        <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Willkommens-Untertitel</label>
-                                        <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Google Bewertung Link</label>
-                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                </div>
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">campaign</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Landingpage bearbeiten</h3>
                             </div>
+                        </div>
+                        <div class="section-card-body">
+                            <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
+                                <input type="hidden" name="custom_sections_json" id="custom_sections_json">
+                                <input type="hidden" name="landing_sections_json" id="landing_sections_json">
 
-                            <!-- Dynamische Sektionen (Öffnungszeiten, Über uns, etc.) -->
-                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-2xl border border-blue-100 space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="font-extrabold text-xs text-blue-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-blue-600 text-sm">dashboard_customize</span>
-                                        Sektionen der Landingpage
-                                    </h4>
-                                    <button type="button" onclick="addLandingSection()" class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow">
-                                        <span class="material-symbols-outlined text-sm">add</span> Neue Sektion
-                                    </button>
-                                </div>
-                                <p class="text-[9px] text-blue-500">Hier kannst du beliebig viele Sektionen hinzufügen, bearbeiten oder löschen. Diese erscheinen auf deiner Landingpage.</p>
-                                <div id="landing-sections-container" class="space-y-3">
-                                    {% if restaurant.landing_page %}
-                                    {% if restaurant.landing_page.what_we_offer %}
-                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="about">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <span class="material-symbols-outlined text-blue-500 text-sm">info</span>
-                                                <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Über uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                            </div>
-                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                        </div>
-                                        <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.what_we_offer }}</textarea>
+                                <!-- Willkommens-Bereich -->
+                                <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100 space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-emerald-600" style="font-size:16px;">waving_hand</span>
+                                            Willkommens-Bereich
+                                        </h4>
                                     </div>
-                                    {% endif %}
-                                    {% if restaurant.landing_page.oeffnungszeiten %}
-                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="hours">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <span class="material-symbols-outlined text-blue-500 text-sm">schedule</span>
-                                                <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Öffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                            </div>
-                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                        </div>
-                                        <textarea name="section_content_hours" rows="2" placeholder="Mo - So: 17:00 - 01:00 Uhr" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
-                                    </div>
-                                    {% endif %}
-                                    {% if restaurant.landing_page.angebote %}
-                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="offers">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <span class="material-symbols-outlined text-blue-500 text-sm">local_offer</span>
-                                                <input type="text" name="section_title_offers" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Angebote & Specials" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                            </div>
-                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                        </div>
-                                        <textarea name="section_content_offers" rows="2" placeholder="Angebote und Specials..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.angebote }}</textarea>
-                                    </div>
-                                    {% endif %}
-                                    {% if restaurant.landing_page.aktuelles %}
-                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="news">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <span class="material-symbols-outlined text-blue-500 text-sm">newspaper</span>
-                                                <input type="text" name="section_title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Aktuelles & Events" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                            </div>
-                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                        </div>
-                                        <textarea name="section_content_news" rows="2" placeholder="Neuigkeiten und Ankündigungen..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ restaurant.landing_page.aktuelles }}</textarea>
-                                    </div>
-                                    {% endif %}
-                                    {% endif %}
-                                    <!-- Custom sections from previous saves -->
-                                    {% if restaurant.landing_page and restaurant.landing_page.custom_sections %}
-                                    {% for csec in restaurant.landing_page.custom_sections %}
-                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
-                                                <input type="text" name="section_title_custom_{{ loop.index0 }}" value="{{ csec.title if csec.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                            </div>
-                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                        </div>
-                                        <textarea name="section_content_custom_{{ loop.index0 }}" rows="2" placeholder="Inhalt der Sektion..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">{{ csec.content if csec.content else '' }}</textarea>
-                                        {% if csec.image %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ csec.image }}" class="w-full h-full object-cover" alt="Custom">
-                                            <button type="button" onclick="deleteLandingImage('{{ csec.image }}', 'custom', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                    {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Angebotsfotos & Diashow -->
-                            <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-2xl border border-amber-100 space-y-3">
-                                <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
-                                    <span class="material-symbols-outlined text-amber-600 text-sm">local_offer</span>
-                                    Angebotsfotos & Hintergrund-Diashow
-                                </h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <!-- Angebotsfotos -->
-                                    <div class="space-y-2">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Angebote</label>
-                                            <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelle Angebote" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                            <label class="form-label">Willkommens-Titel</label>
+                                            <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="form-field">
                                         </div>
-                                        <div class="text-[9px] text-amber-600 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
-                                        <input type="file" name="offer_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        {% if restaurant.landing_page and (restaurant.landing_page.offer_images or restaurant.landing_page.offer_videos) %}
-                                        <div class="flex flex-wrap gap-2 mt-1">
-                                            {% if restaurant.landing_page.offer_images %}
-                                            {% for img in restaurant.landing_page.offer_images %}
-                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
-                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                        <div>
+                                            <label class="form-label">Willkommens-Untertitel</label>
+                                            <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genießen Sie feine Küche und Drinks" class="form-field">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Google Bewertung Link</label>
+                                        <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="form-field">
+                                    </div>
+                                </div>
+
+                                <!-- Dynamische Sektionen (Öffnungszeiten, Über uns, etc.) -->
+                                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100 space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="font-extrabold text-xs text-blue-800 flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-blue-600" style="font-size:16px;">dashboard_customize</span>
+                                            Sektionen der Landingpage
+                                        </h4>
+                                        <button type="button" onclick="addLandingSection()" class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow">
+                                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Sektion
+                                        </button>
+                                    </div>
+                                    <p class="text-[9px] text-blue-500">Hier kannst du beliebig viele Sektionen hinzufügen, bearbeiten oder löschen. Diese erscheinen auf deiner Landingpage.</p>
+                                    <div id="landing-sections-container" class="space-y-3">
+                                        {% if restaurant.landing_page %}
+                                        {% if restaurant.landing_page.what_we_offer %}
+                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="about">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">info</span>
+                                                    <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Über uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                                </div>
+                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                                                 </button>
                                             </div>
-                                            {% endfor %}
-                                            {% endif %}
-                                            {% if restaurant.landing_page.offer_videos %}
-                                            {% for vid in restaurant.landing_page.offer_videos %}
-                                            <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
-                                                <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
-                                                <button type="button" onclick="deleteLandingImage('{{ vid }}', 'offer_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                    <span class="material-symbols-outlined text-base">delete</span>
-                                                </button>
-                                            </div>
-                                            {% endfor %}
-                                            {% endif %}
+                                            <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field">{{ restaurant.landing_page.what_we_offer }}</textarea>
                                         </div>
                                         {% endif %}
-                                    </div>
-                                    <!-- Diashow -->
-                                    <div class="space-y-2">
-                                        <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
-                                            <div>
-                                                <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
-                                                <div class="text-[9px] text-zinc-400">Läuft im Hintergrund der Landingpage</div>
+                                        {% if restaurant.landing_page.oeffnungszeiten %}
+                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="hours">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">schedule</span>
+                                                    <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Öffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                                </div>
+                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                </button>
                                             </div>
-                                            <label class="switch">
-                                                <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
-                                                <span class="slider"></span>
-                                            </label>
+                                            <textarea name="section_content_hours" rows="2" placeholder="Mo - So: 17:00 - 01:00 Uhr" class="form-field font-mono">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
                                         </div>
+                                        {% endif %}
+                                        {% if restaurant.landing_page.angebote %}
+                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="offers">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">local_offer</span>
+                                                    <input type="text" name="section_title_offers" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Angebote & Specials" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                                </div>
+                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                </button>
+                                            </div>
+                                            <textarea name="section_content_offers" rows="2" placeholder="Angebote und Specials..." class="form-field">{{ restaurant.landing_page.angebote }}</textarea>
+                                        </div>
+                                        {% endif %}
+                                        {% if restaurant.landing_page.aktuelles %}
+                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="news">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">newspaper</span>
+                                                    <input type="text" name="section_title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Aktuelles & Events" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                                </div>
+                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                </button>
+                                            </div>
+                                            <textarea name="section_content_news" rows="2" placeholder="Neuigkeiten und Ankündigungen..." class="form-field">{{ restaurant.landing_page.aktuelles }}</textarea>
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+                                        <!-- Custom sections from previous saves -->
+                                        {% if restaurant.landing_page and restaurant.landing_page.custom_sections %}
+                                        {% for csec in restaurant.landing_page.custom_sections %}
+                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="material-symbols-outlined text-purple-500" style="font-size:14px;">extension</span>
+                                                    <input type="text" name="section_title_custom_{{ loop.index0 }}" value="{{ csec.title if csec.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                                </div>
+                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                </button>
+                                            </div>
+                                            <textarea name="section_content_custom_{{ loop.index0 }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field">{{ csec.content if csec.content else '' }}</textarea>
+                                            {% if csec.image %}
+                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                <img src="{{ csec.image }}" class="w-full h-full object-cover" alt="Custom">
+                                                <button type="button" onclick="deleteLandingImage('{{ csec.image }}', 'custom', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Angebotsfotos & Diashow -->
+                                <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100 space-y-3">
+                                    <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-amber-600" style="font-size:16px;">local_offer</span>
+                                        Angebotsfotos & Hintergrund-Diashow
+                                    </h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- Angebotsfotos -->
+                                        <div class="space-y-2">
+                                            <div>
+                                                <label class="form-label">Titel: Angebote</label>
+                                                <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelle Angebote" class="form-field">
+                                            </div>
+                                            <div class="text-[9px] text-amber-600 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
+                                            <input type="file" name="offer_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                            {% if restaurant.landing_page and (restaurant.landing_page.offer_images or restaurant.landing_page.offer_videos) %}
+                                            <div class="flex flex-wrap gap-2 mt-1">
+                                                {% if restaurant.landing_page.offer_images %}
+                                                {% for img in restaurant.landing_page.offer_images %}
+                                                <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+                                                    <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                    </button>
+                                                </div>
+                                                {% endfor %}
+                                                {% endif %}
+                                                {% if restaurant.landing_page.offer_videos %}
+                                                {% for vid in restaurant.landing_page.offer_videos %}
+                                                <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
+                                                    <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+                                                    <button type="button" onclick="deleteLandingImage('{{ vid }}', 'offer_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                                    </button>
+                                                </div>
+                                                {% endfor %}
+                                                {% endif %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <!-- Diashow -->
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
+                                                <div>
+                                                    <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+                                                    <div class="text-[9px] text-zinc-400">Läuft im Hintergrund der Landingpage</div>
+                                                </div>
+                                                <label class="switch">
+                                                    <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+                                                    <span class="slider"></span>
+                                                </label>
+                                            </div>
                                         <div class="text-[9px] text-zinc-500 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
-                                        <input type="file" name="slideshow_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        <input type="file" name="slideshow_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
                                         {% if restaurant.landing_page and (restaurant.landing_page.slideshow_images or restaurant.landing_page.slideshow_videos) %}
                                         <div class="flex flex-wrap gap-2 mt-1">
                                             {% if restaurant.landing_page.slideshow_images %}
@@ -1459,20 +2077,20 @@
                             </div>
 
                             <!-- Galerie & Videos -->
-                            <div class="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4 rounded-2xl border border-violet-100 space-y-3">
+                            <div class="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4 rounded-xl border border-violet-100 space-y-3">
                                 <h4 class="font-extrabold text-xs text-violet-800 flex items-center gap-1.5">
-                                    <span class="material-symbols-outlined text-violet-600 text-sm">collections</span>
+                                    <span class="material-symbols-outlined text-violet-600" style="font-size:16px;">collections</span>
                                     Galerie & Videos
                                 </h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <!-- Bildergalerie -->
                                     <div class="space-y-2">
                                         <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Galerie</label>
-                                            <input type="text" name="title_gallery" value="{{ restaurant.landing_page.title_gallery if restaurant.landing_page else '' }}" placeholder="Standard: Galerie" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                            <label class="form-label">Titel: Galerie</label>
+                                            <input type="text" name="title_gallery" value="{{ restaurant.landing_page.title_gallery if restaurant.landing_page else '' }}" placeholder="Standard: Galerie" class="form-field">
                                         </div>
                                         <div class="text-[9px] text-violet-600 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
-                                        <input type="file" name="gallery_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                        <input type="file" name="gallery_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
                                         {% if restaurant.landing_page and (restaurant.landing_page.gallery_images or restaurant.landing_page.gallery_videos) %}
                                         <div class="flex flex-wrap gap-2 mt-1">
                                             {% if restaurant.landing_page.gallery_images %}
@@ -1480,7 +2098,7 @@
                                             <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
                                                 <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
                                                 <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                                                 </button>
                                             </div>
                                             {% endfor %}
@@ -1490,7 +2108,7 @@
                                             <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
                                                 <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
                                                 <button type="button" onclick="deleteLandingImage('{{ vid }}', 'gallery_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                                                 </button>
                                             </div>
                                             {% endfor %}
@@ -1501,12 +2119,12 @@
                                     <!-- Videos -->
                                     <div class="space-y-2">
                                         <div>
-                                            <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Titel: Videos</label>
-                                            <input type="text" name="title_videos" value="{{ restaurant.landing_page.title_videos if restaurant.landing_page else '' }}" placeholder="Standard: Videos" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                            <label class="form-label">Titel: Videos</label>
+                                            <input type="text" name="title_videos" value="{{ restaurant.landing_page.title_videos if restaurant.landing_page else '' }}" placeholder="Standard: Videos" class="form-field">
                                         </div>
                                         <div class="bg-violet-100/50 p-2 rounded-xl border border-violet-200">
                                             <div class="text-[9px] text-violet-600 font-bold mb-1.5">Max. 40 Sekunden | MP4, WebM, MOV | Autoplay & Dauerschleife</div>
-                                            <input type="file" name="landing_videos" multiple accept="video/mp4,video/webm,video/quicktime,video/*" class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                                            <input type="file" name="landing_videos" multiple accept="video/mp4,video/webm,video/quicktime,video/*" class="form-field">
                                         </div>
                                         {% if restaurant.landing_page and restaurant.landing_page.videos %}
                                         <div class="flex flex-wrap gap-2 mt-1">
@@ -1514,7 +2132,7 @@
                                             <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
                                                 <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
                                                 <button type="button" onclick="deleteLandingImage('{{ vid }}', 'video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                    <span class="material-symbols-outlined text-base">delete</span>
+                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                                                 </button>
                                             </div>
                                             {% endfor %}
@@ -1524,8 +2142,9 @@
                                 </div>
                             </div>
 
-                            <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Landingpage speichern</button>
+                            <button type="submit" class="btn-primary w-full">Landingpage speichern</button>
                         </form>
+                        </div>
                     </div>
                 </div>
 
@@ -1533,46 +2152,54 @@
                 <div id="config-tab-qrcodes" class="config-tab-content">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <!-- QR-Codes card -->
-                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-zinc-500">qr_code</span> QR-Codes
-                            </h3>
-                            <div>
-                                <a href="/admin/qr-print" target="_blank" class="w-full text-center py-3 bg-zinc-800 text-white hover:bg-zinc-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
-                                    <span class="material-symbols-outlined text-sm">print</span> QR-Codes drucken
+                        <div class="section-card">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">qr_code</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">QR-Codes</h3>
+                                </div>
+                            </div>
+                            <div class="section-card-body">
+                                <a href="/admin/qr-print" target="_blank" class="btn-secondary w-full flex items-center justify-center gap-1.5 text-xs py-3">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">print</span> QR-Codes drucken
                                 </a>
                             </div>
                         </div>
 
                         <!-- Tisch hinzufügen card -->
-                        <div id="table-creator-panel" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-                            <h3 class="font-extrabold text-sm text-zinc-800 flex items-center gap-1">
-                                <span class="material-symbols-outlined text-zinc-500">add_box</span> Tisch hinzufügen
-                            </h3>
-                            <form action="/admin/table-erstellen" method="POST" class="space-y-4">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tisch-Nummer / Name</label>
-                                    <input type="text" name="number" required placeholder="z.B. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                        <div id="table-creator-panel" class="section-card">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">add_box</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">Tisch hinzufügen</h3>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Bereich (Zone)</label>
-                                    <select name="zone" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
+                            </div>
+                            <div class="section-card-body">
+                                <form action="/admin/table-erstellen" method="POST" class="space-y-4">
+                                    <div>
+                                        <label class="form-label">Tisch-Nummer / Name</label>
+                                        <input type="text" name="number" required placeholder="z.B. 10" class="form-field">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Bereich (Zone)</label>
+                                        <select name="zone" class="form-field">
                                         <option value="Drinnen">Drinnen</option>
                                         <option value="Draußen">Draußen</option>
                                         <option value="Innen">Innen</option>
                                         <option value="Terrasse">Terrasse</option>
                                         <option value="Bar">Bar</option>
                                     </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Form</label>
-                                    <select name="shape" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
-                                        <option value="rect">Rechteckig</option>
-                                        <option value="round">Rund</option>
-                                    </select>
-                                </div>
-                                <button type="submit" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">Hinzufügen</button>
-                            </form>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Form</label>
+                                        <select name="shape" class="form-field">
+                                            <option value="rect">Rechteckig</option>
+                                            <option value="round">Rund</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn-primary w-full">Hinzufügen</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2036,20 +2663,20 @@
         function switchAdminTab(tabId) {
             closeSidebar();
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('aside nav button').forEach(btn => {
-                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-surface border-l-2 border-transparent text-on-surface-variant text-left";
+            document.querySelectorAll('aside nav button.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
             });
 
             document.getElementById('admin-tab-' + tabId).classList.add('active');
-            document.getElementById('tab-btn-' + tabId).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition bg-surface border-l-2 border-primary text-primary text-left";
+            document.getElementById('tab-btn-' + tabId).classList.add('active');
             
             // Dynamically update Topbar Breadcrumbs
             const tabNames = {
-                'live': '🛋️ Sitzplan',
-                'finanzen': '📈 Finanzen & Logs',
-                'speisekarte': '⏱️ Speisekarte',
-                'personal': '👤 Profil & Einstellungen',
-                'konfiguration': '⚙️ Konfiguration'
+                'live': 'Sitzplan',
+                'finanzen': 'Bestellungen & Reports',
+                'speisekarte': 'Speisekarte',
+                'personal': 'Personal & Einstellungen',
+                'konfiguration': 'Konfiguration'
             };
             const breadcrumb = document.getElementById('breadcrumb-current');
             if (breadcrumb) {
@@ -2888,11 +3515,17 @@
             };
             
             ws.onclose = (event) => {
-                console.warn("Admin WebSocket closed. Attempting reconnect / falling back to polling...", event.reason);
+                console.warn("Admin WebSocket closed.", event.code, event.reason);
                 ws = null;
                 if (wsHeartbeatInterval) {
                     clearInterval(wsHeartbeatInterval);
                     wsHeartbeatInterval = null;
+                }
+                // 4401 = Unauthorized – session expired, redirect to login
+                if (event.code === 4401) {
+                    console.warn("Admin WebSocket: Unauthorized. Redirecting to login...");
+                    window.location.href = "/admin/login";
+                    return;
                 }
                 startFallbackPolling();
                 wsRetryCount++;

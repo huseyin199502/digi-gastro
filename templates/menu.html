@@ -1477,14 +1477,19 @@
                         }
                     };
 
-                    ws.onclose = () => {
-                        console.warn("Guest WebSocket closed. Reconnecting...");
+                    ws.onclose = (event) => {
+                        console.warn("Guest WebSocket closed.", event.code, event.reason);
                         this.guestWs = null;
                         if (this.guestWsHeartbeatInterval) {
                             clearInterval(this.guestWsHeartbeatInterval);
                             this.guestWsHeartbeatInterval = null;
                         }
-                        // Reconnect after 5 seconds
+                        // 4401 = Unauthorized (session expired / invalid) – don't reconnect
+                        if (event.code === 4401) {
+                            console.warn("Guest WebSocket: Unauthorized. Not reconnecting.");
+                            return;
+                        }
+                        // Reconnect after 5 seconds for other close reasons
                         setTimeout(() => this.initGuestWebSocket(), 5000);
                     };
 

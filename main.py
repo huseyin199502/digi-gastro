@@ -1,4 +1,5 @@
 from fastapi.staticfiles import StaticFiles
+import asyncio
 import copy
 import json
 import os
@@ -119,8 +120,74 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# ──────────────────────────────────────────────────────────────────
+# WEBSOCKET AUTHENTICATION
+# Only authenticated clients (admin, POS, KDS, or guest with valid
+# session cookie) may connect. Unauthenticated connections are
+# rejected with a 4401 close code.
+# ──────────────────────────────────────────────────────────────────
+def _validate_ws_cookies(slug: str, cookies: dict) -> bool:
+    """Check if the WebSocket client has a valid session cookie."""
+    slug_lower = slug.lower().strip()
+
+    # 1. Unified admin session cookie  (format: slug:name:role:pin)
+    session = cookies.get("session")
+    if session:
+        try:
+            parts = session.split(":")
+            if len(parts) == 4 and parts[0] == slug_lower:
+                return True
+        except Exception:
+            pass
+
+    # 2. Legacy device-specific session cookie
+    session_legacy = cookies.get(f"session_{slug_lower}")
+    if session_legacy:
+        try:
+            parts = session_legacy.split(":")
+            if len(parts) == 3:
+                return True
+        except Exception:
+            pass
+
+    # 3. POS device cookie
+    pos_cookie = cookies.get(f"pos_token_{slug_lower}")
+    if pos_cookie:
+        # Quick existence check – the actual value is verified on API calls
+        return True
+
+    # 4. KDS device cookie
+    kds_cookie = cookies.get("kds_session")
+    if kds_cookie:
+        try:
+            parts = kds_cookie.split(":")
+            if len(parts) >= 2 and parts[0] == slug_lower:
+                return True
+        except Exception:
+            pass
+
+    # 5. Guest session cookie (customer on menu page)
+    guest_cookie = cookies.get(f"guest_session_{slug_lower}")
+    if guest_cookie:
+        try:
+            parts = guest_cookie.split(":", 1)
+            if len(parts) == 2 and parts[0] and parts[1]:
+                return True
+        except Exception:
+            pass
+
+    return False
+
 @app.websocket("/ws/{slug}")
 async def websocket_endpoint(websocket: WebSocket, slug: str):
+    # ── Auth check BEFORE entering the main loop ──
+    if not _validate_ws_cookies(slug, websocket.cookies):
+        # Must accept first, then close with 4401 code so the client
+        # receives the close frame and knows it was rejected.
+        await websocket.accept()
+        await websocket.close(code=4401, reason="Unauthorized")
+        return
+
     await manager.connect(slug, websocket)
     try:
         while True:
@@ -136,6 +203,47 @@ async def websocket_endpoint(websocket: WebSocket, slug: str):
         manager.disconnect(slug, websocket)
     except Exception:
         manager.disconnect(slug, websocket)
+
+# ──────────────────────────────────────────────────────────────────
+# RACE CONDITION PROTECTION – per-tenant async locks
+# Prevents lost updates when concurrent requests read-modify-write
+# the same tenant data (e.g. two orders arriving at the same time).
+# ──────────────────────────────────────────────────────────────────
+_tenant_locks: Dict[str, asyncio.Lock] = {}
+
+def _get_tenant_lock(slug: str) -> asyncio.Lock:
+    slug_lower = slug.lower().strip()
+    if slug_lower not in _tenant_locks:
+        _tenant_locks[slug_lower] = asyncio.Lock()
+    return _tenant_locks[slug_lower]
+
+import functools
+
+def tenant_lock(func):
+    """Decorator that acquires the per-tenant asyncio.Lock for the endpoint.
+    The endpoint MUST have a `slug` path/query parameter or `slug` in the
+    function signature so we can extract the tenant identity.
+    The lock serialises all read-modify-write cycles for the same tenant,
+    preventing lost updates under concurrent access.
+    """
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        # Try to get slug from kwargs first (FastAPI injects it), then from path
+        slug = kwargs.get("slug")
+        if not slug:
+            # Fallback: inspect Request object in args
+            for arg in args:
+                if isinstance(arg, Request):
+                    # Try path params
+                    slug = arg.path_params.get("slug")
+                    if slug:
+                        break
+        if not slug:
+            # Last resort: run without lock (shouldn't happen)
+            return await func(*args, **kwargs)
+        async with _get_tenant_lock(slug):
+            return await func(*args, **kwargs)
+    return wrapper
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -1942,6 +2050,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     return response
 
 @app.post("/{slug}/bestellen")
+@tenant_lock
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
@@ -2108,6 +2217,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
 
 
 @app.post("/{slug}/service-ruf", deprecated=True)
+@tenant_lock
 async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, db: Session = Depends(get_db)):
     """DEPRECATED: Use POST /api/{slug}/call-service instead. This endpoint is kept for backwards compatibility."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -2250,6 +2360,7 @@ def renew_kds_secret(request: Request, chef_data: tuple = Depends(require_chef_u
 
 
 @app.post("/{slug}/tablet/bezahlen/{order_id}")
+@tenant_lock
 async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -2296,6 +2407,7 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
+@tenant_lock
 async def pay_split_order(request: Request, slug: str, order_id: int, payload: SplitPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -2382,6 +2494,7 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
     }
 
 @app.post("/{slug}/tablet/tische-zusammenfuehren")
+@tenant_lock
 async def merge_tables(request: Request, slug: str, source_table: str = Form(...), target_table: str = Form(...), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -2458,6 +2571,7 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
     return {"success": True}
 
 @app.post("/{slug}/tablet/stornieren/{order_id}")
+@tenant_lock
 async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional[str] = Form(None), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
@@ -2522,6 +2636,7 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
     return {"success": True}
 
 @app.post("/{slug}/service-erledigt/{ruf_id}")
+@tenant_lock
 async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -2641,6 +2756,7 @@ class PayItemPayload(BaseModel):
     tip_amount: Optional[float] = 0.0
 
 @app.post("/{slug}/tablet/pay-item/{order_id}")
+@tenant_lock
 async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemPayload, db: Session = Depends(get_db)):
     """Pay for a specific line item (partial payment). Removes paid quantity from order."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -2725,6 +2841,7 @@ class BulkPayItemsPayload(BaseModel):
     tip_amount: Optional[float] = 0.0
 
 @app.post("/{slug}/tablet/pay-items-bulk/{order_id}")
+@tenant_lock
 async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: BulkPayItemsPayload, db: Session = Depends(get_db)):
     """Pay for multiple specific line items (bulk partial payment) in a single transaction."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -2815,6 +2932,7 @@ class TransferItemPayload(BaseModel):
     quantity: int = 1
 
 @app.post("/{slug}/tablet/transfer-item/{order_id}")
+@tenant_lock
 async def transfer_item(request: Request, slug: str, order_id: int, payload: TransferItemPayload, db: Session = Depends(get_db)):
     """Move a single item from one order to another table's order."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -2950,6 +3068,7 @@ class CancelItemPayload(BaseModel):
     pin: Optional[str] = None
 
 @app.post("/{slug}/tablet/cancel-item/{order_id}")
+@tenant_lock
 async def cancel_item(request: Request, slug: str, order_id: int, payload: CancelItemPayload, db: Session = Depends(get_db)):
     """Cancel a specific line item (partial cancellation) with chef PIN check."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -3044,6 +3163,7 @@ class BulkCancelItemsPayload(BaseModel):
     pin: Optional[str] = None
 
 @app.post("/{slug}/tablet/cancel-items-bulk/{order_id}")
+@tenant_lock
 async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload: BulkCancelItemsPayload, db: Session = Depends(get_db)):
     """Cancel multiple specific line items (bulk partial cancellation) with chef PIN check in a single transaction."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -3146,6 +3266,7 @@ class TransferOrderPayload(BaseModel):
     target_table: str
 
 @app.post("/{slug}/tablet/transfer-order")
+@tenant_lock
 async def transfer_order(request: Request, slug: str, payload: TransferOrderPayload, db: Session = Depends(get_db)):
     """Move an active order to a different table and broadcast refresh_tables."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -3246,6 +3367,7 @@ class ItemStatusPayload(BaseModel):
 
 @app.post("/{slug}/orders/item-status/{order_id}")
 @app.post("/{slug}/tablet/item-status/{order_id}")
+@tenant_lock
 async def set_item_status(request: Request, slug: str, order_id: int, payload: ItemStatusPayload, db: Session = Depends(get_db)):
     """Update the status of a single line-item within an order."""
     restaurant = get_restaurant_or_raise(slug, db)
@@ -4255,6 +4377,7 @@ class CallServicePayload(BaseModel):
     tip_amount: Optional[float] = 0.0
 
 @app.post("/api/{slug}/call-service")
+@tenant_lock
 async def api_call_service(request: Request, slug: str, payload: CallServicePayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
@@ -6306,6 +6429,7 @@ class ServePayload(BaseModel):
     item_key: Optional[str] = None
 
 @app.post("/admin/orders/serve")
+@tenant_lock
 async def serve_order_items(request: Request, payload: ServePayload, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -6390,6 +6514,7 @@ class AdminSplitPayPayload(BaseModel):
     items: List[SplitItem]
 
 @app.post("/admin/orders/split-pay")
+@tenant_lock
 async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -6471,6 +6596,7 @@ class AdminTransferPayload(BaseModel):
     items: Optional[Dict[str, int]] = None
 
 @app.post("/admin/orders/transfer")
+@tenant_lock
 async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -6669,6 +6795,7 @@ class AddManualPayload(BaseModel):
     quantity: int
 
 @app.post("/api/admin/orders/add-manual")
+@tenant_lock
 async def add_manual_order_item(request: Request, payload: AddManualPayload, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:

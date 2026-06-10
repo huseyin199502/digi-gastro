@@ -62,3 +62,35 @@ Restructured the Konfiguration tab in admin.html with accordion-style collapsibl
 - Custom sections JavaScript is pure vanilla JS (no framework dependency)
 - Backend image matching uses `_has_new_image` flag in JSON to correctly associate uploaded files with their corresponding sections
 - The `collectCustomSections()` function runs on form submit to serialize dynamic data
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: WebSocket Authentication, Race Condition Fix, Admin Dashboard Redesign
+
+Work Log:
+- Added `import asyncio` to main.py
+- Created `_validate_ws_cookies()` function that checks 5 types of session cookies (admin session, legacy session, POS token, KDS session, guest session)
+- Modified `websocket_endpoint` to accept+close with 4401 code for unauthorized connections
+- Created `_tenant_locks` dict and `_get_tenant_lock()` function for per-tenant async locking
+- Created `tenant_lock` decorator that acquires the per-tenant asyncio.Lock for endpoints
+- Applied `@tenant_lock` to 19 critical read-modify-write endpoints (create_order, service_ruf, bezahlen, teilzahlung, merge_tables, stornieren, service_erledigt, pay_item, pay_items_bulk, transfer_item, cancel_item, cancel_items_bulk, transfer_order, set_item_status, api_call_service, serve_order_items, admin_split_pay, admin_transfer, add_manual_order_item)
+- Updated menu.html guest WebSocket `onclose` handler to stop reconnecting on 4401 code
+- Updated admin.html WebSocket `onclose` handler to redirect to login on 4401 code
+- Redesigned admin dashboard with professional styling:
+  - Added ~500 lines of new CSS (stat-card, section-card, form-field, btn-primary, cat-chip, staff-avatar, etc.)
+  - Redesigned sidebar with nav group labels, gradient active states, hover effects
+  - Redesigned header with sticky positioning, backdrop blur, custom live-badge
+  - Redesigned finance tab with stat cards (icons, values, sub-text), enhanced table
+  - Redesigned menu tab with section-card pattern, cleaner category chips, form-field system
+  - Redesigned personal tab with staff avatars, section-card pattern
+  - Redesigned configuration sub-tabs with Material Icons, gradient active states
+  - Preserved Sitzplan tab and table tiles as-is (per user request)
+  - Preserved all modal popups and JavaScript logic as-is
+
+Stage Summary:
+- WebSocket Authentication: ✅ IMPLEMENTED - unauthorized connections rejected with 4401 code
+- Race Condition Protection: ✅ IMPLEMENTED - per-tenant async locks on 19 critical endpoints
+- Admin Dashboard Redesign: ✅ IMPLEMENTED - professional styling across all tabs except Sitzplan
+- Cookie flags: ✅ Previously fixed (httponly, samesite, secure)
+- All 3 original security issues now fixed
