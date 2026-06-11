@@ -5283,7 +5283,7 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = ""):
     buffer.seek(0)
     
     return StreamingResponse(buffer, media_type="image/png", headers={
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Disposition": f"inline; filename=qr-tisch-{t}-{z}.png"
     })
 
@@ -7014,6 +7014,7 @@ def post_setup_complete(
 @app.get("/admin/qr-print")
 def get_qr_print(request: Request, db: Session = Depends(get_db)):
     """Renders a printable A4 overview with a QR code block per table."""
+    import time as _time
     res = get_current_user_and_slug(request)
     if not res:
         return RedirectResponse(url="/admin/login")
@@ -7031,6 +7032,12 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         
     base_url = str(request.base_url).rstrip("/")
     logo_url = restaurant.get("branding", {}).get("logo_url") or "/static/images/digigastrologo.jpeg"
+    # Cache-bust logo so updated logos show immediately on QR print
+    cache_bust = int(_time.time())
+    if "?" in logo_url:
+        logo_url_busted = f"{logo_url}&t={cache_bust}"
+    else:
+        logo_url_busted = f"{logo_url}?t={cache_bust}"
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -7072,7 +7079,7 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
                 <div style="position: relative; width: 150px; height: 150px; margin: 15px auto; background: white;">
                     <img src="{qr_image_src}" alt="QR {table_display_name}" style="width: 150px; height: 150px; display: block;" />
                     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: white; padding: 2px; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
-                        <img src="{logo_url}" style="width: 26px; height: 26px; object-fit: contain; border-radius: 4px;" onerror="this.parentElement.style.display='none'" />
+                        <img src="{logo_url_busted}" style="width: 26px; height: 26px; object-fit: contain; border-radius: 4px;" onerror="this.parentElement.style.display='none'" />
                     </div>
                 </div>
             </div>
@@ -7082,7 +7089,10 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
     </body>
     </html>
     """
-    return HTMLResponse(content=html_content)
+    response = HTMLResponse(content=html_content)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 # ──────────────────────────────────────────────────────────────────
