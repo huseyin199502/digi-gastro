@@ -5318,35 +5318,51 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
                         
                         if logo_fs_path and os.path.exists(logo_fs_path):
                             logo_img = PILImage.open(logo_fs_path)
-                            # Calculate logo size (max 25% of QR code)
+                            # Calculate logo size (30% of QR code for better visibility)
                             qr_width, qr_height = img.size
-                            logo_max = int(min(qr_width, qr_height) * 0.25)
+                            logo_max = int(min(qr_width, qr_height) * 0.30)
                             logo_img.thumbnail((logo_max, logo_max), PILImage.Resampling.LANCZOS)
-                            
-                            # Convert logo to RGBA for compositing
+
+                            # Convert logo to RGBA
                             if logo_img.mode != 'RGBA':
                                 logo_img = logo_img.convert('RGBA')
-                            
-                            # Create white rounded background
-                            logo_w, logo_h = logo_img.size
-                            padding = 6
+
+                            # Flatten the logo onto a white background so semi-transparent
+                            # pixels composite correctly (prevents washed-out look)
+                            white_bg = PILImage.new('RGBA', logo_img.size, (255, 255, 255, 255))
+                            white_bg = PILImage.alpha_composite(white_bg, logo_img)
+
+                            logo_w, logo_h = white_bg.size
+
+                            # Build a composite: white padded background + logo + subtle border
+                            padding = 8
                             bg_size = max(logo_w, logo_h) + padding * 2
                             bg = PILImage.new('RGBA', (bg_size, bg_size), (255, 255, 255, 255))
-                            
-                            # Paste logo onto white background
+
+                            # Subtle border
+                            from PIL import ImageDraw
+                            draw = ImageDraw.Draw(bg)
+                            draw.rectangle(
+                                [1, 1, bg_size - 2, bg_size - 2],
+                                outline=(180, 180, 180, 255),
+                                width=1
+                            )
+
+                            # Paste flattened logo onto the white background (no alpha mask needed)
                             paste_x = (bg_size - logo_w) // 2
                             paste_y = (bg_size - logo_h) // 2
-                            bg.paste(logo_img, (paste_x, paste_y), logo_img)
-                            
-                            # Center the logo background on the QR code
+                            bg.paste(white_bg, (paste_x, paste_y))
+
+                            # Center on QR code
                             qr_center_x = (qr_width - bg_size) // 2
                             qr_center_y = (qr_height - bg_size) // 2
-                            
-                            # Convert QR to RGBA for compositing
+
+                            # Convert QR to RGBA
                             if img.mode != 'RGBA':
                                 img = img.convert('RGBA')
-                            
-                            img.paste(bg, (qr_center_x, qr_center_y), bg)
+
+                            # Paste composite onto QR (solid, no alpha needed)
+                            img.paste(bg, (qr_center_x, qr_center_y))
                             logo_embedded = True
                             print(f"[QR Logo] Logo embedded successfully!")
                         else:
