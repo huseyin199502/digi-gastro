@@ -4576,7 +4576,7 @@ def sort_tables_in_grid(tables):
     return sorted_tables
 
 @app.post("/admin/table-erstellen")
-def create_table(
+async def create_table(
     request: Request,
     number: str = Form(...),
     zone: str = Form(...),
@@ -4610,13 +4610,14 @@ def create_table(
         }
         restaurant["tables"].append(table_entry)
         
-    restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
+        restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/table-loeschen/{table_num}")
-def delete_table(request: Request, table_num: str, zone: Optional[str] = None, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def delete_table(request: Request, table_num: str, zone: Optional[str] = None, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -4628,9 +4629,9 @@ def delete_table(request: Request, table_num: str, zone: Optional[str] = None, c
             restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
         restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
 
-        
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # Legacy redirects for backward compatibility
@@ -4655,7 +4656,7 @@ def legacy_admin_logout(slug: str):
     return RedirectResponse(url="/admin/logout")
 
 @app.post("/admin/profile-update")
-def profile_update(
+async def profile_update(
     request: Request,
     has_kitchen: Optional[bool] = Form(False),
     is_shishabar: Optional[bool] = Form(False),
@@ -4694,15 +4695,16 @@ def profile_update(
             categories.append(cat)
             
     restaurant["categories"] = categories
-    
+
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
 
 @app.post("/admin/sitzplan/positions")
-def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     tables = restaurant.get("tables", [])
     for t in tables:
@@ -4717,15 +4719,15 @@ def save_sitzplan_positions(request: Request, payload: dict, chef_data: tuple = 
             t["height"] = float(payload[payload_key].get("height", t.get("height", 80.0)))
             t["shape"] = str(payload[payload_key].get("shape", t.get("shape", "rect")))
 
-            
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "refresh_tables"})
     return {"success": True}
 
 
 
 @app.post("/admin/kategorie-erstellen")
-def create_category(
+async def create_category(
     request: Request,
     name: Optional[str] = Form(None),
     category_name: Optional[str] = Form(None, alias="category-name"),
@@ -4749,6 +4751,7 @@ def create_category(
         restaurant["categories"].append(cat)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # Helper für Admin-Rechteprüfung ist nun am Anfang definiert.
@@ -5020,11 +5023,12 @@ async def post_produkt_erstellen(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Erstellen des Produkts: {e}")
 
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
 @app.post("/admin/produkt-loeschen/{product_id}")
-def delete_produkt(
+async def delete_produkt(
     request: Request,
     product_id: int,
     chef_data: tuple = Depends(require_chef_user_flat),
@@ -5060,11 +5064,12 @@ def delete_produkt(
     if old_image:
         delete_local_image_if_unused(old_image, restaurant)
 
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
 @app.post("/admin/kategorie-loeschen")
-def delete_kategorie(
+async def delete_kategorie(
     request: Request,
     name: str = Form(...),
     chef_data: tuple = Depends(require_chef_user_flat),
@@ -5090,6 +5095,7 @@ def delete_kategorie(
     finally:
         db_session.close()
 
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # API Models
@@ -5611,7 +5617,7 @@ def delete_staff(request: Request, pin_code: str, chef_data: tuple = Depends(req
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/branding")
-def update_branding(
+async def update_branding(
     request: Request,
     logo_file: Optional[UploadFile] = File(None),
     logo_url: Optional[str] = Form(None),
@@ -5663,6 +5669,7 @@ def update_branding(
     update_legal_placeholders(restaurant)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 def update_legal_placeholders(restaurant: dict) -> None:
@@ -6030,10 +6037,11 @@ async def update_landingpage(
     
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 @app.post("/admin/landingpage/delete-image")
-def delete_landing_image(
+async def delete_landing_image(
     request: Request,
     image_url: str = Form(...),
     image_type: str = Form(...),
@@ -6124,6 +6132,7 @@ def delete_landing_image(
                 
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.get("/api/{slug}/table-status/{table_num}")
@@ -6211,7 +6220,7 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
 
 
 @app.post("/admin/happy-hour")
-def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -6225,6 +6234,7 @@ def update_happy_hour(request: Request, days: List[str] = Form(default=[]), star
     }
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/happy-hour-products")
@@ -6271,10 +6281,11 @@ async def update_happy_hour_products(request: Request, chef_data: tuple = Depend
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     
+    await manager.broadcast(slug, {"type": "update"})
     return JSONResponse({"success": True})
 
 @app.post("/admin/shishabar-toggle")
-def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -6291,10 +6302,11 @@ def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form(None)
             
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/card-payment-toggle")
-def toggle_card_payment(request: Request, accepts_card_payment: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def toggle_card_payment(request: Request, accepts_card_payment: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -6302,6 +6314,7 @@ def toggle_card_payment(request: Request, accepts_card_payment: Optional[bool] =
     restaurant["accepts_card_payment"] = bool(accepts_card_payment)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -6422,6 +6435,7 @@ async def update_product_api(
     if old_image and old_image != product.get("image"):
         delete_local_image_if_unused(old_image, restaurant)
 
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/orders/confirm/{order_id}")
@@ -6479,6 +6493,7 @@ async def reorder_products_api(
     restaurant["products"] = sorted(products, key=lambda x: x.get("position", 0))
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/admin/categories/reorder")
@@ -6502,6 +6517,7 @@ async def reorder_categories_api(
     restaurant["categories"] = new_order
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
 @app.patch("/api/categories/edit")
@@ -6564,7 +6580,7 @@ async def update_category_api(
 
 
 @app.post("/admin/product-toggle/{product_id}")
-def toggle_product_availability(request: Request, product_id: int, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def toggle_product_availability(request: Request, product_id: int, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -6575,10 +6591,11 @@ def toggle_product_availability(request: Request, product_id: int, chef_data: tu
     product["is_available"] = not product.get("is_available", True)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/product-hh")
-def update_product_hh(
+async def update_product_hh(
     request: Request,
     product_id: int = Form(...), 
     hh_price: Optional[float] = Form(None, alias="happy_hour_price"),
@@ -6601,10 +6618,11 @@ def update_product_hh(
     # happy_hour_days is not updated via this endpoint (use bulk endpoint instead)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/token-rotieren")
-def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -6613,6 +6631,7 @@ def token_rotieren(request: Request, chef_data: tuple = Depends(require_chef_use
     restaurant["security_token"] = new_token
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
+    await manager.broadcast(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 def clean_product_name_for_search(name: str) -> str:
