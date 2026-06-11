@@ -5252,11 +5252,12 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
     return {"active": bool(is_token_valid)}
 
 @app.get("/api/qr")
-def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = ""):
-    """Server-side QR code generation. Keeps tokens private (not sent to external APIs)."""
+def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", slug: str = ""):
+    """Server-side QR code generation with optional logo overlay. Keeps tokens private (not sent to external APIs)."""
     import qrcode
     from io import BytesIO
     import base64
+    from PIL import Image as PILImage
     
     # Validate: only admin/staff can generate QR codes
     res = get_current_user_and_slug(request)
@@ -5273,11 +5274,78 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = ""):
     if not data:
         raise HTTPException(status_code=400, detail="Keine Daten für QR-Code.")
     
+    # Extract slug from URL path if available (e.g. /deer-lounge?...)
+    if not slug:
+        try:
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(data)
+            path_parts = [p for p in parsed.path.split("/") if p]
+            if path_parts:
+                slug = path_parts[0]
+        except Exception:
+            pass
+    
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
     qr.add_data(data)
     qr.make(fit=True)
     
     img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Try to embed the tenant logo in the center of the QR code
+    logo_embedded = False
+    if slug:
+        try:
+            db = SessionLocal()
+            try:
+                restaurant = load_restaurant_from_db(slug, db)
+                if restaurant:
+                    logo_url = restaurant.get("branding", {}).get("logo_url", "") or restaurant.get("logo_path", "")
+                    if logo_url:
+                        # Convert URL path to filesystem path
+                        if logo_url.startswith("/uploads/"):
+                            logo_fs_path = os.path.join(UPLOAD_DIR, logo_url[len("/uploads/"):])
+                        elif logo_url.startswith("/static/"):
+                            logo_fs_path = os.path.join(BASE_DIR, logo_url.lstrip("/"))
+                        else:
+                            logo_fs_path = None
+                        
+                        if logo_fs_path and os.path.exists(logo_fs_path):
+                            logo_img = PILImage.open(logo_fs_path)
+                            # Calculate logo size (max 25% of QR code)
+                            qr_width, qr_height = img.size
+                            logo_max = int(min(qr_width, qr_height) * 0.25)
+                            logo_img.thumbnail((logo_max, logo_max), PILImage.Resampling.LANCZOS)
+                            
+                            # Convert logo to RGBA for compositing
+                            if logo_img.mode != 'RGBA':
+                                logo_img = logo_img.convert('RGBA')
+                            
+                            # Create white rounded background
+                            logo_w, logo_h = logo_img.size
+                            padding = 6
+                            bg_size = max(logo_w, logo_h) + padding * 2
+                            bg = PILImage.new('RGBA', (bg_size, bg_size), (255, 255, 255, 255))
+                            
+                            # Paste logo onto white background
+                            paste_x = (bg_size - logo_w) // 2
+                            paste_y = (bg_size - logo_h) // 2
+                            bg.paste(logo_img, (paste_x, paste_y), logo_img)
+                            
+                            # Center the logo background on the QR code
+                            qr_center_x = (qr_width - bg_size) // 2
+                            qr_center_y = (qr_height - bg_size) // 2
+                            
+                            # Convert QR to RGBA for compositing
+                            if img.mode != 'RGBA':
+                                img = img.convert('RGBA')
+                            
+                            img.paste(bg, (qr_center_x, qr_center_y), bg)
+                            logo_embedded = True
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[QR Logo] Could not embed logo: {e}")
+    
     buffer = BytesIO()
     img.save(buffer, format="PNG")
     buffer.seek(0)
@@ -7031,13 +7099,6 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         pass
         
     base_url = str(request.base_url).rstrip("/")
-    logo_url = restaurant.get("branding", {}).get("logo_url") or "/static/images/digigastrologo.jpeg"
-    # Cache-bust logo so updated logos show immediately on QR print
-    cache_bust = int(_time.time())
-    if "?" in logo_url:
-        logo_url_busted = f"{logo_url}&t={cache_bust}"
-    else:
-        logo_url_busted = f"{logo_url}?t={cache_bust}"
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -7076,11 +7137,8 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         html_content += f"""
             <div class="card">
                 <h3>{table_display_name}</h3>
-                <div style="position: relative; width: 150px; height: 150px; margin: 15px auto; background: white;">
+                <div style="width: 150px; height: 150px; margin: 15px auto; background: white;">
                     <img src="{qr_image_src}" alt="QR {table_display_name}" style="width: 150px; height: 150px; display: block;" />
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: white; padding: 2px; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
-                        <img src="{logo_url_busted}" style="width: 26px; height: 26px; object-fit: contain; border-radius: 4px;" onerror="this.parentElement.style.display='none'" />
-                    </div>
                 </div>
             </div>
         """
