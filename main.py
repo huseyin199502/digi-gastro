@@ -5327,31 +5327,54 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
                             if logo_img.mode != 'RGBA':
                                 logo_img = logo_img.convert('RGBA')
 
-                            # Flatten the logo onto a white background so semi-transparent
+                            # Detect if the logo is predominantly white/light-colored
+                            # by checking the opaque pixels' average brightness
+                            import numpy as _np
+                            _arr = _np.array(logo_img)
+                            _alpha = _arr[:, :, 3]
+                            _opaque_mask = _alpha >= 128
+                            _logo_is_light = True  # default to dark bg
+                            if _opaque_mask.sum() > 0:
+                                _rgb_opaque = _arr[:, :, :3][_opaque_mask]
+                                _avg_brightness = _rgb_opaque.mean()
+                                _logo_is_light = _avg_brightness > 180
+                                print(f"[QR Logo] Logo avg brightness={_avg_brightness:.1f}, is_light={_logo_is_light}")
+
+                            # Choose background color based on logo brightness:
+                            # Light/white logos → dark background (so they're visible)
+                            # Dark/colored logos → white background (standard QR look)
+                            if _logo_is_light:
+                                bg_color = (30, 30, 30, 255)       # dark charcoal
+                                border_color = (60, 60, 60, 255)   # subtle dark border
+                            else:
+                                bg_color = (255, 255, 255, 255)    # white
+                                border_color = (180, 180, 180, 255) # subtle gray border
+
+                            # Flatten the logo onto the chosen background so semi-transparent
                             # pixels composite correctly (prevents washed-out look)
-                            white_bg = PILImage.new('RGBA', logo_img.size, (255, 255, 255, 255))
-                            white_bg = PILImage.alpha_composite(white_bg, logo_img)
+                            flat_bg = PILImage.new('RGBA', logo_img.size, bg_color)
+                            flattened = PILImage.alpha_composite(flat_bg, logo_img)
 
-                            logo_w, logo_h = white_bg.size
+                            logo_w, logo_h = flattened.size
 
-                            # Build a composite: white padded background + logo + subtle border
+                            # Build a composite: padded background + logo + border
                             padding = 8
                             bg_size = max(logo_w, logo_h) + padding * 2
-                            bg = PILImage.new('RGBA', (bg_size, bg_size), (255, 255, 255, 255))
+                            bg = PILImage.new('RGBA', (bg_size, bg_size), bg_color)
 
-                            # Subtle border
+                            # Border
                             from PIL import ImageDraw
                             draw = ImageDraw.Draw(bg)
                             draw.rectangle(
                                 [1, 1, bg_size - 2, bg_size - 2],
-                                outline=(180, 180, 180, 255),
+                                outline=border_color,
                                 width=1
                             )
 
-                            # Paste flattened logo onto the white background (no alpha mask needed)
+                            # Paste flattened logo onto the background (no alpha mask needed)
                             paste_x = (bg_size - logo_w) // 2
                             paste_y = (bg_size - logo_h) // 2
-                            bg.paste(white_bg, (paste_x, paste_y))
+                            bg.paste(flattened, (paste_x, paste_y))
 
                             # Center on QR code
                             qr_center_x = (qr_width - bg_size) // 2
@@ -5364,7 +5387,7 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
                             # Paste composite onto QR (solid, no alpha needed)
                             img.paste(bg, (qr_center_x, qr_center_y))
                             logo_embedded = True
-                            print(f"[QR Logo] Logo embedded successfully!")
+                            print(f"[QR Logo] Logo embedded successfully! (bg={'dark' if _logo_is_light else 'white'})")
                         else:
                             print(f"[QR Logo] Logo file not found at {logo_fs_path}")
                     else:
