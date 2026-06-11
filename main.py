@@ -5274,10 +5274,13 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
     if not data:
         raise HTTPException(status_code=400, detail="Keine Daten für QR-Code.")
     
-    # Extract slug from URL path if available (e.g. /deer-lounge?...)
-    if not slug:
+    # Extract slug: prefer direct query param, then try parsing from URL
+    slug_param = request.query_params.get("slug", "")
+    if slug_param:
+        slug = slug_param
+    elif not slug:
         try:
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import urlparse
             parsed = urlparse(data)
             path_parts = [p for p in parsed.path.split("/") if p]
             if path_parts:
@@ -5300,6 +5303,7 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
                 restaurant = load_restaurant_from_db(slug, db)
                 if restaurant:
                     logo_url = restaurant.get("branding", {}).get("logo_url", "") or restaurant.get("logo_path", "")
+                    print(f"[QR Logo] slug={slug}, logo_url={logo_url}")
                     if logo_url:
                         # Convert URL path to filesystem path
                         if logo_url.startswith("/uploads/"):
@@ -5308,6 +5312,9 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
                             logo_fs_path = os.path.join(BASE_DIR, logo_url.lstrip("/"))
                         else:
                             logo_fs_path = None
+                        
+                        print(f"[QR Logo] logo_fs_path={logo_fs_path}, exists={os.path.exists(logo_fs_path) if logo_fs_path else 'N/A'}")
+                        print(f"[QR Logo] UPLOAD_DIR={UPLOAD_DIR}")
                         
                         if logo_fs_path and os.path.exists(logo_fs_path):
                             logo_img = PILImage.open(logo_fs_path)
@@ -5341,10 +5348,19 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
                             
                             img.paste(bg, (qr_center_x, qr_center_y), bg)
                             logo_embedded = True
+                            print(f"[QR Logo] Logo embedded successfully!")
+                        else:
+                            print(f"[QR Logo] Logo file not found at {logo_fs_path}")
+                    else:
+                        print(f"[QR Logo] No logo_url found for slug={slug}")
+                else:
+                    print(f"[QR Logo] No restaurant found for slug={slug}")
             finally:
                 db.close()
         except Exception as e:
+            import traceback
             print(f"[QR Logo] Could not embed logo: {e}")
+            traceback.print_exc()
     
     buffer = BytesIO()
     img.save(buffer, format="PNG")
@@ -7128,7 +7144,7 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         token = t.get("security_token", "")
         qr_url = f"{base_url}/{slug}?t={table_num}&z={urllib.parse.quote(table_zone)}&tk={token}"
         # Server-side QR generation: no token sent to external API
-        qr_params = urllib.parse.urlencode({"d": qr_url, "t": table_num, "z": table_zone})
+        qr_params = urllib.parse.urlencode({"d": qr_url, "t": table_num, "z": table_zone, "slug": slug})
         qr_image_src = f"/api/qr?{qr_params}"
         display_num = table_num
         if str(display_num).startswith("Tisch "):
