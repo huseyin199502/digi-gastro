@@ -1393,6 +1393,9 @@
                         console.log("Guest WebSocket connected!");
                         pongReceived = true;
                         
+                        // Stop fallback polling — WS is working
+                        this.stopGuestFallbackPolling();
+                        
                         if (this.guestWsHeartbeatInterval) clearInterval(this.guestWsHeartbeatInterval);
                         this.guestWsHeartbeatInterval = setInterval(() => {
                             if (!pongReceived) {
@@ -1493,6 +1496,8 @@
                             console.warn("Guest WebSocket: Unauthorized. Not reconnecting.");
                             return;
                         }
+                        // Start fallback polling while disconnected
+                        this.startGuestFallbackPolling();
                         // Reconnect after 5 seconds for other close reasons
                         setTimeout(() => this.initGuestWebSocket(), 5000);
                     };
@@ -1501,6 +1506,29 @@
                         console.error("Guest WebSocket error:", err);
                         ws.close();
                     };
+                },
+
+                // Fallback polling when WebSocket is disconnected
+                guestFallbackInterval: null,
+                startGuestFallbackPolling() {
+                    if (this.guestFallbackInterval) return; // already running
+                    console.log("Starting guest fallback polling (30s interval)...");
+                    this.guestFallbackInterval = setInterval(() => {
+                        // If WS is connected, stop polling
+                        if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+                            this.stopGuestFallbackPolling();
+                            return;
+                        }
+                        // Poll for order status
+                        this.fetchGuestTableStatus();
+                    }, 30000);
+                },
+                stopGuestFallbackPolling() {
+                    if (this.guestFallbackInterval) {
+                        clearInterval(this.guestFallbackInterval);
+                        this.guestFallbackInterval = null;
+                        console.log("Guest fallback polling stopped.");
+                    }
                 },
 
                 get cartTotal() {
