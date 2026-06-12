@@ -230,9 +230,9 @@
 
     <!-- NAVIGATION -->
     <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-40 relative z-10 transition-all duration-300">
-        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-10 w-10 rounded-xl border border-primary/30 object-cover hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
+                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-primary/30 object-contain hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
                 <div id="logo-fallback-nav" class="hidden h-10 w-10 rounded-xl bg-zinc-900 border border-primary/30 items-center justify-center text-primary font-bold">dg</div>
                 <span class="text-xl font-black tracking-tight font-display text-white">digi-gastro<span class="text-primary">.de</span></span>
             </div>
@@ -242,14 +242,14 @@
                 <a href="#faq" class="hover:text-white transition-colors duration-250">FAQ</a>
             </div>
             <div class="flex items-center gap-3 sm:gap-4">
-                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-450 hover:text-white transition-colors">Partner-Login</button>
-                <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-premium btn-premium-primary text-xs px-5 py-2.5 rounded-xl whitespace-nowrap btn-shimmer">Demo anfragen</a>
+                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-450 hover:text-white transition-colors py-2 px-1">Partner-Login</button>
+                <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-premium btn-premium-primary text-xs px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer">Demo anfragen</a>
             </div>
         </div>
     </nav>
  
     <!-- HERO SECTION -->
-    <header class="relative py-20 lg:py-28 border-b border-zinc-900 z-10">
+    <header class="relative py-12 lg:py-28 border-b border-zinc-900 z-10">
         <div class="w-full px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             
             <!-- Hero text content (Left) -->
@@ -258,7 +258,7 @@
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     Gastronomie OS 2.0
                 </div>
-                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight font-display">
+                <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight font-display">
                     Das intelligente Betriebssystem für <span class="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 bg-clip-text text-transparent">moderne Gastronomie</span>.
                 </h1>
                 <p class="text-base sm:text-lg text-zinc-400 leading-relaxed font-medium">
@@ -398,7 +398,7 @@
     </header>
 
     <!-- FEATURE MATRIX (BENTO GRID STYLE) -->
-    <section id="features" class="py-24 relative z-10 reveal-scale">
+    <section id="features" class="py-12 md:py-24 relative z-10 reveal-scale">
         <div class="max-w-7xl mx-auto px-6">
             <div class="text-center max-w-3xl mx-auto mb-16">
                 <h2 class="text-3xl sm:text-4xl font-black text-white font-display tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Das All-in-One Gastro-Betriebssystem</h2>
@@ -409,7 +409,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 <!-- BENTO CARD 1: Smarter Shisha-Modus (col-span-2) -->
-                <div class="glass-card p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
                             <i class="fa-solid fa-fire text-xl"></i>
@@ -423,7 +423,7 @@
                 </div>
 
                 <!-- BENTO CARD 2: Digitales Küchen-Display (col-span-1) -->
-                <div class="glass-card p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
                             <i class="fa-solid fa-desktop text-xl"></i>
@@ -437,7 +437,7 @@
                 </div>
 
                 <!-- BENTO CARD 3: Flexibles Rechnungs-Splitting (col-span-1) -->
-                <div class="glass-card p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
                             <i class="fa-solid fa-arrows-split-up-and-left text-xl"></i>
@@ -451,7 +451,7 @@
                 </div>
 
                 <!-- BENTO CARD 4: GoBD-Konformität & Audit-Log (col-span-2) -->
-                <div class="glass-card p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
                             <i class="fa-solid fa-shield-halved text-xl"></i>
@@ -465,7 +465,7 @@
                 </div>
 
                 <!-- BENTO CARD 5: Google-Review-Booster (col-span-2) -->
-                <div class="glass-card p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
                             <i class="fa-solid fa-star text-xl"></i>
@@ -479,7 +479,7 @@
                 </div>
 
                 <!-- BENTO CARD 6: Automatische Happy-Hour (col-span-1) -->
-                <div class="glass-card p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
                             <i class="fa-solid fa-clock text-xl"></i>
@@ -497,7 +497,7 @@
     </section>
 
     <!-- FAQ SECTION -->
-    <section id="faq" class="py-24 border-t border-zinc-900 relative z-10 reveal">
+    <section id="faq" class="py-12 md:py-24 border-t border-zinc-900 relative z-10 reveal">
         <div class="max-w-4xl mx-auto px-6">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-black text-white font-display tracking-tight">Häufig gestellte Fragen (FAQ)</h2>
