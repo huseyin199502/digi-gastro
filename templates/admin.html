@@ -1671,6 +1671,21 @@
         html.dark .product-card:hover {
             background-color: rgba(34, 197, 94, 0.04);
         }
+        .product-card .drag-handle {
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+        .product-card:hover .drag-handle,
+        .product-card:active .drag-handle {
+            opacity: 1;
+        }
+        .product-row .drag-handle {
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+        .product-row:hover .drag-handle {
+            opacity: 1;
+        }
         .product-card-img {
             width: 40px;
             height: 40px;
@@ -2188,6 +2203,7 @@
                             <thead>
                                 <tr>
                                     <th class="w-10"><input type="checkbox" id="select-all-products" onchange="toggleSelectAllProducts(this.checked)"></th>
+                                    <th class="w-8"></th>
                                     <th class="w-12"></th>
                                     <th>Produkt</th>
                                     <th>Kategorie</th>
@@ -2197,14 +2213,18 @@
                                     <th class="w-24">Aktionen</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="product-sortable-list">
                                 {% for p in restaurant.products %}
                                 <tr class="product-row border-b border-zinc-100 hover:bg-zinc-50 transition"
                                     data-category="{{ p.category }}"
                                     data-available="{{ 'true' if p.is_available else 'false' }}"
                                     data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
-                                    data-name="{{ p.name | lower }}">
+                                    data-name="{{ p.name | lower }}"
+                                    data-product-id="{{ p.id }}">
                                     <td><input type="checkbox" class="product-checkbox" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()"></td>
+                                    <td>
+                                        <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:16px;" title="Verschieben">drag_indicator</span>
+                                    </td>
                                     <td>
                                         <div class="w-8 h-8 rounded-lg bg-zinc-200/50 flex items-center justify-center overflow-hidden shrink-0 relative">
                                             {% if p.image and not p.image.lower().endswith('.pdf') %}
@@ -2235,12 +2255,10 @@
                                     </td>
                                     <td class="font-mono font-bold text-xs text-zinc-700">{{ "%.2f"|format(p.price) }} €</td>
                                     <td>
-                                        <form action="/admin/product-toggle/{{ p.id }}" method="POST" class="inline flex items-center">
-                                            <label class="switch">
-                                                <input type="checkbox" onchange="this.form.submit()" {% if p.is_available %}checked{% endif %}>
-                                                <span class="slider"></span>
-                                            </label>
-                                        </form>
+                                        <label class="switch">
+                                            <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
+                                            <span class="slider"></span>
+                                        </label>
                                     </td>
                                     <td>
                                         {% if p.happy_hour_price %}
@@ -2257,11 +2275,9 @@
                                             <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
                                                 <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                                             </button>
-                                            <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" class="inline" onsubmit="return confirm('Produkt löschen?')">
-                                                <button type="submit" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
-                                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
-                                                </button>
-                                            </form>
+                                            <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+                                                <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -2271,13 +2287,15 @@
                     </div>
 
                     <!-- Product Card View (Mobile) -->
-                    <div class="product-card-view">
+                    <div class="product-card-view product-sortable-list">
                         {% for p in restaurant.products %}
                         <div class="product-card"
                              data-category="{{ p.category }}"
                              data-available="{{ 'true' if p.is_available else 'false' }}"
                              data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
-                             data-name="{{ p.name | lower }}">
+                             data-name="{{ p.name | lower }}"
+                             data-product-id="{{ p.id }}">
+                            <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none shrink-0" style="font-size:18px;" title="Verschieben">drag_indicator</span>
                             <input type="checkbox" class="product-checkbox shrink-0" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
                             <div class="product-card-img">
                                 {% if p.image and not p.image.lower().endswith('.pdf') %}
@@ -2310,23 +2328,19 @@
                                     {% else %}
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">{{ p.category }}</span>
                                     {% endif %}
-                                    <form action="/admin/product-toggle/{{ p.id }}" method="POST" class="inline flex items-center ml-auto">
-                                        <label class="switch" style="transform:scale(0.85);">
-                                            <input type="checkbox" onchange="this.form.submit()" {% if p.is_available %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </form>
+                                    <label class="switch ml-auto" style="transform:scale(0.85);">
+                                        <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
                                 </div>
                             </div>
                             <div class="product-card-actions">
                                 <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
                                     <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                                 </button>
-                                <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" class="inline" onsubmit="return confirm('Produkt löschen?')">
-                                    <button type="submit" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
-                                        <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
-                                    </button>
-                                </form>
+                                <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                </button>
                             </div>
                         </div>
                         {% endfor %}
@@ -6706,6 +6720,7 @@
                     } else {
                         closeQuickCreateModal();
                     }
+                    sessionStorage.setItem('dl_admin_active_tab', 'produkte');
                     window.location.reload();
                 } else {
                     showToast('Fehler beim Erstellen des Produkts', 'error');
@@ -6749,6 +6764,45 @@
             });
         }
 
+        // Toggle product availability via fetch (no page redirect)
+        async function toggleProductAvailability(productId, isChecked) {
+            try {
+                const res = await fetch('/admin/product-toggle/' + productId, { method: 'POST' });
+                if (res.ok) {
+                    showToast(isChecked ? 'Produkt aktiviert' : 'Produkt deaktiviert', 'success');
+                } else {
+                    showToast('Fehler beim Umschalten', 'error');
+                    // Revert checkbox - find the checkbox by product id
+                    const cb = document.querySelector(`.switch input[type="checkbox"][onchange*="${productId}"]`);
+                    if (cb) cb.checked = !isChecked;
+                }
+            } catch (err) {
+                showToast('Verbindungsfehler', 'error');
+                const cb = document.querySelector(`.switch input[type="checkbox"][onchange*="${productId}"]`);
+                if (cb) cb.checked = !isChecked;
+            }
+        }
+
+        // Delete product via fetch (stays on produkte tab)
+        async function deleteProduct(productId, productName) {
+            if (!confirm('Produkt "' + productName + '" löschen?')) return;
+            try {
+                const res = await fetch('/admin/produkt-loeschen/' + productId, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'fetch' }
+                });
+                if (res.ok) {
+                    showToast('Produkt gelöscht', 'success');
+                    sessionStorage.setItem('dl_admin_active_tab', 'produkte');
+                    window.location.reload();
+                } else {
+                    showToast('Fehler beim Löschen', 'error');
+                }
+            } catch (err) {
+                showToast('Verbindungsfehler', 'error');
+            }
+        }
+
         // Bulk action bar
         function updateBulkActionBar() {
             const checked = document.querySelectorAll('.product-checkbox:checked');
@@ -6776,18 +6830,20 @@
                 await fetch('/admin/product-toggle/' + pid, { method: 'POST' });
             }
             showToast(checked.length + ' Produkte aktualisiert', 'success');
+            sessionStorage.setItem('dl_admin_active_tab', 'produkte');
             window.location.reload();
         }
 
         async function bulkDeleteProducts() {
             const checked = document.querySelectorAll('.product-checkbox:checked');
             if (checked.length === 0) return;
-            if (!confirm(checked.length + ' Produkte l&ouml;schen?')) return;
+            if (!confirm(checked.length + ' Produkte löschen?')) return;
             for (const cb of checked) {
                 const pid = cb.dataset.productId;
                 await fetch('/admin/produkt-loeschen/' + pid, { method: 'POST' });
             }
-            showToast(checked.length + ' Produkte gel&ouml;scht', 'success');
+            showToast(checked.length + ' Produkte gelöscht', 'success');
+            sessionStorage.setItem('dl_admin_active_tab', 'produkte');
             window.location.reload();
         }
 
@@ -7199,7 +7255,8 @@
             .then(res => {
                 if (res.ok) {
                     closeEditProductModal();
-                    // Simple page reload to refresh list instantly
+                    // Stay on produkte tab after reload
+                    sessionStorage.setItem('dl_admin_active_tab', 'produkte');
                     window.location.reload();
                 } else {
                     alert("Fehler beim Aktualisieren des Produkts.");

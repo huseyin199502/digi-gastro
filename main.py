@@ -5193,6 +5193,10 @@ async def delete_produkt(
         delete_local_image_if_unused(old_image, restaurant)
 
     await manager.broadcast(slug, {"type": "update"})
+    # Support both fetch (JSON) and form-post (redirect) callers
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept or request.headers.get("x-requested-with") == "fetch":
+        return {"success": True}
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -6832,7 +6836,7 @@ async def toggle_product_availability(request: Request, product_id: int, chef_da
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     await manager.broadcast(slug, {"type": "update"})
-    return RedirectResponse(url="/admin/dashboard", status_code=303)
+    return {"success": True, "is_available": product["is_available"]}
 
 @app.post("/admin/product-hh")
 async def update_product_hh(
