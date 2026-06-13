@@ -21,3 +21,23 @@ Stage Summary:
 - Control modal auto-closes when all orders for a table are paid/cancelled
 - Happy Hour now supports per-product time ranges (e.g. Cola Mo-So 17:00-18:00, Shisha Mo-So 20:00-22:00)
 - All changes in: admin.html (frontend), main.py (backend)
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix admin panel broken - nothing clickable, tables not showing after Events System commit
+
+Work Log:
+- Diagnosed the root cause: duplicate `let allEvents = [];` declaration at line 6675, while `allEvents` was already declared at line 3462 with Jinja2 server data `{{ events_json | safe }}`
+- In JavaScript, `let` does not allow redeclaration in the same scope — this caused a `SyntaxError` during script parsing that prevented the ENTIRE `<script>` block from executing
+- This meant NO functions were defined (switchAdminTab, renderSitzplanTiles, openControlModal, etc.), explaining why nothing was clickable and no tables were displayed
+- Removed the duplicate `let allEvents = [];` declaration (line 6675), keeping only the Jinja2-initialized one at line 3462
+- Cleaned up the redundant DOMContentLoaded handler that tried to load events from non-existent DOM elements (`events-data-json`, `products-data-json`) — simplified it to just call `renderEventsList()`
+- Verified the fix with Node.js `--check` syntax validation — no errors
+- Synced the fixed file to `/tmp/my-project/templates/admin.html` for the running container
+
+Stage Summary:
+- Root cause: `let allEvents` declared twice in the same scope → SyntaxError → entire page broken
+- Fix: Removed duplicate declaration, kept only the Jinja2-initialized one
+- Also simplified redundant DOMContentLoaded handler
+- File changed: templates/admin.html

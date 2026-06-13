@@ -6669,10 +6669,10 @@
             }
         }
 
-        // Toggle HH product row highlight and price field visibility
         // ─── Events System JavaScript ───
+        // NOTE: allEvents is already declared above (line ~3462) from server data
+        // Do NOT re-declare with `let` — it would cause a SyntaxError that breaks the entire page!
 
-        let allEvents = [];
         const ALL_DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
         const DAY_ABBR = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -7014,28 +7014,10 @@
             });
         }
 
-        // Initialize on DOMContentLoaded
+        // Initialize events list on DOMContentLoaded
+        // NOTE: allEvents and allProducts are already initialized from server-side Jinja2 data above
         document.addEventListener('DOMContentLoaded', function() {
-            // Load events data
-            try {
-                const eventsJsonEl = document.getElementById('events-data-json');
-                if (eventsJsonEl) {
-                    allEvents = JSON.parse(eventsJsonEl.textContent || '[]');
-                }
-            } catch(e) {
-                allEvents = [];
-            }
             renderEventsList();
-
-            // Load products data for the product selector
-            try {
-                const productsJsonEl = document.getElementById('products-data-json');
-                if (productsJsonEl) {
-                    window._productsData = JSON.parse(productsJsonEl.textContent || '[]');
-                }
-            } catch(e) {
-                window._productsData = [];
-            }
         });
 
         // closeEditProductModal is defined above (delegates to closeEditSlideOver)
