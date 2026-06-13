@@ -1121,7 +1121,17 @@
                 tableOrders: { pending: [], delivered: [], total: 0.0 },
                 selectedSplitItems: [],
                 isDrawerOpen: true,
-                currentView: (new URLSearchParams(window.location.search).get('role') === 'waiter' || new URLSearchParams(window.location.search).get('role') === 'admin') ? 'speisekarte' : 'landing',
+                currentView: (() => {
+                    const params = new URLSearchParams(window.location.search);
+                    const role = params.get('role');
+                    if (role === 'waiter' || role === 'admin') return 'speisekarte';
+                    // Check hash first, then localStorage, then default to landing
+                    const hash = window.location.hash.replace('#', '');
+                    if (hash === 'speisekarte' || hash === 'landing') return hash;
+                    const saved = localStorage.getItem('dl_menu_view');
+                    if (saved === 'speisekarte' || saved === 'landing') return saved;
+                    return 'landing';
+                })(),
                 restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
                 guestWs: null,
                 guestWsHeartbeatInterval: null,
@@ -1150,6 +1160,16 @@
                     window.selectPaymentOption = (type) => this.selectPaymentOption(type);
                     window.confirmPaymentRequest = () => this.confirmPaymentRequest();
                     window.showReviewPopup = (url) => this.showReviewPopup(url);
+
+                    // Sync currentView to hash + localStorage on init
+                    this.$watch('currentView', (val) => {
+                        history.replaceState(null, '', '#' + val);
+                        localStorage.setItem('dl_menu_view', val);
+                    });
+                    // Set initial hash if not already set
+                    if (!window.location.hash || (window.location.hash !== '#speisekarte' && window.location.hash !== '#landing')) {
+                        history.replaceState(null, '', '#' + this.currentView);
+                    }
 
                     const resetSession = {% if reset_session %}true{% else %}false{% endif %};
                     if (resetSession) {
