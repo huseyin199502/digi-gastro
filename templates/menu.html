@@ -1061,7 +1061,13 @@
 
         function menuState() {
             return {
-                cart: [],
+                cart: (() => {
+                    try {
+                        const saved = localStorage.getItem('dl_cart_{{ slug }}');
+                        if (saved) return JSON.parse(saved);
+                    } catch(e) {}
+                    return [];
+                })(),
                 currentLang: 'de',
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
@@ -1166,6 +1172,10 @@
                         history.replaceState(null, '', '#' + val);
                         localStorage.setItem('dl_menu_view', val);
                     });
+                    // Sync cart to localStorage
+                    this.$watch('cart', (val) => {
+                        localStorage.setItem('dl_cart_{{ slug }}', JSON.stringify(val));
+                    }, { deep: true });
                     // Set initial hash if not already set
                     if (!window.location.hash || (window.location.hash !== '#speisekarte' && window.location.hash !== '#landing')) {
                         history.replaceState(null, '', '#' + this.currentView);
@@ -1174,6 +1184,7 @@
                     const resetSession = {% if reset_session %}true{% else %}false{% endif %};
                     if (resetSession) {
                         localStorage.removeItem(`dl_orders_{{ slug }}`);
+                        localStorage.removeItem(`dl_cart_{{ slug }}`);
                         this.cart = [];
                     }
                     
@@ -1906,7 +1917,7 @@
                         let myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
                         myOrders.push(data.order_id);
                         localStorage.setItem(`dl_orders_{{ slug }}`, JSON.stringify(myOrders));
-
+                        localStorage.removeItem(`dl_cart_{{ slug }}`);
                         this.cart = [];
                         this.closeCartModal();
 
@@ -2308,6 +2319,7 @@
             const resetSession = {% if reset_session %}true{% else %}false{% endif %};
             if (resetSession) {
                 localStorage.removeItem(`dl_orders_{{ slug }}`);
+                localStorage.removeItem(`dl_cart_{{ slug }}`);
             }
         });
     </script>
