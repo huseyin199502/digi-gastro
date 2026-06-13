@@ -120,119 +120,9 @@
         .animate-bounce-horizontal-left {
             animation: bounceHorizontalLeft 1.2s infinite;
         }
-        /* ===== Center-Lock Carousel Category Navigation ===== */
-        #category-carousel-wrapper {
-            position: relative;
-            overflow: hidden;
-            width: 100%;
-            touch-action: pan-x;
-            -webkit-touch-callout: none;
-            padding: 12px 0 14px 0;
-        }
-        /* Gradient fade edges */
-        #category-carousel-wrapper::before,
-        #category-carousel-wrapper::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 32px;
-            z-index: 10;
-            pointer-events: none;
-        }
-        #category-carousel-wrapper::before {
-            left: 0;
-            background: linear-gradient(to right, var(--bg-obsidian) 0%, transparent 100%);
-        }
-        #category-carousel-wrapper::after {
-            right: 0;
-            background: linear-gradient(to left, var(--bg-obsidian) 0%, transparent 100%);
-        }
-        #category-carousel-track {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
-            will-change: transform;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            padding: 0 16px;
-        }
-        #category-carousel-track.no-transition {
-            transition: none !important;
-        }
-        .cat-pill {
-            flex-shrink: 0;
-            height: 44px;
-            padding: 0 20px;
-            border-radius: 16px;
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
-            transition: background 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        box-shadow 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        border-color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        transform 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        opacity 0.25s cubic-bezier(0.25, 1, 0.35, 1);
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            border: 2px solid transparent;
-            font-family: 'Outfit', 'Inter', sans-serif;
-            will-change: transform, opacity;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-        }
-        /* During drag, disable pill transitions for instant live fisheye response */
-        #category-carousel-track.no-transition .cat-pill {
-            transition: none !important;
-        }
-        .cat-pill.active {
-            background: var(--color-primary) !important;
-            color: #000 !important;
-            box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.5);
-            border-color: transparent !important;
-            font-weight: 900;
-            transform: scale(1.08);
-            opacity: 1;
-        }
-        .cat-pill.inactive {
-            background: rgba(39, 39, 42, 0.6);
-            color: rgba(161, 161, 170, 0.8);
-            border-color: rgba(63, 63, 70, 0.3);
-            transform: scale(0.88);
-            opacity: 0.6;
-        }
-        .cat-pill.inactive.near {
-            transform: scale(0.93);
-            opacity: 0.75;
-        }
-        .cat-pill.inactive:hover {
-            background: rgba(63, 63, 70, 0.7);
-            color: rgba(228, 228, 231, 0.95);
-        }
-        /* Light theme */
-        html.light .cat-pill.inactive {
-            background: rgba(0, 0, 0, 0.05);
-            color: rgba(75, 85, 99, 0.85);
-            border-color: rgba(0, 0, 0, 0.08);
-        }
-        html.light .cat-pill.inactive:hover {
-            background: rgba(0, 0, 0, 0.1);
-            color: rgba(17, 24, 39, 0.9);
-        }
-        html.light #category-carousel-wrapper::before {
-            background: linear-gradient(to right, var(--bg-obsidian) 0%, transparent 100%);
-        }
-        html.light #category-carousel-wrapper::after {
-            background: linear-gradient(to left, var(--bg-obsidian) 0%, transparent 100%);
+        /* ===== Category List Navigation ===== */
+        #category-list-view button:active {
+            transform: scale(0.98);
         }
         /* Video full-size display - no crop, no max-height restriction */
         .landing-video-full {
@@ -561,64 +451,50 @@
         <div x-show="currentView === 'speisekarte'" class="animate-fade-in">
             <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
             <div id="tab-speisekarte" class="py-2">
-                
 
-                <!-- Category Wrapper (Sticky) - Center-Lock Carousel -->
-                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky py-1 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-overflow-scrolling: touch;">
-                    
-                    <!-- Center-Lock Category Carousel -->
-                    <div id="category-carousel-wrapper">
-                        <div id="category-carousel-track">
-                            {% for cat in parent_categories %}
-                            <button class="cat-pill {% if loop.first %}active{% else %}inactive{% endif %}" 
-                                    data-category="{{ cat }}" 
-                                    data-original-index="{{ loop.index0 }}"
-                                    onclick="filterCategory('{{ cat }}')">
-                                {{ cat }}
-                            </button>
-                            {% endfor %}
-                        </div>
-                    </div>
+                <!-- BACK BUTTON when inside a category -->
+                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[64px] z-40 bg-[var(--bg-obsidian)] pb-2 pt-1">
+                    <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
+                        <span class="material-symbols-outlined text-xl">arrow_back</span>
+                        <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
+                    </button>
                 </div>
 
-                <!-- Secondary Subcategories - Compact wrapping chips (better for 100+ subcategories) -->
-                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-2 mb-1" style="display: none;">
-                    <div class="flex flex-wrap gap-1.5 select-none py-1 px-1">
-                        <!-- 'All' subcategory button -->
-                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-10 rounded-full text-xs font-bold uppercase tracking-wider px-4 transition-all border border-outline-variant/40 select-none flex items-center justify-center">
-                            Alle
-                        </button>
-                        <!-- Dynamic subcategory buttons -->
-                        <template x-for="sub in activeSubcategories" :key="sub">
-                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-10 rounded-full text-xs font-bold uppercase tracking-wider px-4 transition-all border border-outline-variant/40 select-none flex items-center justify-center" x-text="sub">
-                            </button>
-                        </template>
-                    </div>
-                </div>
-
-                <!-- Products Grid (Compact 2-Column Grid on Mobile) -->
-                <div id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-3.5 py-4">
-                    {% set ns = namespace(last_subcat='') %}
-                    {% for product in products %}
-                    
-                        {% if ' > ' in product.category %}
-                            {% set parent = product.category.split(' > ')[0] %}
-                            {% set sub = product.category.split(' > ')[1] %}
-                            {% if product.category != ns.last_subcat %}
-                                <!-- Render Subcategory Header -->
-                                <div class="col-span-full py-2 mt-4 first:mt-0 subcategory-header border-b border-outline-variant/20 mb-2" 
-                                     data-full-category="{{ product.category }}"
-                                     data-parent-category="{{ parent }}"
-                                     data-subcategory="{{ sub }}"
-                                     data-subcategory-header="{{ product.category }}">
-                                    <h3 class="text-xs md:text-sm font-black text-primary tracking-widest uppercase font-display flex items-center gap-1.5">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                                        {{ sub }}
-                                    </h3>
+                <!-- CATEGORY OVERVIEW: Large vertical category cards -->
+                <div x-show="currentCategory === ''" id="category-list-view" class="space-y-3 py-2">
+                    {% for cat in parent_categories %}
+                    {% set cat_img = category_images.get(cat, '') %}
+                    {% set cat_count = category_product_counts.get(cat, 0) %}
+                    <button onclick="filterCategory('{{ cat }}')" 
+                            class="w-full group relative overflow-hidden rounded-2xl border border-outline-variant/60 hover:border-primary/60 transition-all duration-300 active:scale-[0.98] hover-lift">
+                        <div class="flex items-center h-24 sm:h-28">
+                            <!-- Category Image -->
+                            <div class="relative w-24 sm:w-28 h-full flex-shrink-0 overflow-hidden">
+                                {% if cat_img %}
+                                <img alt="{{ cat }}" class="w-full h-full object-cover" src="{{ cat_img }}" loading="lazy">
+                                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--bg-surface)]"></div>
+                                {% else %}
+                                <div class="w-full h-full bg-surface-container-high flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-4xl text-on-surface-variant/30">restaurant</span>
                                 </div>
-                                {% set ns.last_subcat = product.category %}
-                            {% endif %}
-                        {% endif %}
+                                {% endif %}
+                            </div>
+                            <!-- Category Info -->
+                            <div class="flex-1 px-4 flex items-center justify-between">
+                                <div class="flex flex-col">
+                                    <h2 class="text-lg sm:text-xl font-black text-on-surface font-display tracking-tight uppercase">{{ cat }}</h2>
+                                    <span class="text-xs text-on-surface-variant font-medium mt-0.5">{{ cat_count }} Artikel</span>
+                                </div>
+                                <span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-1 transition-all text-2xl">chevron_right</span>
+                            </div>
+                        </div>
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <!-- Products Grid (shown when a category is selected) -->
+                <div x-show="currentCategory !== ''" id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-3.5 py-2">
+                    {% for product in products %}
                     
                     {% set is_avail = product.get('is_available', True) %}
                     <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-3 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
@@ -1268,6 +1144,7 @@
                     window.setLanguage = (lang) => this.setLanguage(lang);
                     window.toggleDietaryFilter = (type) => this.toggleDietaryFilter(type);
                     window.filterCategory = (cat) => this.filterCategory(cat);
+                    window.backToCategories = () => this.backToCategories();
                     window.submitOrder = () => this.submitOrder();
                     window.closeThankYou = () => this.closeThankYou();
                     window.selectServiceOption = (type) => this.selectServiceOption(type);
@@ -1283,39 +1160,9 @@
                         localStorage.removeItem(`dl_orders_{{ slug }}`);
                         this.cart = [];
                     }
-
-                    const firstCategory = "{{ parent_categories[0] if parent_categories else '' }}";
-                    if (firstCategory) {
-                        this.filterCategory(firstCategory);
-                    }
                     
-                    // Initialize category carousel - will be triggered when speisekarte view becomes visible
-                    // carouselInitialized is already set in data
-                    
-                    // Watch for view changes to initialize carousel when speisekarte becomes visible
-                    this.$watch('currentView', (newView) => {
-                        if (newView === 'speisekarte') {
-                            setTimeout(() => {
-                                if (!this.carouselInitialized) {
-                                    this.initCategoryCarousel();
-                                } else {
-                                    this.updateCarousel(this.currentCategory);
-                                }
-                            }, 200);
-                        }
-                    });
-                    
-                    // If speisekarte is the default view (waiter/admin), init immediately
-                    if (this.currentView === 'speisekarte') {
-                        setTimeout(() => this.initCategoryCarousel(), 300);
-                    }
-                    
-                    // Recenter carousel on window resize
-                    window.addEventListener('resize', () => {
-                        if (this.carouselInitialized && this.currentCategory) {
-                            this.updateCarousel(this.currentCategory);
-                        }
-                    });
+                    // Start with category list view (currentCategory = '')
+                    // No auto-selection - show categories first
 
                     const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
                     if (!isReadonly) {
@@ -1455,18 +1302,10 @@
                                             currentBanner.innerHTML = newBanner.innerHTML;
                                         }
                                         
-                                        // Re-apply current category filter and reinitialize carousel
+                                        // Re-apply current category filter
                                         if (this.currentCategory) {
                                             this.filterCategory(this.currentCategory);
-                                        } else {
-                                            const firstPill = document.querySelector('.cat-pill');
-                                            if (firstPill) {
-                                                this.filterCategory(firstPill.getAttribute('data-category'));
-                                            }
                                         }
-                                        
-                                        // Reinitialize carousel after DOM update
-                                        setTimeout(() => this.initCategoryCarousel(), 100);
                                     })
                                     .catch(err => console.error("Error loading live menu updates:", err));
 
@@ -1623,15 +1462,6 @@
 
                 filterCategory(category) {
                     this.currentCategory = category;
-                    this.currentSubcategory = 'All';
-                    
-                    // Compute subcategories under this parent dynamically
-                    this.activeSubcategories = [];
-                    this.allCategories.forEach(cat => {
-                        if (cat.startsWith(category + ' > ')) {
-                            this.activeSubcategories.push(cat.split(' > ')[1]);
-                        }
-                    });
                     
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
@@ -1642,404 +1472,41 @@
                             item.setAttribute('data-visible-cat', 'false');
                         }
                     });
-                    
-                    // Update carousel: center the active pill
-                    this.updateCarousel(category);
 
                     this.applyAllFilters();
+                    
+                    // Scroll to top when entering a category
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+
+                backToCategories() {
+                    this.currentCategory = '';
+                    // Hide all products when back to category list
+                    const products = document.querySelectorAll('.product-item');
+                    products.forEach(item => {
+                        item.style.display = 'none';
+                    });
                 },
 
                 updateCarousel(activeCategory) {
-                    const track = document.getElementById('category-carousel-track');
-                    const wrapper = document.getElementById('category-carousel-wrapper');
-                    if (!track || !wrapper) return;
-                    
-                    const pills = track.querySelectorAll('.cat-pill');
-                    let activeIndex = -1;
-                    
-                    // First pass: find active index
-                    pills.forEach((pill, idx) => {
-                        if (pill.getAttribute('data-category') === activeCategory && activeIndex === -1) {
-                            activeIndex = idx;
-                        }
-                    });
-                    
-                    // Second pass: apply classes
-                    pills.forEach((pill, idx) => {
-                        pill.classList.remove('active', 'near');
-                        if (idx === activeIndex) {
-                            pill.classList.add('active');
-                            pill.classList.remove('inactive');
-                        } else {
-                            pill.classList.add('inactive');
-                            const dist = Math.abs(idx - activeIndex);
-                            if (dist === 1) {
-                                pill.classList.add('near');
-                            }
-                        }
-                    });
-                    
-                    if (activeIndex >= 0) {
-                        this.centerCarouselAt(activeIndex, false);
-                    }
+                    // Deprecated: carousel removed
                 },
 
                 centerCarouselAt(index, instant) {
-                    const track = document.getElementById('category-carousel-track');
-                    const wrapper = document.getElementById('category-carousel-wrapper');
-                    if (!track || !wrapper) return;
-                    
-                    const pills = track.querySelectorAll('.cat-pill');
-                    if (!pills.length || index < 0 || index >= pills.length) return;
-                    
-                    const wrapperWidth = wrapper.getBoundingClientRect().width;
-                    const gap = 8;
-                    const paddingLeft = 16;
-                    
-                    let pillOffsetX = 0;
-                    for (let i = 0; i < index; i++) {
-                        pillOffsetX += pills[i].offsetWidth + gap;
-                    }
-                    pillOffsetX += pills[index].offsetWidth / 2;
-                    
-                    let tx = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
-                    
-                    // Clamp: first pill can reach center, last pill can reach center
-                    const maxTx = (wrapperWidth / 2) - paddingLeft - pills[0].offsetWidth / 2; // center first pill
-                    let lastPillOffsetX = 0;
-                    for (let i = 0; i < pills.length - 1; i++) {
-                        lastPillOffsetX += pills[i].offsetWidth + gap;
-                    }
-                    lastPillOffsetX += pills[pills.length - 1].offsetWidth / 2;
-                    const minTx = (wrapperWidth / 2) - paddingLeft - lastPillOffsetX; // center last pill
-                    tx = Math.max(minTx, Math.min(maxTx, tx));
-                    
-                    if (instant) {
-                        track.classList.add('no-transition');
-                    }
-                    // translate3d forces GPU compositing = buttery smooth
-                    track.style.transform = `translate3d(${tx}px, 0, 0)`;
-                    if (instant) {
-                        track.offsetHeight;
-                        requestAnimationFrame(() => track.classList.remove('no-transition'));
-                    }
+                    // Deprecated: carousel removed
                 },
 
                 initCategoryCarousel() {
-                    const track = document.getElementById('category-carousel-track');
-                    const wrapper = document.getElementById('category-carousel-wrapper');
-                    if (!track || !wrapper) return;
-                    
-                    const pills = track.querySelectorAll('.cat-pill');
-                    if (!pills.length) return;
-                    
-                    if (pills[0].offsetWidth === 0) {
-                        setTimeout(() => this.initCategoryCarousel(), 150);
-                        return;
-                    }
-                    
-                    if (this.carouselInitialized) {
-                        const pills = track.querySelectorAll('.cat-pill');
-                        let idx = 0;
-                        pills.forEach((pill, i) => {
-                            if (pill.getAttribute('data-category') === this.currentCategory && idx === 0) {
-                                idx = i;
-                            }
-                        });
-                        this.centerCarouselAt(idx, true);
-                        return;
-                    }
-                    
-                    this.carouselInitialized = true;
-                    const self = this;
-                    const gap = 8;
-                    
-                    let isDragging = false;
-                    let startX = 0;
-                    let prevTranslate = 0;
-                    let dragMoved = false;
-                    let lastMoveTime = 0;
-                    let lastMoveX = 0;
-                    let velocity = 0;
-                    let animationId = null;
-                    let lastHighlightedIdx = -1; // track which pill is visually active during drag
-                    
-                    const getPositionX = (e) => {
-                        return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
-                    };
-                    
-                    const getCurrentTranslate = () => {
-                        const style = window.getComputedStyle(track);
-                        const matrix = new DOMMatrix(style.transform);
-                        return matrix.m41;
-                    };
-                    
-                    const setTrackTranslate = (tx) => {
-                        track.style.transform = `translate3d(${tx}px, 0, 0)`;
-                    };
-                    
-                    // Calculate the translate needed to center a given pill index
-                    const calcCenterTranslate = (idx) => {
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        let pillOffsetX = 0;
-                        for (let i = 0; i < idx; i++) {
-                            pillOffsetX += pills[i].offsetWidth + gap;
-                        }
-                        pillOffsetX += pills[idx].offsetWidth / 2;
-                        const paddingLeft = 16;
-                        return (wrapperWidth / 2) - paddingLeft - pillOffsetX;
-                    };
-                    
-                    // Clamp translate so first pill can be centered AND last pill can be centered
-                    const clampTranslate = (tx) => {
-                        const maxTx = calcCenterTranslate(0);           // center first pill
-                        const minTx = calcCenterTranslate(pills.length - 1); // center last pill
-                        return Math.max(minTx, Math.min(maxTx, tx));
-                    };
-                    
-                    // Lightweight fisheye: only scale on 3 nearest pills (prev, current, next)
-                    // GPU-only: transform + opacity, NO background/color/boxShadow
-                    const applyFisheye = () => {
-                        const currentTx = getCurrentTranslate();
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        const visCenter = wrapperWidth / 2 - currentTx;
-                        
-                        // Find which pill is closest to center
-                        let closestIdx = 0;
-                        let closestDist = Infinity;
-                        let cumX = 16; // padding-left
-                        const pillCenters = [];
-                        pills.forEach((pill, i) => {
-                            const center = cumX + pill.offsetWidth / 2;
-                            pillCenters.push(center);
-                            const dist = Math.abs(center - visCenter);
-                            if (dist < closestDist) {
-                                closestDist = dist;
-                                closestIdx = i;
-                            }
-                            cumX += pill.offsetWidth + gap;
-                        });
-                        
-                        // Update active/inactive classes in real-time so green highlight follows the swipe
-                        if (closestIdx !== lastHighlightedIdx) {
-                            lastHighlightedIdx = closestIdx;
-                            pills.forEach((pill, i) => {
-                                pill.classList.remove('active', 'near');
-                                if (i === closestIdx) {
-                                    pill.classList.add('active');
-                                    pill.classList.remove('inactive');
-                                } else {
-                                    pill.classList.add('inactive');
-                                    if (Math.abs(i - closestIdx) === 1) {
-                                        pill.classList.add('near');
-                                    }
-                                }
-                            });
-                        }
-
-                        // Only apply scale to closest ± 2 pills (max 5), rest get default
-                        pills.forEach((pill, i) => {
-                            const dist = Math.abs(i - closestIdx);
-                            if (dist <= 2) {
-                                const t = 1 - (dist / 3); // 1.0 at center, 0.33 at distance 2
-                                const scale = 0.88 + (1.08 - 0.88) * t;
-                                const opacity = 0.55 + (1.0 - 0.55) * t;
-                                pill.style.transform = `scale(${scale.toFixed(2)})`;
-                                pill.style.opacity = opacity.toFixed(2);
-                            } else {
-                                pill.style.transform = 'scale(0.88)';
-                                pill.style.opacity = '0.55';
-                            }
-                        });
-                    };
-                    
-                    // Reset all inline styles after drag/momentum ends
-                    const resetPillStyles = () => {
-                        pills.forEach(pill => {
-                            pill.style.transform = '';
-                            pill.style.opacity = '';
-                        });
-                        lastHighlightedIdx = -1; // reset so next drag starts fresh
-                    };
-                    
-                    // iOS-style exponential decay momentum
-                    // timeConstant = 325ms (Apple's decelerationRate.normal)
-                    const applyMomentum = (initialVelocity) => {
-                        if (animationId) cancelAnimationFrame(animationId);
-                        
-                        const timeConstant = 325; // iOS normal deceleration
-                        const amplitude = initialVelocity * 16; // scale velocity
-                        let currentTx = getCurrentTranslate();
-                        const targetTx = currentTx + amplitude;
-                        const startTime = performance.now();
-                        
-                        const momentumStep = (now) => {
-                            const elapsed = now - startTime;
-                            // Exponential decay: position = target - amplitude * e^(-t/325)
-                            const decay = Math.exp(-elapsed / timeConstant);
-                            let newTx = targetTx - amplitude * decay;
-                            
-                            // Clamp to boundaries
-                            newTx = clampTranslate(newTx);
-                            
-                            setTrackTranslate(newTx);
-                            applyFisheye();
-                            
-                            // Stop after ~6 time constants (1950ms) or when barely moving
-                            if (elapsed < 1950 && Math.abs(amplitude * decay) > 0.5) {
-                                animationId = requestAnimationFrame(momentumStep);
-                            } else {
-                                animationId = null;
-                                track.classList.remove('no-transition');
-                                resetPillStyles();
-                                snapToNearest();
-                            }
-                        };
-                        
-                        animationId = requestAnimationFrame(momentumStep);
-                    };
-                    
-                    // Snap to nearest pill and filter
-                    const snapToNearest = () => {
-                        const wrapperRect = wrapper.getBoundingClientRect();
-                        const wrapperCenter = wrapperRect.left + wrapperRect.width / 2;
-                        let closestIdx = 0;
-                        let closestDist = Infinity;
-                        pills.forEach((pill, i) => {
-                            const pillRect = pill.getBoundingClientRect();
-                            const pillCenter = pillRect.left + pillRect.width / 2;
-                            const dist = Math.abs(pillCenter - wrapperCenter);
-                            if (dist < closestDist) {
-                                closestDist = dist;
-                                closestIdx = i;
-                            }
-                        });
-                        const category = pills[closestIdx].getAttribute('data-category');
-                        if (category && category !== self.currentCategory) {
-                            self.filterCategory(category);
-                        } else {
-                            self.centerCarouselAt(closestIdx, false);
-                        }
-                    };
-                    
-                    const dragStart = (e) => {
-                        if (animationId) {
-                            cancelAnimationFrame(animationId);
-                            animationId = null;
-                        }
-                        isDragging = true;
-                        startX = getPositionX(e);
-                        dragMoved = false;
-                        prevTranslate = getCurrentTranslate();
-                        velocity = 0;
-                        lastMoveTime = performance.now();
-                        lastMoveX = startX;
-                        // Initialize lastHighlightedIdx to current active pill
-                        pills.forEach((pill, i) => {
-                            if (pill.classList.contains('active') && lastHighlightedIdx === -1) {
-                                lastHighlightedIdx = i;
-                            }
-                        });
-                        track.classList.add('no-transition');
-                    };
-                    
-                    const dragMove = (e) => {
-                        if (!isDragging) return;
-                        const currentX = getPositionX(e);
-                        const diff = currentX - startX;
-                        if (Math.abs(diff) > 5) dragMoved = true;
-                        
-                        // Track velocity for momentum
-                        const now = performance.now();
-                        const dt = now - lastMoveTime;
-                        if (dt > 0) {
-                            const dx = currentX - lastMoveX;
-                            const instantV = dx / dt; // px/ms
-                            velocity = velocity * 0.5 + instantV * 0.5;
-                        }
-                        lastMoveTime = now;
-                        lastMoveX = currentX;
-                        
-                        const newTranslate = clampTranslate(prevTranslate + diff);
-                        setTrackTranslate(newTranslate);
-                        applyFisheye();
-                    };
-                    
-                    const dragEnd = (e) => {
-                        if (!isDragging) return;
-                        isDragging = false;
-                        
-                        if (!dragMoved) {
-                            track.classList.remove('no-transition');
-                            resetPillStyles();
-                            return;
-                        }
-                        
-                        // Apply momentum if velocity is significant (>0.02 px/ms = Swiper threshold)
-                        if (Math.abs(velocity) > 0.02) {
-                            applyMomentum(velocity);
-                        } else {
-                            track.classList.remove('no-transition');
-                            resetPillStyles();
-                            snapToNearest();
-                        }
-                    };
-                    
-                    // Touch events
-                    wrapper.addEventListener('touchstart', dragStart, { passive: true });
-                    wrapper.addEventListener('touchmove', (e) => {
-                        if (isDragging && dragMoved) {
-                            e.preventDefault();
-                        }
-                        dragMove(e);
-                    }, { passive: false });
-                    wrapper.addEventListener('touchend', dragEnd);
-                    
-                    // Mouse events
-                    wrapper.addEventListener('mousedown', dragStart);
-                    wrapper.addEventListener('mousemove', dragMove);
-                    wrapper.addEventListener('mouseup', dragEnd);
-                    wrapper.addEventListener('mouseleave', () => { if (isDragging) dragEnd(); });
-                    wrapper.addEventListener('dragstart', (e) => e.preventDefault());
-                    
-                    // Initial center on first category
-                    const firstCategory = this.currentCategory || "{{ parent_categories[0] if parent_categories else '' }}";
-                    if (firstCategory) {
-                        let idx = 0;
-                        pills.forEach((pill, i) => {
-                            if (pill.getAttribute('data-category') === firstCategory && idx === 0) {
-                                idx = i;
-                            }
-                        });
-                        requestAnimationFrame(() => {
-                            self.centerCarouselAt(idx, true);
-                        });
-                    }
+                    // Deprecated: carousel removed
                 },
 
                 filterSubcategory(sub) {
-                    this.currentSubcategory = sub;
+                    // Deprecated: subcategories removed. Redirect to parent.
                     this.applyAllFilters();
-                    
-                    // Scroll to subcategory header with offset so heading stays visible above first products
-                    if (sub !== 'All') {
-                        const targetHeader = document.querySelector(`[data-subcategory-header="${this.currentCategory} > ${sub}"]`);
-                        if (targetHeader) {
-                            const headerRect = targetHeader.getBoundingClientRect();
-                            const headerTop = headerRect.top + window.scrollY;
-                            // Sticky header 80px + carousel ~70px + subcategory chips ~40px + padding
-                            const offset = 180;
-                            window.scrollTo({
-                                top: headerTop - offset,
-                                behavior: 'smooth'
-                            });
-                        }
-                    }
                 },
 
                 applyAllFilters() {
                     const products = document.querySelectorAll('.product-item');
-                    const visibleProductsInSubcat = {};
                     
                     products.forEach(item => {
                         const prodCat = item.getAttribute('data-category');
@@ -2047,35 +1514,12 @@
                         const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
 
                         let matchesParent = (prodCat === this.currentCategory || prodCat.startsWith(this.currentCategory + ' > '));
-                        let matchesSub = true;
-                        if (this.currentSubcategory !== 'All') {
-                            matchesSub = (prodCat === this.currentCategory + ' > ' + this.currentSubcategory);
-                        }
                         
-                        let matches = matchesParent && matchesSub;
+                        let matches = matchesParent;
                         if (this.activeFilters.vegan && !isVegan) matches = false;
                         if (this.activeFilters.glutenfree && !isGlutenfree) matches = false;
 
                         item.style.display = matches ? 'flex' : 'none';
-                        if (matches) {
-                            visibleProductsInSubcat[prodCat] = true;
-                        }
-                    });
-
-                    // Show/hide subcategory headers based on visible products inside them
-                    const headers = document.querySelectorAll('.subcategory-header');
-                    headers.forEach(header => {
-                        const fullCat = header.getAttribute('data-full-category');
-                        const parentCat = header.getAttribute('data-parent-category');
-                        const subCat = header.getAttribute('data-subcategory');
-                        
-                        let visible = (parentCat === this.currentCategory);
-                        if (this.currentSubcategory !== 'All') {
-                            visible = visible && (subCat === this.currentSubcategory);
-                        }
-                        visible = visible && !!visibleProductsInSubcat[fullCat];
-                        
-                        header.style.display = visible ? 'block' : 'none';
                     });
                 },
 

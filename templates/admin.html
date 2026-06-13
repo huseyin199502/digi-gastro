@@ -4603,11 +4603,12 @@
             ws.onopen = () => {
                 console.log("Admin WebSocket connected!");
                 wsRetryCount = 0; // Reset on successful connect
-                // Stop fallback polling when WS is active
+                // Keep polling but at slower rate (5s) as backup alongside WebSocket
                 if (pollInterval) {
                     clearInterval(pollInterval);
                     pollInterval = null;
                 }
+                pollInterval = setInterval(checkLiveTischeUpdates, 5000);
                 checkLiveTischeUpdates();
                 
                 pongReceived = true;
@@ -4682,8 +4683,8 @@
 
         function startFallbackPolling() {
             if (!pollInterval) {
-                console.log("Starting admin fallback polling interval (4s)");
-                pollInterval = setInterval(checkLiveTischeUpdates, 4000);
+                console.log("Starting admin fallback polling interval (2s)");
+                pollInterval = setInterval(checkLiveTischeUpdates, 2000);
             }
         }
 
@@ -4693,10 +4694,10 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data) {
-                        data.orders.forEach(o => { if (o.status === 'eingegangen') seenOrderIds.add(o.id); });
+                        (data.orders || []).forEach(o => { if (o.status === 'eingegangen') seenOrderIds.add(o.id); });
                         (data.service_calls || []).forEach(c => { seenCallIds.add(c.id); });
                         initialDone = true;
-                        updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
+                        updateLiveTiles(data.orders || [], data.service_calls || [], data.tables || []);
                     }
                 }).catch(()=>{});
 
@@ -4717,23 +4718,26 @@
                     }
                     try {
                         // Build state hash (including item statuses)
-                        const ordersState = data.orders.map(o => {
+                        const safeOrders = data.orders || [];
+                        const safeCalls = data.service_calls || [];
+                        const safeTables = data.tables || [];
+                        const ordersState = safeOrders.map(o => {
                             const itemsStatusStr = (o.items || []).map(i => `${i.product_id}:${i.item_status || 'pending'}`).join(',');
                             return `${o.id}:${o.status}:${o.total}:${itemsStatusStr}`;
                         }).join('|');
-                        const callsState = data.service_calls.map(c => `${c.id}:${c.type}`).join('|');
-                        const tablesState = (data.tables || []).map(t => `${t.number}:${t.zone}:${t.active_session_token || ''}`).join('|');
+                        const callsState = safeCalls.map(c => `${c.id}:${c.type}`).join('|');
+                        const tablesState = safeTables.map(t => `${t.number}:${t.zone}:${t.active_session_token || ''}`).join('|');
                         const currentHash = `${ordersState}#${callsState}#${tablesState}`;
 
                         // Audio signals
                         if (initialDone) {
-                            data.orders.forEach(o => {
+                            safeOrders.forEach(o => {
                                 if (o.status === 'eingegangen' && !seenOrderIds.has(o.id)) {
                                     playNewOrderSound();
                                     seenOrderIds.add(o.id);
                                 }
                             });
-                            (data.service_calls || []).forEach(c => {
+                            safeCalls.forEach(c => {
                                 if (!seenCallIds.has(c.id)) {
                                     playServiceSound();
                                     seenCallIds.add(c.id);
@@ -4742,7 +4746,7 @@
                         }
 
                         if (lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
-                            updateLiveTiles(data.orders, data.service_calls || [], data.tables || []);
+                            updateLiveTiles(safeOrders, safeCalls, safeTables);
                         }
                         lastLiveTischeHash = currentHash;
 
@@ -5619,26 +5623,26 @@
                     inner = `
                         ${eyeHtml}
                         <span class="text-xl sm:text-2xl animate-bounce">${callIcon}</span>
-                        <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-amber-800">${callText}</span>
-                        <span class="text-xs sm:text-sm font-black text-amber-900">${currentTable.number}</span>
-                        ${revenueText ? `<span class="text-[10px] font-extrabold text-amber-950 mt-0.5">${revenueText}</span>` : ''}
-                        ${tipText ? `<span class="text-[9px] font-bold text-emerald-800 mt-0.5 bg-emerald-100/70 px-1 rounded">${tipText}</span>` : ''}
+                        <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5" style="color:#92400e;">${callText}</span>
+                        <span class="text-xs sm:text-sm font-black" style="color:#78350f;">${currentTable.number}</span>
+                        ${revenueText ? `<span class="text-[10px] font-extrabold mt-0.5" style="color:#451a03;">${revenueText}</span>` : ''}
+                        ${tipText ? `<span class="text-[9px] font-bold mt-0.5 px-1 rounded" style="color:#065f46; background:rgba(167,243,208,0.5);">${tipText}</span>` : ''}
                     `;
                 } else if (order) {
                     if (hasPending) {
                         inner = `
                             ${eyeHtml}
-                            <span class="text-[9px] font-black tracking-wider uppercase text-center text-rose-800 mt-1">Bestellung</span>
-                            <span class="text-xs sm:text-sm font-black text-rose-950">${currentTable.number}</span>
-                            <span class="text-[10px] font-extrabold text-rose-900 mt-0.5">${revenueText}</span>
+                            <span class="text-[9px] font-black tracking-wider uppercase text-center text-rose-800 mt-1" style="color:#9f1239;">Bestellung</span>
+                            <span class="text-xs sm:text-sm font-black" style="color:#4c0519;">${currentTable.number}</span>
+                            <span class="text-[10px] font-extrabold mt-0.5" style="color:#881337;">${revenueText}</span>
                             <span class="tile-timer absolute right-6 bottom-2 text-[9px] font-bold text-rose-800 bg-rose-200/50 px-1 rounded" data-timestamp="${order.timestamp}"></span>
                         `;
                     } else {
                         inner = `
                             ${eyeHtml}
-                            <span class="text-[9px] font-black tracking-wider uppercase text-center text-emerald-800 mt-1">Serviert</span>
-                            <span class="text-xs sm:text-sm font-black text-emerald-950">${currentTable.number}</span>
-                            <span class="text-[10px] font-extrabold text-emerald-900 mt-0.5">${revenueText}</span>
+                            <span class="text-[9px] font-black tracking-wider uppercase text-center mt-1" style="color:#065f46;">Serviert</span>
+                            <span class="text-xs sm:text-sm font-black" style="color:#022c22;">${currentTable.number}</span>
+                            <span class="text-[10px] font-extrabold mt-0.5" style="color:#064e3b;">${revenueText}</span>
                         `;
                     }
                 } else {

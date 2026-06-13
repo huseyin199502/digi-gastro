@@ -2811,6 +2811,18 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         parent = c.split(" > ")[0]
         if parent not in parent_categories:
             parent_categories.append(parent)
+    
+    # Build category_images: first product image per parent category
+    category_images = {}
+    category_product_counts = {}
+    for p in processed_products:
+        cat = p.get("category", "")
+        parent_cat = cat.split(" > ")[0] if " > " in cat else cat
+        if parent_cat not in category_product_counts:
+            category_product_counts[parent_cat] = 0
+        category_product_counts[parent_cat] += 1
+        if parent_cat not in category_images and p.get("image") and not p["image"].lower().endswith(".pdf"):
+            category_images[parent_cat] = p["image"]
         
     tisch_name = ""
     if table:
@@ -2832,6 +2844,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "is_readonly": is_readonly,
             "products": processed_products,
             "parent_categories": parent_categories,
+            "category_images": category_images,
+            "category_product_counts": category_product_counts,
             "reset_session": reset_session,
             "tisch_name": tisch_name,
             "role": role,

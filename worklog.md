@@ -61,3 +61,36 @@ Stage Summary:
 - Secure flag correctly detects HTTPS behind reverse proxies
 - QR codes use correct public URL when behind proxy
 - Container restart needed for main.py changes
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix Serviert text color, Sitzplan real-time, and redesign customer menu
+
+Work Log:
+- Fixed "Serviert" text color on admin Sitzplan tiles: was white (dark mode CSS override), now black using inline styles
+- Fixed "Bestellung" and service call text colors similarly using inline styles to override dark mode
+- Fixed Sitzplan real-time: reduced fallback polling from 4s→2s, kept polling at 5s even when WebSocket connected (dual-mode for reliability), added null-safety for data.orders/data.service_calls
+- Completely redesigned customer menu (Speisekarte view):
+  - Removed horizontal category carousel with fisheye effect
+  - Removed subcategory chips/filtering entirely
+  - New design: large vertical category cards displayed one below another with product images and article count
+  - Click a category → shows products for that category with back button
+  - Back button returns to category list view
+  - Added category_images and category_product_counts to template context in main.py
+  - Removed carousel CSS (cat-pill, category-carousel-wrapper etc.)
+  - Removed initCategoryCarousel, updateCarousel, centerCarouselAt functions (deprecated stubs remain)
+  - Updated filterCategory to work without subcategories
+  - Updated applyAllFilters to remove subcategory logic
+  - Added backToCategories() function
+  - Removed auto-select first category on load
+- Verified Rechnung→Google review redirect already works (from previous task)
+- Verified Gesamt bezahlen only shows after serviert (from previous task)
+- Verified Trinkgeld already removed (from previous task)
+
+Stage Summary:
+- Admin: Serviert/Bestellung text now readable (black on green/red backgrounds) in dark mode
+- Admin: Sitzplan real-time more reliable with dual WebSocket+polling
+- Customer: Complete menu redesign - vertical categories, click to expand, no subcategories
+- Files changed: admin.html, menu.html, main.py
+- Container restart needed for main.py changes (category_images/category_product_counts)
