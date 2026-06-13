@@ -1,0 +1,533 @@
+     1→# Restaurant SaaS Admin Panel UX Research: Comprehensive Analysis
+     2→
+     3→## Executive Summary
+     4→
+     5→This report analyzes the admin panel UX patterns of four leading platforms—**Square for Restaurants**, **Toast POS**, **Lightspeed Restaurant**, and **Shopify**—alongside general SaaS admin panel best practices. The goal is to identify what separates professional-grade admin experiences from amateur ones, and provide specific, actionable recommendations for building a restaurant SaaS product/menu management system.
+     6→
+     7→---
+     8→
+     9→## 1. PLATFORM-BY-PLATFORM ANALYSIS
+    10→
+    11→### 1.1 Square for Restaurants
+    12→
+    13→#### Navigation Structure
+    14→- **Left-hand sidebar** with collapsible sections
+    15→- Primary nav: `Items & Orders > Items` (Item Library) and `Items & Services > Menus` (Menu Management)
+    16→- Breadcrumbs for deeper navigation
+    17→- Separate sections for Items, Categories, Modifiers, Discounts, Menus
+    18→- The sidebar groups related functions under a parent (e.g., "Items & Orders" contains Items, Categories, Modifiers, Discounts)
+    19→
+    20→#### Product Creation
+    21→- **Dedicated page flow**: Click "Create an Item" from Item Library → opens a full item creation form page
+    22→- Item type dropdown (regular item, variation, etc.)
+    23→- Form sections: Name, Description, Image, Price, Category, Variations, Modifier Sets, Custom Attributes, Taxes
+    24→- Custom Attributes system for extensible data (e.g., alternate item names)
+    25→- Items can also be added directly from the POS tablet (Square POS), but Square for Restaurants requires back-office changes for menu modifications
+    26→
+    27→#### Category Organization
+    28→- **Flat category structure** — no nested/sub-categories
+    29→- Items can belong to one category
+    30→- Sort/arrange items within a category (drag-and-drop ordering)
+    31→- Categories are managed separately from the menu hierarchy
+    32→
+    33→#### Menu Hierarchy (Key Differentiator)
+    34→- **Three-level hierarchy**: Menu → Menu Group → Items
+    35→- Menus correspond to time periods or service types (Breakfast, Lunch, Dinner, Happy Hour)
+    36→- Menu Groups are visual sections within a menu (Appetizers, Mains, etc.)
+    37→- A single item can appear in multiple menus and groups
+    38→- **Time-based menus**: Each menu can be scheduled for specific hours/days
+    39→
+    40→#### Happy Hour / Specials
+    41→- **Time-based menu scheduling**: Happy hour is a separate menu with time-based availability
+    42→- Create a dedicated "Happy Hour" menu → assign items with special pricing → schedule it for specific days/hours
+    43→- Advanced pricing options include happy hour specials and other time-sensitive promotions
+    44→- Square also supports dynamic pricing tied to real-time factors
+    45→
+    46→#### Bulk Editing
+    47→- **Checkbox + action bar pattern**: Select items via checkboxes → "Edit Items" button at bottom
+    48→- Multi-select checkbox for editing multiple items at once
+    49→- Bulk import/export via CSV (Actions > Export Library)
+    50→- Limited inline editing — mostly dedicated edit pages
+    51→
+    52→#### Key Takeaways from Square
+    53→- **Strengths**: Clean separation of Items (data) from Menus (presentation), time-based scheduling, intuitive Item Library
+    54→- **Weaknesses**: Flat categories only, on-the-fly changes require back-office, modifier sorting managed externally (via Checkmate portal for some operations)
+    55→- **Professional signal**: The Items-vs-Menus separation is a key architectural insight — the same item can exist in multiple menus with different pricing
+    56→
+    57→---
+    58→
+    59→### 1.2 Toast POS
+    60→
+    61→#### Navigation Structure
+    62→- **Left-hand sidebar** with "Menus" section containing sub-items
+    63→- Navigation: `Menus > Menu management > Menu manager` (or `Menu builder`)
+    64→- Also: `Menus > Bulk management > Advanced properties`
+    65→- Multiple menu management tools with distinct purposes (Menu Builder vs Menu Manager vs Advanced Properties vs Item Database)
+    66→- Quick actions section for frequently used operations
+    67→
+    68→#### Menu Hierarchy (Key Differentiator)
+    69→- **Four-level hierarchy**: Menu → Group → Subgroup → Item
+    70→- This is the deepest hierarchy among the platforms studied
+    71→- Menus typically map to categories of offerings (Food, Bar, etc.)
+    72→- Groups are like sections (Appetizers, Entrees)
+    73→- Subgroups add a further level of organization
+    74→- Toast platform auto-saves changes as you work
+    75→
+    76→#### Product Creation
+    77→- **Multiple entry points**: Create items through Menu Builder, Menu Manager, or Item Database
+    78→- Menu Builder: Visual, drag-and-drop hierarchy building
+    79→- Menu Manager: Search/filter + table view for managing existing items
+    80→- Item creation flows through the hierarchy — add item to a specific group/subgroup
+    81→
+    82→#### Category Organization
+    83→- **Hierarchical tree structure** (4 levels deep)
+    84→- Drag-and-drop reordering within the Menu Builder
+    85→- The hierarchy directly maps to the POS layout
+    86→
+    87→#### Happy Hour / Specials
+    88→- **Menu-Specific Pricing Strategy**: The core approach
+    89→- Create a separate "Happy Hour" menu that references the same items as the main menu but with different prices
+    90→- Menu-specific pricing allows different price points per menu without duplicating items
+    91→- Supports scheduling menus by day-of-week and time
+    92→- Dynamic pricing and menu availability per location (multi-location support)
+    93→
+    94→#### Bulk Editing
+    95→- **Two-tier bulk editing system**:
+    96→  1. **Menu Manager**: Checkbox selection + bottom action bar → "Edit visibility" for bulk channel assignment (POS, Kiosk, Online Ordering, Partners)
+    97→  2. **Advanced Properties**: A flat table listing every menu entity (menus, groups, items, modifiers) with filter/search → edit properties in a spreadsheet-like view
+    98→- The Advanced Properties page is essentially a **flat table view of the entire menu hierarchy** with inline editing
+    99→- Bulk edit supports: visibility settings, stock status, prep stations, sales categories
+   100→- Must schedule or publish changes after editing
+   101→
+   102→#### Key Takeaways from Toast
+   103→- **Strengths**: Deepest menu hierarchy, menu-specific pricing (no item duplication), auto-save, dedicated bulk editing tools
+   104→- **Weaknesses**: Too many menu management tools is confusing (users complain about "3 ways to edit menus"), Advanced Properties can be overwhelming with 1300+ items, poor cross-referencing (can't see what menus contain an item from item detail page)
+   105→- **Professional signal**: Menu-specific pricing that references the same item instead of duplicating it — this is the gold standard for restaurant SaaS
+   106→
+   107→---
+   108→
+   109→### 1.3 Lightspeed Restaurant
+   110→
+   111→#### Navigation Structure
+   112→- **Left-hand sidebar** with clear section groupings
+   113→- Primary nav for menu: `Menu > Item list`, `Menu > Accounting groups`, `Menu > Menus`
+   114→- Also: `Configuration > Settings` for advanced settings
+   115→- Clean separation of concerns: Items, Accounting Groups, POS Layout
+   116→
+   117→#### Product Creation
+   118→- **Dual-mode creation**: Two distinct creation flows
+   119→  1. **Quick Create Item**: A minimal modal/slide-over with just name, accounting group, and price → fast for simple items
+   120→  2. **Detailed Item Creation**: Full-page form with tabbed sections: Details, Reporting, POS Settings, Appearance, Order Instructions, Inventory
+   121→- The "Quick Create" is a significant UX innovation — acknowledges that most items don't need the full form
+   122→- Supports creating multiple items at once and duplicating existing items
+   123→
+   124→#### Category Organization
+   125→- **"Accounting Groups"** — flat structure, serves as both tax and organizational categories
+   126→- Recommended to create accounting groups BEFORE items (to avoid moving items one-by-one later)
+   127→- POS layout is separate: Main Screens → Subscreens with **drag-and-drop** positioning
+   128→- The POS layout is a visual grid builder, not just a list
+   129→
+   130→#### Price Types (Key Differentiator)
+   131→- Multiple price structures per item:
+   132→  - Single price (default)
+   133→  - Manually-entered price (variable by weight/quantity)
+   134→  - Manually-entered negative price (discounts/reimbursements)
+   135→  - No price (zero price)
+   136→  - **Multiple prices**: Default price + alternative prices tied to specific **order profiles**
+   137→- Order profiles enable context-dependent pricing (dine-in vs takeout vs happy hour)
+   138→
+   139→#### Happy Hour / Specials
+   140→- **Order Profiles approach**: Different pricing tied to order profiles (dine-in, takeout, delivery, happy hour)
+   141→- When "Multiple prices" is selected, alternative prices appear alongside the default
+   142→- This is conceptually similar to Toast's menu-specific pricing but structured as order profiles rather than menus
+   143→
+   144→#### Bulk Editing
+   145→- **"Edit multiple items"** functionality from the Item List
+   146→- Item list supports search and filter
+   147→- POS layout uses drag-and-drop for arranging items
+   148→
+   149→#### Key Takeaways from Lightspeed
+   150→- **Strengths**: Quick Create vs Detailed Create dual mode is excellent UX, tabbed item detail page, visual POS grid builder, order profiles for context-dependent pricing
+   151→- **Weaknesses**: Flat category structure, accounting groups conflate tax/organizational purposes, inventory management relegated to one tab (confusing UX per reviews)
+   152→- **Professional signal**: The Quick Create / Detailed Create dual mode — this "progressive disclosure" pattern is a hallmark of professional SaaS
+   153→
+   154→---
+   155→
+   156→### 1.4 Shopify (General SaaS Reference)
+   157→
+   158→#### Navigation Structure
+   159→- **Left-hand sidebar** (collapsible) with product groupings
+   160→- Top bar: Search, notifications, profile dropdown
+   161→- Breadcrumbs for page-level navigation
+   162→- Sidebar sections: Home, Orders, Products, Customers, Content, Finance, Analytics, Settings
+   163→- "Products" section contains: All Products, Inventory, Collections, Transfers, Purchase Orders
+   164→
+   165→#### Product List Page (Gold Standard)
+   166→- **Table/list view** with columns: Checkbox, Image, Product, Status, Inventory, Category, Vendor, Tags
+   167→- **Filter bar** at top: Filter by product type, vendor, tag, collection, status, sales channel
+   168→- **Search** with real-time filtering
+   169→- **Sort** by any column header
+   170→- Column customization
+   171→- Pagination with item count
+   172→
+   173→#### Product Creation
+   174→- **Dedicated page** with organized sections
+   175→- Product title, description (rich text), media, pricing, inventory, shipping, variants
+   176→- Sidebar on the product page for: Product status, Organization (type, vendor, collections, tags), Sales channels
+   177→- The sidebar-on-product-page pattern keeps related settings accessible without scrolling
+   178→
+   179→#### Bulk Editing (Industry Gold Standard)
+   180→- **Checkbox + actions bar**: Select items → "Bulk edit" or "Edit products" button
+   181→- **Spreadsheet-style bulk editor**: Opens a mini spreadsheet (like Google Sheets) where you:
+   182→  - Add columns for any product field
+   183→  - Edit values inline across multiple products
+   184→  - Tab between cells like a real spreadsheet
+   185→- This is NOT a modal — it's a **dedicated bulk editing page** with its own URL
+   186→- Supports: Adding/removing columns, filtering which products appear, editing variants
+   187→- Also supports CSV import/export for mass changes
+   188→
+   189→#### Category Organization
+   190→- **"Collections"** — can be manual or automated (by conditions like tag, price, product type)
+   191→- Automated collections auto-add products matching criteria
+   192→- Flat structure with smart grouping
+   193→- Products can belong to multiple collections
+   194→
+   195→#### Key Takeaways from Shopify
+   196→- **Strengths**: Best-in-class bulk editing (spreadsheet-style), smart collections (automated rules), filter bar is powerful and intuitive, sidebar-on-product-page keeps context
+   197→- **Weaknesses**: Bulk editor can feel disconnected from main list, limited inline editing in the product list itself
+   198→- **Professional signal**: The spreadsheet bulk editor — this is what makes Shopify feel like enterprise software. It treats bulk editing as a first-class feature, not an afterthought.
+   199→
+   200→---
+   201→
+   202→## 2. CROSS-PLATFORM COMPARISON MATRIX
+   203→
+   204→| Feature | Square | Toast | Lightspeed | Shopify |
+   205→|---|---|---|---|---|
+   206→| **Navigation** | Left sidebar | Left sidebar | Left sidebar | Left sidebar (collapsible) |
+   207→| **Product creation** | Dedicated page | Within hierarchy | Quick modal OR detailed page | Dedicated page + sidebar |
+   208→| **Category type** | Flat | 4-level tree | Flat (accounting groups) | Smart collections (flat + rules) |
+   209→| **Menu hierarchy** | 3 levels | 4 levels | 2 levels (screen→subscreen) | N/A (collections) |
+   210→| **Happy hour/specials** | Time-based menus | Menu-specific pricing | Order profiles | N/A |
+   211→| **Bulk editing** | Checkbox + edit bar | Checkbox + advanced table | Item list editing | Spreadsheet editor |
+   212→| **Inline editing** | Limited | Advanced Properties table | Limited | Bulk editor only |
+   213→| **Drag-and-drop** | Within categories | Within menu builder | POS layout grid | N/A |
+   214→| **Search/filter** | Basic | Search + filter controls | Search + filter | Advanced filter bar |
+   215→| **Auto-save** | Manual save | Auto-save | Manual save | Manual save |
+   216→
+   217→---
+   218→
+   219→## 3. GENERAL SaaS ADMIN PANEL BEST PRACTICES
+   220→
+   221→### 3.1 Navigation: The Left Sidebar is King
+   222→All four platforms use a **left-hand sidebar** as the primary navigation. Research confirms this is the standard for SaaS admin panels because:
+   223→- It keeps the full menu visible at all times
+   224→- It scales well with many nav items
+   225→- It's the pattern users expect from professional tools (Asana, Linear, Notion, Slack)
+   226→- Collapsible variants allow users to focus on content
+   227→
+   228→**Essential layout elements** (from industry research):
+   229→1. Main menu (left sidebar)
+   230→2. Search bar (top header)
+   231→3. Page title + breadcrumb navigation
+   232→4. View selection (list, grid, sorting)
+   233→5. Notification icon
+   234→6. Primary actions button ("Create", "Add")
+   235→7. Profile dropdown (settings, profile, logout)
+   236→8. Workspace/org switcher (if multi-tenant)
+   237→
+   238→### 3.2 Professional vs Amateur: The 12 Differentiators
+   239→
+   240→| # | Professional SaaS | Amateur SaaS |
+   241→|---|---|---|
+   242→| 1 | **Consistent spacing system** (4px/8px grid) | Inconsistent padding and margins |
+   243→| 2 | **Information density** — shows relevant data compactly | Too sparse OR too cluttered (no middle ground) |
+   244→| 3 | **Bulk actions** — checkboxes + action bar + spreadsheet editor | Only single-item editing |
+   245→| 4 | **Keyboard shortcuts** for power users | Mouse-only workflows |
+   246→| 5 | **Contextual breadcrumbs** | Lost in deep navigation |
+   247→| 6 | **Progressive disclosure** — quick create vs detailed create | One-size-fits-all forms |
+   248→| 7 | **Optimistic UI updates** with undo | Full page reloads |
+   249→| 8 | **Filter + search** on every list view | No way to find items in long lists |
+   250→| 9 | **Consistent component library** (same dropdown, same table, same button) | Custom-styled components per page |
+   251→| 10 | **Status indicators** (active, draft, archived, scheduled) | No visibility into item state |
+   252→| 11 | **Empty states** with clear CTAs | Blank pages with no guidance |
+   253→| 12 | **Loading skeletons** instead of spinners | White screen → sudden content pop |
+   254→
+   255→### 3.3 Information Density: The Linear Model
+   256→
+   257→**The right density** is the #1 factor that separates professional from amateur admin panels.
+   258→
+   259→- **Too sparse** = feels like a consumer app, wastes screen space, requires excessive scrolling
+   260→- **Too dense** = feels like a 1990s enterprise app, overwhelming, induces errors
+   261→- **Just right** = Like Linear or Notion — compact but breathable, information-rich but scannable
+   262→
+   263→**Specific density guidelines:**
+   264→- **Table rows**: 40-48px height (not 64px like consumer apps, not 24px like legacy ERP)
+   265→- **Sidebar**: 240-260px wide (expanded), 56-64px (collapsed)
+   266→- **Content area**: Full remaining width with 16-24px padding
+   267→- **Font sizes**: 13-14px for table text, 12px for labels/metadata, 16px for page titles
+   268→- **Line height**: 1.4-1.5 for readability
+   269→- **Show 5-8 columns** in default table view, allow column customization
+   270→- **Display 25-50 items** per page by default
+   271→
+   272→### 3.4 Settings/Configuration Organization
+   273→
+   274→**The 3-tier settings model:**
+   275→
+   276→1. **Context-level settings** (on the item/entity page): The most common settings should live right where the user is working
+   277→   - Shopify pattern: Sidebar on product page with status, organization, channels
+   278→   - Toast pattern: Visibility settings on menu items
+   279→   
+   280→2. **Section-level settings** (in the section header): Settings that affect all items in a section
+   281→   - Tax rates, modifier groups, pricing rules
+   282→   
+   283→3. **Global settings** (in Settings page): System-wide configuration
+   284→   - Business hours, payment methods, user roles, integrations
+   285→   - Should be organized by functional area, not by technical architecture
+   286→
+   287→**Key rule**: Never bury a setting more than 2 clicks away from where it's needed. If a user needs to change an item's tax rate, they shouldn't have to navigate to a global settings page.
+   288→
+   289→---
+   290→
+   291→## 4. ACTIONABLE RECOMMENDATIONS
+   292→
+   293→### 4.1 Navigation Architecture
+   294→
+   295→```
+   296→Sidebar Structure (Recommended):
+   297→├── Dashboard
+   298→├── Products
+   299→│   ├── All Products          ← main table list
+   300→│   ├── Categories            ← flat categories with drag-drop order
+   301→│   ├── Modifiers             ← modifier groups
+   302→│   └── Import / Export       ← CSV tools
+   303→├── Menus
+   304→│   ├── Menu Manager          ← visual hierarchy builder
+   305→│   ├── Specials & Pricing    ← happy hour, time-based pricing
+   306→│   └── Schedules             ← menu scheduling
+   307→├── Orders
+   308→├── Reports
+   309→├── Settings                  ← global config only
+   310→└── [Profile/Workspace]
+   311→```
+   312→
+   313→**Why separate Products from Menus?** Square and Toast both prove that Items (data) and Menus (presentation) should be decoupled. An item should exist once in the product catalog and be referenceable from multiple menus with different pricing.
+   314→
+   315→### 4.2 Product Creation: Dual-Mode Pattern
+   316→
+   317→Implement Lightspeed's Quick Create / Detailed Create pattern:
+   318→
+   319→1. **Quick Create** (modal/slide-over, 3 fields):
+   320→   - Name
+   321→   - Category (dropdown)
+   322→   - Price
+   323→   - [Create] or [Create & Add Another] or [Create & Edit Details]
+   324→
+   325→2. **Detailed Create** (full page, tabbed):
+   326→   - Tab 1: Details (name, description, image, SKU, price type)
+   327→   - Tab 2: Categories & Organization
+   328→   - Tab 3: Modifiers & Add-ons
+   329→   - Tab 4: Pricing & Specials (menu-specific pricing, happy hour rules)
+   330→   - Tab 5: POS Settings (button color, prep station, course)
+   331→   - Tab 6: Inventory
+   332→
+   333→3. **Duplicate Item**: One-click clone with pre-filled fields
+   334→
+   335→**The "Create & Add Another" button** is essential — restaurants often add 20-30 items at once.
+   336→
+   337→### 4.3 Category Organization
+   338→
+   339→**Recommended: Flat categories + visual ordering**
+   340→
+   341→- Flat list of categories (like Square), NOT a deep tree (Toast's 4 levels confuse users)
+   342→- Drag-and-drop to reorder categories AND items within categories
+   343→- Each category has: Name, Description, Image, Display Order, Active/Archived status
+   344→- Items can belong to multiple categories (many-to-many)
+   345→- **Smart categories** (Shopify pattern): Auto-add items matching conditions (e.g., "All items under €5")
+   346→
+   347→**Why NOT deep trees?** Toast community complaints confirm that 4-level hierarchies become unmanageable. The menu hierarchy (which IS deep) should be separate from the category structure.
+   348→
+   349→### 4.4 Menu Hierarchy (The "Presentation Layer")
+   350→
+   351→**Recommended: 3-level hierarchy** (Square's model, proven and manageable):
+   352→
+   353→```
+   354→Menu (e.g., "Dinner Menu", "Happy Hour Menu")
+   355→  └── Menu Section (e.g., "Starters", "Mains", "Desserts")
+   356→       └── Menu Item (reference to product, with menu-specific price override)
+   357→```
+   358→
+   359→**Critical design decisions:**
+   360→- Menu Items are **references** to Products, not duplicates (Toast's menu-specific pricing pattern)
+   361→- Each reference can override: Price, Description, Availability, Modifiers
+   362→- Menus have: Name, Schedule (days + times), Channels (POS, Kiosk, Online, Partners)
+   363→- Visual menu builder with drag-and-drop to arrange sections and items
+   364→
+   365→### 4.5 Happy Hour / Specials: The Menu-Specific Pricing Pattern
+   366→
+   367→**This is the gold standard** (used by both Toast and Square):
+   368→
+   369→1. **Create a "Happy Hour" menu** with a schedule (Mon-Fri, 4pm-6pm)
+   370→2. **Add products to it** (same products from your main menu)
+   371→3. **Set menu-specific prices** (e.g., €4 instead of €6 for a beer)
+   372→4. **Schedule it** — the menu automatically appears/disappears on the POS at the right times
+   373→
+   374→**Implementation requirements:**
+   375→- Time-of-day scheduling per menu (start time, end time)
+   376→- Day-of-week scheduling (which days the menu is active)
+   377→- Date range support (seasonal menus, holiday specials)
+   378→- Automatic POS switching when schedule triggers
+   379→- Override indicators (show that a price is overridden from the default)
+   380→
+   381→**UI for this**: On the product detail page, show a "Pricing" section:
+   382→```
+   383→Default Price: €6.00
+   384→  ┌─────────────────────────────────────────────┐
+   385→  │ Menu-Specific Pricing                        │
+   386→  │ ☑ Happy Hour Menu    €4.00   [Mon-Fri 4-6pm]│
+   387→  │ ☐ Late Night Menu    —       [Not assigned]  │
+   388→  │ ☐ Weekend Brunch     €7.00   [Sat-Sun 10-2pm]│
+   389→  └─────────────────────────────────────────────┘
+   390→```
+   391→
+   392→### 4.6 Bulk Editing: The Three-Tier System
+   393→
+   394→Implement all three bulk editing patterns (inspired by Shopify + Toast):
+   395→
+   396→**Tier 1: Inline Quick Edit** (on the product list table)
+   397→- Click a cell to edit it inline (price, status, category)
+   398→- Double-click or click edit icon → inline field appears
+   399→- Most common edits: Price, Status (active/inactive), Category, Stock
+   400→
+   401→**Tier 2: Checkbox + Action Bar** (on the product list table)
+   402→- Select items via checkboxes
+   403→- Floating action bar appears: `[3 selected] [Edit Prices] [Change Category] [Set Status] [Archive]`
+   404→- Opens a focused bulk edit modal: "Set price to ___ for all selected items"
+   405→- Supports: Price changes, category assignment, status changes, channel visibility
+   406→
+   407→**Tier 3: Spreadsheet Bulk Editor** (dedicated page, like Shopify)
+   408→- Select items → "Open in Bulk Editor"
+   409→- Opens a spreadsheet-style editor on a dedicated page/URL
+   410→- Add/remove columns for any product field
+   411→- Tab between cells, arrow-key navigation
+   412→- Supports: All fields, variant editing, find-and-replace
+   413→- Changes can be saved as draft or published immediately
+   414→
+   415→### 4.7 Product List Table Design
+   416→
+   417→**Columns (default view):**
+   418→| ☐ | Image | Product Name | Category | Price | Status | Specials | Actions |
+   419→
+   420→**Additional columns available via column picker:**
+   421→SKU, Stock, Tax Rate, Modifiers Count, Created Date, Last Modified
+   422→
+   423→**Filter bar:**
+   424→- Category: [dropdown]
+   425→- Status: [Active | Draft | Archived | All]
+   426→- Has Specials: [Yes | No]
+   427→- Price Range: [min] - [max]
+   428→- Search: [text input with debounce]
+   429→- Saved filters: [Save current filter combination]
+   430→
+   431→**Table UX rules:**
+   432→- 25 items per page default, 50/100 options
+   433→- Sticky header with filter bar
+   434→- Row hover highlights
+   435→- Click row → navigate to detail page
+   436→- Checkbox column for bulk selection
+   437→- "Select all across pages" option
+   438→- Sort by any column (click header)
+   439→
+   440→### 4.8 What Makes It Feel "Professional" — The Detail Checklist
+   441→
+   442→**Visual Design:**
+   443→- [ ] 8px spacing grid system consistently applied
+   444→- [ ] 2-3 font sizes maximum (page title 20px, body 14px, caption 12px)
+   445→- [ ] Muted colors for structure (borders, backgrounds), saturated only for actions
+   446→- [ ] 1px borders, not 2px; `border-color: #e5e7eb` not `#000`
+   447→- [ ] Subtle box shadows (0 1px 3px rgba(0,0,0,0.1)), not heavy drop shadows
+   448→- [ ] Rounded corners: 6-8px for cards, 4px for inputs, 999px for badges
+   449→- [ ] Consistent icon set (Lucide, Heroicons, or Phosphor — pick one)
+   450→
+   451→**Interaction Design:**
+   452→- [ ] Every list has a filter/search
+   453→- [ ] Every table has sortable columns
+   454→- [ ] Every form has inline validation (not just on submit)
+   455→- [ ] Every destructive action has a confirmation (but not every save)
+   456→- [ ] Every page has a clear primary action ("Create Product", "Save Changes")
+   457→- [ ] Loading states: skeleton screens, not spinners
+   458→- [ ] Empty states: illustration + description + CTA button
+   459→- [ ] Toast notifications for successful saves (bottom-left, auto-dismiss)
+   460→- [ ] Optimistic updates with undo for non-destructive actions
+   461→
+   462→**Data Design:**
+   463→- [ ] Status badges use color + text (not color alone): 🟢 Active, 🟡 Draft, ⚫ Archived
+   464→- [ ] Prices always show currency symbol
+   465→- [ ] Dates show relative time when recent ("2 hours ago"), absolute when old
+   466→- [ ] Long text truncated with "..." and tooltip on hover
+   467→- [ ] Image thumbnails: 40x40px in tables, consistent aspect ratio
+   468→
+   469→---
+   470→
+   471→## 5. RECOMMENDED ARCHITECTURE SUMMARY
+   472→
+   473→### The "Three-Layer" Model
+   474→
+   475→```
+   476→Layer 1: PRODUCT CATALOG (data)
+   477→├── Products (name, price, description, image, SKU)
+   478→├── Categories (flat, drag-drop ordered, many-to-many with products)
+   479→├── Modifiers (groups with options, min/max/default)
+   480→└── Custom Attributes (extensible fields)
+   481→
+   482→Layer 2: MENU PRESENTATION (layout + pricing)
+   483→├── Menus (schedule, channels, active hours)
+   484→├── Menu Sections (visual groupings within a menu)
+   485→├── Menu Item References (product reference + price override + availability)
+   486→└── Specials & Time-Based Pricing (happy hour, seasonal, event-based)
+   487→
+   488→Layer 3: POS & CHANNELS (delivery)
+   489→├── POS Layout (visual grid builder with drag-drop)
+   490→├── Channel Visibility (POS, Kiosk, Online, Partners)
+   491→├── Order Profiles (dine-in, takeout, delivery pricing)
+   492→└── Kitchen Routing (prep stations, coursing, timing)
+   493→```
+   494→
+   495→**This separation is what makes Square and Toast feel professional** — they understand that:
+   496→1. A product's DATA (name, cost, SKU) is separate from its PRESENTATION (which menu it appears in, at what price)
+   497→2. A product's PRESENTATION is separate from its DELIVERY (which POS screen, which channel)
+   498→3. Time-based pricing belongs at the menu level, not the product level
+   499→
+   500→---
+   501→
+   502→## 6. PRIORITY IMPLEMENTATION ORDER
+   503→
+   504→1. **Product catalog with flat categories** (foundation)
+   505→2. **Product list with filters, search, inline edit** (daily workflow)
+   506→3. **Quick Create + Detailed Create** (speed of data entry)
+   507→4. **Menu Manager with 3-level hierarchy** (restaurant-specific)
+   508→5. **Menu-specific pricing + scheduling** (happy hour, time-based)
+   509→6. **Checkbox + action bar bulk editing** (efficiency)
+   510→7. **Spreadsheet bulk editor** (power users)
+   511→8. **POS layout drag-drop builder** (visual customization)
+   512→9. **Channel visibility controls** (multi-channel management)
+   513→10. **Order profiles** (context-dependent pricing)
+   514→
+   515→---
+   516→
+   517→## Sources
+   518→
+   519→- Square for Restaurants documentation (squareup.com/help)
+   520→- Toast POS Support & Platform Documentation (support.toasttab.com, doc.toasttab.com)
+   521→- Lightspeed Restaurant K-Series & O-Series Support (lightspeedhq.com)
+   522→- Shopify Help Center (help.shopify.com)
+   523→- "SaaS Admin Panel Design: Definition, Importance, and Core UX Principles" (taqwah.agency)
+   524→- "SaaS UI/UX Design Guide: 5 Steps, 9 Best Practices" (fuselabcreative.com)
+   525→- "How to Create a Good Admin Panel: Design Tips & Features List" (aspirity.com)
+   526→- "Designing a layout structure for SaaS products" (Medium/Bootcamp)
+   527→- "Table Design UX Guide to Improve SaaS Usability and Clarity" (eleken.co)
+   528→- "Navigation UX Best Practices For SaaS Products" (pencilandpaper.io)
+   529→- "Dashboard Design UX Patterns Best Practices" (pencilandpaper.io)
+   530→- Square Menu Management Guide (Checkmate)
+   531→- Loman AI: Square POS vs Square for Restaurants comparison
+   532→- Toast Community: Menu management user feedback
+   533→
