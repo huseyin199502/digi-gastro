@@ -2914,7 +2914,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
-        await manager.broadcast(slug, {"type": "update", "table_number": table_num})
+        await manager.broadcast(slug, {"type": "new_order", "order_id": active_order["id"], "table_number": table_num, "status": "eingegangen"})
         return {"success": True, "order_id": active_order["id"]}
 
     # Let the database assign a unique autoincrement ID to avoid collisions
@@ -2935,7 +2935,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     restaurant["orders"].append(new_order)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update", "table_number": table_num})
+    await manager.broadcast(slug, {"type": "new_order", "order_id": new_order.get("id"), "table_number": table_num, "status": "eingegangen"})
     return {"success": True, "order_id": new_order.get("id")}
 
 
@@ -3037,7 +3037,7 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     finally:
         db.close()
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast(slug, {"type": "service_call", "call_id": new_id, "table": call_table_name, "service_type": payload.type})
     return {"success": True, "call_id": new_id}
 
 
@@ -5209,7 +5209,7 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     actual_id = restaurant["service_calls"][-1]["id"]
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast(slug, {"type": "service_call", "call_id": actual_id, "table": normalized_table, "service_type": service_type})
     return {"success": True, "call_id": actual_id}
 
 @app.get("/api/{slug}/check-session")

@@ -4208,7 +4208,23 @@
                     const data = JSON.parse(event.data);
                     if (data.type === "pong") {
                         pongReceived = true;
-                    } else if (data.type === "update" || data.type === "refresh_tables" || data.type === "service_call") {
+                    } else if (data.type === "new_order") {
+                        // Play sound IMMEDIATELY on WebSocket receipt — zero latency
+                        if (initialDone && !seenOrderIds.has(data.order_id)) {
+                            playNewOrderSound();
+                            seenOrderIds.add(data.order_id);
+                        }
+                        // Also trigger full data refresh
+                        checkLiveTischeUpdates();
+                    } else if (data.type === "service_call") {
+                        // Play service sound IMMEDIATELY on WebSocket receipt
+                        if (initialDone && !seenCallIds.has(data.call_id)) {
+                            playServiceSound();
+                            seenCallIds.add(data.call_id);
+                        }
+                        // Also trigger full data refresh
+                        checkLiveTischeUpdates();
+                    } else if (data.type === "update" || data.type === "refresh_tables") {
                         checkLiveTischeUpdates();
                     }
                 } catch (e) {
