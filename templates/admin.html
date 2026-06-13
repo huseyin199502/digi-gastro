@@ -2046,14 +2046,6 @@
                         <div class="stat-value">{{ "%.2f"|format(stats.brutto) }} €</div>
                         <div class="stat-sub">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € · Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
                     </div>
-                    <div class="stat-card stat-tips">
-                        <div class="stat-icon bg-amber-500/10">
-                            <span class="material-symbols-outlined text-amber-600">volunteer_activism</span>
-                        </div>
-                        <div class="stat-label">Trinkgeld heute</div>
-                        <div class="stat-value text-emerald-600">{{ "%.2f"|format(stats.tip) }} €</div>
-                        <div class="stat-sub">Zusätzliches waiter Trinkgeld</div>
-                    </div>
                     <div class="stat-card stat-orders">
                         <div class="stat-icon bg-blue-500/10">
                             <span class="material-symbols-outlined text-blue-600">receipt</span>
@@ -3074,7 +3066,7 @@
                         <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5">Trinkgeld €:</span>
                         <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold font-mono">
                     </div>
-                    <div id="control-customer-tip-box" class="col-span-2 hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 p-2.5 rounded-xl text-xs font-extrabold flex justify-between items-center shadow"></div>
+                    <div id="control-customer-tip-box" class="col-span-2 hidden" style="display:none !important;"></div>
                     <button id="btn-bezahlt-all" onclick="bezahlenAlles()" class="col-span-2 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
                     </button>
@@ -4083,9 +4075,17 @@
                 }
             }
 
+            // Only show "Gesamt bezahlen" when ALL items are served (no pending items left)
+            const allItemsServed = hasActiveOrder && pendingItems.length === 0 && deliveredItems.length > 0;
             if (hasActiveOrder) {
-                if (elTipWrapper) elTipWrapper.classList.remove('hidden');
-                if (elPayBtn) elPayBtn.classList.remove('hidden');
+                if (elTipWrapper) elTipWrapper.classList.add('hidden'); // Trinkgeld removed
+                if (elPayBtn) {
+                    if (allItemsServed) {
+                        elPayBtn.classList.remove('hidden');
+                    } else {
+                        elPayBtn.classList.add('hidden');
+                    }
+                }
                 if (elTransferBtn) elTransferBtn.classList.remove('hidden');
                 if (elCancelBtn) elCancelBtn.classList.remove('hidden');
             } else {
@@ -4782,7 +4782,6 @@
                                                 </div>
                                                 <div class="flex justify-between items-center text-[11px] mt-0.5">
                                                     <span class="text-on-surface-variant font-semibold">Betrag: ${p.total.toFixed(2).replace('.', ',')} €</span>
-                                                    ${hasTip ? `<span class="bg-emerald-500/10 text-emerald-400 font-black px-2 py-0.5 rounded border border-emerald-500/20 text-[9px] uppercase tracking-wider">Trinkgeld: +${p.tip_amount.toFixed(2).replace('.', ',')} €</span>` : '<span class="text-zinc-600 font-medium">Kein Trinkgeld</span>'}
                                                 </div>
                                             </div>
                                         `;
@@ -5596,15 +5595,6 @@
                 
                 const revenueText = order ? `${order.total.toFixed(2).replace('.', ',')} €` : '';
 
-                // Check for customer tip in active call
-                let tipText = '';
-                if (activeCall && activeCall.type.includes('Trinkgeld:')) {
-                    const match = activeCall.type.match(/Trinkgeld:\s*([0-9.,]+)/);
-                    if (match) {
-                        tipText = `+${match[1]} € Trinkgeld`;
-                    }
-                }
-
                 if (activeCall) {
                     let callIcon = '🔔';
                     let callText = 'Ruf';
@@ -6157,8 +6147,6 @@
             const btn = document.getElementById('btn-bezahlen-teilrechnung');
             if (btn) { btn.disabled = true; btn.textContent = 'Verarbeite…'; }
 
-            const tipVal = parseFloat(document.getElementById('pay-teil-tip').value) || 0.0;
-
             try {
                 const bulkItems = keys.map(key => ({
                     item_key: key,
@@ -6167,7 +6155,7 @@
                 const res = await fetch(`/${slug}/tablet/pay-items-bulk/${activeOrderId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: bulkItems, tip_amount: tipVal })
+                    body: JSON.stringify({ items: bulkItems, tip_amount: 0.0 })
                 });
                 if (res.ok) {
                     showToast('Teilzahlung erfolgreich gebucht', 'success');
@@ -6256,10 +6244,9 @@
             if (!activeOrderId) return;
             const btn = document.getElementById('btn-bezahlt-all');
             btn.disabled = true; btn.innerHTML = 'Verarbeite…';
-            const tipVal = parseFloat(document.getElementById('pay-all-tip').value) || 0.0;
             try {
                 const fd = new FormData();
-                fd.append('tip', tipVal);
+                fd.append('tip', '0.0');
                 const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST', body: fd });
                 if (res.ok) {
                     showToast('✅ Alles bezahlt!', 'success');
@@ -6332,12 +6319,9 @@
             const order = allOrders.find(o => o.id === activeOrderId);
             if (!order) return;
             
-            const tipVal = prompt('Trinkgeld in €:', '0.00');
-            if (tipVal === null) return;
-            
             try {
                 const fd = new FormData();
-                fd.append('tip', parseFloat(tipVal).toFixed(2));
+                fd.append('tip', '0.0');
                 const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, {
                     method: 'POST',
                     body: fd

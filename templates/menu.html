@@ -564,7 +564,7 @@
                 
 
                 <!-- Category Wrapper (Sticky) - Center-Lock Carousel -->
-                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky py-1 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important;">
+                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky py-1 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important; -webkit-overflow-scrolling: touch;">
                     
                     <!-- Center-Lock Category Carousel -->
                     <div id="category-carousel-wrapper">
@@ -702,7 +702,7 @@
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
     <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
-    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300">
+    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] sm:bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-1.5">
             <button onclick="openServiceModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
@@ -759,8 +759,8 @@
     </div>
 
     <!-- CHECKOUT MODAL (BASKET BOTTOM-SHEET) -->
-    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end justify-center hidden" onclick="if(event.target === this) closeCartModal()">
-        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant rounded-t-[2.5rem] w-full max-w-md p-5 sm:p-8 relative flex flex-col h-[85vh] max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-8">
+    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center hidden" onclick="if(event.target === this) closeCartModal()">
+        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant sm:rounded-[2rem] rounded-t-[2.5rem] w-full max-w-md p-5 sm:p-8 relative flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-8">
             
             <!-- Drag Handle Indicator -->
             <div class="w-12 h-1.5 bg-zinc-800 rounded-full mx-auto mb-4 shrink-0"></div>
@@ -2234,15 +2234,7 @@
                         return;
                     }
                     
-                    this.selectedPaymentTipPercent = 0;
-                    this.customPaymentTipAmount = 0;
                     this.paymentTipVal = 0.0;
-                    
-                    const customInput = document.getElementById("payment-custom-tip-input");
-                    if (customInput) customInput.value = "";
-                    const customContainer = document.getElementById("payment-custom-tip-container");
-                    if (customContainer) customContainer.classList.add("hidden");
-
                     this.currentPaymentSubtotal = 0.0;
                     
                     // Fetch unpaid orders total for the current table directly from server database
@@ -2255,12 +2247,10 @@
                             // Fallback to current cart total if no orders placed yet
                             this.currentPaymentSubtotal = this.cartTotal;
                         }
-                        this.recalcPaymentTip();
                     })
                     .catch(err => {
                         console.error("Fehler beim Abrufen der Tisch-Summe:", err);
                         this.currentPaymentSubtotal = this.cartTotal;
-                        this.recalcPaymentTip();
                     });
 
                     this.selectPaymentOption('zahlen_bar');
@@ -2281,10 +2271,6 @@
 
                 selectPaymentOption(type) {
                     this.selectedPaymentType = type;
-                    const tipSection = document.getElementById("payment-tip-section");
-                    if (tipSection) {
-                        tipSection.classList.remove("hidden");
-                    }
                 },
 
                 selectPaymentTip(percent) {
@@ -2340,6 +2326,13 @@
                 confirmPaymentRequest() {
                     this.sendServiceRequestAPI(this.selectedPaymentType);
                     this.closePaymentModal();
+                    // After requesting the bill, redirect to Google review page
+                    const googleUrl = this.restaurantLandingPage.google_rating_url;
+                    if (googleUrl) {
+                        setTimeout(() => {
+                            window.open(googleUrl, '_blank');
+                        }, 800);
+                    }
                 },
 
                 sendServiceRequestAPI(type) {
@@ -2352,7 +2345,7 @@
                         type: type,
                         table: cleanTable,
                         token: token,
-                        tip_amount: (type === 'zahlen_bar' || type === 'zahlen_karte') ? this.paymentTipVal : 0.0
+                        tip_amount: 0.0
                     };
 
                     fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
@@ -2893,39 +2886,6 @@
             </div>
 
 
-            <!-- Trinkgeld-Sektion -->
-            <div id="payment-tip-section" class="border-t border-outline-variant/60 pt-5 text-left hidden">
-                <label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3 font-display" data-translate="tip_question">Trinkgeld für den Service?</label>
-                <div class="grid grid-cols-4 gap-2 font-display">
-                    <button @click="selectPaymentTip(5)" id="pay-tip-5" 
-                            :class="selectedPaymentTipPercent === 5 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">5%</button>
-                    <button @click="selectPaymentTip(10)" id="pay-tip-10" 
-                            :class="selectedPaymentTipPercent === 10 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">10%</button>
-                    <button @click="selectPaymentTip(15)" id="pay-tip-15" 
-                            :class="selectedPaymentTipPercent === 15 ? 'border border-primary text-xs font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-xs font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'">15%</button>
-                    <button @click="selectPaymentCustomTip()" id="pay-tip-custom" 
-                            :class="(selectedPaymentTipPercent === 0 && customPaymentTipAmount > 0) ? 'border border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-primary text-black transition' : 'border border-outline-variant hover:border-primary text-[11px] font-extrabold py-2.5 rounded-xl bg-background hover:bg-primary/10 text-on-surface transition active:scale-95'" data-translate="tip_custom">Eigener</button>
-                </div>
-                <div id="payment-custom-tip-container" class="mt-3 hidden">
-                    <input type="number" id="payment-custom-tip-input" oninput="calculatePaymentCustomTip()" step="0.50" min="0" placeholder="0.00" class="input-premium w-full text-sm font-semibold text-center font-display focus:border-primary">
-                </div>
-                
-                <div class="space-y-2 mt-4 bg-background/40 p-3 rounded-2xl border border-outline-variant/40 font-display text-xs">
-                    <div class="flex justify-between items-center text-on-surface-variant">
-                        <span data-translate="basket_subtotal">Zwischensumme:</span>
-                        <span id="payment-subtotal-val" class="font-bold text-on-surface">0,00 €</span>
-                    </div>
-                    <div class="flex justify-between items-center text-on-surface-variant">
-                        <span data-translate="basket_tip">Trinkgeld:</span>
-                        <span id="payment-tip-val" class="font-bold text-primary">0,00 €</span>
-                    </div>
-                    <div class="flex justify-between items-center text-sm font-black text-on-surface pt-2 border-t border-outline-variant/30">
-                        <span data-translate="basket_total">Gesamtsumme:</span>
-                        <span id="payment-total-val" class="text-primary font-black glow-text-primary">0,00 €</span>
-                    </div>
-                </div>
-            </div>
-            
             <button onclick="confirmPaymentRequest()" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20 shrink-0" data-translate="btn_pay_confirm">
                 Abschließen & Bezahlen
             </button>
