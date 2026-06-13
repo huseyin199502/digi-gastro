@@ -5168,6 +5168,12 @@ async def post_produkt_erstellen(
         raise HTTPException(status_code=500, detail=f"Fehler beim Erstellen des Produkts: {e}")
 
     await manager.broadcast(slug, {"type": "update"})
+
+    # Return JSON for fetch requests, redirect for regular form submissions
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept or request.headers.get("x-requested-with") == "fetch":
+        return {"success": True, "product": new_product}
+
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 

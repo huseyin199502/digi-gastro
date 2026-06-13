@@ -3349,6 +3349,16 @@
     ═══════════════════════════════════════════════════════ -->
     <div id="bulk-action-bar" class="bulk-action-bar hidden">
         <span class="text-xs font-bold text-zinc-700"><span id="bulk-count">0</span> ausgew&auml;hlt</span>
+        <div class="relative" id="bulk-category-dropdown-wrapper">
+            <button onclick="toggleBulkCategoryDropdown()" class="btn-secondary text-[10px] px-3 py-1.5 flex items-center gap-1">
+                <span class="material-symbols-outlined" style="font-size:12px;">drive_file_move</span> Kategorie
+            </button>
+            <div id="bulk-category-dropdown" class="hidden absolute bottom-full left-0 mb-1 bg-white rounded-lg shadow-xl border border-zinc-200 py-1 z-50 min-w-[160px] max-h-[200px] overflow-y-auto">
+                {% for cat in restaurant.categories %}
+                <button onclick="bulkMoveToCategory('{{ cat | replace("'", "\\'") }}')" class="w-full text-left px-3 py-1.5 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-100 transition">{{ cat }}</button>
+                {% endfor %}
+            </div>
+        </div>
         <button onclick="bulkToggleAvailability()" class="btn-secondary text-[10px] px-3 py-1.5 flex items-center gap-1">
             <span class="material-symbols-outlined" style="font-size:12px;">toggle_on</span> Verf&uuml;gbarkeit
         </button>
@@ -3533,7 +3543,7 @@
             }
         }
 
-        function switchAdminTab(tabId) {
+        function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('aside nav button.nav-btn, aside nav button.nav-sub-btn').forEach(btn => {
@@ -3558,7 +3568,10 @@
                 breadcrumb.textContent = tabNames[tabId] || tabId;
             }
             
-            sessionStorage.setItem('dl_admin_active_tab', tabId);
+            localStorage.setItem('dl_admin_active_tab', tabId);
+            if (updateHash) {
+                history.replaceState(null, '', '#' + tabId);
+            }
 
             if (tabId === 'live') {
                 renderSitzplanTiles();
@@ -3570,8 +3583,15 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
-            switchAdminTab(activeTab);
+            const hashTab = window.location.hash.replace('#', '');
+            const activeTab = hashTab || localStorage.getItem('dl_admin_active_tab') || 'live';
+            switchAdminTab(activeTab, false);
+        });
+
+        // Handle browser back/forward
+        window.addEventListener('hashchange', () => {
+            const hashTab = window.location.hash.replace('#', '');
+            if (hashTab) switchAdminTab(hashTab, false);
         });
 
         // ── CONFIG SUB-TAB SWITCHING ──
@@ -4826,7 +4846,7 @@
                     renderSitzplanTiles();
                 }
 
-                const activeTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+                const activeTab = localStorage.getItem('dl_admin_active_tab') || 'live';
                 if (activeTab === 'live') {
                     renderServiceCallsAlerts();
                 }
@@ -6585,6 +6605,108 @@
         });
 
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }
+
+        // ── SOFT REFRESH: Update products list without full page reload ──
+        function initProductSortable() {
+            document.querySelectorAll('.product-sortable-list').forEach(list => {
+                if (list._sortable) { try { list._sortable.destroy(); } catch(e){} }
+                list._sortable = new Sortable(list, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function(evt) {
+                        const productIds = Array.from(list.children).map(item => item.getAttribute('data-product-id'));
+                        fetch('/admin/products/reorder', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ product_ids: productIds })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) showToast("Reihenfolge gespeichert", "success");
+                            else showToast("Fehler beim Speichern", "error");
+                        })
+                        .catch(err => showToast("Verbindungsfehler", "error"));
+                    }
+                });
+            });
+        }
+
+        async function refreshProductsUI() {
+            try {
+                const res = await fetch(window.location.pathname);
+                const html = await res.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Replace desktop product table body
+                const newTbody = doc.querySelector('tbody.product-sortable-list');
+                const oldTbody = document.querySelector('tbody.product-sortable-list');
+                if (newTbody && oldTbody) oldTbody.innerHTML = newTbody.innerHTML;
+
+                // Replace mobile product card view
+                const newCards = doc.querySelector('.product-card-view');
+                const oldCards = document.querySelector('.product-card-view');
+                if (newCards && oldCards) oldCards.innerHTML = newCards.innerHTML;
+
+                // Update JS data by evaluating script content from the fetched page
+                try {
+                    const allScripts = doc.querySelectorAll('script');
+                    for (const s of allScripts) {
+                        const txt = s.textContent || '';
+                        // Find allProducts assignment
+                        if (txt.includes('let allProducts')) {
+                            const start = txt.indexOf('let allProducts');
+                            const eqIdx = txt.indexOf('=', start);
+                            const arrStart = txt.indexOf('[', eqIdx);
+                            if (arrStart !== -1) {
+                                let depth = 0, i = arrStart;
+                                for (; i < txt.length; i++) {
+                                    if (txt[i] === '[') depth++;
+                                    if (txt[i] === ']') depth--;
+                                    if (depth === 0) break;
+                                }
+                                const jsonStr = txt.substring(arrStart, i + 1);
+                                allProducts = JSON.parse(jsonStr);
+                            }
+                        }
+                        // Find allCategories assignment
+                        if (txt.includes('let allCategories')) {
+                            const start = txt.indexOf('let allCategories');
+                            const eqIdx = txt.indexOf('=', start);
+                            const arrStart = txt.indexOf('[', eqIdx);
+                            if (arrStart !== -1) {
+                                let depth = 0, i = arrStart;
+                                for (; i < txt.length; i++) {
+                                    if (txt[i] === '[') depth++;
+                                    if (txt[i] === ']') depth--;
+                                    if (depth === 0) break;
+                                }
+                                const jsonStr = txt.substring(arrStart, i + 1);
+                                allCategories = JSON.parse(jsonStr);
+                            }
+                        }
+                    }
+                } catch(e) { console.warn('Failed to parse JS data:', e); }
+
+                // Re-init SortableJS
+                initProductSortable();
+
+                // Clear bulk selection
+                const sa = document.getElementById('select-all-products');
+                if (sa) sa.checked = false;
+                const bar = document.getElementById('bulk-action-bar');
+                if (bar) bar.classList.add('hidden');
+
+                // Re-apply current filters
+                const searchInput = document.querySelector('#product-search');
+                if (searchInput && searchInput.value) filterProducts(searchInput.value);
+                const catFilter = document.querySelector('#category-filter');
+                if (catFilter && catFilter.value && catFilter.value !== 'all') filterProductsByCategory(catFilter.value);
+            } catch (err) {
+                console.error('refreshProductsUI failed, fallback to reload:', err);
+                window.location.reload();
+            }
+        }
         function closeQRGenerator()     { /* legacy */ }
 
         function openEditProductModal(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
@@ -6687,7 +6809,11 @@
             const form = document.getElementById('quick-create-form');
             const formData = new FormData(form);
             try {
-                const response = await fetch('/admin/produkt-erstellen', { method: 'POST', body: formData });
+                const response = await fetch('/admin/produkt-erstellen', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'fetch' }
+                });
                 if (response.ok) {
                     showToast('Produkt erfolgreich erstellt!', 'success');
                     if (createAndNext) {
@@ -6695,8 +6821,7 @@
                     } else {
                         closeQuickCreateModal();
                     }
-                    sessionStorage.setItem('dl_admin_active_tab', 'produkte');
-                    window.location.reload();
+                    refreshProductsUI();
                 } else {
                     showToast('Fehler beim Erstellen des Produkts', 'error');
                 }
@@ -6768,8 +6893,7 @@
                 });
                 if (res.ok) {
                     showToast('Produkt gelöscht', 'success');
-                    sessionStorage.setItem('dl_admin_active_tab', 'produkte');
-                    window.location.reload();
+                    refreshProductsUI();
                 } else {
                     showToast('Fehler beim Löschen', 'error');
                 }
@@ -6805,8 +6929,7 @@
                 await fetch('/admin/product-toggle/' + pid, { method: 'POST' });
             }
             showToast(checked.length + ' Produkte aktualisiert', 'success');
-            sessionStorage.setItem('dl_admin_active_tab', 'produkte');
-            window.location.reload();
+            refreshProductsUI();
         }
 
         async function bulkDeleteProducts() {
@@ -6818,8 +6941,52 @@
                 await fetch('/admin/produkt-loeschen/' + pid, { method: 'POST' });
             }
             showToast(checked.length + ' Produkte gelöscht', 'success');
-            sessionStorage.setItem('dl_admin_active_tab', 'produkte');
-            window.location.reload();
+            refreshProductsUI();
+        }
+
+        // ── Bulk move to category ──
+        function toggleBulkCategoryDropdown() {
+            const dd = document.getElementById('bulk-category-dropdown');
+            dd.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('bulk-category-dropdown-wrapper');
+            const dd = document.getElementById('bulk-category-dropdown');
+            if (wrapper && dd && !wrapper.contains(e.target)) {
+                dd.classList.add('hidden');
+            }
+        });
+
+        async function bulkMoveToCategory(categoryName) {
+            const dd = document.getElementById('bulk-category-dropdown');
+            if (dd) dd.classList.add('hidden');
+            const checked = document.querySelectorAll('.product-checkbox:checked');
+            if (checked.length === 0) return;
+            let successCount = 0;
+            for (const cb of checked) {
+                const pid = cb.dataset.productId;
+                const product = allProducts.find(p => String(p.id) === String(pid));
+                if (!product) continue;
+                const formData = new FormData();
+                formData.append('name', product.name);
+                formData.append('price', product.price);
+                formData.append('description', product.description || '');
+                formData.append('category', categoryName);
+                formData.append('name_en', product.name_en || '');
+                formData.append('description_en', product.description_en || '');
+                formData.append('image_url', product.image || '');
+                formData.append('is_vegan', product.is_vegan ? 'true' : 'false');
+                formData.append('is_glutenfree', product.is_glutenfree ? 'true' : 'false');
+                if (product.happy_hour_price) formData.append('happy_hour_price', product.happy_hour_price);
+                try {
+                    const res = await fetch('/api/products/' + pid, { method: 'PUT', body: formData });
+                    if (res.ok) successCount++;
+                } catch(e) {}
+            }
+            showToast(successCount + ' Produkte nach "' + categoryName + '" verschoben', 'success');
+            refreshProductsUI();
         }
 
         // Accordion toggle
@@ -7168,17 +7335,25 @@
             });
         }
 
-        function loadEventsData() {
-            // Reload page to get fresh data (simple approach)
-            // In production, we'd use a fetch to get updated events JSON
-            fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(() => {
-                // Just reload the page to refresh events
+        async function loadEventsData() {
+            try {
+                const res = await fetch(window.location.pathname);
+                const html = await res.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                // Update allEvents from the fetched page
+                const scriptTags = doc.querySelectorAll('script');
+                for (const s of scriptTags) {
+                    const txt = s.textContent || '';
+                    const m = txt.match(/let allEvents\s*=\s*(\[[\s\S]*?\])\s*\|\|/);
+                    if (m) { try { allEvents = JSON.parse(m[1]); } catch(e){} }
+                    const m2 = txt.match(/let allProducts\s*=\s*(\[[\s\S]*?\])\s*\|\|/);
+                    if (m2) { try { allProducts = JSON.parse(m2[1]); } catch(e){} }
+                }
+                renderEventsList();
+            } catch (err) {
                 window.location.reload();
-            })
-            .catch(() => {
-                window.location.reload();
-            });
+            }
         }
 
         // Initialize events list on DOMContentLoaded
@@ -7230,9 +7405,8 @@
             .then(res => {
                 if (res.ok) {
                     closeEditProductModal();
-                    // Stay on produkte tab after reload
-                    sessionStorage.setItem('dl_admin_active_tab', 'produkte');
-                    window.location.reload();
+                    showToast('Produkt erfolgreich gespeichert!', 'success');
+                    refreshProductsUI();
                 } else {
                     alert("Fehler beim Aktualisieren des Produkts.");
                 }
@@ -7479,7 +7653,7 @@
             
             // Requires a minimum horizontal swipe length of 80px, and horizontal shift must be greater than vertical
             if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
-                const currentTab = sessionStorage.getItem('dl_admin_active_tab') || 'live';
+                const currentTab = localStorage.getItem('dl_admin_active_tab') || 'live';
                 const currentIndex = tabsSequence.indexOf(currentTab);
                 
                 if (diffX < 0) {
