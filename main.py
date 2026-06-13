@@ -2681,15 +2681,16 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
-            # Security: httponly=True prevents XSS token theft, samesite=strict blocks cross-site
-            # secure=True only on HTTPS (localhost is exempt)
-            _is_secure = not (request.url.hostname in ["localhost", "127.0.0.1", "testserver"])
+            # Security: httponly=True prevents XSS token theft, samesite=lax allows QR scan redirects
+            # secure=True only on HTTPS (localhost is exempt; check both scheme and X-Forwarded-Proto for reverse proxy)
+            _fwd_proto = request.headers.get("x-forwarded-proto", "")
+            _is_secure = (request.url.scheme == "https" or _fwd_proto == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
             response.set_cookie(
                 key=cookie_name,
                 value=cookie_val,
                 max_age=1800, # 30 minutes
                 httponly=True,
-                samesite="strict",
+                samesite="lax",
                 secure=_is_secure,
                 path="/"
             )
@@ -2846,12 +2847,13 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     
     if set_session_cookie and table and token:
         # Security: Same settings as QR redirect cookie for consistency
-        _is_secure_2 = not (request.url.hostname in ["localhost", "127.0.0.1", "testserver"])
+        _fwd_proto_2 = request.headers.get("x-forwarded-proto", "")
+        _is_secure_2 = (request.url.scheme == "https" or _fwd_proto_2 == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
         response.set_cookie(
             key=f"guest_session_{slug}",
             value=f"{table}:{token}",
             httponly=True,
-            samesite="strict",
+            samesite="lax",
             secure=_is_secure_2,
             max_age=1800, # 30 minutes (consistent with QR redirect)
             path="/"
@@ -4347,12 +4349,13 @@ def admin_impersonate(request: Request, table_number: str, z: Optional[str] = No
     # Redirect to customer menu and set session cookie
     zone_param = f"&z={z}" if z else ""
     resp = RedirectResponse(url=f"/{slug}?tisch={table_num}&token={table_token}{zone_param}", status_code=303)
-    _is_secure_imp = not (request.url.hostname in ["localhost", "127.0.0.1", "testserver"])
+    _fwd_proto_imp = request.headers.get("x-forwarded-proto", "")
+    _is_secure_imp = (request.url.scheme == "https" or _fwd_proto_imp == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
     resp.set_cookie(
         key=f"guest_session_{slug}",
         value=f"{table_display_name}:{table_token}",
         httponly=True,
-        samesite="strict",
+        samesite="lax",
         secure=_is_secure_imp,
         max_age=1800,
         path="/"
@@ -7417,7 +7420,13 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
     except Exception:
         pass
         
-    base_url = str(request.base_url).rstrip("/")
+    # Use X-Forwarded headers to build correct public URL for QR codes
+    # (reverse proxy may use internal hostname, which customers can't reach)
+    fwd_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    fwd_host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.hostname))
+    if ":" in fwd_host:
+        fwd_host = fwd_host.split(":")[0]  # strip port, use standard 443/80
+    base_url = f"{fwd_proto}://{fwd_host}".rstrip("/")
     html_content = f"""
     <!DOCTYPE html>
     <html>
