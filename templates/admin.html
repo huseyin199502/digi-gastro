@@ -2162,10 +2162,10 @@
                         <div class="flex flex-col sm:flex-row gap-3">
                             <div class="relative flex-1">
                                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" style="font-size:18px;">search</span>
-                                <input type="text" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
+                                <input type="text" id="product-search" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
                             </div>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <select onchange="filterProductsByCategory(this.value)" class="form-field w-auto min-w-0 sm:min-w-[120px] text-xs">
+                                <select id="category-filter" onchange="filterProductsByCategory(this.value)" class="form-field w-auto min-w-0 sm:min-w-[120px] text-xs">
                                     <option value="all">Alle Kategorien</option>
                                     {% for cat in restaurant.categories %}
                                     <option value="{{ cat }}">{{ cat }}</option>
@@ -2386,7 +2386,7 @@
                                             <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:14px;" title="Verschieben">drag_indicator</span>
                                             <span class="font-extrabold text-xs text-emerald-800 category-display-name">{{ cat }}</span>
                                             <div class="flex items-center ml-auto gap-1">
-                                                <button onclick="editCategoryInline('{{ cat }}', '{{ cat }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
+                                                <button onclick="editCategoryInline('{{ cat | replace("'", "\\'") }}', '{{ cat | replace("'", "\\'") }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
                                                     <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                                                 </button>
                                                 <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
@@ -3545,6 +3545,10 @@
 
         function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
+            // Validate tabId — only allow known tabs
+            const validTabs = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'einstellungen'];
+            if (!validTabs.includes(tabId)) tabId = 'live';
+
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('aside nav button.nav-btn, aside nav button.nav-sub-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -6541,36 +6545,8 @@
         window.addEventListener("load", () => {
             setTimeout(startPolling, 1500);
 
-            // Initialize SortableJS for product reordering
-            document.querySelectorAll('.product-sortable-list').forEach(list => {
-                new Sortable(list, {
-                    handle: '.drag-handle',
-                    animation: 150,
-                    onEnd: function(evt) {
-                        const productIds = Array.from(list.children).map(item => item.getAttribute('data-product-id'));
-                        
-                        fetch('/admin/products/reorder', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ product_ids: productIds })
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success) {
-                                showToast("Reihenfolge erfolgreich gespeichert", "success");
-                            } else {
-                                showToast("Fehler beim Speichern der Reihenfolge", "error");
-                            }
-                        })
-                        .catch(err => {
-                            console.error("Reorder failed:", err);
-                            showToast("Fehler beim Verbinden zum Server", "error");
-                        });
-                    }
-                });
-            });
+            // Initialize SortableJS for product reordering (reusable function)
+            initProductSortable();
 
             // Initialize SortableJS for category reordering
             document.querySelectorAll('.category-sortable-list').forEach(list => {
@@ -6605,6 +6581,30 @@
         });
 
         function openTableQRGenerator() { /* legacy – replaced by /qr-print route */ }
+
+        // ── Helper: extract JSON array from JS source text, respecting string boundaries ──
+        function extractJsonArray(text, varName) {
+            const marker = 'let ' + varName;
+            const startIdx = text.indexOf(marker);
+            if (startIdx === -1) return null;
+            const eqIdx = text.indexOf('=', startIdx + marker.length);
+            const arrStart = text.indexOf('[', eqIdx);
+            if (arrStart === -1) return null;
+            let depth = 0, inString = false, escape = false, quoteChar = '';
+            for (let i = arrStart; i < text.length; i++) {
+                const ch = text[i];
+                if (escape) { escape = false; continue; }
+                if (ch === '\\') { escape = true; continue; }
+                if (inString) {
+                    if (ch === quoteChar) inString = false;
+                    continue;
+                }
+                if (ch === '"' || ch === "'") { inString = true; quoteChar = ch; continue; }
+                if (ch === '[') depth++;
+                if (ch === ']') { depth--; if (depth === 0) return text.substring(arrStart, i + 1); }
+            }
+            return null;
+        }
 
         // ── SOFT REFRESH: Update products list without full page reload ──
         function initProductSortable() {
@@ -6653,39 +6653,15 @@
                     const allScripts = doc.querySelectorAll('script');
                     for (const s of allScripts) {
                         const txt = s.textContent || '';
-                        // Find allProducts assignment
-                        if (txt.includes('let allProducts')) {
-                            const start = txt.indexOf('let allProducts');
-                            const eqIdx = txt.indexOf('=', start);
-                            const arrStart = txt.indexOf('[', eqIdx);
-                            if (arrStart !== -1) {
-                                let depth = 0, i = arrStart;
-                                for (; i < txt.length; i++) {
-                                    if (txt[i] === '[') depth++;
-                                    if (txt[i] === ']') depth--;
-                                    if (depth === 0) break;
-                                }
-                                const jsonStr = txt.substring(arrStart, i + 1);
-                                allProducts = JSON.parse(jsonStr);
-                            }
-                        }
-                        // Find allCategories assignment
-                        if (txt.includes('let allCategories')) {
-                            const start = txt.indexOf('let allCategories');
-                            const eqIdx = txt.indexOf('=', start);
-                            const arrStart = txt.indexOf('[', eqIdx);
-                            if (arrStart !== -1) {
-                                let depth = 0, i = arrStart;
-                                for (; i < txt.length; i++) {
-                                    if (txt[i] === '[') depth++;
-                                    if (txt[i] === ']') depth--;
-                                    if (depth === 0) break;
-                                }
-                                const jsonStr = txt.substring(arrStart, i + 1);
-                                allCategories = JSON.parse(jsonStr);
-                            }
-                        }
+                        const productsJson = extractJsonArray(txt, 'allProducts');
+                        if (productsJson) { try { allProducts = JSON.parse(productsJson); } catch(e){} }
+                        const catsJson = extractJsonArray(txt, 'allCategories');
+                        if (catsJson) { try { allCategories = JSON.parse(catsJson); } catch(e){} }
+                        const eventsJson = extractJsonArray(txt, 'allEvents');
+                        if (eventsJson) { try { allEvents = JSON.parse(eventsJson); } catch(e){} }
                     }
+                    // Keep window._productsData in sync
+                    window._productsData = allProducts;
                 } catch(e) { console.warn('Failed to parse JS data:', e); }
 
                 // Re-init SortableJS
@@ -6974,11 +6950,13 @@
                 formData.append('price', product.price);
                 formData.append('description', product.description || '');
                 formData.append('category', categoryName);
+                formData.append('category_type', product.category_type || 'küche');
                 formData.append('name_en', product.name_en || '');
                 formData.append('description_en', product.description_en || '');
                 formData.append('image_url', product.image || '');
                 formData.append('is_vegan', product.is_vegan ? 'true' : 'false');
                 formData.append('is_glutenfree', product.is_glutenfree ? 'true' : 'false');
+                formData.append('is_available', product.is_available !== false ? 'true' : 'false');
                 if (product.happy_hour_price) formData.append('happy_hour_price', product.happy_hour_price);
                 try {
                     const res = await fetch('/api/products/' + pid, { method: 'PUT', body: formData });
@@ -7341,14 +7319,14 @@
                 const html = await res.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                // Update allEvents from the fetched page
+                // Update allEvents from the fetched page using robust JSON extraction
                 const scriptTags = doc.querySelectorAll('script');
                 for (const s of scriptTags) {
                     const txt = s.textContent || '';
-                    const m = txt.match(/let allEvents\s*=\s*(\[[\s\S]*?\])\s*\|\|/);
-                    if (m) { try { allEvents = JSON.parse(m[1]); } catch(e){} }
-                    const m2 = txt.match(/let allProducts\s*=\s*(\[[\s\S]*?\])\s*\|\|/);
-                    if (m2) { try { allProducts = JSON.parse(m2[1]); } catch(e){} }
+                    const eventsJson = extractJsonArray(txt, 'allEvents');
+                    if (eventsJson) { try { allEvents = JSON.parse(eventsJson); } catch(e){} }
+                    const productsJson = extractJsonArray(txt, 'allProducts');
+                    if (productsJson) { try { allProducts = JSON.parse(productsJson); window._productsData = allProducts; } catch(e){} }
                 }
                 renderEventsList();
             } catch (err) {
@@ -7391,6 +7369,7 @@
             }
             formData.append('is_vegan', document.getElementById('edit-product-is-vegan').checked ? 'true' : 'false');
             formData.append('is_glutenfree', document.getElementById('edit-product-is-glutenfree').checked ? 'true' : 'false');
+            formData.append('category_type', document.getElementById('edit-product-type').value);
             
             // Aktionspreis from slide-over Tab 3
             const hhPriceField = document.getElementById('edit-product-hh-price');
