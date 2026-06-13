@@ -152,7 +152,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1);
+            transition: transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
             will-change: transform;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
@@ -328,11 +328,13 @@
 
     <div id="happy-hour-banner-wrapper">
         {% if hh_active_global %}
-        <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
-            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
-            <span>🔥 {{ hh_config.get('display_name', 'Aktion') }} ist aktiv! {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Aktionspreise für ausgewählte Artikel!{% endif %} 🔥</span>
-            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
+        {% for ev in active_events %}
+        <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
+            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">celebration</span>
+            <span>🔥 {{ ev.display_name }} ist aktiv! {% if ev.mode == 'discount' and ev.discount > 0 %}{{ ev.discount }}% auf alles!{% else %}Sonderpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">celebration</span>
         </div>
+        {% endfor %}
         {% endif %}
     </div>
 
@@ -637,9 +639,9 @@
                             
                             <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
                                 {% if product.is_hh_active %}
-                                <span class="bg-[#eab308] text-black text-[11px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
-                                    <span class="material-symbols-outlined text-xs font-black">schedule</span>
-                                    <span>{{ hh_display_name[:6] }}{% if product.happy_hour_days %} {% for d in product.happy_hour_days %}{{ d[:2] }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}</span>
+                                <span class="bg-[#7c3aed] text-white text-[11px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+                                    <span class="material-symbols-outlined text-xs font-black">celebration</span>
+                                    <span>{{ (product.active_event.display_name if product.active_event else 'Event')[:10] }}{% if product.active_event and product.active_event.days %} {% for d in product.active_event.days %}{{ d[:2] }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}</span>
                                 </span>
                                 {% endif %}
                                 {% if product.is_vegan or product.vegan %}
@@ -1692,6 +1694,7 @@
                     
                     const wrapperWidth = wrapper.getBoundingClientRect().width;
                     const gap = 8;
+                    const paddingLeft = 16;
                     
                     let pillOffsetX = 0;
                     for (let i = 0; i < index; i++) {
@@ -1699,8 +1702,17 @@
                     }
                     pillOffsetX += pills[index].offsetWidth / 2;
                     
-                    const paddingLeft = 16;
-                    const tx = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                    let tx = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                    
+                    // Clamp: first pill can reach center, last pill can reach center
+                    const maxTx = (wrapperWidth / 2) - paddingLeft - pills[0].offsetWidth / 2; // center first pill
+                    let lastPillOffsetX = 0;
+                    for (let i = 0; i < pills.length - 1; i++) {
+                        lastPillOffsetX += pills[i].offsetWidth + gap;
+                    }
+                    lastPillOffsetX += pills[pills.length - 1].offsetWidth / 2;
+                    const minTx = (wrapperWidth / 2) - paddingLeft - lastPillOffsetX; // center last pill
+                    tx = Math.max(minTx, Math.min(maxTx, tx));
                     
                     if (instant) {
                         track.classList.add('no-transition');

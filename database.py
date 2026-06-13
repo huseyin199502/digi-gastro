@@ -220,6 +220,30 @@ class AuditLog(Base):
     user = Column(String, nullable=True)
     details = Column(Text, nullable=True)
 
+class Event(Base):
+    __tablename__ = 'events'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)  # Internal name, e.g. "Ladys Night"
+    display_name = Column(String, nullable=False)  # What guests see, e.g. "Ladys Night"
+    description = Column(Text, default="")  # Short description for admin
+    days = Column(Text, default="[]")  # JSON array of German day names, e.g. ["Donnerstag"]
+    start_time = Column(String, default="18:00")
+    end_time = Column(String, default="20:00")
+    mode = Column(String, default="selected")  # "selected" = only chosen products, "discount" = % on everything
+    discount = Column(Integer, default=0)  # Percentage discount for "discount" mode
+    is_active = Column(Boolean, default=True)
+    position = Column(Integer, default=0)  # Sort order
+
+class EventProduct(Base):
+    __tablename__ = 'event_products'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False)
+    product_id = Column(Integer, nullable=False)
+    event_price = Column(Float, nullable=True)  # Fixed event price (overrides discount %)
+
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
@@ -284,6 +308,152 @@ def _migrate_database():
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
     add_column_if_missing('order_items', 'note', "TEXT")
+
+    # Ensure events and event_products tables exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("""
+                CREATE TABLE IF NOT EXISTS events (
+                    id SERIAL PRIMARY KEY,
+                    tenant_slug VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+                    name VARCHAR NOT NULL,
+                    display_name VARCHAR NOT NULL,
+                    description TEXT DEFAULT '',
+                    days TEXT DEFAULT '[]',
+                    start_time VARCHAR DEFAULT '18:00',
+                    end_time VARCHAR DEFAULT '20:00',
+                    mode VARCHAR DEFAULT 'selected',
+                    discount INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    position INTEGER DEFAULT 0
+                )
+            """))
+    except Exception:
+        # SQLite doesn't support SERIAL, try with INTEGER + AUTOINCREMENT
+        try:
+            with engine.begin() as conn:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        tenant_slug VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+                        name VARCHAR NOT NULL,
+                        display_name VARCHAR NOT NULL,
+                        description TEXT DEFAULT '',
+                        days TEXT DEFAULT '[]',
+                        start_time VARCHAR DEFAULT '18:00',
+                        end_time VARCHAR DEFAULT '20:00',
+                        mode VARCHAR DEFAULT 'selected',
+                        discount INTEGER DEFAULT 0,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        position INTEGER DEFAULT 0
+                    )
+                """))
+        except Exception as e2:
+            print(f"[DB Migration] events table creation skipped (may already exist): {e2}")
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("""
+                CREATE TABLE IF NOT EXISTS event_products (
+                    id SERIAL PRIMARY KEY,
+                    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                    product_id INTEGER NOT NULL,
+                    event_price FLOAT
+                )
+            """))
+    except Exception:
+        try:
+            with engine.begin() as conn:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS event_products (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                        product_id INTEGER NOT NULL,
+                        event_price FLOAT
+                    )
+                """))
+        except Exception as e2:
+            print(f"[DB Migration] event_products table creation skipped (may already exist): {e2}")
+
+
+def migrate_happy_hour_to_events():
+    """One-time migration: convert old Happy Hour data per tenant to the new Events system.
+    Only runs if events table is empty for a given tenant but they have HH config."""
+    try:
+        session = SessionLocal()
+        # Check which tenants already have events
+        tenants_with_events = set()
+        try:
+            rows = session.execute(sa.text("SELECT DISTINCT tenant_slug FROM events")).fetchall()
+            tenants_with_events = {r[0] for r in rows}
+        except Exception:
+            pass
+
+        # Get all tenants
+        tenants = session.query(Tenant).all()
+        for t in tenants:
+            if t.slug in tenants_with_events:
+                continue  # Already migrated
+
+            hh_days = json.loads(t.happy_hour_days or "[]")
+            hh_start = t.happy_hour_start or "18:00"
+            hh_end = t.happy_hour_end or "20:00"
+            hh_discount = t.happy_hour_discount or 0
+            hh_mode = getattr(t, 'happy_hour_mode', None) or 'discount'
+            hh_display_name = getattr(t, 'happy_hour_display_name', None) or 'Aktion'
+
+            # Only migrate if there's meaningful HH config
+            has_hh_config = bool(hh_days) or hh_discount > 0
+            has_hh_products = session.query(Product).filter(
+                Product.tenant_slug == t.slug,
+                Product.happy_hour_price != None
+            ).first() is not None
+
+            if not has_hh_config and not has_hh_products:
+                continue  # No HH data to migrate
+
+            # Create an Event from the HH config
+            event = Event(
+                tenant_slug=t.slug,
+                name=hh_display_name or "Aktion",
+                display_name=hh_display_name or "Aktion",
+                description="Migriert aus Happy Hour",
+                days=json.dumps(hh_days),
+                start_time=hh_start,
+                end_time=hh_end,
+                mode=hh_mode,
+                discount=hh_discount,
+                is_active=True,
+                position=0
+            )
+            session.add(event)
+            session.flush()  # Get event.id
+
+            # Migrate products with happy_hour_price
+            hh_products = session.query(Product).filter(
+                Product.tenant_slug == t.slug,
+                Product.happy_hour_price != None
+            ).all()
+
+            for p in hh_products:
+                ep = EventProduct(
+                    event_id=event.id,
+                    product_id=p.id,
+                    event_price=p.happy_hour_price
+                )
+                session.add(ep)
+
+            print(f"[DB Migration] Migrated Happy Hour data for tenant '{t.slug}': {len(hh_products)} products -> Event '{hh_display_name}'")
+
+        session.commit()
+        session.close()
+    except Exception as e:
+        print(f"[DB Migration] Happy Hour -> Events migration error: {e}")
+        try:
+            session.rollback()
+            session.close()
+        except Exception:
+            pass
 
 
 try:
@@ -392,6 +562,7 @@ STANDARD_PRODUCTS = [
 def run_migrations():
     """Run all pending database migrations. Called once at app startup."""
     _migrate_database()
+    migrate_happy_hour_to_events()
 
 def get_db():
     db = SessionLocal()

@@ -500,6 +500,27 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "details": l.details
     } for l in db_logs]
     
+    # Load events and their products
+    from database import Event as DBEvent, EventProduct as DBEventProduct
+    db_events = session.query(DBEvent).filter_by(tenant_slug=slug).order_by(DBEvent.position, DBEvent.id).all()
+    events = []
+    for ev in db_events:
+        ev_products = session.query(DBEventProduct).filter_by(event_id=ev.id).all()
+        events.append({
+            "id": ev.id,
+            "name": ev.name,
+            "display_name": ev.display_name,
+            "description": ev.description or "",
+            "days": json.loads(ev.days or "[]"),
+            "start_time": ev.start_time or "18:00",
+            "end_time": ev.end_time or "20:00",
+            "mode": ev.mode or "selected",
+            "discount": ev.discount or 0,
+            "is_active": ev.is_active if ev.is_active is not None else True,
+            "position": ev.position or 0,
+            "products": [{"product_id": ep.product_id, "event_price": ep.event_price} for ep in ev_products]
+        })
+    
     return {
         "name": tenant.name,
         "email": tenant.email,
@@ -546,7 +567,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "display_name": getattr(tenant, 'happy_hour_display_name', None) or 'Aktion'
         },
         "tables": tables,
-        "audit_log": audit_log
+        "audit_log": audit_log,
+        "events": events
     }
 
 def unwrap_live_data(val):
@@ -776,6 +798,49 @@ def save_restaurant_to_db(slug: str, r: dict, session):
             details=l.get("details")
         )
         session.add(db_l)
+    
+    # 8. Update events
+    from database import Event as DBEvent, EventProduct as DBEventProduct
+    existing_events = {ev.id: ev for ev in session.query(DBEvent).filter_by(tenant_slug=slug).all()}
+    seen_event_ids = set()
+    for idx, ev in enumerate(r.get("events", [])):
+        ev_id = ev.get("id")
+        if ev_id and ev_id in existing_events:
+            db_ev = existing_events[ev_id]
+            seen_event_ids.add(ev_id)
+        else:
+            db_ev = DBEvent(tenant_slug=slug)
+            session.add(db_ev)
+        
+        db_ev.name = ev.get("name", "Event")
+        db_ev.display_name = ev.get("display_name", "Event")
+        db_ev.description = ev.get("description", "")
+        db_ev.days = json.dumps(unwrap_live_data(ev.get("days", [])))
+        db_ev.start_time = ev.get("start_time", "18:00")
+        db_ev.end_time = ev.get("end_time", "20:00")
+        db_ev.mode = ev.get("mode", "selected")
+        db_ev.discount = ev.get("discount", 0)
+        db_ev.is_active = ev.get("is_active", True)
+        db_ev.position = ev.get("position", idx)
+        
+        if db_ev.id is None:
+            session.flush()
+            ev["id"] = db_ev.id
+            seen_event_ids.add(db_ev.id)
+        
+        # Update event products
+        session.query(DBEventProduct).filter_by(event_id=db_ev.id).delete()
+        for ep in ev.get("products", []):
+            db_ep = DBEventProduct(
+                event_id=db_ev.id,
+                product_id=ep.get("product_id"),
+                event_price=ep.get("event_price")
+            )
+            session.add(db_ep)
+    
+    for eid, db_ev in existing_events.items():
+        if eid not in seen_event_ids:
+            session.delete(db_ev)
 
 def ensure_tenant_seeded(slug: str, db) -> Tenant:
     slug_lower = slug.lower().strip()
@@ -2664,7 +2729,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         else:
             is_readonly = True
 
-    # Process Happy Hour
+    # Process Events (replaces old Happy Hour logic)
     berlin_now = get_berlin_now()
     now_time = berlin_now.strftime("%H:%M")
     weekday_idx = berlin_now.weekday()
@@ -2672,9 +2737,22 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     
-    hh_config = restaurant.get("happy_hour", {})
-    hh_mode = hh_config.get("mode", "discount")  # "selected" = only chosen products, "discount" = % on everything
-    hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
+    # Check which events are currently active
+    events = restaurant.get("events", [])
+    any_event_active = False
+    active_events_info = []  # For banner display
+    
+    for ev in events:
+        if not ev.get("is_active", True):
+            continue
+        ev_days = ev.get("days", [])
+        ev_start = ev.get("start_time", "18:00")
+        ev_end = ev.get("end_time", "20:00")
+        is_active_now = any(day in ev_days for day in possible_days) and ev_start <= now_time <= ev_end
+        ev["_is_currently_active"] = is_active_now
+        if is_active_now:
+            any_event_active = True
+            active_events_info.append(ev)
     
     processed_products = []
     active_categories = restaurant.get("categories", [])
@@ -2686,31 +2764,36 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         prod = copy.deepcopy(p)
         prod["is_hh_active"] = False
         prod["display_price"] = prod["price"]
+        prod["active_event"] = None  # Track which event applies
         
-        # Determine which days apply for this product:
-        # - If product has its own happy_hour_days → use those
-        # - Otherwise → fall back to global HH days
-        prod_hh_days = prod.get("happy_hour_days")  # list or None
-        effective_days = prod_hh_days if prod_hh_days else hh_config.get("days", [])
-        prod_hh_active = any(day in effective_days for day in possible_days)
-        
-        # Priority 1: Per-product fixed HH price (requires day match AND time window)
-        if prod.get("happy_hour_price") is not None:
-            start = prod.get("start_time", "18:00")
-            end = prod.get("end_time", "20:00")
-            if prod_hh_active and start <= now_time <= end:
+        # Check each event to see if this product qualifies
+        for ev in events:
+            if not ev.get("is_active", True):
+                continue
+            if not ev.get("_is_currently_active", False):
+                continue
+            
+            # Check if product is in this event's product list
+            event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
+            
+            if event_product and event_product.get("event_price"):
                 prod["is_hh_active"] = True
-                prod["display_price"] = prod["happy_hour_price"]
-        # Priority 2: Global discount (only in "discount" mode AND product has no own days)
-        elif hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
-            discount_factor = (100 - hh_config["discount"]) / 100.0
-            prod["is_hh_active"] = True
-            prod["display_price"] = round(prod["price"] * discount_factor, 2)
+                prod["display_price"] = event_product["event_price"]
+                prod["active_event"] = {"name": ev["name"], "display_name": ev["display_name"], "days": ev["days"]}
+                break  # First matching event wins
+            elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
+                # Global discount for products not specifically in the event
+                discount_factor = (100 - ev["discount"]) / 100.0
+                prod["is_hh_active"] = True
+                prod["display_price"] = round(prod["price"] * discount_factor, 2)
+                prod["active_event"] = {"name": ev["name"], "display_name": ev["display_name"], "days": ev["days"]}
+                break  # First matching event wins
             
         processed_products.append(prod)
         
-    # Pass display name for HH badge
-    hh_display_name = hh_config.get("display_name", "Aktion")
+    # Clean up temporary _is_currently_active flag
+    for ev in events:
+        ev.pop("_is_currently_active", None)
     
     cat_position = {cat_name: idx for idx, cat_name in enumerate(active_categories)}
     def product_sort_key(p):
@@ -2751,9 +2834,9 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "reset_session": reset_session,
             "tisch_name": tisch_name,
             "role": role,
-            "hh_active_global": hh_active_global,
-            "hh_config": hh_config,
-            "hh_display_name": hh_display_name
+            "hh_active_global": any_event_active,
+            "active_events": active_events_info,
+            "events": events
         }
     )
     
@@ -2834,37 +2917,48 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     order_table_name = f"Tisch {table_num} ({zone})" if zone else f"Tisch {table_num}"
 
     
-    # Securely validate and apply Happy Hour prices in the backend if active
+    # Securely validate and apply Event prices in the backend if active
     berlin_now = get_berlin_now()
     now_time = berlin_now.strftime("%H:%M")
     weekday_idx = berlin_now.weekday()
     days_names = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
     days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
-    hh_config = restaurant.get("happy_hour", {})
-    hh_mode = hh_config.get("mode", "discount")
-    hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
+    
+    # Check which events are currently active
+    events = restaurant.get("events", [])
+    for ev in events:
+        if not ev.get("is_active", True):
+            ev["_is_currently_active"] = False
+            continue
+        ev_days = ev.get("days", [])
+        ev_start = ev.get("start_time", "18:00")
+        ev_end = ev.get("end_time", "20:00")
+        ev["_is_currently_active"] = any(day in ev_days for day in possible_days) and ev_start <= now_time <= ev_end
 
     products_map = {p["id"]: p for p in restaurant.get("products", [])}
     for item in payload.items:
         prod = products_map.get(item.product_id)
         if prod:
-            is_hh_active_for_product = False
-            hh_price = prod.get("happy_hour_price")
-            if hh_price is not None:
-                # Use product-specific days if set, otherwise global days
-                prod_hh_days = prod.get("happy_hour_days")
-                effective_days = prod_hh_days if prod_hh_days else hh_config.get("days", [])
-                prod_hh_active = any(day in effective_days for day in possible_days)
-                start = prod.get("start_time", "18:00")
-                end = prod.get("end_time", "20:00")
-                if prod_hh_active and start <= now_time <= end:
-                    is_hh_active_for_product = True
-                    item.price = hh_price
-            
-            if not is_hh_active_for_product and hh_mode == "discount" and hh_active_global and hh_config.get("discount", 0) > 0:
-                discount_factor = (100 - hh_config["discount"]) / 100.0
-                item.price = round(prod["price"] * discount_factor, 2)
+            is_event_price_applied = False
+            # Check each active event for this product
+            for ev in events:
+                if not ev.get("_is_currently_active", False):
+                    continue
+                event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
+                if event_product and event_product.get("event_price"):
+                    item.price = event_product["event_price"]
+                    is_event_price_applied = True
+                    break
+                elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
+                    discount_factor = (100 - ev["discount"]) / 100.0
+                    item.price = round(prod["price"] * discount_factor, 2)
+                    is_event_price_applied = True
+                    break
+    
+    # Clean up temporary flags
+    for ev in events:
+        ev.pop("_is_currently_active", None)
     
     # ── Staff / POS trusted device bypass ──
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -4279,7 +4373,7 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup")
         
-    # Process Happy Hour status for admin dashboard
+    # Process Events status for admin dashboard
     berlin_now = get_berlin_now()
     now_time = berlin_now.strftime("%H:%M")
     weekday_idx = berlin_now.weekday()
@@ -4287,8 +4381,16 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
     days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
     
-    hh_config = restaurant.get("happy_hour", {})
-    hh_active_global = any(day in hh_config.get("days", []) for day in possible_days) and hh_config.get("start", "18:00") <= now_time <= hh_config.get("end", "20:00")
+    # Check if any event is currently active
+    events = restaurant.get("events", [])
+    hh_active_global = False
+    for ev in events:
+        if not ev.get("is_active", True):
+            continue
+        ev_days = ev.get("days", [])
+        if any(day in ev_days for day in possible_days) and ev.get("start_time", "18:00") <= now_time <= ev.get("end_time", "20:00"):
+            hh_active_global = True
+            break
         
     orders = restaurant.get("orders", [])
     now = datetime.now()
@@ -4393,7 +4495,8 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             "tables_json": json.dumps(restaurant.get("tables", [])),
             "products_json": json.dumps(restaurant.get("products", [])),
             "categories_json": json.dumps(restaurant.get("categories", [])),
-            "hh_active_global": hh_active_global
+            "hh_active_global": hh_active_global,
+            "events_json": json.dumps(restaurant.get("events", []))
         }
     )
 
@@ -4459,6 +4562,8 @@ def post_login(
         if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
             resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
             resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+            # Clear any existing tenant session to prevent conflicts
+            resp.delete_cookie(key="session", path="/")
             return resp
 
         tenant = db.query(Tenant).filter_by(email=email.strip()).first()
@@ -6242,28 +6347,11 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     }
 
 
-@app.post("/admin/happy-hour")
-async def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), display_name: str = Form("Aktion"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
-    user, slug, restaurant = chef_data
-    if not restaurant.get("is_setup_completed", False):
-        return RedirectResponse(url="/admin/setup", status_code=303)
-        
-    restaurant["happy_hour"] = {
-        "days": days,
-        "start": start,
-        "end": end,
-        "discount": discount if mode == "discount" else 0,
-        "mode": mode,
-        "display_name": display_name.strip() or "Aktion"
-    }
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
-    await manager.broadcast(slug, {"type": "update"})
-    return RedirectResponse(url="/admin/dashboard", status_code=303)
+# ─── Events API (replaces old Happy Hour) ───
 
-@app.post("/admin/happy-hour-products")
-async def update_happy_hour_products(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
-    """Bulk update Happy Hour product assignments with fixed prices."""
+@app.post("/admin/events")
+async def create_event(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Create a new event."""
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
@@ -6273,30 +6361,146 @@ async def update_happy_hour_products(request: Request, chef_data: tuple = Depend
     except Exception:
         return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
     
-    products_updates = body.get("products", [])
-    global_start_time = body.get("start_time", "18:00")
-    global_end_time = body.get("end_time", "20:00")
+    from database import Event as DBEvent, EventProduct as DBEventProduct
     
-    for update in products_updates:
-        pid = update.get("product_id")
-        hh_price = update.get("happy_hour_price")
-        hh_days = update.get("happy_hour_days")  # e.g. ["Samstag", "Donnerstag"] or null
-        # Per-product time range (overrides global if set)
-        prod_start_time = update.get("start_time") or global_start_time
-        prod_end_time = update.get("end_time") or global_end_time
-        
-        product = next((p for p in restaurant.get("products", []) if p["id"] == pid), None)
-        if product:
-            if hh_price is not None and hh_price > 0:
-                product["happy_hour_price"] = round(float(hh_price), 2)
-                product["start_time"] = prod_start_time
-                product["end_time"] = prod_end_time
-                product["happy_hour_days"] = hh_days  # per-product days
-            else:
-                product["happy_hour_price"] = None
-                product["start_time"] = None
-                product["end_time"] = None
-                product["happy_hour_days"] = None
+    new_event = {
+        "id": None,
+        "name": body.get("name", "Neues Event").strip() or "Neues Event",
+        "display_name": body.get("display_name", body.get("name", "Event")).strip() or "Event",
+        "description": body.get("description", "").strip(),
+        "days": body.get("days", []),
+        "start_time": body.get("start_time", "18:00"),
+        "end_time": body.get("end_time", "20:00"),
+        "mode": body.get("mode", "selected"),
+        "discount": int(body.get("discount", 0)),
+        "is_active": body.get("is_active", True),
+        "position": len(restaurant.get("events", [])),
+        "products": []
+    }
+    
+    # Add products with event prices
+    for ep in body.get("products", []):
+        if ep.get("product_id") and ep.get("event_price"):
+            new_event["products"].append({
+                "product_id": int(ep["product_id"]),
+                "event_price": round(float(ep["event_price"]), 2)
+            })
+    
+    restaurant.setdefault("events", []).append(new_event)
+    
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    
+    await manager.broadcast(slug, {"type": "update"})
+    return JSONResponse({"success": True, "event_id": new_event["id"]})
+
+
+@app.put("/admin/events/{event_id}")
+async def update_event(event_id: int, request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Update an existing event."""
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
+    
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
+    
+    # Find the event in the restaurant dict
+    events = restaurant.get("events", [])
+    event = next((e for e in events if e["id"] == event_id), None)
+    if not event:
+        return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
+    
+    event["name"] = body.get("name", event["name"]).strip() or "Event"
+    event["display_name"] = body.get("display_name", body.get("name", event["display_name"])).strip() or "Event"
+    event["description"] = body.get("description", "").strip()
+    event["days"] = body.get("days", event["days"])
+    event["start_time"] = body.get("start_time", event["start_time"])
+    event["end_time"] = body.get("end_time", event["end_time"])
+    event["mode"] = body.get("mode", event["mode"])
+    event["discount"] = int(body.get("discount", 0)) if body.get("mode") == "discount" else 0
+    event["is_active"] = body.get("is_active", event["is_active"])
+    
+    # Update products
+    if "products" in body:
+        event["products"] = []
+        for ep in body["products"]:
+            if ep.get("product_id") and ep.get("event_price"):
+                event["products"].append({
+                    "product_id": int(ep["product_id"]),
+                    "event_price": round(float(ep["event_price"]), 2)
+                })
+    
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    
+    await manager.broadcast(slug, {"type": "update"})
+    return JSONResponse({"success": True})
+
+
+@app.delete("/admin/events/{event_id}")
+async def delete_event(event_id: int, request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Delete an event."""
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
+    
+    events = restaurant.get("events", [])
+    event = next((e for e in events if e["id"] == event_id), None)
+    if not event:
+        return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
+    
+    events.remove(event)
+    # Re-index positions
+    for idx, ev in enumerate(events):
+        ev["position"] = idx
+    
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    
+    await manager.broadcast(slug, {"type": "update"})
+    return JSONResponse({"success": True})
+
+
+@app.post("/admin/events/{event_id}/products")
+async def update_event_products(event_id: int, request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Bulk update event-product assignments with fixed prices."""
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
+    
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
+    
+    events = restaurant.get("events", [])
+    event = next((e for e in events if e["id"] == event_id), None)
+    if not event:
+        return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
+    
+    # Replace product list
+    event["products"] = []
+    for ep in body.get("products", []):
+        if ep.get("product_id") and ep.get("event_price"):
+            event["products"].append({
+                "product_id": int(ep["product_id"]),
+                "event_price": round(float(ep["event_price"]), 2)
+            })
     
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -7111,7 +7315,8 @@ def get_setup(request: Request, db: Session = Depends(get_db)):
             "current_user": user,
             "stats": {"brutto": 0, "netto_7": 0, "netto_19": 0, "tip": 0, "orders_count": 0, "avg_basket": 0},
             "hh_active_global": False,
-            "active_tab": "konfiguration"
+            "active_tab": "konfiguration",
+            "events_json": "[]"
         }
     )
 
