@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://support.toasttab.com/en/article/Building-Happy-Hour-Menus-w-Menu-Specific-Pricing-1493004445781",
+    "name": "Configure a Menu-Specific Pricing Strategy - Toast Support",
+    "snippet": "With a happy hour menu setup, to prevent discounts from applying to ineligible merchandise, Toast recommends that you create manual discount ...",
+    "host_name": "support.toasttab.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/ToastPOS/comments/1dmv5ou/happy_hour",
+    "name": "Happy Hour : r/ToastPOS - Reddit",
+    "snippet": "I run a happy hour twice a day and would like to see if toast can turn on the discount automatically when the happy hour begins. Any help would be appreciated.",
+    "host_name": "www.reddit.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://doc.toasttab.com/doc/platformguide/adminDiscountAvailability.html",
+    "name": "Setting the availability date range for a discount - Toast platform docs -",
+    "snippet": "If the feature is enabled, then it does not matter when the employee applies the discount, as long as the items are sent during the 5:00-6:00 PM happy hour.",
+    "host_name": "doc.toasttab.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=Jzr3uytzY6M",
+    "name": "How to Set Up Discounts for your Toast POS - YouTube",
+    "snippet": "How to Set Up Discounts for your Toast POS. 6.5K views · 2 years ... Toast Restaurant Pos System Setup - Menu (Step-by-Step for Beginners).",
+    "host_name": "www.youtube.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://support.toasttab.com/en/article/Can-servers-apply-discounts-for-certain-items-only-on-certain-days-of-the-week",
+    "name": "Apply Discounts for Certain Items at Certain Times - Toast Support",
+    "snippet": "Use the Availability section to control when a discount appears on your Toast POS devices. This is the setting to use for happy hour specials, ...",
+    "host_name": "support.toasttab.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.toasttab.com/t5/bar-nightclub/changing-happy-hour/m-p/12204",
+    "name": "Re: Changing happy hour - Toast Community - 10339",
+    "snippet": "This depends on your setup, but Toast suggests a method for setting up happy hour pricing. The link below explains more. Build Happy Hour - 10339.",
+    "host_name": "community.toasttab.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tiktok.com/@instabizcoach/video/7402380386174651690",
+    "name": "Toast restaurant POS system how to add a happy hour  - TikTok",
+    "snippet": "How to set up Happy Hour on Toast POS ... Reser Settings #tiktok #marketing #algoritmotiktok #algorithm #ugc #affiliatemarketing #instabizcoach ...",
+    "host_name": "www.tiktok.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.toasttab.com/t5/guest-experience/size-pricing-and-happy-hour/td-p/18205",
+    "name": "Size Pricing And Happy Hour - Toast Community - 18205",
+    "snippet": "I resorted to using Size-Based pricing combined with menu-based pricing, and a Happy hour Menu rather than a discount. The menu shows up only ...",
+    "host_name": "community.toasttab.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.toasttab.com/t5/restaurant-operations/happy-hour-menu/m-p/4886",
+    "name": "Solved: Happy Hour Menu - Toast Community - 4886",
+    "snippet": "So I'm trying to create a happy hour menu following the Toast Central article how-to guide. Its telling me I can create a new Happy Hour ...",
+    "host_name": "community.toasttab.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://support.toasttab.com/en/article/How-to-set-up-specials-available-for-a-certain-time-frame",
+    "name": "Set Up Special Discounts for a Specific Time Frame - Toast Support",
+    "snippet": "In Toast Web, navigate to Payments > Comps and promos > Discounts and promo codes. · Select + Add a Discount to create a new discount (or select ...",
+    "host_name": "support.toasttab.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]

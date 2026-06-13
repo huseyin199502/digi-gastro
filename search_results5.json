@@ -1,0 +1,92 @@
+[
+  {
+    "url": "https://o-series-support.lightspeedhq.com/hc/en-us/articles/31329470438171-Setting-up-Automatic-Promotions",
+    "name": "Setting up Promotions - Lightspeed Restaurant POS (O-Series)",
+    "snippet": "Creating a Promotion ... You can create different types of promotions such as Happy Hour deals, Buy 1 Get 1 offers, bundle deals, and other seasonal promotions.",
+    "host_name": "o-series-support.lightspeedhq.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://x-series-support.lightspeedhq.com/hc/en-us/articles/25534070267291-Creating-basic-promotions-in-Retail-POS",
+    "name": "Creating basic promotions in Retail POS",
+    "snippet": "In the Type of promotion, select Basic. Choose either the percentage (%) discount or an amount ($) discount. The discount will be applied to the current retail ...",
+    "host_name": "x-series-support.lightspeedhq.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://o-series-support.lightspeedhq.com/hc/en-us/articles/31329473238299-Setting-up-products-and-prices-for-different-sites",
+    "name": "Setting up products and prices for different sites",
+    "snippet": "Learn how to manage company-wide products and pricing, set site-specific schedules, and automate discounts or surcharges. Setting up Price Lists. Learn how to ...",
+    "host_name": "o-series-support.lightspeedhq.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=OT-Zji1ddWQ",
+    "name": "Discounts and Price Rules - YouTube",
+    "snippet": "Use price rules to automatically apply discounts to selected items. You can set price rules to be valid only for the dates you choose.",
+    "host_name": "www.youtube.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://o-series-support.lightspeedhq.com/hc/en-us/articles/31329476729371-Setting-up-Price-Lists",
+    "name": "Setting up Price Lists - Lightspeed Restaurant POS (O-Series)",
+    "snippet": "Percentage Surcharge and Percentage Discount Price Lists can be used to automate discounts, such as during happy hour, or add surcharges during weekends and ...",
+    "host_name": "o-series-support.lightspeedhq.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=Qkrub6QLN8Q",
+    "name": "Managing discounts and prices - Lightspeed Golf - YouTube",
+    "snippet": "Share your videos with friends, family, and the world.",
+    "host_name": "www.youtube.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.squareup.com/t5/Square-for-Restaurants/Is-there-a-way-to-set-up-automatic-discounts-such-as-for-happy/m-p/91575",
+    "name": "Is there a way to set up automatic discounts, such as for happy hours?",
+    "snippet": "Anyone know how to set up time based discounts such as for a daily happy hour? I know I can set them up as price variants but would like it to happen.",
+    "host_name": "community.squareup.com",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://k-series-support.lightspeedhq.com/hc/en-us/articles/4402274951323-About-price-lists",
+    "name": "About price lists - Lightspeed Restaurant (K-Series)",
+    "snippet": "For your daily drink specials, you link an order profile called Happy hour to a sixth price list, which will automatically apply that pricing at a scheduled ...",
+    "host_name": "k-series-support.lightspeedhq.com",
+    "rank": 7,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://x-series-support.lightspeedhq.com/hc/en-us/articles/25534113032859-Creating-multi-save-and-conditional-promotions",
+    "name": "Creating multi-save and conditional promotions",
+    "snippet": "You can create conditional promotions with specific purchase requirements for a customer to receive a discount or reward—Buy X get Y promos.",
+    "host_name": "x-series-support.lightspeedhq.com",
+    "rank": 8,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.upmenu.com/blog/lightspeed-pos-pricing",
+    "name": "Lightspeed POS Pricing for Restaurants: Fees & Hidden Costs (2026)",
+    "snippet": "How much does Lightspeed really cost? See POS plans, payment fees, hardware prices, add-ons, and hidden costs restaurants often miss.",
+    "host_name": "www.upmenu.com",
+    "rank": 9,
+    "date": "",
+    "favicon": ""
+  }
+]
