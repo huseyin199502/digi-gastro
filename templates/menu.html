@@ -911,6 +911,7 @@
                 btn_send_request: "Anfrage senden",
                 payment_header_modal: "Rechnung anfordern",
                 payment_desc_modal: "Wie möchtest du deine Rechnung begleichen?",
+                payment_outstanding: "Offener Betrag",
                 pay_bar: "Bar zahlen",
                 btn_pay_confirm: "Abschließen & Bezahlen",
                 cart_item_note: "Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)",
@@ -977,6 +978,7 @@
                 btn_send_request: "Send Request",
                 payment_header_modal: "Request Bill",
                 payment_desc_modal: "How would you like to settle your bill?",
+                payment_outstanding: "Outstanding Amount",
                 pay_bar: "Pay Cash",
                 btn_pay_confirm: "Complete & Pay",
                 cart_item_note: "Note (e.g. no onions, medium, extra spicy…)",
@@ -1717,7 +1719,7 @@
                     this.currentPaymentSubtotal = 0.0;
                     
                     // Fetch unpaid orders total for the current table directly from server database
-                    fetch(`/api/{{ slug }}/table-unpaid-sum/${table}`)
+                    fetch(`/api/{{ slug }}/table-unpaid-sum/${encodeURIComponent(table)}`)
                     .then(res => res.json())
                     .then(data => {
                         if (data && data.unpaid_sum > 0) {
@@ -1987,7 +1989,7 @@
                         const tableNum = getTableFromUrl();
                         if (!tableNum) return;
                         
-                        const res = await fetch(`/api/{{ slug }}/table-status/${tableNum}`);
+                        const res = await fetch(`/api/{{ slug }}/table-status/${encodeURIComponent(tableNum)}`);
                         if (!res.ok) return;
                         
                         const data = await res.json();
@@ -2010,21 +2012,8 @@
                         });
                         if (res.ok) {
                             showToast(`✔️ ${item.name} als serviert markiert`, "success");
-                            this.tableOrders.pending = this.tableOrders.pending.filter(i => i.key !== item.key);
-                            
-                            const newKey = `${item.product_id}_${item.note.replace(/\s+/g, '_')}_delivered`;
-                            const existing = this.tableOrders.delivered.find(i => i.key === newKey);
-                            if (existing) {
-                                existing.quantity += item.quantity;
-                            } else {
-                                this.tableOrders.delivered.push({
-                                    ...item,
-                                    status: 'delivered',
-                                    key: newKey
-                                });
-                            }
-                            
-                            this.fetchAdminDrawerState();
+                            // Refresh from server to get accurate state (correct key format, merged items, etc.)
+                            await this.fetchAdminDrawerState();
                         } else {
                             showToast("Fehler beim Servieren", "error");
                         }
@@ -2048,23 +2037,8 @@
                         const results = await Promise.all(promises);
                         if (results.every(r => r.ok)) {
                             showToast("✔️ Alle ausstehenden Artikel serviert", "success");
-                            
-                            this.tableOrders.pending.forEach(item => {
-                                const newKey = `${item.product_id}_${item.note.replace(/\s+/g, '_')}_delivered`;
-                                const existing = this.tableOrders.delivered.find(i => i.key === newKey);
-                                if (existing) {
-                                    existing.quantity += item.quantity;
-                                } else {
-                                    this.tableOrders.delivered.push({
-                                        ...item,
-                                        status: 'delivered',
-                                        key: newKey
-                                    });
-                                }
-                            });
-                            this.tableOrders.pending = [];
-                            
-                            this.fetchAdminDrawerState();
+                            // Refresh from server to get accurate state (correct key format, merged items, etc.)
+                            await this.fetchAdminDrawerState();
                         } else {
                             showToast("Fehler beim Servieren der Artikel", "error");
                         }
@@ -2101,13 +2075,8 @@
                         
                         if (res.ok) {
                             showToast(`✔️ ${qty}x ${item.name} storniert`, "success");
-                            
-                            item.quantity -= qty;
-                            if (item.quantity <= 0) {
-                                this.tableOrders.pending = this.tableOrders.pending.filter(i => i.key !== item.key);
-                            }
-                            
-                            this.fetchAdminDrawerState();
+                            // Refresh from server to get accurate state
+                            await this.fetchAdminDrawerState();
                         } else {
                             const err = await res.json().catch(() => ({}));
                             showToast(err.detail || "Fehler beim Stornieren", "error");
@@ -2330,6 +2299,11 @@
                 </div>
                 <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="payment_header_modal">Rechnung anfordern</h3>
                 <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
+                <!-- Outstanding amount display -->
+                <div class="mt-4 bg-primary/10 border border-primary/20 rounded-2xl py-3 px-4 flex items-center justify-between" x-show="currentPaymentSubtotal > 0">
+                    <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" data-translate="payment_outstanding">Offener Betrag</span>
+                    <span class="text-xl font-black text-primary font-mono" x-text="currentPaymentSubtotal.toFixed(2) + ' €'">0,00 €</span>
+                </div>
             </div>
             
             <div class="grid {% if restaurant.accepts_card_payment != False %}grid-cols-2{% else %}grid-cols-1{% endif %} gap-4 shrink-0">
