@@ -152,7 +152,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: transform 0.2s cubic-bezier(0.25, 1, 0.35, 1);
+            transition: transform 0.3s cubic-bezier(0.33, 1, 0.68, 1);
             will-change: transform;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
@@ -1741,7 +1741,6 @@
                     this.carouselInitialized = true;
                     const self = this;
                     const gap = 8;
-                    const totalPills = pills.length;
                     
                     let isDragging = false;
                     let startX = 0;
@@ -1751,21 +1750,6 @@
                     let lastMoveX = 0;
                     let velocity = 0;
                     let animationId = null;
-                    
-                    // Cached pill offsets for zero-layout-thrash fisheye
-                    let pillOffsets = []; // { center: px-from-track-left }
-                    let wrapperCenterLocal = 0; // center relative to track
-                    const cachePillPositions = () => {
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        wrapperCenterLocal = wrapperWidth / 2;
-                        pillOffsets = [];
-                        let cumX = 16; // padding-left
-                        pills.forEach(pill => {
-                            cumX += pill.offsetWidth / 2;
-                            pillOffsets.push(cumX);
-                            cumX += pill.offsetWidth / 2 + gap;
-                        });
-                    };
                     
                     const getPositionX = (e) => {
                         return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
@@ -1781,77 +1765,8 @@
                         track.style.transform = `translate3d(${tx}px, 0, 0)`;
                     };
                     
-                    // Hard boundary: prevent overscroll past first/last pill
-                    const clampTranslate = (tx) => {
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        const trackWidth = track.scrollWidth;
-                        const padding = 32; // 16px padding on each side
-                        // Max translate: first pill at left edge with padding
-                        const maxTx = 0;
-                        // Min translate: last pill visible at right edge with padding
-                        const minTx = Math.min(0, -(trackWidth + padding - wrapperWidth));
-                        return Math.max(minTx, Math.min(maxTx, tx));
-                    };
-                    
-                    // Per-pill current animated values for lerp smoothing
-                    const pillState = Array.from({ length: totalPills }, () => ({
-                        scale: 0.88, opacity: 0.55, greenGlow: 0
-                    }));
-                    
-                    // Live fisheye: cached-position calculation with lerp for buttery smoothness
-                    // No getBoundingClientRect calls = zero layout thrash
-                    const applyLiveFisheye = (lerpFactor = 0.55) => {
-                        const currentTx = getCurrentTranslate();
-                        const halfWidth = wrapperCenterLocal;
-                        // The visual center of wrapper in track-local coordinates
-                        const visCenter = wrapperCenterLocal - currentTx;
-                        
-                        pills.forEach((pill, i) => {
-                            const pillCenterLocal = pillOffsets[i];
-                            const dist = pillCenterLocal - visCenter;
-                            const normalizedDist = Math.abs(dist) / halfWidth;
-                            
-                            // Target values
-                            const tScale = Math.max(0.88, 1.08 - normalizedDist * 0.20);
-                            const tOpacity = Math.max(0.55, 1 - normalizedDist * 0.50);
-                            const tGreenGlow = Math.max(0, 1 - normalizedDist * 1.6);
-                            
-                            // Lerp toward target for fluid animation
-                            const s = pillState[i];
-                            s.scale += (tScale - s.scale) * lerpFactor;
-                            s.opacity += (tOpacity - s.opacity) * lerpFactor;
-                            s.greenGlow += (tGreenGlow - s.greenGlow) * lerpFactor;
-                            
-                            pill.style.transform = `scale(${s.scale.toFixed(3)})`;
-                            pill.style.opacity = s.opacity.toFixed(3);
-                            
-                            if (s.greenGlow > 0.03) {
-                                const intensity = s.greenGlow * 0.95;
-                                pill.style.background = `rgba(16, 185, 129, ${intensity.toFixed(3)})`;
-                                pill.style.color = s.greenGlow > 0.35 ? '#000' : '';
-                                pill.style.boxShadow = `0 4px ${Math.round(22 * s.greenGlow)}px -2px rgba(16, 185, 129, ${(s.greenGlow * 0.55).toFixed(3)})`;
-                            } else {
-                                pill.style.background = '';
-                                pill.style.color = '';
-                                pill.style.boxShadow = '';
-                            }
-                        });
-                    };
-                    
-                    // Reset all inline styles after drag/momentum ends
-                    const resetPillStyles = () => {
-                        // Reset lerp state
-                        pillState.forEach(s => { s.scale = 0.88; s.opacity = 0.55; s.greenGlow = 0; });
-                        pills.forEach(pill => {
-                            pill.style.transform = '';
-                            pill.style.opacity = '';
-                            pill.style.background = '';
-                            pill.style.color = '';
-                            pill.style.boxShadow = '';
-                        });
-                    };
-                    
-                    const calcTranslateForIndex = (idx) => {
+                    // Calculate the translate needed to center a given pill index
+                    const calcCenterTranslate = (idx) => {
                         const wrapperWidth = wrapper.getBoundingClientRect().width;
                         let pillOffsetX = 0;
                         for (let i = 0; i < idx; i++) {
@@ -1862,32 +1777,85 @@
                         return (wrapperWidth / 2) - paddingLeft - pillOffsetX;
                     };
                     
-                    // Momentum animation after drag release
+                    // Clamp translate so first pill can be centered AND last pill can be centered
+                    const clampTranslate = (tx) => {
+                        const maxTx = calcCenterTranslate(0);           // center first pill
+                        const minTx = calcCenterTranslate(pills.length - 1); // center last pill
+                        return Math.max(minTx, Math.min(maxTx, tx));
+                    };
+                    
+                    // Lightweight fisheye: only scale on 3 nearest pills (prev, current, next)
+                    // GPU-only: transform + opacity, NO background/color/boxShadow
+                    const applyFisheye = () => {
+                        const currentTx = getCurrentTranslate();
+                        const wrapperWidth = wrapper.getBoundingClientRect().width;
+                        const visCenter = wrapperWidth / 2 - currentTx;
+                        
+                        // Find which pill is closest to center
+                        let closestIdx = 0;
+                        let closestDist = Infinity;
+                        let cumX = 16; // padding-left
+                        const pillCenters = [];
+                        pills.forEach((pill, i) => {
+                            const center = cumX + pill.offsetWidth / 2;
+                            pillCenters.push(center);
+                            const dist = Math.abs(center - visCenter);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestIdx = i;
+                            }
+                            cumX += pill.offsetWidth + gap;
+                        });
+                        
+                        // Only apply scale to closest ± 2 pills (max 5), rest get default
+                        pills.forEach((pill, i) => {
+                            const dist = Math.abs(i - closestIdx);
+                            if (dist <= 2) {
+                                const t = 1 - (dist / 3); // 1.0 at center, 0.33 at distance 2
+                                const scale = 0.88 + (1.08 - 0.88) * t;
+                                const opacity = 0.55 + (1.0 - 0.55) * t;
+                                pill.style.transform = `scale(${scale.toFixed(2)})`;
+                                pill.style.opacity = opacity.toFixed(2);
+                            } else {
+                                pill.style.transform = 'scale(0.88)';
+                                pill.style.opacity = '0.55';
+                            }
+                        });
+                    };
+                    
+                    // Reset all inline styles after drag/momentum ends
+                    const resetPillStyles = () => {
+                        pills.forEach(pill => {
+                            pill.style.transform = '';
+                            pill.style.opacity = '';
+                        });
+                    };
+                    
+                    // iOS-style exponential decay momentum
+                    // timeConstant = 325ms (Apple's decelerationRate.normal)
                     const applyMomentum = (initialVelocity) => {
                         if (animationId) cancelAnimationFrame(animationId);
                         
-                        const friction = 0.90;
-                        let currentV = initialVelocity;
+                        const timeConstant = 325; // iOS normal deceleration
+                        const amplitude = initialVelocity * 16; // scale velocity
                         let currentTx = getCurrentTranslate();
-                        let lastTime = performance.now();
+                        const targetTx = currentTx + amplitude;
+                        const startTime = performance.now();
                         
                         const momentumStep = (now) => {
-                            const dt = Math.min(now - lastTime, 32);
-                            lastTime = now;
+                            const elapsed = now - startTime;
+                            // Exponential decay: position = target - amplitude * e^(-t/325)
+                            const decay = Math.exp(-elapsed / timeConstant);
+                            let newTx = targetTx - amplitude * decay;
                             
-                            currentV *= friction;
-                            currentTx += currentV * (dt / 16);
-                            currentTx = clampTranslate(currentTx);
-                            // Kill velocity when hitting boundary
-                            const boundMin = Math.min(0, -(track.scrollWidth + 32 - wrapper.getBoundingClientRect().width));
-                            if (currentTx <= boundMin || currentTx >= 0) {
-                                currentV = 0;
-                            }
-                            setTrackTranslate(currentTx);
-                            // Faster lerp during momentum for snappy tracking
-                            applyLiveFisheye(0.50);
+                            // Clamp to boundaries
+                            newTx = clampTranslate(newTx);
                             
-                            if (Math.abs(currentV) > 0.25) {
+                            setTrackTranslate(newTx);
+                            applyFisheye();
+                            
+                            // Stop after ~6 time constants (1950ms) or when barely moving
+                            if (elapsed < 1950 && Math.abs(amplitude * decay) > 0.5) {
                                 animationId = requestAnimationFrame(momentumStep);
                             } else {
                                 animationId = null;
@@ -1936,45 +1904,28 @@
                         lastMoveTime = performance.now();
                         lastMoveX = startX;
                         track.classList.add('no-transition');
-                        // Cache pill positions at drag start for zero-layout-thrash fisheye
-                        cachePillPositions();
-                        // Initialize lerp state from current visual state
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        const halfWidth = wrapperWidth / 2;
-                        const currentTx = prevTranslate;
-                        const visCenter = wrapperWidth / 2 - currentTx;
-                        pills.forEach((pill, i) => {
-                            const pillCenterLocal = pillOffsets[i];
-                            const dist = pillCenterLocal - visCenter;
-                            const normalizedDist = Math.abs(dist) / halfWidth;
-                            pillState[i].scale = Math.max(0.88, 1.08 - normalizedDist * 0.20);
-                            pillState[i].opacity = Math.max(0.55, 1 - normalizedDist * 0.50);
-                            pillState[i].greenGlow = Math.max(0, 1 - normalizedDist * 1.6);
-                        });
                     };
                     
                     const dragMove = (e) => {
                         if (!isDragging) return;
                         const currentX = getPositionX(e);
                         const diff = currentX - startX;
-                        if (Math.abs(diff) > 2) dragMoved = true;
+                        if (Math.abs(diff) > 5) dragMoved = true;
                         
-                        // Track velocity for momentum - exponential moving average
+                        // Track velocity for momentum
                         const now = performance.now();
                         const dt = now - lastMoveTime;
                         if (dt > 0) {
                             const dx = currentX - lastMoveX;
-                            const instantV = (dx / dt) * 16;
-                            velocity = velocity * 0.6 + instantV * 0.4;
+                            const instantV = dx / dt; // px/ms
+                            velocity = velocity * 0.5 + instantV * 0.5;
                         }
                         lastMoveTime = now;
                         lastMoveX = currentX;
                         
                         const newTranslate = clampTranslate(prevTranslate + diff);
                         setTrackTranslate(newTranslate);
-                        // Instant fisheye with lerp - no RAF delay, directly on touchmove
-                        // Uses cached positions = zero layout thrash
-                        applyLiveFisheye(0.60);
+                        applyFisheye();
                     };
                     
                     const dragEnd = (e) => {
@@ -1987,8 +1938,8 @@
                             return;
                         }
                         
-                        // Apply momentum if velocity is significant
-                        if (Math.abs(velocity) > 1.0) {
+                        // Apply momentum if velocity is significant (>0.02 px/ms = Swiper threshold)
+                        if (Math.abs(velocity) > 0.02) {
                             applyMomentum(velocity);
                         } else {
                             track.classList.remove('no-transition');
