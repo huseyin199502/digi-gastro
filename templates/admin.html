@@ -1656,6 +1656,79 @@
             background-color: rgba(34, 197, 94, 0.04);
         }
 
+        /* Product card view for mobile */
+        .product-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid var(--gastro-border);
+            transition: background-color 0.15s;
+        }
+        .product-card:hover {
+            background-color: rgba(0, 153, 0, 0.03);
+        }
+        html.dark .product-card:hover {
+            background-color: rgba(34, 197, 94, 0.04);
+        }
+        .product-card-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        html.dark .product-card-img {
+            background: rgba(255,255,255,0.06);
+        }
+        .product-card-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .product-card-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .product-card-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        /* Desktop: table view, Mobile: card view */
+        @media (min-width: 641px) {
+            .product-card-view { display: none !important; }
+            .product-table-view { display: block; }
+        }
+        @media (max-width: 640px) {
+            .product-card-view { display: block; }
+            .product-table-view { display: none !important; }
+            .product-table thead th:nth-child(n+4),
+            .product-table tbody td:nth-child(n+4) {
+                /* hide columns beyond name on very small screens */
+            }
+        }
+
+        /* Bulk action bar mobile */
+        @media (max-width: 640px) {
+            .bulk-action-bar {
+                left: 12px;
+                right: 12px;
+                transform: none;
+                bottom: 12px;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+                padding: 0.625rem 0.75rem;
+            }
+        }
+
         /* ===== SPEISEKARTE SUB-TAB ===== */
         .speisekarte-subtab-btn {
             display: inline-flex;
@@ -2087,18 +2160,18 @@
                                 <input type="text" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
                             </div>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <select onchange="filterProductsByCategory(this.value)" class="form-field w-auto text-xs">
+                                <select onchange="filterProductsByCategory(this.value)" class="form-field w-auto min-w-0 sm:min-w-[120px] text-xs">
                                     <option value="all">Alle Kategorien</option>
                                     {% for cat in restaurant.categories %}
                                     <option value="{{ cat }}">{{ cat }}</option>
                                     {% endfor %}
                                 </select>
-                                <select onchange="filterProductsByStatus(this.value)" class="form-field w-auto text-xs">
+                                <select onchange="filterProductsByStatus(this.value)" class="form-field w-auto min-w-0 sm:min-w-[100px] text-xs">
                                     <option value="all">Alle Status</option>
                                     <option value="true">Aktiv</option>
                                     <option value="false">Ausverkauft</option>
                                 </select>
-                                <select onchange="filterProductsByHH(this.value)" class="form-field w-auto text-xs">
+                                <select onchange="filterProductsByHH(this.value)" class="form-field w-auto min-w-0 sm:min-w-[80px] text-xs">
                                     <option value="all">Aktion</option>
                                     <option value="true">Ja</option>
                                     <option value="false">Nein</option>
@@ -2108,9 +2181,9 @@
                     </div>
                 </div>
 
-                <!-- Product Table -->
+                <!-- Product Table (Desktop) -->
                 <div class="section-card">
-                    <div class="overflow-x-auto">
+                    <div class="product-table-view overflow-x-auto">
                         <table class="w-full product-table">
                             <thead>
                                 <tr>
@@ -2144,7 +2217,7 @@
                                     <td>
                                         <div class="font-extrabold text-xs text-zinc-800">{{ p.name }}</div>
                                         {% if p.description %}
-                                        <div class="text-[10px] text-zinc-400 truncate max-w-[200px]">{{ p.description }}</div>
+                                        <div class="text-[10px] text-zinc-400 truncate max-w-[200px] sm:max-w-xs">{{ p.description }}</div>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -2196,6 +2269,69 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Product Card View (Mobile) -->
+                    <div class="product-card-view">
+                        {% for p in restaurant.products %}
+                        <div class="product-card"
+                             data-category="{{ p.category }}"
+                             data-available="{{ 'true' if p.is_available else 'false' }}"
+                             data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
+                             data-name="{{ p.name | lower }}">
+                            <input type="checkbox" class="product-checkbox shrink-0" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
+                            <div class="product-card-img">
+                                {% if p.image and not p.image.lower().endswith('.pdf') %}
+                                    <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy">
+                                {% else %}
+                                    <span class="material-symbols-outlined text-zinc-400" style="font-size:18px;">fastfood</span>
+                                {% endif %}
+                            </div>
+                            <div class="product-card-body">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-extrabold text-xs text-zinc-800 truncate">{{ p.name }}</span>
+                                    {% if not p.is_available %}
+                                    <span class="text-[8px] font-black text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">AUS</span>
+                                    {% endif %}
+                                    {% if p.happy_hour_price %}
+                                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-black bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
+                                        <span class="material-symbols-outlined" style="font-size:9px;">schedule</span>{{ "%.2f"|format(p.happy_hour_price) }}€
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% if p.description %}
+                                <div class="text-[10px] text-zinc-400 truncate mt-0.5">{{ p.description }}</div>
+                                {% endif %}
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="font-mono font-bold text-[11px] text-zinc-700">{{ "%.2f"|format(p.price) }} €</span>
+                                    {% if ' > ' in p.category %}
+                                        {% set parent = p.category.split(' > ')[0] %}
+                                        {% set child = p.category.split(' > ')[1] %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">{{ parent }} ➔ {{ child }}</span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">{{ p.category }}</span>
+                                    {% endif %}
+                                    <form action="/admin/product-toggle/{{ p.id }}" method="POST" class="inline flex items-center ml-auto">
+                                        <label class="switch" style="transform:scale(0.85);">
+                                            <input type="checkbox" onchange="this.form.submit()" {% if p.is_available %}checked{% endif %}>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="product-card-actions">
+                                <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                </button>
+                                <form action="/admin/produkt-loeschen/{{ p.id }}" method="POST" class="inline" onsubmit="return confirm('Produkt löschen?')">
+                                    <button type="submit" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+                                        <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
                     {% if not restaurant.products %}
                     <div class="py-10 text-center">
                         <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">restaurant_menu</span>
@@ -3094,7 +3230,7 @@
 
             <!-- Tab 1: Details -->
             <div id="slide-tab-details" class="slide-tab-content active space-y-4">
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Produkt-Name (DE)</label>
                         <input type="text" id="edit-product-name" required class="form-field">
@@ -3104,7 +3240,7 @@
                         <input type="text" id="edit-product-name-en" class="form-field">
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Preis (&euro;)</label>
                         <input type="number" step="0.01" id="edit-product-price" required class="form-field font-mono">
@@ -3122,7 +3258,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Beschreibung (DE)</label>
                         <textarea id="edit-product-description" rows="3" class="form-field resize-none"></textarea>
@@ -3205,7 +3341,7 @@
                     <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Name</label>
                     <input type="text" name="name" required placeholder="z.B. Coca Cola 0.33L" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Preis (&euro;)</label>
                         <input type="number" step="0.01" name="preis" required placeholder="3.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro font-mono">
@@ -6579,37 +6715,37 @@
             }
         }
 
-        // Product filter functions
+        // Product filter functions (works on both table rows and mobile cards)
         function filterProducts(searchTerm) {
-            const rows = document.querySelectorAll('.product-row');
+            const items = document.querySelectorAll('.product-row, .product-card');
             const term = searchTerm.toLowerCase();
-            rows.forEach(row => {
-                const name = row.dataset.name;
-                row.style.display = name.includes(term) ? '' : 'none';
+            items.forEach(item => {
+                const name = item.dataset.name;
+                item.style.display = name.includes(term) ? '' : 'none';
             });
         }
 
         function filterProductsByCategory(category) {
-            const rows = document.querySelectorAll('.product-row');
-            rows.forEach(row => {
-                if (category === 'all') { row.style.display = ''; return; }
-                row.style.display = row.dataset.category === category ? '' : 'none';
+            const items = document.querySelectorAll('.product-row, .product-card');
+            items.forEach(item => {
+                if (category === 'all') { item.style.display = ''; return; }
+                item.style.display = item.dataset.category === category ? '' : 'none';
             });
         }
 
         function filterProductsByStatus(status) {
-            const rows = document.querySelectorAll('.product-row');
-            rows.forEach(row => {
-                if (status === 'all') { row.style.display = ''; return; }
-                row.style.display = row.dataset.available === status ? '' : 'none';
+            const items = document.querySelectorAll('.product-row, .product-card');
+            items.forEach(item => {
+                if (status === 'all') { item.style.display = ''; return; }
+                item.style.display = item.dataset.available === status ? '' : 'none';
             });
         }
 
         function filterProductsByHH(hasHH) {
-            const rows = document.querySelectorAll('.product-row');
-            rows.forEach(row => {
-                if (hasHH === 'all') { row.style.display = ''; return; }
-                row.style.display = row.dataset.hasHh === hasHH ? '' : 'none';
+            const items = document.querySelectorAll('.product-row, .product-card');
+            items.forEach(item => {
+                if (hasHH === 'all') { item.style.display = ''; return; }
+                item.style.display = item.dataset.hasHh === hasHH ? '' : 'none';
             });
         }
 
