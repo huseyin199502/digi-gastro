@@ -41,3 +41,23 @@ Stage Summary:
 - Fix: Removed duplicate declaration, kept only the Jinja2-initialized one
 - Also simplified redundant DOMContentLoaded handler
 - File changed: templates/admin.html
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix QR-Code Scan - Kunden kommen nicht zur Speisekarte
+
+Work Log:
+- Diagnosed critical issue: customers scan QR codes but see "QR-Code Scan erforderlich" overlay instead of the menu
+- Root cause 1: samesite="strict" on guest session cookies blocks QR scan redirects (cross-site navigation)
+- Fix: Changed all 3 cookie locations from samesite="strict" to samesite="lax"
+- Root cause 2: secure flag only checked hostname, not actual scheme. Added X-Forwarded-Proto check
+- Root cause 3 (potential): QR URL generation used request.base_url (internal URL behind proxy)
+- Fix: QR generation now uses X-Forwarded-Host/Proto headers for correct public URL
+- Pushed to origin/main as commit f264d3d
+
+Stage Summary:
+- SameSite=Lax allows QR scan redirects to carry session cookies
+- Secure flag correctly detects HTTPS behind reverse proxies
+- QR codes use correct public URL when behind proxy
+- Container restart needed for main.py changes
