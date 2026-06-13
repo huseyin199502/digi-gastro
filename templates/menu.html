@@ -1781,6 +1781,17 @@
                         track.style.transform = `translate3d(${tx}px, 0, 0)`;
                     };
                     
+                    // Hard boundary: prevent overscroll past first/last pill
+                    const clampTranslate = (tx) => {
+                        const wrapperWidth = wrapper.getBoundingClientRect().width;
+                        const trackWidth = track.scrollWidth;
+                        // Max translate: first pill aligned to left padding (tx = 0 means no shift, pills start at padding-left)
+                        const maxTx = 0;
+                        // Min translate: last pill aligned to right edge
+                        const minTx = Math.min(0, -(trackWidth - wrapperWidth));
+                        return Math.max(minTx, Math.min(maxTx, tx));
+                    };
+                    
                     // Per-pill current animated values for lerp smoothing
                     const pillState = Array.from({ length: totalPills }, () => ({
                         scale: 0.88, opacity: 0.55, greenGlow: 0
@@ -1865,7 +1876,11 @@
                             
                             currentV *= friction;
                             currentTx += currentV * (dt / 16);
-                            
+                            currentTx = clampTranslate(currentTx);
+                            // Kill velocity when hitting boundary
+                            if (currentTx <= Math.min(0, -(track.scrollWidth - wrapper.getBoundingClientRect().width)) || currentTx >= 0) {
+                                currentV = 0;
+                            }
                             setTrackTranslate(currentTx);
                             // Faster lerp during momentum for snappy tracking
                             applyLiveFisheye(0.30);
@@ -1953,7 +1968,7 @@
                         lastMoveTime = now;
                         lastMoveX = currentX;
                         
-                        const newTranslate = prevTranslate + diff;
+                        const newTranslate = clampTranslate(prevTranslate + diff);
                         setTrackTranslate(newTranslate);
                         // Instant fisheye with lerp - no RAF delay, directly on touchmove
                         // Uses cached positions = zero layout thrash
