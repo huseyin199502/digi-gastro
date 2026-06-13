@@ -224,13 +224,20 @@
             }
         }
 
-        /* On desktop, keep sidebar fixed and open */
+        /* On desktop, keep sidebar fixed and open by default but allow closing */
         @media (min-width: 1024px) {
             aside {
-                transform: translateX(0) !important;
+                transform: translateX(0);
+            }
+            aside.closed {
+                transform: translateX(-100%);
             }
             main {
                 margin-left: 280px;
+                transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            main.sidebar-closed {
+                margin-left: 0 !important;
             }
             .sidebar-backdrop {
                 display: none !important;
@@ -3532,18 +3539,42 @@
         function toggleSidebar() {
             const aside = document.querySelector('aside');
             const backdrop = document.getElementById('sidebar-backdrop');
+            const main = document.querySelector('main');
             if (aside && backdrop) {
-                aside.classList.toggle('open');
-                backdrop.classList.toggle('show');
+                if (window.innerWidth >= 1024) {
+                    // Desktop/tablet landscape: use closed class
+                    aside.classList.toggle('closed');
+                    if (main) main.classList.toggle('sidebar-closed');
+                } else {
+                    // Mobile: use open class
+                    aside.classList.toggle('open');
+                    backdrop.classList.toggle('show');
+                }
             }
         }
 
         function closeSidebar() {
             const aside = document.querySelector('aside');
             const backdrop = document.getElementById('sidebar-backdrop');
+            const main = document.querySelector('main');
             if (aside && backdrop) {
                 aside.classList.remove('open');
                 backdrop.classList.remove('show');
+                // Also close on desktop
+                aside.classList.add('closed');
+                if (main) main.classList.add('sidebar-closed');
+            }
+        }
+
+        function openSidebar() {
+            const aside = document.querySelector('aside');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            const main = document.querySelector('main');
+            if (aside) {
+                aside.classList.remove('closed');
+                aside.classList.add('open');
+                if (backdrop) backdrop.classList.add('show');
+                if (main) main.classList.remove('sidebar-closed');
             }
         }
 
@@ -4103,18 +4134,18 @@
             if (pendingItems.length > 0) {
                 pendingContainer.classList.remove('hidden');
                 pendingList.innerHTML = pendingItems.map(item => `
-                    <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                    <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200 text-xs shadow-sm">
                         <div class="flex items-center gap-3 flex-1 min-w-0">
-                            <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                            <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0">
                                 <span class="material-symbols-outlined text-base">check</span>
                             </button>
                             <div class="flex-1 min-w-0">
-                                <span class="font-extrabold text-white block truncate text-[13px]">${item.quantity}x ${item.name}</span>
-                                ${item.note ? `<span class="text-[10px] text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                <span class="font-extrabold text-gray-900 block truncate text-[13px]">${item.quantity}x ${item.name}</span>
+                                ${item.note ? `<span class="text-[10px] text-amber-600 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="font-extrabold text-zinc-300 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
+                            <span class="font-extrabold text-gray-700 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
                             <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0">
                                 <span class="material-symbols-outlined text-base">close</span>
                             </button>
@@ -4133,21 +4164,21 @@
                 deliveredList.innerHTML = deliveredItems.map(item => {
                     const isChecked = !!selectedControlSplitItems[item.key];
                     return `
-                        <div class="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/40 text-xs">
+                        <div class="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs shadow-sm">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <input type="checkbox" ${isChecked ? 'checked' : ''} 
                                        onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
                                        class="custom-checkbox w-4.5 h-4.5 cursor-pointer">
                                 
-                                <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
+                                <span class="material-symbols-outlined text-emerald-600 font-black text-lg select-none">done_all</span>
                                 
                                 <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-white block truncate text-[13px]">${item.quantity}x ${item.name}</span>
-                                    ${item.note ? `<span class="text-[10px] text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                    <span class="font-extrabold text-gray-900 block truncate text-[13px]">${item.quantity}x ${item.name}</span>
+                                    ${item.note ? `<span class="text-[10px] text-amber-600 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <span class="font-extrabold text-zinc-300 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
+                                <span class="font-extrabold text-gray-700 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
                             </div>
                         </div>
                     `;
@@ -4683,8 +4714,8 @@
 
         function startFallbackPolling() {
             if (!pollInterval) {
-                console.log("Starting admin fallback polling interval (2s)");
-                pollInterval = setInterval(checkLiveTischeUpdates, 2000);
+                console.log("Starting admin fallback polling interval (1.5s)");
+                pollInterval = setInterval(checkLiveTischeUpdates, 1500);
             }
         }
 
@@ -4745,7 +4776,8 @@
                             });
                         }
 
-                        if (lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
+                        // Always update if control modal is open, otherwise use hash to avoid unnecessary re-renders
+                        if (controlModalActiveTableNum || lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
                             updateLiveTiles(safeOrders, safeCalls, safeTables);
                         }
                         lastLiveTischeHash = currentHash;
@@ -7507,7 +7539,8 @@
                     } else {
                         // Open sidebar drawer on first tab (live) when swiping right
                         const aside = document.querySelector('aside');
-                        if (aside && !aside.classList.contains('open')) {
+                        const isOpen = aside.classList.contains('open') || (window.innerWidth >= 1024 && !aside.classList.contains('closed'));
+                        if (!isOpen) {
                             toggleSidebar();
                         }
                     }

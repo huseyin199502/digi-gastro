@@ -94,3 +94,28 @@ Stage Summary:
 - Customer: Complete menu redesign - vertical categories, click to expand, no subcategories
 - Files changed: admin.html, menu.html, main.py
 - Container restart needed for main.py changes (category_images/category_product_counts)
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Multiple UI/UX fixes and Rechnung review popup
+
+Work Log:
+- Task 4a: Verified "Gesamt bezahlen" button already only shows after all items served (allItemsServed check in refreshControlModal)
+- Task 4b: Removed Trinkgeld (tip) window functions from menu.html (selectPaymentTip, selectPaymentCustomTip, calculatePaymentCustomTip). Tip UI was already hidden in previous session.
+- Task 4c: Changed Rechnung flow - instead of auto-redirecting to Google review, now shows a beautiful popup with "Wie fandest du deinen Besuch?" message, 5 stars visual, "Jetzt bewerten" button (links to Google review URL with Google icon), and "Später bewerten" dismiss button
+- Task 4d: Fixed tablet landscape sidebar menu not closing - removed `!important` from desktop sidebar CSS, added `.closed` class for desktop sidebar toggle, sidebar now properly closes on tablets (1024px+) with smooth animation and main content adjusts
+- Task 5a: Fixed Sitzplan real-time updates - reduced fallback polling from 2s→1.5s, added always-refresh when control modal is open (bypasses hash comparison), ensures live data is always shown when interacting with table controls
+- Task 5b: Changed "serviert" text color from white to black in control modal - both pending and delivered items now use light backgrounds (bg-white / bg-emerald-50) with dark text (text-gray-900), making text clearly readable
+- Task 5c: Verified customer menu already redesigned with vertical categories and no subcategories from previous session. Cleaned up remaining subcategory state variables (activeSubcategories, currentSubcategory) and deprecated filterSubcategory function.
+- Added openSidebar() function for programmatic sidebar opening on desktop
+- Updated sidebar swipe gesture detection to work with both mobile (open class) and desktop (closed class)
+- Synced all templates to /tmp/my-project/templates/
+
+Stage Summary:
+- Rechnung now shows review popup with "Jetzt bewerten" button instead of auto-redirect
+- Sidebar now closeable on tablet landscape (1024px+) with smooth animation
+- Serviert/delivered items now have black text on light backgrounds for readability
+- Sitzplan real-time more responsive with 1.5s polling + always-refresh on control modal open
+- Trinkgeld tip functions fully removed from customer menu
+- Files changed: templates/admin.html, templates/menu.html
