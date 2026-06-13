@@ -1750,6 +1750,7 @@
                     let lastMoveX = 0;
                     let velocity = 0;
                     let animationId = null;
+                    let lastHighlightedIdx = -1; // track which pill is visually active during drag
                     
                     const getPositionX = (e) => {
                         return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
@@ -1807,6 +1808,23 @@
                             cumX += pill.offsetWidth + gap;
                         });
                         
+                        // Update active/inactive classes in real-time so green highlight follows the swipe
+                        if (closestIdx !== lastHighlightedIdx) {
+                            lastHighlightedIdx = closestIdx;
+                            pills.forEach((pill, i) => {
+                                pill.classList.remove('active', 'near');
+                                if (i === closestIdx) {
+                                    pill.classList.add('active');
+                                    pill.classList.remove('inactive');
+                                } else {
+                                    pill.classList.add('inactive');
+                                    if (Math.abs(i - closestIdx) === 1) {
+                                        pill.classList.add('near');
+                                    }
+                                }
+                            });
+                        }
+
                         // Only apply scale to closest ± 2 pills (max 5), rest get default
                         pills.forEach((pill, i) => {
                             const dist = Math.abs(i - closestIdx);
@@ -1829,6 +1847,7 @@
                             pill.style.transform = '';
                             pill.style.opacity = '';
                         });
+                        lastHighlightedIdx = -1; // reset so next drag starts fresh
                     };
                     
                     // iOS-style exponential decay momentum
@@ -1903,6 +1922,12 @@
                         velocity = 0;
                         lastMoveTime = performance.now();
                         lastMoveX = startX;
+                        // Initialize lastHighlightedIdx to current active pill
+                        pills.forEach((pill, i) => {
+                            if (pill.classList.contains('active') && lastHighlightedIdx === -1) {
+                                lastHighlightedIdx = i;
+                            }
+                        });
                         track.classList.add('no-transition');
                     };
                     
