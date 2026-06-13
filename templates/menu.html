@@ -1065,6 +1065,7 @@
                 currentLang: 'de',
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
+                _savedCategoryScrollPos: 0,
                 allCategories: {{ restaurant.categories | tojson | safe }},
                 currentOfferIdx: 0,
                 currentBgVideoIdx: 0,
@@ -1320,9 +1321,9 @@
                                             currentBanner.innerHTML = newBanner.innerHTML;
                                         }
                                         
-                                        // Re-apply current category filter
+                                        // Re-apply current category filter (not a user action, don't scroll)
                                         if (this.currentCategory) {
-                                            this.filterCategory(this.currentCategory);
+                                            this.filterCategory(this.currentCategory, false);
                                         }
                                     })
                                     .catch(err => console.error("Error loading live menu updates:", err));
@@ -1478,7 +1479,12 @@
                     this.applyAllFilters();
                 },
 
-                filterCategory(category) {
+                filterCategory(category, isUserAction = true) {
+                    // Save current scroll position before navigating into category (only on user click)
+                    if (isUserAction) {
+                        this._savedCategoryScrollPos = window.scrollY;
+                    }
+
                     this.currentCategory = category;
                     
                     const products = document.querySelectorAll('.product-item');
@@ -1493,16 +1499,29 @@
 
                     this.applyAllFilters();
                     
-                    // Scroll to top when entering a category
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    // Scroll to top AFTER Alpine.js has updated the DOM (only on user click, not on WS re-apply)
+                    if (isUserAction) {
+                        this.$nextTick(() => {
+                            setTimeout(() => {
+                                window.scrollTo({ top: 0, behavior: 'instant' });
+                            }, 10);
+                        });
+                    }
                 },
 
                 backToCategories() {
+                    const savedPos = this._savedCategoryScrollPos || 0;
                     this.currentCategory = '';
                     // Hide all products when back to category list
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
                         item.style.display = 'none';
+                    });
+                    // Restore scroll position AFTER Alpine.js has updated the DOM
+                    this.$nextTick(() => {
+                        setTimeout(() => {
+                            window.scrollTo({ top: savedPos, behavior: 'instant' });
+                        }, 10);
                     });
                 },
 
