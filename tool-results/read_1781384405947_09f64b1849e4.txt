@@ -1,0 +1,502 @@
+     1→  2001→                        <div id="edit-instructions" class="hidden text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl">
+     2→  2002→                            💡 Doppelklick auf Tisch zum Ändern der Form. Drag zum Bewegen. Eckgriff zum Skalieren.
+     3→  2003→                        </div>
+     4→  2004→                        <button id="btn-sort-tables" onclick="autoSortTablesGridAndSave()" class="px-4 py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition flex items-center gap-1.5 shadow">
+     5→  2005→                            <span class="material-symbols-outlined text-sm">sort</span>
+     6→  2006→                            <span>Tische sortieren</span>
+     7→  2007→                        </button>
+     8→  2008→                        <button id="btn-edit-mode" onclick="toggleEditMode()" class="px-4 py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition flex items-center gap-1.5 shadow">
+     9→  2009→                            <span class="material-symbols-outlined text-sm">edit</span>
+    10→  2010→                            <span id="btn-edit-mode-text">Sitzplan bearbeiten</span>
+    11→  2011→                        </button>
+    12→  2012→                        <button id="btn-save-layout" onclick="saveLayout()" class="px-4 py-2 bg-gastro text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition hidden shadow">
+    13→  2013→                            Layout speichern
+    14→  2014→                        </button>
+    15→  2015→                    </div>
+    16→  2016→                </div>
+    17→  2017→
+    18→  2018→                <!-- Interactive canvas -->
+    19→  2019→                <div class="seating-canvas" id="admin-tiles-root"></div>
+    20→  2020→                
+    21→  2021→
+    22→  2022→            </div>
+    23→  2023→
+    24→  2024→            <!-- 📈 TAB 2: BESTELLUNGEN & STATS (finanzen) -->
+    25→  2025→            <div id="admin-tab-finanzen" class="admin-tab-content">
+    26→  2026→                <!-- Overview Summary -->
+    27→  2027→                <div class="section-card mb-6">
+    28→  2028→                    <div class="section-card-header">
+    29→  2029→                        <div class="flex items-center gap-2">
+    30→  2030→                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">insights</span>
+    31→  2031→                            <h3 class="font-extrabold text-sm text-zinc-800">Tagesübersicht</h3>
+    32→  2032→                        </div>
+    33→  2033→                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{{ restaurant.name }}</span>
+    34→  2034→                    </div>
+    35→  2035→                </div>
+    36→  2036→
+    37→  2037→                <!-- Sales Statistics Overview Grid -->
+    38→  2038→                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    39→  2039→                    <div class="stat-card stat-revenue">
+    40→  2040→                        <div class="stat-icon bg-emerald-500/10">
+    41→  2041→                            <span class="material-symbols-outlined text-emerald-600">euro</span>
+    42→  2042→                        </div>
+    43→  2043→                        <div class="stat-label">Tagesumsatz (Brutto)</div>
+    44→  2044→                        <div class="stat-value">{{ "%.2f"|format(stats.brutto) }} €</div>
+    45→  2045→                        <div class="stat-sub">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € · Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
+    46→  2046→                    </div>
+    47→  2047→                    <div class="stat-card stat-orders">
+    48→  2048→                        <div class="stat-icon bg-blue-500/10">
+    49→  2049→                            <span class="material-symbols-outlined text-blue-600">receipt</span>
+    50→  2050→                        </div>
+    51→  2051→                        <div class="stat-label">Bestellungen</div>
+    52→  2052→                        <div class="stat-value">{{ stats.orders_count }}</div>
+    53→  2053→                        <div class="stat-sub">Erfolgreich abgerechnete Bons</div>
+    54→  2054→                    </div>
+    55→  2055→                    <div class="stat-card stat-avg">
+    56→  2056→                        <div class="stat-icon bg-violet-500/10">
+    57→  2057→                            <span class="material-symbols-outlined text-violet-600">shopping_cart</span>
+    58→  2058→                        </div>
+    59→  2059→                        <div class="stat-label">Schnitt / Bon</div>
+    60→  2060→                        <div class="stat-value">{{ "%.2f"|format(stats.avg_basket) }} €</div>
+    61→  2061→                        <div class="stat-sub">Ø Warenkorb pro Abrechnung</div>
+    62→  2062→                    </div>
+    63→  2063→                </div>
+    64→  2064→
+    65→  2065→                <!-- Orders management bar with filters -->
+    66→  2066→                <div class="section-card mb-6">
+    67→  2067→                    <div class="section-card-header flex-wrap gap-3">
+    68→  2068→                        <div class="flex items-center gap-2">
+    69→  2069→                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">receipt_long</span>
+    70→  2070→                            <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
+    71→  2071→                            <span id="orders-count-badge" class="text-[9px] font-black bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-200">0</span>
+    72→  2072→                        </div>
+    73→  2073→                        <div class="flex items-center gap-2 flex-wrap">
+    74→  2074→                            <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs">
+    75→  2075→                                <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU Export
+    76→  2076→                            </a>
+    77→  2077→                        </div>
+    78→  2078→                    </div>
+    79→  2079→                    <!-- Filter Bar -->
+    80→  2080→                    <div class="orders-filter-bar">
+    81→  2081→                        <!-- Search -->
+    82→  2082→                        <div class="orders-search-wrap">
+    83→  2083→                            <span class="material-symbols-outlined orders-search-icon">search</span>
+    84→  2084→                            <input type="text" id="orders-search" class="orders-search-input" placeholder="Bon-Nr. oder Tisch suchen..." oninput="renderOrdersTable()">
+    85→  2085→                        </div>
+    86→  2086→                        <!-- Date Filter -->
+    87→  2087→                        <div class="orders-filter-group">
+    88→  2088→                            <span class="orders-filter-label">Zeitraum</span>
+    89→  2089→                            <div class="orders-filter-btns">
+    90→  2090→                                <button onclick="setOrdersDateFilter('today')" class="orders-filter-btn active" data-filter="today">Heute</button>
+    91→  2091→                                <button onclick="setOrdersDateFilter('7d')" class="orders-filter-btn" data-filter="7d">7 Tage</button>
+    92→  2092→                                <button onclick="setOrdersDateFilter('30d')" class="orders-filter-btn" data-filter="30d">30 Tage</button>
+    93→  2093→                                <button onclick="setOrdersDateFilter('all')" class="orders-filter-btn" data-filter="all">Alle</button>
+    94→  2094→                            </div>
+    95→  2095→                        </div>
+    96→  2096→                        <!-- Status Filter -->
+    97→  2097→                        <div class="orders-filter-group">
+    98→  2098→                            <span class="orders-filter-label">Status</span>
+    99→  2099→                            <div class="orders-filter-btns">
+   100→  2100→                                <button onclick="setOrdersStatusFilter('all')" class="orders-filter-btn active" data-status="all">Alle</button>
+   101→  2101→                                <button onclick="setOrdersStatusFilter('aktiv')" class="orders-filter-btn" data-status="aktiv">Aktiv</button>
+   102→  2102→                                <button onclick="setOrdersStatusFilter('bezahlt')" class="orders-filter-btn" data-status="bezahlt">Bezahlt</button>
+   103→  2103→                                <button onclick="setOrdersStatusFilter('storniert')" class="orders-filter-btn" data-status="storniert">Storniert</button>
+   104→  2104→                            </div>
+   105→  2105→                        </div>
+   106→  2106→                    </div>
+   107→  2107→                </div>
+   108→  2108→
+   109→  2109→                <!-- Orders Table (dynamic) -->
+   110→  2110→                <div class="section-card">
+   111→  2111→                    <div class="overflow-x-auto">
+   112→  2112→                        <table class="dash-table">
+   113→  2113→                            <thead>
+   114→  2114→                                <tr>
+   115→  2115→                                    <th>Bon ID</th>
+   116→  2116→                                    <th>Tisch</th>
+   117→  2117→                                    <th>Zeitstempel</th>
+   118→  2118→                                    <th>Gesamt</th>
+   119→  2119→                                    <th>MwSt</th>
+   120→  2120→                                    <th>Status</th>
+   121→  2121→                                </tr>
+   122→  2122→                            </thead>
+   123→  2123→                            <tbody id="orders-tbody" class="divide-y divide-gray-100">
+   124→  2124→                                <!-- Rendered by JS -->
+   125→  2125→                            </tbody>
+   126→  2126→                        </table>
+   127→  2127→                    </div>
+   128→  2128→                    <!-- Empty state -->
+   129→  2129→                    <div id="orders-empty-state" class="hidden py-10 text-center">
+   130→  2130→                        <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">receipt_long</span>
+   131→  2131→                        <p class="text-xs text-zinc-400 font-semibold mt-2">Keine Bestellungen gefunden</p>
+   132→  2132→                        <p class="text-[10px] text-zinc-300 mt-1">Versuche andere Filter oder Suchbegriffe</p>
+   133→  2133→                    </div>
+   134→  2134→                    <!-- Pagination -->
+   135→  2135→                    <div id="orders-pagination" class="orders-pagination"></div>
+   136→  2136→                </div>
+   137→  2137→            </div>
+   138→  2138→
+   139→  2139→            <!-- 🍽️ TAB: PRODUKTE (produkte) -->
+   140→  2140→            <div id="admin-tab-produkte" class="admin-tab-content">
+   141→  2141→                <!-- Top action bar -->
+   142→  2142→                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+   143→  2143→                    <div class="flex items-center gap-3">
+   144→  2144→                        <div class="flex items-center gap-2">
+   145→  2145→                            <a href="/admin/products/export-csv" class="btn-secondary flex items-center gap-1.5 text-[10px] px-2.5 py-1.5">
+   146→  2146→                                <span class="material-symbols-outlined" style="font-size:12px;">download</span> CSV Export
+   147→  2147→                            </a>
+   148→  2148→                            <button onclick="openCsvImportModal()" class="btn-secondary flex items-center gap-1.5 text-[10px] px-2.5 py-1.5">
+   149→  2149→                                <span class="material-symbols-outlined" style="font-size:12px;">upload</span> CSV Import
+   150→  2150→                            </button>
+   151→  2151→                        </div>
+   152→  2152→                    </div>
+   153→  2153→                    <button onclick="openQuickCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs">
+   154→  2154→                        <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>
+   155→  2155→                        Produkt erstellen
+   156→  2156→                    </button>
+   157→  2157→                </div>
+   158→  2158→
+   159→  2159→                <!-- Search & Filter Bar -->
+   160→  2160→                <div class="section-card mb-6">
+   161→  2161→                    <div class="section-card-body">
+   162→  2162→                        <div class="flex flex-col sm:flex-row gap-3">
+   163→  2163→                            <div class="relative flex-1">
+   164→  2164→                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" style="font-size:18px;">search</span>
+   165→  2165→                                <input type="text" id="product-search" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
+   166→  2166→                            </div>
+   167→  2167→                            <div class="flex items-center gap-2 flex-wrap">
+   168→  2168→                                <select id="category-filter" onchange="filterProductsByCategory(this.value)" class="form-field w-auto min-w-0 sm:min-w-[120px] text-xs">
+   169→  2169→                                    <option value="all">Alle Kategorien</option>
+   170→  2170→                                    {% for cat in restaurant.categories %}
+   171→  2171→                                    <option value="{{ cat }}">{{ cat }}</option>
+   172→  2172→                                    {% endfor %}
+   173→  2173→                                </select>
+   174→  2174→                                <select onchange="filterProductsByStatus(this.value)" class="form-field w-auto min-w-0 sm:min-w-[100px] text-xs">
+   175→  2175→                                    <option value="all">Alle Status</option>
+   176→  2176→                                    <option value="true">Aktiv</option>
+   177→  2177→                                    <option value="false">Ausverkauft</option>
+   178→  2178→                                </select>
+   179→  2179→                                <select onchange="filterProductsByHH(this.value)" class="form-field w-auto min-w-0 sm:min-w-[80px] text-xs">
+   180→  2180→                                    <option value="all">Aktion</option>
+   181→  2181→                                    <option value="true">Ja</option>
+   182→  2182→                                    <option value="false">Nein</option>
+   183→  2183→                                </select>
+   184→  2184→                            </div>
+   185→  2185→                        </div>
+   186→  2186→                    </div>
+   187→  2187→                </div>
+   188→  2188→
+   189→  2189→                <!-- Product Table (Desktop) -->
+   190→  2190→                <div class="section-card">
+   191→  2191→                    <div class="product-table-view overflow-x-auto">
+   192→  2192→                        <table class="w-full product-table">
+   193→  2193→                            <thead>
+   194→  2194→                                <tr>
+   195→  2195→                                    <th class="w-10"><input type="checkbox" id="select-all-products" onchange="toggleSelectAllProducts(this.checked)"></th>
+   196→  2196→                                    <th class="w-8"></th>
+   197→  2197→                                    <th class="w-12"></th>
+   198→  2198→                                    <th>Produkt</th>
+   199→  2199→                                    <th>Kategorie</th>
+   200→  2200→                                    <th>Preis</th>
+   201→  2201→                                    <th>Status</th>
+   202→  2202→                                    <th>HH</th>
+   203→  2203→                                    <th class="w-24">Aktionen</th>
+   204→  2204→                                </tr>
+   205→  2205→                            </thead>
+   206→  2206→                            <tbody class="product-sortable-list">
+   207→  2207→                                {% for p in restaurant.products %}
+   208→  2208→                                <tr class="product-row border-b border-zinc-100 hover:bg-zinc-50 transition"
+   209→  2209→                                    data-category="{{ p.category }}"
+   210→  2210→                                    data-available="{{ 'true' if p.is_available else 'false' }}"
+   211→  2211→                                    data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
+   212→  2212→                                    data-name="{{ p.name | lower }}"
+   213→  2213→                                    data-product-id="{{ p.id }}">
+   214→  2214→                                    <td><input type="checkbox" class="product-checkbox" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()"></td>
+   215→  2215→                                    <td>
+   216→  2216→                                        <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:16px;" title="Verschieben">drag_indicator</span>
+   217→  2217→                                    </td>
+   218→  2218→                                    <td>
+   219→  2219→                                        <div class="w-8 h-8 rounded-lg bg-zinc-200/50 flex items-center justify-center overflow-hidden shrink-0 relative">
+   220→  2220→                                            {% if p.image and not p.image.lower().endswith('.pdf') %}
+   221→  2221→                                                <img src="{{ p.image }}" alt="{{ p.name }}" class="relative z-10 max-w-full max-h-full object-contain" loading="lazy" style="width:32px;height:32px;">
+   222→  2222→                                            {% else %}
+   223→  2223→                                                <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">fastfood</span>
+   224→  2224→                                            {% endif %}
+   225→  2225→                                        </div>
+   226→  2226→                                    </td>
+   227→  2227→                                    <td>
+   228→  2228→                                        <div class="font-extrabold text-xs text-zinc-800">{{ p.name }}</div>
+   229→  2229→                                        {% if p.description %}
+   230→  2230→                                        <div class="text-[10px] text-zinc-400 truncate max-w-[200px] sm:max-w-xs">{{ p.description }}</div>
+   231→  2231→                                        {% endif %}
+   232→  2232→                                    </td>
+   233→  2233→                                    <td>
+   234→  2234→                                        {% if ' > ' in p.category %}
+   235→  2235→                                            {% set parent = p.category.split(' > ')[0] %}
+   236→  2236→                                            {% set child = p.category.split(' > ')[1] %}
+   237→  2237→                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+   238→  2238→                                                {{ parent }} ➔ {{ child }}
+   239→  2239→                                            </span>
+   240→  2240→                                        {% else %}
+   241→  2241→                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">
+   242→  2242→                                                {{ p.category }}
+   243→  2243→                                            </span>
+   244→  2244→                                        {% endif %}
+   245→  2245→                                    </td>
+   246→  2246→                                    <td class="font-mono font-bold text-xs text-zinc-700">{{ "%.2f"|format(p.price) }} €</td>
+   247→  2247→                                    <td>
+   248→  2248→                                        <label class="switch">
+   249→  2249→                                            <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
+   250→  2250→                                            <span class="slider"></span>
+   251→  2251→                                        </label>
+   252→  2252→                                    </td>
+   253→  2253→                                    <td>
+   254→  2254→                                        {% if p.happy_hour_price %}
+   255→  2255→                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200">
+   256→  2256→                                            <span class="material-symbols-outlined" style="font-size:10px;">schedule</span>
+   257→  2257→                                            {{ "%.2f"|format(p.happy_hour_price) }}€
+   258→  2258→                                        </span>
+   259→  2259→                                        {% else %}
+   260→  2260→                                        <span class="text-zinc-300">—</span>
+   261→  2261→                                        {% endif %}
+   262→  2262→                                    </td>
+   263→  2263→                                    <td>
+   264→  2264→                                        <div class="flex items-center gap-1">
+   265→  2265→                                            <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
+   266→  2266→                                                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+   267→  2267→                                            </button>
+   268→  2268→                                            <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+   269→  2269→                                                <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+   270→  2270→                                            </button>
+   271→  2271→                                        </div>
+   272→  2272→                                    </td>
+   273→  2273→                                </tr>
+   274→  2274→                                {% endfor %}
+   275→  2275→                            </tbody>
+   276→  2276→                        </table>
+   277→  2277→                    </div>
+   278→  2278→
+   279→  2279→                    <!-- Product Card View (Mobile) -->
+   280→  2280→                    <div class="product-card-view product-sortable-list">
+   281→  2281→                        {% for p in restaurant.products %}
+   282→  2282→                        <div class="product-card"
+   283→  2283→                             data-category="{{ p.category }}"
+   284→  2284→                             data-available="{{ 'true' if p.is_available else 'false' }}"
+   285→  2285→                             data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
+   286→  2286→                             data-name="{{ p.name | lower }}"
+   287→  2287→                             data-product-id="{{ p.id }}">
+   288→  2288→                            <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none shrink-0" style="font-size:18px;" title="Verschieben">drag_indicator</span>
+   289→  2289→                            <input type="checkbox" class="product-checkbox shrink-0" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
+   290→  2290→                            <div class="product-card-img">
+   291→  2291→                                {% if p.image and not p.image.lower().endswith('.pdf') %}
+   292→  2292→                                    <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy">
+   293→  2293→                                {% else %}
+   294→  2294→                                    <span class="material-symbols-outlined text-zinc-400" style="font-size:18px;">fastfood</span>
+   295→  2295→                                {% endif %}
+   296→  2296→                            </div>
+   297→  2297→                            <div class="product-card-body">
+   298→  2298→                                <div class="flex items-center gap-2">
+   299→  2299→                                    <span class="font-extrabold text-xs text-zinc-800 truncate">{{ p.name }}</span>
+   300→  2300→                                    {% if not p.is_available %}
+   301→  2301→                                    <span class="text-[8px] font-black text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">AUS</span>
+   302→  2302→                                    {% endif %}
+   303→  2303→                                    {% if p.happy_hour_price %}
+   304→  2304→                                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-black bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
+   305→  2305→                                        <span class="material-symbols-outlined" style="font-size:9px;">schedule</span>{{ "%.2f"|format(p.happy_hour_price) }}€
+   306→  2306→                                    </span>
+   307→  2307→                                    {% endif %}
+   308→  2308→                                </div>
+   309→  2309→                                {% if p.description %}
+   310→  2310→                                <div class="text-[10px] text-zinc-400 truncate mt-0.5">{{ p.description }}</div>
+   311→  2311→                                {% endif %}
+   312→  2312→                                <div class="flex items-center gap-2 mt-1">
+   313→  2313→                                    <span class="font-mono font-bold text-[11px] text-zinc-700">{{ "%.2f"|format(p.price) }} €</span>
+   314→  2314→                                    {% if ' > ' in p.category %}
+   315→  2315→                                        {% set parent = p.category.split(' > ')[0] %}
+   316→  2316→                                        {% set child = p.category.split(' > ')[1] %}
+   317→  2317→                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">{{ parent }} ➔ {{ child }}</span>
+   318→  2318→                                    {% else %}
+   319→  2319→                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">{{ p.category }}</span>
+   320→  2320→                                    {% endif %}
+   321→  2321→                                    <label class="switch ml-auto" style="transform:scale(0.85);">
+   322→  2322→                                        <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
+   323→  2323→                                        <span class="slider"></span>
+   324→  2324→                                    </label>
+   325→  2325→                                </div>
+   326→  2326→                            </div>
+   327→  2327→                            <div class="product-card-actions">
+   328→  2328→                                <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
+   329→  2329→                                    <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+   330→  2330→                                </button>
+   331→  2331→                                <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+   332→  2332→                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+   333→  2333→                                </button>
+   334→  2334→                            </div>
+   335→  2335→                        </div>
+   336→  2336→                        {% endfor %}
+   337→  2337→                    </div>
+   338→  2338→
+   339→  2339→                    {% if not restaurant.products %}
+   340→  2340→                    <div class="py-10 text-center">
+   341→  2341→                        <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">restaurant_menu</span>
+   342→  2342→                        <p class="text-xs text-zinc-400 font-semibold mt-2">Noch keine Produkte angelegt</p>
+   343→  2343→                        <p class="text-[10px] text-zinc-300 mt-1">Erstelle dein erstes Produkt mit dem Button oben</p>
+   344→  2344→                    </div>
+   345→  2345→                    {% endif %}
+   346→  2346→                </div>
+   347→  2347→            </div>
+   348→  2348→
+   349→  2349→            <!-- 📂 TAB: KATEGORIEN (kategorien) -->
+   350→  2350→            <div id="admin-tab-kategorien" class="admin-tab-content">
+   351→  2351→                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+   352→  2352→                    <!-- Category creation card -->
+   353→  2353→                    <div class="section-card">
+   354→  2354→                        <div class="section-card-header">
+   355→  2355→                            <div class="flex items-center gap-2">
+   356→  2356→                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">create_new_folder</span>
+   357→  2357→                                <h3 class="font-extrabold text-sm text-zinc-800">Kategorie anlegen</h3>
+   358→  2358→                            </div>
+   359→  2359→                        </div>
+   360→  2360→                        <div class="section-card-body space-y-4">
+   361→  2361→                            <form action="/admin/kategorie-erstellen" method="POST" class="flex flex-col gap-3">
+   362→  2362→                                <div>
+   363→  2363→                                    <label class="form-label">Name</label>
+   364→  2364→                                    <input type="text" name="name" required placeholder="z.B. Softdrinks" class="form-field">
+   365→  2365→                                </div>
+   366→  2366→                                <button type="submit" class="btn-primary w-full">Anlegen</button>
+   367→  2367→                            </form>
+   368→  2368→                        </div>
+   369→  2369→                    </div>
+   370→  2370→
+   371→  2371→                    <!-- Category list with hierarchy -->
+   372→  2372→                    <div class="section-card">
+   373→  2373→                        <div class="section-card-header">
+   374→  2374→                            <div class="flex items-center gap-2">
+   375→  2375→                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">folder_open</span>
+   376→  2376→                                <h3 class="font-extrabold text-sm text-zinc-800">Bestehende Kategorien</h3>
+   377→  2377→                            </div>
+   378→  2378→                            <span class="text-[10px] font-bold text-zinc-400">{{ restaurant.categories | length }}</span>
+   379→  2379→                        </div>
+   380→  2380→                        <div class="section-card-body">
+   381→  2381→                            <p class="text-[9px] text-zinc-400 mb-3">Ziehen zum Sortieren</p>
+   382→  2382→                            <div class="space-y-3 max-h-[500px] overflow-y-auto pr-1 category-sortable-list">
+   383→  2383→                                {% for cat in restaurant.categories %}
+   384→  2384→                                    <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3" data-category-name="{{ cat }}">
+   385→  2385→                                        <div class="flex items-center gap-2">
+   386→  2386→                                            <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:14px;" title="Verschieben">drag_indicator</span>
+   387→  2387→                                            <span class="font-extrabold text-xs text-emerald-800 category-display-name">{{ cat }}</span>
+   388→  2388→                                            <div class="flex items-center ml-auto gap-1">
+   389→  2389→                                                <button onclick="editCategoryInline('{{ cat | replace("'", "\\'") }}', '{{ cat | replace("'", "\\'") }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
+   390→  2390→                                                    <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
+   391→  2391→                                                </button>
+   392→  2392→                                                <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+   393→  2393→                                                    <input type="hidden" name="name" value="{{ cat }}">
+   394→  2394→                                                    <button type="submit" class="text-red-400 hover:text-red-600 font-bold flex items-center justify-center p-0.5">✕</button>
+   395→  2395→                                                </form>
+   396→  2396→                                            </div>
+   397→  2397→                                        </div>
+   398→  2398→                                    </div>
+   399→  2399→                                {% endfor %}
+   400→  2400→                            </div>
+   401→  2401→                        </div>
+   402→  2402→                    </div>
+   403→  2403→                </div>
+   404→  2404→            </div>
+   405→  2405→
+   406→  2406→            <!-- 🎉 TAB: EVENTS (replaces Aktionen) -->
+   407→  2407→            <div id="admin-tab-happyhour" class="admin-tab-content">
+   408→  2408→                <!-- Event List -->
+   409→  2409→                <div class="section-card mb-4">
+   410→  2410→                    <div class="section-card-header">
+   411→  2411→                        <div class="flex items-center gap-2">
+   412→  2412→                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">celebration</span>
+   413→  2413→                            <h3 class="font-extrabold text-sm text-zinc-800">Events</h3>
+   414→  2414→                        </div>
+   415→  2415→                        <button onclick="openEventCreateModal()" class="btn-primary text-[11px] px-3 py-1.5 flex items-center gap-1">
+   416→  2416→                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neues Event
+   417→  2417→                        </button>
+   418→  2418→                    </div>
+   419→  2419→                    <div class="section-card-body">
+   420→  2420→                        <p class="text-[11px] text-zinc-500 leading-relaxed mb-4">
+   421→  2421→                            Erstelle Events wie "Ladys Night", "Hookah Night" oder "Lunch Deal". Jedes Event hat eigene Tage, Uhrzeiten und Produktpreise. Mehrere Events können gleichzeitig existieren.
+   422→  2422→                        </p>
+   423→  2423→                        <div id="events-list" class="space-y-3">
+   424→  2424→                            <!-- Populated by JS -->
+   425→  2425→                        </div>
+   426→  2426→                        <div id="events-empty" class="text-center py-8 hidden">
+   427→  2427→                            <span class="material-symbols-outlined text-4xl text-zinc-300 mb-2">celebration</span>
+   428→  2428→                            <p class="text-xs text-zinc-400 font-bold">Noch keine Events erstellt</p>
+   429→  2429→                            <p class="text-[10px] text-zinc-400">Klicke auf "Neues Event" um dein erstes Event anzulegen</p>
+   430→  2430→                        </div>
+   431→  2431→                    </div>
+   432→  2432→                </div>
+   433→  2433→            </div>
+   434→  2434→
+   435→  2435→            <!-- Event Create/Edit Modal -->
+   436→  2436→            <div id="event-modal" class="fixed inset-0 z-50 hidden">
+   437→  2437→                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventModal()"></div>
+   438→  2438→                <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
+   439→  2439→                    <div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 px-6 py-4 flex items-center justify-between">
+   440→  2440→                        <h3 id="event-modal-title" class="font-extrabold text-base text-zinc-800 dark:text-zinc-100">Neues Event</h3>
+   441→  2441→                        <button onclick="closeEventModal()" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
+   442→  2442→                            <span class="material-symbols-outlined">close</span>
+   443→  2443→                        </button>
+   444→  2444→                    </div>
+   445→  2445→                    <div class="p-6 space-y-5">
+   446→  2446→                        <input type="hidden" id="event-edit-id" value="">
+   447→  2447→
+   448→  2448→                        <!-- Event Name -->
+   449→  2449→                        <div>
+   450→  2450→                            <label class="form-label mb-1">Event-Name (intern)</label>
+   451→  2451→                            <input type="text" id="event-name" placeholder="z.B. Ladys Night" class="form-field">
+   452→  2452→                            <p class="text-[9px] text-zinc-400 mt-1">Wird nur im Admin-Bereich angezeigt</p>
+   453→  2453→                        </div>
+   454→  2454→
+   455→  2455→                        <!-- Display Name for Guests -->
+   456→  2456→                        <div>
+   457→  2457→                            <label class="form-label mb-1">Anzeigename für Gäste</label>
+   458→  2458→                            <input type="text" id="event-display-name" placeholder="z.B. Ladys Night, Hookah Night, Lunch Deal" class="form-field">
+   459→  2459→                            <p class="text-[9px] text-zinc-400 mt-1">Dieser Name wird deinen Gästen im Menü als Badge angezeigt</p>
+   460→  2460→                        </div>
+   461→  2461→
+   462→  2462→                        <!-- Description -->
+   463→  2463→                        <div>
+   464→  2464→                            <label class="form-label mb-1">Beschreibung (optional)</label>
+   465→  2465→                            <input type="text" id="event-description" placeholder="z.B. Alle Cocktails zum Sonderpreis" class="form-field">
+   466→  2466→                        </div>
+   467→  2467→
+   468→  2468→                        <!-- Active Days -->
+   469→  2469→                        <div>
+   470→  2470→                            <label class="form-label mb-2">Aktive Tage</label>
+   471→  2471→                            <div class="flex flex-wrap gap-2" id="event-days-container">
+   472→  2472→                                <!-- Populated by JS -->
+   473→  2473→                            </div>
+   474→  2474→                        </div>
+   475→  2475→
+   476→  2476→                        <!-- Time Range -->
+   477→  2477→                        <div class="grid grid-cols-2 gap-3">
+   478→  2478→                            <div>
+   479→  2479→                                <label class="form-label">Startzeit</label>
+   480→  2480→                                <input type="time" id="event-start-time" value="17:00" class="form-field font-mono">
+   481→  2481→                            </div>
+   482→  2482→                            <div>
+   483→  2483→                                <label class="form-label">Endzeit</label>
+   484→  2484→                                <input type="time" id="event-end-time" value="20:00" class="form-field font-mono">
+   485→  2485→                            </div>
+   486→  2486→                        </div>
+   487→  2487→
+   488→  2488→                        <!-- Mode -->
+   489→  2489→                        <div>
+   490→  2490→                            <label class="form-label mb-1">Modus</label>
+   491→  2491→                            <select id="event-mode" class="form-field font-bold" onchange="toggleEventDiscountRow()">
+   492→  2492→                                <option value="selected">Ausgewählte Produkte mit Eventpreis</option>
+   493→  2493→                                <option value="discount">Rabatt auf alles (%)</option>
+   494→  2494→                            </select>
+   495→  2495→                        </div>
+   496→  2496→
+   497→  2497→                        <!-- Discount (only for discount mode) -->
+   498→  2498→                        <div id="event-discount-row" class="hidden">
+   499→  2499→                            <label class="form-label">Rabatt (%) — gilt im Modus "Rabatt auf alles"</label>
+   500→  2500→                            <input type="number" id="event-discount" value="0" min="0" max="100" class="form-field font-mono">
+
+[showing lines 1-500 of 502; use offset=501 with limit to continue reading]

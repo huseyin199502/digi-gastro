@@ -1,0 +1,668 @@
+  7001→            } catch(e) {
+  7002→                allEvents = [];
+  7003→            }
+  7004→            renderEventsList();
+  7005→        }
+  7006→
+  7007→        function renderEventsList() {
+  7008→            const container = document.getElementById('events-list');
+  7009→            const emptyState = document.getElementById('events-empty');
+  7010→            if (!container) return;
+  7011→
+  7012→            if (allEvents.length === 0) {
+  7013→                container.innerHTML = '';
+  7014→                if (emptyState) emptyState.classList.remove('hidden');
+  7015→                return;
+  7016→            }
+  7017→
+  7018→            if (emptyState) emptyState.classList.add('hidden');
+  7019→
+  7020→            container.innerHTML = allEvents.map((ev, idx) => {
+  7021→                const isActive = ev.is_active !== false;
+  7022→                const dayStr = (ev.days || []).map(d => d.substring(0,2)).join(', ');
+  7023→                const prodCount = (ev.products || []).length;
+  7024→                const modeLabel = ev.mode === 'discount' ? `${ev.discount}% auf alles` : `${prodCount} Produkte`;
+  7025→                const statusColor = isActive ? 'emerald' : 'zinc';
+  7026→                const statusBg = isActive ? 'bg-emerald-50 border-emerald-200' : 'bg-zinc-100 border-zinc-200';
+  7027→                const statusDot = isActive ? 'bg-emerald-500' : 'bg-zinc-400';
+  7028→                const statusText = isActive ? 'Aktiv' : 'Inaktiv';
+  7029→
+  7030→                return `
+  7031→                <div class="p-4 rounded-xl border ${isActive ? 'border-purple-200 bg-purple-50/50' : 'border-gray-200 bg-gray-50/50'} transition-all hover:shadow-md">
+  7032→                    <div class="flex items-start gap-3">
+  7033→                        <div class="w-10 h-10 rounded-xl ${isActive ? 'bg-purple-100' : 'bg-gray-200'} flex items-center justify-center flex-shrink-0">
+  7034→                            <span class="material-symbols-outlined ${isActive ? 'text-purple-600' : 'text-gray-400'}" style="font-size:20px;">celebration</span>
+  7035→                        </div>
+  7036→                        <div class="flex-1 min-w-0">
+  7037→                            <div class="flex items-center gap-2 mb-1">
+  7038→                                <span class="font-extrabold text-sm text-zinc-800 truncate">${ev.display_name || ev.name}</span>
+  7039→                                <span class="text-[9px] font-bold ${statusBg} px-2 py-0.5 rounded-full border flex items-center gap-1">
+  7040→                                    <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span> ${statusText}
+  7041→                                </span>
+  7042→                            </div>
+  7043→                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 font-medium">
+  7044→                                <span class="flex items-center gap-0.5">
+  7045→                                    <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
+  7046→                                    ${ev.start_time || '18:00'} – ${ev.end_time || '20:00'}
+  7047→                                </span>
+  7048→                                <span class="flex items-center gap-0.5">
+  7049→                                    <span class="material-symbols-outlined" style="font-size:12px;">calendar_today</span>
+  7050→                                    ${dayStr || 'Keine Tage'}
+  7051→                                </span>
+  7052→                                <span class="flex items-center gap-0.5">
+  7053→                                    <span class="material-symbols-outlined" style="font-size:12px;">lunch_dining</span>
+  7054→                                    ${modeLabel}
+  7055→                                </span>
+  7056→                            </div>
+  7057→                            ${ev.description ? `<p class="text-[10px] text-zinc-400 mt-1">${ev.description}</p>` : ''}
+  7058→                        </div>
+  7059→                        <div class="flex items-center gap-1 flex-shrink-0">
+  7060→                            <button onclick="openEventEditModal(${ev.id})" class="text-zinc-400 hover:text-purple-500 transition-colors p-1.5 rounded-lg hover:bg-purple-50" title="Bearbeiten">
+  7061→                                <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+  7062→                            </button>
+  7063→                            <button onclick="deleteEvent(${ev.id})" class="text-zinc-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50" title="Löschen">
+  7064→                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  7065→                            </button>
+  7066→                        </div>
+  7067→                    </div>
+  7068→                </div>`;
+  7069→            }).join('');
+  7070→        }
+  7071→
+  7072→        function openEventCreateModal() {
+  7073→            document.getElementById('event-edit-id').value = '';
+  7074→            document.getElementById('event-modal-title').textContent = 'Neues Event';
+  7075→            document.getElementById('event-save-text').textContent = 'Event erstellen';
+  7076→            document.getElementById('event-name').value = '';
+  7077→            document.getElementById('event-display-name').value = '';
+  7078→            document.getElementById('event-description').value = '';
+  7079→            document.getElementById('event-start-time').value = '17:00';
+  7080→            document.getElementById('event-end-time').value = '20:00';
+  7081→            document.getElementById('event-mode').value = 'selected';
+  7082→            document.getElementById('event-discount').value = '0';
+  7083→            document.getElementById('event-is-active').checked = true;
+  7084→            document.getElementById('event-discount-row').classList.add('hidden');
+  7085→
+  7086→            renderDaySelector([]);
+  7087→            renderProductSelector([]);
+  7088→
+  7089→            document.getElementById('event-modal').classList.remove('hidden');
+  7090→        }
+  7091→
+  7092→        function openEventEditModal(eventId) {
+  7093→            const ev = allEvents.find(e => e.id === eventId);
+  7094→            if (!ev) return;
+  7095→
+  7096→            document.getElementById('event-edit-id').value = eventId;
+  7097→            document.getElementById('event-modal-title').textContent = 'Event bearbeiten';
+  7098→            document.getElementById('event-save-text').textContent = 'Änderungen speichern';
+  7099→            document.getElementById('event-name').value = ev.name || '';
+  7100→            document.getElementById('event-display-name').value = ev.display_name || '';
+  7101→            document.getElementById('event-description').value = ev.description || '';
+  7102→            document.getElementById('event-start-time').value = ev.start_time || '17:00';
+  7103→            document.getElementById('event-end-time').value = ev.end_time || '20:00';
+  7104→            document.getElementById('event-mode').value = ev.mode || 'selected';
+  7105→            document.getElementById('event-discount').value = (ev.discount || 0).toString();
+  7106→            document.getElementById('event-is-active').checked = ev.is_active !== false;
+  7107→
+  7108→            if (ev.mode === 'discount') {
+  7109→                document.getElementById('event-discount-row').classList.remove('hidden');
+  7110→            } else {
+  7111→                document.getElementById('event-discount-row').classList.add('hidden');
+  7112→            }
+  7113→
+  7114→            renderDaySelector(ev.days || []);
+  7115→            renderProductSelector(ev.products || []);
+  7116→
+  7117→            document.getElementById('event-modal').classList.remove('hidden');
+  7118→        }
+  7119→
+  7120→        function closeEventModal() {
+  7121→            document.getElementById('event-modal').classList.add('hidden');
+  7122→        }
+  7123→
+  7124→        function renderDaySelector(selectedDays) {
+  7125→            const container = document.getElementById('event-days-container');
+  7126→            if (!container) return;
+  7127→            container.innerHTML = ALL_DAYS.map(day => {
+  7128→                const isSelected = selectedDays.includes(day);
+  7129→                return `
+  7130→                <label class="flex items-center gap-1.5 ${isSelected ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200'} px-3 py-2 rounded-xl text-xs font-bold cursor-pointer select-none transition-colors hover:border-purple-400">
+  7131→                    <input type="checkbox" class="event-day-check rounded text-purple-500 focus:ring-0" value="${day}" ${isSelected ? 'checked' : ''}>
+  7132→                    <span>${day.substring(0,2)}</span>
+  7133→                </label>`;
+  7134→            }).join('');
+  7135→        }
+  7136→
+  7137→        function renderProductSelector(existingProducts) {
+  7138→            const container = document.getElementById('event-products-list');
+  7139→            if (!container) return;
+  7140→
+  7141→            // Get products from the page's product data
+  7142→            const products = window._productsData || [];
+  7143→
+  7144→            container.innerHTML = products.filter(p => p.is_available !== false).map(p => {
+  7145→                const ep = existingProducts.find(e => e.product_id === p.id);
+  7146→                const isSelected = !!ep;
+  7147→                const eventPrice = ep ? ep.event_price : '';
+  7148→
+  7149→                return `
+  7150→                <div class="p-2.5 rounded-xl border ${isSelected ? 'border-purple-300 bg-purple-50' : 'border-gray-100 bg-gray-50'} transition-colors" id="ep-row-${p.id}">
+  7151→                    <div class="flex items-center gap-2">
+  7152→                        <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+  7153→                            <input type="checkbox" class="ep-toggle rounded text-purple-500 focus:ring-purple-400 shrink-0" data-product-id="${p.id}" ${isSelected ? 'checked' : ''} onchange="toggleEventProductRow(${p.id}, this.checked)">
+  7154→                            <div class="min-w-0">
+  7155→                                <div class="font-bold text-[11px] text-zinc-800 truncate">${p.name}</div>
+  7156→                                <div class="text-[9px] text-zinc-500 font-mono">${parseFloat(p.price).toFixed(2)} €</div>
+  7157→                            </div>
+  7158→                        </label>
+  7159→                        <div class="ep-price-fields ${isSelected ? '' : 'hidden'}" id="ep-fields-${p.id}">
+  7160→                            <div class="flex items-center gap-1">
+  7161→                                <input type="number" step="0.01" min="0" placeholder="Eventpreis" value="${eventPrice}" class="w-20 bg-white border border-purple-200 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-purple-400 focus:border-purple-400" id="ep-price-${p.id}">
+  7162→                                <span class="text-[9px] text-zinc-400">€</span>
+  7163→                            </div>
+  7164→                        </div>
+  7165→                    </div>
+  7166→                </div>`;
+  7167→            }).join('');
+  7168→
+  7169→            updateEventProductCount();
+  7170→        }
+  7171→
+  7172→        function toggleEventProductRow(productId, isChecked) {
+  7173→            const fields = document.getElementById('ep-fields-' + productId);
+  7174→            const row = document.getElementById('ep-row-' + productId);
+  7175→            if (isChecked) {
+  7176→                if (fields) fields.classList.remove('hidden');
+  7177→                if (row) {
+  7178→                    row.classList.remove('border-gray-100', 'bg-gray-50');
+  7179→                    row.classList.add('border-purple-300', 'bg-purple-50');
+  7180→                }
+  7181→                const priceInput = document.getElementById('ep-price-' + productId);
+  7182→                if (priceInput) priceInput.focus();
+  7183→            } else {
+  7184→                if (fields) fields.classList.add('hidden');
+  7185→                if (row) {
+  7186→                    row.classList.remove('border-purple-300', 'bg-purple-50');
+  7187→                    row.classList.add('border-gray-100', 'bg-gray-50');
+  7188→                }
+  7189→                const priceInput = document.getElementById('ep-price-' + productId);
+  7190→                if (priceInput) priceInput.value = '';
+  7191→            }
+  7192→            updateEventProductCount();
+  7193→        }
+  7194→
+  7195→        function updateEventProductCount() {
+  7196→            const checked = document.querySelectorAll('.ep-toggle:checked');
+  7197→            const countEl = document.getElementById('event-product-count');
+  7198→            if (countEl) countEl.textContent = checked.length + ' ausgewählt';
+  7199→        }
+  7200→
+  7201→        function toggleEventDiscountRow() {
+  7202→            const mode = document.getElementById('event-mode').value;
+  7203→            const discountRow = document.getElementById('event-discount-row');
+  7204→            if (discountRow) {
+  7205→                if (mode === 'discount') {
+  7206→                    discountRow.classList.remove('hidden');
+  7207→                } else {
+  7208→                    discountRow.classList.add('hidden');
+  7209→                }
+  7210→            }
+  7211→        }
+  7212→
+  7213→        function collectEventData() {
+  7214→            const editId = document.getElementById('event-edit-id').value;
+  7215→            const name = document.getElementById('event-name').value.trim();
+  7216→            const displayName = document.getElementById('event-display-name').value.trim() || name;
+  7217→            const description = document.getElementById('event-description').value.trim();
+  7218→            const startTime = document.getElementById('event-start-time').value || '17:00';
+  7219→            const endTime = document.getElementById('event-end-time').value || '20:00';
+  7220→            const mode = document.getElementById('event-mode').value;
+  7221→            const discount = parseInt(document.getElementById('event-discount').value || '0');
+  7222→            const isActive = document.getElementById('event-is-active').checked;
+  7223→
+  7224→            // Collect selected days
+  7225→            const days = [];
+  7226→            document.querySelectorAll('.event-day-check:checked').forEach(cb => {
+  7227→                days.push(cb.value);
+  7228→            });
+  7229→
+  7230→            // Collect selected products with prices
+  7231→            const products = [];
+  7232→            document.querySelectorAll('.ep-toggle:checked').forEach(cb => {
+  7233→                const pid = parseInt(cb.dataset.productId);
+  7234→                const priceInput = document.getElementById('ep-price-' + pid);
+  7235→                const eventPrice = priceInput && priceInput.value ? parseFloat(priceInput.value) : null;
+  7236→                if (pid && eventPrice && eventPrice > 0) {
+  7237→                    products.push({ product_id: pid, event_price: eventPrice });
+  7238→                }
+  7239→            });
+  7240→
+  7241→            return {
+  7242→                editId: editId ? parseInt(editId) : null,
+  7243→                name: name || 'Neues Event',
+  7244→                display_name: displayName,
+  7245→                description,
+  7246→                days,
+  7247→                start_time: startTime,
+  7248→                end_time: endTime,
+  7249→                mode,
+  7250→                discount: mode === 'discount' ? discount : 0,
+  7251→                is_active: isActive,
+  7252→                products
+  7253→            };
+  7254→        }
+  7255→
+  7256→        function saveEvent() {
+  7257→            const data = collectEventData();
+  7258→
+  7259→            if (data.days.length === 0) {
+  7260→                showToast('Bitte wähle mindestens einen Tag aus', 'error');
+  7261→                return;
+  7262→            }
+  7263→
+  7264→            if (data.mode === 'selected' && data.products.length === 0) {
+  7265→                showToast('Bitte wähle mindestens ein Produkt mit Eventpreis aus', 'error');
+  7266→                return;
+  7267→            }
+  7268→
+  7269→            const isEdit = data.editId !== null;
+  7270→            const url = isEdit ? `/admin/events/${data.editId}` : '/admin/events';
+  7271→            const method = isEdit ? 'PUT' : 'POST';
+  7272→
+  7273→            fetch(url, {
+  7274→                method,
+  7275→                headers: { 'Content-Type': 'application/json' },
+  7276→                body: JSON.stringify(data)
+  7277→            })
+  7278→            .then(res => res.json())
+  7279→            .then(result => {
+  7280→                if (result.success) {
+  7281→                    showToast(isEdit ? 'Event aktualisiert!' : 'Event erstellt!', 'success');
+  7282→                    closeEventModal();
+  7283→                    // Reload events data
+  7284→                    loadEventsData();
+  7285→                } else {
+  7286→                    showToast('Fehler: ' + (result.error || 'Unbekannt'), 'error');
+  7287→                }
+  7288→            })
+  7289→            .catch(err => {
+  7290→                console.error('Event save error:', err);
+  7291→                showToast('Verbindungsfehler', 'error');
+  7292→            });
+  7293→        }
+  7294→
+  7295→        function deleteEvent(eventId) {
+  7296→            const ev = allEvents.find(e => e.id === eventId);
+  7297→            if (!ev) return;
+  7298→            if (!confirm(`Event "${ev.display_name || ev.name}" wirklich löschen?`)) return;
+  7299→
+  7300→            fetch(`/admin/events/${eventId}`, { method: 'DELETE' })
+  7301→            .then(res => res.json())
+  7302→            .then(result => {
+  7303→                if (result.success) {
+  7304→                    showToast('Event gelöscht!', 'success');
+  7305→                    loadEventsData();
+  7306→                } else {
+  7307→                    showToast('Fehler: ' + (result.error || 'Unbekannt'), 'error');
+  7308→                }
+  7309→            })
+  7310→            .catch(err => {
+  7311→                console.error('Event delete error:', err);
+  7312→                showToast('Verbindungsfehler', 'error');
+  7313→            });
+  7314→        }
+  7315→
+  7316→        async function loadEventsData() {
+  7317→            try {
+  7318→                const res = await fetch(window.location.pathname);
+  7319→                const html = await res.text();
+  7320→                const parser = new DOMParser();
+  7321→                const doc = parser.parseFromString(html, 'text/html');
+  7322→                // Update allEvents from the fetched page using robust JSON extraction
+  7323→                const scriptTags = doc.querySelectorAll('script');
+  7324→                for (const s of scriptTags) {
+  7325→                    const txt = s.textContent || '';
+  7326→                    const eventsJson = extractJsonArray(txt, 'allEvents');
+  7327→                    if (eventsJson) { try { allEvents = JSON.parse(eventsJson); } catch(e){} }
+  7328→                    const productsJson = extractJsonArray(txt, 'allProducts');
+  7329→                    if (productsJson) { try { allProducts = JSON.parse(productsJson); window._productsData = allProducts; } catch(e){} }
+  7330→                }
+  7331→                renderEventsList();
+  7332→            } catch (err) {
+  7333→                window.location.reload();
+  7334→            }
+  7335→        }
+  7336→
+  7337→        // Initialize events list on DOMContentLoaded
+  7338→        // NOTE: allEvents and allProducts are already initialized from server-side Jinja2 data above
+  7339→        document.addEventListener('DOMContentLoaded', function() {
+  7340→            renderEventsList();
+  7341→        });
+  7342→
+  7343→        // closeEditProductModal is defined above (delegates to closeEditSlideOver)
+  7344→
+  7345→        function openCsvImportModal() {
+  7346→            document.getElementById('csv-import-modal').classList.remove('hidden');
+  7347→        }
+  7348→
+  7349→        function closeCsvImportModal() {
+  7350→            document.getElementById('csv-import-modal').classList.add('hidden');
+  7351→        }
+  7352→
+  7353→        function submitEditProduct(event) {
+  7354→            event.preventDefault();
+  7355→            const id = document.getElementById('edit-product-id').value;
+  7356→            
+  7357→            const formData = new FormData();
+  7358→            formData.append('name', document.getElementById('edit-product-name').value);
+  7359→            formData.append('price', parseFloat(document.getElementById('edit-product-price').value));
+  7360→            formData.append('description', document.getElementById('edit-product-description').value);
+  7361→            formData.append('category', document.getElementById('edit-product-category').value);
+  7362→            formData.append('name_en', document.getElementById('edit-product-name-en').value);
+  7363→            formData.append('description_en', document.getElementById('edit-product-description-en').value);
+  7364→            formData.append('image_url', document.getElementById('edit-product-image-url').value);
+  7365→            
+  7366→            const fileInput = document.getElementById('edit-product-image-file');
+  7367→            if (fileInput.files.length > 0) {
+  7368→                formData.append('image_file', fileInput.files[0]);
+  7369→            }
+  7370→            formData.append('is_vegan', document.getElementById('edit-product-is-vegan').checked ? 'true' : 'false');
+  7371→            formData.append('is_glutenfree', document.getElementById('edit-product-is-glutenfree').checked ? 'true' : 'false');
+  7372→            formData.append('category_type', document.getElementById('edit-product-type').value);
+  7373→            
+  7374→            // Aktionspreis from slide-over Tab 3
+  7375→            const hhPriceField = document.getElementById('edit-product-hh-price');
+  7376→            if (hhPriceField && hhPriceField.value) {
+  7377→                formData.append('happy_hour_price', hhPriceField.value);
+  7378→            }
+  7379→
+  7380→            fetch(`/api/products/${id}`, {
+  7381→                method: 'PUT',
+  7382→                body: formData
+  7383→            })
+  7384→            .then(res => {
+  7385→                if (res.ok) {
+  7386→                    closeEditProductModal();
+  7387→                    showToast('Produkt erfolgreich gespeichert!', 'success');
+  7388→                    refreshProductsUI();
+  7389→                } else {
+  7390→                    alert("Fehler beim Aktualisieren des Produkts.");
+  7391→                }
+  7392→            })
+  7393→            .catch(err => {
+  7394→                console.error("Edit-Fehler:", err);
+  7395→                alert("Verbindungsfehler bei der Übertragung.");
+  7396→            });
+  7397→        }
+  7398→        
+  7399→
+  7400→        function deleteLandingImage(imageUrl, imageType, buttonElement) {
+  7401→            if (!confirm('Dieses Datei wirklich löschen?')) return;
+  7402→            
+  7403→            const formData = new FormData();
+  7404→            formData.append('image_url', imageUrl);
+  7405→            formData.append('image_type', imageType);
+  7406→            
+  7407→            fetch('/admin/landingpage/delete-image', {
+  7408→                method: 'POST',
+  7409→                body: formData
+  7410→            })
+  7411→            .then(res => res.json())
+  7412→            .then(data => {
+  7413→                if (data.success) {
+  7414→                    const container = buttonElement.closest('.image-thumb-container');
+  7415→                    if (container) {
+  7416→                        container.remove();
+  7417→                    }
+  7418→                    showToast('Datei erfolgreich gelöscht', 'success');
+  7419→                } else {
+  7420→                    showToast('Fehler beim Löschen: ' + (data.error || 'unbekannt'), 'error');
+  7421→                }
+  7422→            })
+  7423→            .catch(err => {
+  7424→                console.error(err);
+  7425→                showToast('Fehler beim Löschen', 'error');
+  7426→            });
+  7427→        }
+  7428→
+  7429→        // ── Landing Page Dynamic Sections ──
+  7430→        let landingSectionCounter = Date.now();
+  7431→
+  7432→        function addLandingSection(title, content) {
+  7433→            const container = document.getElementById('landing-sections-container');
+  7434→            const id = 'csec_' + (landingSectionCounter++);
+  7435→            const sectionDiv = document.createElement('div');
+  7436→            sectionDiv.className = 'landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2';
+  7437→            sectionDiv.setAttribute('data-section-type', 'custom');
+  7438→            sectionDiv.innerHTML = `
+  7439→                <div class="flex items-center justify-between">
+  7440→                    <div class="flex items-center gap-2">
+  7441→                        <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
+  7442→                        <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+  7443→                    </div>
+  7444→                    <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+  7445→                        <span class="material-symbols-outlined text-sm">delete</span>
+  7446→                    </button>
+  7447→                </div>
+  7448→                <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">${content || ''}</textarea>
+  7449→            `;
+  7450→            container.appendChild(sectionDiv);
+  7451→            sectionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  7452→        }
+  7453→
+  7454→        function removeLandingSection(btn) {
+  7455→            const section = btn.closest('.landing-section-item');
+  7456→            if (section) {
+  7457→                const title = section.querySelector('input[type="text"]')?.value || 'diese Sektion';
+  7458→                if (confirm(`Sektion "${title}" wirklich löschen?`)) {
+  7459→                    section.remove();
+  7460→                }
+  7461→            }
+  7462→        }
+  7463→
+  7464→        function prepareLandingFormSubmit() {
+  7465→            // Collect all dynamic sections into landing_sections_json
+  7466→            const sections = [];
+  7467→            const sectionItems = document.querySelectorAll('.landing-section-item');
+  7468→            sectionItems.forEach(item => {
+  7469→                const type = item.getAttribute('data-section-type');
+  7470→                const titleInput = item.querySelector('input[type="text"]');
+  7471→                const contentTextarea = item.querySelector('textarea');
+  7472→                if (titleInput || contentTextarea) {
+  7473→                    sections.push({
+  7474→                        type: type,
+  7475→                        title: titleInput ? titleInput.value.trim() : '',
+  7476→                        content: contentTextarea ? contentTextarea.value.trim() : ''
+  7477→                    });
+  7478→                }
+  7479→            });
+  7480→            document.getElementById('landing_sections_json').value = JSON.stringify(sections);
+  7481→            
+  7482→            // Also build custom_sections_json for backward compatibility
+  7483→            const customSections = sections.filter(s => s.type === 'custom').map(s => ({
+  7484→                title: s.title,
+  7485→                content: s.content,
+  7486→                image: ''
+  7487→            }));
+  7488→            document.getElementById('custom_sections_json').value = JSON.stringify(customSections);
+  7489→            
+  7490→            return true;
+  7491→        }
+  7492→
+  7493→        async function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {
+  7494→            const productName = document.getElementById(nameInputId).value.trim();
+  7495→            if (!productName) {
+  7496→                showToast("Bitte geben Sie zuerst einen Produktnamen ein.", "error");
+  7497→                return;
+  7498→            }
+  7499→            
+  7500→            const originalContent = btn.innerHTML;
+  7501→            btn.disabled = true;
+  7502→            btn.innerHTML = `<span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Laden...`;
+  7503→            
+  7504→            showToast("KI-Bild wird generiert...", "success");
+  7505→            
+  7506→            try {
+  7507→                const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
+  7508→                
+  7509→                // Generate the image using Puter.js (bypasses all key and server rate limits)
+  7510→                const imgElement = await puter.ai.txt2img(prompt, { model: 'gpt-image-2' });
+  7511→                if (!imgElement || !imgElement.src) {
+  7512→                    throw new Error("Puter.js lieferte kein Bild-Element");
+  7513→                }
+  7514→                
+  7515→                const resp = await fetch(imgElement.src);
+  7516→                if (!resp.ok) {
+  7517→                    throw new Error("Laden des generierten Bildes fehlgeschlagen");
+  7518→                }
+  7519→                const blob = await resp.blob();
+  7520→                
+  7521→                // Upload blob to server to process (remove background and trim)
+  7522→                const formData = new FormData();
+  7523→                formData.append('file', blob, 'ai-generated.jpg');
+  7524→                
+  7525→                const uploadResp = await fetch('/api/products/process-generated-image', {
+  7526→                    method: 'POST',
+  7527→                    body: formData
+  7528→                });
+  7529→                
+  7530→                if (!uploadResp.ok) {
+  7531→                    const errData = await uploadResp.json().catch(() => ({}));
+  7532→                    throw new Error(errData.detail || "Serverfehler " + uploadResp.status);
+  7533→                }
+  7534→                
+  7535→                const data = await uploadResp.json();
+  7536→                
+  7537→                btn.disabled = false;
+  7538→                btn.innerHTML = originalContent;
+  7539→                if (data.success && data.image_url) {
+  7540→                    document.getElementById(targetInputId).value = data.image_url;
+  7541→                    showToast("KI-Bild erfolgreich generiert!", "success");
+  7542→                } else {
+  7543→                    showToast("Fehler beim Generieren des KI-Bildes.", "error");
+  7544→                }
+  7545→            } catch (err) {
+  7546→                btn.disabled = false;
+  7547→                btn.innerHTML = originalContent;
+  7548→                console.error("KI Bildfehler:", err);
+  7549→                showToast("Fehler: " + err.message, "error");
+  7550→            }
+  7551→        }
+  7552→
+  7553→        // Copy magic link (relative path → absolute URL) to clipboard
+  7554→        function copyMagicLink(elementId) {
+  7555→            const el = document.getElementById(elementId);
+  7556→            if (!el) return;
+  7557→            const relativePath = el.textContent.trim().replace(/&amp;/g, '&');
+  7558→            const fullUrl = window.location.origin + relativePath;
+  7559→            navigator.clipboard.writeText(fullUrl).then(() => {
+  7560→                const btn = el.parentElement.querySelector('button[onclick]');
+  7561→                if (btn) {
+  7562→                    const icon = btn.querySelector('.material-symbols-outlined');
+  7563→                    if (icon) { icon.textContent = 'check'; setTimeout(() => { icon.textContent = 'content_copy'; }, 2000); }
+  7564→                }
+  7565→            }).catch(() => { alert('Link:\n' + fullUrl); });
+  7566→        }
+  7567→
+  7568→        // Tab swipe navigation on mobile/tablet viewports
+  7569→        let touchStartX = 0;
+  7570→        let touchStartY = 0;
+  7571→        let touchEndX = 0;
+  7572→        let touchEndY = 0;
+  7573→
+  7574→        const tabsSequence = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'einstellungen'];
+  7575→
+  7576→        function isModalOpen() {
+  7577→            const modals = document.querySelectorAll('.overlay-backdrop');
+  7578→            for (let modal of modals) {
+  7579→                if (!modal.classList.contains('hidden')) {
+  7580→                    return true;
+  7581→                }
+  7582→            }
+  7583→            return false;
+  7584→        }
+  7585→
+  7586→        document.addEventListener('touchstart', e => {
+  7587→            // Ignore if any modal/overlay is open
+  7588→            if (isModalOpen()) return;
+  7589→            // Ignore if touching form fields
+  7590→            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+  7591→            // Ignore if touch starts inside interactive or scrollable panels to prevent conflicts
+  7592→            if (e.target.closest('.seating-canvas') || 
+  7593→                e.target.closest('#table-creator-panel') || 
+  7594→                e.target.closest('.popup-card') || 
+  7595→                e.target.closest('#edit-product-form') ||
+  7596→                e.target.closest('.switch') ||
+  7597→                e.target.closest('button') ||
+  7598→                e.target.closest('a')) {
+  7599→                return;
+  7600→            }
+  7601→            touchStartX = e.changedTouches[0].screenX;
+  7602→            touchStartY = e.changedTouches[0].screenY;
+  7603→        }, { passive: true });
+  7604→
+  7605→        document.addEventListener('touchend', e => {
+  7606→            if (!touchStartX) return;
+  7607→
+  7608→            // Ignore if any modal/overlay is open
+  7609→            if (isModalOpen()) return;
+  7610→            // Ignore if touching form fields
+  7611→            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+  7612→            if (e.target.closest('.seating-canvas') || 
+  7613→                e.target.closest('#table-creator-panel') || 
+  7614→                e.target.closest('.popup-card') || 
+  7615→                e.target.closest('#edit-product-form') ||
+  7616→                e.target.closest('.switch') ||
+  7617→                e.target.closest('button') ||
+  7618→                e.target.closest('a')) {
+  7619→                return;
+  7620→            }
+  7621→
+  7622→            touchEndX = e.changedTouches[0].screenX;
+  7623→            touchEndY = e.changedTouches[0].screenY;
+  7624→            
+  7625→            handleSwipe();
+  7626→            touchStartX = 0;
+  7627→        }, { passive: true });
+  7628→
+  7629→        function handleSwipe() {
+  7630→            const diffX = touchEndX - touchStartX;
+  7631→            const diffY = touchEndY - touchStartY;
+  7632→            
+  7633→            // Requires a minimum horizontal swipe length of 80px, and horizontal shift must be greater than vertical
+  7634→            if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
+  7635→                const currentTab = localStorage.getItem('dl_admin_active_tab') || 'live';
+  7636→                const currentIndex = tabsSequence.indexOf(currentTab);
+  7637→                
+  7638→                if (diffX < 0) {
+  7639→                    // Swiped left -> Switch to next tab
+  7640→                    if (currentIndex < tabsSequence.length - 1) {
+  7641→                        switchAdminTab(tabsSequence[currentIndex + 1]);
+  7642→                    }
+  7643→                } else {
+  7644→                    // Swiped right -> Switch to previous tab, or open sidebar if on first tab
+  7645→                    if (currentIndex > 0) {
+  7646→                        switchAdminTab(tabsSequence[currentIndex - 1]);
+  7647→                    } else {
+  7648→                        // Open sidebar drawer on first tab (live) when swiping right
+  7649→                        const aside = document.querySelector('aside');
+  7650→                        const isOpen = aside.classList.contains('open') || (window.innerWidth >= 1024 && !aside.classList.contains('closed'));
+  7651→                        if (!isOpen) {
+  7652→                            toggleSidebar();
+  7653→                        }
+  7654→                    }
+  7655→                }
+  7656→            }
+  7657→        }
+  7658→    
+  7659→    </script>
+  7660→    
+  7661→    <!-- Loading Overlay -->
+  7662→    <div id="loading-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex flex-col items-center justify-center space-y-4" style="z-index: 9999;">
+  7663→        <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+  7664→        <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
+  7665→    </div>
+  7666→</body>
+  7667→</html>
+  7668→
