@@ -152,7 +152,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: transform 0.35s cubic-bezier(0.25, 1, 0.35, 1);
+            transition: transform 0.2s cubic-bezier(0.25, 1, 0.35, 1);
             will-change: transform;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
@@ -1785,10 +1785,11 @@
                     const clampTranslate = (tx) => {
                         const wrapperWidth = wrapper.getBoundingClientRect().width;
                         const trackWidth = track.scrollWidth;
-                        // Max translate: first pill aligned to left padding (tx = 0 means no shift, pills start at padding-left)
+                        const padding = 32; // 16px padding on each side
+                        // Max translate: first pill at left edge with padding
                         const maxTx = 0;
-                        // Min translate: last pill aligned to right edge
-                        const minTx = Math.min(0, -(trackWidth - wrapperWidth));
+                        // Min translate: last pill visible at right edge with padding
+                        const minTx = Math.min(0, -(trackWidth + padding - wrapperWidth));
                         return Math.max(minTx, Math.min(maxTx, tx));
                     };
                     
@@ -1799,7 +1800,7 @@
                     
                     // Live fisheye: cached-position calculation with lerp for buttery smoothness
                     // No getBoundingClientRect calls = zero layout thrash
-                    const applyLiveFisheye = (lerpFactor = 0.35) => {
+                    const applyLiveFisheye = (lerpFactor = 0.55) => {
                         const currentTx = getCurrentTranslate();
                         const halfWidth = wrapperCenterLocal;
                         // The visual center of wrapper in track-local coordinates
@@ -1865,7 +1866,7 @@
                     const applyMomentum = (initialVelocity) => {
                         if (animationId) cancelAnimationFrame(animationId);
                         
-                        const friction = 0.935;
+                        const friction = 0.90;
                         let currentV = initialVelocity;
                         let currentTx = getCurrentTranslate();
                         let lastTime = performance.now();
@@ -1878,12 +1879,13 @@
                             currentTx += currentV * (dt / 16);
                             currentTx = clampTranslate(currentTx);
                             // Kill velocity when hitting boundary
-                            if (currentTx <= Math.min(0, -(track.scrollWidth - wrapper.getBoundingClientRect().width)) || currentTx >= 0) {
+                            const boundMin = Math.min(0, -(track.scrollWidth + 32 - wrapper.getBoundingClientRect().width));
+                            if (currentTx <= boundMin || currentTx >= 0) {
                                 currentV = 0;
                             }
                             setTrackTranslate(currentTx);
                             // Faster lerp during momentum for snappy tracking
-                            applyLiveFisheye(0.30);
+                            applyLiveFisheye(0.50);
                             
                             if (Math.abs(currentV) > 0.25) {
                                 animationId = requestAnimationFrame(momentumStep);
@@ -1972,7 +1974,7 @@
                         setTrackTranslate(newTranslate);
                         // Instant fisheye with lerp - no RAF delay, directly on touchmove
                         // Uses cached positions = zero layout thrash
-                        applyLiveFisheye(0.40);
+                        applyLiveFisheye(0.60);
                     };
                     
                     const dragEnd = (e) => {
