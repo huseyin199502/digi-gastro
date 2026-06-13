@@ -4411,6 +4411,7 @@ def get_login(request: Request, redirect: Optional[str] = None, db: Session = De
             "request": request,
             "restaurant_name": "digi-gastro",
             "slug": "",
+            "email": "",
             "error": None,
             "redirect": redirect
         }
@@ -4433,6 +4434,7 @@ def post_login(
                 "request": request,
                 "restaurant_name": "digi-gastro",
                 "slug": "",
+                "email": email or "",
                 "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort (oder Ihre PIN) ein.",
                 "redirect": redirect
             }
@@ -4471,6 +4473,7 @@ def post_login(
                     "request": request,
                     "restaurant_name": "digi-gastro",
                     "slug": "",
+                    "email": email or "",
                     "error": "Ungültige E-Mail-Adresse oder Passwort.",
                     "redirect": redirect
                 }
@@ -4502,6 +4505,7 @@ def post_login(
                             "request": request,
                             "restaurant_name": restaurant["name"],
                             "slug": "",
+                            "email": email or "",
                             "error": "Mitarbeiter-Anmeldung erfolgt direkt auf dem Tablet-Sperrbildschirm.",
                             "redirect": redirect
                         }
@@ -4529,15 +4533,21 @@ def post_login(
             "request": request,
             "restaurant_name": "digi-gastro",
             "slug": "",
+            "email": email or "",
             "error": "Ungültige Anmeldedaten.",
             "redirect": redirect
         }
     )
 
 @app.get("/admin/logout")
-def get_logout():
-    resp = RedirectResponse(url="/admin/login")
+def get_logout(request: Request):
+    # Check if this was a superadmin session — redirect accordingly
+    is_global = request.cookies.get("session_global") == "admin@digi-gastro.de"
+    resp = RedirectResponse(url="/digi-gastro-admin/login" if is_global else "/admin/login")
     resp.delete_cookie(key="session")
+    # Also always clear global session cookie so superadmin doesn't get stuck
+    if is_global:
+        resp.delete_cookie(key="session_global")
     return resp
 
 def sort_tables_in_grid(tables):
@@ -6352,6 +6362,7 @@ async def update_product_api(
     image_file = None
     is_vegan = False
     is_glutenfree = False
+    happy_hour_price = None
 
     if "application/json" in content_type:
         try:
@@ -6367,6 +6378,8 @@ async def update_product_api(
         image_url = body.get("image_url")
         is_vegan = body.get("is_vegan") in [True, "true"]
         is_glutenfree = body.get("is_glutenfree") in [True, "true"]
+        hh_val = body.get("happy_hour_price")
+        happy_hour_price = float(hh_val) if hh_val not in [None, "", "None"] else None
     else:
         # Parse multipart/form-data or form-urlencoded
         form = await request.form()
@@ -6380,6 +6393,8 @@ async def update_product_api(
         image_file = form.get("image_file")
         is_vegan = form.get("is_vegan") in [True, "true"]
         is_glutenfree = form.get("is_glutenfree") in [True, "true"]
+        hh_val = form.get("happy_hour_price")
+        happy_hour_price = float(hh_val) if hh_val not in [None, "", "None"] else None
 
     product["name"] = str(name).strip()
     product["price"] = round(float(price), 2)
@@ -6390,6 +6405,13 @@ async def update_product_api(
     product["vegan"] = is_vegan
     product["is_vegan"] = is_vegan
     product["is_glutenfree"] = is_glutenfree
+    
+    # Update happy hour price if provided
+    if happy_hour_price is not None:
+        product["happy_hour_price"] = happy_hour_price
+    elif happy_hour_price is None and "happy_hour_price" in product:
+        # If explicitly cleared (empty string was sent), remove HH price
+        pass  # Keep existing — only clear via dedicated HH page
 
     cat_lower = str(category).strip().lower()
     category_type = "küche"

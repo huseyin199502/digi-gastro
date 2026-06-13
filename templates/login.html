@@ -70,14 +70,17 @@
         {% endif %}
 
         <form action="/admin/login" method="POST" class="space-y-5">
+            {% if redirect %}
+            <input type="hidden" name="redirect" value="{{ redirect }}">
+            {% endif %}
             <div>
                 <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2" for="email">E-Mail Adresse</label>
-                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required value="{{ email if email else '' }}">
             </div>
 
             <div>
                 <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2" for="password">Passwort</label>
-                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="password" name="password" type="password" placeholder="••••••••" required>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="password" name="password" type="password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" required>
             </div>
 
             <button class="btn-premium btn-premium-primary py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all" type="submit">
@@ -86,8 +89,10 @@
             </button>
         </form>
 
-        <div class="mt-8 pt-5 border-t border-zinc-800/60 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
-            digi-gastro Admin Panel
+        <div class="mt-6 pt-5 border-t border-zinc-800/60 text-center">
+            <a href="/digi-gastro-admin/login" class="text-[11px] text-zinc-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-colors">
+                Partner Login
+            </a>
         </div>
     </div>
 </body>

@@ -1,0 +1,302 @@
+  2400→                                            </div>
+  2401→                                            <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field">{{ restaurant.landing_page.what_we_offer }}</textarea>
+  2402→                                        </div>
+  2403→                                        {% endif %}
+  2404→                                        {% if restaurant.landing_page.oeffnungszeiten %}
+  2405→                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="hours">
+  2406→                                            <div class="flex items-center justify-between">
+  2407→                                                <div class="flex items-center gap-2">
+  2408→                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">schedule</span>
+  2409→                                                    <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Öffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+  2410→                                                </div>
+  2411→                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+  2412→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2413→                                                </button>
+  2414→                                            </div>
+  2415→                                            <textarea name="section_content_hours" rows="2" placeholder="Mo - So: 17:00 - 01:00 Uhr" class="form-field font-mono">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
+  2416→                                        </div>
+  2417→                                        {% endif %}
+  2418→                                        {% if restaurant.landing_page.angebote %}
+  2419→                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="offers">
+  2420→                                            <div class="flex items-center justify-between">
+  2421→                                                <div class="flex items-center gap-2">
+  2422→                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">local_offer</span>
+  2423→                                                    <input type="text" name="section_title_offers" value="{{ restaurant.landing_page.title_happyhour if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Angebote & Specials" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+  2424→                                                </div>
+  2425→                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+  2426→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2427→                                                </button>
+  2428→                                            </div>
+  2429→                                            <textarea name="section_content_offers" rows="2" placeholder="Angebote und Specials..." class="form-field">{{ restaurant.landing_page.angebote }}</textarea>
+  2430→                                        </div>
+  2431→                                        {% endif %}
+  2432→                                        {% if restaurant.landing_page.aktuelles %}
+  2433→                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="news">
+  2434→                                            <div class="flex items-center justify-between">
+  2435→                                                <div class="flex items-center gap-2">
+  2436→                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">newspaper</span>
+  2437→                                                    <input type="text" name="section_title_news" value="{{ restaurant.landing_page.title_news if restaurant.landing_page else '' }}" placeholder="Titel: z.B. Aktuelles & Events" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+  2438→                                                </div>
+  2439→                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+  2440→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2441→                                                </button>
+  2442→                                            </div>
+  2443→                                            <textarea name="section_content_news" rows="2" placeholder="Neuigkeiten und Ankündigungen..." class="form-field">{{ restaurant.landing_page.aktuelles }}</textarea>
+  2444→                                        </div>
+  2445→                                        {% endif %}
+  2446→                                        {% endif %}
+  2447→                                        <!-- Custom sections from previous saves -->
+  2448→                                        {% if restaurant.landing_page and restaurant.landing_page.custom_sections %}
+  2449→                                        {% for csec in restaurant.landing_page.custom_sections %}
+  2450→                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
+  2451→                                            <div class="flex items-center justify-between">
+  2452→                                                <div class="flex items-center gap-2">
+  2453→                                                    <span class="material-symbols-outlined text-purple-500" style="font-size:14px;">extension</span>
+  2454→                                                    <input type="text" name="section_title_custom_{{ loop.index0 }}" value="{{ csec.title if csec.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+  2455→                                                </div>
+  2456→                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+  2457→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2458→                                                </button>
+  2459→                                            </div>
+  2460→                                            <textarea name="section_content_custom_{{ loop.index0 }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field">{{ csec.content if csec.content else '' }}</textarea>
+  2461→                                            {% if csec.image %}
+  2462→                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+  2463→                                                <img src="{{ csec.image }}" class="w-full h-full object-cover" alt="Custom">
+  2464→                                                <button type="button" onclick="deleteLandingImage('{{ csec.image }}', 'custom', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2465→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2466→                                                </button>
+  2467→                                            </div>
+  2468→                                            {% endif %}
+  2469→                                        </div>
+  2470→                                        {% endfor %}
+  2471→                                        {% endif %}
+  2472→                                    </div>
+  2473→                                </div>
+  2474→
+  2475→                                <!-- Angebotsfotos & Diashow -->
+  2476→                                <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100 space-y-3">
+  2477→                                    <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
+  2478→                                        <span class="material-symbols-outlined text-amber-600" style="font-size:16px;">local_offer</span>
+  2479→                                        Angebotsfotos & Hintergrund-Diashow
+  2480→                                    </h4>
+  2481→                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  2482→                                        <!-- Angebotsfotos -->
+  2483→                                        <div class="space-y-2">
+  2484→                                            <div>
+  2485→                                                <label class="form-label">Titel: Angebote</label>
+  2486→                                                <input type="text" name="title_offers" value="{{ restaurant.landing_page.title_offers if restaurant.landing_page else '' }}" placeholder="Standard: Aktuelle Angebote" class="form-field">
+  2487→                                            </div>
+  2488→                                            <div class="text-[9px] text-amber-600 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
+  2489→                                            <input type="file" name="offer_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+  2490→                                            {% if restaurant.landing_page and (restaurant.landing_page.offer_images or restaurant.landing_page.offer_videos) %}
+  2491→                                            <div class="flex flex-wrap gap-2 mt-1">
+  2492→                                                {% if restaurant.landing_page.offer_images %}
+  2493→                                                {% for img in restaurant.landing_page.offer_images %}
+  2494→                                                <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+  2495→                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+  2496→                                                    <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2497→                                                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2498→                                                    </button>
+  2499→                                                </div>
+  2500→                                                {% endfor %}
+  2501→                                                {% endif %}
+  2502→                                                {% if restaurant.landing_page.offer_videos %}
+  2503→                                                {% for vid in restaurant.landing_page.offer_videos %}
+  2504→                                                <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
+  2505→                                                    <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+  2506→                                                    <button type="button" onclick="deleteLandingImage('{{ vid }}', 'offer_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2507→                                                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2508→                                                    </button>
+  2509→                                                </div>
+  2510→                                                {% endfor %}
+  2511→                                                {% endif %}
+  2512→                                            </div>
+  2513→                                            {% endif %}
+  2514→                                        </div>
+  2515→                                        <!-- Diashow -->
+  2516→                                        <div class="space-y-2">
+  2517→                                            <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
+  2518→                                                <div>
+  2519→                                                    <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+  2520→                                                    <div class="text-[9px] text-zinc-400">Läuft im Hintergrund der Landingpage</div>
+  2521→                                                </div>
+  2522→                                                <label class="switch">
+  2523→                                                    <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+  2524→                                                    <span class="slider"></span>
+  2525→                                                </label>
+  2526→                                            </div>
+  2527→                                        <div class="text-[9px] text-zinc-500 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
+  2528→                                        <input type="file" name="slideshow_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+  2529→                                        {% if restaurant.landing_page and (restaurant.landing_page.slideshow_images or restaurant.landing_page.slideshow_videos) %}
+  2530→                                        <div class="flex flex-wrap gap-2 mt-1">
+  2531→                                            {% if restaurant.landing_page.slideshow_images %}
+  2532→                                            {% for img in restaurant.landing_page.slideshow_images %}
+  2533→                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+  2534→                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
+  2535→                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2536→                                                    <span class="material-symbols-outlined text-base">delete</span>
+  2537→                                                </button>
+  2538→                                            </div>
+  2539→                                            {% endfor %}
+  2540→                                            {% endif %}
+  2541→                                            {% if restaurant.landing_page.slideshow_videos %}
+  2542→                                            {% for vid in restaurant.landing_page.slideshow_videos %}
+  2543→                                            <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+  2544→                                                <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+  2545→                                                <button type="button" onclick="deleteLandingImage('{{ vid }}', 'slideshow_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2546→                                                    <span class="material-symbols-outlined text-base">delete</span>
+  2547→                                                </button>
+  2548→                                            </div>
+  2549→                                            {% endfor %}
+  2550→                                            {% endif %}
+  2551→                                        </div>
+  2552→                                        {% endif %}
+  2553→                                    </div>
+  2554→                                </div>
+  2555→                            </div>
+  2556→
+  2557→                            <!-- Galerie & Videos -->
+  2558→                            <div class="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4 rounded-xl border border-violet-100 space-y-3">
+  2559→                                <h4 class="font-extrabold text-xs text-violet-800 flex items-center gap-1.5">
+  2560→                                    <span class="material-symbols-outlined text-violet-600" style="font-size:16px;">collections</span>
+  2561→                                    Galerie & Videos
+  2562→                                </h4>
+  2563→                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  2564→                                    <!-- Bildergalerie -->
+  2565→                                    <div class="space-y-2">
+  2566→                                        <div>
+  2567→                                            <label class="form-label">Titel: Galerie</label>
+  2568→                                            <input type="text" name="title_gallery" value="{{ restaurant.landing_page.title_gallery if restaurant.landing_page else '' }}" placeholder="Standard: Galerie" class="form-field">
+  2569→                                        </div>
+  2570→                                        <div class="text-[9px] text-violet-600 font-bold">Bilder & Videos möglich | Videos max. 40s</div>
+  2571→                                        <input type="file" name="gallery_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+  2572→                                        {% if restaurant.landing_page and (restaurant.landing_page.gallery_images or restaurant.landing_page.gallery_videos) %}
+  2573→                                        <div class="flex flex-wrap gap-2 mt-1">
+  2574→                                            {% if restaurant.landing_page.gallery_images %}
+  2575→                                            {% for img in restaurant.landing_page.gallery_images %}
+  2576→                                            <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+  2577→                                                <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
+  2578→                                                <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2579→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2580→                                                </button>
+  2581→                                            </div>
+  2582→                                            {% endfor %}
+  2583→                                            {% endif %}
+  2584→                                            {% if restaurant.landing_page.gallery_videos %}
+  2585→                                            {% for vid in restaurant.landing_page.gallery_videos %}
+  2586→                                            <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
+  2587→                                                <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+  2588→                                                <button type="button" onclick="deleteLandingImage('{{ vid }}', 'gallery_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2589→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2590→                                                </button>
+  2591→                                            </div>
+  2592→                                            {% endfor %}
+  2593→                                            {% endif %}
+  2594→                                        </div>
+  2595→                                        {% endif %}
+  2596→                                    </div>
+  2597→                                    <!-- Videos -->
+  2598→                                    <div class="space-y-2">
+  2599→                                        <div>
+  2600→                                            <label class="form-label">Titel: Videos</label>
+  2601→                                            <input type="text" name="title_videos" value="{{ restaurant.landing_page.title_videos if restaurant.landing_page else '' }}" placeholder="Standard: Videos" class="form-field">
+  2602→                                        </div>
+  2603→                                        <div class="bg-violet-100/50 p-2 rounded-xl border border-violet-200">
+  2604→                                            <div class="text-[9px] text-violet-600 font-bold mb-1.5">Max. 40 Sekunden | MP4, WebM, MOV | Autoplay & Dauerschleife</div>
+  2605→                                            <input type="file" name="landing_videos" multiple accept="video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+  2606→                                        </div>
+  2607→                                        {% if restaurant.landing_page and restaurant.landing_page.videos %}
+  2608→                                        <div class="flex flex-wrap gap-2 mt-1">
+  2609→                                            {% for vid in restaurant.landing_page.videos %}
+  2610→                                            <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
+  2611→                                                <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+  2612→                                                <button type="button" onclick="deleteLandingImage('{{ vid }}', 'video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+  2613→                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+  2614→                                                </button>
+  2615→                                            </div>
+  2616→                                            {% endfor %}
+  2617→                                        </div>
+  2618→                                        {% endif %}
+  2619→                                    </div>
+  2620→                                </div>
+  2621→                            </div>
+  2622→
+  2623→                            <button type="submit" class="btn-primary w-full">Landingpage speichern</button>
+  2624→                        </form>
+  2625→                        </div>
+  2626→                    </div>
+  2627→                </div>
+  2628→
+  2629→                <!-- ==================== SUB-TAB: QR & Tische ==================== -->
+  2630→                <div id="config-tab-qrcodes" class="config-tab-content">
+  2631→                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+  2632→                        <!-- QR-Codes card -->
+  2633→                        <div class="section-card">
+  2634→                            <div class="section-card-header">
+  2635→                                <div class="flex items-center gap-2">
+  2636→                                    <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">qr_code</span>
+  2637→                                    <h3 class="font-extrabold text-sm text-zinc-800">QR-Codes</h3>
+  2638→                                </div>
+  2639→                            </div>
+  2640→                            <div class="section-card-body">
+  2641→                                <a href="/admin/qr-print" target="_blank" class="btn-secondary w-full flex items-center justify-center gap-1.5 text-xs py-3">
+  2642→                                    <span class="material-symbols-outlined" style="font-size:16px;">print</span> QR-Codes drucken
+  2643→                                </a>
+  2644→                            </div>
+  2645→                        </div>
+  2646→
+  2647→                        <!-- Tisch hinzufügen card -->
+  2648→                        <div id="table-creator-panel" class="section-card">
+  2649→                            <div class="section-card-header">
+  2650→                                <div class="flex items-center gap-2">
+  2651→                                    <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">add_box</span>
+  2652→                                    <h3 class="font-extrabold text-sm text-zinc-800">Tisch hinzufügen</h3>
+  2653→                                </div>
+  2654→                            </div>
+  2655→                            <div class="section-card-body">
+  2656→                                <form action="/admin/table-erstellen" method="POST" class="space-y-4">
+  2657→                                    <div>
+  2658→                                        <label class="form-label">Tisch-Nummer / Name</label>
+  2659→                                        <input type="text" name="number" required placeholder="z.B. 10" class="form-field">
+  2660→                                    </div>
+  2661→                                    <div>
+  2662→                                        <label class="form-label">Bereich (Zone)</label>
+  2663→                                        <select name="zone" class="form-field">
+  2664→                                        <option value="Drinnen">Drinnen</option>
+  2665→                                        <option value="Draußen">Draußen</option>
+  2666→                                        <option value="Innen">Innen</option>
+  2667→                                        <option value="Terrasse">Terrasse</option>
+  2668→                                        <option value="Bar">Bar</option>
+  2669→                                    </select>
+  2670→                                    </div>
+  2671→                                    <div>
+  2672→                                        <label class="form-label">Form</label>
+  2673→                                        <select name="shape" class="form-field">
+  2674→                                            <option value="rect">Rechteckig</option>
+  2675→                                            <option value="round">Rund</option>
+  2676→                                        </select>
+  2677→                                    </div>
+  2678→                                    <button type="submit" class="btn-primary w-full">Hinzufügen</button>
+  2679→                                </form>
+  2680→                            </div>
+  2681→                        </div>
+  2682→                    </div>
+  2683→                </div>
+  2684→            </div>
+  2685→
+  2686→        </div>
+  2687→    </main>
+  2688→
+  2689→    <!-- ══════════════════════════════════════════════════════
+  2690→         TISCH-COCKPIT / CONTROLS MODAL OVERLAY (#control-modal)
+  2691→    ═══════════════════════════════════════════════════════ -->
+  2692→    <div id="control-modal" class="overlay-backdrop hidden">
+  2693→        <div class="popup-card" style="max-width:550px;">
+  2694→            <div class="popup-header">
+  2695→                <div>
+  2696→                    <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Cockpit</div>
+  2697→                    <div style="font-size:22px;font-weight:900;color:#fff;" id="control-modal-table-title">Tisch --</div>
+  2698→                </div>
+  2699→                <div style="display:flex;align-items:center;gap:.75rem;">
+
+[showing lines 2400-2699 of 6689; use offset=2700 with limit to continue reading]
