@@ -166,13 +166,21 @@ def _validate_ws_cookies(slug: str, cookies: dict) -> bool:
         except Exception:
             pass
 
-    # 5. Guest session cookie (customer on menu page)
+    # 5. Guest session cookie (customer on menu page) - validate slug exists in DB
     guest_cookie = cookies.get(f"guest_session_{slug_lower}")
     if guest_cookie:
         try:
             parts = guest_cookie.split(":", 1)
             if len(parts) == 2 and parts[0] and parts[1]:
-                return True
+                # Verify the tenant slug actually exists to prevent random connections
+                try:
+                    db_check = SessionLocal()
+                    tenant_exists = db_check.query(Tenant).filter(Tenant.slug == slug_lower).first() is not None
+                    db_check.close()
+                    if tenant_exists:
+                        return True
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -270,6 +278,29 @@ def delete_local_image_if_unused(image_path: str, restaurant: dict, current_prod
             continue
         if p.get("image") == image_path:
             return
+    
+    # Also check landing page references (logo, slideshow, gallery, offers, custom sections)
+    lp = restaurant.get("landing_page", {})
+    if lp:
+        # Check logo
+        if lp.get("logo_image") == image_path or restaurant.get("logo_path") == image_path:
+            return
+        # Check slideshow images
+        for img in (lp.get("slideshow_images") or []):
+            if img == image_path:
+                return
+        # Check gallery images
+        for img in (lp.get("gallery_images") or []):
+            if img == image_path:
+                return
+        # Check offer images
+        for img in (lp.get("offer_images") or []):
+            if img == image_path:
+                return
+        # Check custom sections
+        for section in (lp.get("custom_sections") or []):
+            if section.get("image") == image_path:
+                return
             
     rel_path = image_path[len("/uploads/"):]
     full_path = os.path.join(UPLOAD_DIR, rel_path)
@@ -2749,7 +2780,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         ev_days = ev.get("days", [])
         ev_start = ev.get("start_time", "18:00")
         ev_end = ev.get("end_time", "20:00")
-        is_active_now = any(day in ev_days for day in possible_days) and ev_start <= now_time <= ev_end
+        is_active_now = any(day in ev_days for day in possible_days) and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
         ev["_is_currently_active"] = is_active_now
         if is_active_now:
             any_event_active = True
@@ -2950,12 +2981,14 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         ev_days = ev.get("days", [])
         ev_start = ev.get("start_time", "18:00")
         ev_end = ev.get("end_time", "20:00")
-        ev["_is_currently_active"] = any(day in ev_days for day in possible_days) and ev_start <= now_time <= ev_end
+        ev["_is_currently_active"] = any(day in ev_days for day in possible_days) and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
 
     products_map = {p["id"]: p for p in restaurant.get("products", [])}
     for item in payload.items:
         prod = products_map.get(item.product_id)
         if prod:
+            # SECURITY: Always use the server-side price from DB, never trust client-submitted price
+            item.price = prod["price"]
             is_event_price_applied = False
             # Check each active event for this product
             for ev in events:
@@ -2983,8 +3016,14 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     if not is_staff:
         session = request.cookies.get(f"session_{slug}")
         if session:
-            is_staff = True
-        else:
+            # Validate session cookie format (name:role:pin) and check role
+            try:
+                parts = session.split(":")
+                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
+                    is_staff = True
+            except Exception:
+                pass
+        if not is_staff:
             res = get_current_user_and_slug(request)
             if res:
                 user, session_slug = res
@@ -3119,8 +3158,14 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     if not is_staff:
         session = request.cookies.get(f"session_{slug}")
         if session:
-            is_staff = True
-        else:
+            # Validate session cookie format (name:role:pin) and check role
+            try:
+                parts = session.split(":")
+                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
+                    is_staff = True
+            except Exception:
+                pass
+        if not is_staff:
             res = get_current_user_and_slug(request)
             if res:
                 user, session_slug = res
@@ -3300,6 +3345,7 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
         order["items"].remove(item)
         
     order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
+    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
     restaurant["tagesumsatz"] += round(total_split_amount, 2)
     
     if not order["items"]:
@@ -3571,8 +3617,9 @@ def find_order_item(items, item_key: str, order_id: Optional[int] = None):
 
 def update_order_status_by_items(order):
     """Maintains order status dynamically based on individual item statuses."""
-    if not order.get("items"):
-        order["status"] = "storniert"
+    if not order.get("items") or len(order.get("items", [])) == 0:
+        # Don't mark as "storniert" — an order with all items removed (via split payment)
+        # should keep its current status. Only explicit cancellation should set "storniert".
         return
     
     if order.get("status") in ["bezahlt", "storniert"]:
@@ -4405,7 +4452,7 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
         if not ev.get("is_active", True):
             continue
         ev_days = ev.get("days", [])
-        if any(day in ev_days for day in possible_days) and ev.get("start_time", "18:00") <= now_time <= ev.get("end_time", "20:00"):
+        if any(day in ev_days for day in possible_days) and ev.get("start_time", "18:00").zfill(5) <= now_time <= ev.get("end_time", "20:00").zfill(5):
             hh_active_global = True
             break
         
@@ -5096,6 +5143,10 @@ async def post_produkt_erstellen(
 ):
     user, slug, restaurant = chef_data
 
+    # Validate price
+    if preis < 0 or preis > 99999:
+        raise HTTPException(status_code=400, detail="Ungültiger Preis. Der Preis muss zwischen 0 und 99.999 € liegen.")
+
     cat_name = kategorie.strip()
     if cat_name and cat_name not in restaurant["categories"]:
         restaurant["categories"].append(cat_name)
@@ -5313,8 +5364,14 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
     if not is_staff:
         session = request.cookies.get(f"session_{slug}")
         if session:
-            is_staff = True
-        else:
+            # Validate session cookie format (name:role:pin) and check role
+            try:
+                parts = session.split(":")
+                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
+                    is_staff = True
+            except Exception:
+                pass
+        if not is_staff:
             res = get_current_user_and_slug(request)
             if res:
                 user, session_slug = res
@@ -5335,9 +5392,6 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         service_type = "bar"
     elif payload.type == "zahlen_karte":
         service_type = "karte"
-        
-    if payload.tip_amount and payload.tip_amount > 0:
-        service_type = f"{service_type} (Trinkgeld: {payload.tip_amount:.2f} €)"
         
     existing_calls = restaurant.get("service_calls", [])
     new_id = max([c.get("id", 0) for c in existing_calls] + [0]) + 1
@@ -5377,8 +5431,14 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
     if not is_staff:
         session = request.cookies.get(f"session_{slug}")
         if session:
-            is_staff = True
-        else:
+            # Validate session cookie format (name:role:pin) and check role
+            try:
+                parts = session.split(":")
+                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
+                    is_staff = True
+            except Exception:
+                pass
+        if not is_staff:
             res = get_current_user_and_slug(request)
             if res:
                 user, session_slug = res
@@ -6641,6 +6701,9 @@ async def update_product_api(
         happy_hour_price = float(hh_val) if hh_val not in [None, "", "None"] else None
 
     product["name"] = str(name).strip()
+    # Validate price
+    if float(price) < 0 or float(price) > 99999:
+        raise HTTPException(status_code=400, detail="Ungültiger Preis. Der Preis muss zwischen 0 und 99.999 € liegen.")
     product["price"] = round(float(price), 2)
     product["description"] = str(description).strip() if description else ""
     product["category"] = str(category).strip()
@@ -7244,7 +7307,6 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
         "Menge",
         "Gesamtpreis (€)",
         "MwSt-Satz (%)",
-        "Trinkgeld (€)",
         "Gesamtsumme Bestellung (€)",
         "Status"
     ])
@@ -7265,6 +7327,10 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
                 price = item.get("price", 0.0)
                 quantity = item.get("quantity", 0)
                 item_total = round(price * quantity, 2)
+                # Determine per-item MwSt rate based on category_type
+                # Food (küche/shisha) = 7%, Drinks (bar) = 19%
+                item_cat_type = item.get("category_type", "küche").lower()
+                item_mwst = 19 if item_cat_type == "bar" else 7
                 
                 writer.writerow([
                     o_id,
@@ -7274,8 +7340,7 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
                     str(price).replace('.', ','),
                     quantity,
                     str(item_total).replace('.', ','),
-                    mwst_rate,
-                    str(tip_amount).replace('.', ','),
+                    item_mwst,
                     str(total_with_tip).replace('.', ','),
                     status
                 ])
@@ -7289,7 +7354,6 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
                 "",
                 "",
                 mwst_rate,
-                str(tip_amount).replace('.', ','),
                 str(total_with_tip).replace('.', ','),
                 status
             ])
@@ -7698,6 +7762,7 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
         order["items"].remove(item)
         
     order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
+    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
     restaurant["tagesumsatz"] += round(total_split_amount, 2)
     
     if not order["items"]:
@@ -7950,15 +8015,21 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
     if not product:
         raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
         
-    # 2. Format table name (e.g. "Tisch 5" or "5")
+    # 2. Format table name (e.g. "Tisch 5" or "Tisch 5 (Drinnen)")
     t_num = str(payload.table_number).replace("Tisch", "").strip()
-    table_str = f"Tisch {t_num}"
     
-    # Check if table exists in restaurant config
+    # Check if table exists in restaurant config and include zone if present
     tables_list = restaurant.get("tables", [])
     db_table = next((t for t in tables_list if str(t.get("number")) == t_num), None)
     if not db_table:
         raise HTTPException(status_code=404, detail="Tisch existiert nicht.")
+    
+    # Build table string with zone if the table has one
+    table_zone = db_table.get("zone", "")
+    if table_zone:
+        table_str = f"Tisch {t_num} ({table_zone})"
+    else:
+        table_str = f"Tisch {t_num}"
         
     item_price = product["price"]
     

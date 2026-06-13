@@ -916,7 +916,6 @@
             transform: translate(20px, -20px);
         }
         .stat-card.stat-revenue::before { background: var(--gastro-primary); }
-        .stat-card.stat-tips::before { background: #f59e0b; }
         .stat-card.stat-orders::before { background: #3b82f6; }
         .stat-card.stat-avg::before { background: #8b5cf6; }
 
@@ -3012,10 +3011,7 @@
                         <span>Teilrechnung Summe:</span>
                         <span id="control-split-sum" class="font-mono text-zinc-900">0,00 €</span>
                     </div>
-                    <div class="flex items-center gap-2 hidden" style="display: none !important;">
-                        <span class="text-[10px] font-bold text-zinc-400 uppercase">Trinkgeld €:</span>
-                        <input type="number" id="pay-split-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-2.5 py-1 text-xs text-right font-bold font-mono">
-                    </div>
+
                     <div class="flex gap-2">
                         <button id="btn-control-split" onclick="submitControlSplitPayment()" class="flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
                             Ausgewählte kassieren
@@ -3028,10 +3024,6 @@
 
                 <!-- General actions block -->
                 <div class="grid grid-cols-2 gap-2" id="control-general-actions">
-                    <div class="col-span-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2 hidden" style="display: none !important;">
-                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5">Trinkgeld €:</span>
-                        <input type="number" id="pay-all-tip" step="0.1" min="0" placeholder="0,00" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-right font-bold font-mono">
-                    </div>
                     <div id="control-customer-tip-box" class="col-span-2 hidden" style="display:none !important;"></div>
                     <button id="btn-bezahlt-all" onclick="bezahlenAlles()" class="col-span-2 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
@@ -3073,7 +3065,6 @@
 
                 <div class="flex flex-col gap-2">
                     <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
-                        <input type="number" id="pay-single-item-tip" step="0.1" min="0" placeholder="Tip €" class="w-20 bg-white border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-right font-bold hidden" style="display: none !important;">
                         <button onclick="executeItemAction('pay')" class="flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow flex items-center justify-center gap-1">
                             💳 Teilmenge bezahlen
                         </button>
@@ -3397,7 +3388,7 @@
                 </div>
                 
                 <div id="popup-footer-normal" class="space-y-2">
-                    <button onclick="bezahlen()" class="w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow">
+                    <button id="btn-popup-bezahlen" onclick="bezahlen()" disabled class="w-full bg-gastro/50 text-white/50 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow cursor-not-allowed">
                         <span class="material-symbols-outlined text-sm">payments</span> Bezahlen
                     </button>
                     <button onclick="openUmbuchung()" class="w-full border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1">
@@ -4029,66 +4020,13 @@
             });
             
             const hasActiveOrder = tableOrders.length > 0;
-            const elTip = document.getElementById('pay-all-tip');
-            const elTipWrapper = elTip ? elTip.closest('.col-span-2') : null;
             const elPayBtn = document.getElementById('btn-bezahlt-all');
             const elTransferBtn = document.querySelector('button[onclick="openUmbuchenAll()"]');
             const elCancelBtn = document.querySelector('button[onclick="stornieren()"]');
 
-            // Check for customer tip in active service calls for this table
-            let customerTipVal = 0.0;
-            let tipTextStr = '';
-            
-            const tableCallsForTip = allCalls.filter(c => {
-                const callTableStr = String(c.table);
-                const callNum = callTableStr.replace(/Tisch\s*/gi, '').split('(')[0].trim();
-                if (callNum !== String(controlModalActiveTableNum)) return false;
-                // If zone is known, only match zone-specific calls
-                if (controlModalActiveTableZone) {
-                    const zoneMatch = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
-                    return callTableStr === zoneMatch;
-                }
-                return true;
-            });
-            
-            tableCallsForTip.forEach(c => {
-                const cType = String(c.type).toLowerCase();
-                if (cType.includes('trinkgeld:')) {
-                    const match = c.type.match(/Trinkgeld:\s*([0-9.,]+)/i);
-                    if (match) {
-                        const parsed = parseFloat(match[1].replace(',', '.'));
-                        if (!isNaN(parsed) && parsed > 0) {
-                            customerTipVal = parsed;
-                            tipTextStr = `${parsed.toFixed(2).replace('.', ',')} €`;
-                        }
-                    }
-                }
-            });
-
-            // Pre-populate the hidden tip field for paying
-            if (elTip) {
-                elTip.value = customerTipVal > 0 ? customerTipVal.toFixed(2) : '0.00';
-            }
-
-            // Update UI tip box in cockpit
-            const tipBox = document.getElementById('control-customer-tip-box');
-            if (tipBox) {
-                if (customerTipVal > 0) {
-                    tipBox.innerHTML = `
-                        <span>💡 Kunden-Trinkgeld:</span>
-                        <span class="font-mono font-black text-emerald-400">+ ${tipTextStr}</span>
-                    `;
-                    tipBox.classList.remove('hidden');
-                } else {
-                    tipBox.classList.add('hidden');
-                    tipBox.innerHTML = '';
-                }
-            }
-
             // Only show "Gesamt bezahlen" when ALL items are served (no pending items left)
             const allItemsServed = hasActiveOrder && pendingItems.length === 0 && deliveredItems.length > 0;
             if (hasActiveOrder) {
-                if (elTipWrapper) elTipWrapper.classList.add('hidden'); // Trinkgeld removed
                 if (elPayBtn) {
                     if (allItemsServed) {
                         elPayBtn.classList.remove('hidden');
@@ -4099,7 +4037,6 @@
                 if (elTransferBtn) elTransferBtn.classList.remove('hidden');
                 if (elCancelBtn) elCancelBtn.classList.remove('hidden');
             } else {
-                if (elTipWrapper) elTipWrapper.classList.add('hidden');
                 if (elPayBtn) elPayBtn.classList.add('hidden');
                 if (elTransferBtn) elTransferBtn.classList.add('hidden');
                 if (elCancelBtn) elCancelBtn.classList.add('hidden');
@@ -4788,7 +4725,6 @@
                                 } else {
                                     feedContainer.innerHTML = data.recent_payments.map(p => {
                                         const timeStr = p.timestamp ? p.timestamp.substring(11, 16) : '--:--';
-                                        const hasTip = p.tip_amount > 0;
                                         return `
                                             <div class="flex flex-col gap-1 border-b border-outline-variant/40 pb-3 text-xs">
                                                 <div class="flex justify-between items-center">
@@ -5637,7 +5573,6 @@
                         <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5" style="color:#92400e;">${callText}</span>
                         <span class="text-xs sm:text-sm font-black" style="color:#78350f;">${currentTable.number}</span>
                         ${revenueText ? `<span class="text-[10px] font-extrabold mt-0.5" style="color:#451a03;">${revenueText}</span>` : ''}
-                        ${tipText ? `<span class="text-[9px] font-bold mt-0.5 px-1 rounded" style="color:#065f46; background:rgba(167,243,208,0.5);">${tipText}</span>` : ''}
                     `;
                 } else if (order) {
                     if (hasPending) {
@@ -5745,8 +5680,6 @@
             activeOrderId = orderId;
             expandedItemKey = null;
             selectedTeilrechnung = {};
-            const allTipInput = document.getElementById('pay-all-tip');
-            if (allTipInput) allTipInput.value = '';
             const order = allOrders.find(o => o.id === orderId);
             if (!order) return;
             renderPopup(order);
@@ -5769,6 +5702,19 @@
             if (elBonId) elBonId.textContent = `Bon #${order.id}`;
             const elTotal = document.getElementById('popup-total');
             if (elTotal) elTotal.textContent = order.total.toFixed(2).replace('.', ',') + ' €';
+
+            // Enable "Bezahlen" button only when ALL items are served/delivered
+            const allServed = order.items && order.items.length > 0 && order.items.every(i => (i.item_status || 'pending') === 'delivered');
+            const btnBezahlen = document.getElementById('btn-popup-bezahlen');
+            if (btnBezahlen) {
+                if (allServed) {
+                    btnBezahlen.disabled = false;
+                    btnBezahlen.className = 'w-full bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow cursor-pointer';
+                } else {
+                    btnBezahlen.disabled = true;
+                    btnBezahlen.className = 'w-full bg-gastro/50 text-white/50 font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow cursor-not-allowed';
+                }
+            }
 
             const hasTeil = Object.keys(selectedTeilrechnung).length > 0;
             const elFooterNormal = document.getElementById('popup-footer-normal');
@@ -5943,9 +5889,6 @@
                 qtyContainer.style.display = 'none';
             }
 
-            const singleTipInput = document.getElementById('pay-single-item-tip');
-            if (singleTipInput) singleTipInput.value = '';
-
             // Hide the order-popup visually but keep activeOrderId intact
             // (executeItemAction needs activeOrderId to POST to the correct order)
             document.getElementById('order-popup').classList.add('hidden');
@@ -5984,12 +5927,11 @@
             if (!activeItemActionKey || !activeOrderId) return;
             
             if (action === 'pay') {
-                const tipVal = parseFloat(document.getElementById('pay-single-item-tip').value) || 0.0;
                 try {
                     const res = await fetch(`/${slug}/tablet/pay-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty, tip_amount: tipVal })
+                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty, tip_amount: 0.0 })
                     });
                     if (res.ok) {
                         showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} gebucht`, 'success');
@@ -6133,11 +6075,6 @@
                     <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;">
                         <span style="font-size:13px;font-weight:800;color:#fff;">Ausgewähltes Gesamt:</span>
                         <span style="font-size:16px;font-weight:900;color:#10b981;">${total.toFixed(2).replace('.', ',')} €</span>
-                    </div>
-
-                    <div style="display:none !important;align-items:center;gap:.5rem;margin-top:0.5rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:.5rem;padding:4px 8px;">
-                        <span style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;">Trinkgeld (€):</span>
-                        <input type="number" id="pay-teil-tip" step="0.1" min="0" placeholder="0,00" style="flex:1;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:.35rem;padding:4px 8px;font-size:11px;color:#fff;font-weight:bold;text-align:right;">
                     </div>
 
                     <div class="flex-responsive" style="margin-top:1rem; gap:0.5rem;">

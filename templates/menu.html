@@ -843,9 +843,9 @@
                     Teilrechnung
                 </button>
                 <button @click="submitDrawerPayment(false)" 
-                        :disabled="tableOrders.total <= 0"
+                        :disabled="tableOrders.pending.length > 0 || tableOrders.delivered.length === 0"
                         class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none"
-                        :class="tableOrders.total > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
+                        :class="tableOrders.pending.length === 0 && tableOrders.delivered.length > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
                     <span class="material-symbols-outlined text-base font-black">payments</span>
                     Gesamtrechnung
                 </button>
@@ -895,10 +895,7 @@
                 nav_service: "Service Rufen",
                 nav_bill: "Rechnung Anfordern",
                 your_cart: "Ihr Warenkorb",
-                tip_question: "Trinkgeld für den Service?",
-                tip_custom: "Eigener",
                 basket_subtotal: "Zwischensumme:",
-                basket_tip: "Trinkgeld:",
                 basket_total: "Gesamtsumme:",
                 order_pay: "Jetzt bestellen",
                 order_locked: "Bestellung gesperrt (Tisch scannen)",
@@ -964,10 +961,7 @@
                 nav_service: "Call Service",
                 nav_bill: "Request Bill",
                 your_cart: "Your Basket",
-                tip_question: "Leave a tip for the staff?",
-                tip_custom: "Custom",
                 basket_subtotal: "Subtotal:",
-                basket_tip: "Tip amount:",
                 basket_total: "Grand Total:",
                 order_pay: "Order Now",
                 order_locked: "Ordering locked (scan table)",
@@ -1118,9 +1112,6 @@
                 },
                 selectedServiceType: 'kellner',
                 selectedPaymentType: 'zahlen_bar',
-                selectedPaymentTipPercent: 0,
-                customPaymentTipAmount: 0,
-                paymentTipVal: 0,
                 currentPaymentSubtotal: 0,
                 translations: translations,
                 role: new URLSearchParams(window.location.search).get('role') || '',
@@ -1704,7 +1695,6 @@
                         return;
                     }
                     
-                    this.paymentTipVal = 0.0;
                     this.currentPaymentSubtotal = 0.0;
                     
                     // Fetch unpaid orders total for the current table directly from server database
@@ -1743,55 +1733,7 @@
                     this.selectedPaymentType = type;
                 },
 
-                selectPaymentTip(percent) {
-                    this.selectedPaymentTipPercent = percent;
-                    this.customPaymentTipAmount = 0;
-                    const customContainer = document.getElementById("payment-custom-tip-container");
-                    if (customContainer) customContainer.classList.add("hidden");
-                    this.recalcPaymentTip();
-                },
 
-                selectPaymentCustomTip() {
-                    this.selectedPaymentTipPercent = 0;
-                    const customContainer = document.getElementById("payment-custom-tip-container");
-                    if (customContainer) {
-                        customContainer.classList.remove("hidden");
-                        const input = document.getElementById("payment-custom-tip-input");
-                        if (input) {
-                            this.customPaymentTipAmount = parseFloat(input.value) || 0.0;
-                        }
-                    }
-                    this.recalcPaymentTip();
-                },
-
-                calculatePaymentCustomTip() {
-                    const input = document.getElementById("payment-custom-tip-input");
-                    if (input) {
-                        this.customPaymentTipAmount = parseFloat(input.value) || 0.0;
-                    }
-                    this.recalcPaymentTip();
-                },
-
-                recalcPaymentTip() {
-                    let tip = 0.0;
-                    if (this.selectedPaymentTipPercent > 0) {
-                        tip = this.currentPaymentSubtotal * (this.selectedPaymentTipPercent / 100.0);
-                    } else if (this.customPaymentTipAmount > 0) {
-                        tip = this.customPaymentTipAmount;
-                    }
-                    this.paymentTipVal = tip;
-                    
-                    const total = this.currentPaymentSubtotal + this.paymentTipVal;
-                    
-                    const subtotalEl = document.getElementById("payment-subtotal-val");
-                    if (subtotalEl) subtotalEl.textContent = this.currentPaymentSubtotal.toFixed(2) + " €";
-                    
-                    const tipEl = document.getElementById("payment-tip-val");
-                    if (tipEl) tipEl.textContent = this.paymentTipVal.toFixed(2) + " €";
-                    
-                    const totalEl = document.getElementById("payment-total-val");
-                    if (totalEl) totalEl.textContent = total.toFixed(2) + " €";
-                },
 
                 confirmPaymentRequest() {
                     this.sendServiceRequestAPI(this.selectedPaymentType);
@@ -1851,7 +1793,6 @@
                         type: type,
                         table: cleanTable,
                         token: token,
-                        tip_amount: 0.0
                     };
 
                     fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
@@ -1891,7 +1832,6 @@
                             quantity: i.quantity,
                             note: i.note || null
                         })),
-                        tip_amount: 0.0
                     };
 
                     const roleForBypass = (this.role === 'admin' || this.role === 'waiter') ? this.role : '';
