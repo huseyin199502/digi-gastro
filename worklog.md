@@ -119,3 +119,33 @@ Stage Summary:
 - Sitzplan real-time more responsive with 1.5s polling + always-refresh on control modal open
 - Trinkgeld tip functions fully removed from customer menu
 - Files changed: templates/admin.html, templates/menu.html
+---
+Task ID: 1
+Agent: Main Agent
+Task: Echtzeit-Funktionen prüfen und fixen (Backend + Frontend)
+
+Work Log:
+- Gelesen: main.py (8085 lines), database.py, admin.html (7593 lines), menu.html (2433 lines)
+- Analysiert: WebSocket-Verbindungen (Admin + Guest), Service-Ruf, Bestellungen, Zahlungen, Serving
+- BUG FIX: Guest WebSocket ignorierte 'refresh_tables' Message-Typ → hinzugefügt
+- BUG FIX: Backend DB Session Leaks in 5 Endpoints (service-ruf, pay_split_order, merge_tables, service_erledigt, renew_pos_secret, renew_kds_secret) → verwenden jetzt injected db Session statt SessionLocal()
+- FEATURE: Trinkgeld komplett entfernt:
+  - Backend: tip_amount aus OrderPayload, PayItemPayload, BulkPayItemsPayload, CallServicePayload entfernt
+  - Backend: pay_order() tip Parameter entfernt
+  - Backend: Alle total_with_tip Berechnungen vereinfacht (tip_amount = 0.0)
+  - Frontend admin.html: fd.append('tip', '0.0') entfernt aus 3 Stellen
+  - Frontend admin.html: tip_amount: 0.0 aus JSON payloads entfernt
+  - Frontend admin.html: KPI tip card entfernt
+  - Frontend admin.html: control-customer-tip-box div entfernt
+  - Frontend menu.html: fd.append('tip', '0.0') entfernt
+- VERIFIZIERT: 'Gesamt bezahlen' / 'Gesamtrechnung' Button ist bereits korrekt implementiert:
+  - Admin: Button nur sichtbar wenn allItemsServed (pendingItems === 0 && deliveredItems > 0)
+  - Kunde: Button disabled wenn pending > 0 oder delivered === 0
+
+Stage Summary:
+- 2 Echtzeit-Bugs gefunden und fixiert
+- Trinkgeld-Feature komplett entfernt (Backend + Frontend)
+- 'Gesamt bezahlen' war bereits korrekt implementiert
+- Dateien synchronisiert nach /tmp/my-project/ (Container Mount)
+- WICHTIG: Backend main.py Änderungen erfordern Container-Neustart!
+  Templates (admin.html, menu.html) werden automatisch neu geladen.
