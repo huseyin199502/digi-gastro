@@ -330,7 +330,7 @@
         {% if hh_active_global %}
         <div class="bg-gradient-to-r from-amber-500 to-yellow-500 text-black py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
             <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
-            <span>🔥 Happy Hour ist aktiv! {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Spezialpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+            <span>🔥 {{ hh_config.get('display_name', 'Aktion') }} ist aktiv! {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}{{ hh_config.discount }}% Rabatt auf fast alles!{% else %}Aktionspreise für ausgewählte Artikel!{% endif %} 🔥</span>
             <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">star</span>
         </div>
         {% endif %}
@@ -441,18 +441,18 @@
             </div>
             
             {% if hh_active_global %}
-            <!-- Happy Hour Active Card on Landing Page -->
+            <!-- Aktion Active Card on Landing Page -->
             <div class="border border-amber-500/50 bg-amber-500/20 backdrop-blur-md rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/10 animate-pulse">
                 <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/30 rounded-full blur-2xl"></div>
                 <div class="flex items-center gap-4">
                     <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
                     <div>
-                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">Happy Hour ist aktiv!</h3>
+                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
                         <p class="text-xs text-white drop-shadow-md mt-1 leading-relaxed">
                             {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}
                                 Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ hh_config.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
                             {% else %}
-                                Sichern Sie sich jetzt unsere exklusiven Happy Hour Spezialpreise auf ausgewählte Artikel!
+                                Sichern Sie sich jetzt unsere exklusiven Aktionspreise auf ausgewählte Artikel!
                             {% endif %}
                         </p>
                     </div>
@@ -639,7 +639,7 @@
                                 {% if product.is_hh_active %}
                                 <span class="bg-[#eab308] text-black text-[11px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
                                     <span class="material-symbols-outlined text-xs font-black">schedule</span>
-                                    <span>HH{% if product.happy_hour_days %} {% for d in product.happy_hour_days %}{{ d[:2] }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}</span>
+                                    <span>{{ hh_display_name[:6] }}{% if product.happy_hour_days %} {% for d in product.happy_hour_days %}{{ d[:2] }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}</span>
                                 </span>
                                 {% endif %}
                                 {% if product.is_vegan or product.vegan %}

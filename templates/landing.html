@@ -570,7 +570,7 @@
                 {% endif %}
                 <div>
                     <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
-                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" class="w-full input-premium focus:border-primary placeholder:text-zinc-650 text-sm">
+                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full input-premium focus:border-primary placeholder:text-zinc-650 text-sm">
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>

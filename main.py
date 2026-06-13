@@ -542,7 +542,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "start": tenant.happy_hour_start,
             "end": tenant.happy_hour_end,
             "discount": tenant.happy_hour_discount,
-            "mode": getattr(tenant, 'happy_hour_mode', None) or 'discount'
+            "mode": getattr(tenant, 'happy_hour_mode', None) or 'discount',
+            "display_name": getattr(tenant, 'happy_hour_display_name', None) or 'Aktion'
         },
         "tables": tables,
         "audit_log": audit_log
@@ -609,6 +610,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.happy_hour_discount = hh.get("discount", 0)
     if hasattr(tenant, 'happy_hour_mode'):
         tenant.happy_hour_mode = hh.get("mode", "discount")
+    if hasattr(tenant, 'happy_hour_display_name'):
+        tenant.happy_hour_display_name = hh.get("display_name", "Aktion")
     
     session.flush()
     # 1. Update categories
@@ -1396,7 +1399,7 @@ def global_login_post(
         return templates.TemplateResponse(
             request,
             "landing.html",
-            {"request": request, "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.", "show_login": True}
+            {"request": request, "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.", "show_login": True, "email": email or ""}
         )
     tenant = db.query(Tenant).filter_by(email=email.strip()).first()
     if tenant and tenant.password == password.strip():
@@ -1414,7 +1417,7 @@ def global_login_post(
     return templates.TemplateResponse(
         request,
         "landing.html",
-        {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True}
+        {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True, "email": email or ""}
     )
 
 
@@ -2706,6 +2709,9 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             
         processed_products.append(prod)
         
+    # Pass display name for HH badge
+    hh_display_name = hh_config.get("display_name", "Aktion")
+    
     cat_position = {cat_name: idx for idx, cat_name in enumerate(active_categories)}
     def product_sort_key(p):
         cat = p.get("category", "")
@@ -2746,7 +2752,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "tisch_name": tisch_name,
             "role": role,
             "hh_active_global": hh_active_global,
-            "hh_config": hh_config
+            "hh_config": hh_config,
+            "hh_display_name": hh_display_name
         }
     )
     
@@ -4448,6 +4455,12 @@ def post_login(
         target_url = "/admin/setup"
         
     if email and password:
+        # Check superadmin first
+        if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
+            resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
+            resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+            return resp
+
         tenant = db.query(Tenant).filter_by(email=email.strip()).first()
         if tenant and tenant.password == password.strip():
             slug = tenant.slug
@@ -6230,7 +6243,7 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
 
 
 @app.post("/admin/happy-hour")
-async def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def update_happy_hour(request: Request, days: List[str] = Form(default=[]), start: str = Form(...), end: str = Form(...), discount: int = Form(0), mode: str = Form("selected"), display_name: str = Form("Aktion"), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -6240,7 +6253,8 @@ async def update_happy_hour(request: Request, days: List[str] = Form(default=[])
         "start": start,
         "end": end,
         "discount": discount if mode == "discount" else 0,
-        "mode": mode
+        "mode": mode,
+        "display_name": display_name.strip() or "Aktion"
     }
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()

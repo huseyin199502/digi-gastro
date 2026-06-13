@@ -103,12 +103,13 @@ class Tenant(Base):
     # Landing page configurations (JSON object)
     landing_page_json = Column(Text, default="{}")
     
-    # Happy Hour
+    # Happy Hour / Aktionen
     happy_hour_days = Column(Text, default="[]")  # stored as JSON array string
     happy_hour_start = Column(String, default="18:00")
     happy_hour_end = Column(String, default="20:00")
     happy_hour_discount = Column(Integer, default=0)
     happy_hour_mode = Column(String, default="discount")  # "selected" = only chosen products, "discount" = % on everything
+    happy_hour_display_name = Column(String, default="Aktion")  # What guests see: "Happy Hour", "Shisha Night", "Lunch Deal"
     theme = Column(String, default="dark")
     accepts_card_payment = Column(Boolean, default=True)
 
@@ -254,6 +255,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'tiktok', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'accepts_card_payment', "BOOLEAN DEFAULT TRUE")
     add_column_if_missing('tenants', 'happy_hour_mode', "VARCHAR DEFAULT 'discount'")
+    add_column_if_missing('tenants', 'happy_hour_display_name', "VARCHAR DEFAULT 'Aktion'")
 
 
     # Migrate 'tables' table

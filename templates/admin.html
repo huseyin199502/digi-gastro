@@ -81,8 +81,20 @@
         html.dark .bg-neutral-50,
         html.dark .bg-neutral-100,
         html.dark .bg-stone-50,
-        html.dark .bg-stone-100 {
+        html.dark .bg-stone-100,
+        html.dark .bg-emerald-50,
+        html.dark .bg-amber-50,
+        html.dark .bg-teal-50,
+        html.dark .from-emerald-50,
+        html.dark .to-teal-50,
+        html.dark .from-amber-50,
+        html.dark .to-orange-50 {
             background-color: var(--gastro-card-bg) !important;
+        }
+
+        /* Override gradient backgrounds in dark mode */
+        html.dark .bg-gradient-to-r {
+            background-image: none !important;
         }
         
         html.dark .text-gray-900,
@@ -105,7 +117,12 @@
         html.dark .text-stone-800,
         html.dark .text-stone-700,
         html.dark .text-stone-600,
-        html.dark .text-black {
+        html.dark .text-black,
+        html.dark .text-emerald-800,
+        html.dark .text-emerald-700,
+        html.dark .text-amber-800,
+        html.dark .text-amber-700,
+        html.dark .text-amber-600 {
             color: var(--gastro-text-main) !important;
         }
 
@@ -133,7 +150,12 @@
         html.dark .border-neutral-100,
         html.dark .border-neutral-200,
         html.dark .border-stone-100,
-        html.dark .border-stone-200 {
+        html.dark .border-stone-200,
+        html.dark .border-emerald-100,
+        html.dark .border-emerald-200,
+        html.dark .border-amber-100,
+        html.dark .border-amber-200,
+        html.dark .border-amber-300 {
             border-color: var(--gastro-border) !important;
         }
 
@@ -1108,6 +1130,10 @@
             background: rgba(0, 153, 0, 0.04);
             border-color: rgba(0, 153, 0, 0.15);
         }
+        html.dark .cat-chip.sub {
+            background: rgba(0, 153, 0, 0.08);
+            border-color: rgba(0, 153, 0, 0.25);
+        }
 
         /* Responsive stat cards */
         @media (max-width: 640px) {
@@ -1823,8 +1849,8 @@
                 <span>Kategorien</span>
             </button>
             <button id="tab-btn-happyhour" onclick="switchAdminTab('happyhour')" class="nav-sub-btn">
-                <span class="material-symbols-outlined" style="font-size:18px;">schedule</span>
-                <span>Happy Hour</span>
+                <span class="material-symbols-outlined" style="font-size:18px;">local_offer</span>
+                <span>Aktionen</span>
             </button>
 
             <div class="nav-divider"></div>
@@ -2073,7 +2099,7 @@
                                     <option value="false">Ausverkauft</option>
                                 </select>
                                 <select onchange="filterProductsByHH(this.value)" class="form-field w-auto text-xs">
-                                    <option value="all">Happy Hour</option>
+                                    <option value="all">Aktion</option>
                                     <option value="true">Ja</option>
                                     <option value="false">Nein</option>
                                 </select>
@@ -2269,13 +2295,13 @@
                 </div>
             </div>
 
-            <!-- ⏱️ TAB: HAPPY HOUR (happyhour) -->
+            <!-- 🎯 TAB: AKTIONEN (happyhour) -->
             <div id="admin-tab-happyhour" class="admin-tab-content">
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">schedule</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Happy Hour</h3>
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">local_offer</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Aktionen</h3>
                         </div>
                         {% if hh_active_global %}
                             <span class="live-badge">
@@ -2289,8 +2315,14 @@
                     </div>
                     <div class="section-card-body">
                         <form action="/admin/happy-hour" method="POST" class="space-y-4">
+                            <!-- Display Name — editable by user -->
                             <div>
-                                <label class="form-label mb-2">Happy Hour Tage</label>
+                                <label class="form-label mb-1">Anzeigename für Gäste</label>
+                                <input type="text" name="display_name" value="{{ restaurant.happy_hour.display_name if restaurant.happy_hour and restaurant.happy_hour.display_name else 'Aktion' }}" placeholder="z.B. Happy Hour, Shisha Night, Lunch Deal" class="form-field">
+                                <p class="text-[9px] text-zinc-400 mt-1">Dieser Name wird deinen Gästen im Menü angezeigt — z.B. "Happy Hour", "Shisha Night", "Lunch Deal"</p>
+                            </div>
+                            <div>
+                                <label class="form-label mb-2">Aktions-Tage</label>
                                 <div class="flex flex-wrap gap-2">
                                     {% set days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] %}
                                     {% for day in days %}
@@ -2313,26 +2345,26 @@
                                 <div>
                                     <label class="form-label">Modus</label>
                                     <select name="mode" class="form-field font-bold">
-                                        <option value="selected" {% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') == 'selected' %}selected{% endif %}>Nur ausgewählte Produkte</option>
-                                        <option value="discount" {% if restaurant.happy_hour and restaurant.happy_hour.get('mode') == 'discount' %}selected{% endif %}>Rabatt auf fast alles</option>
+                                        <option value="selected" {% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') == 'selected' %}selected{% endif %}>Ausgewählte Produkte</option>
+                                        <option value="discount" {% if restaurant.happy_hour and restaurant.happy_hour.get('mode') == 'discount' %}selected{% endif %}>Rabatt auf alles</option>
                                     </select>
                                 </div>
                             </div>
                             <div id="hh-discount-row" class="{% if not restaurant.happy_hour or restaurant.happy_hour.get('mode', 'selected') != 'discount' %}hidden{% endif %}">
-                                <label class="form-label">Rabatt (%) — gilt nur im Modus "Rabatt auf fast alles"</label>
+                                <label class="form-label">Rabatt (%) — gilt im Modus "Rabatt auf alles"</label>
                                 <input type="number" name="discount" value="{{ restaurant.happy_hour.discount if restaurant.happy_hour else 0 }}" min="0" max="100" class="form-field font-mono">
                             </div>
-                            <button type="submit" class="btn-primary w-full">Happy Hour speichern</button>
+                            <button type="submit" class="btn-primary w-full">Aktion speichern</button>
                         </form>
                     </div>
                 </div>
 
-                <!-- Happy Hour Product Selector -->
+                <!-- Aktions-Produkte -->
                 <div class="section-card">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">local_offer</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Happy Hour Produkte</h3>
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">price_check</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Aktions-Produkte</h3>
                         </div>
                         <span id="hh-product-count" class="text-[10px] font-bold text-amber-600 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">
                             {{ restaurant.products | selectattr('happy_hour_price', 'ne', none) | list | length }} ausgewählt
@@ -2340,7 +2372,7 @@
                     </div>
                     <div class="section-card-body">
                         <p class="text-[11px] text-zinc-500 leading-relaxed mb-4">
-                            Wähle Produkte für die Happy Hour und setze einen speziellen Preis. Diese Produkte bekommen während der Happy Hour den durchgestrichenen Originalpreis und den neuen HH-Preis angezeigt. Du kannst pro Produkt eigene Tage und Uhrzeiten festlegen. Wenn keine Uhrzeit gesetzt wird, gilt die globale Start-/Endzeit.
+                            Wähle Produkte für deine Aktion und setze einen Aktionspreis. Diese Produkte bekommen während der Aktion den durchgestrichenen Originalpreis und den neuen Aktionspreis angezeigt. Du kannst pro Produkt eigene Tage und Uhrzeiten festlegen. Wenn keine Uhrzeit gesetzt wird, gilt die globale Start-/Endzeit.
                         </p>
                         <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
                             {% for cat in restaurant.categories %}
@@ -2357,7 +2389,7 @@
                                     </label>
                                     <div class="hh-price-fields {{ 'hidden' if not p.happy_hour_price }}" id="hh-fields-{{ p.id }}">
                                         <div class="flex items-center gap-2">
-                                            <input type="number" step="0.01" min="0" placeholder="HH-Preis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-20 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
+                                            <input type="number" step="0.01" min="0" placeholder="Aktionspreis" value="{{ '%.2f'|format(p.happy_hour_price) if p.happy_hour_price else '' }}" class="w-24 bg-white border border-amber-200 rounded-lg px-2 py-1 text-[11px] font-mono focus:ring-amber-400 focus:border-amber-400" id="hh-price-{{ p.id }}">
                                             <span class="text-[10px] text-zinc-400">€</span>
                                         </div>
                                     </div>
@@ -2392,7 +2424,7 @@
                             {% endfor %}
                         </div>
                         <button type="button" onclick="saveAllHHProducts()" class="btn-primary w-full mt-4 flex items-center justify-center gap-1.5" style="background:#f59e0b;box-shadow:0 2px 6px -1px rgba(245,158,11,0.3);">
-                            <span class="material-symbols-outlined" style="font-size:14px;">save</span> Happy Hour Produkte speichern
+                            <span class="material-symbols-outlined" style="font-size:14px;">save</span> Aktions-Produkte speichern
                         </button>
                     </div>
                 </div>
@@ -3146,13 +3178,13 @@
                 <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-3">
                     <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
                         <span class="material-symbols-outlined text-amber-600" style="font-size:16px;">schedule</span>
-                        Happy Hour Preis
+                        Aktionspreis
                     </h4>
                     <div>
-                        <label class="form-label">HH-Preis (&euro;)</label>
-                        <input type="number" step="0.01" min="0" id="edit-product-hh-price" placeholder="Leer = kein HH-Preis" class="form-field font-mono">
+                        <label class="form-label">Aktionspreis (&euro;)</label>
+                        <input type="number" step="0.01" min="0" id="edit-product-hh-price" placeholder="Leer = kein Aktionspreis" class="form-field font-mono">
                     </div>
-                    <div class="text-[9px] text-amber-600 font-bold">Weitere HH-Einstellungen (Tage, Uhrzeiten) auf dem Happy Hour Tab</div>
+                    <div class="text-[9px] text-amber-600 font-bold">Weitere Einstellungen (Tage, Uhrzeiten) auf dem Aktionen-Tab</div>
                 </div>
             </div>
 
@@ -3395,7 +3427,7 @@
                 'finanzen': 'Bestellungen & Reports',
                 'produkte': 'Produkte',
                 'kategorien': 'Kategorien',
-                'happyhour': 'Happy Hour',
+                'happyhour': 'Aktionen',
                 'personal': 'Personal & Account',
                 'einstellungen': 'Einstellungen'
             };
@@ -6738,7 +6770,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    showToast('Happy Hour Produkte gespeichert!', 'success');
+                    showToast('Aktions-Produkte gespeichert!', 'success');
                 } else {
                     showToast('Fehler: ' + (data.error || 'Unbekannt'), 'error');
                 }
@@ -6794,7 +6826,7 @@
             formData.append('is_vegan', document.getElementById('edit-product-is-vegan').checked ? 'true' : 'false');
             formData.append('is_glutenfree', document.getElementById('edit-product-is-glutenfree').checked ? 'true' : 'false');
             
-            // Happy Hour price from slide-over Tab 3
+            // Aktionspreis from slide-over Tab 3
             const hhPriceField = document.getElementById('edit-product-hh-price');
             if (hhPriceField && hhPriceField.value) {
                 formData.append('happy_hour_price', hhPriceField.value);
