@@ -429,11 +429,7 @@
         <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-<<<<<<< Updated upstream
                     <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}">
-=======
-                    <img alt="{{ restaurant.name }} Logo" class="h-40 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
->>>>>>> Stashed changes
                 {% endif %}
                 <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-md animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
                 <p class="text-sm text-gray-200 max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
@@ -669,14 +665,6 @@
                     </div>
                 </div>
 
-<<<<<<< Updated upstream
-                <!-- Secondary Subcategories - Compact wrapping chips (better for 100+ subcategories) -->
-                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-2 mb-1" style="display: none;">
-                    <div class="flex flex-wrap gap-1.5 select-none py-1 px-1">
-                        <!-- 'All' subcategory button -->
-                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-10 rounded-full text-xs font-bold uppercase tracking-wider px-4 transition-all border border-outline-variant/40 select-none flex items-center justify-center">
-                            Alle
-=======
                 <!-- Secondary Subcategories - Premium horizontal scrolling chips -->
                 <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-0 mb-2 px-4" style="display: none;">
                     <div id="subcategory-bar">
@@ -684,17 +672,12 @@
                         <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'active' : 'inactive'" class="subcat-chip">
                             <span>Alle</span>
                             <span class="subcat-count" x-text="getSubcategoryProductCount('All')"></span>
->>>>>>> Stashed changes
                         </button>
                         <!-- Dynamic subcategory chips -->
                         <template x-for="sub in activeSubcategories" :key="sub">
-<<<<<<< Updated upstream
-                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-10 rounded-full text-xs font-bold uppercase tracking-wider px-4 transition-all border border-outline-variant/40 select-none flex items-center justify-center" x-text="sub">
-=======
                             <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'active' : 'inactive'" class="subcat-chip">
                                 <span x-text="sub"></span>
                                 <span class="subcat-count" x-text="getSubcategoryProductCount(sub)"></span>
->>>>>>> Stashed changes
                             </button>
                         </template>
                     </div>
