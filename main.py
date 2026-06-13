@@ -4889,9 +4889,8 @@ async def create_category(
          raise HTTPException(status_code=400, detail="Kategorie-Name erforderlich.")
          
     cat = final_name.strip()
-    if parent_category and parent_category.strip() and parent_category.strip() != "none":
-        cat = f"{parent_category.strip()} > {cat}"
-        
+    # Subcategories removed - only flat categories
+    
     if cat and cat not in restaurant["categories"]:
         restaurant["categories"].append(cat)
     save_restaurant_to_db(slug, restaurant, db)
@@ -6799,9 +6798,7 @@ async def update_category_api(
     new_name_raw = html.escape(new_name_raw)
 
     new_full_name = new_name_raw
-    if " > " in old_full_name:
-        parent_part = old_full_name.rsplit(" > ", 1)[0]
-        new_full_name = f"{parent_part} > {new_name_raw}"
+    # Subcategories removed - no parent/child logic
     
     if new_full_name == old_full_name:
         return {"success": True, "message": "Keine Änderung."}

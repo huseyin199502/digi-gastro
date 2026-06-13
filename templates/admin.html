@@ -1132,15 +1132,6 @@
         .cat-chip:hover {
             border-color: var(--gastro-primary);
         }
-        .cat-chip.sub {
-            margin-left: 1rem;
-            background: rgba(0, 153, 0, 0.04);
-            border-color: rgba(0, 153, 0, 0.15);
-        }
-        html.dark .cat-chip.sub {
-            background: rgba(0, 153, 0, 0.08);
-            border-color: rgba(0, 153, 0, 0.25);
-        }
 
         /* Responsive stat cards */
         @media (max-width: 640px) {
@@ -2372,17 +2363,6 @@
                                     <label class="form-label">Name</label>
                                     <input type="text" name="name" required placeholder="z.B. Softdrinks" class="form-field">
                                 </div>
-                                <div>
-                                    <label class="form-label">Hauptkategorie</label>
-                                    <select name="parent_category" class="form-field">
-                                        <option value="none">Keine (selbst Hauptkategorie)</option>
-                                        {% for cat in restaurant.categories %}
-                                            {% if ' > ' not in cat %}
-                                                <option value="{{ cat }}">Unterkategorie von: {{ cat }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </select>
-                                </div>
                                 <button type="submit" class="btn-primary w-full">Anlegen</button>
                             </form>
                         </div>
@@ -2401,10 +2381,8 @@
                             <p class="text-[9px] text-zinc-400 mb-3">Ziehen zum Sortieren</p>
                             <div class="space-y-3 max-h-[500px] overflow-y-auto pr-1 category-sortable-list">
                                 {% for cat in restaurant.categories %}
-                                    {% if ' > ' not in cat %}
-                                    <!-- Hauptkategorie -->
                                     <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3" data-category-name="{{ cat }}">
-                                        <div class="flex items-center gap-2 mb-2">
+                                        <div class="flex items-center gap-2">
                                             <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:14px;" title="Verschieben">drag_indicator</span>
                                             <span class="font-extrabold text-xs text-emerald-800 category-display-name">{{ cat }}</span>
                                             <div class="flex items-center ml-auto gap-1">
@@ -2417,26 +2395,7 @@
                                                 </form>
                                             </div>
                                         </div>
-                                        <!-- Unterkategorien als Pills -->
-                                        {% for subcat in restaurant.categories %}
-                                            {% if ' > ' in subcat and subcat.split(' > ')[0] == cat %}
-                                            <div class="cat-chip sub ml-4 mb-1" data-category-name="{{ subcat }}">
-                                                <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:12px;" title="Verschieben">drag_indicator</span>
-                                                <span class="font-bold text-zinc-700 category-display-name">{{ subcat.split(' > ')[1] }}</span>
-                                                <div class="flex items-center ml-0.5 gap-0.5">
-                                                    <button onclick="editCategoryInline('{{ subcat }}', '{{ subcat.split(' > ')[1] }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
-                                                        <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
-                                                    </button>
-                                                    <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                                        <input type="hidden" name="name" value="{{ subcat }}">
-                                                        <button type="submit" class="text-red-400 hover:text-red-600 font-bold flex items-center justify-center p-0.5">✕</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                            {% endif %}
-                                        {% endfor %}
                                     </div>
-                                    {% endif %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -3262,11 +3221,7 @@
                         <label class="form-label">Kategorie</label>
                         <select id="edit-product-category" class="form-field">
                             {% for cat in restaurant.categories %}
-                                {% if ' > ' in cat %}
-                                    <option value="{{ cat }}">&nbsp;&nbsp;&mdash;&nbsp;{{ cat.split(' > ')[1] }}</option>
-                                {% else %}
-                                    <option value="{{ cat }}" class="font-bold">{{ cat }}</option>
-                                {% endif %}
+                                <option value="{{ cat }}">{{ cat }}</option>
                             {% endfor %}
                         </select>
                     </div>
