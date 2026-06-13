@@ -3024,7 +3024,6 @@
 
                 <!-- General actions block -->
                 <div class="grid grid-cols-2 gap-2" id="control-general-actions">
-                    <div id="control-customer-tip-box" class="col-span-2 hidden" style="display:none !important;"></div>
                     <button id="btn-bezahlt-all" onclick="bezahlenAlles()" class="col-span-2 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
                     </button>
@@ -4450,11 +4449,8 @@
             
             try {
                 const promises = tableOrders.map(o => {
-                    const fd = new FormData();
-                    fd.append('tip', '0.0');
                     return fetch(`/${slug}/tablet/bezahlen/${o.id}`, {
-                        method: 'POST',
-                        body: fd
+                        method: 'POST'
                     });
                 });
                 
@@ -4714,9 +4710,6 @@
                             
                             const elBrutto7 = document.getElementById('kpi-brutto-7');
                             if (elBrutto7) elBrutto7.textContent = `${data.stats.brutto_7.toFixed(2).replace('.', ',')}`;
-                            
-                            const elTip = document.getElementById('kpi-tip');
-                            if (elTip) elTip.textContent = `${data.stats.tip.toFixed(2).replace('.', ',')} €`;
                             
                             const feedContainer = document.getElementById('live-payments-feed');
                             if (feedContainer) {
@@ -5931,7 +5924,7 @@
                     const res = await fetch(`/${slug}/tablet/pay-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty, tip_amount: 0.0 })
+                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty })
                     });
                     if (res.ok) {
                         showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} gebucht`, 'success');
@@ -6107,7 +6100,7 @@
                 const res = await fetch(`/${slug}/tablet/pay-items-bulk/${activeOrderId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: bulkItems, tip_amount: 0.0 })
+                    body: JSON.stringify({ items: bulkItems })
                 });
                 if (res.ok) {
                     showToast('Teilzahlung erfolgreich gebucht', 'success');
@@ -6197,9 +6190,7 @@
             const btn = document.getElementById('btn-bezahlt-all');
             btn.disabled = true; btn.innerHTML = 'Verarbeite…';
             try {
-                const fd = new FormData();
-                fd.append('tip', '0.0');
-                const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST', body: fd });
+                const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, { method: 'POST' });
                 if (res.ok) {
                     showToast('✅ Alles bezahlt!', 'success');
                     // Immediately update local status so tiles update in real-time
@@ -6272,11 +6263,8 @@
             if (!order) return;
             
             try {
-                const fd = new FormData();
-                fd.append('tip', '0.0');
                 const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, {
-                    method: 'POST',
-                    body: fd
+                    method: 'POST'
                 });
                 if (res.ok) {
                     showToast('Zahlung gebucht', 'success');

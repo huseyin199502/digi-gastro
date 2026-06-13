@@ -1282,7 +1282,7 @@
                             const data = JSON.parse(event.data);
                             if (data.type === "pong") {
                                 pongReceived = true;
-                            } else if (data.type === "new_order" || data.type === "service_call" || data.type === "update") {
+                            } else if (data.type === "new_order" || data.type === "service_call" || data.type === "update" || data.type === "refresh_tables") {
                                 if (this.role === 'admin') {
                                     this.fetchAdminDrawerState();
                                 } else {
@@ -2180,11 +2180,8 @@
                         
                         try {
                             const promises = orderIds.map(orderId => {
-                                const fd = new FormData();
-                                fd.append('tip', '0.0');
                                 return fetch(`/${slug}/tablet/bezahlen/${orderId}`, {
-                                    method: 'POST',
-                                    body: fd
+                                    method: 'POST'
                                 });
                             });
                             

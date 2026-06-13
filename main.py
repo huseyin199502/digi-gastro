@@ -1339,7 +1339,6 @@ class OrderPayload(BaseModel):
     table: str
     token: Optional[str] = None
     items: List[OrderItem]
-    tip_amount: Optional[float] = 0.0
 
 class ServiceRufPayload(BaseModel):
     type: str
@@ -3041,7 +3040,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             raise HTTPException(status_code=403, detail="Ungültiger oder abgelaufener Tisch-Code.")
         
     total = sum(item.price * item.quantity for item in payload.items)
-    total_with_tip = total + (payload.tip_amount or 0.0)
+    total_with_tip = total
 
 
     # Look up any active (unpaid) order for this table to merge items
@@ -3063,8 +3062,8 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             else:
                 active_order["items"].append(new_item.model_dump())
         active_order["total"] = round(active_order["total"] + total, 2)
-        active_order["total_with_tip"] = round(active_order["total_with_tip"] + total_with_tip, 2)
-        active_order["tip_amount"] = round(active_order["tip_amount"] + (payload.tip_amount or 0.0), 2)
+        active_order["total_with_tip"] = round(active_order["total_with_tip"] + total, 2)
+        active_order["tip_amount"] = round(active_order["tip_amount"], 2)
         active_order["status"] = "eingegangen"  # Mark as eingegangen so it blinks orange again
         active_order["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -3081,7 +3080,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         "items": [item.model_dump() for item in payload.items],
         "total": round(total, 2),
         "total_with_tip": round(total_with_tip, 2),
-        "tip_amount": round(payload.tip_amount or 0.0, 2),
+        "tip_amount": 0.0,
         "status": "eingegangen",
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "mwst_rate": 19,
@@ -3192,12 +3191,12 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     }
     restaurant["service_calls"].append(new_call)
     
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
-    finally:
-        db.close()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     await manager.broadcast(slug, {"type": "service_call", "call_id": new_id, "table": call_table_name, "service_type": payload.type})
     return {"success": True, "call_id": new_id}
@@ -3216,12 +3215,12 @@ def renew_pos_secret(request: Request, chef_data: tuple = Depends(require_chef_u
     restaurant["pos_secret"] = new_secret
     # Also invalidate the pos_token so existing tablets get 401 on next poll
     restaurant["pos_token"] = secrets.token_hex(8)
-    db_session = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db_session)
-        db_session.commit()
-    finally:
-        db_session.close()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 
@@ -3233,12 +3232,12 @@ def renew_kds_secret(request: Request, chef_data: tuple = Depends(require_chef_u
     restaurant["kds_secret"] = new_secret
     # Also invalidate kds_token so existing KDS devices get 401 on next poll
     restaurant["kds_token"] = secrets.token_hex(8)
-    db_session = SessionLocal()
     try:
-        save_restaurant_to_db(slug, restaurant, db_session)
-        db_session.commit()
-    finally:
-        db_session.close()
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 
@@ -3246,7 +3245,7 @@ def renew_kds_secret(request: Request, chef_data: tuple = Depends(require_chef_u
 
 @app.post("/{slug}/tablet/bezahlen/{order_id}")
 @tenant_lock
-async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), tip: Optional[float] = Form(0.0), db: Session = Depends(get_db)):
+async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optional[str] = Form(None), db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -3266,8 +3265,8 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         
     if order["status"] != "bezahlt":
         order["status"] = "bezahlt"
-        order["tip_amount"] = round(tip or 0.0, 2)
-        order["total_with_tip"] = round(order["total"] + order["tip_amount"], 2)
+        order["tip_amount"] = 0.0
+        order["total_with_tip"] = round(order["total"], 2)
         order["waiter_id"] = waiter_id
         
         restaurant["tagesumsatz"] += order["total"]
@@ -3345,7 +3344,7 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
         order["items"].remove(item)
         
     order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
-    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+    order["total_with_tip"] = round(order["total"], 2)
     restaurant["tagesumsatz"] += round(total_split_amount, 2)
     
     if not order["items"]:
@@ -3361,15 +3360,12 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
             import secrets
             db_table["active_session_token"] = secrets.token_hex(4)
 
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Teilzahlung: {e}")
-    finally:
-        db.close()
         
     await manager.broadcast(slug, {"type": "update"})
     return {
@@ -3424,7 +3420,7 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
                 
         # Recalculate target order totals
         target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
-        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+        target_order["total_with_tip"] = round(target_order["total"], 2)
         
         # Mark source order as storniert
         source_order["status"] = "storniert"
@@ -3443,15 +3439,12 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
         # DO NOT copy or overwrite the static 'security_token' (which matches the printed QR code).
         t_db_table["active_session_token"] = s_db_table.get("active_session_token")
         
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zusammenführung: {e}")
-    finally:
-        db.close()
         
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
@@ -3540,12 +3533,12 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
     calls = restaurant.get("service_calls", [])
     restaurant["service_calls"] = [c for c in calls if c["id"] != ruf_id]
     
-    db = SessionLocal()
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
-    finally:
-        db.close()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
@@ -3640,7 +3633,6 @@ def update_order_status_by_items(order):
 class PayItemPayload(BaseModel):
     item_key: str
     quantity: int = 1
-    tip_amount: Optional[float] = 0.0
 
 @app.post("/{slug}/tablet/pay-item/{order_id}")
 @tenant_lock
@@ -3681,12 +3673,7 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
 
     # Recalculate order total
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
-    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
-
-    # Add tip
-    tip_to_add = payload.tip_amount or 0.0
-    order["tip_amount"] = round(order.get("tip_amount", 0.0) + tip_to_add, 2)
-    order["total_with_tip"] = round(order["total"] + order["tip_amount"], 2)
+    order["total_with_tip"] = round(order["total"], 2)
 
     # Book revenue
     restaurant["tagesumsatz"] = round(restaurant.get("tagesumsatz", 0.0) + paid_amount, 2)
@@ -3725,7 +3712,6 @@ class BulkPayItemInfo(BaseModel):
 
 class BulkPayItemsPayload(BaseModel):
     items: List[BulkPayItemInfo]
-    tip_amount: Optional[float] = 0.0
 
 @app.post("/{slug}/tablet/pay-items-bulk/{order_id}")
 @tenant_lock
@@ -3769,15 +3755,11 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
 
     # Recalculate order total
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
-    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
 
     # Book revenue
     restaurant["tagesumsatz"] = round(restaurant.get("tagesumsatz", 0.0) + total_paid_amount, 2)
 
-    # Add tip
-    tip_to_add = payload.tip_amount or 0.0
-    order["tip_amount"] = round(order.get("tip_amount", 0.0) + tip_to_add, 2)
-    order["total_with_tip"] = round(order["total"] + order["tip_amount"], 2)
+    order["total_with_tip"] = round(order["total"], 2)
 
     # If no items left → mark whole order as bezahlt
     if not order["items"]:
@@ -3883,7 +3865,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         restaurant["orders"].remove(source_order)
     else:
         source_order["total"] = round(sum(i["price"] * i["quantity"] for i in source_order["items"]), 2)
-        source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
+        source_order["total_with_tip"] = round(source_order["total"], 2)
         update_order_status_by_items(source_order)
 
     # Find or create target order
@@ -3911,7 +3893,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             new_item["quantity"] = qty_to_move
             target_order["items"].append(new_item)
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
-        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+        target_order["total_with_tip"] = round(target_order["total"], 2)
         update_order_status_by_items(target_order)
     else:
         # Create new order for target table — let DB assign autoincrement ID
@@ -4005,7 +3987,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         order["items"].remove(matched_item)
 
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
-    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+    order["total_with_tip"] = round(order["total"], 2)
 
     if not order["items"]:
         order["status"] = "storniert"
@@ -4105,7 +4087,7 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
             order["items"].remove(matched_item)
 
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
-    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+    order["total_with_tip"] = round(order["total"], 2)
 
     if not order["items"]:
         order["status"] = "storniert"
@@ -4222,7 +4204,7 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
                 
         # Recalculate target_order totals
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
-        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0) + order.get("tip_amount", 0.0), 2)
+        target_order["total_with_tip"] = round(target_order["total"], 2)
         target_order["tip_amount"] = round(target_order.get("tip_amount", 0.0) + order.get("tip_amount", 0.0), 2)
         update_order_status_by_items(target_order)
         
@@ -5308,7 +5290,6 @@ class CallServicePayload(BaseModel):
     type: str
     table: str
     token: Optional[str] = None
-    tip_amount: Optional[float] = 0.0
 
 @app.post("/api/{slug}/call-service")
 @tenant_lock
@@ -7762,7 +7743,7 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
         order["items"].remove(item)
         
     order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
-    order["total_with_tip"] = round(order["total"] + order.get("tip_amount", 0.0), 2)
+    order["total_with_tip"] = round(order["total"], 2)
     restaurant["tagesumsatz"] += round(total_split_amount, 2)
     
     if not order["items"]:
@@ -7936,14 +7917,14 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
             
             source_order["items"] = remaining_items
             source_order["total"] = round(sum(i["price"] * i["quantity"] for i in remaining_items), 2)
-            source_order["total_with_tip"] = round(source_order["total"] + source_order.get("tip_amount", 0.0), 2)
+            source_order["total_with_tip"] = round(source_order["total"], 2)
             if not remaining_items:
                 source_order["status"] = "storniert"
                 source_order["total"] = 0.0
                 source_order["total_with_tip"] = 0.0
                 
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
-        target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+        target_order["total_with_tip"] = round(target_order["total"], 2)
     else:
         # Full table transfer
         # Use zone-inclusive table name for target
@@ -7965,7 +7946,7 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                         target_order["items"].append(copy.deepcopy(s_item))
                         
                 target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
-                target_order["total_with_tip"] = round(target_order["total"] + target_order.get("tip_amount", 0.0), 2)
+                target_order["total_with_tip"] = round(target_order["total"], 2)
                 
                 source_order["status"] = "storniert"
                 source_order["total"] = 0.0
