@@ -120,14 +120,14 @@
         .animate-bounce-horizontal-left {
             animation: bounceHorizontalLeft 1.2s infinite;
         }
-        /* ===== Center-Lock Carousel Category Navigation ===== */
+        /* ===== Premium Category Tab Navigation ===== */
         #category-carousel-wrapper {
             position: relative;
             overflow: hidden;
             width: 100%;
             touch-action: pan-x;
             -webkit-touch-callout: none;
-            padding: 12px 0 14px 0;
+            padding: 8px 0 0 0;
         }
         /* Gradient fade edges */
         #category-carousel-wrapper::before,
@@ -150,26 +150,26 @@
         }
         #category-carousel-track {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            align-items: stretch;
+            gap: 4px;
             transition: transform 0.35s cubic-bezier(0.25, 1, 0.35, 1);
             will-change: transform;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
-            padding: 0 16px;
+            padding: 0 12px;
         }
         #category-carousel-track.no-transition {
             transition: none !important;
         }
         .cat-pill {
             flex-shrink: 0;
-            height: 44px;
-            padding: 0 20px;
-            border-radius: 16px;
-            font-size: 13px;
+            height: 52px;
+            padding: 0 18px;
+            border-radius: 14px 14px 0 0;
+            font-size: 15px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.02em;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -177,55 +177,51 @@
             transition: background 0.25s cubic-bezier(0.25, 1, 0.35, 1),
                         color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
                         box-shadow 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        border-color 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        transform 0.25s cubic-bezier(0.25, 1, 0.35, 1),
-                        opacity 0.25s cubic-bezier(0.25, 1, 0.35, 1);
+                        border-color 0.25s cubic-bezier(0.25, 1, 0.35, 1);
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
-            border: 2px solid transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
             font-family: 'Outfit', 'Inter', sans-serif;
-            will-change: transform, opacity;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
+            position: relative;
         }
-        /* During drag, disable pill transitions for instant live fisheye response */
+        /* During drag, disable pill transitions */
         #category-carousel-track.no-transition .cat-pill {
             transition: none !important;
         }
         .cat-pill.active {
-            background: var(--color-primary) !important;
-            color: #000 !important;
-            box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.5);
-            border-color: transparent !important;
-            font-weight: 900;
-            transform: scale(1.08);
-            opacity: 1;
+            background: rgba(16, 185, 129, 0.12) !important;
+            color: #34d399 !important;
+            border-bottom-color: var(--color-primary) !important;
+            font-weight: 800;
         }
         .cat-pill.inactive {
-            background: rgba(39, 39, 42, 0.6);
-            color: rgba(161, 161, 170, 0.8);
-            border-color: rgba(63, 63, 70, 0.3);
-            transform: scale(0.88);
-            opacity: 0.6;
+            background: transparent;
+            color: rgba(161, 161, 170, 0.7);
+            border-bottom-color: transparent;
         }
         .cat-pill.inactive.near {
-            transform: scale(0.93);
-            opacity: 0.75;
+            color: rgba(161, 161, 170, 0.85);
         }
         .cat-pill.inactive:hover {
-            background: rgba(63, 63, 70, 0.7);
+            background: rgba(63, 63, 70, 0.3);
             color: rgba(228, 228, 231, 0.95);
         }
         /* Light theme */
+        html.light .cat-pill.active {
+            background: rgba(5, 150, 105, 0.1) !important;
+            color: #059669 !important;
+            border-bottom-color: #059669 !important;
+        }
         html.light .cat-pill.inactive {
-            background: rgba(0, 0, 0, 0.05);
-            color: rgba(75, 85, 99, 0.85);
-            border-color: rgba(0, 0, 0, 0.08);
+            background: transparent;
+            color: rgba(75, 85, 99, 0.7);
+            border-bottom-color: transparent;
         }
         html.light .cat-pill.inactive:hover {
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.06);
             color: rgba(17, 24, 39, 0.9);
         }
         html.light #category-carousel-wrapper::before {
@@ -233,6 +229,96 @@
         }
         html.light #category-carousel-wrapper::after {
             background: linear-gradient(to left, var(--bg-obsidian) 0%, transparent 100%);
+        }
+        /* ===== Premium Subcategory Chips ===== */
+        #subcategory-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding: 6px 4px;
+            scroll-snap-type: x proximity;
+        }
+        #subcategory-bar::-webkit-scrollbar { display: none; }
+        .subcat-chip {
+            flex-shrink: 0;
+            height: 40px;
+            padding: 0 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: background 0.2s ease,
+                        color 0.2s ease,
+                        box-shadow 0.2s ease,
+                        border-color 0.2s ease;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            border: 1.5px solid rgba(63, 63, 70, 0.3);
+            font-family: 'Inter', sans-serif;
+            scroll-snap-align: start;
+        }
+        .subcat-chip.active {
+            background: var(--color-primary) !important;
+            color: #000 !important;
+            border-color: var(--color-primary) !important;
+            font-weight: 700;
+            box-shadow: 0 2px 12px -2px rgba(16, 185, 129, 0.4);
+        }
+        .subcat-chip.inactive {
+            background: rgba(17, 19, 26, 0.5);
+            color: rgba(161, 161, 170, 0.8);
+        }
+        .subcat-chip.inactive:hover {
+            background: rgba(39, 39, 42, 0.6);
+            color: rgba(228, 228, 231, 0.95);
+            border-color: rgba(63, 63, 70, 0.5);
+        }
+        /* Light theme subcategory chips */
+        html.light .subcat-chip.inactive {
+            background: rgba(0, 0, 0, 0.04);
+            color: rgba(75, 85, 99, 0.8);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+        html.light .subcat-chip.inactive:hover {
+            background: rgba(0, 0, 0, 0.08);
+            color: rgba(17, 24, 39, 0.9);
+        }
+        html.light .subcat-chip.active {
+            background: #059669 !important;
+            color: #fff !important;
+            border-color: #059669 !important;
+        }
+        .subcat-count {
+            font-size: 10px;
+            font-weight: 700;
+            opacity: 0.7;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        .subcat-chip.active .subcat-count {
+            background: rgba(0,0,0,0.2);
+            opacity: 1;
+        }
+        .subcat-chip.inactive .subcat-count {
+            background: rgba(255,255,255,0.06);
         }
         /* Video full-size display - no crop, no max-height restriction */
         .landing-video-full {
@@ -343,7 +429,11 @@
         <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
+<<<<<<< Updated upstream
                     <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}">
+=======
+                    <img alt="{{ restaurant.name }} Logo" class="h-40 mx-auto object-contain rounded-2xl shadow-md bg-[#0a0a0a]/40 p-2" src="{{ restaurant.branding.logo_url }}">
+>>>>>>> Stashed changes
                 {% endif %}
                 <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-md animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
                 <p class="text-sm text-gray-200 max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
@@ -561,8 +651,8 @@
             <div id="tab-speisekarte" class="py-2">
                 
 
-                <!-- Category Wrapper (Sticky) - Center-Lock Carousel -->
-                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky py-1 border-b border-outline-variant -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important;">
+                <!-- Category Wrapper (Sticky) - Premium Tab Navigation -->
+                <div x-show="currentView === 'speisekarte'" x-cloak class="sticky -mx-4 px-0 select-none relative" style="position: -webkit-sticky; position: sticky; top: 80px; z-index: 49 !important; background-color: var(--bg-obsidian) !important;">
                     
                     <!-- Center-Lock Category Carousel -->
                     <div id="category-carousel-wrapper">
@@ -579,16 +669,32 @@
                     </div>
                 </div>
 
+<<<<<<< Updated upstream
                 <!-- Secondary Subcategories - Compact wrapping chips (better for 100+ subcategories) -->
                 <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-2 mb-1" style="display: none;">
                     <div class="flex flex-wrap gap-1.5 select-none py-1 px-1">
                         <!-- 'All' subcategory button -->
                         <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-10 rounded-full text-xs font-bold uppercase tracking-wider px-4 transition-all border border-outline-variant/40 select-none flex items-center justify-center">
                             Alle
+=======
+                <!-- Secondary Subcategories - Premium horizontal scrolling chips -->
+                <div x-show="activeSubcategories.length > 0" class="relative z-10 mt-0 mb-2 px-4" style="display: none;">
+                    <div id="subcategory-bar">
+                        <!-- 'All' subcategory chip -->
+                        <button @click="filterSubcategory('All')" :class="currentSubcategory === 'All' ? 'active' : 'inactive'" class="subcat-chip">
+                            <span>Alle</span>
+                            <span class="subcat-count" x-text="getSubcategoryProductCount('All')"></span>
+>>>>>>> Stashed changes
                         </button>
-                        <!-- Dynamic subcategory buttons -->
+                        <!-- Dynamic subcategory chips -->
                         <template x-for="sub in activeSubcategories" :key="sub">
+<<<<<<< Updated upstream
                             <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'bg-primary text-black font-extrabold shadow-sm shadow-primary/20' : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/80'" class="h-10 rounded-full text-xs font-bold uppercase tracking-wider px-4 transition-all border border-outline-variant/40 select-none flex items-center justify-center" x-text="sub">
+=======
+                            <button @click="filterSubcategory(sub)" :class="currentSubcategory === sub ? 'active' : 'inactive'" class="subcat-chip">
+                                <span x-text="sub"></span>
+                                <span class="subcat-count" x-text="getSubcategoryProductCount(sub)"></span>
+>>>>>>> Stashed changes
                             </button>
                         </template>
                     </div>
@@ -1691,7 +1797,7 @@
                     if (!pills.length || index < 0 || index >= pills.length) return;
                     
                     const wrapperWidth = wrapper.getBoundingClientRect().width;
-                    const gap = 8;
+                    const gap = 4;
                     
                     let pillOffsetX = 0;
                     for (let i = 0; i < index; i++) {
@@ -1699,7 +1805,7 @@
                     }
                     pillOffsetX += pills[index].offsetWidth / 2;
                     
-                    const paddingLeft = 16;
+                    const paddingLeft = 12;
                     const tx = (wrapperWidth / 2) - paddingLeft - pillOffsetX;
                     
                     if (instant) {
@@ -1740,8 +1846,7 @@
                     
                     this.carouselInitialized = true;
                     const self = this;
-                    const gap = 8;
-                    const totalPills = pills.length;
+                    const gap = 4;
                     
                     let isDragging = false;
                     let startX = 0;
@@ -1751,21 +1856,6 @@
                     let lastMoveX = 0;
                     let velocity = 0;
                     let animationId = null;
-                    
-                    // Cached pill offsets for zero-layout-thrash fisheye
-                    let pillOffsets = []; // { center: px-from-track-left }
-                    let wrapperCenterLocal = 0; // center relative to track
-                    const cachePillPositions = () => {
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        wrapperCenterLocal = wrapperWidth / 2;
-                        pillOffsets = [];
-                        let cumX = 16; // padding-left
-                        pills.forEach(pill => {
-                            cumX += pill.offsetWidth / 2;
-                            pillOffsets.push(cumX);
-                            cumX += pill.offsetWidth / 2 + gap;
-                        });
-                    };
                     
                     const getPositionX = (e) => {
                         return e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
@@ -1781,73 +1871,13 @@
                         track.style.transform = `translate3d(${tx}px, 0, 0)`;
                     };
                     
-                    // Per-pill current animated values for lerp smoothing
-                    const pillState = Array.from({ length: totalPills }, () => ({
-                        scale: 0.88, opacity: 0.55, greenGlow: 0
-                    }));
-                    
-                    // Live fisheye: cached-position calculation with lerp for buttery smoothness
-                    // No getBoundingClientRect calls = zero layout thrash
-                    const applyLiveFisheye = (lerpFactor = 0.35) => {
-                        const currentTx = getCurrentTranslate();
-                        const halfWidth = wrapperCenterLocal;
-                        // The visual center of wrapper in track-local coordinates
-                        const visCenter = wrapperCenterLocal - currentTx;
-                        
-                        pills.forEach((pill, i) => {
-                            const pillCenterLocal = pillOffsets[i];
-                            const dist = pillCenterLocal - visCenter;
-                            const normalizedDist = Math.abs(dist) / halfWidth;
-                            
-                            // Target values
-                            const tScale = Math.max(0.88, 1.08 - normalizedDist * 0.20);
-                            const tOpacity = Math.max(0.55, 1 - normalizedDist * 0.50);
-                            const tGreenGlow = Math.max(0, 1 - normalizedDist * 1.6);
-                            
-                            // Lerp toward target for fluid animation
-                            const s = pillState[i];
-                            s.scale += (tScale - s.scale) * lerpFactor;
-                            s.opacity += (tOpacity - s.opacity) * lerpFactor;
-                            s.greenGlow += (tGreenGlow - s.greenGlow) * lerpFactor;
-                            
-                            pill.style.transform = `scale(${s.scale.toFixed(3)})`;
-                            pill.style.opacity = s.opacity.toFixed(3);
-                            
-                            if (s.greenGlow > 0.03) {
-                                const intensity = s.greenGlow * 0.95;
-                                pill.style.background = `rgba(16, 185, 129, ${intensity.toFixed(3)})`;
-                                pill.style.color = s.greenGlow > 0.35 ? '#000' : '';
-                                pill.style.boxShadow = `0 4px ${Math.round(22 * s.greenGlow)}px -2px rgba(16, 185, 129, ${(s.greenGlow * 0.55).toFixed(3)})`;
-                            } else {
-                                pill.style.background = '';
-                                pill.style.color = '';
-                                pill.style.boxShadow = '';
-                            }
-                        });
-                    };
-                    
-                    // Reset all inline styles after drag/momentum ends
-                    const resetPillStyles = () => {
-                        // Reset lerp state
-                        pillState.forEach(s => { s.scale = 0.88; s.opacity = 0.55; s.greenGlow = 0; });
-                        pills.forEach(pill => {
-                            pill.style.transform = '';
-                            pill.style.opacity = '';
-                            pill.style.background = '';
-                            pill.style.color = '';
-                            pill.style.boxShadow = '';
-                        });
-                    };
-                    
-                    const calcTranslateForIndex = (idx) => {
+                    // Clamp translate so track doesn't scroll past edges
+                    const clampTranslate = (tx) => {
                         const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        let pillOffsetX = 0;
-                        for (let i = 0; i < idx; i++) {
-                            pillOffsetX += pills[i].offsetWidth + gap;
-                        }
-                        pillOffsetX += pills[idx].offsetWidth / 2;
-                        const paddingLeft = 16;
-                        return (wrapperWidth / 2) - paddingLeft - pillOffsetX;
+                        const trackWidth = track.scrollWidth;
+                        const minTx = Math.min(0, -(trackWidth - wrapperWidth));
+                        const maxTx = 0;
+                        return Math.max(minTx, Math.min(maxTx, tx));
                     };
                     
                     // Momentum animation after drag release
@@ -1865,17 +1895,15 @@
                             
                             currentV *= friction;
                             currentTx += currentV * (dt / 16);
+                            currentTx = clampTranslate(currentTx);
                             
                             setTrackTranslate(currentTx);
-                            // Faster lerp during momentum for snappy tracking
-                            applyLiveFisheye(0.30);
                             
                             if (Math.abs(currentV) > 0.25) {
                                 animationId = requestAnimationFrame(momentumStep);
                             } else {
                                 animationId = null;
                                 track.classList.remove('no-transition');
-                                resetPillStyles();
                                 snapToNearest();
                             }
                         };
@@ -1919,21 +1947,6 @@
                         lastMoveTime = performance.now();
                         lastMoveX = startX;
                         track.classList.add('no-transition');
-                        // Cache pill positions at drag start for zero-layout-thrash fisheye
-                        cachePillPositions();
-                        // Initialize lerp state from current visual state
-                        const wrapperWidth = wrapper.getBoundingClientRect().width;
-                        const halfWidth = wrapperWidth / 2;
-                        const currentTx = prevTranslate;
-                        const visCenter = wrapperWidth / 2 - currentTx;
-                        pills.forEach((pill, i) => {
-                            const pillCenterLocal = pillOffsets[i];
-                            const dist = pillCenterLocal - visCenter;
-                            const normalizedDist = Math.abs(dist) / halfWidth;
-                            pillState[i].scale = Math.max(0.88, 1.08 - normalizedDist * 0.20);
-                            pillState[i].opacity = Math.max(0.55, 1 - normalizedDist * 0.50);
-                            pillState[i].greenGlow = Math.max(0, 1 - normalizedDist * 1.6);
-                        });
                     };
                     
                     const dragMove = (e) => {
@@ -1942,7 +1955,7 @@
                         const diff = currentX - startX;
                         if (Math.abs(diff) > 2) dragMoved = true;
                         
-                        // Track velocity for momentum - exponential moving average
+                        // Track velocity for momentum
                         const now = performance.now();
                         const dt = now - lastMoveTime;
                         if (dt > 0) {
@@ -1953,11 +1966,8 @@
                         lastMoveTime = now;
                         lastMoveX = currentX;
                         
-                        const newTranslate = prevTranslate + diff;
+                        const newTranslate = clampTranslate(prevTranslate + diff);
                         setTrackTranslate(newTranslate);
-                        // Instant fisheye with lerp - no RAF delay, directly on touchmove
-                        // Uses cached positions = zero layout thrash
-                        applyLiveFisheye(0.40);
                     };
                     
                     const dragEnd = (e) => {
@@ -1966,7 +1976,6 @@
                         
                         if (!dragMoved) {
                             track.classList.remove('no-transition');
-                            resetPillStyles();
                             return;
                         }
                         
@@ -1975,7 +1984,6 @@
                             applyMomentum(velocity);
                         } else {
                             track.classList.remove('no-transition');
-                            resetPillStyles();
                             snapToNearest();
                         }
                     };
@@ -2010,6 +2018,24 @@
                             self.centerCarouselAt(idx, true);
                         });
                     }
+                },
+
+                getSubcategoryProductCount(sub) {
+                    const products = document.querySelectorAll('.product-item');
+                    let count = 0;
+                    products.forEach(item => {
+                        const prodCat = item.getAttribute('data-category');
+                        if (sub === 'All') {
+                            if (prodCat === this.currentCategory || prodCat.startsWith(this.currentCategory + ' > ')) {
+                                count++;
+                            }
+                        } else {
+                            if (prodCat === this.currentCategory + ' > ' + sub) {
+                                count++;
+                            }
+                        }
+                    });
+                    return count || '';
                 },
 
                 filterSubcategory(sub) {
