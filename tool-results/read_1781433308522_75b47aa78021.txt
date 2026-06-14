@@ -1,0 +1,1535 @@
+     1→import sys
+     2→import copy
+     3→import traceback
+     4→from fastapi.testclient import TestClient
+     5→
+     6→# Mock datetime.now() to return a fixed time outside Happy Hour (e.g. Monday 12:00) during test runs
+     7→from datetime import datetime as real_datetime
+     8→class MockDatetime(real_datetime):
+     9→    @classmethod
+    10→    def now(cls, tz=None):
+    11→        return real_datetime(2026, 6, 8, 12, 0, 0)
+    12→
+    13→import main
+    14→main.datetime = MockDatetime
+    15→
+    16→from main import app, restaurants, INITIAL_RESTAURANTS
+    17→
+    18→client = TestClient(app)
+    19→
+    20→def test_integration():
+    21→    print("Starting integration tests for digi-gastro backend...")
+    22→    
+    23→    # Reset in-memory DB for tests
+    24→    restaurants.clear()
+    25→    
+    26→    # Dynamically seed 'demo' tenant for integration tests
+    27→    from database import STANDARD_PRODUCTS
+    28→    import copy
+    29→    
+    30→    demo_tenant = {
+    31→        "name": "Demo Lounge",
+    32→        "email": "demo@digi-gastro.de",
+    33→        "password": "password123",
+    34→        "tagesumsatz": 0.00,
+    35→        "bestellungen_gesamt": 0,
+    36→        "active": True,
+    37→        "is_onboarded": True,
+    38→        "is_setup_completed": True,  # Keep it True for existing integration tests to pass without hitting setup
+    39→        "logo_path": "/static/images/digigastrologo.jpeg",
+    40→        "has_kitchen": True,
+    41→        "is_shishabar": True,
+    42→        "impressum_content": "",
+    43→        "datenschutz_content": "",
+    44→        "security_token": "demo2026",
+    45→        "service_calls": [],
+    46→        "categories": ["Burger", "Drinks", "Desserts", "Salads", "Shisha"],
+    47→        "products": copy.deepcopy(STANDARD_PRODUCTS),
+    48→        "orders": [
+    49→            {
+    50→                "id": 1,
+    51→                "table": "Tisch 5",
+    52→                "items": [
+    53→                    {"product_id": 1, "name": "Premium Burger", "price": 14.50, "quantity": 2, "category_type": "küche"},
+    54→                    {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1, "category_type": "bar"}
+    55→                ],
+    56→                "total": 32.50,
+    57→                "total_with_tip": 32.50,
+    58→                "tip_amount": 0.0,
+    59→                "status": "ausstehend",
+    60→                "timestamp": "2026-05-29 09:30:00",
+    61→                "mwst_rate": 19,
+    62→                "waiter_id": None
+    63→            }
+    64→        ],
+    65→        "staff": [
+    66→            {"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"},
+    67→            {"name": "Max Mustermann", "role": "kellner", "pin": "1234", "pin_code": "1234"},
+    68→            {"name": "Kessy Köchin", "role": "zubereiter", "pin": "5555", "pin_code": "5555"}
+    69→        ],
+    70→        "branding": {
+    71→            "address": "Forstweg 12, 80331 München",
+    72→            "indigo": "",
+    73→            "instagram": "@demolounge",
+    74→            "facebook": "/demolounge",
+    75→            "logo_url": "/static/images/digigastrologo.jpeg"
+    76→        },
+    77→        "happy_hour": {
+    78→            "days": ["Fr", "Sa"],
+    79→            "start": "18:00",
+    80→            "end": "20:00",
+    81→            "discount": 20
+    82→        },
+    83→        "tables": [
+    84→            {"number": "1", "zone": "innen"},
+    85→            {"number": "2", "zone": "innen"},
+    86→            {"number": "3", "zone": "innen"},
+    87→            {"number": "4", "zone": "innen"},
+    88→            {"number": "5", "zone": "innen"},
+    89→            {"number": "11", "zone": "terrasse"},
+    90→            {"number": "12", "zone": "terrasse"},
+    91→            {"number": "99", "zone": "innen"}
+    92→        ],
+    93→        "audit_log": []
+    94→    }
+    95→    
+    96→    demo_tenant["products"].append({
+    97→        "id": 7,
+    98→        "name": "Klassische Shisha",
+    99→        "price": 12.00,
+   100→        "description": "Premium traditional shisha.",
+   101→        "image": "https://images.unsplash.com/photo-1527137341206-1a2ab818aa6a?auto=format&fit=crop&q=80&w=400",
+   102→        "vegan": True,
+   103→        "is_vegan": True,
+   104→        "is_glutenfree": True,
+   105→        "allergens": [],
+   106→        "category_type": "shisha",
+   107→        "category": "Shisha",
+   108→        "is_available": True
+   109→    })
+   110→    
+   111→    restaurants["demo"] = demo_tenant
+   112→    
+   113→    # 1. Root redirect check
+   114→    print("Testing root redirect...")
+   115→    resp = client.get("/", follow_redirects=False)
+   116→    assert resp.status_code == 307 or resp.status_code == 302, f"Expected redirect, got {resp.status_code}"
+   117→    assert resp.headers["location"] == "/demo"
+   118→    print("Root redirect: OK")
+   119→
+   120→    # 2. Get customer menu
+   121→    print("Testing customer menu (GET /demo)...")
+   122→    # Read-only block check
+   123→    resp = client.get("/demo")
+   124→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+   125→    assert "Demo Lounge" in resp.text
+   126→    assert "QR-Code Scan erforderlich" in resp.text
+   127→    assert "Premium Burger" not in resp.text # Zero data leak in readonly
+   128→    
+   129→    # Active session check (e.g. scan)
+   130→    resp = client.get("/demo?table=99&token=demo2026")
+   131→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+   132→    assert "Demo Lounge" in resp.text
+   133→    assert "Premium Burger" in resp.text
+   134→    assert "Spezi" in resp.text
+   135→    print("Customer menu: OK")
+   136→
+   137→    # 3. Post a new order - MISSBRAUCHS-SCHUTZ BEIM BESTELLEN TESTS
+   138→    print("Testing order placement with missing/invalid token (expect 403)...")
+   139→    bad_order_data = {
+   140→        "table": "Tisch 99",
+   141→        "token": "wrong_token",
+   142→        "items": [
+   143→            {"product_id": 1, "name": "Premium Burger", "price": 14.50, "quantity": 1}
+   144→        ]
+   145→    }
+   146→    resp = client.post("/demo/bestellen", json=bad_order_data)
+   147→    assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
+   148→    assert "Ungültiger oder abgelaufener Tisch-Code" in resp.json()["detail"]
+   149→    print("Order placement with invalid token blocked: OK")
+   150→
+   151→    print("Testing order placement with correct token (expect 200)...")
+   152→    order_data = {
+   153→        "table": "Tisch 99",
+   154→        "token": "demo2026", # Correct initial token
+   155→        "items": [
+   156→            {"product_id": 1, "name": "Premium Burger", "price": 14.50, "quantity": 1},
+   157→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 2}
+   158→        ]
+   159→    }
+   160→    resp = client.post("/demo/bestellen", json=order_data)
+   161→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+   162→    res_json = resp.json()
+   163→    assert res_json["success"] is True
+   164→    order_id = res_json["order_id"]
+   165→    print(f"Order placement with valid token: OK (Created Order ID: {order_id})")
+   166→
+   167→    # 4. Get staff POS view and verify order is displayed
+   168→    print("Testing staff view (Verify order in DB cache)...")
+   169→    r_data = restaurants["demo"]
+   170→    o_active = [o for o in r_data["orders"] if o["id"] == order_id][0]
+   171→    assert o_active["table"] == "Tisch 99"
+   172→    assert o_active["total"] == 21.50
+   173→    print("Staff view display: OK")
+   174→
+   175→    # 5. Process payment
+   176→    print("Testing payment processing...")
+   177→    # Get initial values of stats
+   178→    r_data = restaurants["demo"]
+   179→    initial_revenue = r_data["tagesumsatz"]
+   180→    initial_count = r_data["bestellungen_gesamt"]
+   181→    
+   182→    resp = client.post(f"/demo/tablet/bezahlen/{order_id}")
+   183→    assert resp.status_code == 200
+   184→    assert resp.json()["success"] is True
+   185→    
+   186→    # Check if stats are updated
+   187→    assert r_data["tagesumsatz"] == initial_revenue + 21.50, f"Expected {initial_revenue + 21.50}, got {r_data['tagesumsatz']}"
+   188→    assert r_data["bestellungen_gesamt"] == initial_count + 1
+   189→    print("Payment processing & stats update: OK")
+   190→
+   191→    # 6. Admin auth checks
+   192→    print("Testing unauthorized admin dashboard access (expect login redirect)...")
+   193→    resp = client.get("/demo/admin", follow_redirects=False)
+   194→    assert resp.status_code in [302, 307]
+   195→    assert resp.headers["location"] == "/admin"
+   196→    
+   197→    resp2 = client.get("/admin", follow_redirects=False)
+   198→    assert resp2.status_code in [302, 307]
+   199→    assert resp2.headers["location"] == "/admin/login"
+   200→    print("Admin unauthorized check: OK")
+   201→
+   202→    # 7. Admin login view
+   203→    print("Testing admin login page (GET /admin/login)...")
+   204→    resp = client.get("/admin/login")
+   205→    assert resp.status_code == 200
+   206→    assert "Admin Login" in resp.text or "Log-In" in resp.text or "E-Mail" in resp.text
+   207→    print("Admin login page load: OK")
+   208→
+   209→    # 8. Admin login processing (failed)
+   210→    print("Testing failed admin login...")
+   211→    resp = client.post("/admin/login", data={"email": "wrong@email.com", "password": "wrong"})
+   212→    assert resp.status_code == 200
+   213→    assert "Ungültige" in resp.text
+   214→    print("Failed login: OK")
+   215→
+   216→    # 9. Admin login processing (success)
+   217→    print("Testing successful admin login...")
+   218→    resp = client.post("/admin/login", data={"email": "demo@digi-gastro.de", "password": "password123"}, follow_redirects=False)
+   219→    assert resp.status_code in [303, 307]
+   220→    assert resp.headers["location"] == "/admin/dashboard"
+   221→    # Capture cookie for further requests
+   222→    session_cookie = resp.headers.get("set-cookie")
+   223→    print("Successful login & cookie emission: OK")
+   224→
+   225→    # Extract session cookie value
+   226→    cookie_value = ""
+   227→    if session_cookie:
+   228→        cookie_value = session_cookie.split(";")[0].split("=")[1]
+   229→    
+   230→    # Create cookies dict for requests
+   231→    dl_cookies = {"session": cookie_value}
+   232→
+   233→    # 10. Admin dashboard authenticated access
+   234→    print("Testing authorized admin dashboard access...")
+   235→    resp = client.get("/admin/dashboard", cookies=dl_cookies)
+   236→    assert resp.status_code == 200
+   237→    assert "Admin Dashboard" in resp.text
+   238→    # Stats are visible
+   239→    assert f"{r_data['bestellungen_gesamt']}" in resp.text
+   240→    print("Authorized admin dashboard: OK")
+   241→
+   242→    # 11. Live category creation
+   243→    print("Testing dynamic category creation...")
+   244→    resp = client.post("/admin/kategorie-erstellen", data={"category-name": "Spezialitäten"}, cookies=dl_cookies, follow_redirects=False)
+   245→    assert resp.status_code == 303
+   246→    assert resp.headers["location"] == "/admin/dashboard"
+   247→    assert "Spezialitäten" in r_data["categories"]
+   248→    print("Dynamic category creation: OK")
+   249→
+   250→    # 12. Create staff member
+   251→    print("Testing dynamic staff creation...")
+   252→    resp = client.post("/admin/staff", data={"staff_name": "Anna Schmidt", "role": "Barkeeper", "pin": "9999"}, cookies=dl_cookies, follow_redirects=False)
+   253→    assert resp.status_code == 303
+   254→    assert any(s["name"] == "Anna Schmidt" for s in r_data["staff"])
+   255→    print("Dynamic staff creation: OK")
+   256→
+   257→    # 13. Update branding
+   258→    print("Testing dynamic branding update...")
+   259→    resp = client.post("/admin/branding", data={"logo_url": "https://host/newlogo.png", "address": "Altstadt 4, München", "indigo": "", "instagram": "@neu_ig", "facebook": "/neu_fb"}, cookies=dl_cookies, follow_redirects=False)
+   260→    assert resp.status_code == 303
+   261→    assert r_data["branding"]["address"] == "Altstadt 4, München"
+   262→    assert r_data["branding"]["logo_url"] == "https://host/newlogo.png"
+   263→    print("Dynamic branding update: OK")
+   264→
+   265→
+   266→    # ==========================================
+   267→    # NEW SAAS PLATFORM TESTS (SÄULE 1 & SÄULE 2)
+   268→    # ==========================================
+   269→    print("\n--- Starting SaaS Platform & Service channel tests ---")
+   270→
+   271→    # A. Test Service Call placement with invalid token (expect 403)
+   272→    print("Testing service calls with invalid token (expect 403)...")
+   273→    client.cookies.clear() # Clear any admin/POS bypass cookies for guest simulation
+   274→    bad_call_payload = {"type": "kellner", "table": "Tisch 5", "token": "wrong_token"}
+   275→    resp = client.post("/demo/service-ruf", json=bad_call_payload)
+   276→    assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
+   277→    assert "Ungültiger oder abgelaufener Tisch-Code" in resp.json()["detail"]
+   278→    print("Service calls with invalid token blocked: OK")
+   279→
+   280→    # B. Test Service Call placement with valid token (expect 200)
+   281→    print("Testing service calls with valid token (expect 200)...")
+   282→    # Kellner call
+   283→    call_payload = {"type": "kellner", "table": "Tisch 5", "token": "demo2026"}
+   284→    resp = client.post("/demo/service-ruf", json=call_payload)
+   285→    assert resp.status_code == 200
+   286→    res_json = resp.json()
+   287→    assert res_json["success"] is True
+   288→    call_id_1 = res_json["call_id"]
+   289→    
+   290→    # Kohle call
+   291→    call_payload = {"type": "kohle", "table": "Tisch 5", "token": "demo2026"}
+   292→    resp = client.post("/demo/service-ruf", json=call_payload)
+   293→    assert resp.status_code == 200
+   294→    call_id_2 = resp.json()["call_id"]
+   295→    
+   296→    # Check that they show up in service_calls cache
+   297→    r_data = restaurants["demo"]
+   298→    calls = r_data["service_calls"]
+   299→    assert any(c["id"] == call_id_1 and c["table"] == "Tisch 5" and c["type"] == "kellner" for c in calls)
+   300→    assert any(c["id"] == call_id_2 and c["table"] == "Tisch 5" and c["type"] == "kohle" for c in calls)
+   301→    print("Service calls creation: OK")
+   302→
+   303→    # C. Test Service Call resolution
+   304→    print("Testing service call resolution (POST /demo/service-erledigt/{id})...")
+   305→    resp = client.post(f"/demo/service-erledigt/{call_id_1}")
+   306→    assert resp.status_code == 200
+   307→    assert resp.json()["success"] is True
+   308→    
+   309→    # Verify first call is removed, but second is still there
+   310→    r_data = restaurants["demo"]
+   311→    calls = r_data["service_calls"]
+   312→    assert not any(c["id"] == call_id_1 for c in calls)
+   313→    assert any(c["id"] == call_id_2 for c in calls)
+   314→    print("Service call resolution: OK")
+   315→
+   316→    # D. Test Token Rotation via Admin
+   317→    print("Testing token rotation...")
+   318→    old_token = r_data["security_token"]
+   319→    resp = client.post("/admin/token-rotieren", cookies=dl_cookies, follow_redirects=False)
+   320→    assert resp.status_code == 303
+   321→    new_token = r_data["security_token"]
+   322→    assert old_token != new_token, f"Token did not change after rotation! Old: {old_token}, New: {new_token}"
+   323→    print(f"Token successfully rotated from '{old_token}' to '{new_token}': OK")
+   324→
+   325→    # Verify old token now fails
+   326→    client.cookies.clear() # Clear any admin/POS bypass cookies for guest simulation
+   327→    print("Testing order placement using old token after rotation (should be blocked)...")
+   328→    old_order_payload = {
+   329→        "table": "Tisch 10",
+   330→        "token": old_token,
+   331→        "items": [
+   332→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+   333→        ]
+   334→    }
+   335→    resp = client.post("/demo/bestellen", json=old_order_payload)
+   336→    assert resp.status_code == 403, f"Expected 403 for old token, got {resp.status_code}"
+   337→    print("Order with old token blocked after rotation: OK")
+   338→
+   339→    # Verify new token now succeeds
+   340→    print("Testing order placement using new token after rotation (should succeed)...")
+   341→    new_order_payload = {
+   342→        "table": "Tisch 10",
+   343→        "token": new_token,
+   344→        "items": [
+   345→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+   346→        ]
+   347→    }
+   348→    resp = client.post("/demo/bestellen", json=new_order_payload)
+   349→    assert resp.status_code == 200, f"Expected 200 for new token, got {resp.status_code}"
+   350→    print("Order with new token succeeded after rotation: OK")
+   351→
+   352→    # E. Global Admin unauthorized login / redirect
+   353→    print("Testing global admin unauthorized redirect...")
+   354→    resp = client.get("/digi-gastro-admin", follow_redirects=False)
+   355→    assert resp.status_code in [302, 303, 307]
+   356→    assert resp.headers["location"] == "/digi-gastro-admin/login"
+   357→    print("Global admin unauthorized redirect: OK")
+   358→
+   359→    # F. Global Admin Login (failed and success)
+   360→    print("Testing failed global admin login...")
+   361→    resp = client.post("/digi-gastro-admin/login", data={"email": "admin@digi-gastro.de", "password": "wrong"})
+   362→    assert resp.status_code == 200
+   363→    assert "Ungültige E-Mail-Adresse" in resp.text
+   364→    
+   365→    print("Testing successful global admin login...")
+   366→    resp = client.post("/digi-gastro-admin/login", data={"email": "admin@digi-gastro.de", "password": "superpassword123"}, follow_redirects=False)
+   367→    assert resp.status_code in [302, 303, 307]
+   368→    assert resp.headers["location"] == "/digi-gastro-admin"
+   369→    
+   370→    global_session_cookie = resp.headers.get("set-cookie")
+   371→    global_cookie_value = global_session_cookie.split(";")[0].split("=")[1]
+   372→    global_cookies = {"session_global": global_cookie_value}
+   373→    print("Global admin login: OK")
+   374→
+   375→    # SaaS Dashboard Security Tests
+   376→    print("Testing tenant creation protection (POST /digi-gastro-admin/tenant-erstellen without login -> 403)...")
+   377→    anon_client = TestClient(app)
+   378→    resp_anon = anon_client.post("/digi-gastro-admin/tenant-erstellen", data={"name": "Secret Bar", "slug": "secretbar"}, follow_redirects=False)
+   379→    assert resp_anon.status_code == 403
+   380→    print("Tenant creation unauthorized access blocked: OK")
+   381→
+   382→    print("Testing tenant creation (POST /digi-gastro-admin/tenant-erstellen with global admin cookies -> 303)...")
+   383→    resp_auth = client.post("/digi-gastro-admin/tenant-erstellen", data={
+   384→        "name": "Onboarded Bar", "slug": "onboardedbar"
+   385→    }, cookies=global_cookies, follow_redirects=False)
+   386→    assert resp_auth.status_code in [302, 303, 307]
+   387→    assert "success=" in resp_auth.headers["location"]
+   388→    assert "onboardedbar" in restaurants
+   389→    
+   390→    # Verify auto-generated credentials
+   391→    onboarded_tenant = restaurants["onboardedbar"]
+   392→    assert onboarded_tenant["email"] == "onboardedbar@digi-gastro.de"
+   393→    assert onboarded_tenant["password"].startswith("Gastro-")
+   394→    print("Tenant creation with auto-generated credentials: OK")
+   395→
+   396→    # Reset Password Test
+   397→    print("Testing password reset (POST /digi-gastro-admin/tenant-reset-password/{slug} -> 303)...")
+   398→    old_pw = onboarded_tenant["password"]
+   399→    resp_reset = client.post("/digi-gastro-admin/tenant-reset-password/onboardedbar", cookies=global_cookies, follow_redirects=False)
+   400→    assert resp_reset.status_code in [302, 303, 307]
+   401→    assert "success=" in resp_reset.headers["location"]
+   402→    assert restaurants["onboardedbar"]["password"] != old_pw
+   403→    print("Tenant password reset: OK")
+   404→
+   405→    # Edit Name Test
+   406→    print("Testing tenant name edit (POST /digi-gastro-admin/tenant-edit-name/{slug} -> 303)...")
+   407→    resp_edit = client.post("/digi-gastro-admin/tenant-edit-name/onboardedbar", data={"name": "Updated Bar Name"}, cookies=global_cookies, follow_redirects=False)
+   408→    assert resp_edit.status_code in [302, 303, 307]
+   409→    assert "success=" in resp_edit.headers["location"]
+   410→    assert restaurants["onboardedbar"]["name"] == "Updated Bar Name"
+   411→    print("Tenant name edit: OK")
+   412→
+   413→    # G. Get SaaS dashboard & check live statistics
+   414→    print("Testing SaaS Dashboard load and stats display...")
+   415→    resp = client.get("/digi-gastro-admin", cookies=global_cookies)
+   416→    assert resp.status_code == 200
+   417→    assert "Global Control Center" in resp.text or "Plattform Master-Liste" in resp.text
+   418→    # We should see our restaurant listed
+   419→    assert "Demo Lounge" in resp.text
+   420→    print("SaaS Dashboard stats & tenant list: OK")
+   421→
+   422→    # H. Create new tenant
+   423→    print("Testing new tenant creation (POST /digi-gastro-admin/tenant-erstellen)...")
+   424→    resp = client.post("/digi-gastro-admin/tenant-erstellen", data={"name": "Luna Bar", "slug": "lunabar"}, cookies=global_cookies, follow_redirects=False)
+   425→    assert resp.status_code in [302, 303, 307]
+   426→    assert "lunabar" in restaurants
+   427→    
+   428→    # Check that new tenant statistics are strictly reset
+   429→    luna = restaurants["lunabar"]
+   430→    assert luna["name"] == "Luna Bar"
+   431→    assert luna["tagesumsatz"] == 0.0
+   432→    assert luna["bestellungen_gesamt"] == 0
+   433→    assert len(luna["orders"]) == 0
+   434→    assert len(luna["staff"]) == 0
+   435→    assert luna["active"] is True
+   436→    print("New tenant creation & reset variables: OK")
+   437→
+   438→    # I. Block tenant (Status-Toggle)
+   439→    print("Testing tenant block/suspension status-toggle...")
+   440→    resp = client.post("/digi-gastro-admin/tenant-toggle/lunabar", cookies=global_cookies, follow_redirects=False)
+   441→    assert resp.status_code in [302, 303, 307]
+   442→    assert restaurants["lunabar"]["active"] is False
+   443→    print("Tenant block toggle: OK")
+   444→
+   445→    # J. Verify blocked tenant redirects to Wartungsseite with 403 status code
+   446→    print("Testing accessing suspended tenant (expecting maintenance page with 403)...")
+   447→    resp = client.get("/lunabar")
+   448→    assert resp.status_code == 403
+   449→    assert "Dieses Restaurant ist vorübergehend deaktiviert" in resp.text
+   450→    print("Suspended tenant access restriction: OK")
+   451→
+   452→    # K. Toggle tenant back to active and verify it works
+   453→    print("Testing tenant activation status-toggle...")
+   454→    resp = client.post("/digi-gastro-admin/tenant-toggle/lunabar", cookies=global_cookies, follow_redirects=False)
+   455→    assert resp.status_code in [302, 303, 307]
+   456→    assert restaurants["lunabar"]["active"] is True
+   457→    
+   458→    resp = client.get("/lunabar")
+   459→    assert resp.status_code == 200
+   460→    assert "Luna Bar" in resp.text
+   461→    print("Tenant activation and restore access: OK")
+   462→
+   463→    # L. Shisha mode toggle testing
+   464→    print("Testing Shisha mode toggle...")
+   465→    # Get initial shisha state for demo (default True)
+   466→    assert restaurants["demo"]["is_shishabar"] is True
+   467→    
+   468→    # Toggle it off
+   469→    # Send post to toggle off (is_shishabar not present in form -> False)
+   470→    resp = client.post("/admin/shishabar-toggle", data={}, cookies=dl_cookies, follow_redirects=False)
+   471→    assert resp.status_code in [302, 303, 307]
+   472→    assert restaurants["demo"]["is_shishabar"] is False
+   473→    print("Shisha mode toggle off: OK")
+   474→    
+   475→    # Toggle it back on
+   476→    resp = client.post("/admin/shishabar-toggle", data={"is_shishabar": "true"}, cookies=dl_cookies, follow_redirects=False)
+   477→    assert resp.status_code in [302, 303, 307]
+   478→    assert restaurants["demo"]["is_shishabar"] is True
+   479→    print("Shisha mode toggle on: OK")
+   480→
+   481→
+   482→    # ==========================================
+   483→    # NEW GASTRO FEATURES TESTS (SPLITTING & AVAILABILITY)
+   484→    # ==========================================
+   485→    print("\n--- Starting New Gastro-Professional Feature Tests ---")
+   486→
+   487→    # Feature 2: Product Availability Toggle ("Ausverkauft")
+   488→    print("Testing product availability toggle ('Ausverkauft')...")
+   489→    # Verify default is available (True)
+   490→    product_1 = next(p for p in r_data["products"] if p["id"] == 1)
+   491→    assert product_1.get("is_available", True) is True
+   492→    
+   493→    # Toggle to "Ausverkauft" (False)
+   494→    resp = client.post("/admin/product-toggle/1", cookies=dl_cookies, follow_redirects=False)
+   495→    assert resp.status_code in [302, 303, 307]
+   496→    assert product_1["is_available"] is False
+   497→    print("Product is_available toggled to False: OK")
+   498→
+   499→    # Access client menu and check visual representation
+   500→    resp = client.get(f"/demo?table=99&token={new_token}")
+   501→    assert resp.status_code == 200
+   502→    assert "Ausverkauft" in resp.text
+   503→    # Check that "Premium Burger" is shown as sold out
+   504→    assert "opacity-50 grayscale" in resp.text
+   505→    print("Visual sold out representation on client menu: OK")
+   506→
+   507→    # Toggle back to "Aktiv" (True)
+   508→    resp = client.post("/admin/product-toggle/1", cookies=dl_cookies, follow_redirects=False)
+   509→    assert resp.status_code in [302, 303, 307]
+   510→    assert product_1["is_available"] is True
+   511→    print("Product is_available toggled back to True: OK")
+   512→
+   513→
+   514→    # Feature 1: Dynamic Table Splitting (Teilzahlung)
+   515→    print("Testing dynamic table splitting (Teilzahlung)...")
+   516→    # Let's inspect active order #1: Tisch 5, 2x Premium Burger (€14.50 each) & 1x Spezi (€3.50 each). Total = 32.50.
+   517→    order_1 = next(o for o in r_data["orders"] if o["id"] == 1)
+   518→    assert order_1["status"] == "ausstehend"
+   519→    assert order_1["total"] == 32.50
+   520→    
+   521→    # Let's pay 1x Premium Burger of order #1
+   522→    initial_revenue = r_data["tagesumsatz"]
+   523→    initial_completed_count = r_data["bestellungen_gesamt"]
+   524→
+   525→    split_payload = {
+   526→        "items": [
+   527→            {"product_id": 1, "quantity": 1} # Pay 1x Burger = 14.50 EUR
+   528→        ]
+   529→    }
+   530→    resp = client.post("/demo/tablet/teilzahlung/1", json=split_payload)
+   531→    assert resp.status_code == 200
+   532→    res_json = resp.json()
+   533→    assert res_json["success"] is True
+   534→    assert res_json["remaining_items_count"] == 2 # 1 burger and 1 kola left
+   535→    assert res_json["order_status"] == "ausstehend"
+   536→    assert res_json["split_amount"] == 14.50
+   537→
+   538→    # Verify that order total and items in backend are updated correctly
+   539→    assert order_1["total"] == 18.00 # 1x Burger (14.50) + 1x Kola (3.50)
+   540→    burger_item = next(item for item in order_1["items"] if item["product_id"] == 1)
+   541→    assert burger_item["quantity"] == 1
+   542→
+   543→    # Verify that tagesumsatz got credited instantly
+   544→    assert r_data["tagesumsatz"] == initial_revenue + 14.50
+   545→    # Since the order is not fully paid yet, completed count shouldn't increase
+   546→    assert r_data["bestellungen_gesamt"] == initial_completed_count
+   547→    print("Partial payment of 1 item successfully processed: OK")
+   548→
+   549→    # Now pay off the rest of the order (1x Burger, 1x Kola = 18.00 EUR)
+   550→    split_payload_remaining = {
+   551→        "items": [
+   552→            {"product_id": 1, "quantity": 1},
+   553→            {"product_id": 4, "quantity": 1}
+   554→        ]
+   555→    }
+   556→    resp = client.post("/demo/tablet/teilzahlung/1", json=split_payload_remaining)
+   557→    assert resp.status_code == 200
+   558→    res_json_2 = resp.json()
+   559→    assert res_json_2["success"] is True
+   560→    assert res_json_2["remaining_items_count"] == 0
+   561→    assert res_json_2["order_status"] == "bezahlt"
+   562→    assert res_json_2["split_amount"] == 18.00
+   563→
+   564→    # Verify order is fully resolved
+   565→    assert order_1["status"] == "bezahlt"
+   566→    assert len(order_1["items"]) == 0
+   567→    assert order_1["total"] == 0.0
+   568→
+   569→    # Verify tagesumsatz and completed order count
+   570→    assert r_data["tagesumsatz"] == initial_revenue + 32.50 # 14.50 + 18.00
+   571→    assert r_data["bestellungen_gesamt"] == initial_completed_count + 1
+   572→    print("Remaining items split payment processed (Order fully bezahlt): OK")
+   573→
+   574→
+   575→    # 14. Admin logout
+   576→    print("Testing admin logout...")
+   577→    resp = client.get("/admin/logout", cookies=dl_cookies, follow_redirects=False)
+   578→    assert resp.status_code in [302, 303, 307]
+   579→    assert resp.headers["location"] == "/admin/login"
+   580→    print("Admin logout: OK")
+   581→
+   582→    
+   583→    # ==========================================
+   584→    # MILESTONE: DYNAMIC SETUP & REDIRECTS
+   585→    # ==========================================
+   586→    print("\n--- Starting Setup & Dynamic Setup Tests ---")
+   587→
+   588→    # 1. Un-setup tenant (lunabar) access attempt to admin routes without login (should redirect to login)
+   589→    print("Testing un-setup tenant admin route access redirect without login...")
+   590→    luna = restaurants["lunabar"]
+   591→    luna["is_setup_completed"] = False
+   592→    restaurants["lunabar"] = luna
+   593→
+   594→    resp = client.get("/admin", follow_redirects=False)
+   595→    assert resp.status_code in [302, 303, 307]
+   596→    assert resp.headers["location"] == "/admin/login"
+   597→    print("Un-setup unauthorized redirect to /login: OK")
+   598→
+   599→    # 2. Try accessing other admin dashboard routes without login (should redirect to login)
+   600→    resp = client.get("/admin/dashboard", follow_redirects=False)
+   601→    assert resp.status_code in [302, 303, 307]
+   602→    assert resp.headers["location"] == "/admin/login"
+   603→    print("Un-setup dashboard access redirect to /login: OK")
+   604→
+   605→    # 3. Post login to get chef session (which redirects to setup since setup is incomplete)
+   606→    print("Posting chef login for lunabar...")
+   607→    luna_email = "lunabar@digi-gastro.de"
+   608→    luna_db = restaurants["lunabar"]
+   609→    luna_pw = luna_db["password"]
+   610→    resp = client.post("/admin/login", data={"email": luna_email, "password": luna_pw}, follow_redirects=False)
+   611→    assert resp.status_code in [302, 303, 307]
+   612→    assert resp.headers["location"] == "/admin/setup"
+   613→    
+   614→    luna_session = resp.headers.get("set-cookie")
+   615→    luna_cookie_value = luna_session.split(";")[0].split("=")[1]
+   616→    luna_cookies = {"session": luna_cookie_value}
+   617→    print("Chef login session captured and setup redirection confirmed: OK")
+   618→
+   619→    # 3b. Authenticated request to /admin should now redirect to setup
+   620→    print("Testing authorized admin root redirect to setup...")
+   621→    resp_auth = client.get("/admin", cookies=luna_cookies, follow_redirects=False)
+   622→    assert resp_auth.status_code in [302, 303, 307]
+   623→    assert resp_auth.headers["location"] == "/admin/setup"
+   624→    print("Authorized admin root redirect to /setup: OK")
+   625→
+   626→    # 4. Post setup completion form for lunabar
+   627→    print("Submitting setup-complete form for lunabar...")
+   628→    setup_data = {
+   629→        "has_kitchen": "true",
+   630→        "is_shishabar": ""
+   631→    }
+   632→    resp = client.post("/admin/setup-complete", data=setup_data, cookies=luna_cookies, follow_redirects=False)
+   633→    assert resp.status_code in [302, 303, 307]
+   634→    assert resp.headers["location"] == "/admin/dashboard"
+   635→    print("Setup completion form submitted: OK")
+   636→
+   637→    # 5. Verify DB state after setup
+   638→    luna_db = restaurants["lunabar"]
+   639→    assert luna_db["is_setup_completed"] is True
+   640→    assert luna_db["is_onboarded"] is True
+   641→    assert luna_db["has_kitchen"] is True
+   642→    assert luna_db["is_shishabar"] is False
+   643→    assert len(luna_db["tables"]) == 0
+   644→    assert any(s["name"] in ["Chef", "Owner"] and s["role"] == "chef" for s in luna_db["staff"])
+   645→    assert "Burger" in luna_db["categories"]
+   646→    assert "Shisha" not in luna_db["categories"]
+   647→    print("Setup DB variables & settings verified: OK")
+   648→
+   649→    # 6. Access admin dashboard with completed setup session
+   650→    resp = client.get("/admin/dashboard", cookies=luna_cookies)
+   651→    assert resp.status_code == 200
+   652→    assert "Luna Bar" in resp.text
+   653→    print("Set up admin dashboard access: OK")
+   654→
+   655→    # 7. Update profile to toggle kitchen off and shisha on
+   656→    print("Testing profile settings live updates...")
+   657→    resp = client.post("/admin/profile-update", data={
+   658→        "has_kitchen": "",
+   659→        "is_shishabar": "true",
+   660→        "impressum_content": "Custom Impressum Text",
+   661→        "datenschutz_content": "Custom Datenschutz Text"
+   662→    }, cookies=luna_cookies, follow_redirects=False)
+   663→    assert resp.status_code in [302, 303, 307]
+   664→    
+   665→    # Verify DB updated
+   666→    luna_db = restaurants["lunabar"]
+   667→    assert luna_db["has_kitchen"] is False
+   668→    assert luna_db["is_shishabar"] is True
+   669→    assert luna_db["impressum_content"] == "Custom Impressum Text"
+   670→    assert luna_db["datenschutz_content"] == "Custom Datenschutz Text"
+   671→    assert "Shisha" in luna_db["categories"]
+   672→    assert "Burger" not in luna_db["categories"]
+   673→    print("Profile update live adjustments: OK")
+   674→
+   675→    # ==========================================
+   676→    # NEW REFACTORING TESTS (PRO FEATURE EXTENSIONS)
+   677→    # ==========================================
+   678→    print("\n--- Starting Pro-Refactoring Integration Tests ---")
+   679→
+   680→    # 1. Test Product Creation via Admin POST Route
+   681→    print("Testing custom product creation (POST /admin/produkt-erstellen)...")
+   682→    product_data = {
+   683→        "name": "Spezial Shisha",
+   684→        "preis": 15.99,
+   685→        "kategorie": "Spezialitäten",
+   686→        "description": "Double apple high-end shisha flavor",
+   687→        "image": "",
+   688→        "is_vegan": "true",
+   689→        "is_glutenfree": ""
+   690→    }
+   691→    resp_prod = client.post("/admin/produkt-erstellen", data=product_data, cookies=luna_cookies, follow_redirects=False)
+   692→    assert resp_prod.status_code in [302, 303, 307]
+   693→    
+   694→    # Verify product successfully saved to DB
+   695→    luna_products = restaurants["lunabar"]["products"]
+   696→    created_prod = next((p for p in luna_products if p["name"] == "Spezial Shisha"), None)
+   697→    assert created_prod is not None, "Product was not created!"
+   698→    assert created_prod["price"] == 15.99
+   699→    assert created_prod["category"] == "Spezialitäten"
+   700→    assert created_prod["is_vegan"] is True
+   701→    assert created_prod["is_glutenfree"] is False
+   702→    assert "Spezialitäten" in restaurants["lunabar"]["categories"], "Category was not automatically created!"
+   703→    print("Custom product creation and auto category setup: OK")
+   704→
+   705→    # 2. Test Guest Service and Payment Modal API calls
+   706→    print("Testing call-service API from guest view (POST /api/lunabar/call-service)...")
+   707→    service_payload = {
+   708→        "type": "kellner",
+   709→        "table": "Tisch 3",
+   710→        "token": "lunabar2026"
+   711→    }
+   712→    resp_service = client.post("/api/lunabar/call-service", json=service_payload)
+   713→    assert resp_service.status_code == 200
+   714→    res_json = resp_service.json()
+   715→    assert res_json["success"] is True
+   716→    call_id = res_json["call_id"]
+   717→    
+   718→    # Verify call successfully saved in DB service calls list
+   719→    luna_calls = restaurants["lunabar"]["service_calls"]
+   720→    print("DEBUG LUNA CALLS:", luna_calls, "CALL ID:", call_id, "TYPES:", [type(c["id"]) for c in luna_calls], type(call_id))
+   721→    assert any(str(c["id"]) == str(call_id) and c["table"] == "Tisch 3" and c["type"] == "kellner" for c in luna_calls)
+   722→    print("Service Call API: OK")
+   723→
+   724→    # 3. Test Tablet Polling status API
+   725→    print("Testing tablet poller API (GET /api/tablet-status)...")
+   726→    resp_status = client.get("/api/tablet-status", cookies=luna_cookies)
+   727→    assert resp_status.status_code == 200
+   728→    status_json = resp_status.json()
+   729→    assert "orders" in status_json
+   730→    assert "service_calls" in status_json
+   731→    assert any(c["id"] == call_id for c in status_json["service_calls"])
+   732→    print("Tablet Poller Status API: OK")
+   733→
+   734→    # 4. Test Employee lock restriction on Web admin (POST table-erstellen with staff waiter cookies -> 403)
+   735→    print("Testing staff separation on admin routes...")
+   736→    waiter_cookies = {"session": "lunabar:Anna:kellner:1234"}
+   737→    resp_staff_blocked = client.post("/admin/table-erstellen", data={"number": "9", "zone": "innen"}, cookies=waiter_cookies, follow_redirects=False)
+   738→    assert resp_staff_blocked.status_code == 403
+   739→    print("Waiter access to admin POST route blocked: OK")
+   740→
+   741→
+   742→    # ==========================================
+   743→    # NEW TOKEN-BASED GASTRO OS & SECURITY TESTS (PILLARS 1 - 4)
+   744→    # ==========================================
+   745→    print("\n--- Starting High-End Token-Based Gastro OS & Security Tests ---")
+   746→
+   747→    # 1. Säule 1: Tisch-Tokens & Gäste-Session (Read-only vs. Session-Cookie)
+   748→    print("Testing Tisch-Tokens & is_readonly Flag...")
+   749→    client.cookies.clear() # Clear any session cookies from previous setup/admin tests
+   750→    resp = client.get("/demo")
+   751→    assert resp.status_code == 200
+   752→    assert resp.context["is_readonly"] is True
+   753→    print("Default menu load without params is Read-only: OK")
+   754→
+   755→    # Admin preview bypass check
+   756→    resp = client.get("/demo?preview=true")
+   757→    assert resp.status_code == 200
+   758→    assert resp.context["is_readonly"] is False
+   759→    assert resp.context["table"] == "Vorschau"
+   760→    print("Admin preview bypass (?preview=true): OK")
+   761→
+   762→    # Set up tables with specific security tokens
+   763→    r_data["tables"][0]["security_token"] = "table1tok"
+   764→    
+   765→    # Access with wrong token -> expecting Sitz expired redirect
+   766→    resp = client.get("/demo?tisch=1&token=wrongtoken", follow_redirects=False)
+   767→    assert resp.status_code == 302 or resp.status_code == 307 or resp.status_code == 303
+   768→    assert resp.headers["location"] == "/demo/sitz-expired"
+   769→    print("Access with wrong token redirected to expired: OK")
+   770→
+   771→    # Access with correct token -> expecting cookie emission and is_readonly=False
+   772→    resp = client.get("/demo?tisch=1&token=table1tok")
+   773→    assert resp.status_code == 200
+   774→    assert resp.context["is_readonly"] is False
+   775→    # Validate session cookie is set
+   776→    guest_cookie = resp.headers.get("set-cookie")
+   777→    assert guest_cookie is not None
+   778→    assert f"guest_session_demo" in guest_cookie
+   779→    guest_cookie_val = guest_cookie.split(";")[0].split("=")[1]
+   780→    guest_cookies = {f"guest_session_demo": guest_cookie_val}
+   781→    print("Access with valid table token sets session cookie: OK")
+   782→
+   783→    # Order placement without token or cookie -> expect 403
+   784→    client.cookies.clear()
+   785→    bad_order = {
+   786→        "table": "Tisch 1",
+   787→        "items": [{"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}]
+   788→    }
+   789→    resp = client.post("/demo/bestellen", json=bad_order)
+   790→    assert resp.status_code == 403
+   791→    print("Ordering without token or cookie blocked: OK")
+   792→
+   793→    # Order placement with cookie -> expect 200
+   794→    resp = client.post("/demo/bestellen", json=bad_order, cookies=guest_cookies)
+   795→    assert resp.status_code == 200
+   796→    assert resp.json()["success"] is True
+   797→    print("Ordering with guest_session cookie permitted: OK")
+   798→
+   799→
+   800→
+   801→    # 4. Säule 4: Mitarbeiter-PIN storno protection
+   802→    print("Testing Mitarbeiter-PIN storno...")
+   803→    resp = client.post("/demo/tablet/stornieren/2", data={"pin": "0000"})
+   804→    assert resp.status_code == 403
+   805→    print("Storno with invalid PIN blocked: OK")
+   806→
+   807→    resp = client.post("/demo/tablet/stornieren/2", data={"pin": "1234"})
+   808→    assert resp.status_code == 200
+   809→    assert resp.json()["success"] is True
+   810→    print("Storno with waiter PIN permitted: OK")
+   811→
+   812→    # 5. Product Update API
+   813→    print("Testing Product Update API (PUT /api/products/{product_id})...")
+   814→    client.cookies.set("session", "demo:Chef:chef:1111")
+   815→    product_update_payload = {
+   816→        "name": "Super Burger",
+   817→        "price": 12.99,
+   818→        "description": "Premium juicy beef burger",
+   819→        "category": "Burger"
+   820→    }
+   821→    resp = client.put("/api/products/1", json=product_update_payload)
+   822→    assert resp.status_code == 200
+   823→    assert resp.json()["success"] is True
+   824→    
+   825→    # Check if the product was updated in memory cache
+   826→    p_updated = next(p for p in restaurants["demo"]["products"] if p["id"] == 1)
+   827→    assert p_updated["name"] == "Super Burger"
+   828→    assert p_updated["price"] == 12.99
+   829→    print("Product Update API: OK")
+   830→
+   831→    # 6. Order Confirmation API
+   832→    print("Testing Order Confirmation API (POST /{slug}/orders/confirm/{order_id})...")
+   833→    order_payload = {
+   834→        "table": "Tisch 99",
+   835→        "token": "mastertoken123",
+   836→        "items": [
+   837→            {"product_id": 1, "name": "Super Burger", "price": 12.99, "quantity": 1}
+   838→        ],
+   839→        "tip_amount": 0.0
+   840→    }
+   841→    resp = client.post("/demo/bestellen", json=order_payload)
+   842→    new_order_id = resp.json()["order_id"]
+   843→    
+   844→    # Confirm the order
+   845→    resp = client.post(f"/demo/orders/confirm/{new_order_id}")
+   846→    assert resp.status_code == 200
+   847→    assert resp.json()["success"] is True
+   848→    
+   849→    # Check if order status is now "bestaetigt" in cache
+   850→    o_updated = next(o for o in restaurants["demo"]["orders"] if o["id"] == new_order_id)
+   851→    assert o_updated["status"] == "bestaetigt"
+   852→    print("Order Confirmation API: OK")
+   853→
+   854→    # 7. Table Merge / Transfer API
+   855→    print("Testing Table Merge / Transfer API...")
+   856→    restaurants["demo"]["tables"] = [
+   857→        {"number": "3", "zone": "innen", "security_token": "token-tisch-3"},
+   858→        {"number": "4", "zone": "innen", "security_token": "token-tisch-4"}
+   859→    ]
+   860→    
+   861→    # Place order on Tisch 3
+   862→    resp = client.post("/demo/bestellen", json={
+   863→        "table": "Tisch 3",
+   864→        "token": "demo2026",
+   865→        "items": [
+   866→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+   867→        ]
+   868→    })
+   869→    assert resp.status_code == 200
+   870→    
+   871→    # Place order on Tisch 4
+   872→    resp = client.post("/demo/bestellen", json={
+   873→        "table": "Tisch 4",
+   874→        "token": "demo2026",
+   875→        "items": [
+   876→            {"product_id": 1, "name": "Super Burger", "price": 12.99, "quantity": 1}
+   877→        ]
+   878→    })
+   879→    assert resp.status_code == 200
+   880→    
+   881→    # Call merge endpoint
+   882→    resp = client.post("/demo/tablet/tische-zusammenfuehren", data={
+   883→        "source_table": "3",
+   884→        "target_table": "4"
+   885→    })
+   886→    assert resp.status_code == 200
+   887→    assert resp.json()["success"] is True
+   888→    
+   889→    # Verify the cache values
+   890→    tisch3_orders = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 3", "3"] and o.get("status") not in ["bezahlt", "storniert"]]
+   891→    assert len(tisch3_orders) == 0, f"Expected 0 active orders for Tisch 3, got {len(tisch3_orders)}"
+   892→    
+   893→    tisch4_orders = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 4", "4"] and o.get("status") not in ["bezahlt", "storniert"]]
+   894→    assert len(tisch4_orders) == 1
+   895→    
+   896→    merged_order = tisch4_orders[0]
+   897→    # Items should be Burger (qty 1) and Spezi (qty 1)
+   898→    assert len(merged_order["items"]) == 2
+   899→    spezi_item = next(item for item in merged_order["items"] if item["product_id"] == 4)
+   900→    burger_item = next(item for item in merged_order["items"] if item["product_id"] == 1)
+   901→    assert spezi_item["quantity"] == 1
+   902→    assert burger_item["quantity"] == 1
+   903→    
+   904→    # Security token of Tisch 4 should remain Tisch 4's static token, NOT Tisch 3's
+   905→    t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
+   906→    t4_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "4")
+   907→    assert t4_table["security_token"] == "token-tisch-4"
+   908→    assert t3_table["security_token"] == "token-tisch-3"
+   909→    print("Table Merge / Transfer API: OK")
+   910→
+   911→    # Let's test the new cockpit split partial transfer
+   912→    print("Testing Cockpit Split Partial Transfer...")
+   913→    # Table 4 has 1x Burger (product 1) and 1x Spezi (product 4). Let's transfer 1x Spezi back to Table 3.
+   914→    spezi_status = spezi_item.get("item_status") or "pending"
+   915→    spezi_key = f"{merged_order['id']}_4__{spezi_status}"
+   916→    
+   917→    # Call the cockpit split transfer endpoint
+   918→    resp = client.post("/admin/orders/transfer", json={
+   919→        "source_table": "Tisch 4",
+   920→        "target_table": "Tisch 3",
+   921→        "item_keys": [spezi_key],
+   922→        "items": {spezi_key: 1}
+   923→    }, cookies=dl_cookies)
+   924→    
+   925→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+   926→    assert resp.json()["success"] is True
+   927→    
+   928→    # Verify Table 3 now has 1 order containing 1x Spezi
+   929→    tisch3_orders_post = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 3", "3"] and o.get("status") not in ["bezahlt", "storniert"]]
+   930→    assert len(tisch3_orders_post) == 1
+   931→    assert len(tisch3_orders_post[0]["items"]) == 1
+   932→    assert tisch3_orders_post[0]["items"][0]["product_id"] == 4
+   933→    assert tisch3_orders_post[0]["items"][0]["quantity"] == 1
+   934→    
+   935→    # Verify Table 4 order no longer has Spezi (it only has Burger)
+   936→    tisch4_orders_post = [o for o in restaurants["demo"]["orders"] if o.get("table") in ["Tisch 4", "4"] and o.get("status") not in ["bezahlt", "storniert"]]
+   937→    assert len(tisch4_orders_post) == 1
+   938→    assert len(tisch4_orders_post[0]["items"]) == 1
+   939→    assert tisch4_orders_post[0]["items"][0]["product_id"] == 1
+   940→    print("Cockpit Split Partial Transfer: OK")
+   941→
+   942→    # 8. Tisch-Tokens & Sitzung Wiederkehrend-Scan Test
+   943→    print("Testing table session printed token scan-to-re-login (Issue 2)...")
+   944→    client.cookies.clear() # Clear any session cookies from previous setup/admin/chef tests
+   945→    # Reset table 3 token to static initial value
+   946→    t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
+   947→    t3_table["security_token"] = "token-tisch-3"
+   948→    t3_table["active_session_token"] = None
+   949→    
+   950→    # 8a. Scan the printed QR code first time (Tisch 3, token=token-tisch-3)
+   951→    resp = client.get("/demo?tisch=3&token=token-tisch-3")
+   952→    assert resp.status_code == 200
+   953→    assert resp.context["is_readonly"] is False
+   954→    cookie_header = resp.headers.get("set-cookie")
+   955→    assert cookie_header is not None
+   956→    guest_cookie_val = cookie_header.split(";")[0].split("=")[1]
+   957→    guest_cookies_t3 = {"guest_session_demo": guest_cookie_val}
+   958→    
+   959→    # Verify active session token is populated
+   960→    t3_table = next(t for t in restaurants["demo"]["tables"] if t["number"] == "3")
+   961→    active_tok_1 = t3_table["active_session_token"]
+   962→    assert active_tok_1 is not None
+   963→    assert active_tok_1 != "token-tisch-3"
+   964→    
+   965→    # 8b. Place an order using the guest session cookie
+   966→    order_payload = {
+   967→        "table": "Tisch 3",
+   968→        "items": [
+   969→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+   970→        ]
+   971→    }
+   972→    resp = client.post("/demo/bestellen", json=order_payload, cookies=guest_cookies_t3)
+   973→    assert resp.status_code == 200
+   974→    order_id_t3 = resp.json()["order_id"]
+   975→    
+   976→    # 8c. Process payment/clear table
+   977→    resp = client.post(f"/demo/tablet/bezahlen/{order_id_t3}")
+   978→    assert resp.status_code == 200
+   979→    
+   980→    # 8d. Accessing the table with the old session cookie should now redirect to sitz-expired
+   981→    resp = client.get("/demo", cookies=guest_cookies_t3, follow_redirects=False)
+   982→    assert resp.status_code == 303
+   983→    assert resp.headers["location"] == "/demo/sitz-expired"
+   984→    
+   985→    # 8e. Re-scanning the static printed QR code (Tisch 3, token=token-tisch-3) should succeed and open the menu
+   986→    resp = client.get("/demo?tisch=3&token=token-tisch-3")
+   987→    assert resp.status_code == 200
+   988→    assert resp.context["is_readonly"] is False
+   989→    cookie_header_2 = resp.headers.get("set-cookie")
+   990→    assert cookie_header_2 is not None
+   991→    guest_cookie_val_2 = cookie_header_2.split(";")[0].split("=")[1]
+   992→    assert guest_cookie_val_2 != guest_cookie_val
+   993→    print("Printed QR Code scan-to-re-login: OK")
+   994→
+   995→    # 9. PWA Tests
+   996→    print("Testing PWA routes...")
+   997→    resp = client.get("/manifest.json")
+   998→    assert resp.status_code == 200
+   999→    assert resp.json()["short_name"] == "digi-gastro"
+  1000→    
+  1001→    resp = client.get("/sw.js")
+  1002→    assert resp.status_code == 200
+  1003→    assert "CACHE_NAME" in resp.text
+  1004→    print("PWA routes: OK")
+  1005→
+  1006→    # 10. WebSocket Route Check
+  1007→    print("Testing WebSocket endpoint...")
+  1008→    guest_cookies_active = {"guest_session_demo": guest_cookie_val_2}
+  1009→    with client.websocket_connect("/ws/demo") as websocket:
+  1010→        # Trigger service call which broadcasts to websockets
+  1011→        resp = client.post("/demo/service-ruf", json={"type": "service", "table": "Tisch 3"}, cookies=guest_cookies_active)
+  1012→        assert resp.status_code == 200
+  1013→        # Receive websocket broadcast
+  1014→        data = websocket.receive_json()
+  1015→        assert data == {"type": "update"}
+  1016→    print("WebSocket endpoint and broadcast: OK")
+  1017→
+  1018→    # 11. Multilingual product updates and details tests
+  1019→    print("Testing Multilingual product fields...")
+  1020→    # Update product 7 ("Klassische Shisha") to have English name and description
+  1021→    update_payload = {
+  1022→        "name": "Klassische Shisha",
+  1023→        "price": 12.00,
+  1024→        "description": "Klassische Shisha mit intensivem Geschmack",
+  1025→        "category": "Shisha",
+  1026→        "name_en": "Classic Shisha",
+  1027→        "description_en": "Classic shisha with intense flavor"
+  1028→    }
+  1029→    resp = client.put("/api/products/7", json=update_payload, cookies=dl_cookies)
+  1030→    assert resp.status_code == 200
+  1031→    
+  1032→    # Get products and check if English fields are stored
+  1033→    from database import SessionLocal, Product
+  1034→    db = SessionLocal()
+  1035→    try:
+  1036→        prod = db.query(Product).filter_by(id=7).first()
+  1037→        assert prod.name_en == "Classic Shisha"
+  1038→        assert prod.description_en == "Classic shisha with intense flavor"
+  1039→    finally:
+  1040→        db.close()
+  1041→    print("Multilingual product database storage: OK")
+  1042→
+  1043→    # 12. Admin Impersonate and check-session staff bypass tests
+  1044→    print("Testing admin impersonation and check-session staff bypass...")
+  1045→    # Impersonating table 3 should redirect and load successfully (expecting 200 follow redirects)
+  1046→    resp = client.get("/admin/impersonate/3", cookies=dl_cookies, follow_redirects=True)
+  1047→    assert resp.status_code == 200
+  1048→    
+  1049→    # Check check-session API with chef session cookies -> should return active=True
+  1050→    resp = client.get("/api/demo/check-session", cookies=dl_cookies)
+  1051→    assert resp.status_code == 200
+  1052→    assert resp.json() == {"active": True}
+  1053→    print("Admin impersonation and check-session staff bypass: OK")
+  1054→ 
+  1055→    # 13. Bulk Pay and Cancel API Tests
+  1056→    print("Testing bulk pay and cancel APIs...")
+  1057→    # First, let's create a new order with multiple items
+  1058→    order_payload = {
+  1059→        "table": "Tisch 5",
+  1060→        "token": restaurants["demo"]["security_token"],
+  1061→        "items": [
+  1062→            {"product_id": 1, "name": "Premium Burger", "price": 14.50, "quantity": 3},
+  1063→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 2}
+  1064→        ]
+  1065→    }
+  1066→    resp = client.post("/demo/bestellen", json=order_payload)
+  1067→    assert resp.status_code == 200
+  1068→    bulk_order_id = resp.json()["order_id"]
+  1069→
+  1070→    # Let's perform a bulk pay on:
+  1071→    # 1x Premium Burger (14.50)
+  1072→    # 1x Spezi (3.50)
+  1073→    # total to pay: 18.00
+  1074→    bulk_pay_payload = {
+  1075→        "items": [
+  1076→            {"item_key": "1_", "quantity": 1},
+  1077→            {"item_key": "4_", "quantity": 1}
+  1078→        ]
+  1079→    }
+  1080→    resp = client.post(f"/demo/tablet/pay-items-bulk/{bulk_order_id}", json=bulk_pay_payload, cookies=dl_cookies)
+  1081→    assert resp.status_code == 200
+  1082→    assert resp.json()["success"] is True
+  1083→    assert resp.json()["paid_amount"] == 18.00
+  1084→
+  1085→    # Let's check remaining items in restaurants cache
+  1086→    r_data = restaurants["demo"]
+  1087→    ord_cached = next(o for o in r_data["orders"] if o["id"] == bulk_order_id)
+  1088→    # Premium Burger quantity should be 2, Spezi quantity should be 1
+  1089→    assert any(i["product_id"] == 1 and i["quantity"] == 2 for i in ord_cached["items"])
+  1090→    assert any(i["product_id"] == 4 and i["quantity"] == 1 for i in ord_cached["items"])
+  1091→
+  1092→    # Let's perform a bulk cancel on:
+  1093→    # 1x Premium Burger
+  1094→    # 1x Spezi
+  1095→    # total to cancel: 18.00
+  1096→    bulk_cancel_payload = {
+  1097→        "items": [
+  1098→            {"item_key": "1_", "quantity": 1},
+  1099→            {"item_key": "4_", "quantity": 1}
+  1100→        ],
+  1101→        "pin": "1111"  # Chef pin
+  1102→    }
+  1103→    resp = client.post(f"/demo/tablet/cancel-items-bulk/{bulk_order_id}", json=bulk_cancel_payload, cookies=dl_cookies)
+  1104→    assert resp.status_code == 200
+  1105→    assert resp.json()["success"] is True
+  1106→    assert ord_cached["items"][0]["product_id"] == 1
+  1107→    assert ord_cached["items"][0]["quantity"] == 1
+  1108→
+  1109→    # 14. Test repeat orders (Classic Shisha issue) and status-sensitive splitting
+  1110→    print("Testing repeat orders logic (Classic Shisha status-sensitive separation)...")
+  1111→    # Scan Tisch 3 to get a fresh valid session cookie
+  1112→    resp_scan = client.get("/demo?tisch=3&token=token-tisch-3")
+  1113→    assert resp_scan.status_code == 200
+  1114→    cookie_header = resp_scan.headers.get("set-cookie")
+  1115→    assert cookie_header is not None
+  1116→    shisha_cookie_val = cookie_header.split(";")[0].split("=")[1]
+  1117→    shisha_cookies = {"guest_session_demo": shisha_cookie_val}
+  1118→
+  1119→    shisha_order_payload = {
+  1120→        "table": "Tisch 3",
+  1121→        "items": [
+  1122→            {"product_id": 7, "name": "Klassische Shisha", "price": 12.00, "quantity": 1}
+  1123→        ]
+  1124→    }
+  1125→    resp = client.post("/demo/bestellen", json=shisha_order_payload, cookies=shisha_cookies)
+  1126→    assert resp.status_code == 200
+  1127→    shisha_order_id = resp.json()["order_id"]
+  1128→
+  1129→    r_data = restaurants["demo"]
+  1130→    ord_cached = next(o for o in r_data["orders"] if o["id"] == shisha_order_id)
+  1131→    shisha_item = ord_cached["items"][0]
+  1132→    assert shisha_item["item_status"] == "pending"
+  1133→
+  1134→    # Confirm and deliver this shisha
+  1135→    resp = client.post(f"/demo/tablet/item-status/{shisha_order_id}", json={"item_key": "7__pending", "status": "confirmed"}, cookies=dl_cookies)
+  1136→    assert resp.status_code == 200
+  1137→    resp = client.post(f"/demo/tablet/item-status/{shisha_order_id}", json={"item_key": "7__confirmed", "status": "delivered"}, cookies=dl_cookies)
+  1138→    assert resp.status_code == 200
+  1139→
+  1140→    # Verify status is now 'delivered'
+  1141→    r_data = restaurants["demo"]
+  1142→    ord_cached = next(o for o in r_data["orders"] if o["id"] == shisha_order_id)
+  1143→    assert ord_cached["items"][0]["item_status"] == "delivered"
+  1144→
+  1145→    # Now order it again
+  1146→    resp = client.post("/demo/bestellen", json=shisha_order_payload, cookies=shisha_cookies)
+  1147→    assert resp.status_code == 200
+  1148→    
+  1149→    # Verify two separate items in the order
+  1150→    r_data = restaurants["demo"]
+  1151→    ord_cached = next(o for o in r_data["orders"] if o["id"] == shisha_order_id)
+  1152→    assert len(ord_cached["items"]) == 2
+  1153→    
+  1154→    delivered_shisha = next(i for i in ord_cached["items"] if i["item_status"] == "delivered")
+  1155→    pending_shisha = next(i for i in ord_cached["items"] if i["item_status"] == "pending")
+  1156→    assert delivered_shisha["quantity"] == 1
+  1157→    assert pending_shisha["quantity"] == 1
+  1158→    print("Repeat orders status-sensitive separation: OK")
+  1159→
+  1160→    # 9. New Features and Bug Fixes verification
+  1161→    print("Testing Tisch umbuchen order merge logic...")
+  1162→
+  1163→    # Reset tables 3 & 4 with fresh, known tokens and clear their active orders.
+  1164→    # We build the complete final lists in one step and assign once so the
+  1165→    # LiveDictProxy.__setitem__ is triggered and saves to the DB.
+  1166→    r_data = restaurants["demo"]
+  1167→    current_tables = list(r_data["tables"])            # read from DB → plain list
+  1168→    new_tables = [t for t in current_tables if t.get("number") not in ("3", "4")]
+  1169→    new_tables += [
+  1170→        {"number": "3", "zone": "innen", "security_token": "sec-t3-test", "active_session_token": None},
+  1171→        {"number": "4", "zone": "innen", "security_token": "sec-t4-test", "active_session_token": None},
+  1172→    ]
+  1173→    r_data["tables"] = new_tables                       # single assignment → persists to DB
+  1174→
+  1175→    current_orders = list(r_data["orders"])             # read from DB → plain list
+  1176→    new_orders = [
+  1177→        o for o in current_orders
+  1178→        if o.get("table") not in ("Tisch 3", "Tisch 4", "3", "4")
+  1179→        or o.get("status") in ("bezahlt", "storniert")
+  1180→    ]
+  1181→    r_data["orders"] = new_orders                       # single assignment → persists to DB
+  1182→
+  1183→    # Log in as Tisch 3 (table is free → server generates new active_session_token, redirects with set-cookie)
+  1184→    client.cookies.clear()
+  1185→    resp = client.get("/demo?tisch=3&token=sec-t3-test", follow_redirects=False)
+  1186→    assert resp.status_code == 303, f"Tisch 3 login: expected 303, got {resp.status_code}; location={resp.headers.get('location')}"
+  1187→    sc3 = resp.headers.get("set-cookie")
+  1188→    assert sc3 is not None, f"No set-cookie for Tisch 3 (redirect to {resp.headers.get('location')})"
+  1189→    t3_cookie = sc3.split(";")[0].split("=", 1)[1]
+  1190→    t3_cookies = {"guest_session_demo": t3_cookie}
+  1191→
+  1192→    # Log in as Tisch 4 using its printed security_token
+  1193→    client.cookies.clear()
+  1194→    resp = client.get("/demo?tisch=4&token=sec-t4-test", follow_redirects=False)
+  1195→    assert resp.status_code == 303, f"Tisch 4 login: expected 303, got {resp.status_code}; location={resp.headers.get('location')}"
+  1196→    sc4 = resp.headers.get("set-cookie")
+  1197→    assert sc4 is not None, f"No set-cookie for Tisch 4 (redirect to {resp.headers.get('location')})"
+  1198→    t4_cookie = sc4.split(";")[0].split("=", 1)[1]
+  1199→    t4_cookies = {"guest_session_demo": t4_cookie}
+  1200→
+  1201→    # Add a target order on Tisch 4
+  1202→    resp = client.post("/demo/bestellen", json={
+  1203→        "table": "Tisch 4",
+  1204→        "items": [
+  1205→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+  1206→        ]
+  1207→    }, cookies=t4_cookies)
+  1208→    assert resp.status_code == 200
+  1209→    tisch4_order_id = resp.json()["order_id"]
+  1210→
+  1211→    # Place a separate order on Tisch 3
+  1212→    resp = client.post("/demo/bestellen", json={
+  1213→        "table": "Tisch 3",
+  1214→        "items": [
+  1215→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+  1216→        ]
+  1217→    }, cookies=t3_cookies)
+  1218→    assert resp.status_code == 200
+  1219→    tisch3_order_id = resp.json()["order_id"]
+  1220→
+  1221→    # Transfer Tisch 3's order to Tisch 4 (should merge quantities)
+  1222→    resp = client.post("/demo/tablet/transfer-order", json={
+  1223→        "order_id": tisch3_order_id,
+  1224→        "target_table": "4"
+  1225→    }, cookies=dl_cookies)
+  1226→    assert resp.status_code == 200
+  1227→    assert resp.json()["success"] is True
+  1228→
+  1229→    # Verify that tisch3 order was removed from orders, and tisch4 order has Spezi quantity = 2
+  1230→    r_data = restaurants["demo"]
+  1231→    o_t3 = next((o for o in r_data["orders"] if o["id"] == tisch3_order_id), None)
+  1232→    assert o_t3 is None
+  1233→    o_t4 = next(o for o in r_data["orders"] if o["id"] == tisch4_order_id)
+  1234→    assert o_t4["items"][0]["quantity"] == 2
+  1235→    # Verify static security tokens remain unchanged after order transfer
+  1236→    t3_tab = next(t for t in r_data["tables"] if t["number"] == "3")
+  1237→    t4_tab = next(t for t in r_data["tables"] if t["number"] == "4")
+  1238→    assert t3_tab["security_token"] == "sec-t3-test"
+  1239→    assert t4_tab["security_token"] == "sec-t4-test"
+  1240→    print("Tisch umbuchen order merge logic: OK")
+  1241→
+  1242→    # ── Test manual product addition via flat endpoint ──
+  1243→    print("Testing flat manual order item addition...")
+  1244→    # Add manual product 4 (Spezi) on Tisch 4
+  1245→    add_payload = {
+  1246→        "table_number": "4",
+  1247→        "product_id": 4,
+  1248→        "quantity": 3
+  1249→    }
+  1250→    resp = client.post("/api/admin/orders/add-manual", json=add_payload, cookies=dl_cookies)
+  1251→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+  1252→    assert resp.json()["success"] is True
+  1253→    
+  1254→    # Verify the order item was added with item_status='pending'
+  1255→    r_data = restaurants["demo"]
+  1256→    o_t4 = next(o for o in r_data["orders"] if o["table"] == "Tisch 4" and o["status"] not in ["bezahlt", "storniert"])
+  1257→    
+  1258→    spezi_item_pending = next(item for item in o_t4["items"] if item["product_id"] == 4 and (item.get("item_status") or "pending") == "pending")
+  1259→    assert spezi_item_pending["quantity"] == 5
+  1260→    print("Flat manual order item addition: OK")
+  1261→
+  1262→    # ── Test serve order items via flat endpoint ──
+  1263→    print("Testing flat serve order items...")
+  1264→    # Place a pending order first
+  1265→    # Add a pending item to the order manually in r_data for testing
+  1266→    o_t4["items"].append({
+  1267→        "product_id": 1,
+  1268→        "name": "Premium Burger",
+  1269→        "price": 14.50,
+  1270→        "quantity": 1,
+  1271→        "category_type": "küche",
+  1272→        "note": "",
+  1273→        "item_status": "pending"
+  1274→    })
+  1275→    o_t4["total"] = round(o_t4["total"] + 14.50, 2)
+  1276→    o_t4["total_with_tip"] = round(o_t4["total_with_tip"] + 14.50, 2)
+  1277→    r_data["orders"] = list(r_data["orders"]) # sync db
+  1278→    
+  1279→    # Confirm it has a pending item
+  1280→    has_pending = any(item["item_status"] == "pending" for item in o_t4["items"])
+  1281→    assert has_pending is True
+  1282→    
+  1283→    # Call serve endpoint
+  1284→    serve_payload = {
+  1285→        "order_id": o_t4["id"]
+  1286→    }
+  1287→    resp = client.post("/admin/orders/serve", json=serve_payload, cookies=dl_cookies)
+  1288→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+  1289→    assert resp.json()["success"] is True
+  1290→    
+  1291→    # Verify that all pending items are now 'delivered'
+  1292→    r_data = restaurants["demo"]
+  1293→    o_t4_updated = next(o for o in r_data["orders"] if o["id"] == o_t4["id"])
+  1294→    assert all(item["item_status"] == "delivered" for item in o_t4_updated["items"])
+  1295→    print("Flat serve order items: OK")
+  1296→
+  1297→    print("Testing complete order stornieren (BON STORNO)...")
+  1298→    # After transfer, Tisch 3 is free again. Re-login with its security_token.
+  1299→    client.cookies.clear()
+  1300→    resp = client.get("/demo?tisch=3&token=sec-t3-test", follow_redirects=False)
+  1301→    assert resp.status_code == 303, f"Tisch 3 re-login: expected 303, got {resp.status_code}"
+  1302→    sc3_new = resp.headers.get("set-cookie")
+  1303→    assert sc3_new is not None, "No set-cookie for Tisch 3 after transfer"
+  1304→    t3_cookie_new = sc3_new.split(";")[0].split("=", 1)[1]
+  1305→    t3_cookies_new = {"guest_session_demo": t3_cookie_new}
+  1306→
+  1307→    # Place another order on Tisch 3
+  1308→    resp = client.post("/demo/bestellen", json={
+  1309→        "table": "Tisch 3",
+  1310→        "items": [
+  1311→            {"product_id": 4, "name": "Spezi", "price": 3.50, "quantity": 1}
+  1312→        ]
+  1313→    }, cookies=t3_cookies_new)
+  1314→    assert resp.status_code == 200
+  1315→    new_order_id = resp.json()["order_id"]
+  1316→
+  1317→    # Perform BON STORNO with Chef PIN
+  1318→    resp = client.post(f"/demo/tablet/stornieren/{new_order_id}", data={"pin": "1111"}, cookies=dl_cookies)
+  1319→    assert resp.status_code == 200
+  1320→    assert resp.json()["success"] is True
+  1321→
+  1322→    r_data = restaurants["demo"]
+  1323→    o_storno = next(o for o in r_data["orders"] if o["id"] == new_order_id)
+  1324→    assert o_storno["status"] == "storniert"
+  1325→    print("Complete order stornieren (BON STORNO): OK")
+  1326→
+  1327→    print("Testing root UID & Tisch redirection...")
+  1328→    resp = client.get("/?uid=demo&tisch=3", follow_redirects=False)
+  1329→    assert resp.status_code == 303, f"Expected 303 redirect, got {resp.status_code}"
+  1330→    assert "tisch=3" in resp.headers["location"]
+  1331→    assert "token=sec-t3-test" in resp.headers["location"]
+  1332→    print("Root UID & Tisch redirection: OK")
+  1333→
+  1334→    # ── Test gobd-export ──
+  1335→    print("Testing GOBD Export...")
+  1336→    resp = client.get("/admin/gobd-export", cookies=dl_cookies)
+  1337→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+  1338→    assert "content-disposition" in resp.headers
+  1339→    assert "attachment" in resp.headers["content-disposition"]
+  1340→    assert "gobd-export" in resp.headers["content-disposition"]
+  1341→    assert ".csv" in resp.headers["content-disposition"]
+  1342→    assert "text/csv" in resp.headers.get("content-type", "")
+  1343→    csv_text = resp.text
+  1344→    assert "Bestell-ID" in csv_text or "\ufeffBestell-ID" in csv_text
+  1345→    assert "Zeitstempel" in csv_text
+  1346→    assert "Produktname" in csv_text
+  1347→    print("GOBD Export (CSV Table): OK")
+  1348→
+  1349→    # ── Test sitzplan positions save ──
+  1350→    print("Testing save sitzplan positions...")
+  1351→    positions_payload = {
+  1352→        "3": {"pos_x": 10.0, "pos_y": 20.0, "width": 120.0, "height": 80.0, "shape": "rect"},
+  1353→        "4": {"pos_x": 30.0, "pos_y": 40.0, "width": 100.0, "height": 100.0, "shape": "round"}
+  1354→    }
+  1355→    resp = client.post("/admin/sitzplan/positions", json=positions_payload, cookies=dl_cookies)
+  1356→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+  1357→    assert resp.json()["success"] is True
+  1358→    
+  1359→    r_data = restaurants["demo"]
+  1360→    t3 = next(t for t in r_data["tables"] if t["number"] == "3")
+  1361→    t4 = next(t for t in r_data["tables"] if t["number"] == "4")
+  1362→    assert t3["pos_x"] == 10.0
+  1363→    assert t3["pos_y"] == 20.0
+  1364→    assert t4["pos_x"] == 30.0
+  1365→    assert t4["pos_y"] == 40.0
+  1366→    assert t4["shape"] == "round"
+  1367→    print("Save sitzplan positions: OK")
+  1368→
+  1369→    # ── Test CSV Export ──
+  1370→    print("Testing CSV Export...")
+  1371→    resp = client.get("/admin/products/export-csv", cookies=dl_cookies)
+  1372→    assert resp.status_code == 200
+  1373→    assert "text/csv" in resp.headers.get("content-type", "")
+  1374→    csv_content = resp.content.decode("utf-8-sig")
+  1375→    assert "name" in csv_content
+  1376→    assert "price" in csv_content
+  1377→    assert "category" in csv_content
+  1378→    print("CSV Export: OK")
+  1379→
+  1380→    # ── Test CSV Import (Merge) ──
+  1381→    print("Testing CSV Import (Merge)...")
+  1382→    csv_data = (
+  1383→        "id;name;price;category;category_type;description;is_vegan;is_glutenfree;is_available;allergens\n"
+  1384→        ";Neues Test-Gericht;5,50;Asiatisch;küche;Scharfe Nudeln;true;false;true;A,B\n"
+  1385→    )
+  1386→    import_file = ("test.csv", csv_data.encode("utf-8"), "text/csv")
+  1387→    resp = client.post(
+  1388→        "/admin/products/import-csv",
+  1389→        files={"csv_file": import_file},
+  1390→        data={"overwrite": "false"},
+  1391→        cookies=dl_cookies,
+  1392→        follow_redirects=False
+  1393→    )
+  1394→    assert resp.status_code == 303
+  1395→    r_data = restaurants["demo"]
+  1396→    assert "Asiatisch" in r_data["categories"]
+  1397→    nudeln = next(p for p in r_data["products"] if p["name"] == "Neues Test-Gericht")
+  1398→    assert nudeln["price"] == 5.50
+  1399→    assert nudeln["category"] == "Asiatisch"
+  1400→    assert nudeln["category_type"] == "küche"
+  1401→    assert nudeln["is_vegan"] is True
+  1402→    assert nudeln["allergens"] == ["A", "B"]
+  1403→    print("CSV Import (Merge): OK")
+  1404→
+  1405→    # ── Test CSV Import (Overwrite) ──
+  1406→    print("Testing CSV Import (Overwrite)...")
+  1407→    csv_data_overwrite = (
+  1408→        "id;name;price;category;category_type;description;is_vegan;is_glutenfree;is_available;allergens\n"
+  1409→        ";Nur Dieses Gericht;10,00;Einzeln;küche;Beschreibung;false;false;true;\n"
+  1410→    )
+  1411→    import_file_ow = ("test_ow.csv", csv_data_overwrite.encode("utf-8"), "text/csv")
+  1412→    resp = client.post(
+  1413→        "/admin/products/import-csv",
+  1414→        files={"csv_file": import_file_ow},
+  1415→        data={"overwrite": "true"},
+  1416→        cookies=dl_cookies,
+  1417→        follow_redirects=False
+  1418→    )
+  1419→    assert resp.status_code == 303
+  1420→    r_data = restaurants["demo"]
+  1421→    assert len(r_data["products"]) == 1
+  1422→    assert r_data["products"][0]["name"] == "Nur Dieses Gericht"
+  1423→    assert r_data["categories"] == ["Einzeln"]
+  1424→    print("CSV Import (Overwrite): OK")
+  1425→
+  1426→    # ── Test Category Reordering ──
+  1427→    print("Testing Category Reordering...")
+  1428→    restaurants["demo"]["categories"] = ["Burger", "Drinks", "Desserts", "Salads"]
+  1429→    reorder_payload = {"categories": ["Salads", "Burger", "Desserts", "Drinks"]}
+  1430→    resp = client.post("/admin/categories/reorder", json=reorder_payload, cookies=dl_cookies)
+  1431→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+  1432→    assert resp.json()["success"] is True
+  1433→    
+  1434→    from database import SessionLocal, Category
+  1435→    db_sess = SessionLocal()
+  1436→    try:
+  1437→        cats = db_sess.query(Category).filter_by(tenant_slug="demo").order_by(Category.position, Category.id).all()
+  1438→        cat_names = [c.name for c in cats]
+  1439→        assert cat_names == ["Salads", "Burger", "Desserts", "Drinks"], f"Expected reordered categories, got {cat_names}"
+  1440→    finally:
+  1441→        db_sess.close()
+  1442→    # ── Test Duplicate Table Numbers & Table Deletion by Zone & Position Saving & Card Payment Toggle ──
+  1443→    print("Testing table duplicate numbers and deletion by zone and card payment toggle...")
+  1444→    # Clear tables
+  1445→    restaurants["demo"]["tables"] = []
+  1446→    
+  1447→    # Create Table 12 in Drinnen (innen)
+  1448→    resp = client.post("/admin/table-erstellen", data={"number": "12", "zone": "innen", "shape": "rect"}, cookies=dl_cookies, follow_redirects=False)
+  1449→    assert resp.status_code == 303
+  1450→    
+  1451→    # Create Table 12 in Draußen (terrasse)
+  1452→    resp = client.post("/admin/table-erstellen", data={"number": "12", "zone": "terrasse", "shape": "round"}, cookies=dl_cookies, follow_redirects=False)
+  1453→    assert resp.status_code == 303
+  1454→    
+  1455→    r_data = restaurants["demo"]
+  1456→    tables_list = r_data["tables"]
+  1457→    # Verify both exist
+  1458→    table_innen = next((t for t in tables_list if t["number"] == "12" and t["zone"] == "innen"), None)
+  1459→    table_terrasse = next((t for t in tables_list if t["number"] == "12" and t["zone"] == "terrasse"), None)
+  1460→    assert table_innen is not None
+  1461→    assert table_terrasse is not None
+  1462→    assert table_innen["shape"] == "rect"
+  1463→    assert table_terrasse["shape"] == "round"
+  1464→    
+  1465→    # Verify compound key positioning saving
+  1466→    layout_payload = {
+  1467→        "12:innen": {"pos_x": 10.0, "pos_y": 20.0, "width": 100.0, "height": 80.0, "shape": "rect"},
+  1468→        "12:terrasse": {"pos_x": 30.0, "pos_y": 40.0, "width": 120.0, "height": 90.0, "shape": "round"}
+  1469→    }
+  1470→    resp = client.post("/admin/sitzplan/positions", json=layout_payload, cookies=dl_cookies)
+  1471→    assert resp.status_code == 200
+  1472→    assert resp.json()["success"] is True
+  1473→    
+  1474→    r_data = restaurants["demo"]
+  1475→    table_innen = next((t for t in r_data["tables"] if t["number"] == "12" and t["zone"] == "innen"))
+  1476→    table_terrasse = next((t for t in r_data["tables"] if t["number"] == "12" and t["zone"] == "terrasse"))
+  1477→    assert table_innen["pos_x"] == 10.0
+  1478→    assert table_terrasse["pos_x"] == 30.0
+  1479→    
+  1480→    # Test card payment toggle
+  1481→    assert restaurants["demo"].get("accepts_card_payment") is not False # True by default
+  1482→    resp = client.post("/admin/card-payment-toggle", data={"accepts_card_payment": "false"}, cookies=dl_cookies, follow_redirects=False)
+  1483→    assert resp.status_code == 303
+  1484→    assert restaurants["demo"].get("accepts_card_payment") is False
+  1485→    
+  1486→    resp = client.post("/admin/card-payment-toggle", data={"accepts_card_payment": "true"}, cookies=dl_cookies, follow_redirects=False)
+  1487→    assert resp.status_code == 303
+  1488→    assert restaurants["demo"].get("accepts_card_payment") is True
+  1489→
+  1490→    # Test impersonation with zone query param for table 12
+  1491→    # Impersonate Table 12 in terrasse zone
+  1492→    resp = client.get("/admin/impersonate/12", params={"z": "terrasse"}, cookies=dl_cookies, follow_redirects=False)
+  1493→    assert resp.status_code == 303
+  1494→    # Check that it redirected to client menu with table 12 and zone terrasse
+  1495→    assert "tisch=12" in resp.headers["location"]
+  1496→    assert "z=terrasse" in resp.headers["location"]
+  1497→    # Check that guest_session_demo cookie was set with the zone in display name
+  1498→    cookie = resp.headers.get("set-cookie", "")
+  1499→    import urllib.parse
+  1500→    assert "Tisch 12 (terrasse)" in urllib.parse.unquote(cookie)
+  1501→
+  1502→    # Verify table deletion by zone
+  1503→    resp = client.post("/admin/table-loeschen/12", params={"zone": "innen"}, cookies=dl_cookies, follow_redirects=False)
+  1504→    assert resp.status_code == 303
+  1505→    
+  1506→    r_data = restaurants["demo"]
+  1507→    assert any(t["number"] == "12" and t["zone"] == "terrasse" for t in r_data["tables"])
+  1508→    assert not any(t["number"] == "12" and t["zone"] == "innen" for t in r_data["tables"])
+  1509→    
+  1510→    # Test process-generated-image API
+  1511→    print("Testing process-generated-image API...")
+  1512→    import io
+  1513→    dummy_image = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82" # 1x1 png
+  1514→    resp = client.post("/api/products/process-generated-image", files={"file": ("test.png", io.BytesIO(dummy_image), "image/png")}, cookies=dl_cookies)
+  1515→    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+  1516→    assert resp.json()["success"] is True
+  1517→    assert "/uploads/products/" in resp.json()["image_url"]
+  1518→    print("process-generated-image API: OK")
+  1519→
+  1520→    print("Table duplicate numbers, deletion by zone, positioning, and card payment toggle: OK")
+  1521→
+  1522→    print("\nALL INTEGRATION TESTS PASSED SUCCESSFULLY! [OK]")
+  1523→
+  1524→if __name__ == "__main__":
+  1525→    try:
+  1526→        test_integration()
+  1527→    except AssertionError as e:
+  1528→        traceback.print_exc()
+  1529→        print(f"\nTEST FAILED: {e}", file=sys.stderr)
+  1530→        sys.exit(1)
+  1531→    except Exception as e:
+  1532→        traceback.print_exc()
+  1533→        print(f"\nUNEXPECTED ERROR: {e}", file=sys.stderr)
+  1534→        sys.exit(1)
+  1535→
