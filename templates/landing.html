@@ -75,19 +75,15 @@
 
         /* ── HERO VIDEO OVERLAY ── */
         .hero-video-overlay {
-            background: linear-gradient(
-                to bottom,
-                rgba(5, 5, 7, 0.55) 0%,
-                rgba(5, 5, 7, 0.45) 40%,
-                rgba(5, 5, 7, 0.70) 75%,
-                rgba(5, 5, 7, 1) 100%
-            );
+            background:
+                linear-gradient(to right, rgba(5,5,7,0.85) 0%, rgba(5,5,7,0) 15%, rgba(5,5,7,0) 85%, rgba(5,5,7,0.85) 100%),
+                linear-gradient(to bottom, rgba(5,5,7,0.50) 0%, rgba(5,5,7,0.30) 35%, rgba(5,5,7,0.55) 70%, rgba(5,5,7,1) 100%);
         }
         .hero-video-overlay::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: radial-gradient(ellipse at 30% 50%, rgba(201, 168, 76, 0.08) 0%, transparent 60%);
+            background: radial-gradient(ellipse at 30% 45%, rgba(201, 168, 76, 0.10) 0%, transparent 55%);
             pointer-events: none;
         }
 
@@ -322,14 +318,14 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- HERO SECTION — VIDEO BACKGROUND -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <header class="relative min-h-[90vh] lg:min-h-screen flex items-center overflow-hidden z-10">
-        <!-- Video Background -->
-        <div class="absolute inset-0 z-0 overflow-hidden">
-            <video autoplay loop muted playsinline class="absolute min-w-full min-h-full w-auto h-auto top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover" style="object-position: center center;">
+    <header class="relative flex items-center overflow-hidden z-10">
+        <!-- Video Background — full width, natural 16:9 aspect, no cropping -->
+        <div class="absolute inset-0 z-0 bg-[#050507]">
+            <video autoplay loop muted playsinline class="w-full h-full object-contain">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
-        <!-- Gradient Overlay -->
+        <!-- Gradient Overlay — darkens edges so black bars from object-contain blend seamlessly -->
         <div class="absolute inset-0 hero-video-overlay z-1"></div>
 
         <!-- Hero Content -->
