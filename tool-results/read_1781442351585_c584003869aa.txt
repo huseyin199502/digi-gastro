@@ -1,0 +1,1029 @@
+     1→<!DOCTYPE html>
+     2→<html lang="de" class="dark scroll-smooth">
+     3→<head>
+     4→    <meta charset="UTF-8">
+     5→    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+     6→    
+     7→    <!-- PWA Meta Tags -->
+     8→    <meta name="apple-mobile-web-app-capable" content="yes">
+     9→    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    10→    <meta name="apple-mobile-web-app-title" content="digi-gastro">
+    11→    <meta name="theme-color" content="#C9A84C">
+    12→    <meta name="mobile-web-app-capable" content="yes">
+    13→    <link rel="manifest" href="/manifest.json">
+    14→    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    15→    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    16→    
+    17→    <!-- SEO Optimization -->
+    18→    <title>digi-gastro.de | Das intelligente Betriebssystem für moderne Gastronomie</title>
+    19→    <meta name="description" content="Digitales Menü, Shisha- & Küchenmodus, Rechnungs-Splitting und GoBD-Sicherheit in einem System. Steigere deinen Umsatz um bis zu 25% ohne App-Download für deine Gäste.">
+    20→    <meta name="keywords" content="Gastronomie Software, Digitales Bestellsystem Restaurant, Shisha Bar App, GoBD Kassensystem Schnittstelle, QR-Code Speisekarte, Tischbestellung Webapp, Gastro MVP">
+    21→    <meta name="robots" content="index, follow">
+    22→    <link rel="canonical" href="https://digi-gastro.de">
+    23→    
+    24→    <!-- Open Graph Tags (Facebook, WhatsApp) -->
+    25→    <meta property="og:title" content="digi-gastro.de | Das intelligente Betriebssystem für moderne Gastronomie">
+    26→    <meta property="og:description" content="Steigere deinen Umsatz um bis zu 25% durch digitales Bestellen, smartes Upselling und GoBD-sichere Buchhaltung. Shisha- & Küchenmodus, einer für alles.">
+    27→    <meta property="og:url" content="https://digi-gastro.de">
+    28→    <meta property="og:type" content="website">
+    29→    <meta property="og:image" content="/static/images/digigastrologo.jpeg">
+    30→    <meta property="og:locale" content="de_DE">
+    31→    
+    32→    <!-- Twitter Card Tags -->
+    33→    <meta name="twitter:card" content="summary_large_image">
+    34→    <meta name="twitter:title" content="digi-gastro.de | Das intelligente Gastronomie-Betriebssystem">
+    35→    <meta name="twitter:description" content="Smartes Bestellsystem, Rechnungs-Splitting und unmanipulierbares Audit-Log. Perfekt für Restaurants und Shishabars.">
+    36→    <meta name="twitter:image" content="/static/images/digigastrologo.jpeg">
+    37→
+    38→    <!-- Fonts & Styling -->
+    39→    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    40→    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    41→    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    42→    <link rel="stylesheet" href="/static/css/design_system.css?v=8">
+    43→
+    44→    <script id="tailwind-config">
+    45→        tailwind.config = {
+    46→            darkMode: "class",
+    47→            theme: {
+    48→                extend: {
+    49→                    colors: {
+    50→                        primary: '#C9A84C',
+    51→                        gold: {
+    52→                            50: '#FDF8E8',
+    53→                            100: '#FAF0C8',
+    54→                            200: '#F5E08A',
+    55→                            300: '#EFD04D',
+    56→                            400: '#D4B94F',
+    57→                            500: '#C9A84C',
+    58→                            600: '#A8872E',
+    59→                            700: '#866A24',
+    60→                            800: '#654F1B',
+    61→                            900: '#433512',
+    62→                        },
+    63→                        charcoal: '#0b0c10',
+    64→                    }
+    65→                }
+    66→            }
+    67→        }
+    68→    </script>
+    69→    <style>
+    70→        body {
+    71→            background-color: #050507;
+    72→            color: #f3f4f6;
+    73→            font-family: 'Inter', sans-serif;
+    74→        }
+    75→
+    76→        /* ── HERO VIDEO OVERLAY ── */
+    77→        .hero-video-overlay {
+    78→            background: linear-gradient(
+    79→                to bottom,
+    80→                rgba(5, 5, 7, 0.55) 0%,
+    81→                rgba(5, 5, 7, 0.45) 40%,
+    82→                rgba(5, 5, 7, 0.70) 75%,
+    83→                rgba(5, 5, 7, 1) 100%
+    84→            );
+    85→        }
+    86→        .hero-video-overlay::before {
+    87→            content: '';
+    88→            position: absolute;
+    89→            inset: 0;
+    90→            background: radial-gradient(ellipse at 30% 50%, rgba(201, 168, 76, 0.08) 0%, transparent 60%);
+    91→            pointer-events: none;
+    92→        }
+    93→
+    94→        /* ── GOLDEN AURORA BACKGROUND ── */
+    95→        @keyframes aurora-gold {
+    96→            0% { background-position: 0% 50%; }
+    97→            50% { background-position: 100% 50%; }
+    98→            100% { background-position: 0% 50%; }
+    99→        }
+   100→        .aurora-bg {
+   101→            background: linear-gradient(135deg, rgba(201, 168, 76, 0.06) 0%, rgba(139, 92, 246, 0.03) 30%, rgba(201, 168, 76, 0.04) 60%, rgba(168, 135, 46, 0.06) 100%);
+   102→            background-size: 400% 400%;
+   103→            animation: aurora-gold 25s ease infinite;
+   104→        }
+   105→
+   106→        /* ── FLOATING BLOBS ── */
+   107→        @keyframes float-slow {
+   108→            0%, 100% { transform: translateY(0px) scale(1); }
+   109→            50% { transform: translateY(-40px) scale(1.06); }
+   110→        }
+   111→        @keyframes float-slower {
+   112→            0%, 100% { transform: translateY(0px) scale(1); }
+   113→            50% { transform: translateY(50px) scale(0.94); }
+   114→        }
+   115→        @keyframes float-medium {
+   116→            0%, 100% { transform: translateX(0px) translateY(0px) scale(1); }
+   117→            50% { transform: translateX(30px) translateY(-30px) scale(1.03); }
+   118→        }
+   119→        .animate-float-slow { animation: float-slow 16s ease-in-out infinite; }
+   120→        .animate-float-slower { animation: float-slower 22s ease-in-out infinite; }
+   121→        .animate-float-medium { animation: float-medium 13s ease-in-out infinite; }
+   122→
+   123→        /* ── SHIMMER BUTTON EFFECT ── */
+   124→        @keyframes shine {
+   125→            100% { left: 125%; }
+   126→        }
+   127→        .btn-shimmer::after {
+   128→            content: '';
+   129→            position: absolute;
+   130→            top: 0; left: -75%; width: 50%; height: 100%;
+   131→            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 100%);
+   132→            transform: skewX(-25deg);
+   133→            transition: 0.75s;
+   134→        }
+   135→        .btn-shimmer:hover::after {
+   136→            animation: shine 0.75s ease-in-out;
+   137→        }
+   138→
+   139→        /* ── SCROLL REVEALS ── */
+   140→        .reveal {
+   141→            opacity: 0;
+   142→            transform: translateY(35px);
+   143→            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+   144→        }
+   145→        .reveal.revealed {
+   146→            opacity: 1;
+   147→            transform: translateY(0);
+   148→        }
+   149→        .reveal-scale {
+   150→            opacity: 0;
+   151→            transform: scale(0.96) translateY(20px);
+   152→            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+   153→        }
+   154→        .reveal-scale.revealed {
+   155→            opacity: 1;
+   156→            transform: scale(1) translateY(0);
+   157→        }
+   158→
+   159→        /* ── GLASS CARD WITH GOLD GLOW ── */
+   160→        .glass-card {
+   161→            position: relative;
+   162→            overflow: hidden;
+   163→            background: rgba(17, 19, 26, 0.55);
+   164→            backdrop-filter: blur(16px) saturate(160%);
+   165→            -webkit-backdrop-filter: blur(16px) saturate(160%);
+   166→            border: 1px solid rgba(255, 255, 255, 0.05);
+   167→            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+   168→        }
+   169→        .glass-card::before {
+   170→            content: '';
+   171→            position: absolute;
+   172→            inset: 0;
+   173→            background: radial-gradient(350px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), rgba(201, 168, 76, 0.10), transparent 45%);
+   174→            opacity: 0;
+   175→            transition: opacity 0.4s ease;
+   176→            pointer-events: none;
+   177→            z-index: 1;
+   178→        }
+   179→        .glass-card:hover::before {
+   180→            opacity: 1;
+   181→        }
+   182→        .glass-card:hover {
+   183→            border-color: rgba(201, 168, 76, 0.25);
+   184→            transform: translateY(-2px);
+   185→            box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.6);
+   186→        }
+   187→
+   188→        /* ── CARD ICON HOVER ── */
+   189→        .card-icon {
+   190→            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+   191→        }
+   192→        .glass-card:hover .card-icon {
+   193→            transform: scale(1.12) rotate(6deg);
+   194→            background-color: rgba(201, 168, 76, 0.18) !important;
+   195→            color: #EFD04D !important;
+   196→            box-shadow: 0 0 15px rgba(201, 168, 76, 0.2);
+   197→        }
+   198→
+   199→        /* ── ACCORDION ── */
+   200→        .accordion-content {
+   201→            max-height: 0;
+   202→            overflow: hidden;
+   203→            transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), padding 0.4s ease;
+   204→        }
+   205→
+   206→        /* ── FLYING ORDER ANIMATION ── */
+   207→        @keyframes fly-order {
+   208→            0% { transform: scale(0.3) translate(0, 0); opacity: 0; }
+   209→            15% { opacity: 1; transform: scale(1.1) translate(40px, -20px); }
+   210→            85% { opacity: 1; transform: scale(1.0) translate(250px, -10px); }
+   211→            100% { transform: scale(0.5) translate(300px, 0); opacity: 0; }
+   212→        }
+   213→        .animate-fly-ticket {
+   214→            animation: fly-order 1.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+   215→        }
+   216→
+   217→        /* ── PULSE ── */
+   218→        @keyframes custom-pulse {
+   219→            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.4); }
+   220→            50% { transform: scale(1.03); box-shadow: 0 0 15px 4px rgba(201, 168, 76, 0.15); }
+   221→        }
+   222→        .animate-custom-pulse {
+   223→            animation: custom-pulse 2s infinite;
+   224→        }
+   225→
+   226→        /* ── GOLD GRADIENT TEXT ── */
+   227→        .text-gradient-gold {
+   228→            background: linear-gradient(135deg, #EFD04D 0%, #C9A84C 40%, #A8872E 100%);
+   229→            -webkit-background-clip: text;
+   230→            -webkit-text-fill-color: transparent;
+   231→            background-clip: text;
+   232→        }
+   233→
+   234→        /* ── PREMIUM GOLD BUTTON ── */
+   235→        .btn-gold {
+   236→            background: linear-gradient(135deg, #C9A84C 0%, #A8872E 100%);
+   237→            color: #050507;
+   238→            box-shadow: 0 4px 20px 0 rgba(201, 168, 76, 0.3);
+   239→            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+   240→        }
+   241→        .btn-gold:hover {
+   242→            box-shadow: 0 6px 28px 0 rgba(201, 168, 76, 0.45);
+   243→            filter: brightness(1.08);
+   244→            transform: translateY(-1px);
+   245→        }
+   246→        .btn-gold:active {
+   247→            transform: scale(0.97);
+   248→        }
+   249→
+   250→        /* ── GLASS OUTLINE BUTTON ── */
+   251→        .btn-glass {
+   252→            background: rgba(255, 255, 255, 0.04);
+   253→            border: 1px solid rgba(255, 255, 255, 0.12);
+   254→            color: #f3f4f6;
+   255→            transition: all 0.25s ease;
+   256→        }
+   257→        .btn-glass:hover {
+   258→            background: rgba(255, 255, 255, 0.08);
+   259→            border-color: rgba(255, 255, 255, 0.25);
+   260→        }
+   261→
+   262→        /* ── GRID BACKGROUND ── */
+   263→        .grid-bg {
+   264→            background-image: 
+   265→                linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+   266→                linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+   267→            background-size: 40px 40px;
+   268→        }
+   269→
+   270→        /* ── GOLD DIVIDER ── */
+   271→        .gold-divider {
+   272→            height: 1px;
+   273→            background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.3), transparent);
+   274→        }
+   275→
+   276→        /* ── STAT COUNTER ANIMATION ── */
+   277→        @keyframes count-up {
+   278→            from { opacity: 0; transform: translateY(10px); }
+   279→            to { opacity: 1; transform: translateY(0); }
+   280→        }
+   281→    </style>
+   282→    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+   283→</head>
+   284→<body class="bg-obsidian text-zinc-100 font-sans min-h-screen relative overflow-x-hidden">
+   285→
+   286→    <!-- PRELOADER -->
+   287→    <div id="preloader" class="fixed inset-0 bg-zinc-950 z-50 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
+   288→        <div class="flex flex-col items-center gap-4">
+   289→            <div class="relative w-16 h-16 flex items-center justify-center">
+   290→                <div class="absolute inset-0 rounded-2xl border border-gold-500/20 border-t-gold-500 animate-spin"></div>
+   291→                <span class="material-symbols-outlined text-gold-500 text-3xl font-light animate-pulse">restaurant</span>
+   292→            </div>
+   293→            <div class="text-center">
+   294→                <span class="text-lg font-black tracking-tight font-display text-white">digi-gastro<span class="text-gold-500">.de</span></span>
+   295→                <p class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Lade System...</p>
+   296→            </div>
+   297→        </div>
+   298→    </div>
+   299→
+   300→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   301→    <!-- NAVIGATION -->
+   302→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   303→    <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-40 relative z-10 transition-all duration-300">
+   304→        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+   305→            <div class="flex items-center gap-3">
+   306→                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
+   307→                <div id="logo-fallback-nav" class="hidden h-10 w-10 rounded-xl bg-zinc-900 border border-gold-500/30 items-center justify-center text-gold-500 font-bold">dg</div>
+   308→                <span class="text-xl font-black tracking-tight font-display text-white">digi-gastro<span class="text-gold-500">.de</span></span>
+   309→            </div>
+   310→            <div class="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-wider text-zinc-400">
+   311→                <a href="#features" class="hover:text-gold-400 transition-colors duration-250">Features</a>
+   312→                <a href="#demo" class="hover:text-gold-400 transition-colors duration-250">Live-Demo</a>
+   313→                <a href="#faq" class="hover:text-gold-400 transition-colors duration-250">FAQ</a>
+   314→            </div>
+   315→            <div class="flex items-center gap-3 sm:gap-4">
+   316→                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors py-2 px-1">Partner-Login</button>
+   317→                <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-gold text-xs px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold">Demo anfragen</a>
+   318→            </div>
+   319→        </div>
+   320→    </nav>
+   321→ 
+   322→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   323→    <!-- HERO SECTION — VIDEO BACKGROUND -->
+   324→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   325→    <header class="relative min-h-[90vh] lg:min-h-screen flex items-center overflow-hidden z-10">
+   326→        <!-- Video Background -->
+   327→        <div class="absolute inset-0 z-0">
+   328→            <video autoplay loop muted playsinline class="w-full h-full object-cover">
+   329→                <source src="/static/videos/hero-bg.mp4" type="video/mp4">
+   330→            </video>
+   331→        </div>
+   332→        <!-- Gradient Overlay -->
+   333→        <div class="absolute inset-0 hero-video-overlay z-1"></div>
+   334→
+   335→        <!-- Hero Content -->
+   336→        <div class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+   337→            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+   338→                
+   339→                <!-- Hero Text (Left) -->
+   340→                <div class="lg:col-span-6 text-left space-y-6 lg:pr-6">
+   341→                    <div class="inline-flex items-center gap-2 bg-gold-500/10 border border-gold-500/20 text-gold-400 px-3.5 py-1.5 rounded-full text-xs font-bold font-display tracking-wide uppercase">
+   342→                        <span class="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse"></span>
+   343→                        Gastronomie OS 2.0
+   344→                    </div>
+   345→                    <h1 class="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white leading-[1.08] font-display">
+   346→                        Das Betriebssystem für <span class="text-gradient-gold">moderne Gastronomie</span>.
+   347→                    </h1>
+   348→                    <p class="text-base sm:text-lg text-zinc-300 leading-relaxed font-medium max-w-xl">
+   349→                        Egal ob Burger-Laden oder Shishabar — digi-gastro passt sich per Mausklick an deine Location an. Steigere deinen Umsatz um bis zu <span class="text-gold-400 font-bold">25%</span> durch digitales Bestellen, smartes Upselling und GoBD-sichere Buchhaltung.
+   350→                    </p>
+   351→                    <div class="pt-4 flex flex-col sm:flex-row gap-4">
+   352→                        <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-gold text-sm px-8 py-4 rounded-xl flex items-center justify-center gap-2 btn-shimmer relative font-bold">
+   353→                            <i class="fa-solid fa-envelope"></i> Vertrieb kontaktieren
+   354→                        </a>
+   355→                        <a href="#demo" class="btn-glass text-sm px-8 py-4 rounded-xl flex items-center justify-center gap-2 font-bold">
+   356→                            <i class="fa-solid fa-circle-play text-gold-400"></i> Simulator ansehen
+   357→                        </a>
+   358→                    </div>
+   359→                </div>
+   360→
+   361→                <!-- Interactive Demo Widget (Right) -->
+   362→                <div id="demo" class="lg:col-span-6 flex flex-col items-center reveal-scale">
+   363→                    <div class="w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden flex flex-col">
+   364→                        <div class="absolute inset-0 bg-gradient-to-b from-gold-500/5 to-transparent pointer-events-none"></div>
+   365→                        
+   366→                        <div class="flex items-center justify-between border-b border-zinc-800/40 pb-4 mb-5">
+   367→                            <div class="flex items-center gap-2">
+   368→                                <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+   369→                                <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+   370→                                <span class="w-3 h-3 rounded-full bg-gold-500/80"></span>
+   371→                            </div>
+   372→                            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-display">Interaktive Simulation</span>
+   373→                        </div>
+   374→
+   375→                        <div class="relative flex gap-4 items-stretch h-80 select-none">
+   376→                            <!-- Guest Phone View -->
+   377→                            <div class="w-5/12 bg-zinc-950 border border-zinc-800/80 rounded-[24px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 outline outline-4 outline-zinc-900">
+   378→                                <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-3 bg-zinc-900 rounded-full z-20 flex items-center justify-center">
+   379→                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-800/90 ml-4"></span>
+   380→                                </div>
+   381→                                <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 mt-1">
+   382→                                    <span>Tisch 1</span>
+   383→                                    <span class="text-gold-500 flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-gold-500 animate-pulse"></span> Live</span>
+   384→                                </div>
+   385→                                <div class="flex-grow py-3 flex flex-col justify-start space-y-2.5 overflow-hidden">
+   386→                                    <div class="text-[9px] font-extrabold text-white tracking-tight leading-none text-center font-display mt-0.5">DEMO Lounge</div>
+   387→                                    <div class="space-y-1.5 pt-1">
+   388→                                        <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between">
+   389→                                            <div class="min-w-0">
+   390→                                                <div class="text-[8px] font-black text-zinc-200 truncate">Coca Cola Zero</div>
+   391→                                                <div class="text-[7px] font-bold text-gold-500">3,50 €</div>
+   392→                                            </div>
+   393→                                            <button id="demo-add-btn" onclick="addDemoItem()" class="w-4 h-4 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all outline-none">+</button>
+   394→                                        </div>
+   395→                                        <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between opacity-75">
+   396→                                            <div class="min-w-0">
+   397→                                                <div class="text-[8px] font-black text-zinc-250 truncate">Premium Cheeseburger</div>
+   398→                                                <div class="text-[7px] font-bold text-gold-500">9,50 €</div>
+   399→                                            </div>
+   400→                                            <div class="w-4 h-4 bg-zinc-900 text-zinc-600 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed">+</div>
+   401→                                        </div>
+   402→                                    </div>
+   403→                                </div>
+   404→                                <div class="pt-2 border-t border-zinc-900/60">
+   405→                                    <button id="demo-submit-btn" onclick="sendDemoOrder()" class="w-full bg-zinc-900 text-zinc-550 cursor-not-allowed font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300">
+   406→                                        Warenkorb leer
+   407→                                    </button>
+   408→                                </div>
+   409→                            </div>
+   410→
+   411→                            <!-- Flying Order Ticket -->
+   412→                            <div id="demo-flying-ticket" class="absolute left-[20%] top-[35%] w-24 bg-gold-500 text-black rounded-lg p-2 font-display text-[8px] font-black shadow-lg shadow-gold-500/30 pointer-events-none hidden z-30">
+   413→                                <div class="flex justify-between border-b border-black/15 pb-0.5 mb-1">
+   414→                                    <span>TISCH 1</span>
+   415→                                    <span class="animate-pulse">Neu!</span>
+   416→                                </div>
+   417→                                <div class="truncate">1x Cola Zero</div>
+   418→                            </div>
+   419→
+   420→                            <!-- Kitchen Monitor -->
+   421→                            <div class="flex-grow bg-zinc-950 border border-zinc-800/80 rounded-[20px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 overflow-hidden outline outline-4 outline-zinc-900">
+   422→                                <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover opacity-20 z-0 pointer-events-none">
+   423→                                    <source src="https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-40342-large.mp4" type="video/mp4">
+   424→                                </video>
+   425→                                <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/90 z-1 pointer-events-none"></div>
+   426→                                <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 relative z-2">
+   427→                                    <span>KÜCHEN-MONITOR (KDS)</span>
+   428→                                    <span class="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span>
+   429→                                </div>
+   430→                                <div class="flex-grow py-2.5 flex flex-col justify-start space-y-1.5 overflow-hidden relative z-2">
+   431→                                    <div class="text-[7px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Aktive Bestellungen:</div>
+   432→                                    <div id="demo-kds-board" class="space-y-1.5">
+   433→                                        <div class="bg-zinc-950/80 backdrop-blur-md border border-zinc-900 p-2 rounded-lg flex items-center justify-between text-[7px]">
+   434→                                            <div>
+   435→                                                <div class="font-extrabold text-white">Tisch 4 &bull; 4 min</div>
+   436→                                                <div class="text-zinc-400 mt-0.5 font-medium">1x Double Cheeseburger</div>
+   437→                                            </div>
+   438→                                            <div class="bg-gold-500/10 text-gold-400 px-1.5 py-0.5 rounded border border-gold-500/20 font-bold">Zubereitung</div>
+   439→                                        </div>
+   440→                                    </div>
+   441→                                </div>
+   442→                                <div class="text-[6px] text-zinc-600 text-center font-bold relative z-2">Bestellungen erscheinen in Echtzeit</div>
+   443→                            </div>
+   444→                        </div>
+   445→
+   446→                        <div class="mt-5 pt-4 border-t border-zinc-800/40 text-center text-xs text-zinc-400 flex flex-col items-center justify-center gap-2">
+   447→                            <p id="demo-guide" class="font-medium text-[11px] leading-relaxed">
+   448→                                Drücke oben auf das <strong class="text-gold-500 font-extrabold">+</strong> am Smartphone, um Cola in den Warenkorb zu legen!
+   449→                            </p>
+   450→                            <button id="demo-reset-btn" onclick="resetDemoSimulator()" class="hidden text-[10px] font-bold text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-widest">
+   451→                                <i class="fa-solid fa-rotate-left mr-1"></i> Simulation zurücksetzen
+   452→                            </button>
+   453→                        </div>
+   454→                    </div>
+   455→                </div>
+   456→            </div>
+   457→        </div>
+   458→
+   459→        <!-- Scroll Indicator -->
+   460→        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+   461→            <a href="#stats" class="text-gold-500/50 hover:text-gold-400 transition-colors">
+   462→                <i class="fa-solid fa-chevron-down text-lg"></i>
+   463→            </a>
+   464→        </div>
+   465→    </header>
+   466→
+   467→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   468→    <!-- STATS BAR -->
+   469→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   470→    <section id="stats" class="relative z-10 border-y border-zinc-800/40 bg-zinc-950/60 backdrop-blur-md">
+   471→        <div class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+   472→            <div class="reveal">
+   473→                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">25%</div>
+   474→                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">Mehr Umsatz</div>
+   475→            </div>
+   476→            <div class="reveal">
+   477→                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">0</div>
+   478→                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">App-Download nötig</div>
+   479→            </div>
+   480→            <div class="reveal">
+   481→                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">100%</div>
+   482→                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">GoBD-konform</div>
+   483→            </div>
+   484→            <div class="reveal">
+   485→                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">24/7</div>
+   486→                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">Echtzeit-Betrieb</div>
+   487→            </div>
+   488→        </div>
+   489→    </section>
+   490→
+   491→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   492→    <!-- FEATURE MATRIX (BENTO GRID) -->
+   493→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   494→    <section id="features" class="py-16 md:py-28 relative z-10">
+   495→        <div class="max-w-7xl mx-auto px-6">
+   496→            <div class="text-center max-w-3xl mx-auto mb-16">
+   497→                <h2 class="text-3xl sm:text-5xl font-black text-white font-display tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Das All-in-One Gastro-Betriebssystem</h2>
+   498→                <p class="text-zinc-400 mt-4 text-sm sm:text-base font-medium">Alles, was deine Gastronomie für mehr Profitabilität, glücklichere Mitarbeiter und fehlerfreie Abläufe benötigt.</p>
+   499→            </div>
+   500→            
+   501→            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+   502→                
+   503→                <!-- BENTO CARD 1: Shisha-Modus -->
+   504→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+   505→                    <div>
+   506→                        <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
+   507→                            <i class="fa-solid fa-fire text-xl"></i>
+   508→                        </div>
+   509→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Smarter Shisha-Modus (Kohle per Klick nachlegen)</h3>
+   510→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   511→                            Schluss mit lautem Rufen quer durch die Bar. Deine Gäste ordern neue Kohle oder Köpfe mit einem einzigen Klick am eigenen Smartphone. Die Anfrage landet in Echtzeit auf dem Monitor des Kohlemeisters, während Shakes und Snacks automatisch an die Bar oder in die Küche geleitet werden.
+   512→                        </p>
+   513→                    </div>
+   514→                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Spezifisch für Shisha-Bars optimiert</div>
+   515→                </div>
+   516→
+   517→                <!-- BENTO CARD 2: KDS -->
+   518→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+   519→                    <div>
+   520→                        <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
+   521→                            <i class="fa-solid fa-desktop text-xl"></i>
+   522→                        </div>
+   523→                        <h3 class="text-xl font-bold text-white mb-3 font-display">KDS Küchen-Display</h3>
+   524→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   525→                            Keine Zettelwirtschaft, keine verloren gegangenen Bons und keine fehlerhaften Absprachen mehr. Bestellungen werden übersichtlich auf Küchenmonitoren nach Einlasszeit und Dringlichkeit sortiert dargestellt.
+   526→                        </p>
+   527→                    </div>
+   528→                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; 100% papierlose Küche</div>
+   529→                </div>
+   530→
+   531→                <!-- BENTO CARD 3: Rechnungs-Splitting -->
+   532→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+   533→                    <div>
+   534→                        <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
+   535→                            <i class="fa-solid fa-arrows-split-up-and-left text-xl"></i>
+   536→                        </div>
+   537→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Rechnungs-Teilzahlung</h3>
+   538→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   539→                            "Wer zahlt was?" – Für dein Personal ab jetzt kein Stressfaktor mehr. Kellner teilen Speisen und Getränke eines Tisches direkt auf dem Tablet auf und rechnen Produkte einzeln ab. Blitzschnell, intuitiv und ohne Rechenfehler.
+   540→                        </p>
+   541→                    </div>
+   542→                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Gastro-Professional Standard</div>
+   543→                </div>
+   544→
+   545→                <!-- BENTO CARD 4: GoBD -->
+   546→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+   547→                    <div>
+   548→                        <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
+   549→                            <i class="fa-solid fa-shield-halved text-xl"></i>
+   550→                        </div>
+   551→                        <h3 class="text-xl font-bold text-white mb-3 font-display">100% Finanzamtsicher (GoBD & Krypto-Audit-Log)</h3>
+   552→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   553→                            Volle Rechtssicherheit bei jeder Betriebsprüfung. Jede manuelle Änderung, jede Stornierung und jeder Bezahlvorgang wird manipulationssicher in einem kryptografisch verschlüsselten Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. Generiere den finanzamtkonformen Steuerberater-Export mit nur einem Klick.
+   554→                        </p>
+   555→                    </div>
+   556→                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Lückenloses GoBD-System</div>
+   557→                </div>
+   558→
+   559→                <!-- BENTO CARD 5: Google-Review-Booster -->
+   560→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+   561→                    <div>
+   562→                        <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
+   563→                            <i class="fa-solid fa-star text-xl"></i>
+   564→                        </div>
+   565→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Google-Review-Booster</h3>
+   566→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   567→                            Direkt nach einem positiven Bezahlvorgang leitet das System zufriedene Gäste blitzschnell zur Google-Bewertung weiter. Maximiere deine 5-Sterne-Rezensionen vollkommen organisch und steigere deine lokale Sichtbarkeit — ganz ohne aktives Nachfragen durch dein Personal.
+   568→                        </p>
+   569→                    </div>
+   570→                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Top Google Rankings auf Autopilot</div>
+   571→                </div>
+   572→
+   573→                <!-- BENTO CARD 6: Upselling & Happy-Hour -->
+   574→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+   575→                    <div>
+   576→                        <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
+   577→                            <i class="fa-solid fa-clock text-xl"></i>
+   578→                        </div>
+   579→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Upselling & Happy-Hour</h3>
+   580→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   581→                            Lass die Software für dich verkaufen. Die intelligente Empfehlungs-Engine empfiehlt Gästen im Warenkorb automatisch passende Extras. Preise passen sich zeitgesteuert und vollautomatisch an deine Happy Hour Aktionen an.
+   582→                        </p>
+   583→                    </div>
+   584→                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Bis zu 25% mehr Warenkorb-Wert</div>
+   585→                </div>
+   586→
+   587→            </div>
+   588→        </div>
+   589→    </section>
+   590→
+   591→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   592→    <!-- FAQ SECTION -->
+   593→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   594→    <section id="faq" class="py-16 md:py-24 relative z-10">
+   595→        <div class="gold-divider mb-16"></div>
+   596→        <div class="max-w-4xl mx-auto px-6">
+   597→            <div class="text-center mb-16">
+   598→                <h2 class="text-3xl sm:text-4xl font-black text-white font-display tracking-tight">Häufig gestellte Fragen</h2>
+   599→                <p class="text-zinc-400 mt-4 text-sm font-medium">Alles Wissenswerte über das intelligenteste Betriebssystem der modernen Gastronomie.</p>
+   600→            </div>
+   601→
+   602→            <div class="space-y-4">
+   603→                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
+   604→                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(1)">
+   605→                        <span>Ist digi-gastro hardwareunabhängig?</span>
+   606→                        <i id="faq-icon-1" class="fa-solid fa-chevron-down text-gold-500 transition-transform"></i>
+   607→                    </button>
+   608→                    <div id="faq-content-1" class="accordion-content">
+   609→                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+   610→                            Ja! digi-gastro läuft auf jedem gängigen Tablet, Smartphone oder Computer — ganz ohne teure Spezialhardware oder proprietäre Kassensysteme. Egal ob iOS, Android oder Windows.
+   611→                        </div>
+   612→                    </div>
+   613→                </div>
+   614→
+   615→                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
+   616→                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(2)">
+   617→                        <span>Wie funktioniert die automatische Filterung im Shisha-Modus?</span>
+   618→                        <i id="faq-icon-2" class="fa-solid fa-chevron-down text-gold-500 transition-transform"></i>
+   619→                    </button>
+   620→                    <div id="faq-content-2" class="accordion-content">
+   621→                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+   622→                            Bestellungen für Shishas und Kohle-Anfragen werden automatisch an den Shisha-Monitor geleitet, während Speisen in der Küche landen. Keine Zettelwirtschaft mehr! Du aktivierst den Shisha-Modus einfach mit einem einzigen Klick in den Profileinstellungen deines Restaurants.
+   623→                        </div>
+   624→                    </div>
+   625→                </div>
+   626→
+   627→                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
+   628→                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(3)">
+   629→                        <span>Gibt es einen Schutz vor Spaßbestellern (Troll-Schutz)?</span>
+   630→                        <i id="faq-icon-3" class="fa-solid fa-chevron-down text-gold-500 transition-transform"></i>
+   631→                    </button>
+   632→                    <div id="faq-content-3" class="accordion-content">
+   633→                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+   634→                            Ja, absolut! Jeder Tisch verfügt über einen rotierenden Sicherheits-Token. Gäste scannen einfach den QR-Code am Tisch, um den Code automatisch zu übernehmen. Ohne gültigen Code blockiert das System Bestellversuche sofort, so dass unberechtigte Bestellungen von außerhalb unmöglich sind.
+   635→                        </div>
+   636→                    </div>
+   637→                </div>
+   638→            </div>
+   639→        </div>
+   640→    </section>
+   641→
+   642→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   643→    <!-- CTA SECTION -->
+   644→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   645→    <section class="py-20 md:py-28 relative z-10">
+   646→        <div class="gold-divider mb-16"></div>
+   647→        <div class="max-w-4xl mx-auto px-6 text-center reveal">
+   648→            <h2 class="text-3xl sm:text-5xl font-black text-white font-display tracking-tight mb-6">Bereit für das <span class="text-gradient-gold">Gastro-OS</span> der Zukunft?</h2>
+   649→            <p class="text-zinc-400 text-base sm:text-lg font-medium mb-10 max-w-2xl mx-auto">Starte jetzt und erlebe, wie digi-gastro deinen Betrieb transformiert. Keine Hardware-Kosten, kein App-Download für Gäste, keine Verträge.</p>
+   650→            <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-gold text-sm sm:text-base px-10 py-4 rounded-xl inline-flex items-center gap-2 btn-shimmer relative font-bold">
+   651→                <i class="fa-solid fa-rocket"></i> Jetzt Demo anfragen
+   652→            </a>
+   653→        </div>
+   654→    </section>
+   655→
+   656→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   657→    <!-- LOGIN MODAL -->
+   658→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   659→    <div id="loginModal" class="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/85 backdrop-blur-sm flex justify-center items-start md:items-center p-4 {% if not show_login %}hidden{% endif %}">
+   660→        <div class="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/60 relative my-auto md:my-0" id="loginCard">
+   661→            <div class="absolute -right-20 -top-20 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl"></div>
+   662→            <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/40 relative z-10">
+   663→                <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+   664→                    <span class="material-symbols-outlined text-gold-500">login</span>
+   665→                    Partner Login
+   666→                </h3>
+   667→                <button onclick="closeLogin()" class="text-zinc-400 hover:text-white transition-colors">
+   668→                    <i class="fa-solid fa-xmark text-lg"></i>
+   669→                </button>
+   670→            </div>
+   671→            <form action="/login" method="POST" class="p-6 space-y-4 relative z-10" novalidate>
+   672→                {% if error and show_login %}
+   673→                <div class="p-3.5 bg-red-950/20 border border-red-500/20 rounded-xl text-red-300 text-xs">
+   674→                    {{ error }}
+   675→                </div>
+   676→                {% endif %}
+   677→                <div>
+   678→                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
+   679→                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
+   680→                </div>
+   681→                <div>
+   682→                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>
+   683→                    <input type="password" name="password" required placeholder="••••••••" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
+   684→                </div>
+   685→                <button type="submit" class="btn-gold py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all">
+   686→                    Einloggen
+   687→                </button>
+   688→            </form>
+   689→        </div>
+   690→    </div>
+   691→
+   692→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   693→    <!-- LEGAL MODAL -->
+   694→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   695→    <div id="legalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm hidden">
+   696→        <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/60 flex flex-col max-h-[85vh] relative">
+   697→            <div class="absolute -right-20 -top-20 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl"></div>
+   698→            <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/45 relative z-10">
+   699→                <h3 id="legalTitle" class="text-lg font-bold text-white font-display">Rechtliche Hinweise</h3>
+   700→                <button onclick="closeLegal()" class="text-zinc-400 hover:text-white transition-colors">
+   701→                    <i class="fa-solid fa-xmark text-lg"></i>
+   702→                </button>
+   703→            </div>
+   704→            <div id="legalContent" class="p-6 overflow-y-auto text-zinc-300 text-sm leading-relaxed space-y-4 relative z-10 font-medium"></div>
+   705→            <div class="border-t border-zinc-800/60 px-6 py-3.5 flex justify-end bg-zinc-900/40 relative z-10">
+   706→                <button onclick="closeLegal()" class="btn-glass px-4 py-2 rounded-lg text-xs font-bold">Schließen</button>
+   707→            </div>
+   708→        </div>
+   709→    </div>
+   710→
+   711→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   712→    <!-- FOOTER -->
+   713→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   714→    <footer class="border-t border-zinc-900 py-12 text-zinc-500 text-xs relative z-10">
+   715→        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 font-bold uppercase tracking-wider text-[10px]">
+   716→            <div class="flex items-center gap-2">
+   717→                <span class="text-zinc-400 font-display">digi-gastro.de</span>
+   718→                <span class="text-zinc-700">-</span>
+   719→                <span class="text-zinc-500 normal-case font-medium">Operating System für die Gastronomie von morgen.</span>
+   720→            </div>
+   721→            <div class="flex gap-6">
+   722→                <button onclick="showLegal('imprint')" class="hover:text-gold-400 transition-colors">Impressum</button>
+   723→                <button onclick="showLegal('privacy')" class="hover:text-gold-400 transition-colors">Datenschutzerklärung</button>
+   724→            </div>
+   725→            <div class="text-zinc-500 normal-case font-medium">
+   726→                &copy; 2026 digi-gastro.de. Alle Rechte vorbehalten.
+   727→            </div>
+   728→        </div>
+   729→    </footer>
+   730→
+   731→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   732→    <!-- INTERACTIVE SIMULATOR LOGIC -->
+   733→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   734→    <script>
+   735→        let demoState = { qty: 0, hasSent: false };
+   736→
+   737→        function addDemoItem() {
+   738→            if (demoState.qty >= 1 || demoState.hasSent) return;
+   739→            demoState.qty = 1;
+   740→            const addBtn = document.getElementById('demo-add-btn');
+   741→            addBtn.innerHTML = '1';
+   742→            addBtn.className = "w-4 h-4 bg-gold-600 text-white rounded-full flex items-center justify-center font-bold text-[8px]";
+   743→            const submitBtn = document.getElementById('demo-submit-btn');
+   744→            submitBtn.innerHTML = 'Bestellung senden (3,50 €)';
+   745→            submitBtn.className = "w-full bg-gold-500 text-black font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300 animate-custom-pulse cursor-pointer hover:bg-gold-400";
+   746→            document.getElementById('demo-guide').innerHTML = 'Super! Klicke jetzt auf den pulsierenden Button <strong class="text-gold-500 font-extrabold">Bestellung senden</strong>, um die Bestellung an die Küche zu übertragen!';
+   747→        }
+   748→
+   749→        function sendDemoOrder() {
+   750→            if (demoState.qty === 0 || demoState.hasSent) return;
+   751→            demoState.hasSent = true;
+   752→            const submitBtn = document.getElementById('demo-submit-btn');
+   753→            submitBtn.innerHTML = 'Gesendet ✓';
+   754→            submitBtn.className = "w-full bg-zinc-800 text-gold-400 font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300 cursor-not-allowed";
+   755→            const addBtn = document.getElementById('demo-add-btn');
+   756→            addBtn.innerHTML = '1';
+   757→            addBtn.className = "w-4 h-4 bg-zinc-800 text-zinc-600 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed";
+   758→            const ticket = document.getElementById('demo-flying-ticket');
+   759→            ticket.classList.remove('hidden');
+   760→            ticket.classList.add('animate-fly-ticket');
+   761→            document.getElementById('demo-guide').innerHTML = 'Die Bestellung fliegt in diesem Moment live über unser Krypto-Netzwerk auf das Küchen-Display!';
+   762→            setTimeout(() => {
+   763→                const kdsBoard = document.getElementById('demo-kds-board');
+   764→                const newTicket = document.createElement('div');
+   765→                newTicket.id = 'demo-new-kds-ticket';
+   766→                newTicket.className = "bg-zinc-900/60 border border-gold-500/30 p-2 rounded-lg flex items-center justify-between text-[7px] transition-all duration-500 scale-95 opacity-0";
+   767→                newTicket.innerHTML = `
+   768→                    <div>
+   769→                        <div class="font-extrabold text-white flex items-center gap-1">
+   770→                            <span class="w-1.5 h-1.5 rounded-full bg-gold-500 animate-ping"></span>
+   771→                            Tisch 1 &bull; Neu!
+   772→                        </div>
+   773→                        <div class="text-gold-500 mt-0.5 font-bold">1x Coca Cola Zero</div>
+   774→                    </div>
+   775→                    <div id="demo-kds-status" class="bg-gold-500/10 text-gold-400 px-1.5 py-0.5 rounded border border-gold-500/20 font-bold">Zubereitung</div>
+   776→                `;
+   777→                kdsBoard.appendChild(newTicket);
+   778→                setTimeout(() => {
+   779→                    newTicket.classList.remove('scale-95', 'opacity-0');
+   780→                    newTicket.classList.add('scale-100', 'opacity-100');
+   781→                }, 50);
+   782→                document.getElementById('demo-guide').innerHTML = 'Angekommen! Die Küche bereitet die Cola vor. Der Status steht jetzt auf <strong class="text-gold-500">Zubereitung</strong>.';
+   783→                setTimeout(() => {
+   784→                    const statusText = document.getElementById('demo-kds-status');
+   785→                    if (statusText) {
+   786→                        statusText.innerHTML = '✓ Serviert';
+   787→                        statusText.className = "bg-gold-500/10 text-gold-400 px-1.5 py-0.5 rounded border border-gold-500/20 font-bold";
+   788→                        newTicket.className = "bg-zinc-900/60 border border-zinc-800/40 p-2 rounded-lg flex items-center justify-between text-[7px] opacity-60 transition-all duration-500";
+   789→                    }
+   790→                    document.getElementById('demo-guide').innerHTML = 'Serviert! Der Kellner hat das Getränk an den Gast übergeben. Die Demo ist abgeschlossen.';
+   791→                    document.getElementById('demo-reset-btn').classList.remove('hidden');
+   792→                }, 3500);
+   793→            }, 1500);
+   794→        }
+   795→
+   796→        function resetDemoSimulator() {
+   797→            demoState.qty = 0;
+   798→            demoState.hasSent = false;
+   799→            const addBtn = document.getElementById('demo-add-btn');
+   800→            addBtn.innerHTML = '+';
+   801→            addBtn.className = "w-4 h-4 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all";
+   802→            const submitBtn = document.getElementById('demo-submit-btn');
+   803→            submitBtn.innerHTML = 'Warenkorb leer';
+   804→            submitBtn.className = "w-full bg-zinc-800 text-zinc-500 cursor-not-allowed font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300";
+   805→            const ticket = document.getElementById('demo-flying-ticket');
+   806→            ticket.classList.add('hidden');
+   807→            ticket.classList.remove('animate-fly-ticket');
+   808→            const newTicket = document.getElementById('demo-new-kds-ticket');
+   809→            if (newTicket) newTicket.remove();
+   810→            document.getElementById('demo-guide').innerHTML = 'Drücke oben auf das <strong class="text-gold-500 font-extrabold">+</strong> am Smartphone, um Cola in den Warenkorb zu legen!';
+   811→            document.getElementById('demo-reset-btn').classList.add('hidden');
+   812→        }
+   813→    </script>
+   814→
+   815→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   816→    <!-- FAQ, MODALS, REVEALS, PARALLAX -->
+   817→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   818→    <script>
+   819→        function toggleFaq(id) {
+   820→            const content = document.getElementById(`faq-content-${id}`);
+   821→            const icon = document.getElementById(`faq-icon-${id}`);
+   822→            if (content.style.maxHeight && content.style.maxHeight !== '0px') {
+   823→                content.style.maxHeight = '0px';
+   824→                icon.classList.remove('rotate-180');
+   825→            } else {
+   826→                content.style.maxHeight = content.scrollHeight + 'px';
+   827→                icon.classList.add('rotate-180');
+   828→            }
+   829→        }
+   830→
+   831→        function openLogin() {
+   832→            {% if is_logged_in %}
+   833→                window.location.href = "{{ login_target }}";
+   834→            {% else %}
+   835→                document.getElementById('loginModal').classList.remove('hidden');
+   836→            {% endif %}
+   837→        }
+   838→
+   839→        function closeLogin() {
+   840→            document.getElementById('loginModal').classList.add('hidden');
+   841→        }
+   842→
+   843→        document.getElementById('loginModal').addEventListener('click', function(e) {
+   844→            if (e.target === this) closeLogin();
+   845→        });
+   846→
+   847→        const IMPRESSUM_TEXT = `
+   848→            <h4 class="font-bold text-white text-base font-display">Anbieterkennzeichnung gem. § 5 DDG</h4>
+   849→            <p><strong>digi-gastro GmbH & Co. KG</strong><br>
+   850→            Forstweg 12<br>
+   851→            80331 München</p>
+   852→            <p><strong>Vertreten durch die persönlich haftende Gesellschafterin:</strong><br>
+   853→            digi-gastro Verwaltungs GmbH, ebenda<br>
+   854→            Geschäftsführer: Maximilian Schmidt</p>
+   855→            <p><strong>Kontakt:</strong><br>
+   856→            E-Mail: support@digi-gastro.de<br>
+   857→            Telefon: +49 (0) 89 123 456 78</p>
+   858→            <p><strong>Registergericht:</strong> Amtsgericht München<br>
+   859→            Handelsregister: HRA 987654 (Verwaltungs GmbH: HRB 123456)<br>
+   860→            Umsatzsteuer-Identifikationsnummer gem. § 27a UStG: DE 987 654 321</p>
+   861→        `;
+   862→
+   863→        const PRIVACY_TEXT = `
+   864→            <h4 class="font-bold text-white text-base font-display">Datenschutzerklärung für digi-gastro.de</h4>
+   865→            <p><strong>1. Datenschutz auf einen Blick</strong><br>
+   866→            Wir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. Nachfolgend informieren wir Sie darüber, welche Daten wir beim Besuch unserer Website und bei der Nutzung unserer Dienste erheben und verarbeiten.</p>
+   867→            <p><strong>2. Verantwortliche Stelle</strong><br>
+   868→            Verantwortlich für die Datenverarbeitung ist die digi-gastro GmbH & Co. KG, Forstweg 12, 80331 München. E-Mail: privacy@digi-gastro.de.</p>
+   869→            <p><strong>3. Erhebung und Speicherung personenbezogener Daten</strong><br>
+   870→            - <strong>Registrierungsdaten:</strong> Bei der Anmeldung eines Restaurants erheben wir Name, E-Mail-Adresse und Passwort, um den Account bereitzustellen.<br>
+   871→            - <strong>Nutzungsdaten:</strong> Im Rahmen des Betriebs der Plattform werden Bestelldaten und Einstellungen der Restaurants gespeichert.</p>
+   872→            <p><strong>4. Ihre Rechte</strong><br>
+   873→            Sie haben jederzeit das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung Ihrer gespeicherten personenbezogenen Daten.</p>
+   874→        `;
+   875→
+   876→        function showLegal(type) {
+   877→            const modal = document.getElementById('legalModal');
+   878→            const title = document.getElementById('legalTitle');
+   879→            const content = document.getElementById('legalContent');
+   880→            if (type === 'imprint') {
+   881→                title.textContent = 'Impressum - digi-gastro.de';
+   882→                content.innerHTML = IMPRESSUM_TEXT;
+   883→            } else {
+   884→                title.textContent = 'Datenschutzerklärung - digi-gastro.de';
+   885→                content.innerHTML = PRIVACY_TEXT;
+   886→            }
+   887→            modal.classList.remove('hidden');
+   888→        }
+   889→
+   890→        function closeLegal() {
+   891→            document.getElementById('legalModal').classList.add('hidden');
+   892→        }
+   893→
+   894→        document.getElementById('legalModal').addEventListener('click', function(e) {
+   895→            if (e.target === this) closeLegal();
+   896→        });
+   897→
+   898→        {% if show_impressum %}
+   899→        window.addEventListener('load', () => { showLegal('imprint'); });
+   900→        {% endif %}
+   901→
+   902→        {% if show_datenschutz %}
+   903→        window.addEventListener('load', () => { showLegal('privacy'); });
+   904→        {% endif %}
+   905→    </script>
+   906→
+   907→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   908→    <!-- COOKIE BANNER -->
+   909→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   910→    <div id="cookieBanner" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md bg-zinc-950/95 backdrop-blur-md border border-zinc-800 p-6 rounded-2xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-500 pointer-events-none">
+   911→        <div class="flex flex-col gap-4">
+   912→            <div class="flex items-start gap-3">
+   913→                <div class="p-2 bg-gold-500/10 rounded-lg text-gold-500 mt-1 shrink-0">
+   914→                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+   915→                      <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5Z" />
+   916→                      <path d="M8.5 8.5v.01" />
+   917→                      <path d="M16 15.5v.01" />
+   918→                      <path d="M12 12v.01" />
+   919→                      <path d="M11 16v.01" />
+   920→                      <path d="M6 12v.01" />
+   921→                    </svg>
+   922→                </div>
+   923→                <div>
+   924→                    <h3 class="text-white font-bold text-sm">Datenschutz & Cookies</h3>
+   925→                    <p class="text-zinc-400 text-xs mt-1 leading-relaxed font-medium">
+   926→                        Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen.
+   927→                    </p>
+   928→                </div>
+   929→            </div>
+   930→            <div class="flex items-center justify-between gap-4 mt-2">
+   931→                <button onclick="showLegal('privacy')" class="text-xs text-gold-500 hover:text-gold-400 underline font-bold uppercase tracking-wider">Datenschutzerklärung</button>
+   932→                <button onclick="acceptCookies()" class="btn-gold text-[10px] px-4 py-2 rounded-xl font-bold">Einverstanden</button>
+   933→            </div>
+   934→        </div>
+   935→    </div>
+   936→
+   937→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   938→    <!-- PRELOADER, SCROLL, CONSENT, PARALLAX -->
+   939→    <!-- ═══════════════════════════════════════════════════════════════ -->
+   940→    <script>
+   941→        // Preloader
+   942→        window.addEventListener('load', () => {
+   943→            const preloader = document.getElementById('preloader');
+   944→            if (preloader) {
+   945→                preloader.classList.add('opacity-0', 'pointer-events-none');
+   946→                setTimeout(() => preloader.remove(), 550);
+   947→            }
+   948→        });
+   949→
+   950→        // Navbar scroll
+   951→        window.addEventListener('scroll', () => {
+   952→            const nav = document.querySelector('nav');
+   953→            if (window.scrollY > 40) {
+   954→                nav.classList.remove('h-20');
+   955→                nav.classList.add('h-16', 'border-zinc-800/80', 'bg-zinc-950/90');
+   956→            } else {
+   957→                nav.classList.remove('h-16', 'border-zinc-800/80', 'bg-zinc-950/90');
+   958→                nav.classList.add('h-20', 'border-zinc-800/40', 'bg-zinc-950/70');
+   959→            }
+   960→        });
+   961→
+   962→        // Cookie Consent
+   963→        window.addEventListener('DOMContentLoaded', () => {
+   964→            if (!localStorage.getItem('cookie_consent_accepted')) {
+   965→                setTimeout(() => {
+   966→                    const banner = document.getElementById('cookieBanner');
+   967→                    if (banner) {
+   968→                        banner.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+   969→                        banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+   970→                    }
+   971→                }, 1000);
+   972→            }
+   973→        });
+   974→
+   975→        function acceptCookies() {
+   976→            localStorage.setItem('cookie_consent_accepted', 'true');
+   977→            const banner = document.getElementById('cookieBanner');
+   978→            if (banner) {
+   979→                banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+   980→                banner.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+   981→            }
+   982→        }
+   983→
+   984→        // Scroll Reveal
+   985→        const observer = new IntersectionObserver((entries) => {
+   986→            entries.forEach(entry => {
+   987→                if (entry.isIntersecting) entry.target.classList.add('revealed');
+   988→            });
+   989→        }, { threshold: 0.06 });
+   990→
+   991→        document.querySelectorAll('.reveal, .reveal-scale').forEach(el => observer.observe(el));
+   992→
+   993→        // Mouse glow + 3D tilt for glass cards
+   994→        document.querySelectorAll('.glass-card').forEach(card => {
+   995→            card.addEventListener('mousemove', e => {
+   996→                const rect = card.getBoundingClientRect();
+   997→                const x = e.clientX - rect.left;
+   998→                const y = e.clientY - rect.top;
+   999→                card.style.setProperty('--mouse-x', `${x}px`);
+  1000→                card.style.setProperty('--mouse-y', `${y}px`);
+  1001→            });
+  1002→
+  1003→            if (window.innerWidth >= 1024) {
+  1004→                card.style.transition = 'transform 0.12s ease-out, border-color 0.3s ease, box-shadow 0.3s ease';
+  1005→                card.style.transformStyle = 'preserve-3d';
+  1006→
+  1007→                card.addEventListener('mousemove', e => {
+  1008→                    const rect = card.getBoundingClientRect();
+  1009→                    const x = e.clientX - rect.left;
+  1010→                    const y = e.clientY - rect.top;
+  1011→                    const xc = rect.width / 2;
+  1012→                    const yc = rect.height / 2;
+  1013→                    const angleX = (yc - y) / 16;
+  1014→                    const angleY = (x - xc) / 16;
+  1015→                    card.style.transform = `perspective(1000px) rotateX(${angleX}deg) rotateY(${angleY}deg) translateY(-4px)`;
+  1016→                    card.style.borderColor = 'rgba(201, 168, 76, 0.25)';
+  1017→                    card.style.boxShadow = '0 15px 35px -10px rgba(0, 0, 0, 0.7)';
+  1018→                });
+  1019→
+  1020→                card.addEventListener('mouseleave', () => {
+  1021→                    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)';
+  1022→                    card.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+  1023→                    card.style.boxShadow = 'none';
+  1024→                });
+  1025→            }
+  1026→        });
+  1027→    </script>
+  1028→</body>
+  1029→</html>
