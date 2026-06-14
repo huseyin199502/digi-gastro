@@ -464,7 +464,7 @@
                 <div x-show="currentCategory === ''" id="category-list-view" class="space-y-3 py-2">
                     {% for cat in parent_categories %}
                     {% set cat_img = category_images.get(cat, '') %}
-                    {% set cat_count = category_product_counts.get(cat, 0) %}
+
                     <button onclick="filterCategory('{{ cat }}')" 
                             class="w-full group relative overflow-hidden rounded-2xl border border-outline-variant/60 hover:border-primary/60 transition-all duration-300 active:scale-[0.98] hover-lift">
                         <div class="flex items-center h-24 sm:h-28">
@@ -483,7 +483,7 @@
                             <div class="flex-1 px-4 flex items-center justify-between">
                                 <div class="flex flex-col">
                                     <h2 class="text-lg sm:text-xl font-black text-on-surface font-display tracking-tight uppercase">{{ cat }}</h2>
-                                    <span class="text-xs text-on-surface-variant font-medium mt-0.5">{{ cat_count }} Artikel</span>
+
                                 </div>
                                 <span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-1 transition-all text-2xl">chevron_right</span>
                             </div>
