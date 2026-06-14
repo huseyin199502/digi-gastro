@@ -7465,8 +7465,15 @@ def post_setup_complete(
 # ──────────────────────────────────────────────────────────────────
 @app.get("/admin/qr-print")
 def get_qr_print(request: Request, db: Session = Depends(get_db)):
-    """Renders a printable A4 overview with a QR code block per table."""
+    """Renders a printable A4 overview with a QR code block per table.
+    QR codes are embedded inline as base64 PNGs to guarantee they render when printing.
+    Layout: 2x2 grid per A4 page with explicit page breaks between pages."""
     import time as _time
+    import qrcode
+    from io import BytesIO
+    import base64
+    from PIL import Image as PILImage
+
     res = get_current_user_and_slug(request)
     if not res:
         return RedirectResponse(url="/admin/login")
@@ -7481,62 +7488,254 @@ def get_qr_print(request: Request, db: Session = Depends(get_db)):
         tables = sorted(tables, key=lambda x: natural_sort_key(x.get("number", "")))
     except Exception:
         pass
-        
+
+    # Try to load tenant logo for QR center overlay
+    logo_img = None
+    try:
+        logo_url = restaurant.get("branding", {}).get("logo_url", "") or restaurant.get("logo_path", "")
+        if logo_url:
+            if logo_url.startswith("/uploads/"):
+                logo_fs_path = os.path.join(UPLOAD_DIR, logo_url[len("/uploads/"):])
+            elif logo_url.startswith("/static/"):
+                logo_fs_path = os.path.join(BASE_DIR, logo_url.lstrip("/"))
+            else:
+                logo_fs_path = None
+            if logo_fs_path and os.path.exists(logo_fs_path):
+                logo_img = PILImage.open(logo_fs_path)
+    except Exception:
+        logo_img = None
+
     # Use X-Forwarded headers to build correct public URL for QR codes
-    # (reverse proxy may use internal hostname, which customers can't reach)
     fwd_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     fwd_host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.hostname))
     if ":" in fwd_host:
-        fwd_host = fwd_host.split(":")[0]  # strip port, use standard 443/80
+        fwd_host = fwd_host.split(":")[0]
     base_url = f"{fwd_proto}://{fwd_host}".rstrip("/")
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>QR Codes drucken - {restaurant.get('name', slug)}</title>
-        <style>
-            body {{ font-family: sans-serif; background: #fff; margin: 0; padding: 20px; }}
-            .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }}
-            .card {{ border: 2px solid #ccc; padding: 15px; border-radius: 8px; text-align: center; page-break-inside: avoid; }}
-            h3 {{ margin: 0; color: #333; }}
-            @media print {{
-                body {{ padding: 0; }}
-                .card {{ border: 1px solid #000; }}
-            }}
-            .print-btn {{ display: block; width: 200px; margin: 0 auto 30px; padding: 10px; background: #009900; color: #fff; border: none; border-radius: 5px; cursor: pointer; text-align: center; text-decoration: none; font-weight: bold; font-size: 16px; }}
-            @media print {{ .print-btn {{ display: none; }} }}
-        </style>
-    </head>
-    <body>
-        <button class="print-btn" onclick="window.print()">Drucken</button>
-        <div class="grid">
-    """
+
+    # Generate QR codes inline as base64 — no external image requests when printing
+    def make_qr_base64(data_str: str) -> str:
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
+        qr.add_data(data_str)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Embed logo in center (same logic as /api/qr endpoint)
+        if logo_img:
+            try:
+                _logo = logo_img.copy()
+                qr_width, qr_height = img.size
+                logo_max = int(min(qr_width, qr_height) * 0.30)
+                _logo.thumbnail((logo_max, logo_max), PILImage.Resampling.LANCZOS)
+                if _logo.mode != 'RGBA':
+                    _logo = _logo.convert('RGBA')
+                import numpy as _np
+                _arr = _np.array(_logo)
+                _alpha = _arr[:, :, 3]
+                _opaque_mask = _alpha >= 128
+                _logo_is_light = True
+                if _opaque_mask.sum() > 0:
+                    _rgb_opaque = _arr[:, :, :3][_opaque_mask]
+                    _avg_brightness = _rgb_opaque.mean()
+                    _logo_is_light = _avg_brightness > 180
+                bg_color = (30, 30, 30, 255) if _logo_is_light else (255, 255, 255, 255)
+                border_color = (60, 60, 60, 255) if _logo_is_light else (180, 180, 180, 255)
+                flat_bg = PILImage.new('RGBA', _logo.size, bg_color)
+                flattened = PILImage.alpha_composite(flat_bg, _logo)
+                logo_w, logo_h = flattened.size
+                padding = 8
+                bg_size = max(logo_w, logo_h) + padding * 2
+                bg = PILImage.new('RGBA', (bg_size, bg_size), bg_color)
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(bg)
+                draw.rectangle([1, 1, bg_size - 2, bg_size - 2], outline=border_color, width=1)
+                paste_x = (bg_size - logo_w) // 2
+                paste_y = (bg_size - logo_h) // 2
+                bg.paste(flattened, (paste_x, paste_y))
+                qr_center_x = (qr_width - bg_size) // 2
+                qr_center_y = (qr_height - bg_size) // 2
+                if img.mode != 'RGBA':
+                    img = img.convert('RGBA')
+                img.paste(bg, (qr_center_x, qr_center_y))
+            except Exception:
+                pass
+
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+
+    # Build card HTML for each table
+    cards_html = ""
     for t in tables:
         table_num = t.get("number")
         table_zone = t.get("zone", "")
         token = t.get("security_token", "")
         qr_url = f"{base_url}/{slug}?t={table_num}&z={urllib.parse.quote(table_zone)}&tk={token}"
-        # Server-side QR generation: no token sent to external API
-        qr_params = urllib.parse.urlencode({"d": qr_url, "t": table_num, "z": table_zone, "slug": slug})
-        qr_image_src = f"/api/qr?{qr_params}"
+        qr_b64 = make_qr_base64(qr_url)
         display_num = table_num
         if str(display_num).startswith("Tisch "):
             display_num = display_num[len("Tisch "):].strip()
         table_display_name = f"Tisch {display_num}" + (f" ({table_zone})" if table_zone else "")
-        html_content += f"""
-            <div class="card">
-                <h3>{table_display_name}</h3>
-                <div style="width: 150px; height: 150px; margin: 15px auto; background: white;">
-                    <img src="{qr_image_src}" alt="QR {table_display_name}" style="width: 150px; height: 150px; display: block;" />
-                </div>
-            </div>
-        """
-    html_content += """
-        </div>
-    </body>
-    </html>
-    """
+        cards_html += f"""
+            <div class="qr-card">
+                <div class="qr-label">{table_display_name}</div>
+                <img src="{qr_b64}" alt="QR {table_display_name}" />
+            </div>"""
+
+    restaurant_name = restaurant.get('name', slug)
+
+    # Wrap cards into pages of 4
+    CARD_MARKER = '<div class="qr-card">'
+    card_starts = [i for i, line in enumerate(cards_html.split('\n')) if CARD_MARKER in line]
+    num_cards = len(card_starts)
+    if num_cards == 0:
+        pages_html = ""
+    else:
+        # Split cards into groups of 4 and wrap each group in a .page div
+        card_divs = []
+        current = ""
+        depth = 0
+        in_card = False
+        for line in cards_html.split('\n'):
+            if CARD_MARKER in line:
+                in_card = True
+                depth = 0
+            if in_card:
+                depth += line.count('<div') - line.count('</div>')
+                current += line + '\n'
+                if depth <= 0:
+                    card_divs.append(current.strip())
+                    current = ""
+                    in_card = False
+            elif current:
+                current += line + '\n'
+
+        pages_html = ""
+        for i in range(0, len(card_divs), 4):
+            page_cards = card_divs[i:i+4]
+            # Pad last page if less than 4 cards
+            while len(page_cards) < 4:
+                page_cards.append('<div class="qr-card" style="border:none;"></div>')
+            pages_html += '<div class="page">\n' + '\n'.join(page_cards) + '\n</div>\n'
+
+    # Rebuild final HTML with paginated content
+    html_content = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>QR Codes drucken - {restaurant_name}</title>
+    <style>
+        *, *::before, *::after {{ box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }}
+
+        /* ── Screen-only header ── */
+        .print-header {{
+            text-align: center;
+            padding: 30px 20px 20px;
+        }}
+        .print-header h1 {{
+            font-size: 22px;
+            font-weight: 800;
+            color: #111;
+            margin: 0 0 8px;
+        }}
+        .print-header p {{
+            font-size: 14px;
+            color: #666;
+            margin: 0 0 20px;
+        }}
+        .print-btn {{
+            display: inline-block;
+            padding: 12px 32px;
+            background: #16a34a;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 16px;
+        }}
+        .print-btn:hover {{ background: #15803d; }}
+
+        /* ── Page container: each holds exactly 4 QR cards (2x2) ── */
+        .page {{
+            width: 210mm;
+            height: 297mm;
+            padding: 15mm;
+            margin: 0 auto 20px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10mm;
+        }}
+
+        /* ── Individual QR card ── */
+        .qr-card {{
+            border: 2px solid #d1d5db;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 8px 16px;
+            background: #fff;
+        }}
+        .qr-label {{
+            font-size: 16px;
+            font-weight: 800;
+            color: #111;
+            margin-bottom: 8px;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }}
+        .qr-card img {{
+            width: 140px;
+            height: 140px;
+            display: block;
+            image-rendering: pixelated;
+        }}
+
+        /* ── Print styles ── */
+        @media print {{
+            .print-header {{ display: none !important; }}
+            body {{ background: #fff; margin: 0; padding: 0; }}
+            .page {{
+                margin: 0;
+                box-shadow: none;
+                width: 100%;
+                height: auto;
+                page-break-after: always;
+                break-after: page;
+            }}
+            .page:last-child {{
+                page-break-after: auto;
+                break-after: auto;
+            }}
+            .qr-card {{
+                border: 1.5px solid #000;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="print-header">
+        <h1>QR Codes – {restaurant_name}</h1>
+        <p>{len(tables)} Tisch{('e' if len(tables) != 1 else '')} zum Ausdrucken</p>
+        <button class="print-btn" onclick="window.print()">Drucken</button>
+    </div>
+    {pages_html}
+</body>
+</html>"""
+
     response = HTMLResponse(content=html_content)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
