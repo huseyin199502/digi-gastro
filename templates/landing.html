@@ -324,8 +324,8 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <header class="relative min-h-[90vh] lg:min-h-screen flex items-center overflow-hidden z-10">
         <!-- Video Background -->
-        <div class="absolute inset-0 z-0 bg-black">
-            <video autoplay loop muted playsinline class="w-full h-full object-contain">
+        <div class="absolute inset-0 z-0 overflow-hidden">
+            <video autoplay loop muted playsinline class="absolute min-w-full min-h-full w-auto h-auto top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover" style="object-position: center center;">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
