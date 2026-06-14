@@ -318,14 +318,14 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- HERO SECTION — VIDEO BACKGROUND -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <header class="relative flex items-center overflow-hidden z-10">
-        <!-- Video Background — full width, natural 16:9 aspect, no cropping -->
+    <header class="relative min-h-screen flex items-center overflow-hidden z-10">
+        <!-- Video Background — fills entire hero, no cropping -->
         <div class="absolute inset-0 z-0 bg-[#050507]">
-            <video autoplay loop muted playsinline class="w-full h-full object-contain">
+            <video autoplay loop muted playsinline class="absolute top-0 left-0 w-full h-full object-contain" style="object-position: center center;">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
-        <!-- Gradient Overlay — darkens edges so black bars from object-contain blend seamlessly -->
+        <!-- Gradient Overlay — darkens for readability, black bars blend seamlessly -->
         <div class="absolute inset-0 hero-video-overlay z-1"></div>
 
         <!-- Hero Content -->
