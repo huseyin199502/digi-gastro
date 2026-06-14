@@ -373,7 +373,7 @@
                 <template x-if="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0">
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
-                            <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 hover:scale-[1.02] transition-transform cursor-zoom-in shadow-lg" @click="openLightbox(img)">
+                            <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
                                 <img :src="img" class="w-full h-full object-cover" loading="lazy">
                             </div>
                         </template>
