@@ -1,0 +1,976 @@
+     1→     1→<!DOCTYPE html>
+     2→     2→<html lang="de" class="dark scroll-smooth">
+     3→     3→<head>
+     4→     4→    <meta charset="UTF-8">
+     5→     5→    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+     6→     6→    
+     7→     7→    <!-- PWA Meta Tags -->
+     8→     8→    <meta name="apple-mobile-web-app-capable" content="yes">
+     9→     9→    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    10→    10→    <meta name="apple-mobile-web-app-title" content="digi-gastro">
+    11→    11→    <meta name="theme-color" content="#009900">
+    12→    12→    <meta name="mobile-web-app-capable" content="yes">
+    13→    13→    <link rel="manifest" href="/manifest.json">
+    14→    14→    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    15→    15→    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    16→    16→    
+    17→    17→    <!-- SEO Optimization -->
+    18→    18→    <title>digi-gastro.de | Das intelligente Betriebssystem für moderne Gastronomie</title>
+    19→    19→    <meta name="description" content="Digitales Menü, Shisha- & Küchenmodus, Rechnungs-Splitting und GoBD-Sicherheit in einem System. Steigere deinen Umsatz um bis zu 25% ohne App-Download für deine Gäste.">
+    20→    20→    <meta name="keywords" content="Gastronomie Software, Digitales Bestellsystem Restaurant, Shisha Bar App, GoBD Kassensystem Schnittstelle, QR-Code Speisekarte, Tischbestellung Webapp, Gastro MVP">
+    21→    21→    <meta name="robots" content="index, follow">
+    22→    22→    <link rel="canonical" href="https://digi-gastro.de">
+    23→    23→    
+    24→    24→    <!-- Open Graph Tags (Facebook, WhatsApp) -->
+    25→    25→    <meta property="og:title" content="digi-gastro.de | Das intelligente Betriebssystem für moderne Gastronomie">
+    26→    26→    <meta property="og:description" content="Steigere deinen Umsatz um bis zu 25% durch digitales Bestellen, smartes Upselling und psychologische Trinkgeld-Booster. Shisha- & Küchenmodus, GoBD-sicher.">
+    27→    27→    <meta property="og:url" content="https://digi-gastro.de">
+    28→    28→    <meta property="og:type" content="website">
+    29→    29→    <meta property="og:image" content="/static/images/digigastrologo.jpeg">
+    30→    30→    <meta property="og:locale" content="de_DE">
+    31→    31→    
+    32→    32→    <!-- Twitter Card Tags -->
+    33→    33→    <meta name="twitter:card" content="summary_large_image">
+    34→    34→    <meta name="twitter:title" content="digi-gastro.de | Das intelligente Gastronomie-Betriebssystem">
+    35→    35→    <meta name="twitter:description" content="Smartes Bestellsystem, Rechnungs-Splitting und unmanipulierbares Audit-Log. Perfekt für Restaurants und Shishabars.">
+    36→    36→    <meta name="twitter:image" content="/static/images/digigastrologo.jpeg">
+    37→    37→
+    38→    38→    <!-- Fonts & Styling -->
+    39→    39→    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    40→    40→    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    41→    41→    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    42→    42→    <!-- Premium Design System -->
+    43→    43→    <link rel="stylesheet" href="/static/css/design_system.css?v=7">
+    44→    44→
+    45→    45→    <script id="tailwind-config">
+    46→    46→        tailwind.config = {
+    47→    47→            darkMode: "class",
+    48→    48→            theme: {
+    49→    49→                extend: {
+    50→    50→                    colors: {
+    51→    51→                        primary: '#10b981', /* Premium Emerald */
+    52→    52→                        charcoal: '#0b0c10',
+    53→    53→                    }
+    54→    54→                }
+    55→    55→            }
+    56→    56→        }
+    57→    57→    </script>
+    58→    58→    <style>
+    59→    59→        body {
+    60→    60→            background-color: var(--bg-obsidian);
+    61→    61→            color: #f3f4f6;
+    62→    62→            font-family: var(--font-sans);
+    63→    63→        }
+    64→    64→        
+    65→    65→        /* Shifting Aurora background */
+    66→    66→        @keyframes aurora {
+    67→    67→            0% { background-position: 0% 50%; }
+    68→    68→            50% { background-position: 100% 50%; }
+    69→    69→            100% { background-position: 0% 50%; }
+    70→    70→        }
+    71→    71→        .aurora-bg {
+    72→    72→            background: linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, rgba(99, 102, 241, 0.04) 30%, rgba(245, 158, 11, 0.03) 60%, rgba(16, 185, 129, 0.07) 100%);
+    73→    73→            background-size: 400% 400%;
+    74→    74→            animation: aurora 20s ease infinite;
+    75→    75→        }
+    76→    76→
+    77→    77→        /* Ambient floating blobs animation */
+    78→    78→        @keyframes float-slow {
+    79→    79→            0%, 100% { transform: translateY(0px) scale(1) rotate(0deg); }
+    80→    80→            50% { transform: translateY(-40px) scale(1.08) rotate(120deg); }
+    81→    81→        }
+    82→    82→        @keyframes float-slower {
+    83→    83→            0%, 100% { transform: translateY(0px) scale(1) rotate(0deg); }
+    84→    84→            50% { transform: translateY(50px) scale(0.92) rotate(-120deg); }
+    85→    85→        }
+    86→    86→        @keyframes float-medium {
+    87→    87→            0%, 100% { transform: translateX(0px) translateY(0px) scale(1); }
+    88→    88→            50% { transform: translateX(30px) translateY(-30px) scale(1.03); }
+    89→    89→        }
+    90→    90→        .animate-float-slow { animation: float-slow 16s ease-in-out infinite; }
+    91→    91→        .animate-float-slower { animation: float-slower 22s ease-in-out infinite; }
+    92→    92→        .animate-float-medium { animation: float-medium 13s ease-in-out infinite; }
+    93→    93→
+    94→    94→        /* Shimmer loading effect */
+    95→    95→        @keyframes shine {
+    96→    96→            100% { left: 125%; }
+    97→    97→        }
+    98→    98→        .btn-shimmer::after {
+    99→    99→            content: '';
+   100→   100→            position: absolute;
+   101→   101→            top: 0; left: -75%; width: 50%; height: 100%;
+   102→   102→            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 100%);
+   103→   103→            transform: skewX(-25deg);
+   104→   104→            transition: 0.75s;
+   105→   105→        }
+   106→   106→        .btn-shimmer:hover::after {
+   107→   107→            animation: shine 0.75s ease-in-out;
+   108→   108→        }
+   109→   109→
+   110→   110→        /* Scroll Reveals with different effects */
+   111→   111→        .reveal {
+   112→   112→            opacity: 0;
+   113→   113→            transform: translateY(35px);
+   114→   114→            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+   115→   115→        }
+   116→   116→        .reveal.revealed {
+   117→   117→            opacity: 1;
+   118→   118→            transform: translateY(0);
+   119→   119→        }
+   120→   120→
+   121→   121→        .reveal-scale {
+   122→   122→            opacity: 0;
+   123→   123→            transform: scale(0.96) translateY(20px);
+   124→   124→            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+   125→   125→        }
+   126→   126→        .reveal-scale.revealed {
+   127→   127→            opacity: 1;
+   128→   128→            transform: scale(1) translateY(0);
+   129→   129→        }
+   130→   130→
+   131→   131→        /* Mouse-follow glow border effect for Bento Cards */
+   132→   132→        .glass-card {
+   133→   133→            position: relative;
+   134→   134→            overflow: hidden;
+   135→   135→        }
+   136→   136→        .glass-card::before {
+   137→   137→            content: '';
+   138→   138→            position: absolute;
+   139→   139→            inset: 0;
+   140→   140→            background: radial-gradient(350px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), rgba(16, 185, 129, 0.12), transparent 45%);
+   141→   141→            opacity: 0;
+   142→   142→            transition: opacity 0.4s ease;
+   143→   143→            pointer-events: none;
+   144→   144→            z-index: 1;
+   145→   145→        }
+   146→   146→        .glass-card:hover::before {
+   147→   147→            opacity: 1;
+   148→   148→        }
+   149→   149→
+   150→   150→        /* Card Icon Hover Micro-Animation */
+   151→   151→        .card-icon {
+   152→   152→            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+   153→   153→        }
+   154→   154→        .glass-card:hover .card-icon {
+   155→   155→            transform: scale(1.12) rotate(6deg);
+   156→   156→            background-color: rgba(16, 185, 129, 0.22) !important;
+   157→   157→            color: #34d399 !important;
+   158→   158→            box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+   159→   159→        }
+   160→   160→
+   161→   161→        .accordion-content {
+   162→   162→            max-height: 0;
+   163→   163→            overflow: hidden;
+   164→   164→            transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), padding 0.4s ease;
+   165→   165→        }
+   166→   166→
+   167→   167→        /* Mockup Order Animation Trail */
+   168→   168→        @keyframes fly-order {
+   169→   169→            0% {
+   170→   170→                transform: scale(0.3) translate(0, 0);
+   171→   171→                opacity: 0;
+   172→   172→            }
+   173→   173→            15% {
+   174→   174→                opacity: 1;
+   175→   175→                transform: scale(1.1) translate(40px, -20px);
+   176→   176→            }
+   177→   177→            85% {
+   178→   178→                opacity: 1;
+   179→   179→                transform: scale(1.0) translate(250px, -10px);
+   180→   180→            }
+   181→   181→            100% {
+   182→   182→                transform: scale(0.5) translate(300px, 0);
+   183→   183→                opacity: 0;
+   184→   184→            }
+   185→   185→        }
+   186→   186→        .animate-fly-ticket {
+   187→   187→            animation: fly-order 1.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+   188→   188→        }
+   189→   189→
+   190→   190→        /* Pulse animations */
+   191→   191→        @keyframes custom-pulse {
+   192→   192→            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+   193→   193→            50% { transform: scale(1.03); box-shadow: 0 0 15px 4px rgba(16, 185, 129, 0.2); }
+   194→   194→        }
+   195→   195→        .animate-custom-pulse {
+   196→   196→            animation: custom-pulse 2s infinite;
+   197→   197→        }
+   198→   198→    </style>
+   199→   199→    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+   200→   200→</head>
+   201→   201→<body class="bg-obsidian text-zinc-100 font-sans min-h-screen relative overflow-x-hidden">
+   202→   202→
+   203→   203→    <!-- PREMIUM APP PRELOADER -->
+   204→   204→    <div id="preloader" class="fixed inset-0 bg-zinc-950 z-50 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
+   205→   205→        <div class="flex flex-col items-center gap-4">
+   206→   206→            <div class="relative w-16 h-16 flex items-center justify-center">
+   207→   207→                <!-- Glowing rotating spinner -->
+   208→   208→                <div class="absolute inset-0 rounded-2xl border border-primary/20 border-t-primary animate-spin"></div>
+   209→   209→                <!-- Inner logo icon -->
+   210→   210→                <span class="material-symbols-outlined text-primary text-3xl font-light animate-pulse">restaurant</span>
+   211→   211→            </div>
+   212→   212→            <div class="text-center">
+   213→   213→                <span class="text-lg font-black tracking-tight font-display text-white">digi-gastro<span class="text-primary">.de</span></span>
+   214→   214→                <p class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Lade System...</p>
+   215→   215→            </div>
+   216→   216→        </div>
+   217→   217→    </div>
+   218→   218→
+   219→   219→    <!-- Shifting Aurora Background Layer -->
+   220→   220→    <div class="fixed inset-0 aurora-bg pointer-events-none z-0"></div>
+   221→   221→
+   222→   222→    <!-- Floating Neon background blobs -->
+   223→   223→    <div class="fixed top-[12%] left-[3%] w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none animate-float-slow z-0"></div>
+   224→   224→    <div class="fixed top-[45%] right-[5%] w-[500px] h-[500px] bg-teal-500/8 rounded-full blur-[160px] pointer-events-none animate-float-slower z-0"></div>
+   225→   225→    <div class="fixed bottom-[8%] left-[15%] w-[400px] h-[400px] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none animate-float-medium z-0"></div>
+   226→   226→    <div class="fixed top-[22%] right-[18%] w-[350px] h-[350px] bg-indigo-500/6 rounded-full blur-[130px] pointer-events-none animate-float-medium z-0"></div>
+   227→   227→
+   228→   228→    <!-- Visual background grid overlay -->
+   229→   229→    <div class="fixed inset-0 grid-bg opacity-15 pointer-events-none z-0"></div>
+   230→   230→
+   231→   231→    <!-- NAVIGATION -->
+   232→   232→    <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-40 relative z-10 transition-all duration-300">
+   233→   233→        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+   234→   234→            <div class="flex items-center gap-3">
+   235→   235→                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-primary/30 object-contain hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
+   236→   236→                <div id="logo-fallback-nav" class="hidden h-10 w-10 rounded-xl bg-zinc-900 border border-primary/30 items-center justify-center text-primary font-bold">dg</div>
+   237→   237→                <span class="text-xl font-black tracking-tight font-display text-white">digi-gastro<span class="text-primary">.de</span></span>
+   238→   238→            </div>
+   239→   239→            <div class="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-wider text-zinc-400">
+   240→   240→                <a href="#features" class="hover:text-white transition-colors duration-250">Features</a>
+   241→   241→                <a href="#demo" class="hover:text-white transition-colors duration-250">Live-Demo</a>
+   242→   242→                <a href="#faq" class="hover:text-white transition-colors duration-250">FAQ</a>
+   243→   243→            </div>
+   244→   244→            <div class="flex items-center gap-3 sm:gap-4">
+   245→   245→                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-450 hover:text-white transition-colors py-2 px-1">Partner-Login</button>
+   246→   246→                <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-premium btn-premium-primary text-xs px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer">Demo anfragen</a>
+   247→   247→            </div>
+   248→   248→        </div>
+   249→   249→    </nav>
+   250→   250→ 
+   251→   251→    <!-- HERO SECTION -->
+   252→   252→    <header class="relative py-12 lg:py-28 border-b border-zinc-900 z-10">
+   253→   253→        <div class="w-full px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+   254→   254→            
+   255→   255→            <!-- Hero text content (Left) -->
+   256→   256→            <div class="lg:col-span-6 text-left space-y-6 lg:pr-6">
+   257→   257→                <div class="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3.5 py-1.5 rounded-full text-xs font-bold font-display tracking-wide uppercase">
+   258→   258→                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+   259→   259→                    Gastronomie OS 2.0
+   260→   260→                </div>
+   261→   261→                <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight font-display">
+   262→   262→                    Das intelligente Betriebssystem für <span class="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 bg-clip-text text-transparent">moderne Gastronomie</span>.
+   263→   263→                </h1>
+   264→   264→                <p class="text-base sm:text-lg text-zinc-400 leading-relaxed font-medium">
+   265→   265→                    Egal ob Burger-Laden oder Shishabar – digi-gastro passt sich per Mausklick an deine Location an. Steigere deinen Umsatz um bis zu <span class="text-primary font-bold">25%</span> durch digitales Bestellen, smartes Upselling und psychologische Trinkgeld-Booster.
+   266→   266→                </p>
+   267→   267→                <div class="pt-4 flex flex-col sm:flex-row gap-4">
+   268→   268→                    <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-premium btn-premium-primary text-sm px-8 py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 btn-shimmer">
+   269→   269→                        <i class="fa-solid fa-envelope"></i> Vertrieb kontaktieren
+   270→   270→                    </a>
+   271→   271→                    <a href="#demo" class="btn-premium btn-premium-secondary text-sm px-8 py-4 rounded-xl flex items-center justify-center gap-2">
+   272→   272→                        <i class="fa-solid fa-circle-play text-emerald-400"></i> Simulator ansehen
+   273→   273→                    </a>
+   274→   274→                </div>
+   275→   275→            </div>
+   276→   276→
+   277→   277→            <!-- Interactive Demo Showcase Widget (Right) -->
+   278→   278→            <div id="demo" class="lg:col-span-6 flex flex-col items-center reveal-scale">
+   279→   279→                <div class="w-full max-w-lg glass-panel border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col">
+   280→   280→                    <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+   281→   281→                    
+   282→   282→                    <div class="flex items-center justify-between border-b border-zinc-800/40 pb-4 mb-5">
+   283→   283→                        <div class="flex items-center gap-2">
+   284→   284→                            <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+   285→   285→                            <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+   286→   286→                            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+   287→   287→                        </div>
+   288→   288→                        <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-display">Interaktive Simulation</span>
+   289→   289→                    </div>
+   290→   290→
+   291→   291→                    <!-- Simulator Screens Container -->
+   292→   292→                    <div class="relative flex gap-4 items-stretch h-80 select-none">
+   293→   293→                        
+   294→   294→                        <!-- Guest Phone view (High-end hardware frame) -->
+   295→   295→                        <div class="w-5/12 bg-zinc-950 border border-zinc-800/80 rounded-[24px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 outline outline-4 outline-zinc-900">
+   296→   296→                            <!-- Dynamic Island notch -->
+   297→   297→                            <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-3 bg-zinc-900 rounded-full z-20 flex items-center justify-center">
+   298→   298→                                <span class="w-1.5 h-1.5 rounded-full bg-zinc-800/90 ml-4"></span>
+   299→   299→                            </div>
+   300→   300→
+   301→   301→                            <!-- Phone Top Bar -->
+   302→   302→                            <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 mt-1">
+   303→   303→                                <span>Tisch 1</span>
+   304→   304→                                <span class="text-primary flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-primary animate-pulse"></span> Live</span>
+   305→   305→                            </div>
+   306→   306→                            
+   307→   307→                            <!-- Phone Content -->
+   308→   308→                            <div class="flex-grow py-3 flex flex-col justify-start space-y-2.5 overflow-hidden">
+   309→   309→                                <div class="text-[9px] font-extrabold text-white tracking-tight leading-none text-center font-display mt-0.5">DEMO Lounge</div>
+   310→   310→                                
+   311→   311→                                <div class="space-y-1.5 pt-1">
+   312→   312→                                    <!-- Phone Item 1 -->
+   313→   313→                                    <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between">
+   314→   314→                                        <div class="min-w-0">
+   315→   315→                                            <div class="text-[8px] font-black text-zinc-200 truncate">Coca Cola Zero</div>
+   316→   316→                                            <div class="text-[7px] font-bold text-primary">3,50 €</div>
+   317→   317→                                        </div>
+   318→   318→                                        <button id="demo-add-btn" onclick="addDemoItem()" class="w-4 h-4 bg-primary text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all outline-none">+</button>
+   319→   319→                                    </div>
+   320→   320→                                    <!-- Phone Item 2 -->
+   321→   321→                                    <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between opacity-75">
+   322→   322→                                        <div class="min-w-0">
+   323→   323→                                            <div class="text-[8px] font-black text-zinc-250 truncate">Premium Cheeseburger</div>
+   324→   324→                                            <div class="text-[7px] font-bold text-primary">9,50 €</div>
+   325→   325→                                        </div>
+   326→   326→                                        <div class="w-4 h-4 bg-zinc-900 text-zinc-600 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed">+</div>
+   327→   327→                                    </div>
+   328→   328→                                </div>
+   329→   329→                            </div>
+   330→   330→
+   331→   331→                            <!-- Phone Checkout Panel -->
+   332→   332→                            <div class="pt-2 border-t border-zinc-900/60">
+   333→   333→                                <button id="demo-submit-btn" onclick="sendDemoOrder()" class="w-full bg-zinc-900 text-zinc-550 cursor-not-allowed font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300">
+   334→   334→                                    Warenkorb leer
+   335→   335→                                </button>
+   336→   336→                            </div>
+   337→   337→                        </div>
+   338→   338→
+   339→   339→                        <!-- Flying Order ticket container (hidden, absolute) -->
+   340→   340→                        <div id="demo-flying-ticket" class="absolute left-[20%] top-[35%] w-24 bg-primary text-black rounded-lg p-2 font-display text-[8px] font-black shadow-lg shadow-primary/30 pointer-events-none hidden z-30">
+   341→   341→                            <div class="flex justify-between border-b border-black/15 pb-0.5 mb-1">
+   342→   342→                                <span>TISCH 1</span>
+   343→   343→                                <span class="animate-pulse">Neu!</span>
+   344→   344→                            </div>
+   345→   345→                            <div class="truncate">1x Cola Zero</div>
+   346→   346→                        </div>
+   347→   347→
+   348→   348→                        <!-- Kitchen Monitor View (Tablet Frame with live video loop background) -->
+   349→   349→                        <div class="flex-grow bg-zinc-950 border border-zinc-800/80 rounded-[20px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 overflow-hidden outline outline-4 outline-zinc-900">
+   350→   350→                            <!-- Background Video Loop representing active kitchen environment -->
+   351→   351→                            <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover opacity-20 z-0 pointer-events-none">
+   352→   352→                                <source src="https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-40342-large.mp4" type="video/mp4">
+   353→   353→                            </video>
+   354→   354→
+   355→   355→                            <!-- Glass overlay to keep text highly legible -->
+   356→   356→                            <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/90 z-1 pointer-events-none"></div>
+   357→   357→
+   358→   358→                            <!-- KDS Header -->
+   359→   359→                            <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 relative z-2">
+   360→   360→                                <span>KÜCHEN-MONITOR (KDS)</span>
+   361→   361→                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+   362→   362→                            </div>
+   363→   363→                            
+   364→   364→                            <!-- KDS Active Grid -->
+   365→   365→                            <div class="flex-grow py-2.5 flex flex-col justify-start space-y-1.5 overflow-hidden relative z-2">
+   366→   366→                                <div class="text-[7px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Aktive Bestellungen:</div>
+   367→   367→                                
+   368→   368→                                <div id="demo-kds-board" class="space-y-1.5">
+   369→   369→                                    <!-- Pre-filled KDS order -->
+   370→   370→                                    <div class="bg-zinc-950/80 backdrop-blur-md border border-zinc-900 p-2 rounded-lg flex items-center justify-between text-[7px]">
+   371→   371→                                        <div>
+   372→   372→                                            <div class="font-extrabold text-white">Tisch 4 &bull; 4 min</div>
+   373→   373→                                            <div class="text-zinc-400 mt-0.5 font-medium">1x Double Cheeseburger</div>
+   374→   374→                                        </div>
+   375→   375→                                        <div class="bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold">Zubereitung</div>
+   376→   376→                                    </div>
+   377→   377→                                </div>
+   378→   378→                            </div>
+   379→   379→
+   380→   380→                            <div class="text-[6px] text-zinc-600 text-center font-bold relative z-2">Bestellungen erscheinen in Echtzeit</div>
+   381→   381→                        </div>
+   382→   382→
+   383→   383→                    </div>
+   384→   384→
+   385→   385→                    <!-- Trigger info block -->
+   386→   386→                    <div class="mt-5 pt-4 border-t border-zinc-800/40 text-center text-xs text-zinc-400 flex flex-col items-center justify-center gap-2">
+   387→   387→                        <p id="demo-guide" class="font-medium text-[11px] leading-relaxed">
+   388→   388→                            💡 Drücke oben auf das <strong class="text-primary font-extrabold">+</strong> am Smartphone, um Cola in den Warenkorb zu legen!
+   389→   389→                        </p>
+   390→   390→                        <button id="demo-reset-btn" onclick="resetDemoSimulator()" class="hidden text-[10px] font-bold text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-widest">
+   391→   391→                            <i class="fa-solid fa-rotate-left mr-1"></i> Simulation zurücksetzen
+   392→   392→                        </button>
+   393→   393→                    </div>
+   394→   394→                </div>
+   395→   395→            </div>
+   396→   396→
+   397→   397→        </div>
+   398→   398→    </header>
+   399→   399→
+   400→   400→    <!-- FEATURE MATRIX (BENTO GRID STYLE) -->
+   401→   401→    <section id="features" class="py-12 md:py-24 relative z-10 reveal-scale">
+   402→   402→        <div class="max-w-7xl mx-auto px-6">
+   403→   403→            <div class="text-center max-w-3xl mx-auto mb-16">
+   404→   404→                <h2 class="text-3xl sm:text-4xl font-black text-white font-display tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Das All-in-One Gastro-Betriebssystem</h2>
+   405→   405→                <p class="text-zinc-400 mt-4 text-sm font-medium">Alles, was deine Gastronomie für mehr Profitabilität, glücklichere Mitarbeiter und fehlerfreie Abläufe benötigt.</p>
+   406→   406→            </div>
+   407→   407→            
+   408→   408→            <!-- BENTO GRID -->
+   409→   409→            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+   410→   410→                
+   411→   411→                <!-- BENTO CARD 1: Smarter Shisha-Modus (col-span-2) -->
+   412→   412→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+   413→   413→                    <div>
+   414→   414→                        <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
+   415→   415→                            <i class="fa-solid fa-fire text-xl"></i>
+   416→   416→                        </div>
+   417→   417→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Smarter Shisha-Modus (Kohle per Klick nachlegen)</h3>
+   418→   418→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   419→   419→                            Schluss mit lautem Rufen quer durch die Bar. Deine Gäste ordern neue Kohle oder Köpfe mit einem einzigen Klick am eigenen Smartphone. Die Anfrage landet in Echtzeit auf dem Monitor des Kohlemeisters, während Shakes und Snacks automatisch an die Bar oder in die Küche geleitet werden.
+   420→   420→                        </p>
+   421→   421→                    </div>
+   422→   422→                    <div class="mt-6 text-[10px] font-bold text-primary tracking-widest uppercase">&bull; Spezifisch für Shisha-Bars optimiert</div>
+   423→   423→                </div>
+   424→   424→
+   425→   425→                <!-- BENTO CARD 2: Digitales Küchen-Display (col-span-1) -->
+   426→   426→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+   427→   427→                    <div>
+   428→   428→                        <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
+   429→   429→                            <i class="fa-solid fa-desktop text-xl"></i>
+   430→   430→                        </div>
+   431→   431→                        <h3 class="text-xl font-bold text-white mb-3 font-display">KDS Küchen-Display</h3>
+   432→   432→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium font-sans">
+   433→   433→                            Keine Zettelwirtschaft, keine verloren gegangenen Bons und keine fehlerhaften Absprachen mehr. Bestellungen werden übersichtlich auf Küchenmonitoren nach Einlasszeit und Dringlichkeit sortiert dargestellt.
+   434→   434→                        </p>
+   435→   435→                    </div>
+   436→   436→                    <div class="mt-6 text-[10px] font-bold text-primary tracking-widest uppercase">&bull; 100% papierlose Küche</div>
+   437→   437→                </div>
+   438→   438→
+   439→   439→                <!-- BENTO CARD 3: Flexibles Rechnungs-Splitting (col-span-1) -->
+   440→   440→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+   441→   441→                    <div>
+   442→   442→                        <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
+   443→   443→                            <i class="fa-solid fa-arrows-split-up-and-left text-xl"></i>
+   444→   444→                        </div>
+   445→   445→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Rechnungs-Teilzahlung</h3>
+   446→   446→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   447→   447→                            "Wer zahlt was?" – Für dein Personal ab jetzt kein Stressfaktor mehr. Kellner teilen Speisen und Getränke eines tisches direkt auf dem Tablet auf und rechnen Produkte einzeln ab. Blitzschnell, intuitiv und ohne Rechenfehler.
+   448→   448→                        </p>
+   449→   449→                    </div>
+   450→   450→                    <div class="mt-6 text-[10px] font-bold text-primary tracking-widest uppercase">&bull; Gastro-Professional Standard</div>
+   451→   451→                </div>
+   452→   452→
+   453→   453→                <!-- BENTO CARD 4: GoBD-Konformität & Audit-Log (col-span-2) -->
+   454→   454→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+   455→   455→                    <div>
+   456→   456→                        <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
+   457→   457→                            <i class="fa-solid fa-shield-halved text-xl"></i>
+   458→   458→                        </div>
+   459→   459→                        <h3 class="text-xl font-bold text-white mb-3 font-display">100% Finanzamtsicher (GoBD & Krypto-Audit-Log)</h3>
+   460→   460→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   461→   461→                            Volle Rechtssicherheit bei jeder Betriebsprüfung. Jede manuelle Änderung, jede Stornierung und jeder Bezahlvorgang wird manipulationssicher in einem kryptografisch verschlüsselten Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. Generiere den finanzamtkonformen Steuerberater-Export mit nur einem Klick.
+   462→   462→                        </p>
+   463→   463→                    </div>
+   464→   464→                    <div class="mt-6 text-[10px] font-bold text-primary tracking-widest uppercase">&bull; Lückenloses GoBD-System</div>
+   465→   465→                </div>
+   466→   466→
+   467→   467→                <!-- BENTO CARD 5: Google-Review-Booster (col-span-2) -->
+   468→   468→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+   469→   469→                    <div>
+   470→   470→                        <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
+   471→   471→                            <i class="fa-solid fa-star text-xl"></i>
+   472→   472→                        </div>
+   473→   473→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Trinkgeld-Turbo & Google-Review</h3>
+   474→   474→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   475→   475→                            Biete deinen Gästen beim Bezahlprozess auf dem Kellner-Tablet psychologisch optimierte Trinkgeld-Auswahlmöglichkeiten. Direkt nach einem positiven Bezahlvorgang leitet das System zufriedene Gäste blitzschnell zur Google-Bewertung weiter. Maximiere deine 5-Sterne-Rezensionen vollkommen organisch!
+   476→   476→                        </p>
+   477→   477→                    </div>
+   478→   478→                    <div class="mt-6 text-[10px] font-bold text-primary tracking-widest uppercase">&bull; Mehr Trinkgeld & Top Google Rankings</div>
+   479→   479→                </div>
+   480→   480→
+   481→   481→                <!-- BENTO CARD 6: Automatische Happy-Hour (col-span-1) -->
+   482→   482→                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+   483→   483→                    <div>
+   484→   484→                        <div class="card-icon h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-primary mb-6">
+   485→   485→                            <i class="fa-solid fa-clock text-xl"></i>
+   486→   486→                        </div>
+   487→   487→                        <h3 class="text-xl font-bold text-white mb-3 font-display">Upselling & Happy-Hour</h3>
+   488→   488→                        <p class="text-zinc-400 text-sm leading-relaxed font-medium">
+   489→   489→                            Lass die Software für dich verkaufen. Die intelligente Empfehlungs-Engine empfiehlt Gästen im Warenkorb automatisch passende Extras (Extra-Dip, doppelter Käse). Preise passen sich zeitgesteuert und vollautomatisch an deine Happy Hour Aktionen an.
+   490→   490→                        </p>
+   491→   491→                    </div>
+   492→   492→                    <div class="mt-6 text-[10px] font-bold text-primary tracking-widest uppercase">&bull; Bis zu 25% mehr Warenkorb-Wert</div>
+   493→   493→                </div>
+   494→   494→
+   495→   495→            </div>
+   496→   496→        </div>
+   497→   497→    </section>
+   498→   498→
+   499→   499→    <!-- FAQ SECTION -->
+   500→   500→    <section id="faq" class="py-12 md:py-24 border-t border-zinc-900 relative z-10 reveal">
+   501→   501→        <div class="max-w-4xl mx-auto px-6">
+   502→   502→            <div class="text-center mb-16">
+   503→   503→                <h2 class="text-3xl sm:text-4xl font-black text-white font-display tracking-tight">Häufig gestellte Fragen (FAQ)</h2>
+   504→   504→                <p class="text-zinc-400 mt-4 text-sm font-medium">Alles Wissenswerte über das intelligenteste Betriebssystem der modernen Gastronomie.</p>
+   505→   505→            </div>
+   506→   506→
+   507→   507→            <div class="space-y-4">
+   508→   508→                <!-- FAQ Item 1 -->
+   509→   509→                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
+   510→   510→                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(1)">
+   511→   511→                        <span>Ist digi-gastro hardwareunabhängig?</span>
+   512→   512→                        <i id="faq-icon-1" class="fa-solid fa-chevron-down text-primary transition-transform"></i>
+   513→   513→                    </button>
+   514→   514→                    <div id="faq-content-1" class="accordion-content">
+   515→   515→                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+   516→   516→                            Ja! digi-gastro läuft auf jedem gängigen Tablet, Smartphone oder Computer – ganz ohne teure Spezialhardware oder proprietäre Kassensysteme. Egal ob iOS, Android oder Windows.
+   517→   517→                        </div>
+   518→   518→                    </div>
+   519→   519→                </div>
+   520→   520→
+   521→   521→                <!-- FAQ Item 2 -->
+   522→   522→                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
+   523→   523→                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(2)">
+   524→   524→                        <span>Wie funktioniert die automatische Filterung im Shisha-Modus?</span>
+   525→   525→                        <i id="faq-icon-2" class="fa-solid fa-chevron-down text-primary transition-transform"></i>
+   526→   526→                    </button>
+   527→   527→                    <div id="faq-content-2" class="accordion-content">
+   528→   528→                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+   529→   529→                            Bestellungen für Shishas und Kohle-Anfragen werden automatisch an den Shisha-Monitor geleitet, während Speisen in der Küche landen. Keine Zettelwirtschaft mehr! Du aktivierst den Shisha-Modus einfach mit einem einzigen Klick in den Profileinstellungen deines Restaurants.
+   530→   530→                        </div>
+   531→   531→                    </div>
+   532→   532→                </div>
+   533→   533→
+   534→   534→                <!-- FAQ Item 3 -->
+   535→   535→                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
+   536→   536→                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(3)">
+   537→   537→                        <span>Gibt es einen Schutz vor Spaßbestellern (Troll-Schutz)?</span>
+   538→   538→                        <i id="faq-icon-3" class="fa-solid fa-chevron-down text-primary transition-transform"></i>
+   539→   539→                    </button>
+   540→   540→                    <div id="faq-content-3" class="accordion-content">
+   541→   541→                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+   542→   542→                            Ja, absolut! Jeder Tisch verfügt über einen rotierenden Sicherheits-Token. Gäste scannen einfach den QR-Code am Tisch, um den Code automatisch zu übernehmen. Ohne gültigen Code blockiert das System Bestellversuche sofort, so dass unberechtigte Bestellungen von außerhalb unmöglich sind.
+   543→   543→                        </div>
+   544→   544→                    </div>
+   545→   545→                </div>
+   546→   546→            </div>
+   547→   547→        </div>
+   548→   548→    </section>
+   549→   549→
+   550→   550→    <!-- LOGIN MODAL -->
+   551→   551→    <div id="loginModal" class="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/85 backdrop-blur-sm flex justify-center items-start md:items-center p-4 {% if not show_login %}hidden{% endif %}">
+   552→   552→        <div class="glass-panel w-full max-w-md rounded-2xl overflow-hidden shadow-2xl transform scale-100 transition-transform relative my-auto md:my-0" id="loginCard">
+   553→   553→            <!-- Ambient glow -->
+   554→   554→            <div class="absolute -right-20 -top-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+   555→   555→
+   556→   556→            <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/40 relative z-10">
+   557→   557→                <h3 class="text-lg font-bold text-white flex items-center gap-2 font-display">
+   558→   558→                    <span class="material-symbols-outlined text-primary">login</span>
+   559→   559→                    Partner Login
+   560→   560→                </h3>
+   561→   561→                <button onclick="closeLogin()" class="text-zinc-400 hover:text-white transition-colors">
+   562→   562→                    <i class="fa-solid fa-xmark text-lg"></i>
+   563→   563→                </button>
+   564→   564→            </div>
+   565→   565→            <form action="/login" method="POST" class="p-6 space-y-4 relative z-10" novalidate>
+   566→   566→                {% if error and show_login %}
+   567→   567→                <div class="p-3.5 bg-red-950/20 border border-red-500/20 rounded-xl text-red-300 text-xs">
+   568→   568→                    {{ error }}
+   569→   569→                </div>
+   570→   570→                {% endif %}
+   571→   571→                <div>
+   572→   572→                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
+   573→   573→                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full input-premium focus:border-primary placeholder:text-zinc-650 text-sm">
+   574→   574→                </div>
+   575→   575→                <div>
+   576→   576→                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>
+   577→   577→                    <input type="password" name="password" required placeholder="••••••••" class="w-full input-premium focus:border-primary placeholder:text-zinc-650 text-sm">
+   578→   578→                </div>
+   579→   579→                <button type="submit" class="btn-premium btn-premium-primary py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all">
+   580→   580→                    Einloggen
+   581→   581→                </button>
+   582→   582→            </form>
+   583→   583→        </div>
+   584→   584→    </div>
+   585→   585→
+   586→   586→    <!-- PLATFORM LEGAL MODAL (Imprint or Privacy) -->
+   587→   587→    <div id="legalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm hidden">
+   588→   588→        <div class="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] relative">
+   589→   589→            <div class="absolute -right-20 -top-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
+   590→   590→
+   591→   591→            <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/45 relative z-10">
+   592→   592→                <h3 id="legalTitle" class="text-lg font-bold text-white font-display">Rechtliche Hinweise</h3>
+   593→   593→                <button onclick="closeLegal()" class="text-zinc-400 hover:text-white transition-colors">
+   594→   594→                    <i class="fa-solid fa-xmark text-lg"></i>
+   595→   595→                </button>
+   596→   596→            </div>
+   597→   597→            <div id="legalContent" class="p-6 overflow-y-auto text-zinc-300 text-sm leading-relaxed space-y-4 relative z-10 font-medium">
+   598→   598→                <!-- Loaded dynamically -->
+   599→   599→            </div>
+   600→   600→            <div class="border-t border-zinc-800/60 px-6 py-3.5 flex justify-end bg-zinc-900/40 relative z-10">
+   601→   601→                <button onclick="closeLegal()" class="btn-premium btn-premium-secondary px-4 py-2 rounded-lg text-xs">Schließen</button>
+   602→   602→            </div>
+   603→   603→        </div>
+   604→   604→    </div>
+   605→   605→
+   606→   606→    <!-- FOOTER -->
+   607→   607→    <footer class="bg-obsidian border-t border-zinc-900 py-12 text-zinc-550 text-xs relative z-10">
+   608→   608→        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 font-bold uppercase tracking-wider text-[10px]">
+   609→   609→            <div class="flex items-center gap-2">
+   610→   610→                <span class="text-zinc-450 font-display">digi-gastro.de</span>
+   611→   611→                <span class="text-zinc-700">-</span>
+   612→   612→                <span class="text-zinc-500 normal-case font-medium">Operating System für die Gastronomie von morgen.</span>
+   613→   613→            </div>
+   614→   614→            <div class="flex gap-6">
+   615→   615→                <button onclick="showLegal('imprint')" class="hover:text-white transition-colors">Impressum</button>
+   616→   616→                <button onclick="showLegal('privacy')" class="hover:text-white transition-colors">Datenschutzerklärung</button>
+   617→   617→            </div>
+   618→   618→            <div class="text-zinc-550 normal-case font-medium">
+   619→   619→                &copy; 2026 digi-gastro.de. Alle Rechte vorbehalten.
+   620→   620→            </div>
+   621→   621→        </div>
+   622→   622→    </footer>
+   623→   623→
+   624→   624→    <!-- INTERACTIVE SIMULATOR LOGIC -->
+   625→   625→    <script>
+   626→   626→        let demoState = {
+   627→   627→            qty: 0,
+   628→   628→            hasSent: false
+   629→   629→        };
+   630→   630→
+   631→   631→        function addDemoItem() {
+   632→   632→            if (demoState.qty >= 1 || demoState.hasSent) return;
+   633→   633→            
+   634→   634→            demoState.qty = 1;
+   635→   635→            
+   636→   636→            // Highlight add button
+   637→   637→            const addBtn = document.getElementById('demo-add-btn');
+   638→   638→            addBtn.innerHTML = '1';
+   639→   639→            addBtn.className = "w-4 h-4 bg-emerald-600 text-white rounded-full flex items-center justify-center font-bold text-[8px]";
+   640→   640→            
+   641→   641→            // Unlock send button
+   642→   642→            const submitBtn = document.getElementById('demo-submit-btn');
+   643→   643→            submitBtn.innerHTML = 'Bestellung senden (3,50 €)';
+   644→   644→            submitBtn.className = "w-full bg-primary text-black font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300 animate-custom-pulse cursor-pointer hover:bg-emerald-400";
+   645→   645→            
+   646→   646→            // Update guide text
+   647→   647→            document.getElementById('demo-guide').innerHTML = '🚀 Super! Klicke jetzt auf den pulsierenden grünen Button <strong class="text-primary font-extrabold">Bestellung senden</strong>, um die Bestellung an die Küche zu übertragen!';
+   648→   648→        }
+   649→   649→
+   650→   650→        function sendDemoOrder() {
+   651→   651→            if (demoState.qty === 0 || demoState.hasSent) return;
+   652→   652→            
+   653→   653→            demoState.hasSent = true;
+   654→   654→            
+   655→   655→            // Lock phone buttons
+   656→   656→            const submitBtn = document.getElementById('demo-submit-btn');
+   657→   657→            submitBtn.innerHTML = 'Gesendet ✓';
+   658→   658→            submitBtn.className = "w-full bg-zinc-800 text-emerald-400 font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300 cursor-not-allowed";
+   659→   659→            
+   660→   660→            const addBtn = document.getElementById('demo-add-btn');
+   661→   661→            addBtn.innerHTML = '1';
+   662→   662→            addBtn.className = "w-4 h-4 bg-zinc-800 text-zinc-650 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed";
+   663→   663→
+   664→   664→            // Trigger flying order ticket animation
+   665→   665→            const ticket = document.getElementById('demo-flying-ticket');
+   666→   666→            ticket.classList.remove('hidden');
+   667→   667→            ticket.classList.add('animate-fly-ticket');
+   668→   668→            
+   669→   669→            // Guide message
+   670→   670→            document.getElementById('demo-guide').innerHTML = '✈️ Die Bestellung fliegt in diesem Moment live über unser Krypto-Netzwerk auf das Küchen-Display!';
+   671→   671→
+   672→   672→            // Order lands on KDS board after 1.5 seconds
+   673→   673→            setTimeout(() => {
+   674→   674→                const kdsBoard = document.getElementById('demo-kds-board');
+   675→   675→                
+   676→   676→                // Create new KDS ticket
+   677→   677→                const newTicket = document.createElement('div');
+   678→   678→                newTicket.id = 'demo-new-kds-ticket';
+   679→   679→                newTicket.className = "bg-zinc-900/60 border border-primary/30 p-2 rounded-lg flex items-center justify-between text-[7px] transition-all duration-500 scale-95 opacity-0";
+   680→   680→                newTicket.innerHTML = `
+   681→   681→                    <div>
+   682→   682→                        <div class="font-extrabold text-white flex items-center gap-1">
+   683→   683→                            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+   684→   684→                            Tisch 1 &bull; Neu!
+   685→   685→                        </div>
+   686→   686→                        <div class="text-primary mt-0.5 font-bold">1x Coca Cola Zero</div>
+   687→   687→                    </div>
+   688→   688→                    <div id="demo-kds-status" class="bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 font-bold">Zubereitung</div>
+   689→   689→                `;
+   690→   690→                
+   691→   691→                kdsBoard.appendChild(newTicket);
+   692→   692→                
+   693→   693→                // Animate ticket entry
+   694→   694→                setTimeout(() => {
+   695→   695→                    newTicket.classList.remove('scale-95', 'opacity-0');
+   696→   696→                    newTicket.classList.add('scale-100', 'opacity-100');
+   697→   697→                }, 50);
+   698→   698→
+   699→   699→                // Update guide text
+   700→   700→                document.getElementById('demo-guide').innerHTML = '👨‍🍳 Angekommen! Die Küche bereitet die Cola vor. Der Status steht jetzt auf <strong class="text-primary">Zubereitung</strong>. Nach 3 Sekunden wird das Getränk geliefert!';
+   701→   701→                
+   702→   702→                // Auto deliver after 3.5 seconds
+   703→   703→                setTimeout(() => {
+   704→   704→                    const statusText = document.getElementById('demo-kds-status');
+   705→   705→                    if (statusText) {
+   706→   706→                        statusText.innerHTML = '✓ Serviert';
+   707→   707→                        statusText.className = "bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold";
+   708→   708→                        newTicket.className = "bg-zinc-900/60 border border-zinc-800/40 p-2 rounded-lg flex items-center justify-between text-[7px] opacity-60 transition-all duration-500";
+   709→   709→                    }
+   710→   710→                    
+   711→   711→                    document.getElementById('demo-guide').innerHTML = '✅ Serviert! Der Kellner hat das Getränk an den Gast übergeben. Die Demo ist abgeschlossen.';
+   712→   712→                    document.getElementById('demo-reset-btn').classList.remove('hidden');
+   713→   713→                }, 3500);
+   714→   714→
+   715→   715→            }, 1500);
+   716→   716→        }
+   717→   717→
+   718→   718→        function resetDemoSimulator() {
+   719→   719→            demoState.qty = 0;
+   720→   720→            demoState.hasSent = false;
+   721→   721→            
+   722→   722→            // Reset phone
+   723→   723→            const addBtn = document.getElementById('demo-add-btn');
+   724→   724→            addBtn.innerHTML = '+';
+   725→   725→            addBtn.className = "w-4 h-4 bg-primary text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all";
+   726→   726→            
+   727→   727→            const submitBtn = document.getElementById('demo-submit-btn');
+   728→   728→            submitBtn.innerHTML = 'Warenkorb leer';
+   729→   729→            submitBtn.className = "w-full bg-zinc-800 text-zinc-500 cursor-not-allowed font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300";
+   730→   730→            
+   731→   731→            // Hide ticket
+   732→   732→            const ticket = document.getElementById('demo-flying-ticket');
+   733→   733→            ticket.classList.add('hidden');
+   734→   734→            ticket.classList.remove('animate-fly-ticket');
+   735→   735→            
+   736→   736→            // Clear new KDS ticket
+   737→   737→            const newTicket = document.getElementById('demo-new-kds-ticket');
+   738→   738→            if (newTicket) newTicket.remove();
+   739→   739→            
+   740→   740→            // Reset guide text
+   741→   741→            document.getElementById('demo-guide').innerHTML = '💡 Drücke oben auf das <strong class="text-primary font-extrabold">+</strong> am Smartphone, um Cola in den Warenkorb zu legen!';
+   742→   742→            document.getElementById('demo-reset-btn').classList.add('hidden');
+   743→   743→        }
+   744→   744→    </script>
+   745→   745→
+   746→   746→    <!-- OTHER SCRIPTS (FAQ, MODALS, REVEALS, 3D PARALLAX TILT) -->
+   747→   747→    <script>
+   748→   748→        function toggleFaq(id) {
+   749→   749→            const content = document.getElementById(`faq-content-${id}`);
+   750→   750→            const icon = document.getElementById(`faq-icon-${id}`);
+   751→   751→            if (content.style.maxHeight && content.style.maxHeight !== '0px') {
+   752→   752→                content.style.maxHeight = '0px';
+   753→   753→                icon.classList.remove('rotate-180');
+   754→   754→            } else {
+   755→   755→                content.style.maxHeight = content.scrollHeight + 'px';
+   756→   756→                icon.classList.add('rotate-180');
+   757→   757→            }
+   758→   758→        }
+   759→   759→
+   760→   760→        function openLogin() {
+   761→   761→            {% if is_logged_in %}
+   762→   762→                window.location.href = "{{ login_target }}";
+   763→   763→            {% else %}
+   764→   764→                const modal = document.getElementById('loginModal');
+   765→   765→                modal.classList.remove('hidden');
+   766→   766→            {% endif %}
+   767→   767→        }
+   768→   768→
+   769→   769→        function closeLogin() {
+   770→   770→            document.getElementById('loginModal').classList.add('hidden');
+   771→   771→        }
+   772→   772→
+   773→   773→        // Close modal on background click
+   774→   774→        document.getElementById('loginModal').addEventListener('click', function(e) {
+   775→   775→            if (e.target === this) {
+   776→   776→                closeLogin();
+   777→   777→            }
+   778→   778→        });
+   779→   779→
+   780→   780→        // Platform operator Legal contents
+   781→   781→        const IMPRESSUM_TEXT = `
+   782→   782→            <h4 class="font-bold text-white text-base font-display">Anbieterkennzeichnung gem. § 5 DDG</h4>
+   783→   783→            <p><strong>digi-gastro GmbH & Co. KG</strong><br>
+   784→   784→            Forstweg 12<br>
+   785→   785→            80331 München</p>
+   786→   786→            <p><strong>Vertreten durch die persönlich haftende Gesellschafterin:</strong><br>
+   787→   787→            digi-gastro Verwaltungs GmbH, ebenda<br>
+   788→   788→            Geschäftsführer: Maximilian Schmidt</p>
+   789→   789→            <p><strong>Kontakt:</strong><br>
+   790→   790→            E-Mail: support@digi-gastro.de<br>
+   791→   791→            Telefon: +49 (0) 89 123 456 78</p>
+   792→   792→            <p><strong>Registergericht:</strong> Amtsgericht München<br>
+   793→   793→            Handelsregister: HRA 987654 (Verwaltungs GmbH: HRB 123456)<br>
+   794→   794→            Umsatzsteuer-Identifikationsnummer gem. § 27a UStG: DE 987 654 321</p>
+   795→   795→        `;
+   796→   796→
+   797→   797→        const PRIVACY_TEXT = `
+   798→   798→            <h4 class="font-bold text-white text-base font-display">Datenschutzerklärung für digi-gastro.de</h4>
+   799→   799→            <p><strong>1. Datenschutz auf einen Blick</strong><br>
+   800→   800→            Wir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. Nachfolgend informieren wir Sie darüber, welche Daten wir beim Besuch unserer Website und bei der Nutzung unserer Dienste erheben und verarbeiten.</p>
+   801→   801→            <p><strong>2. Verantwortliche Stelle</strong><br>
+   802→   802→            Verantwortlich für die Datenverarbeitung ist die digi-gastro GmbH & Co. KG, Forstweg 12, 80331 München. E-Mail: privacy@digi-gastro.de.</p>
+   803→   803→            <p><strong>3. Erhebung und Speicherung personenbezogener Daten</strong><br>
+   804→   804→            - <strong>Registrierungsdaten:</strong> Bei der Anmeldung eines Restaurants erheben wir Name, E-Mail-Adresse und Passwort, um den Account bereitzustellen.<br>
+   805→   805→            - <strong>Nutzungsdaten:</strong> Im Rahmen des Betriebs der Plattform werden Bestelldaten und Einstellungen der Restaurants gespeichert.</p>
+   806→   806→            <p><strong>4. Ihre Rechte</strong><br>
+   807→   807→            Sie haben jederzeit das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung Ihrer gespeicherten personenbezogenen Daten.</p>
+   808→   808→        `;
+   809→   809→
+   810→   810→        function showLegal(type) {
+   811→   811→            const modal = document.getElementById('legalModal');
+   812→   812→            const title = document.getElementById('legalTitle');
+   813→   813→            const content = document.getElementById('legalContent');
+   814→   814→            
+   815→   815→            if (type === 'imprint') {
+   816→   816→                title.textContent = 'Impressum - digi-gastro.de';
+   817→   817→                content.innerHTML = IMPRESSUM_TEXT;
+   818→   818→            } else {
+   819→   819→                title.textContent = 'Datenschutzerklärung - digi-gastro.de';
+   820→   820→                content.innerHTML = PRIVACY_TEXT;
+   821→   821→            }
+   822→   822→            
+   823→   823→            modal.classList.remove('hidden');
+   824→   824→        }
+   825→   825→
+   826→   826→        function closeLegal() {
+   827→   827→            document.getElementById('legalModal').classList.add('hidden');
+   828→   828→        }
+   829→   829→
+   830→   830→        document.getElementById('legalModal').addEventListener('click', function(e) {
+   831→   831→            if (e.target === this) {
+   832→   832→                closeLegal();
+   833→   833→            }
+   834→   834→        });
+   835→   835→
+   836→   836→        {% if show_impressum %}
+   837→   837→        window.addEventListener('load', () => {
+   838→   838→            showLegal('imprint');
+   839→   839→        });
+   840→   840→        {% endif %}
+   841→   841→
+   842→   842→        {% if show_datenschutz %}
+   843→   843→        window.addEventListener('load', () => {
+   844→   844→            showLegal('privacy');
+   845→   845→        });
+   846→   846→        {% endif %}
+   847→   847→    </script>
+   848→   848→
+   849→   849→    <!-- MODERN GLASSMORPHIC COOKIE BANNER -->
+   850→   850→    <div id="cookieBanner" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md bg-zinc-950/95 backdrop-blur-md border border-zinc-800 p-6 rounded-2xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-500 pointer-events-none">
+   851→   851→        <div class="flex flex-col gap-4">
+   852→   852→            <div class="flex items-start gap-3">
+   853→   853→                <div class="p-2 bg-emerald-500/10 rounded-lg text-primary mt-1 shrink-0">
+   854→   854→                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+   855→   855→                      <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5Z" />
+   856→   856→                      <path d="M8.5 8.5v.01" />
+   857→   857→                      <path d="M16 15.5v.01" />
+   858→   858→                      <path d="M12 12v.01" />
+   859→   859→                      <path d="M11 16v.01" />
+   860→   860→                      <path d="M6 12v.01" />
+   861→   861→                    </svg>
+   862→   862→                </div>
+   863→   863→                <div>
+   864→   864→                    <h3 class="text-white font-bold text-sm">Datenschutz & Cookies</h3>
+   865→   865→                    <p class="text-zinc-400 text-xs mt-1 leading-relaxed font-medium">
+   866→   866→                        Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen. Ohne diese Cookies kann der Dienst nicht angeboten werden.
+   867→   867→                    </p>
+   868→   868→                </div>
+   869→   869→            </div>
+   870→   870→            <div class="flex items-center justify-between gap-4 mt-2">
+   871→   871→                <button onclick="showLegal('privacy')" class="text-xs text-primary hover:text-emerald-400 underline font-bold uppercase tracking-wider">Datenschutzerklärung</button>
+   872→   872→                <button onclick="acceptCookies()" class="btn-premium btn-premium-primary text-[10px] px-4 py-2 rounded-xl">Einverstanden</button>
+   873→   873→            </div>
+   874→   874→        </div>
+   875→   875→    </div>
+   876→   876→
+   877→   877→    <!-- SCRIPT FOR CONSENT, PRELOADER, NAVBAR SCROLL & 3D GLOWS -->
+   878→   878→    <script>
+   879→   879→        // Preloader fade-out
+   880→   880→        window.addEventListener('load', () => {
+   881→   881→            const preloader = document.getElementById('preloader');
+   882→   882→            if (preloader) {
+   883→   883→                preloader.classList.add('opacity-0', 'pointer-events-none');
+   884→   884→                setTimeout(() => preloader.remove(), 550);
+   885→   885→            }
+   886→   886→        });
+   887→   887→
+   888→   888→        // Navbar shrink effect on scroll
+   889→   889→        window.addEventListener('scroll', () => {
+   890→   890→            const nav = document.querySelector('nav');
+   891→   891→            if (window.scrollY > 40) {
+   892→   892→                nav.classList.remove('h-20');
+   893→   893→                nav.classList.add('h-16', 'border-zinc-800/80', 'bg-zinc-950/85');
+   894→   894→            } else {
+   895→   895→                nav.classList.remove('h-16', 'border-zinc-800/80', 'bg-zinc-950/85');
+   896→   896→                nav.classList.add('h-20', 'border-zinc-800/40', 'bg-zinc-950/70');
+   897→   897→            }
+   898→   898→        });
+   899→   899→
+   900→   900→        // Cookie Consent
+   901→   901→        window.addEventListener('DOMContentLoaded', () => {
+   902→   902→            if (!localStorage.getItem('cookie_consent_accepted')) {
+   903→   903→                setTimeout(() => {
+   904→   904→                    const banner = document.getElementById('cookieBanner');
+   905→   905→                    if (banner) {
+   906→   906→                        banner.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+   907→   907→                        banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+   908→   908→                    }
+   909→   909→                }, 1000);
+   910→   910→            }
+   911→   911→        });
+   912→   912→
+   913→   913→        function acceptCookies() {
+   914→   914→            localStorage.setItem('cookie_consent_accepted', 'true');
+   915→   915→            const banner = document.getElementById('cookieBanner');
+   916→   916→            if (banner) {
+   917→   917→                banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+   918→   918→                banner.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+   919→   919→            }
+   920→   920→        }
+   921→   921→
+   922→   922→        // Scroll Reveal logic
+   923→   923→        const observer = new IntersectionObserver((entries) => {
+   924→   924→            entries.forEach(entry => {
+   925→   925→                if (entry.isIntersecting) {
+   926→   926→                    entry.target.classList.add('revealed');
+   927→   927→                }
+   928→   928→            });
+   929→   929→        }, { threshold: 0.06 });
+   930→   930→
+   931→   931→        document.querySelectorAll('.reveal, .reveal-scale').forEach((el) => {
+   932→   932→            observer.observe(el);
+   933→   933→        });
+   934→   934→
+   935→   935→        // Mouse coordinates for Bento Grid glowing borders & 3D Parallax Tilt
+   936→   936→        document.querySelectorAll('.glass-card').forEach(card => {
+   937→   937→            // Mousemove glow tracking
+   938→   938→            card.addEventListener('mousemove', e => {
+   939→   939→                const rect = card.getBoundingClientRect();
+   940→   940→                const x = e.clientX - rect.left;
+   941→   941→                const y = e.clientY - rect.top;
+   942→   942→                card.style.setProperty('--mouse-x', `${x}px`);
+   943→   943→                card.style.setProperty('--mouse-y', `${y}px`);
+   944→   944→            });
+   945→   945→
+   946→   946→            // 3D Parallax Tilt (Desktop only)
+   947→   947→            if (window.innerWidth >= 1024) {
+   948→   948→                card.style.transition = 'transform 0.12s ease-out, border-color 0.3s ease, box-shadow 0.3s ease';
+   949→   949→                card.style.transformStyle = 'preserve-3d';
+   950→   950→                
+   951→   951→                card.addEventListener('mousemove', e => {
+   952→   952→                    const rect = card.getBoundingClientRect();
+   953→   953→                    const x = e.clientX - rect.left;
+   954→   954→                    const y = e.clientY - rect.top;
+   955→   955→                    const xc = rect.width / 2;
+   956→   956→                    const yc = rect.height / 2;
+   957→   957→                    
+   958→   958→                    const angleX = (yc - y) / 16;
+   959→   959→                    const angleY = (x - xc) / 16;
+   960→   960→                    
+   961→   961→                    card.style.transform = `perspective(1000px) rotateX(${angleX}deg) rotateY(${angleY}deg) translateY(-4px)`;
+   962→   962→                    card.style.borderColor = 'rgba(16, 185, 129, 0.32)';
+   963→   963→                    card.style.boxShadow = '0 15px 35px -10px rgba(0, 0, 0, 0.7)';
+   964→   964→                });
+   965→   965→                
+   966→   966→                card.addEventListener('mouseleave', () => {
+   967→   967→                    card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)';
+   968→   968→                    card.style.borderColor = 'var(--border-subtle)';
+   969→   969→                    card.style.boxShadow = 'none';
+   970→   970→                });
+   971→   971→            }
+   972→   972→        });
+   973→   973→    </script>
+   974→   974→</body>
+   975→   975→</html>
+   976→   976→

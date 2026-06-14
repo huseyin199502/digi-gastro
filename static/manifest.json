@@ -6,7 +6,7 @@
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0d0d11",
-  "theme_color": "#009900",
+  "theme_color": "#C9A84C",
   "categories": ["food", "business"],
   "icons": [
     {

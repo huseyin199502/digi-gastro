@@ -10,12 +10,12 @@
   
   --border-subtle: rgba(255, 255, 255, 0.05);
   --border-strong: rgba(255, 255, 255, 0.12);
-  --border-focus: rgba(16, 185, 129, 0.5); /* Emerald focus */
+  --border-focus: rgba(201, 168, 76, 0.5); /* Gold focus */
   
-  /* Primary & Accents (Vibrant & Luxurious) */
-  --color-primary: #10b981; /* Premium Emerald */
-  --color-primary-hover: #059669;
-  --color-primary-glow: rgba(16, 185, 129, 0.15);
+  /* Primary & Accents (Luxurious Gold) */
+  --color-primary: #C9A84C; /* Premium Gold */
+  --color-primary-hover: #A8872E;
+  --color-primary-glow: rgba(201, 168, 76, 0.15);
   
   --color-accent-gold: #f59e0b; /* Golden Glow */
   --color-accent-rose: #f43f5e; /* Rose Red */
@@ -101,7 +101,7 @@ html.light .glass-panel, html.light .glass-card {
 
 /* Radial Glow Gradient background */
 .radial-glow {
-  background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
+  background-image: radial-gradient(circle at 50% 0%, rgba(201, 168, 76, 0.08) 0%, transparent 60%);
 }
 
 /* Glow Elements */
@@ -114,7 +114,7 @@ html.light .glass-panel, html.light .glass-card {
 }
 
 .glow-text-primary {
-  text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+  text-shadow: 0 0 12px rgba(201, 168, 76, 0.4);
 }
 
 /* Premium Button Interaction */
@@ -140,16 +140,16 @@ html.light .glass-panel, html.light .glass-card {
 }
 
 .glass-btn-primary {
-  background: rgba(16, 185, 129, 0.15) !important;
+  background: rgba(201, 168, 76, 0.15) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid rgba(16, 185, 129, 0.4) !important;
-  color: #34d399 !important;
+  border: 1px solid rgba(201, 168, 76, 0.4) !important;
+  color: #EFD04D !important;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
 }
 .glass-btn-primary:hover {
-  background: rgba(16, 185, 129, 0.25) !important;
-  border-color: rgba(16, 185, 129, 0.6) !important;
+  background: rgba(201, 168, 76, 0.25) !important;
+  border-color: rgba(201, 168, 76, 0.6) !important;
   color: #fff !important;
 }
 
@@ -170,11 +170,11 @@ html.light .glass-panel, html.light .glass-card {
 .btn-premium-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: #030712;
-  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.25);
+  box-shadow: 0 4px 14px 0 rgba(201, 168, 76, 0.25);
 }
 
 .btn-premium-primary:hover {
-  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.4);
+  box-shadow: 0 6px 20px 0 rgba(201, 168, 76, 0.4);
   filter: brightness(1.05);
 }
 
@@ -198,12 +198,12 @@ html.light .glass-panel, html.light .glass-card {
   padding: 12px 16px;
   font-family: var(--font-sans);
   transition: all 0.2s ease;
-  caret-color: #10b981;
+  caret-color: #C9A84C;
 }
 
 .input-premium:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.15);
   outline: none;
 }
 
@@ -219,7 +219,7 @@ input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 1000px #0b0c10 inset !important;
   box-shadow: 0 0 0 1000px #0b0c10 inset !important;
   -webkit-text-fill-color: #f3f4f6 !important;
-  caret-color: #10b981 !important;
+  caret-color: #C9A84C !important;
   border-color: var(--border-subtle) !important;
   transition: background-color 600000s 0s, color 600000s 0s;
 }
@@ -234,8 +234,8 @@ select {
 
 /* Micro animations */
 @keyframes pulse-status-green {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(201, 168, 76, 0); }
 }
 
 @keyframes pulse-status-amber {
@@ -329,9 +329,9 @@ html.light, body.light {
   --border-subtle: rgba(0, 0, 0, 0.08);
   --border-strong: rgba(0, 0, 0, 0.15);
   
-  --color-primary: #059669; /* Slightly darker emerald for readability */
-  --color-primary-hover: #047857;
-  --color-primary-glow: rgba(5, 150, 105, 0.15);
+  --color-primary: #A8872E; /* Darker gold for readability */
+  --color-primary-hover: #866A24;
+  --color-primary-glow: rgba(168, 135, 46, 0.15);
 
   --text-on-surface: #111827;
   --text-on-surface-variant: #4b5563;
@@ -411,13 +411,13 @@ html.light .bg-emerald-500 * {
 }
 
 html.light .glass-btn-primary {
-  background: rgba(16, 185, 129, 0.15) !important;
-  border: 1px solid rgba(16, 185, 129, 0.5) !important;
-  color: #047857 !important;
+  background: rgba(201, 168, 76, 0.15) !important;
+  border: 1px solid rgba(201, 168, 76, 0.5) !important;
+  color: #866A24 !important;
 }
 html.light .glass-btn-primary:hover {
-  background: rgba(16, 185, 129, 0.25) !important;
-  color: #022c22 !important;
+  background: rgba(201, 168, 76, 0.25) !important;
+  color: #433512 !important;
 }
 
 html.light .glass-btn-secondary {
@@ -479,7 +479,7 @@ html.light .landing-page-wrapper .text-amber-300 {
 /* Button text should keep its own colors */
 html.light .landing-page-wrapper .glass-btn-primary,
 html.light .landing-page-wrapper .glass-btn-primary span {
-    color: #047857 !important;
+    color: #866A24 !important;
 }
 html.light .landing-page-wrapper .glass-btn-secondary,
 html.light .landing-page-wrapper .glass-btn-secondary span {
