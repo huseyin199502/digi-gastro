@@ -43,27 +43,109 @@ Stage Summary:
 - File changed: templates/admin.html
 
 ---
-Task ID: 3
+Task ID: 4
 Agent: Main Agent
-Task: Fix Produkt-Tab Redirect + Add Product Sorting (Drag & Drop)
+Task: Fix QR-Code Scan - Kunden kommen nicht zur Speisekarte
 
 Work Log:
-- Diagnosed Issue 1: After creating/editing/saving a product, `window.location.reload()` was called but the page jumped to the default 'live' tab instead of staying on 'produkte'
-- Fix: Added `sessionStorage.setItem('dl_admin_active_tab', 'produkte')` before every `window.location.reload()` in product-related functions (submitEditProduct, quickCreateProduct, deleteProduct, bulkToggleAvailability, bulkDeleteProducts)
-- Converted toggle (availability switch) from form POST to fetch-based call (`toggleProductAvailability()`) — no more page navigation
-- Converted delete from form POST to fetch-based call (`deleteProduct()`) with JSON Accept header
-- Added new JS functions: `toggleProductAvailability()` and `deleteProduct()` with proper error handling and checkbox revert on failure
-- Diagnosed Issue 2: Product sorting (drag & drop) infrastructure existed but was not wired up — no `.product-sortable-list` class on product containers, no `.drag-handle` elements, no `data-product-id` on sortable items
-- Fix: Added `class="product-sortable-list"` to product table `<tbody>` and product card-view wrapper
-- Added `data-product-id="{{ p.id }}"` to each `<tr>` and product card `<div>`
-- Added drag handle column (drag_indicator icon) to both desktop table and mobile card views
-- Added CSS for drag handle opacity transitions (subtle by default, visible on hover)
-- Backend changes: `/admin/product-toggle/` now returns JSON `{"success": true, "is_available": ...}` instead of redirect. `/admin/produkt-loeschen/` returns JSON for fetch requests (checks Accept header)
-- The SortableJS initialization (already present in code at window.load) now picks up `.product-sortable-list` elements automatically
+- Diagnosed critical issue: customers scan QR codes but see "QR-Code Scan erforderlich" overlay instead of the menu
+- Root cause 1: samesite="strict" on guest session cookies blocks QR scan redirects (cross-site navigation)
+- Fix: Changed all 3 cookie locations from samesite="strict" to samesite="lax"
+- Root cause 2: secure flag only checked hostname, not actual scheme. Added X-Forwarded-Proto check
+- Root cause 3 (potential): QR URL generation used request.base_url (internal URL behind proxy)
+- Fix: QR generation now uses X-Forwarded-Host/Proto headers for correct public URL
+- Pushed to origin/main as commit f264d3d
 
 Stage Summary:
-- Produkte tab now persists after all product CRUD operations
-- Toggle/delete converted from form-POST to fetch, no more full-page redirects
-- Drag & drop sorting of products now functional (desktop table + mobile cards)
-- Files changed: templates/admin.html, main.py
-- Pushed to origin/main as commit 427976c
+- SameSite=Lax allows QR scan redirects to carry session cookies
+- Secure flag correctly detects HTTPS behind reverse proxies
+- QR codes use correct public URL when behind proxy
+- Container restart needed for main.py changes
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix Serviert text color, Sitzplan real-time, and redesign customer menu
+
+Work Log:
+- Fixed "Serviert" text color on admin Sitzplan tiles: was white (dark mode CSS override), now black using inline styles
+- Fixed "Bestellung" and service call text colors similarly using inline styles to override dark mode
+- Fixed Sitzplan real-time: reduced fallback polling from 4s→2s, kept polling at 5s even when WebSocket connected (dual-mode for reliability), added null-safety for data.orders/data.service_calls
+- Completely redesigned customer menu (Speisekarte view):
+  - Removed horizontal category carousel with fisheye effect
+  - Removed subcategory chips/filtering entirely
+  - New design: large vertical category cards displayed one below another with product images and article count
+  - Click a category → shows products for that category with back button
+  - Back button returns to category list view
+  - Added category_images and category_product_counts to template context in main.py
+  - Removed carousel CSS (cat-pill, category-carousel-wrapper etc.)
+  - Removed initCategoryCarousel, updateCarousel, centerCarouselAt functions (deprecated stubs remain)
+  - Updated filterCategory to work without subcategories
+  - Updated applyAllFilters to remove subcategory logic
+  - Added backToCategories() function
+  - Removed auto-select first category on load
+- Verified Rechnung→Google review redirect already works (from previous task)
+- Verified Gesamt bezahlen only shows after serviert (from previous task)
+- Verified Trinkgeld already removed (from previous task)
+
+Stage Summary:
+- Admin: Serviert/Bestellung text now readable (black on green/red backgrounds) in dark mode
+- Admin: Sitzplan real-time more reliable with dual WebSocket+polling
+- Customer: Complete menu redesign - vertical categories, click to expand, no subcategories
+- Files changed: admin.html, menu.html, main.py
+- Container restart needed for main.py changes (category_images/category_product_counts)
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Multiple UI/UX fixes and Rechnung review popup
+
+Work Log:
+- Task 4a: Verified "Gesamt bezahlen" button already only shows after all items served (allItemsServed check in refreshControlModal)
+- Task 4b: Removed Trinkgeld (tip) window functions from menu.html (selectPaymentTip, selectPaymentCustomTip, calculatePaymentCustomTip). Tip UI was already hidden in previous session.
+- Task 4c: Changed Rechnung flow - instead of auto-redirecting to Google review, now shows a beautiful popup with "Wie fandest du deinen Besuch?" message, 5 stars visual, "Jetzt bewerten" button (links to Google review URL with Google icon), and "Später bewerten" dismiss button
+- Task 4d: Fixed tablet landscape sidebar menu not closing - removed `!important` from desktop sidebar CSS, added `.closed` class for desktop sidebar toggle, sidebar now properly closes on tablets (1024px+) with smooth animation and main content adjusts
+- Task 5a: Fixed Sitzplan real-time updates - reduced fallback polling from 2s→1.5s, added always-refresh when control modal is open (bypasses hash comparison), ensures live data is always shown when interacting with table controls
+- Task 5b: Changed "serviert" text color from white to black in control modal - both pending and delivered items now use light backgrounds (bg-white / bg-emerald-50) with dark text (text-gray-900), making text clearly readable
+- Task 5c: Verified customer menu already redesigned with vertical categories and no subcategories from previous session. Cleaned up remaining subcategory state variables (activeSubcategories, currentSubcategory) and deprecated filterSubcategory function.
+- Added openSidebar() function for programmatic sidebar opening on desktop
+- Updated sidebar swipe gesture detection to work with both mobile (open class) and desktop (closed class)
+- Synced all templates to /tmp/my-project/templates/
+
+Stage Summary:
+- Rechnung now shows review popup with "Jetzt bewerten" button instead of auto-redirect
+- Sidebar now closeable on tablet landscape (1024px+) with smooth animation
+- Serviert/delivered items now have black text on light backgrounds for readability
+- Sitzplan real-time more responsive with 1.5s polling + always-refresh on control modal open
+- Trinkgeld tip functions fully removed from customer menu
+- Files changed: templates/admin.html, templates/menu.html
+---
+Task ID: 1
+Agent: Main Agent
+Task: Echtzeit-Funktionen prüfen und fixen (Backend + Frontend)
+
+Work Log:
+- Gelesen: main.py (8085 lines), database.py, admin.html (7593 lines), menu.html (2433 lines)
+- Analysiert: WebSocket-Verbindungen (Admin + Guest), Service-Ruf, Bestellungen, Zahlungen, Serving
+- BUG FIX: Guest WebSocket ignorierte 'refresh_tables' Message-Typ → hinzugefügt
+- BUG FIX: Backend DB Session Leaks in 5 Endpoints (service-ruf, pay_split_order, merge_tables, service_erledigt, renew_pos_secret, renew_kds_secret) → verwenden jetzt injected db Session statt SessionLocal()
+- FEATURE: Trinkgeld komplett entfernt:
+  - Backend: tip_amount aus OrderPayload, PayItemPayload, BulkPayItemsPayload, CallServicePayload entfernt
+  - Backend: pay_order() tip Parameter entfernt
+  - Backend: Alle total_with_tip Berechnungen vereinfacht (tip_amount = 0.0)
+  - Frontend admin.html: fd.append('tip', '0.0') entfernt aus 3 Stellen
+  - Frontend admin.html: tip_amount: 0.0 aus JSON payloads entfernt
+  - Frontend admin.html: KPI tip card entfernt
+  - Frontend admin.html: control-customer-tip-box div entfernt
+  - Frontend menu.html: fd.append('tip', '0.0') entfernt
+- VERIFIZIERT: 'Gesamt bezahlen' / 'Gesamtrechnung' Button ist bereits korrekt implementiert:
+  - Admin: Button nur sichtbar wenn allItemsServed (pendingItems === 0 && deliveredItems > 0)
+  - Kunde: Button disabled wenn pending > 0 oder delivered === 0
+
+Stage Summary:
+- 2 Echtzeit-Bugs gefunden und fixiert
+- Trinkgeld-Feature komplett entfernt (Backend + Frontend)
+- 'Gesamt bezahlen' war bereits korrekt implementiert
+- Dateien synchronisiert nach /tmp/my-project/ (Container Mount)
+- WICHTIG: Backend main.py Änderungen erfordern Container-Neustart!
+  Templates (admin.html, menu.html) werden automatisch neu geladen.

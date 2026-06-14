@@ -1,0 +1,2002 @@
+     1→from fastapi.staticfiles import StaticFiles
+     2→import asyncio
+     3→import copy
+     4→import json
+     5→import os
+     6→import urllib.parse
+     7→import secrets
+     8→import csv
+     9→import io
+    10→from datetime import datetime
+    11→from typing import List, Optional, Dict, Any
+    12→
+    13→def get_berlin_now():
+    14→    now = datetime.now()
+    15→    if getattr(datetime, "__name__", None) == "MockDatetime":
+    16→        return now
+    17→    from datetime import timezone, timedelta
+    18→    try:
+    19→        utc_now = datetime.now(timezone.utc)
+    20→    except Exception:
+    21→        return now
+    22→    year = utc_now.year
+    23→    march_31 = datetime(year, 3, 31, 1, 0, tzinfo=timezone.utc)
+    24→    cest_start = march_31 - timedelta(days=(march_31.weekday() + 1) % 7)
+    25→    october_31 = datetime(year, 10, 31, 1, 0, tzinfo=timezone.utc)
+    26→    cest_end = october_31 - timedelta(days=(october_31.weekday() + 1) % 7)
+    27→    if cest_start <= utc_now < cest_end:
+    28→        offset = timedelta(hours=2)
+    29→    else:
+    30→        offset = timedelta(hours=1)
+    31→    return (utc_now + offset).replace(tzinfo=None)
+    32→
+    33→def process_and_crop_product_image(image_bytes) -> bytes:
+    34→    from io import BytesIO
+    35→    from PIL import Image
+    36→    
+    37→    # 1. Try to remove background using rembg
+    38→    try:
+    39→        import onnxruntime
+    40→        from rembg import remove
+    41→        img_no_bg_bytes = remove(image_bytes)
+    42→        img = Image.open(BytesIO(img_no_bg_bytes))
+    43→    except BaseException as e:
+    44→        print(f"[Image Processing] rembg background removal failed/not installed or exited: {e}")
+    45→        img = Image.open(BytesIO(image_bytes))
+    46→        
+    47→    # 2. Convert to RGBA if not already
+    48→    if img.mode != "RGBA":
+    49→        img = img.convert("RGBA")
+    50→        
+    51→    # 3. Crop transparent borders (autotrim empty space around product)
+    52→    bbox = img.getbbox()
+    53→    if bbox:
+    54→        img = img.crop(bbox)
+    55→        
+    56→    # 4. Save as PNG to preserve transparency
+    57→    out = BytesIO()
+    58→    img.save(out, format="PNG")
+    59→    return out.getvalue()
+    60→
+    61→def process_and_optimize_general_image(image_bytes) -> bytes:
+    62→    from io import BytesIO
+    63→    from PIL import Image
+    64→    try:
+    65→        img = Image.open(BytesIO(image_bytes))
+    66→        if img.mode in ("RGBA", "P"):
+    67→            img = img.convert("RGBA")
+    68→            format_type = "PNG"
+    69→        else:
+    70→            img = img.convert("RGB")
+    71→            format_type = "JPEG"
+    72→        img.thumbnail((1920, 1080))
+    73→        out = BytesIO()
+    74→        if format_type == "PNG":
+    75→            img.save(out, format="PNG", optimize=True)
+    76→        else:
+    77→            img.save(out, format="JPEG", quality=85, optimize=True)
+    78→        return out.getvalue()
+    79→    except Exception as e:
+    80→        print(f"[Image Processing] Optimization failed, using raw bytes: {e}")
+    81→        return image_bytes
+    82→
+    83→
+    84→
+    85→from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
+    86→from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
+    87→from fastapi.templating import Jinja2Templates
+    88→from pydantic import BaseModel
+    89→
+    90→app = FastAPI(title="digi-gastro High-End Gastronomy OS")
+    91→
+    92→# Setup Jinja2 Templates
+    93→BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    94→templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+    95→
+    96→class ConnectionManager:
+    97→    def __init__(self):
+    98→        self.active_connections: Dict[str, List[WebSocket]] = {}
+    99→
+   100→    async def connect(self, slug: str, websocket: WebSocket):
+   101→        await websocket.accept()
+   102→        if slug not in self.active_connections:
+   103→            self.active_connections[slug] = []
+   104→        self.active_connections[slug].append(websocket)
+   105→
+   106→    def disconnect(self, slug: str, websocket: WebSocket):
+   107→        if slug in self.active_connections:
+   108→            if websocket in self.active_connections[slug]:
+   109→                self.active_connections[slug].remove(websocket)
+   110→            if not self.active_connections[slug]:
+   111→                del self.active_connections[slug]
+   112→
+   113→    async def broadcast(self, slug: str, message: dict):
+   114→        if slug in self.active_connections:
+   115→            for connection in self.active_connections[slug]:
+   116→                try:
+   117→                    await connection.send_json(message)
+   118→                except Exception:
+   119→                    pass
+   120→
+   121→manager = ConnectionManager()
+   122→
+   123→# ──────────────────────────────────────────────────────────────────
+   124→# WEBSOCKET AUTHENTICATION
+   125→# Only authenticated clients (admin, POS, KDS, or guest with valid
+   126→# session cookie) may connect. Unauthenticated connections are
+   127→# rejected with a 4401 close code.
+   128→# ──────────────────────────────────────────────────────────────────
+   129→def _validate_ws_cookies(slug: str, cookies: dict) -> bool:
+   130→    """Check if the WebSocket client has a valid session cookie."""
+   131→    slug_lower = slug.lower().strip()
+   132→
+   133→    # 1. Unified admin session cookie  (format: slug:name:role:pin)
+   134→    session = cookies.get("session")
+   135→    if session:
+   136→        try:
+   137→            parts = session.split(":")
+   138→            if len(parts) == 4 and parts[0] == slug_lower:
+   139→                return True
+   140→        except Exception:
+   141→            pass
+   142→
+   143→    # 2. Legacy device-specific session cookie
+   144→    session_legacy = cookies.get(f"session_{slug_lower}")
+   145→    if session_legacy:
+   146→        try:
+   147→            parts = session_legacy.split(":")
+   148→            if len(parts) == 3:
+   149→                return True
+   150→        except Exception:
+   151→            pass
+   152→
+   153→    # 3. POS device cookie
+   154→    pos_cookie = cookies.get(f"pos_token_{slug_lower}")
+   155→    if pos_cookie:
+   156→        # Quick existence check – the actual value is verified on API calls
+   157→        return True
+   158→
+   159→    # 4. KDS device cookie
+   160→    kds_cookie = cookies.get("kds_session")
+   161→    if kds_cookie:
+   162→        try:
+   163→            parts = kds_cookie.split(":")
+   164→            if len(parts) >= 2 and parts[0] == slug_lower:
+   165→                return True
+   166→        except Exception:
+   167→            pass
+   168→
+   169→    # 5. Guest session cookie (customer on menu page)
+   170→    guest_cookie = cookies.get(f"guest_session_{slug_lower}")
+   171→    if guest_cookie:
+   172→        try:
+   173→            parts = guest_cookie.split(":", 1)
+   174→            if len(parts) == 2 and parts[0] and parts[1]:
+   175→                return True
+   176→        except Exception:
+   177→            pass
+   178→
+   179→    return False
+   180→
+   181→@app.websocket("/ws/{slug}")
+   182→async def websocket_endpoint(websocket: WebSocket, slug: str):
+   183→    # ── Auth check BEFORE entering the main loop ──
+   184→    if not _validate_ws_cookies(slug, websocket.cookies):
+   185→        # Must accept first, then close with 4401 code so the client
+   186→        # receives the close frame and knows it was rejected.
+   187→        await websocket.accept()
+   188→        await websocket.close(code=4401, reason="Unauthorized")
+   189→        return
+   190→
+   191→    await manager.connect(slug, websocket)
+   192→    try:
+   193→        while True:
+   194→            data = await websocket.receive_text()
+   195→            # Handle client keepalive pings gracefully
+   196→            try:
+   197→                msg = json.loads(data)
+   198→                if msg.get("type") == "ping":
+   199→                    await websocket.send_text(json.dumps({"type": "pong"}))
+   200→            except Exception:
+   201→                pass
+   202→    except WebSocketDisconnect:
+   203→        manager.disconnect(slug, websocket)
+   204→    except Exception:
+   205→        manager.disconnect(slug, websocket)
+   206→
+   207→# ──────────────────────────────────────────────────────────────────
+   208→# RACE CONDITION PROTECTION – per-tenant async locks
+   209→# Prevents lost updates when concurrent requests read-modify-write
+   210→# the same tenant data (e.g. two orders arriving at the same time).
+   211→# ──────────────────────────────────────────────────────────────────
+   212→_tenant_locks: Dict[str, asyncio.Lock] = {}
+   213→
+   214→def _get_tenant_lock(slug: str) -> asyncio.Lock:
+   215→    slug_lower = slug.lower().strip()
+   216→    if slug_lower not in _tenant_locks:
+   217→        _tenant_locks[slug_lower] = asyncio.Lock()
+   218→    return _tenant_locks[slug_lower]
+   219→
+   220→import functools
+   221→
+   222→def tenant_lock(func):
+   223→    """Decorator that acquires the per-tenant asyncio.Lock for the endpoint.
+   224→    The endpoint MUST have a `slug` path/query parameter or `slug` in the
+   225→    function signature so we can extract the tenant identity.
+   226→    The lock serialises all read-modify-write cycles for the same tenant,
+   227→    preventing lost updates under concurrent access.
+   228→    """
+   229→    @functools.wraps(func)
+   230→    async def wrapper(*args, **kwargs):
+   231→        # Try to get slug from kwargs first (FastAPI injects it), then from path
+   232→        slug = kwargs.get("slug")
+   233→        if not slug:
+   234→            # Fallback: inspect Request object in args
+   235→            for arg in args:
+   236→                if isinstance(arg, Request):
+   237→                    # Try path params
+   238→                    slug = arg.path_params.get("slug")
+   239→                    if slug:
+   240→                        break
+   241→        if not slug:
+   242→            # Last resort: run without lock (shouldn't happen)
+   243→            return await func(*args, **kwargs)
+   244→        async with _get_tenant_lock(slug):
+   245→            return await func(*args, **kwargs)
+   246→    return wrapper
+   247→
+   248→
+   249→# ──────────────────────────────────────────────────────────────────
+   250→# UPLOAD DIRECTORY – persistent volume for logos / product images
+   251→# ──────────────────────────────────────────────────────────────────
+   252→# On Coolify / Docker: set UPLOAD_DIR=/app/data/uploads and mount
+   253→# /app/data as a Persistent Volume so files survive container rebuilds.
+   254→# Locally: falls back to the classic static/uploads folder.
+   255→# ──────────────────────────────────────────────────────────────────
+   256→UPLOAD_DIR = os.getenv(
+   257→    "UPLOAD_DIR",
+   258→    os.path.join(BASE_DIR, "static", "uploads")  # local fallback
+   259→)
+   260→UPLOAD_LOGOS_DIR = os.path.join(UPLOAD_DIR, "logos")
+   261→os.makedirs(UPLOAD_LOGOS_DIR, exist_ok=True)
+   262→
+   263→def delete_local_image_if_unused(image_path: str, restaurant: dict, current_product_id: Optional[int] = None):
+   264→    if not image_path or not image_path.startswith("/uploads/"):
+   265→        return
+   266→        
+   267→    products = restaurant.get("products", [])
+   268→    for p in products:
+   269→        if current_product_id is not None and p.get("id") == current_product_id:
+   270→            continue
+   271→        if p.get("image") == image_path:
+   272→            return
+   273→            
+   274→    rel_path = image_path[len("/uploads/"):]
+   275→    full_path = os.path.join(UPLOAD_DIR, rel_path)
+   276→    if os.path.exists(full_path) and os.path.isfile(full_path):
+   277→        try:
+   278→            os.remove(full_path)
+   279→            print(f"[Image Cleanup] Deleted unused image: {full_path}")
+   280→        except Exception as e:
+   281→            print(f"[Image Cleanup] Error deleting unused image {full_path}: {e}")
+   282→
+   283→
+   284→# Secure Platform Admin Password configuration
+   285→ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "superpassword123")
+   286→
+   287→# Static files: project assets (CSS, JS, built-in images)
+   288→app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+   289→# Uploads served separately so they survive from the persistent volume
+   290→app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+   291→
+   292→# ──────────────────────────────────────────────────────────────────
+   293→# HEALTH CHECK – must be registered BEFORE any middleware so Docker
+   294→# HEALTHCHECK and Coolify never get a 404.
+   295→# ──────────────────────────────────────────────────────────────────
+   296→@app.get("/health", tags=["system"])
+   297→def health_check_early():
+   298→    """Lightweight liveness probe – always returns 200 when the app is up."""
+   299→    return JSONResponse({"status": "ok"})
+   300→
+   301→@app.get("/favicon.ico", include_in_schema=False)
+   302→async def favicon():
+   303→    return FileResponse("static/images/digigastrologo.jpeg")
+   304→
+   305→@app.get("/apple-touch-icon.png", include_in_schema=False)
+   306→@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+   307→@app.get("/apple-touch-icon-120x120.png", include_in_schema=False)
+   308→async def apple_touch_icon():
+   309→    return FileResponse("static/images/digigastrologo.jpeg")
+   310→
+   311→@app.get("/manifest.json", include_in_schema=False)
+   312→async def manifest():
+   313→    return FileResponse(
+   314→        "static/manifest.json",
+   315→        headers={
+   316→            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+   317→            "Pragma": "no-cache",
+   318→            "Expires": "0"
+   319→        }
+   320→    )
+   321→
+   322→@app.get("/sw.js", include_in_schema=False)
+   323→async def service_worker():
+   324→    return FileResponse(
+   325→        "static/sw.js",
+   326→        headers={
+   327→            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+   328→            "Pragma": "no-cache",
+   329→            "Expires": "0"
+   330→        }
+   331→    )
+   332→
+   333→# Custom Exception for suspended tenants
+   334→class TenantSuspendedException(Exception):
+   335→    def __init__(self, slug: str):
+   336→        self.slug = slug
+   337→
+   338→@app.exception_handler(TenantSuspendedException)
+   339→async def tenant_suspended_handler(request: Request, exc: TenantSuspendedException):
+   340→    return HTMLResponse(
+   341→        content=f"""
+   342→        <!DOCTYPE html>
+   343→        <html>
+   344→        <head>
+   345→            <meta charset="utf-8">
+   346→            <title>Konto gesperrt</title>
+   347→            <style>
+   348→                body {{ font-family: sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+   349→                .card {{ background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }}
+   350→                h1 {{ color: #dc2626; margin-top: 0; }}
+   351→            </style>
+   352→        </head>
+   353→        <body>
+   354→            <div class="card">
+   355→                <h1>Konto deaktiviert</h1>
+   356→                <p>Dieses Restaurant ist vorübergehend deaktiviert.</p>
+   357→                <p>Bitte kontaktieren Sie den Support.</p>
+   358→            </div>
+   359→        </body>
+   360→        </html>
+   361→        """,
+   362→        status_code=403
+   363→    )
+   364→
+   365→# ----------------------------------------------------
+   366→# DATABASE INTEGRATION
+   367→# ----------------------------------------------------
+   368→from sqlalchemy.orm import Session
+   369→from database import (
+   370→    Tenant, 
+   371→    Category, 
+   372→    Product, 
+   373→    Order, 
+   374→    OrderItem as DBOrderItem, 
+   375→    Staff, 
+   376→    ServiceCall, 
+   377→    Table, 
+   378→    AuditLog,
+   379→    SessionLocal,
+   380→    STANDARD_PRODUCTS,
+   381→    get_db,
+   382→    Base,
+   383→    engine,
+   384→    run_migrations
+   385→)
+   386→
+   387→INITIAL_RESTAURANTS = {}
+   388→
+   389→# Run DB migrations and ensure all tables exist
+   390→Base.metadata.create_all(engine)
+   391→run_migrations()
+   392→
+   393→
+   394→# Stateless Serialization Helpers for compatibility and template rendering
+   395→def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
+   396→    tenant = session.query(Tenant).filter_by(slug=slug).first()
+   397→    if not tenant:
+   398→        return None
+   399→    
+   400→    db_categories = session.query(Category).filter_by(tenant_slug=slug).order_by(Category.position, Category.id).all()
+   401→    categories = [c.name for c in db_categories]
+   402→    category_data = [{"id": c.id, "name": c.name} for c in db_categories]
+   403→    
+   404→    db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.position, Product.id).all()
+   405→    products = []
+   406→    for p in db_products:
+   407→        products.append({
+   408→            "id": p.id,
+   409→            "name": p.name,
+   410→            "price": p.price,
+   411→            "description": p.description,
+   412→            "image": p.image,
+   413→            "vegan": p.vegan,
+   414→            "is_vegan": p.is_vegan,
+   415→            "is_glutenfree": p.is_glutenfree,
+   416→            "allergens": json.loads(p.allergens or "[]"),
+   417→            "category_type": p.category_type,
+   418→            "category": p.category,
+   419→            "is_available": p.is_available,
+   420→            "happy_hour_price": p.happy_hour_price,
+   421→            "start_time": p.start_time,
+   422→            "end_time": p.end_time,
+   423→            "happy_hour_days": json.loads(p.happy_hour_days) if p.happy_hour_days else None,
+   424→            "name_en": p.name_en,
+   425→            "description_en": p.description_en,
+   426→            "position": getattr(p, "position", 0) or 0
+   427→        })
+   428→        
+   429→    db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id).all()
+   430→    orders = []
+   431→    for o in db_orders:
+   432→        db_items = session.query(DBOrderItem).filter_by(order_id=o.id).order_by(DBOrderItem.id).all() if hasattr(o, "id") else []
+   433→        items = [{
+   434→            "product_id": item.product_id,
+   435→            "name": item.name,
+   436→            "price": item.price,
+   437→            "quantity": item.quantity,
+   438→            "category_type": item.category_type,
+   439→            "note": item.note,
+   440→            "item_status": getattr(item, "item_status", "pending") or "pending"
+   441→        } for item in db_items]
+   442→        orders.append({
+   443→            "id": o.id,
+   444→            "table": o.table,
+   445→            "items": items,
+   446→            "total": o.total,
+   447→            "total_with_tip": o.total_with_tip,
+   448→            "tip_amount": o.tip_amount,
+   449→            "status": o.status,
+   450→            "timestamp": o.timestamp,
+   451→            "mwst_rate": o.mwst_rate,
+   452→            "waiter_id": o.waiter_id
+   453→        })
+   454→        
+   455→    db_staff = session.query(Staff).filter_by(tenant_slug=slug).order_by(Staff.id).all()
+   456→    staff = [{
+   457→        "name": s.name,
+   458→        "role": s.role,
+   459→        "pin": s.pin,
+   460→        "pin_code": s.pin_code
+   461→    } for s in db_staff]
+   462→    
+   463→    db_calls = session.query(ServiceCall).filter_by(tenant_slug=slug).order_by(ServiceCall.id).all()
+   464→    service_calls = [{
+   465→        "id": c.id,
+   466→        "table": c.table,
+   467→        "type": c.type,
+   468→        "timestamp": c.timestamp
+   469→    } for c in db_calls]
+   470→    
+   471→    db_tables = session.query(Table).filter_by(tenant_slug=slug).order_by(Table.id).all()
+   472→    tables = [{
+   473→        "number": t.number,
+   474→        "zone": t.zone,
+   475→        "security_token": t.security_token,
+   476→        "active_session_token": t.active_session_token,
+   477→        "pos_x": getattr(t, "pos_x", 0.0) or 0.0,
+   478→        "pos_y": getattr(t, "pos_y", 0.0) or 0.0,
+   479→        "width": getattr(t, "width", 120.0) or 120.0,
+   480→        "height": getattr(t, "height", 80.0) or 80.0,
+   481→        "shape": getattr(t, "shape", "rect") or "rect",
+   482→        "active": getattr(t, "active", True) if getattr(t, "active", True) is not None else True,
+   483→        "qr_token": getattr(t, "qr_token", None)
+   484→    } for t in db_tables]
+   485→    
+   486→    try:
+   487→        import re
+   488→        def natural_sort_key(s):
+   489→            return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', str(s))]
+   490→        tables.sort(key=lambda x: natural_sort_key(x["number"]))
+   491→    except Exception:
+   492→        pass
+   493→    
+   494→    db_logs = session.query(AuditLog).filter_by(tenant_slug=slug).order_by(AuditLog.id).all()
+   495→    audit_log = [{
+   496→        "id": l.id,
+   497→        "action": l.action,
+   498→        "timestamp": l.timestamp,
+   499→        "user": l.user,
+   500→        "details": l.details
+   501→    } for l in db_logs]
+   502→    
+   503→    # Load events and their products
+   504→    from database import Event as DBEvent, EventProduct as DBEventProduct
+   505→    db_events = session.query(DBEvent).filter_by(tenant_slug=slug).order_by(DBEvent.position, DBEvent.id).all()
+   506→    events = []
+   507→    for ev in db_events:
+   508→        ev_products = session.query(DBEventProduct).filter_by(event_id=ev.id).all()
+   509→        events.append({
+   510→            "id": ev.id,
+   511→            "name": ev.name,
+   512→            "display_name": ev.display_name,
+   513→            "description": ev.description or "",
+   514→            "days": json.loads(ev.days or "[]"),
+   515→            "start_time": ev.start_time or "18:00",
+   516→            "end_time": ev.end_time or "20:00",
+   517→            "mode": ev.mode or "selected",
+   518→            "discount": ev.discount or 0,
+   519→            "is_active": ev.is_active if ev.is_active is not None else True,
+   520→            "position": ev.position or 0,
+   521→            "products": [{"product_id": ep.product_id, "event_price": ep.event_price} for ep in ev_products]
+   522→        })
+   523→    
+   524→    return {
+   525→        "name": tenant.name,
+   526→        "email": tenant.email,
+   527→        "password": tenant.password,
+   528→        "tagesumsatz": tenant.tagesumsatz,
+   529→        "bestellungen_gesamt": tenant.bestellungen_gesamt,
+   530→        "active": tenant.active,
+   531→        "is_onboarded": tenant.is_onboarded,
+   532→        "is_setup_completed": tenant.is_setup_completed,
+   533→        "logo_path": tenant.logo_path,
+   534→        "has_kitchen": tenant.has_kitchen,
+   535→        "is_shishabar": tenant.is_shishabar,
+   536→        "impressum_content": tenant.impressum_content,
+   537→        "datenschutz_content": tenant.datenschutz_content,
+   538→        "security_token": tenant.security_token,
+   539→        "pos_token": tenant.pos_token,
+   540→        "pos_secret": tenant.pos_secret,
+   541→        "kds_secret": tenant.kds_secret,
+   542→        "theme": tenant.theme or "dark",
+   543→        "accepts_card_payment": getattr(tenant, "accepts_card_payment", True) if getattr(tenant, "accepts_card_payment", True) is not None else True,
+   544→        "service_calls": service_calls,
+   545→        "categories": categories,
+   546→        "category_data": category_data,
+   547→        "products": products,
+   548→        "orders": orders,
+   549→        "staff": staff,
+   550→        "branding": {
+   551→            "address": tenant.address,
+   552→            "plz": tenant.plz,
+   553→            "ort": tenant.ort,
+   554→            "indigo": tenant.indigo,
+   555→            "instagram": tenant.instagram,
+   556→            "facebook": tenant.facebook,
+   557→            "tiktok": tenant.tiktok or "",
+   558→            "logo_url": tenant.logo_url
+   559→        },
+   560→        "landing_page": json.loads(tenant.landing_page_json or "{}"),
+   561→        "happy_hour": {
+   562→            "days": json.loads(tenant.happy_hour_days or "[]"),
+   563→            "start": tenant.happy_hour_start,
+   564→            "end": tenant.happy_hour_end,
+   565→            "discount": tenant.happy_hour_discount,
+   566→            "mode": getattr(tenant, 'happy_hour_mode', None) or 'discount',
+   567→            "display_name": getattr(tenant, 'happy_hour_display_name', None) or 'Aktion'
+   568→        },
+   569→        "tables": tables,
+   570→        "audit_log": audit_log,
+   571→        "events": events
+   572→    }
+   573→
+   574→def unwrap_live_data(val):
+   575→    from collections import UserList, UserDict
+   576→    cls_name = val.__class__.__name__
+   577→    if cls_name == "LiveListProxy" or isinstance(val, UserList):
+   578→        raw_list = val.data if hasattr(val, "data") else list(val)
+   579→        return [unwrap_live_data(item) for item in raw_list]
+   580→    elif cls_name == "LiveDictProxy" or isinstance(val, UserDict):
+   581→        raw_dict = val.data if hasattr(val, "data") else dict(val)
+   582→        return {k: unwrap_live_data(v) for k, v in raw_dict.items()}
+   583→    elif isinstance(val, list):
+   584→        return [unwrap_live_data(item) for item in val]
+   585→    elif isinstance(val, dict):
+   586→        return {k: unwrap_live_data(v) for k, v in val.items()}
+   587→    return val
+   588→
+   589→def save_restaurant_to_db(slug: str, r: dict, session):
+   590→    tenant = session.query(Tenant).filter_by(slug=slug).first()
+   591→    if not tenant:
+   592→        tenant = Tenant(slug=slug)
+   593→        session.add(tenant)
+   594→    
+   595→    tenant.name = r.get("name")
+   596→    tenant.email = r.get("email")
+   597→    tenant.password = r.get("password")
+   598→    tenant.tagesumsatz = r.get("tagesumsatz", 0.0)
+   599→    tenant.bestellungen_gesamt = r.get("bestellungen_gesamt", 0)
+   600→    tenant.active = r.get("active", True)
+   601→    tenant.is_onboarded = r.get("is_onboarded", False)
+   602→    tenant.is_setup_completed = r.get("is_setup_completed", False)
+   603→    tenant.logo_path = r.get("logo_path", None)
+   604→    tenant.has_kitchen = r.get("has_kitchen", False)
+   605→    tenant.is_shishabar = r.get("is_shishabar", False)
+   606→    tenant.impressum_content = r.get("impressum_content", "")
+   607→    tenant.datenschutz_content = r.get("datenschutz_content", "")
+   608→    tenant.security_token = r.get("security_token", "")
+   609→    tenant.pos_token = r.get("pos_token")
+   610→    tenant.pos_secret = r.get("pos_secret")
+   611→    tenant.kds_secret = r.get("kds_secret")
+   612→    tenant.theme = r.get("theme", "dark")
+   613→    tenant.accepts_card_payment = r.get("accepts_card_payment", True)
+   614→
+   615→    
+   616→    branding = r.get("branding", {})
+   617→    tenant.address = branding.get("address", "")
+   618→    tenant.plz = branding.get("plz", "")
+   619→    tenant.ort = branding.get("ort", "")
+   620→    tenant.indigo = branding.get("indigo", "")
+   621→    tenant.instagram = branding.get("instagram", "")
+   622→    tenant.facebook = branding.get("facebook", "")
+   623→    tenant.tiktok = branding.get("tiktok", "")
+   624→    tenant.logo_url = branding.get("logo_url", "")
+   625→    
+   626→    tenant.landing_page_json = json.dumps(unwrap_live_data(r.get("landing_page", {})))
+   627→    
+   628→    hh = r.get("happy_hour", {})
+   629→    tenant.happy_hour_days = json.dumps(unwrap_live_data(hh.get("days", [])))
+   630→    tenant.happy_hour_start = hh.get("start", "18:00")
+   631→    tenant.happy_hour_end = hh.get("end", "20:00")
+   632→    tenant.happy_hour_discount = hh.get("discount", 0)
+   633→    if hasattr(tenant, 'happy_hour_mode'):
+   634→        tenant.happy_hour_mode = hh.get("mode", "discount")
+   635→    if hasattr(tenant, 'happy_hour_display_name'):
+   636→        tenant.happy_hour_display_name = hh.get("display_name", "Aktion")
+   637→    
+   638→    session.flush()
+   639→    # 1. Update categories
+   640→    session.query(Category).filter_by(tenant_slug=slug).delete()
+   641→    for idx, cat_name in enumerate(r.get("categories", [])):
+   642→        session.add(Category(tenant_slug=slug, name=cat_name, position=idx))
+   643→        
+   644→    # 2. Update products
+   645→    existing_products = {p.id: p for p in session.query(Product).filter_by(tenant_slug=slug).all()}
+   646→    seen_product_ids = set()
+   647→    for p in r.get("products", []):
+   648→        p_id = p.get("id")
+   649→        if p_id and p_id in existing_products:
+   650→            db_p = existing_products[p_id]
+   651→            seen_product_ids.add(p_id)
+   652→        else:
+   653→            db_p = Product(tenant_slug=slug)
+   654→            session.add(db_p)
+   655→            
+   656→        db_p.name = p.get("name")
+   657→        db_p.price = p.get("price")
+   658→        db_p.description = p.get("description", "")
+   659→        db_p.image = p.get("image", "")
+   660→        db_p.vegan = p.get("vegan", False)
+   661→        db_p.is_vegan = p.get("is_vegan", False)
+   662→        db_p.is_glutenfree = p.get("is_glutenfree", False)
+   663→        db_p.allergens = json.dumps(unwrap_live_data(p.get("allergens", [])))
+   664→        db_p.category_type = p.get("category_type", "küche")
+   665→        db_p.category = p.get("category", "")
+   666→        db_p.is_available = p.get("is_available", True)
+   667→        db_p.happy_hour_price = p.get("happy_hour_price")
+   668→        db_p.start_time = p.get("start_time")
+   669→        db_p.end_time = p.get("end_time")
+   670→        hh_days_val = p.get("happy_hour_days")
+   671→        db_p.happy_hour_days = json.dumps(unwrap_live_data(hh_days_val)) if hh_days_val else None
+   672→        db_p.name_en = p.get("name_en")
+   673→        db_p.description_en = p.get("description_en")
+   674→        db_p.position = p.get("position", 0)
+   675→
+   676→        
+   677→        if db_p.id is None:
+   678→            session.flush()
+   679→            p["id"] = db_p.id
+   680→            seen_product_ids.add(db_p.id)
+   681→        
+   682→    for pid, db_p in existing_products.items():
+   683→        if pid not in seen_product_ids:
+   684→            session.delete(db_p)
+   685→            
+   686→    # 3. Update orders
+   687→    existing_orders = {o.id: o for o in session.query(Order).filter_by(tenant_slug=slug).all()}
+   688→    seen_order_ids = set()
+   689→    for o in r.get("orders", []):
+   690→        o_id = o.get("id")
+   691→        if o_id and o_id in existing_orders:
+   692→            db_o = existing_orders[o_id]
+   693→            seen_order_ids.add(o_id)
+   694→        else:
+   695→            db_o = Order(tenant_slug=slug)
+   696→            session.add(db_o)
+   697→            
+   698→        db_o.table = o.get("table")
+   699→        db_o.total = o.get("total", 0.0)
+   700→        db_o.total_with_tip = o.get("total_with_tip", 0.0)
+   701→        db_o.tip_amount = o.get("tip_amount", 0.0)
+   702→        db_o.status = o.get("status", "eingegangen")
+   703→        db_o.timestamp = o.get("timestamp")
+   704→        db_o.mwst_rate = o.get("mwst_rate", 19)
+   705→        db_o.waiter_id = o.get("waiter_id")
+   706→        
+   707→        if db_o.id is None:
+   708→            session.flush()
+   709→            o["id"] = db_o.id
+   710→            seen_order_ids.add(db_o.id)
+   711→            
+   712→        session.query(DBOrderItem).filter_by(order_id=db_o.id).delete()
+   713→        for item in o.get("items", []):
+   714→            db_item = DBOrderItem(
+   715→                order_id=db_o.id,
+   716→                product_id=item.get("product_id"),
+   717→                name=item.get("name"),
+   718→                price=item.get("price"),
+   719→                quantity=item.get("quantity"),
+   720→                category_type=item.get("category_type", "küche"),
+   721→                note=item.get("note"),
+   722→                item_status=item.get("item_status", "pending")
+   723→            )
+   724→            session.add(db_item)
+   725→            
+   726→    for oid, db_o in existing_orders.items():
+   727→        if oid not in seen_order_ids:
+   728→            session.delete(db_o)
+   729→            
+   730→    # 4. Update staff
+   731→    session.query(Staff).filter_by(tenant_slug=slug).delete()
+   732→    for s in r.get("staff", []):
+   733→        db_s = Staff(
+   734→            tenant_slug=slug,
+   735→            name=s.get("name"),
+   736→            role=s.get("role"),
+   737→            pin=s.get("pin"),
+   738→            pin_code=s.get("pin_code")
+   739→        )
+   740→        session.add(db_s)
+   741→        
+   742→    # 5. Update service calls
+   743→    existing_calls = {c.id: c for c in session.query(ServiceCall).filter_by(tenant_slug=slug).all()}
+   744→    seen_call_ids = set()
+   745→    for c in r.get("service_calls", []):
+   746→        c_id = c.get("id")
+   747→        if c_id and c_id in existing_calls:
+   748→            db_c = existing_calls[c_id]
+   749→            seen_call_ids.add(c_id)
+   750→        else:
+   751→            db_c = ServiceCall(tenant_slug=slug)
+   752→            session.add(db_c)
+   753→            
+   754→        db_c.table = c.get("table")
+   755→        db_c.type = c.get("type")
+   756→        db_c.timestamp = c.get("timestamp", "")
+   757→        
+   758→        if db_c.id is None:
+   759→            session.flush()
+   760→            c["id"] = db_c.id
+   761→            seen_call_ids.add(db_c.id)
+   762→            
+   763→    for cid, db_c in existing_calls.items():
+   764→        if cid not in seen_call_ids:
+   765→            session.delete(db_c)
+   766→        
+   767→    # 6. Update tables
+   768→    session.query(Table).filter_by(tenant_slug=slug).delete()
+   769→    for t in r.get("tables", []):
+   770→        tok = t.get("security_token")
+   771→        if not tok:
+   772→            import secrets as _secrets_inner
+   773→            tok = _secrets_inner.token_hex(16)
+   774→        db_t = Table(
+   775→            tenant_slug=slug,
+   776→            number=t.get("number"),
+   777→            zone=t.get("zone"),
+   778→            security_token=tok,
+   779→            active_session_token=t.get("active_session_token"),
+   780→            pos_x=t.get("pos_x", 0.0),
+   781→            pos_y=t.get("pos_y", 0.0),
+   782→            width=t.get("width", 120.0),
+   783→            height=t.get("height", 80.0),
+   784→            shape=t.get("shape", "rect"),
+   785→            active=t.get("active", True),
+   786→            qr_token=t.get("qr_token")
+   787→        )
+   788→        session.add(db_t)
+   789→        
+   790→    # 7. Update audit log
+   791→    session.query(AuditLog).filter_by(tenant_slug=slug).delete()
+   792→    for l in r.get("audit_log", []):
+   793→        db_l = AuditLog(
+   794→            tenant_slug=slug,
+   795→            action=l.get("action"),
+   796→            timestamp=l.get("timestamp"),
+   797→            user=l.get("user") or (f"{l.get('employee_name', '')} ({l.get('employee_role', '')})" if l.get("employee_name") else None),
+   798→            details=l.get("details")
+   799→        )
+   800→        session.add(db_l)
+   801→    
+   802→    # 8. Update events
+   803→    from database import Event as DBEvent, EventProduct as DBEventProduct
+   804→    existing_events = {ev.id: ev for ev in session.query(DBEvent).filter_by(tenant_slug=slug).all()}
+   805→    seen_event_ids = set()
+   806→    for idx, ev in enumerate(r.get("events", [])):
+   807→        ev_id = ev.get("id")
+   808→        if ev_id and ev_id in existing_events:
+   809→            db_ev = existing_events[ev_id]
+   810→            seen_event_ids.add(ev_id)
+   811→        else:
+   812→            db_ev = DBEvent(tenant_slug=slug)
+   813→            session.add(db_ev)
+   814→        
+   815→        db_ev.name = ev.get("name", "Event")
+   816→        db_ev.display_name = ev.get("display_name", "Event")
+   817→        db_ev.description = ev.get("description", "")
+   818→        db_ev.days = json.dumps(unwrap_live_data(ev.get("days", [])))
+   819→        db_ev.start_time = ev.get("start_time", "18:00")
+   820→        db_ev.end_time = ev.get("end_time", "20:00")
+   821→        db_ev.mode = ev.get("mode", "selected")
+   822→        db_ev.discount = ev.get("discount", 0)
+   823→        db_ev.is_active = ev.get("is_active", True)
+   824→        db_ev.position = ev.get("position", idx)
+   825→        
+   826→        if db_ev.id is None:
+   827→            session.flush()
+   828→            ev["id"] = db_ev.id
+   829→            seen_event_ids.add(db_ev.id)
+   830→        
+   831→        # Update event products
+   832→        session.query(DBEventProduct).filter_by(event_id=db_ev.id).delete()
+   833→        for ep in ev.get("products", []):
+   834→            db_ep = DBEventProduct(
+   835→                event_id=db_ev.id,
+   836→                product_id=ep.get("product_id"),
+   837→                event_price=ep.get("event_price")
+   838→            )
+   839→            session.add(db_ep)
+   840→    
+   841→    for eid, db_ev in existing_events.items():
+   842→        if eid not in seen_event_ids:
+   843→            session.delete(db_ev)
+   844→
+   845→def ensure_tenant_seeded(slug: str, db) -> Tenant:
+   846→    slug_lower = slug.lower().strip()
+   847→    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+   848→    if tenant:
+   849→        return tenant
+   850→        
+   851→    tenant = Tenant(
+   852→        slug=slug_lower,
+   853→        name=slug.replace("-", " ").title(),
+   854→        email=f"admin@{slug_lower}.de",
+   855→        password="password123",
+   856→        tagesumsatz=0.0,
+   857→        bestellungen_gesamt=0,
+   858→        active=True,
+   859→        is_onboarded=False,
+   860→        is_setup_completed=False,
+   861→        impressum_content=(
+   862→            "Impressum\n"
+   863→            "Angaben gemäß § 5 TMG\n\n"
+   864→            "[Vorname Nachname / Firmenname]\n"
+   865→            "[Straße und Hausnummer]\n"
+   866→            "[PLZ Ort]\n\n"
+   867→            "Kontakt:\n"
+   868→            "Telefon: [+49 ...]\n"
+   869→            "E-Mail: [info@beispiel.de]\n\n"
+   870→            "Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV:\n"
+   871→            "[Vorname Nachname]\n"
+   872→            "[Adresse wie oben]\n\n"
+   873→            "Haftungsausschluss:\n"
+   874→            "Die Inhalte dieser Seite wurden mit größter Sorgfalt erstellt. "
+   875→            "Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte "
+   876→            "können wir jedoch keine Gewähr übernehmen."
+   877→        ),
+   878→        datenschutz_content=(
+   879→            "Datenschutzerklärung\n\n"
+   880→            "1. Datenschutz auf einen Blick\n"
+   881→            "Die folgenden Hinweise geben einen einfachen Überblick darüber, "
+   882→            "was mit Ihren personenbezogenen Daten passiert, wenn Sie unsere "
+   883→            "Website besuchen.\n\n"
+   884→            "2. Verantwortliche Stelle\n"
+   885→            "Verantwortlich für die Datenverarbeitung auf dieser Website:\n"
+   886→            "[Name / Firmenname]\n"
+   887→            "[Adresse]\n"
+   888→            "E-Mail: [info@beispiel.de]\n\n"
+   889→            "3. Erhebung und Speicherung personenbezogener Daten\n"
+   890→            "Beim Besuch unserer Website werden automatisch Informationen "
+   891→            "allgemeiner Natur erfasst (Server-Logfiles). Diese Daten enthalten "
+   892→            "keine personenbezogenen Daten und werden nicht mit anderen "
+   893→            "Datenquellen zusammengeführt.\n\n"
+   894→            "4. Ihre Rechte\n"
+   895→            "Sie haben das Recht auf Auskunft, Berichtigung, Löschung und "
+   896→            "Einschränkung der Verarbeitung Ihrer gespeicherten Daten. "
+   897→            "Wenden Sie sich hierfür an: [E-Mail-Adresse]\n\n"
+   898→            "5. Cookies\n"
+   899→            "Diese Website verwendet ausschließlich technisch notwendige Cookies "
+   900→            "für den Betrieb des Bestellsystems. Es werden keine Tracking- oder "
+   901→            "Werbe-Cookies eingesetzt.\n\n"
+   902→            "[Bitte passen Sie diesen Text an Ihre individuellen Gegebenheiten an "
+   903→            "und lassen Sie ihn von einem Rechtsanwalt prüfen.]"
+   904→        ),
+   905→        security_token=secrets.token_hex(16),
+   906→        logo_url="/static/images/digigastrologo.jpeg",
+   907→        happy_hour_days="[]",
+   908→        happy_hour_start="18:00",
+   909→        happy_hour_end="20:00",
+   910→        happy_hour_discount=0
+   911→    )
+   912→    db.add(tenant)
+   913→    db.flush()
+   914→    
+   915→    for cat_name in ["Drinks", "Desserts"]:
+   916→        db.add(Category(tenant_slug=slug_lower, name=cat_name))
+   917→        
+   918→    for p in copy.deepcopy(STANDARD_PRODUCTS):
+   919→        db_p = Product(
+   920→            tenant_slug=slug_lower,
+   921→            name=p["name"],
+   922→            price=p["price"],
+   923→            description=p.get("description", ""),
+   924→            image=p.get("image", ""),
+   925→            vegan=p.get("vegan", False),
+   926→            is_vegan=p.get("is_vegan", False),
+   927→            is_glutenfree=p.get("is_glutenfree", False),
+   928→            allergens=json.dumps(p.get("allergens", [])),
+   929→            category_type=p.get("category_type", "küche"),
+   930→            category=p.get("category", ""),
+   931→            is_available=p.get("is_available", True),
+   932→            happy_hour_price=p.get("happy_hour_price"),
+   933→            start_time=p.get("start_time"),
+   934→            end_time=p.get("end_time")
+   935→        )
+   936→        db.add(db_p)
+   937→        
+   938→    db.add(Product(
+   939→        tenant_slug=slug_lower,
+   940→        name="Klassische Shisha",
+   941→        price=12.00,
+   942→        description="Premium traditional shisha.",
+   943→        image="https://images.unsplash.com/photo-1527137341206-1a2ab818aa6a?auto=format&fit=crop&q=80&w=400",
+   944→        vegan=True,
+   945→        is_vegan=True,
+   946→        is_glutenfree=True,
+   947→        allergens="[]",
+   948→        category_type="shisha",
+   949→        category="Shisha",
+   950→        is_available=True
+   951→    ))
+   952→    db.commit()
+   953→    return tenant
+   954→
+   955→def get_restaurant(slug: str, db, create_if_missing: bool = False) -> Optional[dict]:
+   956→    slug_lower = slug.lower().strip()
+   957→    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+   958→    if tenant is not None:
+   959→        return load_restaurant_from_db(slug_lower, db)
+   960→    if not create_if_missing and slug_lower != "demo":
+   961→        return None
+   962→    ensure_tenant_seeded(slug_lower, db)
+   963→    return load_restaurant_from_db(slug_lower, db)
+   964→
+   965→from collections import UserList, UserDict
+   966→
+   967→def wrap_live_data(slug, path, val):
+   968→    if isinstance(val, list) and not isinstance(val, LiveListProxy):
+   969→        return LiveListProxy(slug, path)
+   970→    elif isinstance(val, dict) and not isinstance(val, LiveDictProxy):
+   971→        return LiveDictProxy(slug, path)
+   972→    return val
+   973→
+   974→class LiveListProxy(UserList):
+   975→    def __init__(self, slug, path):
+   976→        self.slug = slug
+   977→        self.path = path
+   978→        super().__init__()
+   979→
+   980→    @property
+   981→    def data(self):
+   982→        db = SessionLocal()
+   983→        try:
+   984→            full_data = load_restaurant_from_db(self.slug, db) or {}
+   985→            curr = full_data
+   986→            for key in self.path:
+   987→                if isinstance(curr, dict):
+   988→                    curr = curr.get(key, [])
+   989→                elif isinstance(curr, list) and isinstance(key, int):
+   990→                    if 0 <= key < len(curr):
+   991→                        curr = curr[key]
+   992→                    else:
+   993→                        curr = []
+   994→                else:
+   995→                    curr = []
+   996→            return [wrap_live_data(self.slug, self.path + [i], item) for i, item in enumerate(curr)]
+   997→        finally:
+   998→            db.close()
+   999→
+  1000→    @data.setter
+  1001→    def data(self, value):
+  1002→        pass
+  1003→
+  1004→    def append(self, value):
+  1005→        db = SessionLocal()
+  1006→        try:
+  1007→            full_data = load_restaurant_from_db(self.slug, db) or {}
+  1008→            curr = full_data
+  1009→            for key in self.path[:-1]:
+  1010→                if isinstance(curr, dict):
+  1011→                    curr = curr.get(key, {})
+  1012→                elif isinstance(curr, list) and isinstance(key, int):
+  1013→                    curr = curr[key]
+  1014→            curr[self.path[-1]].append(value)
+  1015→            save_restaurant_to_db(self.slug, full_data, db)
+  1016→            db.commit()
+  1017→        finally:
+  1018→            db.close()
+  1019→
+  1020→    def remove(self, value):
+  1021→        db = SessionLocal()
+  1022→        try:
+  1023→            full_data = load_restaurant_from_db(self.slug, db) or {}
+  1024→            curr = full_data
+  1025→            for key in self.path[:-1]:
+  1026→                if isinstance(curr, dict):
+  1027→                    curr = curr.get(key, {})
+  1028→                elif isinstance(curr, list) and isinstance(key, int):
+  1029→                    curr = curr[key]
+  1030→            curr[self.path[-1]].remove(value)
+  1031→            save_restaurant_to_db(self.slug, full_data, db)
+  1032→            db.commit()
+  1033→        finally:
+  1034→            db.close()
+  1035→
+  1036→class LiveDictProxy(UserDict):
+  1037→    def __init__(self, slug, path):
+  1038→        self.slug = slug
+  1039→        self.path = path
+  1040→        super().__init__()
+  1041→
+  1042→    @property
+  1043→    def data(self):
+  1044→        db = SessionLocal()
+  1045→        try:
+  1046→            tenant = db.query(Tenant).filter_by(slug=self.slug).first()
+  1047→            if not tenant:
+  1048→                ensure_tenant_seeded(self.slug, db)
+  1049→            full_data = load_restaurant_from_db(self.slug, db) or {}
+  1050→            curr = full_data
+  1051→            for key in self.path:
+  1052→                if isinstance(curr, dict):
+  1053→                    curr = curr.get(key, {})
+  1054→                elif isinstance(curr, list) and isinstance(key, int):
+  1055→                    if 0 <= key < len(curr):
+  1056→                        curr = curr[key]
+  1057→                    else:
+  1058→                        curr = {}
+  1059→                else:
+  1060→                    curr = {}
+  1061→            return {k: wrap_live_data(self.slug, self.path + [k], v) for k, v in curr.items()}
+  1062→        finally:
+  1063→            db.close()
+  1064→
+  1065→    @data.setter
+  1066→    def data(self, value):
+  1067→        pass
+  1068→
+  1069→    def __setitem__(self, key, value):
+  1070→        db = SessionLocal()
+  1071→        try:
+  1072→            full_data = load_restaurant_from_db(self.slug, db) or {}
+  1073→            curr = full_data
+  1074→            for path_key in self.path:
+  1075→                if isinstance(curr, dict):
+  1076→                    curr = curr[path_key]
+  1077→                elif isinstance(curr, list) and isinstance(path_key, int):
+  1078→                    curr = curr[path_key]
+  1079→            curr[key] = value
+  1080→            save_restaurant_to_db(self.slug, full_data, db)
+  1081→            db.commit()
+  1082→        finally:
+  1083→            db.close()
+  1084→
+  1085→    def __delitem__(self, key):
+  1086→        db = SessionLocal()
+  1087→        try:
+  1088→            full_data = load_restaurant_from_db(self.slug, db) or {}
+  1089→            curr = full_data
+  1090→            for path_key in self.path:
+  1091→                if isinstance(curr, dict):
+  1092→                    curr = curr[path_key]
+  1093→                elif isinstance(curr, list) and isinstance(path_key, int):
+  1094→                    curr = curr[path_key]
+  1095→            if key in curr:
+  1096→                del curr[key]
+  1097→            save_restaurant_to_db(self.slug, full_data, db)
+  1098→            db.commit()
+  1099→        finally:
+  1100→            db.close()
+  1101→
+  1102→class TenantDictProxy(LiveDictProxy):
+  1103→    def __init__(self, slug):
+  1104→        super().__init__(slug, [])
+  1105→
+  1106→class RestaurantsProxy(UserDict):
+  1107→    def __init__(self):
+  1108→        super().__init__()
+  1109→
+  1110→    @property
+  1111→    def data(self):
+  1112→        db = SessionLocal()
+  1113→        try:
+  1114→            slugs = [t.slug for t in db.query(Tenant.slug).all()]
+  1115→            return {slug: TenantDictProxy(slug) for slug in slugs}
+  1116→        finally:
+  1117→            db.close()
+  1118→
+  1119→    @data.setter
+  1120→    def data(self, value):
+  1121→        pass
+  1122→
+  1123→    def __getitem__(self, slug):
+  1124→        return TenantDictProxy(slug)
+  1125→
+  1126→    def __setitem__(self, slug, value):
+  1127→        slug_lower = slug.lower().strip()
+  1128→        db = SessionLocal()
+  1129→        try:
+  1130→            save_restaurant_to_db(slug_lower, value, db)
+  1131→            db.commit()
+  1132→        finally:
+  1133→            db.close()
+  1134→            
+  1135→    def __contains__(self, slug):
+  1136→        slug_lower = slug.lower().strip()
+  1137→        db = SessionLocal()
+  1138→        try:
+  1139→            tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+  1140→            return tenant is not None
+  1141→        finally:
+  1142→            db.close()
+  1143→            
+  1144→    def get(self, slug, default=None):
+  1145→        slug_lower = slug.lower().strip()
+  1146→        if slug_lower in self:
+  1147→            return self[slug_lower]
+  1148→        return default
+  1149→        
+  1150→    def keys(self):
+  1151→        db = SessionLocal()
+  1152→        try:
+  1153→            return [t.slug for t in db.query(Tenant.slug).all()]
+  1154→        finally:
+  1155→            db.close()
+  1156→            
+  1157→    def values(self):
+  1158→        db = SessionLocal()
+  1159→        try:
+  1160→            slugs = [t.slug for t in db.query(Tenant.slug).all()]
+  1161→            return [self[slug] for slug in slugs]
+  1162→        finally:
+  1163→            db.close()
+  1164→            
+  1165→    def items(self):
+  1166→        db = SessionLocal()
+  1167→        try:
+  1168→            slugs = [t.slug for t in db.query(Tenant.slug).all()]
+  1169→            return [(slug, self[slug]) for slug in slugs]
+  1170→        finally:
+  1171→            db.close()
+  1172→            
+  1173→    def clear(self):
+  1174→        """SAFETY: This method is intentionally disabled to prevent accidental data loss.
+  1175→        Use individual tenant deletion via admin API instead."""
+  1176→        raise NotImplementedError("RestaurantsProxy.clear() is disabled for safety. Delete tenants individually via the admin API.")
+  1177→            
+  1178→    def update(self, other_dict):
+  1179→        db = SessionLocal()
+  1180→        try:
+  1181→            for slug, r_val in other_dict.items():
+  1182→                slug_lower = slug.lower().strip()
+  1183→                save_restaurant_to_db(slug_lower, r_val, db)
+  1184→            db.commit()
+  1185→        finally:
+  1186→            db.close()
+  1187→
+  1188→restaurants = RestaurantsProxy()
+  1189→
+  1190→def get_restaurant_or_raise(slug: str, db):
+  1191→    r = get_restaurant(slug, db)
+  1192→    if r is None:
+  1193→        raise HTTPException(status_code=404, detail="Dieses Restaurant existiert nicht.")
+  1194→    if not r.get("active", True):
+  1195→        raise TenantSuspendedException(slug)
+  1196→    return r
+  1197→
+  1198→def get_current_user(request: Request, slug: str) -> Optional[dict]:
+  1199→    # Check unified session cookie first
+  1200→    session = request.cookies.get("session")
+  1201→    if session:
+  1202→        try:
+  1203→            parts = session.split(":")
+  1204→            if len(parts) == 4 and parts[0] == slug:
+  1205→                return {"name": parts[1], "role": parts[2], "pin": parts[3]}
+  1206→        except Exception:
+  1207→            pass
+  1208→
+  1209→    # Fallback to legacy/device-specific session cookie
+  1210→    session_legacy = request.cookies.get(f"session_{slug}")
+  1211→    if session_legacy:
+  1212→        try:
+  1213→            parts = session_legacy.split(":")
+  1214→            if len(parts) == 3:
+  1215→                return {"name": parts[0], "role": parts[1], "pin": parts[2]}
+  1216→        except Exception:
+  1217→            pass
+  1218→    return None
+  1219→
+  1220→def get_current_user_and_slug(request: Request) -> Optional[tuple]:
+  1221→    session = request.cookies.get("session")
+  1222→    if not session:
+  1223→        return None
+  1224→    try:
+  1225→        parts = session.split(":")
+  1226→        if len(parts) == 4:
+  1227→            slug = parts[0]
+  1228→            user = {"name": parts[1], "role": parts[2], "pin": parts[3]}
+  1229→            return user, slug
+  1230→    except Exception:
+  1231→        pass
+  1232→    return None
+  1233→
+  1234→def parse_active_table_num(active_table_num: str):
+  1235→    clean_num = str(active_table_num).strip()
+  1236→    clean_zone = ""
+  1237→    if clean_num.startswith("Tisch "):
+  1238→        clean_num = clean_num[len("Tisch "):].strip()
+  1239→    if "(" in clean_num and clean_num.endswith(")"):
+  1240→        idx_paren = clean_num.find("(")
+  1241→        clean_zone = clean_num[idx_paren+1:-1].strip()
+  1242→        clean_num = clean_num[:idx_paren].strip()
+  1243→    return clean_num, clean_zone
+  1244→
+  1245→def require_user_and_slug(request: Request, db: Session = Depends(get_db)):
+  1246→    res = get_current_user_and_slug(request)
+  1247→    if not res:
+  1248→        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+  1249→    user, slug = res
+  1250→    restaurant = get_restaurant_or_raise(slug, db)
+  1251→    return user, slug, restaurant
+  1252→
+  1253→def require_chef_user(request: Request, slug: str):
+  1254→    # Reject POS/KDS device cookies trying to access admin routes
+  1255→    pos_session = request.cookies.get("pos_session")
+  1256→    kds_session = request.cookies.get("kds_session")
+  1257→    session = request.cookies.get("session")
+  1258→    
+  1259→    # Check if there is only a device cookie but no user session
+  1260→    if (pos_session or kds_session) and not session:
+  1261→        raise HTTPException(
+  1262→            status_code=403,
+  1263→            detail="POS/KDS-Geräte haben keinen Zugriff auf Admin-Routen."
+  1264→        )
+  1265→        
+  1266→    res = get_current_user_and_slug(request)
+  1267→    if res:
+  1268→        user, session_slug = res
+  1269→        if session_slug != slug:
+  1270→            raise HTTPException(status_code=403, detail="Kein Zugriff. Falscher Tenant.")
+  1271→        if user["role"] != "chef":
+  1272→            raise HTTPException(status_code=403, detail="Kein Zugriff. Nur für Administratoren.")
+  1273→        return user
+  1274→        
+  1275→    # Legacy session check fallback
+  1276→    pos_cookie = request.cookies.get(f"pos_token_{slug}")
+  1277→    kds_cookie = request.cookies.get(f"kds_token_{slug}")
+  1278→    session_legacy = request.cookies.get(f"session_{slug}")
+  1279→    if (pos_cookie or kds_cookie) and not session_legacy:
+  1280→        raise HTTPException(
+  1281→            status_code=403,
+  1282→            detail="POS/KDS-Geräte haben keinen Zugriff auf Admin-Routen."
+  1283→        )
+  1284→    user = get_current_user(request, slug)
+  1285→    if not user or user["role"] != "chef":
+  1286→        raise HTTPException(status_code=403, detail="Kein Zugriff. Nur für Administratoren.")
+  1287→    return user
+  1288→
+  1289→def require_chef_user_flat(request: Request, db: Session = Depends(get_db)):
+  1290→    res = get_current_user_and_slug(request)
+  1291→    if not res:
+  1292→        raise HTTPException(status_code=401, detail="Nicht eingeloggt.")
+  1293→    user, slug = res
+  1294→    require_chef_user(request, slug)
+  1295→    restaurant = get_restaurant_or_raise(slug, db)
+  1296→    return user, slug, restaurant
+  1297→
+  1298→
+  1299→class OrderItem(BaseModel):
+  1300→    product_id: int
+  1301→    name: str
+  1302→    price: float
+  1303→    quantity: int
+  1304→    note: Optional[str] = None
+  1305→    item_status: Optional[str] = "pending"
+  1306→
+  1307→class OrderPayload(BaseModel):
+  1308→    table: str
+  1309→    token: Optional[str] = None
+  1310→    items: List[OrderItem]
+  1311→    tip_amount: Optional[float] = 0.0
+  1312→
+  1313→class ServiceRufPayload(BaseModel):
+  1314→    type: str
+  1315→    table: str
+  1316→    token: Optional[str] = None
+  1317→
+  1318→class SplitItem(BaseModel):
+  1319→    product_id: int
+  1320→    quantity: int
+  1321→    note: Optional[str] = None
+  1322→
+  1323→class SplitPayload(BaseModel):
+  1324→    items: List[SplitItem]
+  1325→
+  1326→class ProductUpdatePayload(BaseModel):
+  1327→    name: str
+  1328→    price: float
+  1329→    description: Optional[str] = None
+  1330→    category: str
+  1331→    name_en: Optional[str] = None
+  1332→    description_en: Optional[str] = None
+  1333→
+  1334→class CategoryUpdatePayload(BaseModel):
+  1335→    old_name: str
+  1336→    new_name: str
+  1337→
+  1338→@app.get("/", response_class=HTMLResponse)
+  1339→async def read_root(request: Request, db: Session = Depends(get_db)):
+  1340→    uid = request.query_params.get("uid")
+  1341→    if uid:
+  1342→        tisch = request.query_params.get("tisch") or request.query_params.get("table") or ""
+  1343→        role = request.query_params.get("role") or ""
+  1344→        restaurant = get_restaurant(uid, db)
+  1345→        if restaurant:
+  1346→            tables_list = restaurant.get("tables", [])
+  1347→            db_table = next((t for t in tables_list if str(t.get("number")) == str(tisch).strip()), None)
+  1348→            table_token = ""
+  1349→            if db_table:
+  1350→                table_token = db_table.get("security_token") or restaurant.get("security_token") or ""
+  1351→            else:
+  1352→                table_token = restaurant.get("security_token") or ""
+  1353→            
+  1354→            url = f"/{uid}"
+  1355→            if tisch:
+  1356→                url += f"?tisch={tisch}"
+  1357→                if table_token:
+  1358→                    url += f"&token={table_token}"
+  1359→                if role:
+  1360→                    url += f"&role={role}"
+  1361→            return RedirectResponse(url=url, status_code=303)
+  1362→
+  1363→    if os.getenv("PYTEST_CURRENT_TEST"):
+  1364→        return RedirectResponse(url="/demo", status_code=307)
+  1365→        
+  1366→    session_global = request.cookies.get("session_global")
+  1367→    if session_global == "admin@digi-gastro.de":
+  1368→        return RedirectResponse(url="/digi-gastro-admin")
+  1369→        
+  1370→    is_logged_in = False
+  1371→    login_target = None
+  1372→        
+  1373→    res = get_current_user_and_slug(request)
+  1374→    if res:
+  1375→        user, slug = res
+  1376→        tenant = db.query(Tenant).filter_by(slug=slug).first()
+  1377→        if tenant and user["role"] == "chef":
+  1378→            is_logged_in = True
+  1379→            login_target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+  1380→
+  1381→    if not is_logged_in:
+  1382→        for cookie_key, cookie_val in request.cookies.items():
+  1383→            if cookie_key.startswith("session_") and cookie_key != "session_global":
+  1384→                slug = cookie_key.replace("session_", "").strip()
+  1385→                tenant = db.query(Tenant).filter_by(slug=slug).first()
+  1386→                if tenant:
+  1387→                    try:
+  1388→                        parts = cookie_val.split(":")
+  1389→                        if len(parts) == 3:
+  1390→                            role = parts[1]
+  1391→                            if role == "chef":
+  1392→                                is_logged_in = True
+  1393→                                login_target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+  1394→                                break
+  1395→                    except Exception:
+  1396→                        pass
+  1397→                        
+  1398→    response = templates.TemplateResponse(
+  1399→        request=request, 
+  1400→        name="landing.html", 
+  1401→        context={"request": request, "is_logged_in": is_logged_in, "login_target": login_target}
+  1402→    )
+  1403→    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+  1404→    response.headers["Pragma"] = "no-cache"
+  1405→    response.headers["Expires"] = "0"
+  1406→    return response
+  1407→
+  1408→@app.get("/impressum", response_class=HTMLResponse)
+  1409→def platform_impressum(request: Request, db: Session = Depends(get_db)):
+  1410→    # Pass request context properly for template rendering
+  1411→    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_impressum": True, "is_logged_in": False})
+  1412→
+  1413→@app.get("/datenschutz", response_class=HTMLResponse)
+  1414→def platform_datenschutz(request: Request, db: Session = Depends(get_db)):
+  1415→    # Pass request context properly for template rendering
+  1416→    return templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_datenschutz": True, "is_logged_in": False})
+  1417→
+  1418→
+  1419→
+  1420→@app.get("/login", response_class=HTMLResponse)
+  1421→def global_login_get(request: Request, db: Session = Depends(get_db)):
+  1422→    session_global = request.cookies.get("session_global")
+  1423→    if session_global == "admin@digi-gastro.de":
+  1424→        return RedirectResponse(url="/digi-gastro-admin")
+  1425→        
+  1426→    res = get_current_user_and_slug(request)
+  1427→    if res:
+  1428→        user, slug = res
+  1429→        tenant = db.query(Tenant).filter_by(slug=slug).first()
+  1430→        if tenant and user["role"] == "chef":
+  1431→            if not tenant.is_setup_completed:
+  1432→                return RedirectResponse(url="/admin/setup")
+  1433→            return RedirectResponse(url="/admin/dashboard")
+  1434→
+  1435→    for cookie_key, cookie_val in request.cookies.items():
+  1436→        if cookie_key.startswith("session_") and cookie_key != "session_global":
+  1437→            slug = cookie_key.replace("session_", "").strip()
+  1438→            tenant = db.query(Tenant).filter_by(slug=slug).first()
+  1439→            if tenant:
+  1440→                try:
+  1441→                    parts = cookie_val.split(":")
+  1442→                    if len(parts) == 3:
+  1443→                        role = parts[1]
+  1444→                        if role == "chef":
+  1445→                            if not tenant.is_setup_completed:
+  1446→                                return RedirectResponse(url="/admin/setup")
+  1447→                            return RedirectResponse(url="/admin/dashboard")
+  1448→                except Exception:
+  1449→                    pass
+  1450→
+  1451→    response = templates.TemplateResponse(request=request, name="landing.html", context={"request": request, "show_login": True})
+  1452→    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+  1453→    response.headers["Pragma"] = "no-cache"
+  1454→    response.headers["Expires"] = "0"
+  1455→    return response
+  1456→
+  1457→@app.post("/login")
+  1458→def global_login_post(
+  1459→    request: Request,
+  1460→    email: Optional[str] = Form(None),
+  1461→    password: Optional[str] = Form(None)
+  1462→, db: Session = Depends(get_db)):
+  1463→    if not email or not password or not email.strip() or not password.strip():
+  1464→        return templates.TemplateResponse(
+  1465→            request,
+  1466→            "landing.html",
+  1467→            {"request": request, "error": "Bitte geben Sie Ihre E-Mail-Adresse und Ihr Passwort ein.", "show_login": True, "email": email or ""}
+  1468→        )
+  1469→    tenant = db.query(Tenant).filter_by(email=email.strip()).first()
+  1470→    if tenant and tenant.password == password.strip():
+  1471→        slug = tenant.slug
+  1472→        target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+  1473→        resp = RedirectResponse(url=target, status_code=303)
+  1474→        resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
+  1475→        return resp
+  1476→        
+  1477→    if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
+  1478→        resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
+  1479→        resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+  1480→        return resp
+  1481→        
+  1482→    return templates.TemplateResponse(
+  1483→        request,
+  1484→        "landing.html",
+  1485→        {"request": request, "error": "Ungültige E-Mail-Adresse oder Passwort.", "show_login": True, "email": email or ""}
+  1486→    )
+  1487→
+  1488→
+  1489→# ==========================================
+  1490→# GLOBAL PLATFORM ADMIN ROUTES
+  1491→# ==========================================
+  1492→
+  1493→@app.get("/digi-gastro-admin", response_class=HTMLResponse)
+  1494→def get_global_admin(request: Request, db: Session = Depends(get_db)):
+  1495→    session_cookie = request.cookies.get("session_global")
+  1496→    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+  1497→        return RedirectResponse(url="/digi-gastro-admin/login")
+  1498→        
+  1499→    error = request.query_params.get("error")
+  1500→    success = request.query_params.get("success")
+  1501→    
+  1502→    alert_html = ""
+  1503→    if error:
+  1504→        alert_html = f'<div class="alert alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {error}</div>'
+  1505→    elif success:
+  1506→        alert_html = f'<div class="alert alert-success"><span class="material-symbols-outlined" style="font-size:16px;">check_circle</span> {success}</div>'
+  1507→    
+  1508→    # Fetch real tenant data from database
+  1509→    all_tenants = db.query(Tenant).order_by(Tenant.slug).all()
+  1510→    total_tenants = len(all_tenants)
+  1511→    active_tenants = sum(1 for t in all_tenants if t.active)
+  1512→    inactive_tenants = total_tenants - active_tenants
+  1513→    
+  1514→    # Calculate total revenue across all tenants
+  1515→    total_revenue = sum(t.tagesumsatz or 0 for t in all_tenants)
+  1516→    total_orders = sum(t.bestellungen_gesamt or 0 for t in all_tenants)
+  1517→    
+  1518→    tenant_cards = ""
+  1519→    for t in all_tenants:
+  1520→        is_active = t.active if t.active is not None else True
+  1521→        status_class = "tenant-active" if is_active else "tenant-inactive"
+  1522→        status_text = "Aktiv" if is_active else "Inaktiv"
+  1523→        status_dot = "bg-emerald-500" if is_active else "bg-red-500"
+  1524→        toggle_label = "Deaktivieren" if is_active else "Aktivieren"
+  1525→        toggle_class = "btn-toggle-off" if is_active else "btn-toggle-on"
+  1526→        
+  1527→        tenant_cards += f"""
+  1528→        <div class="tenant-card {status_class}">
+  1529→          <div class="tenant-card-header">
+  1530→            <div class="tenant-avatar">{(t.name or t.slug)[:2].upper()}</div>
+  1531→            <div class="tenant-info">
+  1532→              <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{t.slug}" class="tenant-name-form">
+  1533→                <input type="text" name="name" value="{t.name or t.slug}" class="tenant-name-input" />
+  1534→                <button type="submit" class="tenant-name-save" title="Name speichern">
+  1535→                  <span class="material-symbols-outlined" style="font-size:14px;">save</span>
+  1536→                </button>
+  1537→              </form>
+  1538→              <div class="tenant-slug">
+  1539→                <span class="material-symbols-outlined" style="font-size:12px;">link</span> {t.slug}
+  1540→              </div>
+  1541→            </div>
+  1542→            <div class="tenant-status">
+  1543→              <span class="status-dot {status_dot}"></span>
+  1544→              <span class="status-text">{status_text}</span>
+  1545→            </div>
+  1546→          </div>
+  1547→          <div class="tenant-card-body">
+  1548→            <div class="tenant-credentials">
+  1549→              <div class="cred-item">
+  1550→                <span class="material-symbols-outlined" style="font-size:13px;">mail</span>
+  1551→                <span>{t.email or ''}</span>
+  1552→              </div>
+  1553→              <div class="cred-item">
+  1554→                <span class="material-symbols-outlined" style="font-size:13px;">key</span>
+  1555→                <span class="cred-pw">{t.password or ''}</span>
+  1556→              </div>
+  1557→            </div>
+  1558→          </div>
+  1559→          <div class="tenant-card-actions">
+  1560→            <form method="POST" action="/digi-gastro-admin/tenant-reset-password/{t.slug}" class="inline">
+  1561→              <button type="submit" class="tenant-btn btn-pw-reset" title="Passwort zurücksetzen">
+  1562→                <span class="material-symbols-outlined" style="font-size:14px;">lock_reset</span>
+  1563→                <span>Passwort Reset</span>
+  1564→              </button>
+  1565→            </form>
+  1566→            <form method="POST" action="/digi-gastro-admin/tenant-toggle/{t.slug}" class="inline">
+  1567→              <button type="submit" class="tenant-btn {toggle_class}" title="{toggle_label}">
+  1568→                <span class="material-symbols-outlined" style="font-size:14px;">{'power_settings_new' if is_active else 'play_arrow'}</span>
+  1569→                <span>{toggle_label}</span>
+  1570→              </button>
+  1571→            </form>
+  1572→            <a href="/{t.slug}/admin" target="_blank" class="tenant-btn btn-open" title="Restaurant Dashboard öffnen">
+  1573→              <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span>
+  1574→            </a>
+  1575→          </div>
+  1576→        </div>
+  1577→        """
+  1578→        
+  1579→    html_content = f"""<!DOCTYPE html>
+  1580→<html lang="de">
+  1581→<head>
+  1582→  <meta charset="UTF-8">
+  1583→  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  1584→  <title>Platform Control Center – digi-gastro</title>
+  1585→  <meta name="apple-mobile-web-app-capable" content="yes">
+  1586→  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  1587→  <meta name="theme-color" content="#009900">
+  1588→  <link rel="manifest" href="/manifest.json">
+  1589→  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  1590→  <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+  1591→  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  1592→  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  1593→  <style>
+  1594→    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  1595→    body {{
+  1596→      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  1597→      background: #09090b;
+  1598→      color: #f4f4f5;
+  1599→      min-height: 100vh;
+  1600→      min-height: 100dvh;
+  1601→      -webkit-font-smoothing: antialiased;
+  1602→    }}
+  1603→    .layout {{
+  1604→      display: flex;
+  1605→      min-height: 100vh;
+  1606→      min-height: 100dvh;
+  1607→    }}
+  1608→    /* Sidebar */
+  1609→    .sidebar {{
+  1610→      width: 260px;
+  1611→      background: #18181b;
+  1612→      border-right: 1px solid #27272a;
+  1613→      display: flex;
+  1614→      flex-direction: column;
+  1615→      position: fixed;
+  1616→      top: 0; left: 0; bottom: 0;
+  1617→      z-index: 50;
+  1618→      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  1619→    }}
+  1620→    .sidebar-header {{
+  1621→      padding: 1.25rem;
+  1622→      border-bottom: 1px solid #27272a;
+  1623→      display: flex;
+  1624→      align-items: center;
+  1625→      gap: 0.75rem;
+  1626→    }}
+  1627→    .sidebar-logo {{
+  1628→      width: 36px; height: 36px;
+  1629→      border-radius: 10px;
+  1630→      object-fit: cover;
+  1631→    }}
+  1632→    .sidebar-brand {{
+  1633→      font-weight: 900; font-size: 0.85rem;
+  1634→      color: #f4f4f5;
+  1635→      line-height: 1.2;
+  1636→    }}
+  1637→    .sidebar-brand-sub {{
+  1638→      font-size: 0.6rem; font-weight: 700;
+  1639→      color: #71717a; letter-spacing: 0.05em;
+  1640→      text-transform: uppercase;
+  1641→    }}
+  1642→    .sidebar-nav {{
+  1643→      flex: 1;
+  1644→      padding: 0.75rem 0;
+  1645→      overflow-y: auto;
+  1646→    }}
+  1647→    .nav-section {{
+  1648→      padding: 0.5rem 1.25rem 0.25rem;
+  1649→      font-size: 0.6rem; font-weight: 800;
+  1650→      text-transform: uppercase;
+  1651→      letter-spacing: 0.1em;
+  1652→      color: #52525b;
+  1653→    }}
+  1654→    .nav-item {{
+  1655→      display: flex; align-items: center; gap: 0.625rem;
+  1656→      padding: 0.6rem 1.25rem;
+  1657→      font-size: 0.8rem; font-weight: 600;
+  1658→      color: #a1a1aa;
+  1659→      border-left: 3px solid transparent;
+  1660→      transition: all 0.15s;
+  1661→      cursor: pointer;
+  1662→      text-decoration: none;
+  1663→    }}
+  1664→    .nav-item:hover {{ background: rgba(0,153,0,0.04); color: #f4f4f5; padding-left: 1.5rem; }}
+  1665→    .nav-item.active {{ background: rgba(0,153,0,0.08); color: #22c55e; border-left-color: #22c55e; font-weight: 700; }}
+  1666→    .nav-item .material-symbols-outlined {{ font-size: 18px; }}
+  1667→    .sidebar-footer {{
+  1668→      padding: 0.75rem 1.25rem;
+  1669→      border-top: 1px solid #27272a;
+  1670→    }}
+  1671→    .sidebar-footer a {{
+  1672→      display: flex; align-items: center; gap: 0.5rem;
+  1673→      color: #ef4444; font-weight: 700; font-size: 0.75rem;
+  1674→      padding: 0.5rem 0.75rem; border-radius: 0.75rem;
+  1675→      text-decoration: none; transition: background 0.15s;
+  1676→    }}
+  1677→    .sidebar-footer a:hover {{ background: rgba(239,68,68,0.08); }}
+  1678→
+  1679→    /* Main Content */
+  1680→    .main {{
+  1681→      flex: 1;
+  1682→      margin-left: 260px;
+  1683→      display: flex;
+  1684→      flex-direction: column;
+  1685→      min-height: 100vh;
+  1686→    }}
+  1687→    .topbar {{
+  1688→      background: rgba(24,24,27,0.85);
+  1689→      backdrop-filter: blur(12px);
+  1690→      border-bottom: 1px solid #27272a;
+  1691→      padding: 0.75rem 1.5rem;
+  1692→      display: flex;
+  1693→      align-items: center;
+  1694→      justify-content: space-between;
+  1695→      position: sticky;
+  1696→      top: 0;
+  1697→      z-index: 40;
+  1698→    }}
+  1699→    .topbar-title {{
+  1700→      font-size: 0.9rem; font-weight: 800;
+  1701→      color: #f4f4f5;
+  1702→    }}
+  1703→    .topbar-right {{
+  1704→      display: flex; align-items: center; gap: 0.75rem;
+  1705→    }}
+  1706→    .hamburger {{
+  1707→      display: none;
+  1708→      width: 36px; height: 36px;
+  1709→      border-radius: 0.625rem;
+  1710→      border: 1px solid #27272a;
+  1711→      background: #18181b;
+  1712→      color: #a1a1aa;
+  1713→      cursor: pointer;
+  1714→      align-items: center;
+  1715→      justify-content: center;
+  1716→      font-size: 18px;
+  1717→    }}
+  1718→    .backdrop {{
+  1719→      display: none;
+  1720→      position: fixed; inset: 0;
+  1721→      background: rgba(0,0,0,0.5);
+  1722→      z-index: 45;
+  1723→      backdrop-filter: blur(2px);
+  1724→    }}
+  1725→    .backdrop.show {{ display: block; }}
+  1726→
+  1727→    .content {{
+  1728→      flex: 1;
+  1729→      padding: 1.5rem;
+  1730→    }}
+  1731→
+  1732→    /* Stat Cards */
+  1733→    .stats-grid {{
+  1734→      display: grid;
+  1735→      grid-template-columns: repeat(4, 1fr);
+  1736→      gap: 1rem;
+  1737→      margin-bottom: 1.5rem;
+  1738→    }}
+  1739→    .stat-card {{
+  1740→      background: #18181b;
+  1741→      border: 1px solid #27272a;
+  1742→      border-radius: 1rem;
+  1743→      padding: 1.25rem;
+  1744→      position: relative;
+  1745→      overflow: hidden;
+  1746→      transition: transform 0.2s, box-shadow 0.2s;
+  1747→    }}
+  1748→    .stat-card:hover {{ transform: translateY(-2px); box-shadow: 0 8px 24px -6px rgba(0,0,0,0.3); }}
+  1749→    .stat-card .stat-icon {{
+  1750→      width: 36px; height: 36px; border-radius: 10px;
+  1751→      display: flex; align-items: center; justify-content: center;
+  1752→      margin-bottom: 0.75rem;
+  1753→    }}
+  1754→    .stat-card .stat-label {{
+  1755→      font-size: 0.6rem; font-weight: 800;
+  1756→      text-transform: uppercase; letter-spacing: 0.06em;
+  1757→      color: #71717a; margin-bottom: 0.25rem;
+  1758→    }}
+  1759→    .stat-card .stat-value {{
+  1760→      font-size: 1.5rem; font-weight: 900;
+  1761→      color: #f4f4f5; font-family: 'Inter', monospace;
+  1762→      line-height: 1.2;
+  1763→    }}
+  1764→    .stat-card .stat-sub {{
+  1765→      font-size: 0.6rem; color: #71717a; margin-top: 0.375rem;
+  1766→    }}
+  1767→    .stat-card::before {{
+  1768→      content: ''; position: absolute; top: 0; right: 0;
+  1769→      width: 80px; height: 80px; border-radius: 50%;
+  1770→      opacity: 0.04; transform: translate(20px, -20px);
+  1771→    }}
+  1772→    .stat-card.sc-partners::before {{ background: #22c55e; }}
+  1773→    .stat-card.sc-active::before {{ background: #3b82f6; }}
+  1774→    .stat-card.sc-revenue::before {{ background: #f59e0b; }}
+  1775→    .stat-card.sc-orders::before {{ background: #8b5cf6; }}
+  1776→
+  1777→    /* Section Card */
+  1778→    .section-card {{
+  1779→      background: #18181b;
+  1780→      border: 1px solid #27272a;
+  1781→      border-radius: 1rem;
+  1782→      overflow: hidden;
+  1783→    }}
+  1784→    .section-header {{
+  1785→      padding: 1rem 1.25rem;
+  1786→      border-bottom: 1px solid #27272a;
+  1787→      display: flex;
+  1788→      align-items: center;
+  1789→      justify-content: space-between;
+  1790→      gap: 1rem;
+  1791→    }}
+  1792→    .section-title {{
+  1793→      display: flex; align-items: center; gap: 0.5rem;
+  1794→      font-size: 0.85rem; font-weight: 800; color: #f4f4f5;
+  1795→    }}
+  1796→    .section-title .material-symbols-outlined {{ font-size: 18px; color: #71717a; }}
+  1797→    .section-body {{ padding: 1.25rem; }}
+  1798→
+  1799→    /* Alert */
+  1800→    .alert {{
+  1801→      padding: 0.75rem 1rem;
+  1802→      border-radius: 0.75rem;
+  1803→      font-size: 0.75rem;
+  1804→      font-weight: 700;
+  1805→      display: flex;
+  1806→      align-items: center;
+  1807→      gap: 0.5rem;
+  1808→      margin-bottom: 1rem;
+  1809→    }}
+  1810→    .alert-error {{ background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #f87171; }}
+  1811→    .alert-success {{ background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); color: #4ade80; }}
+  1812→
+  1813→    /* Tenant Cards */
+  1814→    .tenants-grid {{
+  1815→      display: grid;
+  1816→      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  1817→      gap: 1rem;
+  1818→    }}
+  1819→    .tenant-card {{
+  1820→      background: #18181b;
+  1821→      border: 1px solid #27272a;
+  1822→      border-radius: 1rem;
+  1823→      overflow: hidden;
+  1824→      transition: box-shadow 0.2s, border-color 0.2s;
+  1825→    }}
+  1826→    .tenant-card:hover {{ box-shadow: 0 4px 12px -2px rgba(0,0,0,0.3); }}
+  1827→    .tenant-card.tenant-active {{ border-left: 3px solid #22c55e; }}
+  1828→    .tenant-card.tenant-inactive {{ border-left: 3px solid #ef4444; opacity: 0.7; }}
+  1829→    .tenant-card-header {{
+  1830→      padding: 1rem;
+  1831→      display: flex;
+  1832→      align-items: center;
+  1833→      gap: 0.75rem;
+  1834→    }}
+  1835→    .tenant-avatar {{
+  1836→      width: 40px; height: 40px;
+  1837→      border-radius: 12px;
+  1838→      background: linear-gradient(135deg, #009900, #065f06);
+  1839→      color: white;
+  1840→      display: flex; align-items: center; justify-content: center;
+  1841→      font-weight: 900; font-size: 0.8rem;
+  1842→      flex-shrink: 0;
+  1843→    }}
+  1844→    .tenant-info {{ flex: 1; min-width: 0; }}
+  1845→    .tenant-name-form {{
+  1846→      display: flex; align-items: center; gap: 0.25rem;
+  1847→    }}
+  1848→    .tenant-name-input {{
+  1849→      background: transparent;
+  1850→      border: none;
+  1851→      border-bottom: 1px solid transparent;
+  1852→      color: #f4f4f5;
+  1853→      font-weight: 800;
+  1854→      font-size: 0.85rem;
+  1855→      padding: 0.125rem 0;
+  1856→      width: 140px;
+  1857→      outline: none;
+  1858→      transition: border-color 0.15s;
+  1859→    }}
+  1860→    .tenant-name-input:hover {{ border-bottom-color: #3f3f46; }}
+  1861→    .tenant-name-input:focus {{ border-bottom-color: #22c55e; }}
+  1862→    .tenant-name-save {{
+  1863→      background: none; border: none;
+  1864→      color: #52525b; cursor: pointer;
+  1865→      padding: 2px; transition: color 0.15s;
+  1866→      display: flex; align-items: center;
+  1867→    }}
+  1868→    .tenant-name-save:hover {{ color: #22c55e; }}
+  1869→    .tenant-slug {{
+  1870→      font-size: 0.65rem; color: #52525b;
+  1871→      display: flex; align-items: center; gap: 0.25rem;
+  1872→      margin-top: 0.125rem;
+  1873→      font-weight: 600;
+  1874→    }}
+  1875→    .tenant-status {{
+  1876→      display: flex; align-items: center; gap: 0.375rem;
+  1877→      flex-shrink: 0;
+  1878→    }}
+  1879→    .status-dot {{
+  1880→      width: 8px; height: 8px;
+  1881→      border-radius: 50%;
+  1882→    }}
+  1883→    .status-text {{
+  1884→      font-size: 0.65rem; font-weight: 800;
+  1885→      text-transform: uppercase; letter-spacing: 0.05em;
+  1886→      color: #a1a1aa;
+  1887→    }}
+  1888→    .tenant-card-body {{
+  1889→      padding: 0 1rem 0.75rem;
+  1890→    }}
+  1891→    .tenant-credentials {{
+  1892→      background: #09090b;
+  1893→      border-radius: 0.75rem;
+  1894→      padding: 0.625rem 0.75rem;
+  1895→      display: flex;
+  1896→      flex-direction: column;
+  1897→      gap: 0.375rem;
+  1898→    }}
+  1899→    .cred-item {{
+  1900→      display: flex; align-items: center; gap: 0.375rem;
+  1901→      font-size: 0.7rem; color: #71717a;
+  1902→      font-family: 'Inter', monospace;
+  1903→    }}
+  1904→    .cred-item .material-symbols-outlined {{ color: #52525b; }}
+  1905→    .cred-pw {{
+  1906→      color: #a1a1aa; font-weight: 600;
+  1907→    }}
+  1908→    .tenant-card-actions {{
+  1909→      padding: 0.75rem 1rem;
+  1910→      border-top: 1px solid #1c1c1e;
+  1911→      display: flex;
+  1912→      align-items: center;
+  1913→      gap: 0.5rem;
+  1914→      flex-wrap: wrap;
+  1915→    }}
+  1916→    .tenant-btn {{
+  1917→      display: inline-flex; align-items: center; gap: 0.25rem;
+  1918→      padding: 0.375rem 0.625rem;
+  1919→      border-radius: 0.625rem;
+  1920→      font-size: 0.65rem; font-weight: 700;
+  1921→      border: none; cursor: pointer;
+  1922→      transition: all 0.15s;
+  1923→      text-decoration: none;
+  1924→    }}
+  1925→    .btn-pw-reset {{
+  1926→      background: #27272a; color: #a1a1aa;
+  1927→    }}
+  1928→    .btn-pw-reset:hover {{ background: #3f3f46; color: #f4f4f5; }}
+  1929→    .btn-toggle-off {{
+  1930→      background: rgba(239,68,68,0.08); color: #f87171;
+  1931→      border: 1px solid rgba(239,68,68,0.15);
+  1932→    }}
+  1933→    .btn-toggle-off:hover {{ background: rgba(239,68,68,0.15); }}
+  1934→    .btn-toggle-on {{
+  1935→      background: rgba(34,197,94,0.08); color: #4ade80;
+  1936→      border: 1px solid rgba(34,197,94,0.15);
+  1937→    }}
+  1938→    .btn-toggle-on:hover {{ background: rgba(34,197,94,0.15); }}
+  1939→    .btn-open {{
+  1940→      background: rgba(59,130,246,0.08); color: #60a5fa;
+  1941→      border: 1px solid rgba(59,130,246,0.15);
+  1942→      margin-left: auto;
+  1943→    }}
+  1944→    .btn-open:hover {{ background: rgba(59,130,246,0.15); }}
+  1945→
+  1946→    /* Create Form */
+  1947→    .create-form-grid {{
+  1948→      display: grid;
+  1949→      grid-template-columns: 1fr 1fr;
+  1950→      gap: 0.75rem;
+  1951→    }}
+  1952→    .form-group {{
+  1953→      display: flex;
+  1954→      flex-direction: column;
+  1955→      gap: 0.25rem;
+  1956→    }}
+  1957→    .form-group.full {{ grid-column: 1 / -1; }}
+  1958→    .form-label {{
+  1959→      font-size: 0.6rem; font-weight: 800;
+  1960→      text-transform: uppercase; letter-spacing: 0.04em;
+  1961→      color: #71717a;
+  1962→    }}
+  1963→    .form-input {{
+  1964→      width: 100%;
+  1965→      background: #09090b;
+  1966→      border: 1px solid #27272a;
+  1967→      border-radius: 0.75rem;
+  1968→      padding: 0.625rem 0.875rem;
+  1969→      font-size: 0.8rem;
+  1970→      color: #f4f4f5;
+  1971→      outline: none;
+  1972→      transition: border-color 0.15s;
+  1973→      font-family: 'Inter', sans-serif;
+  1974→    }}
+  1975→    .form-input:focus {{ border-color: #22c55e; }}
+  1976→    .form-input::placeholder {{ color: #3f3f46; }}
+  1977→    .btn-submit {{
+  1978→      width: 100%;
+  1979→      background: linear-gradient(135deg, #009900, #008000);
+  1980→      color: white;
+  1981→      font-weight: 800;
+  1982→      font-size: 0.8rem;
+  1983→      padding: 0.75rem;
+  1984→      border-radius: 0.75rem;
+  1985→      border: none;
+  1986→      cursor: pointer;
+  1987→      transition: all 0.2s;
+  1988→      box-shadow: 0 2px 6px rgba(0,153,0,0.2);
+  1989→    }}
+  1990→    .btn-submit:hover {{
+  1991→      box-shadow: 0 4px 12px rgba(0,153,0,0.3);
+  1992→      transform: translateY(-1px);
+  1993→    }}
+  1994→
+  1995→    /* Responsive */
+  1996→    @media (max-width: 1023px) {{
+  1997→      .sidebar {{ transform: translateX(-100%); }}
+  1998→      .sidebar.open {{ transform: translateX(0); box-shadow: 10px 0 25px -5px rgba(0,0,0,0.3); }}
+  1999→      .main {{ margin-left: 0 !important; }}
+  2000→      .hamburger {{ display: flex; }}
+
+[showing lines 1-2000 of 8024; use offset=2001 with limit to continue reading]
