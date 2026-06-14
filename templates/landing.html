@@ -76,8 +76,8 @@
         /* ── HERO VIDEO OVERLAY ── */
         .hero-video-overlay {
             background:
-                linear-gradient(to right, rgba(5,5,7,0.85) 0%, rgba(5,5,7,0) 15%, rgba(5,5,7,0) 85%, rgba(5,5,7,0.85) 100%),
-                linear-gradient(to bottom, rgba(5,5,7,0.50) 0%, rgba(5,5,7,0.30) 35%, rgba(5,5,7,0.55) 70%, rgba(5,5,7,1) 100%);
+                linear-gradient(to right, rgba(5,5,7,0.80) 0%, rgba(5,5,7,0) 10%, rgba(5,5,7,0) 90%, rgba(5,5,7,0.80) 100%),
+                linear-gradient(to bottom, rgba(5,5,7,0.40) 0%, rgba(5,5,7,0.25) 35%, rgba(5,5,7,0.50) 70%, rgba(5,5,7,0.90) 100%);
         }
         .hero-video-overlay::before {
             content: '';
@@ -85,6 +85,21 @@
             inset: 0;
             background: radial-gradient(ellipse at 30% 45%, rgba(201, 168, 76, 0.10) 0%, transparent 55%);
             pointer-events: none;
+        }
+        /* ── HERO RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .hero-video-wrap {
+                aspect-ratio: auto !important;
+                padding: 1.5rem 0;
+            }
+            .hero-video-wrap video {
+                width: 100%;
+                height: auto;
+                object-fit: contain !important;
+            }
+            .hero-section .absolute.inset-0.z-10 {
+                position: relative !important;
+            }
         }
 
         /* ── GOLDEN AURORA BACKGROUND ── */
@@ -318,81 +333,82 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- HERO SECTION — VIDEO BACKGROUND -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <header class="relative min-h-screen flex items-center overflow-hidden z-10">
-        <!-- Video Background — fills entire hero, no cropping -->
-        <div class="absolute inset-0 z-0 bg-[#050507]">
-            <video autoplay loop muted playsinline class="absolute top-0 left-0 w-full h-full object-contain" style="object-position: center center;">
+    <header class="hero-section relative w-full overflow-hidden bg-[#050507]">
+        <!-- Video — determines hero height naturally, NO cropping -->
+        <div class="hero-video-wrap relative w-full" style="aspect-ratio: 1028/720;">
+            <video autoplay loop muted playsinline class="block w-full h-full" style="object-fit: fill;">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
-        <!-- Gradient Overlay — darkens for readability, black bars blend seamlessly -->
-        <div class="absolute inset-0 hero-video-overlay z-1"></div>
+        <!-- Gradient Overlay — darkens for text readability -->
+        <div class="absolute inset-0 hero-video-overlay z-1 pointer-events-none"></div>
 
-        <!-- Hero Content -->
-        <div class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-                
-                <!-- Hero Text (Left) -->
-                <div class="lg:col-span-6 text-left space-y-6 lg:pr-6">
-                    <div class="inline-flex items-center gap-2 bg-gold-500/10 border border-gold-500/20 text-gold-400 px-3.5 py-1.5 rounded-full text-xs font-bold font-display tracking-wide uppercase">
-                        <span class="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse"></span>
-                        Gastronomie OS 2.0
-                    </div>
-                    <h1 class="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white leading-[1.08] font-display">
-                        Das Betriebssystem für <span class="text-gradient-gold">moderne Gastronomie</span>.
-                    </h1>
-                    <p class="text-base sm:text-lg text-zinc-300 leading-relaxed font-medium max-w-xl">
-                        Egal ob Burger-Laden oder Shishabar — digi-gastro passt sich per Mausklick an deine Location an. Steigere deinen Umsatz um bis zu <span class="text-gold-400 font-bold">25%</span> durch digitales Bestellen, smartes Upselling und GoBD-sichere Buchhaltung.
-                    </p>
-                    <div class="pt-4 flex flex-col sm:flex-row gap-4">
-                        <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-gold text-sm px-8 py-4 rounded-xl flex items-center justify-center gap-2 btn-shimmer relative font-bold">
-                            <i class="fa-solid fa-envelope"></i> Vertrieb kontaktieren
-                        </a>
-                        <a href="#demo" class="btn-glass text-sm px-8 py-4 rounded-xl flex items-center justify-center gap-2 font-bold">
-                            <i class="fa-solid fa-circle-play text-gold-400"></i> Simulator ansehen
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Interactive Demo Widget (Right) -->
-                <div id="demo" class="lg:col-span-6 flex flex-col items-center reveal-scale">
-                    <div class="w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden flex flex-col">
-                        <div class="absolute inset-0 bg-gradient-to-b from-gold-500/5 to-transparent pointer-events-none"></div>
-                        
-                        <div class="flex items-center justify-between border-b border-zinc-800/40 pb-4 mb-5">
-                            <div class="flex items-center gap-2">
-                                <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
-                                <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
-                                <span class="w-3 h-3 rounded-full bg-gold-500/80"></span>
-                            </div>
-                            <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-display">Interaktive Simulation</span>
+        <!-- Hero Content — overlaid on video -->
+        <div class="absolute inset-0 z-10 flex items-center">
+            <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
+                    
+                    <!-- Hero Text (Left) -->
+                    <div class="lg:col-span-6 text-left space-y-5 lg:pr-6">
+                        <div class="inline-flex items-center gap-2 bg-gold-500/10 border border-gold-500/20 text-gold-400 px-3.5 py-1.5 rounded-full text-xs font-bold font-display tracking-wide uppercase">
+                            <span class="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse"></span>
+                            Gastronomie OS 2.0
                         </div>
+                        <h1 class="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white leading-[1.08] font-display">
+                            Das Betriebssystem für <span class="text-gradient-gold">moderne Gastronomie</span>.
+                        </h1>
+                        <p class="text-sm sm:text-lg text-zinc-300 leading-relaxed font-medium max-w-xl">
+                            Egal ob Burger-Laden oder Shishabar — digi-gastro passt sich per Mausklick an deine Location an. Steigere deinen Umsatz um bis zu <span class="text-gold-400 font-bold">25%</span> durch digitales Bestellen, smartes Upselling und GoBD-sichere Buchhaltung.
+                        </p>
+                        <div class="pt-3 flex flex-col sm:flex-row gap-3">
+                            <a href="mailto:admin@digi-gastro.de?subject=Demo-Anfrage%20digi-gastro" class="btn-gold text-sm px-7 py-3.5 rounded-xl flex items-center justify-center gap-2 btn-shimmer relative font-bold">
+                                <i class="fa-solid fa-envelope"></i> Vertrieb kontaktieren
+                            </a>
+                            <a href="#demo" class="btn-glass text-sm px-7 py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold">
+                                <i class="fa-solid fa-circle-play text-gold-400"></i> Simulator ansehen
+                            </a>
+                        </div>
+                    </div>
 
-                        <div class="relative flex gap-4 items-stretch h-80 select-none">
-                            <!-- Guest Phone View -->
-                            <div class="w-5/12 bg-zinc-950 border border-zinc-800/80 rounded-[24px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 outline outline-4 outline-zinc-900">
-                                <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-3 bg-zinc-900 rounded-full z-20 flex items-center justify-center">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-800/90 ml-4"></span>
+                    <!-- Interactive Demo Widget (Right) -->
+                    <div id="demo" class="lg:col-span-6 flex flex-col items-center reveal-scale">
+                        <div class="w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden flex flex-col">
+                            <div class="absolute inset-0 bg-gradient-to-b from-gold-500/5 to-transparent pointer-events-none"></div>
+                            
+                            <div class="flex items-center justify-between border-b border-zinc-800/40 pb-4 mb-5">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+                                    <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+                                    <span class="w-3 h-3 rounded-full bg-gold-500/80"></span>
                                 </div>
-                                <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 mt-1">
-                                    <span>Tisch 1</span>
-                                    <span class="text-gold-500 flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-gold-500 animate-pulse"></span> Live</span>
-                                </div>
-                                <div class="flex-grow py-3 flex flex-col justify-start space-y-2.5 overflow-hidden">
-                                    <div class="text-[9px] font-extrabold text-white tracking-tight leading-none text-center font-display mt-0.5">DEMO Lounge</div>
-                                    <div class="space-y-1.5 pt-1">
-                                        <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between">
-                                            <div class="min-w-0">
-                                                <div class="text-[8px] font-black text-zinc-200 truncate">Coca Cola Zero</div>
-                                                <div class="text-[7px] font-bold text-gold-500">3,50 €</div>
+                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-display">Interaktive Simulation</span>
+                            </div>
+
+                            <div class="relative flex gap-4 items-stretch h-80 select-none">
+                                <!-- Guest Phone View -->
+                                <div class="w-5/12 bg-zinc-950 border border-zinc-800/80 rounded-[24px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 outline outline-4 outline-zinc-900">
+                                    <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-3 bg-zinc-900 rounded-full z-20 flex items-center justify-center">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-zinc-800/90 ml-4"></span>
+                                    </div>
+                                    <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 mt-1">
+                                        <span>Tisch 1</span>
+                                        <span class="text-gold-500 flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-gold-500 animate-pulse"></span> Live</span>
+                                    </div>
+                                    <div class="flex-grow py-3 flex flex-col justify-start space-y-2.5 overflow-hidden">
+                                        <div class="text-[9px] font-extrabold text-white tracking-tight leading-none text-center font-display mt-0.5">DEMO Lounge</div>
+                                        <div class="space-y-1.5 pt-1">
+                                            <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between">
+                                                <div class="min-w-0">
+                                                    <div class="text-[8px] font-black text-zinc-200 truncate">Coca Cola Zero</div>
+                                                    <div class="text-[7px] font-bold text-gold-500">3,50 €</div>
+                                                </div>
+                                                <button id="demo-add-btn" onclick="addDemoItem()" class="w-4 h-4 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all outline-none">+</button>
                                             </div>
-                                            <button id="demo-add-btn" onclick="addDemoItem()" class="w-4 h-4 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all outline-none">+</button>
-                                        </div>
-                                        <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between opacity-75">
-                                            <div class="min-w-0">
-                                                <div class="text-[8px] font-black text-zinc-250 truncate">Premium Cheeseburger</div>
-                                                <div class="text-[7px] font-bold text-gold-500">9,50 €</div>
-                                            </div>
+                                            <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between opacity-75">
+                                                <div class="min-w-0">
+                                                    <div class="text-[8px] font-black text-zinc-250 truncate">Premium Cheeseburger</div>
+                                                    <div class="text-[7px] font-bold text-gold-500">9,50 €</div>
+                                                </div>
                                             <div class="w-4 h-4 bg-zinc-900 text-zinc-600 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed">+</div>
                                         </div>
                                     </div>
