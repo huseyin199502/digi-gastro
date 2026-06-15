@@ -386,24 +386,25 @@ html.light .btn-premium-secondary:hover, body.light .btn-premium-secondary:hover
 }
 
 /* Override text-white classes to make them readable on light background */
+/* IMPORTANT: All selectors MUST exclude .landing-page-wrapper to keep landing text white */
 html.light :not(.landing-page-wrapper) .text-white,
 body.light :not(.landing-page-wrapper) .text-white,
-html.light [style*="color: #ffffff"],
-body.light [style*="color: #ffffff"],
-html.light [style*="color:#ffffff"],
-body.light [style*="color:#ffffff"],
-html.light [style*="color: #fff"],
-body.light [style*="color: #fff"],
-html.light [style*="color:#fff"],
-body.light [style*="color:#fff"],
-html.light [style*="color: white"],
-body.light [style*="color: white"],
-html.light [style*="color:white"],
-body.light [style*="color:white"],
-html.light [style*="color: rgb(255, 255, 255)"],
-body.light [style*="color: rgb(255, 255, 255)"],
-html.light [style*="color:rgb(255, 255, 255)"],
-body.light [style*="color:rgb(255, 255, 255)"] {
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: #ffffff"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: #ffffff"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:#ffffff"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:#ffffff"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: #fff"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: #fff"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:#fff"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:#fff"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: white"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: white"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:white"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:white"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: rgb(255, 255, 255)"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color: rgb(255, 255, 255)"],
+html.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:rgb(255, 255, 255)"],
+body.light :not(.landing-page-wrapper) :not(.landing-page-wrapper) [style*="color:rgb(255, 255, 255)"] {
   color: var(--text-on-surface) !important;
 }
 
@@ -506,21 +507,33 @@ html.light :not(.landing-page-wrapper) .text-emerald-400 {
 /* ===== LANDING PAGE EXCEPTIONS — MUST be LAST to win specificity battles ===== */
 /* Landingpage texts MUST remain white over the background slideshow in light mode */
 /* Nuclear approach: force ALL children white, then add back gray exceptions */
-/* NOTE: Using doubled class (.landing-page-wrapper.landing-page-wrapper) to beat
-   the :not(.landing-page-wrapper) .text-white rule specificity (0,3,1 vs 0,3,1 → last wins) */
+/* Using id-level specificity hack (#id) to guarantee landing text always wins */
 html.light .landing-page-wrapper,
+html.light .landing-page-wrapper#landing-page-wrapper,
 html.light .landing-page-wrapper.landing-page-wrapper *,
-html.dark .landing-page-wrapper {
+html.dark .landing-page-wrapper,
+html.dark .landing-page-wrapper * {
     color: #ffffff !important;
 }
 
-/* Explicitly force .text-white elements white — wins over :not(.landing-page-wrapper) .text-white */
+/* Explicitly force all text-white/heading elements white in both modes */
 html.light .landing-page-wrapper .text-white,
+html.light .landing-page-wrapper h1,
 html.light .landing-page-wrapper h2,
 html.light .landing-page-wrapper h3,
+html.light .landing-page-wrapper h4,
+html.light .landing-page-wrapper p,
+html.light .landing-page-wrapper span,
+html.light .landing-page-wrapper strong,
+html.light .landing-page-wrapper a:not(.glass-btn-primary):not(.glass-btn-secondary),
 html.light .landing-page-wrapper strong.text-on-surface,
+html.dark .landing-page-wrapper h1,
 html.dark .landing-page-wrapper h2,
 html.dark .landing-page-wrapper h3,
+html.dark .landing-page-wrapper h4,
+html.dark .landing-page-wrapper p,
+html.dark .landing-page-wrapper span,
+html.dark .landing-page-wrapper strong,
 html.dark .landing-page-wrapper .text-white {
     color: #ffffff !important;
 }
@@ -528,21 +541,28 @@ html.dark .landing-page-wrapper .text-white {
 /* Gray text exceptions — subtitles, descriptions should stay light gray for readability */
 html.light .landing-page-wrapper .text-gray-200,
 html.light .landing-page-wrapper p.text-gray-200,
-html.light .landing-page-wrapper p.text-sm {
+html.light .landing-page-wrapper p.text-sm,
+html.dark .landing-page-wrapper .text-gray-200,
+html.dark .landing-page-wrapper p.text-gray-200 {
     color: #e5e7eb !important;
 }
-html.light .landing-page-wrapper .text-zinc-300 {
+html.light .landing-page-wrapper .text-zinc-300,
+html.dark .landing-page-wrapper .text-zinc-300 {
     color: #d4d4d8 !important;
 }
-html.light .landing-page-wrapper .text-zinc-400 {
+html.light .landing-page-wrapper .text-zinc-400,
+html.dark .landing-page-wrapper .text-zinc-400 {
     color: #a1a1aa !important;
 }
-html.light .landing-page-wrapper .text-on-surface-variant {
+html.light .landing-page-wrapper .text-on-surface-variant,
+html.dark .landing-page-wrapper .text-on-surface-variant {
     color: #d4d4d8 !important;
 }
 /* Amber text in Happy Hour card must stay amber */
 html.light .landing-page-wrapper .text-amber-400,
-html.light .landing-page-wrapper .text-amber-300 {
+html.light .landing-page-wrapper .text-amber-300,
+html.dark .landing-page-wrapper .text-amber-400,
+html.dark .landing-page-wrapper .text-amber-300 {
     color: #fbbf24 !important;
 }
 /* Button text should keep its own colors */

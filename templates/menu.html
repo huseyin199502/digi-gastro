@@ -18,7 +18,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=14">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=15">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -232,7 +232,7 @@
     <main class="flex-grow w-full max-w-4xl mx-auto px-4">
         
         <!-- ================= LANDING VIEW ================= -->
-        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper">
+        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper" id="landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                     <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}">
