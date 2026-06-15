@@ -540,37 +540,37 @@
                             {% endif %}
                         {% endfor %}
                     {% endfor %}
-                    <div class="bg-gradient-to-r from-teal-900/40 to-emerald-900/30 border border-teal-500/40 rounded-2xl p-4 relative overflow-hidden">
+                    <div class="bg-gradient-to-r from-teal-900/60 to-emerald-900/40 border border-teal-500/50 rounded-2xl p-4 relative overflow-hidden">
                         <div class="absolute -right-6 -top-6 w-20 h-20 bg-teal-500/20 rounded-full blur-xl"></div>
                         <div class="flex items-start gap-3 relative z-10">
-                            <div class="w-12 h-12 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-teal-400" style="font-size:24px;">loyalty</span>
+                            <div class="w-12 h-12 rounded-xl bg-teal-500/30 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-teal-300" style="font-size:24px;">loyalty</span>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1 flex-wrap">
-                                    <span class="font-extrabold text-sm text-on-surface">{{ combo.name }}</span>
-                                    <span class="text-[9px] font-bold bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
+                                    <span class="font-extrabold text-sm text-white">{{ combo.name }}</span>
+                                    <span class="text-[9px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
                                     {% if combo.days is defined and combo.days is not none and combo.days | length > 0 %}
-                                    <span class="text-[8px] font-bold bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-500/30">{% for d in combo.days %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                    <span class="text-[8px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo.days %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                                     {% endif %}
                                     {% if combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
-                                    <span class="text-[8px] font-bold bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full border border-sky-500/30">{{ combo.start_time }}–{{ combo.end_time }}</span>
+                                    <span class="text-[8px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo.start_time }}–{{ combo.end_time }}</span>
                                     {% endif %}
                                 </div>
                                 <div class="flex flex-wrap gap-1.5 mb-2">
                                     {% for ci in combo.items %}
                                         {% for p in products %}
                                             {% if p.id == ci.product_id %}
-                                            <span class="text-[10px] font-medium bg-surface/60 text-on-surface-variant px-2 py-0.5 rounded-lg">{{ p.name }}</span>
+                                            <span class="text-[10px] font-medium bg-white/10 text-white/80 px-2 py-0.5 rounded-lg">{{ p.name }}</span>
                                             {% endif %}
                                         {% endfor %}
                                     {% endfor %}
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <span class="text-lg font-black text-teal-300">{{ "%.2f" | format(combo.combo_price) | replace('.', ',') }} €</span>
+                                    <span class="text-lg font-black text-teal-200">{{ "%.2f" | format(combo.combo_price) | replace('.', ',') }} €</span>
                                     {% if individual_total.value > combo.combo_price %}
-                                    <span class="text-[10px] line-through text-on-surface-variant/60">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
-                                    <span class="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo.combo_price) | replace('.', ',') }} €</span>
+                                    <span class="text-[10px] line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
+                                    <span class="text-[9px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo.combo_price) | replace('.', ',') }} €</span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -578,6 +578,86 @@
                             <button onclick="addComboToCart({{ combo.id }}, '{{ combo.name | replace("'", "\\'") }}', {{ combo.combo_price }}, {{ combo_product_ids | join(',') }})" 
                                     class="w-11 h-11 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
                                 <span class="material-symbols-outlined font-black text-lg">add</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endif %}
+
+                <!-- Combo Deals Banner (shown when a category is selected and combos contain products from that category) -->
+                {% if hh_active_global and active_events %}
+                {% set combos_list_all = [] %}
+                {% for ev in active_events %}
+                    {% for combo in (ev.combos or []) %}
+                        {% set combo_has_own_days = combo.days is defined and combo.days is not none and combo.days | length > 0 %}
+                        {% set combo_has_own_time = combo.start_time is defined and combo.start_time is not none and combo.start_time != '' and combo.end_time is defined and combo.end_time is not none and combo.end_time != '' %}
+                        {% set combo_day_match = true %}
+                        {% if combo_has_own_days %}
+                            {% set combo_day_match = false %}
+                            {% for pd in now_possible_days %}
+                                {% if pd in combo.days %}
+                                    {% set combo_day_match = true %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                        {% set combo_time_match = true %}
+                        {% if combo_has_own_time %}
+                            {% if combo.start_time <= now_time and now_time <= combo.end_time %}
+                                {% set combo_time_match = true %}
+                            {% else %}
+                                {% set combo_time_match = false %}
+                            {% endif %}
+                        {% endif %}
+                        {% if combo_day_match and combo_time_match %}
+                            {% set _ = combos_list_all.append({'combo': combo, 'event': ev}) %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                {% if combos_list_all %}
+                <div x-show="currentCategory !== ''" class="py-2 space-y-2">
+                    {% for item in combos_list_all %}
+                    {% set combo = item.combo %}
+                    {% set ev = item.event %}
+                    {% set combo_product_ids = combo.items | map(attribute='product_id') | list %}
+                    {% set individual_total = namespace(value=0) %}
+                    {% for ci in combo.items %}
+                        {% for p in products %}
+                            {% if p.id == ci.product_id %}
+                                {% set individual_total.value = individual_total.value + p.price %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    <div class="bg-gradient-to-r from-teal-900/60 to-emerald-900/40 border border-teal-500/50 rounded-2xl p-3 relative overflow-hidden">
+                        <div class="flex items-center gap-3 relative z-10">
+                            <div class="w-10 h-10 rounded-xl bg-teal-500/30 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-teal-300" style="font-size:20px;">loyalty</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-extrabold text-xs text-white">{{ combo.name }}</span>
+                                    <span class="text-[8px] font-bold bg-teal-500/30 text-teal-200 px-1.5 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
+                                    {% if combo.days is defined and combo.days is not none and combo.days | length > 0 %}
+                                    <span class="text-[7px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo.days %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                    {% endif %}
+                                    {% if combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
+                                    <span class="text-[7px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo.start_time }}–{{ combo.end_time }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-sm font-black text-teal-200">{{ "%.2f" | format(combo.combo_price) | replace('.', ',') }} €</span>
+                                    {% if individual_total.value > combo.combo_price %}
+                                    <span class="text-[9px] line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
+                                    <span class="text-[8px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo.combo_price) | replace('.', ',') }} €</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not is_readonly and table and not token_error %}
+                            <button onclick="addComboToCart({{ combo.id }}, '{{ combo.name | replace("'", "\\'") }}', {{ combo.combo_price }}, {{ combo_product_ids | join(',') }})" 
+                                    class="w-9 h-9 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
+                                <span class="material-symbols-outlined font-black text-sm">add</span>
                             </button>
                             {% endif %}
                         </div>
