@@ -438,16 +438,28 @@
         html.light .control-split-item .text-gray-700 {
             color: #111827 !important;
         }
-        /* Pending items in control modal: ensure readable in both modes */
-        html.dark #control-pending-list .bg-white {
+        /* Control modal Bon cards: ensure readable in dark mode */
+        html.dark #control-orders-container .bg-gray-50 {
             background: var(--gastro-bg-gray) !important;
             border-color: var(--gastro-border) !important;
         }
-        html.dark #control-pending-list .text-gray-900 {
+        html.dark #control-orders-container .bg-white {
+            background: var(--gastro-bg-gray) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark #control-orders-container .text-gray-900,
+        html.dark #control-orders-container .text-gray-600 {
             color: var(--gastro-text-main) !important;
         }
-        html.dark #control-pending-list .text-gray-700 {
+        html.dark #control-orders-container .text-zinc-500,
+        html.dark #control-orders-container .text-zinc-800 {
             color: var(--gastro-text-muted) !important;
+        }
+        /* Control modal footer dark mode: ensure readable */
+        html.dark .popup-footer .text-zinc-700,
+        html.dark .popup-footer .text-zinc-800,
+        html.dark .popup-footer .text-gray-200 {
+            color: var(--gastro-text-main) !important;
         }
         /* Ensure alert items in control modal are readable */
         html.dark #control-alerts-box .text-amber-700 {
@@ -3260,46 +3272,33 @@
          TISCH-COCKPIT / CONTROLS MODAL OVERLAY (#control-modal)
     ═══════════════════════════════════════════════════════ -->
     <div id="control-modal" class="overlay-backdrop hidden">
-        <div class="popup-card flex flex-col" style="max-width:550px;max-height:90vh;">
+        <div class="popup-card flex flex-col" style="max-width:550px;max-height:92vh;min-height:60vh;">
             <!-- Sticky Header with total -->
-            <div class="popup-header flex-shrink-0">
+            <div class="popup-header flex-shrink-0" style="position:sticky;top:0;z-index:10;">
                 <div>
                     <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Cockpit</div>
                     <div style="font-size:22px;font-weight:900;color:#fff;" id="control-modal-table-title">Tisch --</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:.75rem;">
-                    <div style="font-size:19px;font-weight:900;color:#10b981;" id="control-modal-total-balance">0,00 €</div>
+                    <div style="text-align:right;">
+                        <div style="font-size:9px;color:rgba(255,255,255,.5);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Gesamt</div>
+                        <div style="font-size:19px;font-weight:900;color:#10b981;" id="control-modal-total-balance">0,00 €</div>
+                    </div>
                     <button onclick="closeControlModal()" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
                 </div>
             </div>
 
-            <!-- Scrollable items area -->
-            <div class="popup-body space-y-5 overflow-y-auto flex-1" style="min-height:0;">
+            <!-- Scrollable orders area -->
+            <div class="popup-body overflow-y-auto flex-1" style="min-height:0;padding:0.75rem 1.25rem;">
                 <!-- Call-To-Action alerts inside Control Modal -->
-                <div id="control-alerts-box" class="hidden"></div>
+                <div id="control-alerts-box" class="hidden" style="margin-bottom:0.75rem;"></div>
                 
-                <!-- Pending order items (Zubereitung / Neue) -->
-                <div id="control-pending-container" class="space-y-2">
-                    <h4 class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">pending</span> In Vorbereitung / Ausstehend
-                    </h4>
-                    <div id="control-pending-list" class="space-y-1.5"></div>
-                    <button onclick="serveAllControlPending()" class="w-full mt-2 py-2 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1">
-                        <span class="material-symbols-outlined text-sm">done_all</span> Alle als serviert markieren
-                    </button>
-                </div>
-
-                <!-- Delivered order items (ready for bill checkout) -->
-                <div id="control-delivered-container" class="space-y-2">
-                    <h4 class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                        <span class="material-symbols-outlined text-xs">check_circle</span> Serviert / Abrechenbar
-                    </h4>
-                    <div id="control-delivered-list" class="space-y-1.5"></div>
-                </div>
+                <!-- Orders will be rendered here per-Bon -->
+                <div id="control-orders-container" class="space-y-3"></div>
             </div>
 
             <!-- Sticky Footer — always visible -->
-            <div class="popup-footer space-y-3 flex-shrink-0 border-t border-zinc-800/30">
+            <div class="popup-footer space-y-2 flex-shrink-0 border-t border-zinc-800/30" style="position:sticky;bottom:0;z-index:10;">
                 <!-- Split Pay selector -->
                 <div id="control-split-cockpit" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
                     <div class="flex items-center justify-between text-xs font-extrabold text-zinc-800">
@@ -3318,14 +3317,19 @@
                 </div>
 
                 <!-- General actions block -->
-                <div class="grid grid-cols-2 gap-2" id="control-general-actions">
-                    <button id="btn-bezahlt-all" onclick="bezahlenAlles()" class="col-span-2 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
+                <div id="control-general-actions">
+                    <div class="flex gap-2">
+                        <button id="btn-serve-all-cockpit" onclick="serveAllControlPending()" class="flex-1 py-2.5 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-outlined text-sm">done_all</span> Alle servieren
+                        </button>
+                        <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="flex-1 py-2.5 border border-gray-200 hover:bg-gray-50 text-zinc-700 dark:text-zinc-300 dark:border-zinc-600 dark:hover:bg-zinc-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
+                            <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung
+                        </button>
+                    </div>
+                    <button id="btn-bezahlt-all" onclick="bezahlenAlles()" class="hidden w-full mt-2 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-1 shadow">
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
                     </button>
-                    <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="col-span-2 py-2 border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1">
-                        <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung aufnehmen
-                    </button>
-                    <button onclick="stornieren()" class="col-span-2 text-center text-[10px] font-bold text-red-500 hover:text-red-700 py-1">
+                    <button onclick="stornieren()" class="w-full mt-1 text-center text-[10px] font-bold text-red-500 hover:text-red-700 py-1">
                         ⚠️ Ganzen Bon stornieren (PIN erforderlich)
                     </button>
                 </div>
@@ -4280,16 +4284,21 @@
                 activeOrderId = null;
             }
             
-            let total = 0.0;
-            let pendingItems = [];
-            let deliveredItems = [];
+            let totalBalance = 0.0;
+            let totalPending = 0;
+            let totalDelivered = 0;
             
-            tableOrders.forEach(order => {
-                total += order.total;
+            // Build per-order data
+            const orderData = tableOrders.map(order => {
+                let orderTotal = 0;
+                let pendingItems = [];
+                let deliveredItems = [];
+                
                 if (order.items) {
                     order.items.forEach(item => {
                         const status = item.item_status || 'pending';
                         const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                        orderTotal += item.price * item.quantity;
                         
                         for (let idx = 0; idx < item.quantity; idx++) {
                             const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${idx}`;
@@ -4307,97 +4316,132 @@
                             
                             if (status === 'pending') {
                                 pendingItems.push(itemData);
+                                totalPending++;
                             } else {
                                 deliveredItems.push(itemData);
+                                totalDelivered++;
                             }
                         }
                     });
                 }
+                
+                totalBalance += orderTotal;
+                return {
+                    id: order.id,
+                    total: orderTotal,
+                    pendingItems,
+                    deliveredItems,
+                    hasPending: pendingItems.length > 0,
+                    hasDelivered: deliveredItems.length > 0,
+                    allServed: pendingItems.length === 0 && deliveredItems.length > 0
+                };
             });
             
             const hasActiveOrder = tableOrders.length > 0;
+            const allItemsServed = hasActiveOrder && totalPending === 0 && totalDelivered > 0;
+            
+            // Update header total
+            document.getElementById('control-modal-total-balance').textContent = `${totalBalance.toFixed(2).replace('.', ',')} €`;
+            
+            // Update footer buttons
             const elPayBtn = document.getElementById('btn-bezahlt-all');
-            const elTransferBtn = document.querySelector('button[onclick="openUmbuchenAll()"]');
-            const elCancelBtn = document.querySelector('button[onclick="stornieren()"]');
-
-            // Only show "Gesamt bezahlen" when ALL items are served (no pending items left)
-            const allItemsServed = hasActiveOrder && pendingItems.length === 0 && deliveredItems.length > 0;
-            if (hasActiveOrder) {
-                if (elPayBtn) {
-                    if (allItemsServed) {
-                        elPayBtn.classList.remove('hidden');
-                    } else {
-                        elPayBtn.classList.add('hidden');
-                    }
-                }
-                if (elTransferBtn) elTransferBtn.classList.remove('hidden');
-                if (elCancelBtn) elCancelBtn.classList.remove('hidden');
+            const elServeAllBtn = document.getElementById('btn-serve-all-cockpit');
+            
+            if (allItemsServed) {
+                if (elPayBtn) elPayBtn.classList.remove('hidden');
             } else {
                 if (elPayBtn) elPayBtn.classList.add('hidden');
-                if (elTransferBtn) elTransferBtn.classList.add('hidden');
-                if (elCancelBtn) elCancelBtn.classList.add('hidden');
             }
-
-            document.getElementById('control-modal-total-balance').textContent = `${total.toFixed(2).replace('.', ',')} €`;
+            if (elServeAllBtn) {
+                if (totalPending > 0) {
+                    elServeAllBtn.classList.remove('hidden');
+                } else {
+                    elServeAllBtn.classList.add('hidden');
+                }
+            }
             
-            // Render Pending Block
-            const pendingContainer = document.getElementById('control-pending-container');
-            const pendingList = document.getElementById('control-pending-list');
-            if (pendingItems.length > 0) {
-                pendingContainer.classList.remove('hidden');
-                pendingList.innerHTML = pendingItems.map(item => `
-                    <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-200 text-xs shadow-sm">
-                        <div class="flex items-center gap-3 flex-1 min-w-0">
-                            <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0">
-                                <span class="material-symbols-outlined text-base">check</span>
-                            </button>
-                            <div class="flex-1 min-w-0">
-                                <span class="font-extrabold text-gray-900 block truncate text-[13px]">${item.quantity}x ${item.name}</span>
-                                ${item.note ? `<span class="text-[10px] text-amber-600 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+            // Render orders container — each order as its own section
+            const ordersContainer = document.getElementById('control-orders-container');
+            if (!ordersContainer) return;
+            
+            if (!hasActiveOrder) {
+                ordersContainer.innerHTML = `
+                    <div class="text-center py-8 text-zinc-400 dark:text-zinc-500">
+                        <span class="material-symbols-outlined text-4xl mb-2 block">receipt_long</span>
+                        <p class="text-sm font-bold">Keine offenen Bestellungen</p>
+                    </div>`;
+                return;
+            }
+            
+            ordersContainer.innerHTML = orderData.map((od, orderIdx) => {
+                const statusLabel = od.allServed ? 'Serviert' : od.hasPending ? 'In Vorbereitung' : '—';
+                const statusColor = od.allServed ? 'emerald' : od.hasPending ? 'amber' : 'zinc';
+                const bonBg = od.allServed ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-amber-200 dark:border-amber-800/40';
+                const bonAccent = od.allServed ? 'bg-emerald-500' : 'bg-amber-500';
+                
+                let itemsHtml = '';
+                
+                // Pending items for this order
+                if (od.hasPending) {
+                    itemsHtml += od.pendingItems.map(item => `
+                        <div class="flex items-center justify-between p-2.5 bg-white dark:bg-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-700 text-xs shadow-sm">
+                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                                <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                    <span class="material-symbols-outlined text-base">check</span>
+                                </button>
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${item.name}</span>
+                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
+                                <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
+                                    <span class="material-symbols-outlined text-sm">close</span>
+                                </button>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <span class="font-extrabold text-gray-700 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
-                            <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0">
-                                <span class="material-symbols-outlined text-base">close</span>
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                pendingContainer.classList.add('hidden');
-            }
-            
-            // Render Delivered Block
-            const deliveredContainer = document.getElementById('control-delivered-container');
-            const deliveredList = document.getElementById('control-delivered-list');
-            if (deliveredItems.length > 0) {
-                deliveredContainer.classList.remove('hidden');
-                deliveredList.innerHTML = deliveredItems.map(item => {
-                    const isChecked = !!selectedControlSplitItems[item.key];
-                    return `
-                        <div class="control-split-item flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs shadow-sm">
-                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                    `).join('');
+                }
+                
+                // Delivered items for this order
+                if (od.hasDelivered) {
+                    itemsHtml += od.deliveredItems.map(item => {
+                        const isChecked = !!selectedControlSplitItems[item.key];
+                        return `
+                        <div class="control-split-item flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/30 text-xs shadow-sm">
+                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
                                 <input type="checkbox" ${isChecked ? 'checked' : ''} 
                                        onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
                                        class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
-                                
-                                <span class="material-symbols-outlined text-emerald-600 font-black text-lg select-none">done_all</span>
-                                
+                                <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 font-black text-base select-none">done_all</span>
                                 <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-gray-900 block truncate text-[13px]">${item.quantity}x ${item.name}</span>
-                                    ${item.note ? `<span class="text-[10px] text-amber-600 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${item.name}</span>
+                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <span class="font-extrabold text-gray-700 font-mono">${(item.price * item.quantity).toFixed(2).replace('.', ',')} €</span>
-                            </div>
+                            <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
+                        </div>`;
+                    }).join('');
+                }
+                
+                return `
+                <div class="rounded-2xl border ${bonBg} overflow-hidden shadow-sm">
+                    <!-- Bon Header -->
+                    <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-700">
+                        <div class="flex items-center gap-2">
+                            <div class="w-1.5 h-6 rounded-full ${bonAccent}"></div>
+                            <span class="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Bon #${od.id}</span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-${statusColor}-100 dark:bg-${statusColor}-900/30 text-${statusColor}-700 dark:text-${statusColor}-400 border border-${statusColor}-200 dark:border-${statusColor}-800/30">${statusLabel}</span>
                         </div>
-                    `;
-                }).join('');
-            } else {
-                deliveredContainer.classList.add('hidden');
-            }
+                        <span class="font-black text-sm text-zinc-800 dark:text-zinc-200 font-mono">${od.total.toFixed(2).replace('.', ',')} €</span>
+                    </div>
+                    <!-- Bon Items -->
+                    <div class="p-2 space-y-1.5">
+                        ${itemsHtml}
+                    </div>
+                </div>`;
+            }).join('');
             
             // Render Active Service Calls for this Table inside Cockpit
             const alertsBox = document.getElementById('control-alerts-box');
@@ -4406,7 +4450,6 @@
                     const callTableStr = String(c.table);
                     const callNum = callTableStr.replace(/Tisch\s*/gi, '').split('(')[0].trim();
                     if (callNum !== String(controlModalActiveTableNum)) return false;
-                    // If zone is known, only match zone-specific calls
                     if (controlModalActiveTableZone) {
                         const zoneMatch = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
                         return callTableStr === zoneMatch;
@@ -4438,7 +4481,7 @@
                         }
                         
                         return `
-                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700">
+                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700 dark:text-amber-400">
                                 <span class="font-extrabold flex items-center gap-1.5">
                                     <span class="animate-bounce">${cIcon}</span> ${cText}
                                 </span>
@@ -4447,7 +4490,7 @@
                                 </button>
                             </div>
                         `;
-                    }).join('<div class="h-2"></div>');
+                    }).join('<div class="h-1.5"></div>');
                 } else {
                     alertsBox.classList.add('hidden');
                     alertsBox.innerHTML = '';
