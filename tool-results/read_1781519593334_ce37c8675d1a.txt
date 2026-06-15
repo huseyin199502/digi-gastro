@@ -1,0 +1,2002 @@
+     1→<!DOCTYPE html>
+     2→<html class="{{ restaurant.theme or 'dark' }}" lang="de">
+     3→<head>
+     4→    <meta charset="utf-8">
+     5→    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+     6→    <title>{{ restaurant.name }} - Speisekarte</title>
+     7→    <!-- PWA settings -->
+     8→    <meta name="apple-mobile-web-app-capable" content="yes">
+     9→    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    10→    <meta name="apple-mobile-web-app-title" content="{{ restaurant.name }}">
+    11→    <meta name="theme-color" content="#009900">
+    12→    <meta name="mobile-web-app-capable" content="yes">
+    13→    <link rel="manifest" href="/manifest.json">
+    14→    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    15→    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    16→    <!-- Tailwind and FontAwesome / Material Symbols -->
+    17→    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    18→    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    19→    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    20→    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    21→    <link rel="stylesheet" href="/static/css/design_system.css?v=9">
+    22→    
+    23→    <script id="tailwind-config">
+    24→        tailwind.config = {
+    25→          darkMode: "class",
+    26→          theme: {
+    27→            extend: {
+    28→              colors: {
+    29→                "on-surface": "var(--text-on-surface)",
+    30→                "outline-variant": "var(--border-subtle)",
+    31→                "primary": "var(--color-primary)",
+    32→                "accent": "var(--color-accent-gold)",
+    33→                "background": "var(--bg-obsidian)",
+    34→                "surface": "var(--bg-surface)",
+    35→                "surface-container-high": "var(--bg-surface-elevated)",
+    36→                "on-surface-variant": "var(--text-on-surface-variant)"
+    37→              }
+    38→            }
+    39→          }
+    40→        }
+    41→    </script>
+    42→    <style>
+    43→        /* Alpine.js x-cloak: hide elements until Alpine initializes */
+    44→        [x-cloak] { display: none !important; }
+    45→        
+    46→        html, body {
+    47→            touch-action: manipulation;
+    48→        }
+    49→        body {
+    50→            background-color: var(--bg-obsidian);
+    51→            color: var(--text-on-surface);
+    52→            font-family: 'Inter', sans-serif;
+    53→            -webkit-font-smoothing: antialiased;
+    54→        }
+    55→        .no-scrollbar::-webkit-scrollbar {
+    56→            display: none;
+    57→        }
+    58→        .no-scrollbar {
+    59→            -ms-overflow-style: none;
+    60→            scrollbar-width: none;
+    61→        }
+    62→        @keyframes slideUp {
+    63→            from {
+    64→                transform: translateY(100%);
+    65→            }
+    66→            to {
+    67→                transform: translateY(0);
+    68→            }
+    69→        }
+    70→        .slide-up-modal {
+    71→            animation: slideUp 0.3s ease-out forwards;
+    72→        }
+    73→        .scrollbar-none::-webkit-scrollbar {
+    74→            display: none;
+    75→        }
+    76→        .scrollbar-none {
+    77→            -ms-overflow-style: none;
+    78→            scrollbar-width: none;
+    79→        }
+    80→        .select-none {
+    81→            -webkit-user-select: none;
+    82→            user-select: none;
+    83→            -webkit-user-drag: none;
+    84→        }
+    85→        @keyframes cartPulse {
+    86→            0% { transform: scale(1); }
+    87→            50% { transform: scale(1.05); }
+    88→            100% { transform: scale(1); }
+    89→        }
+    90→        .animate-cart-pulse {
+    91→            animation: cartPulse 0.3s ease-in-out;
+    92→        }
+    93→        @keyframes badgePulse {
+    94→            0% { transform: scale(1); }
+    95→            50% { transform: scale(1.5); }
+    96→            100% { transform: scale(1); }
+    97→        }
+    98→        .animate-badge-pulse {
+    99→            animation: badgePulse 0.3s ease-in-out;
+   100→        }
+   101→        @keyframes btnSuccessPulse {
+   102→            0% { transform: scale(1); }
+   103→            50% { transform: scale(1.2); }
+   104→            100% { transform: scale(1); }
+   105→        }
+   106→        .animate-btn-success {
+   107→            animation: btnSuccessPulse 0.3s ease-in-out;
+   108→        }
+   109→        @keyframes bounceHorizontalRight {
+   110→            0%, 100% { transform: translateY(-50%) translateX(0); }
+   111→            50% { transform: translateY(-50%) translateX(4px); }
+   112→        }
+   113→        @keyframes bounceHorizontalLeft {
+   114→            0%, 100% { transform: translateY(-50%) translateX(0); }
+   115→            50% { transform: translateY(-50%) translateX(-4px); }
+   116→        }
+   117→        .animate-bounce-horizontal-right {
+   118→            animation: bounceHorizontalRight 1.2s infinite;
+   119→        }
+   120→        .animate-bounce-horizontal-left {
+   121→            animation: bounceHorizontalLeft 1.2s infinite;
+   122→        }
+   123→        /* ===== Category List Navigation ===== */
+   124→        #category-list-view button:active {
+   125→            transform: scale(0.98);
+   126→        }
+   127→        /* Video full-size display - no crop, no max-height restriction */
+   128→        .landing-video-full {
+   129→            width: 100%;
+   130→            height: auto;
+   131→            object-fit: contain;
+   132→            display: block;
+   133→        }
+   134→    </style>
+   135→    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+   136→</head>
+   137→<body x-data="menuState()" class="flex flex-col min-h-screen bg-background {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+   138→    <!-- Background grid and glow -->
+   139→    <div class="fixed inset-0 grid-bg pointer-events-none z-0"></div>
+   140→    <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
+   141→
+   142→    <!-- Background slideshow overlay (Landing page only - supports images & videos) -->
+   143→    {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled and (restaurant.landing_page.slideshow_images or restaurant.landing_page.slideshow_videos) %}
+   144→    <div id="landing-slideshow" class="fixed inset-0 z-0 pointer-events-none transition-opacity duration-700" x-show="currentView === 'landing'" style="display: none;">
+   145→        <!-- Background video layer (if slideshow videos exist) -->
+   146→        {% if restaurant.landing_page.slideshow_videos %}
+   147→        <div id="slideshow-video-layer" class="absolute inset-0">
+   148→            {% for vid in restaurant.landing_page.slideshow_videos %}
+   149→            <video :class="currentBgVideoIdx === {{ loop.index0 }} ? 'opacity-100' : 'opacity-0'" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000" src="{{ vid }}" autoplay loop muted playsinline></video>
+   150→            {% endfor %}
+   151→        </div>
+   152→        {% endif %}
+   153→        <!-- Overlapping image layers for crossfade -->
+   154→        {% if restaurant.landing_page.slideshow_images %}
+   155→        <div id="slide-layer-1" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 {% if not restaurant.landing_page.slideshow_videos %}opacity-100{% else %}opacity-0{% endif %}" style="background-image: url('{{ restaurant.landing_page.slideshow_images[0] }}');"></div>
+   156→        <div id="slide-layer-2" class="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 opacity-0"></div>
+   157→        {% endif %}
+   158→        <!-- Semi-transparent backdrop overlay to darken and blur slightly for high text readability -->
+   159→        <div class="absolute inset-0 bg-black/30 backdrop-blur-[2px]"></div>
+   160→    </div>
+   161→    {% endif %}
+   162→
+   163→    {% if is_readonly %}
+   164→    <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
+   165→    <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-md p-10 text-center space-y-6 shadow-2xl relative z-50">
+   166→        <div class="flex justify-end -mt-4 -mr-4">
+   167→            <!-- Compact Language Selection for Read-only -->
+   168→            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner scale-90">
+   169→                <button onclick="setLanguage('de')" id="lang-de-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display">DE</button>
+   170→                <button onclick="setLanguage('en')" id="lang-en-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display">EN</button>
+   171→            </div>
+   172→        </div>
+   173→        <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
+   174→            <span class="material-symbols-outlined text-4xl">qr_code_scanner</span>
+   175→        </div>
+   176→        <h2 class="text-2xl font-extrabold text-on-surface tracking-tight font-display" data-translate="scan_required_header">QR-Code Scan erforderlich</h2>
+   177→        <p class="text-xs text-on-surface-variant leading-relaxed">
+   178→            <span data-translate="scan_required_welcome">Willkommen bei</span> <strong class="text-on-surface">{{ restaurant.name }}</strong>!<br><br>
+   179→            <span data-translate="scan_required_desc">Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.</span>
+   180→        </p>
+   181→    </div>
+   182→    {% else %}
+   183→
+   184→    <!-- Top Navigation Bar / Header -->
+   185→    <header class="grid grid-cols-3 items-center px-4 sm:px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant">
+   186→        <div class="flex justify-start">
+   187→            {% if restaurant.branding and restaurant.branding.logo_url %}
+   188→                <img alt="{{ restaurant.name }} Logo" class="h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}">
+   189→            {% else %}
+   190→                <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-xl sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
+   191→            {% endif %}
+   192→        </div>
+   193→
+   194→        <div class="flex justify-center">
+   195→            {% if tisch_name %}
+   196→                <span class="text-primary font-black text-sm sm:text-base tracking-widest bg-surface/80 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-primary/20 backdrop-blur-md shadow-lg shadow-primary/5 uppercase font-display whitespace-nowrap">
+   197→                    {{ tisch_name }}
+   198→                </span>
+   199→            {% endif %}
+   200→        </div>
+   201→
+   202→        <div class="flex justify-end">
+   203→            <!-- Language Selection -->
+   204→            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner origin-right">
+   205→                <button onclick="setLanguage('de')" id="lang-de-btn" class="px-3 py-1.5 rounded-full text-xs font-bold transition bg-primary text-black font-display">DE</button>
+   206→                <button onclick="setLanguage('en')" id="lang-en-btn" class="px-3 py-1.5 rounded-full text-xs font-bold transition text-on-surface-variant font-display">EN</button>
+   207→            </div>
+   208→        </div>
+   209→    </header>
+   210→
+   211→    <!-- Top Alert Banner for Token/Table missing -->
+   212→    {% if token_error %}
+   213→    <div class="bg-red-950/40 border-b border-red-500/20 text-red-200 py-3.5 px-4 text-center text-xs backdrop-blur-md flex items-center justify-center space-x-2 relative z-40">
+   214→        <span class="material-symbols-outlined text-[18px] text-red-400">error</span>
+   215→        <span data-translate="token_error" class="font-medium">Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie den Barcode neu.</span>
+   216→    </div>
+   217→    {% endif %}
+   218→
+   219→    <div id="happy-hour-banner-wrapper">
+   220→        {% if hh_active_global %}
+   221→        {% for ev in active_events %}
+   222→        <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
+   223→            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">celebration</span>
+   224→            <span>🔥 {{ ev.display_name }} ist aktiv! {% if ev.mode == 'discount' and ev.discount > 0 %}{{ ev.discount }}% auf alles!{% else %}Sonderpreise für ausgewählte Artikel!{% endif %} 🔥</span>
+   225→            <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">celebration</span>
+   226→        </div>
+   227→        {% endfor %}
+   228→        {% endif %}
+   229→    </div>
+   230→
+   231→    <!-- Main Dynamic Content Canvas -->
+   232→    <main class="flex-grow w-full max-w-4xl mx-auto px-4">
+   233→        
+   234→        <!-- ================= LANDING VIEW ================= -->
+   235→        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper">
+   236→            <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
+   237→                {% if restaurant.branding and restaurant.branding.logo_url %}
+   238→                    <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}">
+   239→                {% endif %}
+   240→                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-md animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+   241→                <p class="text-sm text-gray-200 max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
+   242→                
+   243→                <!-- Actions Group -->
+   244→                <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
+   245→                    <!-- CTA Button to go to Menu -->
+   246→                    <button @click="currentView = 'speisekarte'" class="btn-premium glass-btn-primary w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
+   247→                        <span class="material-symbols-outlined">menu_book</span>
+   248→                        <span data-translate="view_menu">Speisekarte ansehen</span>
+   249→                    </button>
+   250→
+   251→                    <!-- Google Review Link -->
+   252→                    <div x-show="restaurantLandingPage.google_rating_url" class="w-full">
+   253→                        <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95">
+   254→                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+   255→                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+   256→                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+   257→                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+   258→                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+   259→                            </svg>
+   260→                            <span data-translate="rate_us">Bewerten Sie uns auf Google</span>
+   261→                        </a>
+   262→                    </div>
+   263→
+   264→                    <!-- Social Media Links (moved from footer, larger design) -->
+   265→                    {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
+   266→                    <div class="flex justify-center items-center gap-5 mt-2.5">
+   267→                        {% if restaurant.branding.instagram %}
+   268→                        <a href="{{ restaurant.branding.instagram }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Instagram">
+   269→                            <i class="fa-brands fa-instagram text-2xl"></i>
+   270→                        </a>
+   271→                        {% endif %}
+   272→                        {% if restaurant.branding.facebook %}
+   273→                        <a href="{{ restaurant.branding.facebook }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Facebook">
+   274→                            <i class="fa-brands fa-facebook text-2xl"></i>
+   275→                        </a>
+   276→                        {% endif %}
+   277→                        {% if restaurant.branding.tiktok %}
+   278→                        <a href="{{ restaurant.branding.tiktok }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="TikTok">
+   279→                            <i class="fa-brands fa-tiktok text-2xl"></i>
+   280→                        </a>
+   281→                        {% endif %}
+   282→                    </div>
+   283→                    {% endif %}
+   284→                </div>
+   285→            </div>
+   286→
+   287→            <!-- Angebote (Bilder & Videos) - FULL WIDTH -->
+   288→            <div x-show="(restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0) || (restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0)" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
+   289→                <h3 x-show="restaurantLandingPage.title_offers" class="text-lg font-bold text-white drop-shadow-md font-display px-3">
+   290→                    <span x-text="restaurantLandingPage.title_offers"></span>
+   291→                </h3>
+   292→                
+   293→                <!-- Offer Videos -->
+   294→                <template x-if="restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0">
+   295→                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 px-3">
+   296→                        <template x-for="vid in restaurantLandingPage.offer_videos" :key="vid">
+   297→                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+   298→                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+   299→                            </div>
+   300→                        </template>
+   301→                    </div>
+   302→                </template>
+   303→
+   304→                <!-- Offer Images Slider -->
+   305→                <template x-if="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0">
+   306→                <div class="relative w-full overflow-hidden rounded-2xl bg-zinc-950/40 border border-outline-variant/30 group">
+   307→                    <div id="offer-slider" class="flex w-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
+   308→                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
+   309→                            <div class="w-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
+   310→                                <img :src="img" alt="Angebot" class="w-full h-auto object-cover" loading="lazy">
+   311→                            </div>
+   312→                        </template>
+   313→                    </div>
+   314→                    
+   315→                    <!-- Prev/Next Controls -->
+   316→                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+   317→                        <button type="button" @click="prevOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
+   318→                            <span class="material-symbols-outlined text-sm font-bold">chevron_left</span>
+   319→                        </button>
+   320→                        <button type="button" @click="nextOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
+   321→                            <span class="material-symbols-outlined text-sm font-bold">chevron_right</span>
+   322→                        </button>
+   323→                    </div>
+   324→
+   325→                    <!-- Slide Indicator dots -->
+   326→                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute bottom-4 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
+   327→                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="'dot-'+idx">
+   328→                            <div class="w-1.5 h-1.5 rounded-full transition-all duration-300" :class="currentOfferIdx === idx ? 'bg-primary w-4' : 'bg-white/40'"></div>
+   329→                        </template>
+   330→                    </div>
+   331→                </div>
+   332→                </template>
+   333→            </div>
+   334→            
+   335→            {% if hh_active_global and active_events %}
+   336→            <!-- Aktion Active Card on Landing Page -->
+   337→            {% set first_event = active_events[0] %}
+   338→            <div class="border border-amber-500/50 bg-amber-500/20 backdrop-blur-md rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/10 animate-pulse">
+   339→                <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/30 rounded-full blur-2xl"></div>
+   340→                <div class="flex items-center gap-4">
+   341→                    <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
+   342→                    <div>
+   343→                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ first_event.display_name or first_event.name or 'Aktion' }} ist aktiv!</h3>
+   344→                        <p class="text-xs text-on-surface drop-shadow-md mt-1 leading-relaxed">
+   345→                            {% if first_event.mode == 'discount' and first_event.discount > 0 %}
+   346→                                Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ first_event.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
+   347→                            {% else %}
+   348→                                Sichern Sie sich jetzt unsere exklusiven Aktionspreise auf ausgewählte Artikel!
+   349→                            {% endif %}
+   350→                        </p>
+   351→                    </div>
+   352→                </div>
+   353→            </div>
+   354→            {% endif %}
+   355→
+   356→            <!-- Galerie (Bilder & Videos) -->
+   357→            <div x-show="(restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0) || (restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0)" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+   358→                <h3 x-show="restaurantLandingPage.title_gallery" class="text-lg font-bold text-white drop-shadow-md font-display">
+   359→                    <span x-text="restaurantLandingPage.title_gallery"></span>
+   360→                </h3>
+   361→                
+   362→                <!-- Gallery Videos -->
+   363→                <template x-if="restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0">
+   364→                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+   365→                        <template x-for="vid in restaurantLandingPage.gallery_videos" :key="vid">
+   366→                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+   367→                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+   368→                            </div>
+   369→                        </template>
+   370→                    </div>
+   371→                </template>
+   372→
+   373→                <!-- Gallery Images -->
+   374→                <template x-if="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0">
+   375→                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+   376→                        <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
+   377→                            <div class="aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+   378→                                <img :src="img" class="w-full h-full object-cover" loading="lazy">
+   379→                            </div>
+   380→                        </template>
+   381→                    </div>
+   382→                </template>
+   383→            </div>
+   384→
+   385→            <!-- Video Section (eigenständig) -->
+   386→            <div x-show="restaurantLandingPage.videos && restaurantLandingPage.videos.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
+   387→                <h3 x-show="restaurantLandingPage.title_videos" class="text-lg font-bold text-white drop-shadow-md font-display">
+   388→                    <span x-text="restaurantLandingPage.title_videos"></span>
+   389→                </h3>
+   390→                
+   391→                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   392→                    <template x-for="vid in restaurantLandingPage.videos" :key="vid">
+   393→                        <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+   394→                            <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+   395→                        </div>
+   396→                    </template>
+   397→                </div>
+   398→            </div>
+   399→
+   400→            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+   401→                <!-- Info Card 1: Öffnungszeiten -->
+   402→                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
+   403→                    <h3 x-show="restaurantLandingPage.title_hours" class="text-lg font-bold text-white drop-shadow-md font-display">
+   404→                        <span x-text="restaurantLandingPage.title_hours"></span>
+   405→                    </h3>
+   406→                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
+   407→                </div>
+   408→                
+   409→                <!-- Info Card 2: Angebote -->
+   410→                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
+   411→                    <h3 x-show="restaurantLandingPage.title_happyhour" class="text-lg font-bold text-white drop-shadow-md font-display">
+   412→                        <span x-text="restaurantLandingPage.title_happyhour"></span>
+   413→                    </h3>
+   414→                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
+   415→                </div>
+   416→            </div>
+   417→
+   418→            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+   419→                <!-- What we offer -->
+   420→                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
+   421→                    <h3 x-show="restaurantLandingPage.title_about" class="text-lg font-bold text-white drop-shadow-md font-display">
+   422→                        <span x-text="restaurantLandingPage.title_about"></span>
+   423→                    </h3>
+   424→                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
+   425→                </div>
+   426→                
+   427→                <!-- Announcements / News -->
+   428→                <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
+   429→                    <h3 x-show="restaurantLandingPage.title_news" class="text-lg font-bold text-white drop-shadow-md font-display">
+   430→                        <span x-text="restaurantLandingPage.title_news"></span>
+   431→                    </h3>
+   432→                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
+   433→                </div>
+   434→            </div>
+   435→
+   436→            <!-- Custom Sections (Eigene Sektionen) -->
+   437→            <template x-if="restaurantLandingPage.custom_sections && restaurantLandingPage.custom_sections.length > 0">
+   438→                <div class="space-y-6 mt-6">
+   439→                    <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
+   440→                        <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
+   441→                            <h3 x-show="section.title" class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
+   442→                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-cover" :alt="section.title" loading="lazy">
+   443→                            <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-show="section.content" x-text="section.content"></p>
+   444→                        </div>
+   445→                    </template>
+   446→                </div>
+   447→            </template>
+   448→
+   449→        </div>
+   450→
+   451→        <!-- ================= SPEISEKARTE VIEW ================= -->
+   452→        <div x-show="currentView === 'speisekarte'" class="animate-fade-in">
+   453→            <!-- ================= SPEISEKARTE (ALWAYS ACTIVE & VISIBLE) ================= -->
+   454→            <div id="tab-speisekarte" class="py-2">
+   455→
+   456→                <!-- BACK BUTTON when inside a category -->
+   457→                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[64px] z-40 bg-[var(--bg-obsidian)] pb-2 pt-1">
+   458→                    <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
+   459→                        <span class="material-symbols-outlined text-xl">arrow_back</span>
+   460→                        <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
+   461→                    </button>
+   462→                </div>
+   463→
+   464→                <!-- CATEGORY OVERVIEW: Large vertical category cards -->
+   465→                <div x-show="currentCategory === ''" id="category-list-view" class="space-y-3 py-2">
+   466→                    {% for cat in parent_categories %}
+   467→                    {% set cat_img = category_images.get(cat, '') %}
+   468→
+   469→                    <button onclick="filterCategory('{{ cat }}')" 
+   470→                            class="w-full group relative overflow-hidden rounded-2xl border border-outline-variant/60 hover:border-primary/60 transition-all duration-300 active:scale-[0.98] hover-lift">
+   471→                        <div class="flex items-center h-24 sm:h-28">
+   472→                            <!-- Category Image -->
+   473→                            <div class="relative w-24 sm:w-28 h-full flex-shrink-0 overflow-hidden">
+   474→                                {% if cat_img %}
+   475→                                <img alt="{{ cat }}" class="w-full h-full object-cover" src="{{ cat_img }}" loading="lazy">
+   476→                                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--bg-surface)]"></div>
+   477→                                {% else %}
+   478→                                <div class="w-full h-full bg-surface-container-high flex items-center justify-center">
+   479→                                    <span class="material-symbols-outlined text-4xl text-on-surface-variant/30">restaurant</span>
+   480→                                </div>
+   481→                                {% endif %}
+   482→                            </div>
+   483→                            <!-- Category Info -->
+   484→                            <div class="flex-1 px-4 flex items-center justify-between">
+   485→                                <div class="flex flex-col">
+   486→                                    <h2 class="text-lg sm:text-xl font-black text-on-surface font-display tracking-tight uppercase">{{ cat }}</h2>
+   487→
+   488→                                </div>
+   489→                                <span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-1 transition-all text-2xl">chevron_right</span>
+   490→                            </div>
+   491→                        </div>
+   492→                    </button>
+   493→                    {% endfor %}
+   494→                </div>
+   495→
+   496→                <!-- Products Grid (shown when a category is selected) -->
+   497→                <div x-show="currentCategory !== ''" id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-3.5 py-2">
+   498→                    {% for product in products %}
+   499→                    
+   500→                    {% set is_avail = product.get('is_available', True) %}
+   501→                    <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-3 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
+   502→                             data-category="{{ product.category }}" 
+   503→                             data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 
+   504→                             data-glutenfree="{{ 'true' if product.is_glutenfree else 'false' }}">
+   505→                        
+   506→                        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-zinc-900/50 flex items-center justify-center">
+   507→                            {% if product.image and not product.image.lower().endswith('.pdf') %}
+   508→                            <img alt="{{ product.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-110 pointer-events-none" src="{{ product.image }}" loading="lazy">
+   509→                            <img alt="{{ product.name }}" class="relative z-10 max-w-full max-h-full object-contain" src="{{ product.image }}" loading="lazy">
+   510→                            {% else %}
+   511→
+   512→                            <div class="flex flex-col items-center justify-center text-on-surface-variant/20">
+   513→                                <span class="material-symbols-outlined text-5xl">restaurant</span>
+   514→                            </div>
+   515→                            {% endif %}
+   516→                            
+   517→                            <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">
+   518→                                {% if product.is_hh_active %}
+   519→                                <span class="bg-[#7c3aed] text-white text-[11px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+   520→                                    <span class="material-symbols-outlined text-xs font-black">celebration</span>
+   521→                                    <span>{{ (product.active_event.display_name if product.active_event else 'Event')[:10] }}{% if product.active_event and product.active_event.days %} {% for d in product.active_event.days %}{{ d[:2] }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}</span>
+   522→                                </span>
+   523→                                {% endif %}
+   524→                                {% if product.is_vegan or product.vegan %}
+   525→                                <span class="bg-emerald-500/90 text-white text-[11px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
+   526→                                    <span class="material-symbols-outlined text-xs font-bold">grass</span>
+   527→                                    <span>Vegan</span>
+   528→                                </span>
+   529→                                {% endif %}
+   530→                            </div>
+   531→                        </div>
+   532→
+   533→                        <div class="flex flex-col flex-grow justify-between px-1">
+   534→                            <div>
+   535→                                <h3 class="text-sm md:text-base font-black text-on-surface leading-tight font-display tracking-tight mb-1" x-text="currentLang === 'en' ? '{{ (product.name_en or product.name) | replace("'", "\\'") }}' : '{{ product.name | replace("'", "\\'") }}'">{{ product.name }}</h3>
+   536→                                <p class="text-xs text-on-surface-variant line-clamp-2 leading-relaxed mb-2" x-text="currentLang === 'en' ? '{{ (product.description_en or product.description or '') | replace("'", "\\'") }}' : '{{ (product.description or '') | replace("'", "\\'") }}'">{{ product.description }}</p>
+   537→                            </div>
+   538→                            
+   539→                            <div class="flex justify-between items-center mt-auto pt-1">
+   540→                                <div class="flex flex-col">
+   541→                                    {% if product.is_hh_active %}
+   542→                                    <span class="text-xs line-through text-on-surface-variant/50 leading-none mb-0.5 font-bold">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+   543→                                    <span class="text-sm font-black text-primary leading-none">{{ "%.2f" | format(product.display_price) | replace('.', ',') }} €</span>
+   544→                                    {% else %}
+   545→                                    <span class="text-sm font-black text-on-surface leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
+   546→                                    {% endif %}
+   547→                                </div>
+   548→                                
+   549→                                {% if is_avail %}
+   550→                                <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
+   551→                                    <span class="material-symbols-outlined font-black text-lg">add</span>
+   552→                                </button>
+   553→                                {% else %}
+   554→                                <button disabled class="w-11 h-11 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
+   555→                                    <span class="material-symbols-outlined text-lg">block</span>
+   556→                                </button>
+   557→                                {% endif %}
+   558→                            </div>
+   559→                        </div>
+   560→                    </article>
+   561→                    {% endfor %}
+   562→                </div>
+   563→            </div>
+   564→        </div>
+   565→    </main>
+   566→    {% endif %}
+   567→
+   568→    <!-- Slender Legal Footer inside clean container -->
+   569→    <footer class="py-8 bg-surface border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-3">
+   570→        <div class="flex justify-center space-x-4">
+   571→            <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline" data-translate="impressum">Impressum</button>
+   572→            <span>&bull;</span>
+   573→            <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline" data-translate="datenschutz">Datenschutz</button>
+   574→        </div>
+   575→        
+   576→        <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
+   577→    </footer>
+   578→
+   579→    <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
+   580→    {% if not is_readonly and table and not token_error %}
+   581→    <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
+   582→    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] sm:bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300">
+   583→        <!-- Left Side: Thumb-Zone Service & Payment Callers -->
+   584→        <div class="flex items-center gap-1.5">
+   585→            <button onclick="openServiceModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
+   586→                <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">notifications_active</span>
+   587→                <span class="text-[10px] font-bold leading-none tracking-wide uppercase" data-translate="nav_service">Service</span>
+   588→            </button>
+   589→            <button onclick="openPaymentModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
+   590→                <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">receipt_long</span>
+   591→                <span class="text-[10px] font-bold leading-none tracking-wide uppercase" data-translate="nav_bill">Rechnung</span>
+   592→            </button>
+   593→        </div>
+   594→        
+   595→        <!-- Right Side: Unified Cart Trigger and Total -->
+   596→        <button onclick="openCartModal()" class="flex-grow ml-2 bg-primary text-black font-extrabold h-11 px-4 rounded-xl flex items-center justify-between shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all">
+   597→            <div class="flex items-center gap-1.5">
+   598→                <div class="relative">
+   599→                    <span class="material-symbols-outlined text-lg font-black mt-0.5">shopping_basket</span>
+   600→                    <span id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
+   601→                </div>
+   602→                <span class="text-sm font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
+   603→            </div>
+   604→            <span id="total-val-sticky" class="text-sm font-black bg-black/10 px-2 py-0.5 rounded-lg" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
+   605→        </button>
+   606→    </div>
+   607→
+   608→    <!-- Sticky Bottom Navigation (Welcome vs Speisekarte) -->
+   609→    <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/50 py-1 flex justify-around items-center shadow-2xl pb-safe h-[3.25rem]">
+   610→        <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+   611→            <span class="material-symbols-outlined text-[20px] leading-none">home</span>
+   612→            <span data-translate="tab_welcome" class="text-[10px] font-bold leading-none tracking-wide">Willkommen</span>
+   613→        </button>
+   614→        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+   615→            <span class="material-symbols-outlined text-[20px] leading-none">menu_book</span>
+   616→            <span data-translate="tab_menu" class="text-[10px] font-bold leading-none tracking-wide">Speisekarte</span>
+   617→        </button>
+   618→    </div>
+   619→    {% endif %}
+   620→
+   621→        <!-- Hidden Legal Contents to prevent JS escaping issues -->
+   622→    <div id="impressum-content-data" class="hidden">{{ restaurant.impressum_content }}</div>
+   623→    <div id="datenschutz-content-data" class="hidden">{{ restaurant.datenschutz_content }}</div>
+   624→
+   625→    <!-- Legal Documents Modal -->
+   626→    <div id="legal-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+   627→        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-lg p-8 relative flex flex-col max-h-[80vh] shadow-2xl">
+   628→            <button onclick="closeLegalModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+   629→                <span class="material-symbols-outlined text-2xl">close</span>
+   630→            </button>
+   631→            <h3 id="legal-modal-title" class="text-2xl font-extrabold mb-5 font-display text-on-surface">Rechts-Dokument</h3>
+   632→            <div id="legal-modal-body" class="flex-1 overflow-y-auto pr-2 text-sm text-on-surface-variant leading-relaxed whitespace-pre-line font-sans scrollbar-none">
+   633→                <!-- Legal dynamic content pulls here -->
+   634→            </div>
+   635→        </div>
+   636→    </div>
+   637→
+   638→    <!-- CHECKOUT MODAL (BASKET BOTTOM-SHEET) -->
+   639→    <div id="cart-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center hidden" onclick="if(event.target === this) closeCartModal()">
+   640→        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant sm:rounded-[2rem] rounded-t-[2.5rem] w-full max-w-md p-5 sm:p-8 relative flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-8">
+   641→            
+   642→            <!-- Drag Handle Indicator -->
+   643→            <div class="w-12 h-1.5 bg-zinc-800 rounded-full mx-auto mb-4 shrink-0"></div>
+   644→
+   645→            <button onclick="closeCartModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition-colors">
+   646→                <span class="material-symbols-outlined text-2xl">close</span>
+   647→            </button>
+   648→            
+   649→            <h3 class="text-xl font-extrabold mb-5 flex items-center space-x-2 shrink-0 font-display text-on-surface">
+   650→                <span class="material-symbols-outlined text-primary text-2xl">shopping_cart</span>
+   651→                <span data-translate="your_cart">Ihr Warenkorb</span>
+   652→            </h3>
+   653→
+   654→            <!-- Cart Items -->
+   655→            <div id="cart-modal-items" class="flex-1 overflow-y-auto space-y-3 mb-6 pr-1 font-display">
+   656→                <template x-if="cart.length === 0">
+   657→                    <div class="text-center py-8 text-on-surface-variant text-sm font-semibold" x-text="translations[currentLang].empty_cart">Ihr Warenkorb ist leer.</div>
+   658→                </template>
+   659→                <template x-for="item in cart" :key="item.cart_id">
+   660→                    <div class="bg-background/50 border border-outline-variant/80 p-4 rounded-2xl text-sm space-y-2">
+   661→                        <div class="flex items-center justify-between">
+   662→                            <div>
+   663→                                <span class="font-extrabold text-on-surface block text-sm" x-text="item.name"></span>
+   664→                                <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
+   665→                            </div>
+   666→                            <div class="flex items-center space-x-3.5">
+   667→                                <button @click="changeQty(item.cart_id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">-</button>
+   668→                                <span class="font-bold font-mono text-on-surface text-sm w-4 text-center" x-text="item.quantity"></span>
+   669→                                <button @click="changeQty(item.cart_id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">+</button>
+   670→                            </div>
+   671→                        </div>
+   672→                        <input
+   673→                            type="text"
+   674→                            x-model="item.note"
+   675→                            data-translate-placeholder="cart_item_note"
+   676→                            placeholder="Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)"
+   677→                            class="w-full bg-background border border-outline-variant/60 text-on-surface text-xs rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
+   678→                        />
+   679→                    </div>
+   680→                </template>
+   681→            </div>
+   682→
+   683→            <!-- Total display -->
+   684→            <div class="space-y-1 mb-6 text-sm shrink-0 border-t border-outline-variant/60 pt-4 font-display">
+   685→                <div class="flex justify-between text-lg font-black text-white">
+   686→                    <span data-translate="basket_total">Gesamtsumme:</span>
+   687→                    <span id="total-val" class="text-primary text-xl glow-text-primary" x-text="cartTotal.toFixed(2) + ' €'">0,00 €</span>
+   688→                </div>
+   689→            </div>
+   690→
+   691→            <!-- Checkout actions -->
+   692→            <div class="shrink-0 font-display">
+   693→                {% if table and not token_error %}
+   694→                    <button onclick="submitOrder()" class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider">
+   695→                        <span class="material-symbols-outlined text-lg">send</span>
+   696→                        <span data-translate="order_pay">Jetzt bestellen</span>
+   697→                    </button>
+   698→                {% else %}
+   699→                    <button disabled class="w-full bg-surface-container-high text-on-surface-variant/20 h-[78px] rounded-2xl flex items-center justify-center space-x-2 cursor-not-allowed border border-outline-variant text-sm md:text-base font-black uppercase tracking-wider">
+   700→                        <span class="material-symbols-outlined text-lg">block</span>
+   701→                        <span data-translate="order_locked">Bestellung gesperrt (Tisch scannen)</span>
+   702→                    </button>
+   703→                {% endif %}
+   704→            </div>
+   705→        </div>
+   706→    </div>
+   707→
+   708→    <!-- POST-PAYMENT THANK YOU OVERLAY -->
+   709→    <div id="thankyou-overlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 hidden">
+   710→        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-6 shadow-2xl relative">
+   711→            <button @click="closeThankYou()" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors text-xl font-bold flex items-center justify-center p-2 rounded-full hover:bg-white/10 w-9 h-9" title="Schließen">✕</button>
+   712→            <span class="material-symbols-outlined text-primary text-7xl animate-bounce glow-text-primary">check_circle</span>
+   713→            <h2 class="text-3xl font-extrabold text-on-surface font-display" data-translate="thank_you">Bestellung erhalten!</h2>
+   714→            <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans pb-2" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
+   715→            <button @click="closeThankYou()" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg font-bold mt-4">
+   716→                Weitere Bestellungen aufnehmen
+   717→            </button>
+   718→        </div>
+   719→    </div>
+   720→
+   721→    {% if role == 'admin' %}
+   722→    <!-- Sticky Bottom Admin Panel (Drawer) -->
+   723→    <div class="sticky-admin-panel fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-outline-variant shadow-2xl flex flex-col transition-all duration-300 font-display"
+   724→         :class="isDrawerOpen ? 'h-[75vh] max-h-[75vh]' : 'h-16'"
+   725→         style="touch-action: none;">
+   726→        
+   727→        <!-- Header -->
+   728→        <div @click="isDrawerOpen = !isDrawerOpen" class="flex items-center justify-between px-6 h-16 cursor-pointer select-none border-b border-outline-variant/50 hover:bg-primary/5 transition-colors shrink-0">
+   729→            <div class="flex items-center gap-3">
+   730→                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+   731→                <span class="font-extrabold text-sm md:text-base text-on-surface tracking-tight">
+   732→                    Tisch {{ table }} &bull; Offen: <span class="text-primary font-black ml-1" x-text="tableOrders.total.toFixed(2) + ' €'">0,00 €</span>
+   733→                </span>
+   734→            </div>
+   735→            <div class="flex items-center gap-2">
+   736→                <button x-show="isDrawerOpen" @click.stop="isDrawerOpen = false" class="text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center">
+   737→                    <span class="material-symbols-outlined text-2xl">close</span>
+   738→                </button>
+   739→                <span x-show="!isDrawerOpen" class="material-symbols-outlined text-on-surface-variant text-2xl">
+   740→                    keyboard_arrow_up
+   741→                </span>
+   742→            </div>
+   743→        </div>
+   744→
+   745→        <!-- Body -->
+   746→        <div x-show="isDrawerOpen" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar">
+   747→            <!-- STUFE 1: Ausstehend / Zubereitung -->
+   748→            <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3 shadow-lg shadow-emerald-950/10">
+   749→                <div class="flex items-center justify-between">
+   750→                    <div class="flex items-center gap-2">
+   751→                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+   752→                        <h4 class="text-xs font-black uppercase tracking-wider text-emerald-400">Ausstehend / Zubereitung</h4>
+   753→                        <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/20" x-text="tableOrders.pending.length">0</span>
+   754→                    </div>
+   755→                    <button x-show="tableOrders.pending.length > 0" @click="serveAllPending()" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/10">
+   756→                        <span class="material-symbols-outlined text-sm font-black">done_all</span>
+   757→                        Alle serviert
+   758→                    </button>
+   759→                </div>
+   760→                
+   761→                <div class="space-y-2">
+   762→                    <template x-if="tableOrders.pending.length === 0">
+   763→                        <p class="text-xs text-emerald-500/60 font-semibold italic text-center py-2">Keine ausstehenden Bestellungen.</p>
+   764→                    </template>
+   765→                    <template x-for="item in tableOrders.pending" :key="item.key">
+   766→                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
+   767→                            <div class="flex items-center gap-3 flex-1 min-w-0">
+   768→                                <button @click.stop="serveSingleItem(item)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
+   769→                                    <span class="material-symbols-outlined text-base">check</span>
+   770→                                </button>
+   771→                                <div class="flex-1 min-w-0">
+   772→                                    <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+   773→                                    <span x-show="item.note" class="text-[10px] text-amber-500 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+   774→                                </div>
+   775→                            </div>
+   776→                            <div class="flex items-center gap-3">
+   777→                                <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+   778→                                <button @click.stop="cancelItem(item)" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
+   779→                                    <span class="material-symbols-outlined text-base">close</span>
+   780→                                </button>
+   781→                            </div>
+   782→                        </div>
+   783→                    </template>
+   784→                </div>
+   785→            </div>
+   786→
+   787→            <!-- STUFE 2: Serviert / Geliefert -->
+   788→            <div class="bg-surface/30 border border-outline-variant rounded-2xl p-4 space-y-3">
+   789→                <div class="flex items-center gap-2">
+   790→                    <span class="w-2 h-2 rounded-full bg-on-surface-variant/40"></span>
+   791→                    <h4 class="text-xs font-black uppercase tracking-wider text-on-surface-variant">Serviert / Geliefert</h4>
+   792→                    <span class="bg-surface border border-outline-variant text-on-surface-variant text-[10px] font-black px-2 py-0.5 rounded-full" x-text="tableOrders.delivered.length">0</span>
+   793→                </div>
+   794→                
+   795→                <div class="space-y-2">
+   796→                    <template x-if="tableOrders.delivered.length === 0">
+   797→                        <p class="text-xs text-on-surface-variant/60 font-semibold italic text-center py-2">Noch keine Artikel serviert.</p>
+   798→                    </template>
+   799→                    <template x-for="item in tableOrders.delivered" :key="item.key">
+   800→                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
+   801→                            <div class="flex items-center gap-3 flex-1 min-w-0">
+   802→                                <input type="checkbox" 
+   803→                                       :checked="selectedSplitItems.some(i => i.key === item.key)"
+   804→                                       @change="toggleSplitCheckbox(item)"
+   805→                                       class="w-4.5 h-4.5 rounded border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer">
+   806→                                
+   807→                                <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
+   808→                                
+   809→                                <div class="flex-1 min-w-0">
+   810→                                    <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
+   811→                                    <span x-show="item.note" class="text-[10px] text-amber-500 block font-medium mt-0.5" x-text="'✎ ' + item.note"></span>
+   812→                                    
+   813→                                    <!-- Split Qty controls -->
+   814→                                    <template x-if="selectedSplitItems.some(i => i.key === item.key) && item.quantity > 1">
+   815→                                        <div class="flex items-center gap-2 mt-1.5 bg-surface w-fit px-2 py-0.5 rounded-lg border border-outline-variant">
+   816→                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">-</button>
+   817→                                            <span class="text-[11px] font-black text-on-surface font-mono" x-text="getSplitQty(item)"></span>
+   818→                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">+</button>
+   819→                                        </div>
+   820→                                    </template>
+   821→                                </div>
+   822→                            </div>
+   823→                            <div class="flex items-center gap-3">
+   824→                                <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
+   825→                            </div>
+   826→                        </div>
+   827→                    </template>
+   828→                </div>
+   829→            </div>
+   830→        </div>
+   831→
+   832→        <!-- Footer -->
+   833→        <div x-show="isDrawerOpen" class="p-4 md:p-6 border-t border-outline-variant bg-background flex flex-col gap-3 shrink-0">
+   834→            <div class="flex items-center justify-between text-xs text-on-surface-variant font-bold px-1" x-show="selectedSplitItems.length > 0">
+   835→                <span>Ausgewählt für Teilrechnung:</span>
+   836→                <span class="text-primary font-black text-sm md:text-base font-mono" x-text="splitTotal.toFixed(2) + ' €'">0,00 €</span>
+   837→            </div>
+   838→            <div class="grid grid-cols-2 gap-3.5">
+   839→                <button @click="submitDrawerPayment(true)" 
+   840→                        :disabled="selectedSplitItems.length === 0"
+   841→                        class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border"
+   842→                        :class="selectedSplitItems.length > 0 ? 'bg-surface-container-high hover:bg-surface border-outline-variant text-on-surface cursor-pointer shadow-lg shadow-black/10' : 'bg-surface/50 text-on-surface-variant/40 border-outline-variant/40 cursor-not-allowed'">
+   843→                    <span class="material-symbols-outlined text-base font-black">call_split</span>
+   844→                    Teilrechnung
+   845→                </button>
+   846→                <button @click="submitDrawerPayment(false)" 
+   847→                        :disabled="tableOrders.pending.length > 0 || tableOrders.delivered.length === 0"
+   848→                        class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none"
+   849→                        :class="tableOrders.pending.length === 0 && tableOrders.delivered.length > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
+   850→                    <span class="material-symbols-outlined text-base font-black">payments</span>
+   851→                    Gesamtrechnung
+   852→                </button>
+   853→            </div>
+   854→        </div>
+   855→    </div>
+   856→    {% endif %}
+   857→
+   858→    <script>
+   859→        // Prevent pinch-to-zoom on iOS devices globally
+   860→        document.addEventListener('gesturestart', function(e) {
+   861→            e.preventDefault();
+   862→        });
+   863→        document.addEventListener('gesturechange', function(e) {
+   864→            e.preventDefault();
+   865→        });
+   866→        document.addEventListener('gestureend', function(e) {
+   867→            e.preventDefault();
+   868→        });
+   869→        document.addEventListener('touchstart', function(e) {
+   870→            if (e.touches.length > 1) {
+   871→                e.preventDefault();
+   872→            }
+   873→        }, { passive: false });
+   874→
+   875→
+   876→        const slug = "{{ slug }}";
+   877→        const translations = {
+   878→            de: {
+   879→                token_error: "Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie den Barcode neu.",
+   880→                read_only_banner: "Lesemodus: Bitte scannen Sie den QR-Code an Ihrem Tisch, um zu bestellen.",
+   881→                filters_label: "Filter:",
+   882→                filter_vegan: "🌱 Vegan",
+   883→                filter_glutenfree: "🌾 Glutenfrei",
+   884→                ausverkauft_badge: "Ausverkauft",
+   885→                service_header: "Service anfordern",
+   886→                service_desc: "Teilen Sie uns direkt mit, wie wir Ihnen helfen können.",
+   887→                pay_card: "Mit Karte zahlen",
+   888→                pay_card_desc: "EC, Visa, Mastercard",
+   889→                pay_cash: "Bar zahlen",
+   890→                pay_cash_desc: "Bargeld bereithalten",
+   891→                clear_table: "Tisch abräumen",
+   892→                clear_table_desc: "Leeres Geschirr abholen",
+   893→                refill_coal: "Kohle nachlegen",
+   894→                refill_coal_desc: "Für frischen Shisha-Genuss",
+   895→
+   896→                nav_service: "Service Rufen",
+   897→                nav_bill: "Rechnung Anfordern",
+   898→                your_cart: "Ihr Warenkorb",
+   899→                basket_subtotal: "Zwischensumme:",
+   900→                basket_total: "Gesamtsumme:",
+   901→                order_pay: "Jetzt bestellen",
+   902→                order_locked: "Bestellung gesperrt (Tisch scannen)",
+   903→                thank_you: "Bestellung erhalten!",
+   904→                thank_you_desc: "Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.",
+   905→                close: "Schließen",
+   906→                empty_cart: "Ihr Warenkorb ist leer.",
+   907→
+   908→                service_header_modal: "Was benötigst du?",
+   909→                service_desc_modal: "Wähle eine Option und unser Service-Team kommt zu dir.",
+   910→                btn_kellner: "🛎️ Kellner rufen",
+   911→                btn_kohle: "💨 Kohle bestellen",
+   912→                btn_send_request: "Anfrage senden",
+   913→                payment_header_modal: "Rechnung anfordern",
+   914→                payment_desc_modal: "Wie möchtest du deine Rechnung begleichen?",
+   915→                payment_outstanding: "Offener Betrag",
+   916→                pay_bar: "Bar zahlen",
+   917→                btn_pay_confirm: "Abschließen & Bezahlen",
+   918→                cart_item_note: "Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)",
+   919→                
+   920→                // Added translation keys
+   921→                sold_out: "Ausverkauft",
+   922→                sold_out_desc: "In Kürze wieder da",
+   923→                impressum: "Impressum",
+   924→                datenschutz: "Datenschutz",
+   925→                cookie_header: "Datenschutz & Cookies",
+   926→                cookie_desc: "Wir nutzen ausschließlich technisch essenzielle Session-Cookies, um die Tisch-Zuweisung, Bestellungen und Logins zu ermöglichen. Ohne diese Cookies kann der Dienst nicht angeboten werden.",
+   927→                cookie_privacy: "Datenschutzerklärung",
+   928→                cookie_btn: "Einverstanden",
+   929→                welcome_title: "Willkommen im",
+   930→                welcome_desc: "Schön, dass Sie unser Gast sind. Guten Appetit!",
+   931→                toast_added: "hinzugefügt",
+   932→                toast_read_only: "Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.",
+   933→                toast_request_success: "Anfrage erfolgreich an das Personal gesendet!",
+   934→                toast_request_failed: "Übertragung fehlgeschlagen.",
+   935→                toast_request_error: "Übertragungsfehler.",
+   936→                toast_token_error: "Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.",
+   937→                toast_order_error: "Übertragungsfehler bei der Bestellung.",
+   938→                scan_required_header: "QR-Code Scan erforderlich",
+   939→                scan_required_welcome: "Willkommen bei",
+   940→                scan_required_desc: "Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.",
+   941→                swipe_hint: "← Kategorien wischen →",
+   942→                view_menu: "Speisekarte ansehen",
+   943→                rate_us: "Bewerten Sie uns auf Google"
+   944→            },
+   945→            en: {
+   946→                token_error: "Invalid or expired table code. Please rescan the barcode.",
+   947→                read_only_banner: "Read-only: Please scan the table QR-code to place orders.",
+   948→                filters_label: "Filters:",
+   949→                filter_vegan: "🌱 Vegan",
+   950→                filter_glutenfree: "🌾 Glutenfree",
+   951→                ausverkauft_badge: "Sold Out",
+   952→                service_header: "Call Service Staff",
+   953→                service_desc: "Let us know how we can assist you directly.",
+   954→                pay_card: "Pay with Card",
+   955→                pay_card_desc: "EC, Visa, Mastercard",
+   956→                pay_cash: "Pay with Cash",
+   957→                pay_cash_desc: "Please hold cash ready",
+   958→                clear_table: "Clear Table",
+   959→                clear_table_desc: "Request plate/glass removal",
+   960→                refill_coal: "Replenish Shisha Coal",
+   961→                refill_coal_desc: "For fresh waterpipe coals",
+   962→
+   963→                nav_service: "Call Service",
+   964→                nav_bill: "Request Bill",
+   965→                your_cart: "Your Basket",
+   966→                basket_subtotal: "Subtotal:",
+   967→                basket_total: "Grand Total:",
+   968→                order_pay: "Order Now",
+   969→                order_locked: "Ordering locked (scan table)",
+   970→                thank_you: "Order Received!",
+   971→                thank_you_desc: "Your meal is being freshly prepared. Payment is settled with the waiter later.",
+   972→                close: "Close",
+   973→                empty_cart: "Your basket is empty.",
+   974→
+   975→                service_header_modal: "What do you need?",
+   976→                service_desc_modal: "Select an option and our service team will come to you.",
+   977→                btn_kellner: "🛎️ Call Waiter",
+   978→                btn_kohle: "💨 Order Shisha Coal",
+   979→                btn_send_request: "Send Request",
+   980→                payment_header_modal: "Request Bill",
+   981→                payment_desc_modal: "How would you like to settle your bill?",
+   982→                payment_outstanding: "Outstanding Amount",
+   983→                pay_bar: "Pay Cash",
+   984→                btn_pay_confirm: "Complete & Pay",
+   985→                cart_item_note: "Note (e.g. no onions, medium, extra spicy…)",
+   986→
+   987→                // Added translation keys
+   988→                sold_out: "Sold Out",
+   989→                sold_out_desc: "Back soon",
+   990→                impressum: "Legal Notice",
+   991→                datenschutz: "Privacy Policy",
+   992→                cookie_header: "Privacy & Cookies",
+   993→                cookie_desc: "We only use technically essential session cookies to enable table assignment, ordering, and logins. Without these cookies, the service cannot be provided.",
+   994→                cookie_privacy: "Privacy Policy",
+   995→                cookie_btn: "I Agree",
+   996→                welcome_title: "Welcome to",
+   997→                welcome_desc: "Nice to have you as our guest. Enjoy your meal!",
+   998→                toast_added: "added",
+   999→                toast_read_only: "Read-only mode: Please scan a table QR code first.",
+  1000→                toast_request_success: "Request successfully sent to staff!",
+  1001→                toast_request_failed: "Transmission failed.",
+  1002→                toast_request_error: "Transmission error.",
+  1003→                toast_token_error: "Invalid or expired table code. Please scan again.",
+  1004→                toast_order_error: "Transmission error during order.",
+  1005→                scan_required_header: "QR Code Scan Required",
+  1006→                scan_required_welcome: "Welcome to",
+  1007→                scan_required_desc: "To view our menu and place orders directly, please scan the QR code at your table.",
+  1008→                swipe_hint: "← Swipe Categories →",
+  1009→                view_menu: "View Menu",
+  1010→                rate_us: "Rate us on Google"
+  1011→            }
+  1012→        };
+  1013→
+  1014→        // Beautiful glassmorphic Toast-Notification helper
+  1015→        function showToast(message, type = 'info') {
+  1016→            const container = document.getElementById("toast-container");
+  1017→            if (!container) return;
+  1018→            
+  1019→            const toast = document.createElement("div");
+  1020→            toast.className = `p-4 rounded-xl shadow-lg backdrop-blur-md transition-all duration-300 transform translate-y-[-20px] opacity-0 flex items-center gap-3 border pointer-events-auto text-xs font-semibold ${
+  1021→                type === 'success' ? 'bg-green-950/90 border-green-500/30 text-green-300 shadow-[0_4px_20px_rgba(34,197,94,0.15)]' :
+  1022→                type === 'error' ? 'bg-red-950/90 border-red-500/30 text-red-300 shadow-[0_4px_20px_rgba(239,68,68,0.15)]' :
+  1023→                'bg-[#1a1a1a]/95 border-[#262626] text-white shadow-[0_4px_20px_rgba(255,255,255,0.05)]'
+  1024→            }`;
+  1025→            
+  1026→            const icon = type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info';
+  1027→            toast.innerHTML = `
+  1028→                <span class="material-symbols-outlined text-[18px]">${icon}</span>
+  1029→                <span class="flex-1">${message}</span>
+  1030→            `;
+  1031→            
+  1032→            container.appendChild(toast);
+  1033→            
+  1034→            // Trigger transition
+  1035→            setTimeout(() => {
+  1036→                toast.classList.remove("translate-y-[-20px]", "opacity-0");
+  1037→            }, 10);
+  1038→            
+  1039→            // Auto remove
+  1040→            setTimeout(() => {
+  1041→                toast.classList.add("translate-y-[-20px]", "opacity-0");
+  1042→                setTimeout(() => {
+  1043→                    toast.remove();
+  1044→                }, 300);
+  1045→            }, 4000);
+  1046→        }
+  1047→
+  1048→        function getTableFromUrl() {
+  1049→            const urlParams = new URLSearchParams(window.location.search);
+  1050→            const tableNum = urlParams.get('tisch') || urlParams.get('table') || urlParams.get('t') || '';
+  1051→            const zone = urlParams.get('z') || urlParams.get('zone') || '';
+  1052→            // If zone is available, return "number (zone)" format for proper zone resolution
+  1053→            if (tableNum && zone) {
+  1054→                return tableNum + ' (' + zone + ')';
+  1055→            }
+  1056→            return tableNum;
+  1057→        }
+  1058→
+  1059→        function menuState() {
+  1060→            return {
+  1061→                cart: (() => {
+  1062→                    try {
+  1063→                        const saved = localStorage.getItem('dl_cart_{{ slug }}');
+  1064→                        if (saved) return JSON.parse(saved);
+  1065→                    } catch(e) {}
+  1066→                    return [];
+  1067→                })(),
+  1068→                currentLang: 'de',
+  1069→                activeFilters: { vegan: false, glutenfree: false },
+  1070→                currentCategory: '',
+  1071→                _savedCategoryScrollPos: 0,
+  1072→                allCategories: {{ restaurant.categories | tojson | safe }},
+  1073→                currentOfferIdx: 0,
+  1074→                currentBgVideoIdx: 0,
+  1075→                prevOfferSlide() {
+  1076→                    const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
+  1077→                    if (len <= 1) return;
+  1078→                    this.currentOfferIdx = (this.currentOfferIdx - 1 + len) % len;
+  1079→                    this.updateOfferSlider();
+  1080→                },
+  1081→                nextOfferSlide() {
+  1082→                    const len = this.restaurantLandingPage.offer_images ? this.restaurantLandingPage.offer_images.length : 0;
+  1083→                    if (len <= 1) return;
+  1084→                    this.currentOfferIdx = (this.currentOfferIdx + 1) % len;
+  1085→                    this.updateOfferSlider();
+  1086→                },
+  1087→                updateOfferSlider() {
+  1088→                    const slider = document.getElementById('offer-slider');
+  1089→                    if (slider) {
+  1090→                        slider.style.transform = `translateX(-${this.currentOfferIdx * 100}%)`;
+  1091→                    }
+  1092→                },
+  1093→                openLightbox(src) {
+  1094→                    const lb = document.getElementById('lightbox');
+  1095→                    const lbImg = document.getElementById('lightbox-img');
+  1096→                    if (lb && lbImg) {
+  1097→                        lbImg.src = src;
+  1098→                        lb.classList.remove('hidden');
+  1099→                        lb.classList.add('flex');
+  1100→                        setTimeout(() => {
+  1101→                            lb.classList.remove('opacity-0', 'pointer-events-none');
+  1102→                            lb.classList.add('opacity-100');
+  1103→                        }, 10);
+  1104→                    }
+  1105→                },
+  1106→                closeLightbox() {
+  1107→                    const lb = document.getElementById('lightbox');
+  1108→                    if (lb) {
+  1109→                        lb.classList.remove('opacity-100');
+  1110→                        lb.classList.add('opacity-0', 'pointer-events-none');
+  1111→                        setTimeout(() => {
+  1112→                            lb.classList.remove('flex');
+  1113→                            lb.classList.add('hidden');
+  1114→                        }, 300);
+  1115→                    }
+  1116→                },
+  1117→                selectedServiceType: 'kellner',
+  1118→                selectedPaymentType: 'zahlen_bar',
+  1119→                currentPaymentSubtotal: 0,
+  1120→                translations: translations,
+  1121→                role: new URLSearchParams(window.location.search).get('role') || '',
+  1122→                tableOrders: { pending: [], delivered: [], total: 0.0 },
+  1123→                selectedSplitItems: [],
+  1124→                isDrawerOpen: true,
+  1125→                currentView: (() => {
+  1126→                    const params = new URLSearchParams(window.location.search);
+  1127→                    const role = params.get('role');
+  1128→                    if (role === 'waiter' || role === 'admin') return 'speisekarte';
+  1129→                    // Check hash first, then localStorage, then default to landing
+  1130→                    const hash = window.location.hash.replace('#', '');
+  1131→                    if (hash === 'speisekarte' || hash === 'landing') return hash;
+  1132→                    const saved = localStorage.getItem('dl_menu_view');
+  1133→                    if (saved === 'speisekarte' || saved === 'landing') return saved;
+  1134→                    return 'landing';
+  1135→                })(),
+  1136→                restaurantLandingPage: {{ (restaurant.landing_page or {}) | tojson | safe }},
+  1137→                guestWs: null,
+  1138→                guestWsHeartbeatInterval: null,
+  1139→                carouselInitialized: false,
+  1140→
+  1141→                init() {
+  1142→                    // Expose functions on the window object for 100% legacy/DOM event compatibility
+  1143→                    window.addToCart = (id, nameDe, nameEn, price, categoryType, btnElement) => this.addToCart(id, nameDe, nameEn, price, categoryType, btnElement);
+  1144→                    window.openCartModal = () => this.openCartModal();
+  1145→                    window.closeCartModal = () => this.closeCartModal();
+  1146→                    window.openServiceModal = () => this.openServiceModal();
+  1147→                    window.closeServiceModal = () => this.closeServiceModal();
+  1148→                    window.openPaymentModal = () => this.openPaymentModal();
+  1149→                    window.closePaymentModal = () => this.closePaymentModal();
+  1150→                    window.requestService = (type) => this.requestService(type);
+  1151→                    window.openLegalModal = (type) => this.openLegalModal(type);
+  1152→                    window.closeLegalModal = () => this.closeLegalModal();
+  1153→                    window.setLanguage = (lang) => this.setLanguage(lang);
+  1154→                    window.toggleDietaryFilter = (type) => this.toggleDietaryFilter(type);
+  1155→                    window.filterCategory = (cat) => this.filterCategory(cat);
+  1156→                    window.backToCategories = () => this.backToCategories();
+  1157→                    window.submitOrder = () => this.submitOrder();
+  1158→                    window.closeThankYou = () => this.closeThankYou();
+  1159→                    window.selectServiceOption = (type) => this.selectServiceOption(type);
+  1160→                    window.confirmServiceRequest = () => this.confirmServiceRequest();
+  1161→                    window.selectPaymentOption = (type) => this.selectPaymentOption(type);
+  1162→                    window.confirmPaymentRequest = () => this.confirmPaymentRequest();
+  1163→                    window.showReviewPopup = (url) => this.showReviewPopup(url);
+  1164→
+  1165→                    // Sync currentView to hash + localStorage on init
+  1166→                    this.$watch('currentView', (val) => {
+  1167→                        history.replaceState(null, '', '#' + val);
+  1168→                        localStorage.setItem('dl_menu_view', val);
+  1169→                    });
+  1170→                    // Sync cart to localStorage
+  1171→                    this.$watch('cart', (val) => {
+  1172→                        localStorage.setItem('dl_cart_{{ slug }}', JSON.stringify(val));
+  1173→                    }, { deep: true });
+  1174→                    // Set initial hash if not already set
+  1175→                    if (!window.location.hash || (window.location.hash !== '#speisekarte' && window.location.hash !== '#landing')) {
+  1176→                        history.replaceState(null, '', '#' + this.currentView);
+  1177→                    }
+  1178→
+  1179→                    const resetSession = {% if reset_session %}true{% else %}false{% endif %};
+  1180→                    if (resetSession) {
+  1181→                        localStorage.removeItem(`dl_orders_{{ slug }}`);
+  1182→                        localStorage.removeItem(`dl_cart_{{ slug }}`);
+  1183→                        this.cart = [];
+  1184→                    }
+  1185→                    
+  1186→                    // Start with category list view (currentCategory = '')
+  1187→                    // No auto-selection - show categories first
+  1188→
+  1189→                    const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
+  1190→                    if (!isReadonly) {
+  1191→                        if (document.readyState === "complete") {
+  1192→                            setTimeout(() => this.initGuestWebSocket(), 1000);
+  1193→                        } else {
+  1194→                            window.addEventListener("load", () => {
+  1195→                                setTimeout(() => this.initGuestWebSocket(), 1000);
+  1196→                            });
+  1197→                        }
+  1198→                    }
+  1199→
+  1200→                    if (this.role === 'admin') {
+  1201→                        this.fetchAdminDrawerState();
+  1202→                    } else {
+  1203→                        if (!isReadonly) {
+  1204→                            this.fetchGuestTableStatus();
+  1205→                        }
+  1206→                    }
+  1207→
+  1208→                    // Background slideshow cycle (supports both images and videos)
+  1209→                    const slideshowEnabled = {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}true{% else %}false{% endif %};
+  1210→                    const slideshowImages = {{ (restaurant.landing_page.slideshow_images or []) | tojson | safe }};
+  1211→                    const slideshowVideos = {{ (restaurant.landing_page.slideshow_videos or []) | tojson | safe }};
+  1212→                    
+  1213→                    if (slideshowEnabled) {
+  1214→                        // Cycle through background videos if they exist
+  1215→                        if (slideshowVideos.length > 1) {
+  1216→                            setInterval(() => {
+  1217→                                if (this.currentView !== 'landing') return;
+  1218→                                this.currentBgVideoIdx = (this.currentBgVideoIdx + 1) % slideshowVideos.length;
+  1219→                            }, 8000);
+  1220→                        }
+  1221→                        
+  1222→                        // Cycle through background images if they exist
+  1223→                        if (slideshowImages.length > 1) {
+  1224→                            let currentSlideIdx = 0;
+  1225→                            const layer1 = document.getElementById('slide-layer-1');
+  1226→                            const layer2 = document.getElementById('slide-layer-2');
+  1227→                            
+  1228→                            if (layer1 && layer2) {
+  1229→                                setInterval(() => {
+  1230→                                    if (this.currentView !== 'landing') return;
+  1231→                                    
+  1232→                                    const nextSlideIdx = (currentSlideIdx + 1) % slideshowImages.length;
+  1233→                                    const nextUrl = slideshowImages[nextSlideIdx];
+  1234→                                    
+  1235→                                    const isLayer1Active = layer1.classList.contains('opacity-100');
+  1236→                                    const activeLayer = isLayer1Active ? layer1 : layer2;
+  1237→                                    const inactiveLayer = isLayer1Active ? layer2 : layer1;
+  1238→                                    
+  1239→                                    inactiveLayer.style.backgroundImage = `url('${nextUrl}')`;
+  1240→                                    
+  1241→                                    activeLayer.classList.remove('opacity-100');
+  1242→                                    activeLayer.classList.add('opacity-0');
+  1243→                                    inactiveLayer.classList.remove('opacity-0');
+  1244→                                    inactiveLayer.classList.add('opacity-100');
+  1245→                                    
+  1246→                                    currentSlideIdx = nextSlideIdx;
+  1247→                                }, 6000);
+  1248→                            }
+  1249→                        }
+  1250→                    }
+  1251→                },
+  1252→
+  1253→                initGuestWebSocket() {
+  1254→                    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  1255→                    const wsUrl = `${protocol}//${window.location.host}/ws/{{ slug }}`;
+  1256→                    
+  1257→                    console.log("Guest connecting to WebSocket...");
+  1258→                    const ws = new WebSocket(wsUrl);
+  1259→                    this.guestWs = ws;
+  1260→                    
+  1261→                    let pongReceived = true;
+  1262→                    
+  1263→                    ws.onopen = () => {
+  1264→                        console.log("Guest WebSocket connected!");
+  1265→                        pongReceived = true;
+  1266→                        
+  1267→                        // Stop fallback polling — WS is working
+  1268→                        this.stopGuestFallbackPolling();
+  1269→                        
+  1270→                        if (this.guestWsHeartbeatInterval) clearInterval(this.guestWsHeartbeatInterval);
+  1271→                        this.guestWsHeartbeatInterval = setInterval(() => {
+  1272→                            if (!pongReceived) {
+  1273→                                console.warn("Guest WebSocket heartbeat timeout. Closing connection...");
+  1274→                                ws.close();
+  1275→                                return;
+  1276→                            }
+  1277→                            pongReceived = false;
+  1278→                            if (ws.readyState === WebSocket.OPEN) {
+  1279→                                ws.send(JSON.stringify({ type: "ping" }));
+  1280→                            }
+  1281→                        }, 15000);
+  1282→                    };
+  1283→                    
+  1284→                    ws.onmessage = (event) => {
+  1285→                        try {
+  1286→                            const data = JSON.parse(event.data);
+  1287→                            if (data.type === "pong") {
+  1288→                                pongReceived = true;
+  1289→                            } else if (data.type === "new_order" || data.type === "service_call" || data.type === "update" || data.type === "refresh_tables") {
+  1290→                                if (this.role === 'admin') {
+  1291→                                    this.fetchAdminDrawerState();
+  1292→                                } else {
+  1293→                                    this.fetchGuestTableStatus();
+  1294→                                }
+  1295→
+  1296→                                // Fetch latest product details (prices, availability, happy hour) in real-time
+  1297→                                fetch(window.location.href)
+  1298→                                    .then(res => {
+  1299→                                        if (!res.ok) throw new Error("Failed to fetch menu");
+  1300→                                        return res.text();
+  1301→                                    })
+  1302→                                    .then(html => {
+  1303→                                        const parser = new DOMParser();
+  1304→                                        const doc = parser.parseFromString(html, 'text/html');
+  1305→                                        
+  1306→                                        // Update category carousel
+  1307→                                        const newTrack = doc.getElementById('category-carousel-track');
+  1308→                                        const currentTrack = document.getElementById('category-carousel-track');
+  1309→                                        if (newTrack && currentTrack) {
+  1310→                                            currentTrack.innerHTML = newTrack.innerHTML;
+  1311→                                        }
+  1312→                                        
+  1313→                                        // Update product grid container
+  1314→                                        const newGrid = doc.getElementById('product-grid-container');
+  1315→                                        const currentGrid = document.getElementById('product-grid-container');
+  1316→                                        if (newGrid && currentGrid) {
+  1317→                                            currentGrid.innerHTML = newGrid.innerHTML;
+  1318→                                        }
+  1319→                                        
+  1320→                                        // Update happy hour banner
+  1321→                                        const newBanner = doc.getElementById('happy-hour-banner-wrapper');
+  1322→                                        const currentBanner = document.getElementById('happy-hour-banner-wrapper');
+  1323→                                        if (newBanner && currentBanner) {
+  1324→                                            currentBanner.innerHTML = newBanner.innerHTML;
+  1325→                                        }
+  1326→                                        
+  1327→                                        // Re-apply current category filter (not a user action, don't scroll)
+  1328→                                        if (this.currentCategory) {
+  1329→                                            this.filterCategory(this.currentCategory, false);
+  1330→                                        }
+  1331→                                    })
+  1332→                                    .catch(err => console.error("Error loading live menu updates:", err));
+  1333→
+  1334→                                // Check if guest session is still active
+  1335→                                fetch("/api/{{ slug }}/check-session")
+  1336→                                    .then(res => res.json())
+  1337→                                    .then(sessionData => {
+  1338→                                        if (sessionData && sessionData.active === false) {
+  1339→                                            console.warn("Session expired! Redirecting...");
+  1340→                                            window.location.href = "/{{ slug }}/sitz-expired";
+  1341→                                        }
+  1342→                                    })
+  1343→                                    .catch(err => console.error("Error checking session:", err));
+  1344→                            }
+  1345→                        } catch (e) {
+  1346→                            console.error("Failed to parse websocket message:", e);
+  1347→                        }
+  1348→                    };
+  1349→
+  1350→                    ws.onclose = (event) => {
+  1351→                        console.warn("Guest WebSocket closed.", event.code, event.reason);
+  1352→                        this.guestWs = null;
+  1353→                        if (this.guestWsHeartbeatInterval) {
+  1354→                            clearInterval(this.guestWsHeartbeatInterval);
+  1355→                            this.guestWsHeartbeatInterval = null;
+  1356→                        }
+  1357→                        // 4401 = Unauthorized (session expired / invalid) – don't reconnect
+  1358→                        if (event.code === 4401) {
+  1359→                            console.warn("Guest WebSocket: Unauthorized. Not reconnecting.");
+  1360→                            return;
+  1361→                        }
+  1362→                        // Start fallback polling while disconnected
+  1363→                        this.startGuestFallbackPolling();
+  1364→                        // Reconnect after 5 seconds for other close reasons
+  1365→                        setTimeout(() => this.initGuestWebSocket(), 5000);
+  1366→                    };
+  1367→
+  1368→                    ws.onerror = (err) => {
+  1369→                        console.error("Guest WebSocket error:", err);
+  1370→                        ws.close();
+  1371→                    };
+  1372→                },
+  1373→
+  1374→                // Fallback polling when WebSocket is disconnected
+  1375→                guestFallbackInterval: null,
+  1376→                startGuestFallbackPolling() {
+  1377→                    if (this.guestFallbackInterval) return; // already running
+  1378→                    console.log("Starting guest fallback polling (30s interval)...");
+  1379→                    this.guestFallbackInterval = setInterval(() => {
+  1380→                        // If WS is connected, stop polling
+  1381→                        if (this.guestWs && this.guestWs.readyState === WebSocket.OPEN) {
+  1382→                            this.stopGuestFallbackPolling();
+  1383→                            return;
+  1384→                        }
+  1385→                        // Poll for order status
+  1386→                        this.fetchGuestTableStatus();
+  1387→                    }, 30000);
+  1388→                },
+  1389→                stopGuestFallbackPolling() {
+  1390→                    if (this.guestFallbackInterval) {
+  1391→                        clearInterval(this.guestFallbackInterval);
+  1392→                        this.guestFallbackInterval = null;
+  1393→                        console.log("Guest fallback polling stopped.");
+  1394→                    }
+  1395→                },
+  1396→
+  1397→                get cartTotal() {
+  1398→                    return this.cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+  1399→                },
+  1400→
+  1401→                get cartCount() {
+  1402→                    return this.cart.reduce((acc, i) => acc + i.quantity, 0);
+  1403→                },
+  1404→
+  1405→                setLanguage(lang) {
+  1406→                    this.currentLang = lang;
+  1407→                    
+  1408→                    const deBtn = document.getElementById('lang-de-btn');
+  1409→                    if (deBtn) deBtn.className = lang === 'de' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
+  1410→                    const enBtn = document.getElementById('lang-en-btn');
+  1411→                    if (enBtn) enBtn.className = lang === 'en' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
+  1412→                    
+  1413→                    const deBtnRo = document.getElementById('lang-de-btn-ro');
+  1414→                    if (deBtnRo) deBtnRo.className = lang === 'de' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+  1415→                    const enBtnRo = document.getElementById('lang-en-btn-ro');
+  1416→                    if (enBtnRo) enBtnRo.className = lang === 'en' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+  1417→
+  1418→                    // Translate elements
+  1419→                    document.querySelectorAll('[data-translate]').forEach(el => {
+  1420→                        const key = el.getAttribute('data-translate');
+  1421→                        if (translations[lang] && translations[lang][key]) {
+  1422→                            el.textContent = translations[lang][key];
+  1423→                        }
+  1424→                    });
+  1425→
+  1426→                    // Translate placeholders
+  1427→                    document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+  1428→                        const key = el.getAttribute('data-translate-placeholder');
+  1429→                        if (translations[lang] && translations[lang][key]) {
+  1430→                            el.placeholder = translations[lang][key];
+  1431→                        }
+  1432→                    });
+  1433→
+  1434→                    // Translate titles
+  1435→                    document.querySelectorAll('[data-translate-title]').forEach(el => {
+  1436→                        const key = el.getAttribute('data-translate-title');
+  1437→                        if (translations[lang] && translations[lang][key]) {
+  1438→                            el.title = translations[lang][key];
+  1439→                        }
+  1440→                    });
+  1441→
+  1442→                    // Translate dynamic categories
+  1443→                    const categoryMapping = {
+  1444→                        'Burger': { de: 'Burger', en: 'Burgers' },
+  1445→                        'Drinks': { de: 'Getränke', en: 'Drinks' },
+  1446→                        'Desserts': { de: 'Desserts', en: 'Desserts' },
+  1447→                        'Salads': { de: 'Salate', en: 'Salads' },
+  1448→                        'Shisha': { de: 'Shisha', en: 'Shisha' },
+  1449→                        'Spezialitäten': { de: 'Spezialitäten', en: 'Specialties' }
+  1450→                    };
+  1451→                    document.querySelectorAll('[id^="btn-"]').forEach(el => {
+  1452→                        const originalText = el.id.replace('btn-', '');
+  1453→                        if (categoryMapping[originalText]) {
+  1454→                            el.textContent = categoryMapping[originalText][lang];
+  1455→                        }
+  1456→                    });
+  1457→
+  1458→                    // Translate product names and descriptions in the DOM dynamically
+  1459→                    document.querySelectorAll('.product-name').forEach(el => {
+  1460→                        el.textContent = lang === 'en' ? el.getAttribute('data-name-en') : el.getAttribute('data-name-de');
+  1461→                    });
+  1462→                    document.querySelectorAll('.product-desc').forEach(el => {
+  1463→                        el.textContent = lang === 'en' ? el.getAttribute('data-desc-en') : el.getAttribute('data-desc-de');
+  1464→                    });
+  1465→                    
+  1466→                    // Translate cart items
+  1467→                    if (this.cart) {
+  1468→                        this.cart.forEach(item => {
+  1469→                            item.name = lang === 'en' ? item.name_en : item.name_de;
+  1470→                        });
+  1471→                    }
+  1472→                },
+  1473→
+  1474→                toggleDietaryFilter(type) {
+  1475→                    this.activeFilters[type] = !this.activeFilters[type];
+  1476→                    const btn = document.getElementById(`filter-${type}-btn`);
+  1477→                    if (this.activeFilters[type]) {
+  1478→                        btn.classList.add("bg-primary", "text-black");
+  1479→                    } else {
+  1480→                        btn.classList.remove("bg-primary", "text-black");
+  1481→                    }
+  1482→                    this.applyAllFilters();
+  1483→                },
+  1484→
+  1485→                filterCategory(category, isUserAction = true) {
+  1486→                    // Save current scroll position before navigating into category (only on user click)
+  1487→                    if (isUserAction) {
+  1488→                        this._savedCategoryScrollPos = window.scrollY;
+  1489→                    }
+  1490→
+  1491→                    this.currentCategory = category;
+  1492→                    
+  1493→                    const products = document.querySelectorAll('.product-item');
+  1494→                    products.forEach(item => {
+  1495→                        const itemCat = item.getAttribute('data-category');
+  1496→                        if (itemCat === category || itemCat.startsWith(category + ' > ')) {
+  1497→                            item.setAttribute('data-visible-cat', 'true');
+  1498→                        } else {
+  1499→                            item.setAttribute('data-visible-cat', 'false');
+  1500→                        }
+  1501→                    });
+  1502→
+  1503→                    this.applyAllFilters();
+  1504→                    
+  1505→                    // Scroll to top AFTER Alpine.js has updated the DOM (only on user click, not on WS re-apply)
+  1506→                    if (isUserAction) {
+  1507→                        this.$nextTick(() => {
+  1508→                            setTimeout(() => {
+  1509→                                window.scrollTo({ top: 0, behavior: 'instant' });
+  1510→                            }, 10);
+  1511→                        });
+  1512→                    }
+  1513→                },
+  1514→
+  1515→                backToCategories() {
+  1516→                    const savedPos = this._savedCategoryScrollPos || 0;
+  1517→                    this.currentCategory = '';
+  1518→                    // Hide all products when back to category list
+  1519→                    const products = document.querySelectorAll('.product-item');
+  1520→                    products.forEach(item => {
+  1521→                        item.style.display = 'none';
+  1522→                    });
+  1523→                    // Restore scroll position AFTER Alpine.js has updated the DOM
+  1524→                    this.$nextTick(() => {
+  1525→                        setTimeout(() => {
+  1526→                            window.scrollTo({ top: savedPos, behavior: 'instant' });
+  1527→                        }, 10);
+  1528→                    });
+  1529→                },
+  1530→
+  1531→                updateCarousel(activeCategory) {
+  1532→                    // Deprecated: carousel removed
+  1533→                },
+  1534→
+  1535→                centerCarouselAt(index, instant) {
+  1536→                    // Deprecated: carousel removed
+  1537→                },
+  1538→
+  1539→                initCategoryCarousel() {
+  1540→                    // Deprecated: carousel removed
+  1541→                },
+  1542→
+  1543→                filterSubcategory(sub) {
+  1544→                    // Deprecated: subcategories removed.
+  1545→                },
+  1546→
+  1547→                applyAllFilters() {
+  1548→                    const products = document.querySelectorAll('.product-item');
+  1549→                    
+  1550→                    products.forEach(item => {
+  1551→                        const prodCat = item.getAttribute('data-category');
+  1552→                        const isVegan = item.getAttribute('data-vegan') === 'true';
+  1553→                        const isGlutenfree = item.getAttribute('data-glutenfree') === 'true';
+  1554→
+  1555→                        let matchesParent = (prodCat === this.currentCategory || prodCat.startsWith(this.currentCategory + ' > '));
+  1556→                        
+  1557→                        let matches = matchesParent;
+  1558→                        if (this.activeFilters.vegan && !isVegan) matches = false;
+  1559→                        if (this.activeFilters.glutenfree && !isGlutenfree) matches = false;
+  1560→
+  1561→                        item.style.display = matches ? 'flex' : 'none';
+  1562→                    });
+  1563→                },
+  1564→
+  1565→                addToCart(id, nameDe, nameEn, price, categoryType, btnElement = null) {
+  1566→                    if (this.role === 'admin') {
+  1567→                        this.addToCartAdmin(id, nameDe, nameEn, price, categoryType, btnElement);
+  1568→                        return;
+  1569→                    }
+  1570→                    const name = this.currentLang === 'en' ? nameEn : nameDe;
+  1571→                    const existing = this.cart.find(i => i.id === id && (!i.note || i.note.trim() === ''));
+  1572→                    if (existing) {
+  1573→                        existing.quantity++;
+  1574→                    } else {
+  1575→                        const newCartId = id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  1576→                        this.cart.push({ cart_id: newCartId, id, name, name_de: nameDe, name_en: nameEn, price, quantity: 1, category_type: categoryType, note: null });
+  1577→                    }
+  1578→                    
+  1579→                    const addedMsg = translations[this.currentLang].toast_added || "hinzugefügt";
+  1580→                    showToast(name + " " + addedMsg, "success");
+  1581→
+  1582→                    // Bounce animation on floating cart bar
+  1583→                    const floatingBar = document.getElementById("cart-floating-bar");
+  1584→                    if (floatingBar) {
+  1585→                        floatingBar.classList.remove("animate-cart-pulse");
+  1586→                        void floatingBar.offsetWidth; // Trigger reflow
+  1587→                        floatingBar.classList.add("animate-cart-pulse");
+  1588→                    }
+  1589→                    
+  1590→                    // Bounce animation on cart badge
+  1591→                    const cartBadge = document.getElementById("cart-badge");
+  1592→                    if (cartBadge) {
+  1593→                        cartBadge.classList.remove("animate-badge-pulse");
+  1594→                        void cartBadge.offsetWidth; // Trigger reflow
+  1595→                        cartBadge.classList.add("animate-badge-pulse");
+  1596→                    }
+  1597→
+  1598→                    // Clicked button animation to green checkmark
+  1599→                    if (btnElement) {
+  1600→                        const iconEl = btnElement.querySelector('span.material-symbols-outlined');
+  1601→                        if (iconEl && iconEl.textContent === "add") {
+  1602→                            btnElement.classList.remove("bg-primary", "text-black");
+  1603→                            btnElement.classList.add("bg-green-500", "text-white");
+  1604→                            iconEl.textContent = "check";
+  1605→                            btnElement.classList.add("animate-btn-success");
+  1606→                            
+  1607→                            setTimeout(() => {
+  1608→                                iconEl.textContent = "add";
+  1609→                                btnElement.classList.remove("bg-green-500", "text-white", "animate-btn-success");
+  1610→                                btnElement.classList.add("bg-primary", "text-black");
+  1611→                            }, 800);
+  1612→                        }
+  1613→                    }
+  1614→                },
+  1615→
+  1616→                changeQty(cartId, delta) {
+  1617→                    const item = this.cart.find(i => i.cart_id === cartId);
+  1618→                    if (item) {
+  1619→                        item.quantity += delta;
+  1620→                        if (item.quantity <= 0) {
+  1621→                            this.cart = this.cart.filter(i => i.cart_id !== cartId);
+  1622→                        }
+  1623→                    }
+  1624→                },
+  1625→
+  1626→                openCartModal() {
+  1627→                    const modal = document.getElementById("cart-modal");
+  1628→                    if (modal) {
+  1629→                        modal.classList.remove("hidden");
+  1630→                        document.body.style.overflow = 'hidden';
+  1631→                        setTimeout(() => {
+  1632→                            const inner = document.getElementById("cart-modal-inner");
+  1633→                            if (inner) {
+  1634→                                inner.classList.remove("translate-y-full");
+  1635→                                inner.classList.add("translate-y-0");
+  1636→                            }
+  1637→                        }, 10);
+  1638→                    }
+  1639→                },
+  1640→
+  1641→                closeCartModal() {
+  1642→                    const inner = document.getElementById("cart-modal-inner");
+  1643→                    if (inner) {
+  1644→                        inner.classList.remove("translate-y-0");
+  1645→                        inner.classList.add("translate-y-full");
+  1646→                        setTimeout(() => {
+  1647→                            const modal = document.getElementById("cart-modal");
+  1648→                            if (modal) {
+  1649→                                modal.classList.add("hidden");
+  1650→                                document.body.style.overflow = '';
+  1651→                            }
+  1652→                        }, 300);
+  1653→                    }
+  1654→                },
+  1655→
+  1656→                openServiceModal() {
+  1657→                    const table = getTableFromUrl() || "{{ table }}";
+  1658→                    if (!table) {
+  1659→                        showToast(translations[this.currentLang].read_only_banner || "Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+  1660→                        return;
+  1661→                    }
+  1662→                    this.selectServiceOption('kellner');
+  1663→                    const modal = document.getElementById("service-modal");
+  1664→                    if (modal) {
+  1665→                        modal.classList.remove("hidden");
+  1666→                        document.body.style.overflow = 'hidden';
+  1667→                    }
+  1668→                },
+  1669→
+  1670→                closeServiceModal() {
+  1671→                    const modal = document.getElementById("service-modal");
+  1672→                    if (modal) {
+  1673→                        modal.classList.add("hidden");
+  1674→                        document.body.style.overflow = '';
+  1675→                    }
+  1676→                },
+  1677→
+  1678→                selectServiceOption(type) {
+  1679→                    this.selectedServiceType = type;
+  1680→                    const isShisha = {% if restaurant.is_shishabar %}true{% else %}false{% endif %};
+  1681→                    
+  1682→                    const btnKellner = document.getElementById("opt-service-kellner");
+  1683→                    const btnKohle = document.getElementById("opt-service-kohle");
+  1684→                    
+  1685→                    if (type === 'kellner' && btnKellner) {
+  1686→                        btnKellner.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
+  1687→                        const chk = btnKellner.querySelector('span.material-symbols-outlined');
+  1688→                        if (chk) chk.classList.remove('opacity-0');
+  1689→                        
+  1690→                        if (isShisha && btnKohle) {
+  1691→                            btnKohle.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
+  1692→                            const chk2 = btnKohle.querySelector('span.material-symbols-outlined');
+  1693→                            if (chk2) chk2.classList.add('opacity-0');
+  1694→                        }
+  1695→                    } else if (type === 'kohle' && btnKohle) {
+  1696→                        if (btnKellner) {
+  1697→                            btnKellner.className = "w-full bg-background border border-outline-variant text-on-surface rounded-xl p-4 flex items-center justify-between transition-all";
+  1698→                            const chk = btnKellner.querySelector('span.material-symbols-outlined');
+  1699→                            if (chk) chk.classList.add('opacity-0');
+  1700→                        }
+  1701→                        
+  1702→                        btnKohle.className = "w-full bg-background border border-primary text-primary rounded-xl p-4 flex items-center justify-between transition-all";
+  1703→                        const chk2 = btnKohle.querySelector('span.material-symbols-outlined');
+  1704→                        if (chk2) chk2.classList.remove('opacity-0');
+  1705→                    }
+  1706→                },
+  1707→
+  1708→                confirmServiceRequest() {
+  1709→                    this.sendServiceRequestAPI(this.selectedServiceType);
+  1710→                    this.closeServiceModal();
+  1711→                },
+  1712→
+  1713→                openPaymentModal() {
+  1714→                    const table = getTableFromUrl() || "{{ table }}";
+  1715→                    if (!table) {
+  1716→                        showToast(translations[this.currentLang].toast_read_only || "Lesemodus: Bitte scannen Sie zuerst einen Tisch-QR-Code.", "info");
+  1717→                        return;
+  1718→                    }
+  1719→                    
+  1720→                    this.currentPaymentSubtotal = 0.0;
+  1721→                    
+  1722→                    // Fetch unpaid orders total for the current table directly from server database
+  1723→                    fetch(`/api/{{ slug }}/table-unpaid-sum/${encodeURIComponent(table)}`)
+  1724→                    .then(res => res.json())
+  1725→                    .then(data => {
+  1726→                        if (data && data.unpaid_sum > 0) {
+  1727→                            this.currentPaymentSubtotal = data.unpaid_sum;
+  1728→                        } else {
+  1729→                            // Fallback to current cart total if no orders placed yet
+  1730→                            this.currentPaymentSubtotal = this.cartTotal;
+  1731→                        }
+  1732→                    })
+  1733→                    .catch(err => {
+  1734→                        console.error("Fehler beim Abrufen der Tisch-Summe:", err);
+  1735→                        this.currentPaymentSubtotal = this.cartTotal;
+  1736→                    });
+  1737→
+  1738→                    this.selectPaymentOption('zahlen_bar');
+  1739→                    const modal = document.getElementById("payment-modal");
+  1740→                    if (modal) {
+  1741→                        modal.classList.remove("hidden");
+  1742→                        document.body.style.overflow = 'hidden';
+  1743→                    }
+  1744→                },
+  1745→
+  1746→                closePaymentModal() {
+  1747→                    const modal = document.getElementById("payment-modal");
+  1748→                    if (modal) {
+  1749→                        modal.classList.add("hidden");
+  1750→                        document.body.style.overflow = '';
+  1751→                    }
+  1752→                },
+  1753→
+  1754→                selectPaymentOption(type) {
+  1755→                    this.selectedPaymentType = type;
+  1756→                },
+  1757→
+  1758→
+  1759→
+  1760→                confirmPaymentRequest() {
+  1761→                    this.sendServiceRequestAPI(this.selectedPaymentType);
+  1762→                    this.closePaymentModal();
+  1763→                    // Show review popup instead of direct redirect
+  1764→                    const googleUrl = this.restaurantLandingPage.google_rating_url;
+  1765→                    if (googleUrl) {
+  1766→                        setTimeout(() => {
+  1767→                            this.showReviewPopup(googleUrl);
+  1768→                        }, 500);
+  1769→                    }
+  1770→                },
+  1771→
+  1772→                showReviewPopup(googleUrl) {
+  1773→                    const existing = document.getElementById('review-popup');
+  1774→                    if (existing) existing.remove();
+  1775→                    const popup = document.createElement('div');
+  1776→                    popup.id = 'review-popup';
+  1777→                    popup.className = 'fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4';
+  1778→                    popup.innerHTML = `
+  1779→                        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-5 shadow-2xl relative animate-fade-in">
+  1780→                            <button onclick="document.getElementById('review-popup').remove()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition-colors">
+  1781→                                <span class="material-symbols-outlined text-2xl">close</span>
+  1782→                            </button>
+  1783→                            <div class="w-20 h-20 bg-amber-400/10 text-amber-400 rounded-full flex items-center justify-center text-4xl mx-auto">
+  1784→                                <span class="material-symbols-outlined text-5xl text-amber-400">star_rate</span>
+  1785→                            </div>
+  1786→                            <h2 class="text-2xl font-extrabold text-on-surface font-display">Wie fandest du deinen Besuch?</h2>
+  1787→                            <p class="text-sm text-on-surface-variant font-medium leading-relaxed">Wir würden uns freuen, wenn du uns bewertest! Dein Feedback hilft uns, unseren Service zu verbessern.</p>
+  1788→                            <div class="flex justify-center gap-1 text-4xl my-2">
+  1789→                                <span>⭐</span><span>⭐</span><span>⭐</span><span>⭐</span><span>⭐</span>
+  1790→                            </div>
+  1791→                            <a href="${googleUrl}" target="_blank" onclick="setTimeout(()=>document.getElementById('review-popup').remove(), 300)" class="btn-premium btn-premium-primary w-full py-4 rounded-xl text-sm font-bold active:scale-95 shadow-lg shadow-primary/20 inline-flex items-center justify-center gap-2">
+  1792→                                <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  1793→                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+  1794→                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+  1795→                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+  1796→                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+  1797→                                </svg>
+  1798→                                Jetzt bewerten
+  1799→                            </a>
+  1800→                            <button onclick="document.getElementById('review-popup').remove()" class="w-full py-2.5 text-on-surface-variant text-xs font-bold hover:text-on-surface transition-colors">
+  1801→                                Später bewerten
+  1802→                            </button>
+  1803→                        </div>
+  1804→                    `;
+  1805→                    document.body.appendChild(popup);
+  1806→                },
+  1807→
+  1808→                sendServiceRequestAPI(type) {
+  1809→                    const rawTable = getTableFromUrl() || "{{ table }}";
+  1810→                    const token = '{{ token }}' || '';
+  1811→                    // Normalize: strip any existing "Tisch" prefix to avoid double "Tisch Tisch"
+  1812→                    const cleanTable = String(rawTable).replace(/^Tisch\s*/i, '').trim();
+  1813→
+  1814→                    const payload = {
+  1815→                        type: type,
+  1816→                        table: cleanTable,
+  1817→                        token: token,
+  1818→                    };
+  1819→
+  1820→                    fetch('/api/{{ slug }}/call-service?token=' + encodeURIComponent(token), {
+  1821→                        method: 'POST',
+  1822→                        headers: { 
+  1823→                            'Content-Type': 'application/json',
+  1824→                            'X-Token': token
+  1825→                        },
+  1826→                        body: JSON.stringify(payload)
+  1827→                    })
+  1828→                    .then(res => {
+  1829→                        if (res.ok) {
+  1830→                            showToast("Anfrage erfolgreich an das Personal gesendet!", "success");
+  1831→                        } else {
+  1832→                            showToast("Übertragung fehlgeschlagen.", "error");
+  1833→                        }
+  1834→                    })
+  1835→                    .catch(err => {
+  1836→                        console.error("Fehler bei Service-Ruf", err);
+  1837→                        showToast("Übertragungsfehler.", "error");
+  1838→                    });
+  1839→                },
+  1840→
+  1841→                submitOrder() {
+  1842→                    const rawTable = getTableFromUrl() || "{{ table }}";
+  1843→                    const token = '{{ token }}' || '';
+  1844→                    // Normalize: strip any existing "Tisch" prefix to avoid double "Tisch Tisch"
+  1845→                    const cleanTable = String(rawTable).replace(/^Tisch\s*/i, '').trim();
+  1846→
+  1847→                    const payload = {
+  1848→                        table: cleanTable,
+  1849→                        token: token,
+  1850→                        items: this.cart.map(i => ({
+  1851→                            product_id: i.id,
+  1852→                            name: i.name_de || i.name,
+  1853→                            price: i.price,
+  1854→                            quantity: i.quantity,
+  1855→                            note: i.note || null
+  1856→                        })),
+  1857→                    };
+  1858→
+  1859→                    const roleForBypass = (this.role === 'admin' || this.role === 'waiter') ? this.role : '';
+  1860→                    const url = roleForBypass ? `/{{ slug }}/bestellen?role=${encodeURIComponent(roleForBypass)}` : `/{{ slug }}/bestellen`;
+  1861→
+  1862→                    fetch(url, {
+  1863→                        method: 'POST',
+  1864→                        headers: { 'Content-Type': 'application/json' },
+  1865→                        body: JSON.stringify(payload)
+  1866→                    })
+  1867→                    .then(res => {
+  1868→                        if (res.ok) {
+  1869→                            return res.json();
+  1870→                        } else if (res.status === 403) {
+  1871→                            showToast("Ungültiger oder abgelaufener Tisch-Code. Bitte scannen Sie neu.", "error");
+  1872→                            throw new Error("Expired session");
+  1873→                        } else {
+  1874→                            showToast("Übertragungsfehler bei der Bestellung.", "error");
+  1875→                            throw new Error("Network error");
+  1876→                        }
+  1877→                    })
+  1878→                    .then(data => {
+  1879→                        let myOrders = JSON.parse(localStorage.getItem(`dl_orders_{{ slug }}`)) || [];
+  1880→                        myOrders.push(data.order_id);
+  1881→                        localStorage.setItem(`dl_orders_{{ slug }}`, JSON.stringify(myOrders));
+  1882→                        localStorage.removeItem(`dl_cart_{{ slug }}`);
+  1883→                        this.cart = [];
+  1884→                        this.closeCartModal();
+  1885→
+  1886→                        const thankyou = document.getElementById("thankyou-overlay");
+  1887→                        if (thankyou) thankyou.classList.remove("hidden");
+  1888→                    })
+  1889→                    .catch(err => console.error(err));
+  1890→                },
+  1891→
+  1892→                closeThankYou() {
+  1893→                    const thankyou = document.getElementById("thankyou-overlay");
+  1894→                    if (thankyou) thankyou.classList.add("hidden");
+  1895→                },
+  1896→
+  1897→                openLegalModal(type) {
+  1898→                    const modal = document.getElementById("legal-modal");
+  1899→                    const title = document.getElementById("legal-modal-title");
+  1900→                    const body = document.getElementById("legal-modal-body");
+  1901→
+  1902→                    if (type === 'impressum') {
+  1903→                        if (title) title.textContent = "Impressum";
+  1904→                        if (body) body.textContent = document.getElementById("impressum-content-data").textContent;
+  1905→                    } else {
+  1906→                        if (title) title.textContent = "Datenschutzerklärung";
+  1907→                        if (body) body.textContent = document.getElementById("datenschutz-content-data").textContent;
+  1908→                    }
+  1909→                    if (modal) {
+  1910→                        modal.classList.remove("hidden");
+  1911→                        document.body.style.overflow = 'hidden';
+  1912→                    }
+  1913→                },
+  1914→
+  1915→                closeLegalModal() {
+  1916→                    const modal = document.getElementById("legal-modal");
+  1917→                    if (modal) {
+  1918→                        modal.classList.add("hidden");
+  1919→                        document.body.style.overflow = '';
+  1920→                    }
+  1921→                },
+  1922→
+  1923→                async fetchAdminDrawerState() {
+  1924→                    try {
+  1925→                        const rawTable = getTableFromUrl();
+  1926→                        if (!rawTable) return;
+  1927→                        // Build table identifiers to match (with and without zone)
+  1928→                        const cleanNum = String(rawTable).replace(/^Tisch\s*/i, '').split('(')[0].trim();
+  1929→                        const cleanFull = String(rawTable).replace(/^Tisch\s*/i, '').trim();
+  1930→                        const tischPlain = "Tisch " + cleanNum;
+  1931→                        const tischZone = cleanFull.includes('(') ? "Tisch " + cleanFull : '';
+  1932→                        
+  1933→                        const res = await fetch('/api/tablet-status');
+  1934→                        if (!res.ok) return;
+  1935→                        
+  1936→                        const data = await res.json();
+  1937→                        
+  1938→                        const tableOrders = data.orders.filter(o => {
+  1939→                            const t = o.table || '';
+  1940→                            return t === tischZone || t === tischPlain || t === cleanFull || t === cleanNum;
+  1941→                        });
+  1942→                        
+  1943→                        let pending = [];
+  1944→                        let delivered = [];
+  1945→                        let total = 0.0;
+  1946→                        
+  1947→                        tableOrders.forEach(order => {
+  1948→                            total += order.total;
+  1949→                            if (order.items) {
+  1950→                                order.items.forEach(item => {
+  1951→                                    const status = item.item_status || 'pending';
+  1952→                                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+  1953→                                    
+  1954→                                    for (let idx = 0; idx < item.quantity; idx++) {
+  1955→                                        const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${idx}`;
+  1956→                                        const itemData = {
+  1957→                                            order_id: order.id,
+  1958→                                            product_id: item.product_id,
+  1959→                                            name: item.name,
+  1960→                                            price: item.price,
+  1961→                                            quantity: 1,
+  1962→                                            note: item.note || '',
+  1963→                                            status: status,
+  1964→                                            key: key,
+  1965→                                            unit_index: idx
+  1966→                                        };
+  1967→                                        
+  1968→                                        if (status === 'pending') {
+  1969→                                            pending.push(itemData);
+  1970→                                        } else if (status === 'confirmed' || status === 'delivered') {
+  1971→                                            delivered.push(itemData);
+  1972→                                        }
+  1973→                                    }
+  1974→                                });
+  1975→                            }
+  1976→                        });
+  1977→                        
+  1978→                        this.tableOrders = { pending, delivered, total };
+  1979→                        
+  1980→                        if (total <= 0.0) {
+  1981→                            this.isDrawerOpen = false;
+  1982→                        }
+  1983→                    } catch (e) {
+  1984→                        console.error("Error fetching drawer state:", e);
+  1985→                    }
+  1986→                },
+  1987→
+  1988→                async fetchGuestTableStatus() {
+  1989→                    try {
+  1990→                        const tableNum = getTableFromUrl();
+  1991→                        if (!tableNum) return;
+  1992→                        
+  1993→                        const res = await fetch(`/api/{{ slug }}/table-status/${encodeURIComponent(tableNum)}`);
+  1994→                        if (!res.ok) return;
+  1995→                        
+  1996→                        const data = await res.json();
+  1997→                        this.tableOrders = data;
+  1998→                        
+  1999→                        if (data.total <= 0.0) {
+  2000→                            this.isDrawerOpen = false;
+
+[showing lines 1-2000 of 2426; use offset=2001 with limit to continue reading]

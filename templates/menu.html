@@ -18,7 +18,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=9">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=10">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -802,7 +802,8 @@
                                 <input type="checkbox" 
                                        :checked="selectedSplitItems.some(i => i.key === item.key)"
                                        @change="toggleSplitCheckbox(item)"
-                                       class="w-4.5 h-4.5 rounded border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer">
+                                       class="rounded border-2 border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer"
+                                       style="width:20px;height:20px;">
                                 
                                 <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
                                 

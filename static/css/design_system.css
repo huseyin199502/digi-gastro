@@ -414,9 +414,53 @@ html.light .bg-red-500 *,
 html.light .bg-green-500,
 html.light .bg-green-500 *,
 html.light .bg-emerald-500,
-html.light .bg-emerald-500 * {
+html.light .bg-emerald-500 *,
+html.light .bg-gastro,
+html.light .bg-gastro *,
+html.light .bg-amber-600,
+html.light .bg-amber-600 *,
+html.light .bg-zinc-800,
+html.light .bg-zinc-800 *,
+html.light .bg-zinc-700,
+html.light .bg-zinc-700 *,
+html.light .bg-zinc-900,
+html.light .bg-zinc-900 *,
+html.light .bg-gray-800,
+html.light .bg-gray-800 *,
+html.light .bg-gray-900,
+html.light .bg-gray-900 * {
   color: #ffffff !important;
 }
+
+/* Popup headers always have dark gradient backgrounds — keep white text */
+html.light .popup-header,
+html.light .popup-header *,
+html.light .popup-header [style*="color"],
+html.light .popup-header [style*="color:"] {
+  color: #ffffff !important;
+}
+
+/* Table selection tiles always have dark background */
+html.light .table-sel-tile,
+html.light .table-sel-tile * {
+  color: #ffffff !important;
+}
+
+/* Colored buttons with inline style color:#fff must keep white text */
+html.light [style*="background:#ef4444"],
+html.light [style*="background: #ef4444"],
+html.light button[style*="background:#ef4444"],
+html.light button[style*="background: #ef4444"] {
+  color: #ffffff !important;
+}
+
+/* Sidebar profile card always has dark gradient background */
+html.light .profile-card,
+html.light .profile-card * {
+  color: #ffffff !important;
+}
+
+/* Admin dash-header is always light background, text stays dark — no override needed */
 
 html.light .glass-btn-primary {
   background: rgba(201, 168, 76, 0.15) !important;
@@ -439,11 +483,23 @@ html.light .glass-btn-secondary:hover {
 }
 
 /* Re-adjust text gray elements to have enough contrast */
+html.light :not(.landing-page-wrapper) .text-zinc-300,
 html.light :not(.landing-page-wrapper) .text-zinc-400,
 html.light :not(.landing-page-wrapper) .text-gray-400,
 html.light :not(.landing-page-wrapper) .text-slate-400,
 html.light :not(.landing-page-wrapper) .text-on-surface-variant {
   color: var(--text-on-surface-variant) !important;
+}
+
+/* Light text colors that are invisible on light backgrounds */
+html.light :not(.landing-page-wrapper) .text-amber-200 {
+  color: #92400e !important; /* amber-800 for readability */
+}
+html.light :not(.landing-page-wrapper) .text-amber-400 {
+  color: #b45309 !important; /* amber-700 */
+}
+html.light :not(.landing-page-wrapper) .text-emerald-400 {
+  color: #047857 !important; /* emerald-700 */
 }
 
 /* ===== LANDING PAGE EXCEPTIONS — MUST be LAST to win specificity battles ===== */

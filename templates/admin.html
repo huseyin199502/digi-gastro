@@ -94,6 +94,25 @@
             outline: 2px solid var(--gastro-primary);
             outline-offset: 2px;
         }
+        /* Custom Checkbox on light backgrounds (bg-emerald-50, bg-white, popup-card, etc.) */
+        .bg-emerald-50 .custom-checkbox,
+        .bg-white .custom-checkbox,
+        .popup-card .custom-checkbox,
+        .popup-body .custom-checkbox,
+        .control-split-item .custom-checkbox,
+        .bg-gray-50 .custom-checkbox {
+            border-color: #9ca3af;
+            background: #ffffff;
+        }
+        .bg-emerald-50 .custom-checkbox:checked,
+        .bg-white .custom-checkbox:checked,
+        .popup-card .custom-checkbox:checked,
+        .popup-body .custom-checkbox:checked,
+        .control-split-item .custom-checkbox:checked,
+        .bg-gray-50 .custom-checkbox:checked {
+            background: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
 
         /* ── Order Popup Item Cards ── */
         .item-card {
@@ -3326,7 +3345,7 @@
                 
                 <div class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl">
                     <input type="checkbox" id="overwrite-existing" name="overwrite" value="true" class="custom-checkbox w-4.5 h-4.5 cursor-pointer">
-                    <label for="overwrite-existing" class="text-xs text-amber-200 font-bold select-none cursor-pointer">
+                    <label for="overwrite-existing" class="text-xs text-amber-700 font-bold select-none cursor-pointer">
                         ⚠️ Bestehende Produkte &amp; Kategorien überschreiben
                     </label>
                 </div>
@@ -4003,6 +4022,7 @@
 
         // ── DIGI-STYLE MODAL CONTROL STATE ──
         let controlModalActiveTableNum = null;
+        let _serveLock = false; // Prevents double-click / Ruckeln on serve buttons
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
 
@@ -4039,7 +4059,7 @@
                             const noteSlug = (item.note || '').replace(/\s+/g, '_');
                             const key = `${item.product_id}_${noteSlug}_${status}`;
                             const statusLabel = status === 'pending' ? 'Ausstehend' : status === 'confirmed' ? 'Zubereitung' : 'Serviert';
-                            const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400';
+                            const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-200 border border-zinc-600';
                             
                             itemsHtml += `
                                 <label class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/80 cursor-pointer border border-zinc-800/50 transition-colors">
@@ -4257,11 +4277,11 @@
                 deliveredList.innerHTML = deliveredItems.map(item => {
                     const isChecked = !!selectedControlSplitItems[item.key];
                     return `
-                        <div class="flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs shadow-sm">
+                        <div class="control-split-item flex items-center justify-between p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs shadow-sm">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <input type="checkbox" ${isChecked ? 'checked' : ''} 
                                        onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
-                                       class="custom-checkbox w-4.5 h-4.5 cursor-pointer">
+                                       class="custom-checkbox cursor-pointer" style="width:20px;height:20px;">
                                 
                                 <span class="material-symbols-outlined text-emerald-600 font-black text-lg select-none">done_all</span>
                                 
@@ -4319,7 +4339,7 @@
                         }
                         
                         return `
-                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200">
+                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700">
                                 <span class="font-extrabold flex items-center gap-1.5">
                                     <span class="animate-bounce">${cIcon}</span> ${cText}
                                 </span>
@@ -4397,6 +4417,8 @@
         }
 
         async function serveControlItem(itemKey, orderId) {
+            if (_serveLock) return;
+            _serveLock = true;
             // Optimistic DOM Update
             allOrders.forEach(o => {
                 if (o.id === orderId && o.items) {
@@ -4465,11 +4487,15 @@
             } catch (e) {
                 showToast("Verbindungsfehler beim Servieren", "error");
                 await checkLiveTischeUpdates();
+            } finally {
+                _serveLock = false;
             }
         }
 
         async function serveAllControlPending() {
-            if (!controlModalActiveTableNum) return;
+            if (_serveLock) return;
+            _serveLock = true;
+            if (!controlModalActiveTableNum) { _serveLock = false; return; }
             const tableOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
                 if (controlModalActiveTableZone) {
@@ -4493,7 +4519,7 @@
                 }
             });
             
-            if (orderIds.length === 0) return;
+            if (orderIds.length === 0) { _serveLock = false; return; }
             refreshControlModal();
             
             try {
@@ -4512,6 +4538,8 @@
             } catch (e) {
                 showToast("Verbindungsfehler beim Servieren", "error");
                 await checkLiveTischeUpdates();
+            } finally {
+                _serveLock = false;
             }
         }
 
@@ -5025,7 +5053,7 @@
                     return `<span class="notif-item ${isServed ? 'item-served' : ''}" data-order-id="${order.id}" data-item-key="${key}">
                         <span class="item-qty">${item.quantity}×</span>
                         <span class="item-name" title="${item.name}${item.note ? ' ('+item.note+')' : ''}">${item.name}</span>
-                        ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}')" title="Als serviert markieren">✓</button>` : ''}
+                        ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}', this)" title="Als serviert markieren">✓</button>` : ''}
                     </span>`;
                 }).join('');
 
@@ -5046,7 +5074,7 @@
                             </div>
                         </div>
                         <div class="notif-actions">
-                            <button class="notif-btn notif-btn-serve-all" onclick="notifServeAll(${order.id})" title="Alle als serviert markieren">
+                            <button class="notif-btn notif-btn-serve-all" onclick="notifServeAll(${order.id}, this)" title="Alle als serviert markieren">
                                 <span class="material-symbols-outlined" style="font-size:13px;">done_all</span> Serviert
                             </button>
                             <button class="notif-btn notif-btn-details" onclick="openPopup(${order.id})" title="Bestellung öffnen">
@@ -5111,7 +5139,10 @@
             }
         }
 
-        async function notifServeItem(orderId, itemKey) {
+        async function notifServeItem(orderId, itemKey, btnEl) {
+            if (_serveLock) return;
+            _serveLock = true;
+            if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
                     method: 'POST',
@@ -5139,10 +5170,16 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _serveLock = false;
+                if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = ''; }
             }
         }
 
-        async function notifServeAll(orderId) {
+        async function notifServeAll(orderId, btnEl) {
+            if (_serveLock) return;
+            _serveLock = true;
+            if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch('/admin/orders/serve', {
                     method: 'POST',
@@ -5162,6 +5199,9 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _serveLock = false;
+                if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = ''; }
             }
         }
 
@@ -5934,7 +5974,7 @@
                     if (itemStatus === 'delivered') {
                         const currentInTeil = selectedTeilrechnung[key] || 0;
                         const isChecked = currentInTeil > 0;
-                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${key}', ${item.quantity}) } else { removeFromTeilrechnung('${key}') }" ${isChecked ? 'checked' : ''} class="custom-checkbox" style="margin-right: 8px;" title="Zur Teilrechnung hinzufügen">`;
+                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${key}', ${item.quantity}) } else { removeFromTeilrechnung('${key}') }" ${isChecked ? 'checked' : ''} class="custom-checkbox" style="margin-right: 8px; width:20px; height:20px;" title="Zur Teilrechnung hinzufügen">`;
                     }
 
                     let actionBtn = '';
@@ -5986,6 +6026,8 @@
         }
 
         async function setItemStatus(orderId, itemKey, newStatus) {
+            if (_serveLock) return;
+            _serveLock = true;
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
                     method: 'POST',
@@ -6011,6 +6053,8 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _serveLock = false;
             }
         }
 

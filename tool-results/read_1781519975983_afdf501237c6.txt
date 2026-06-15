@@ -1,0 +1,2002 @@
+     1→<!DOCTYPE html>
+     2→<html lang="de" class="{{ restaurant.theme or 'dark' }}">
+     3→<head>
+     4→    <meta charset="UTF-8">
+     5→    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+     6→    <title>Digi-Gastro | Admin Dashboard</title>
+     7→
+     8→    <!-- PWA Meta Tags -->
+     9→    <meta name="apple-mobile-web-app-capable" content="yes">
+    10→    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    11→    <meta name="apple-mobile-web-app-title" content="digi-gastro Admin">
+    12→    <meta name="theme-color" content="#009900">
+    13→    <meta name="mobile-web-app-capable" content="yes">
+    14→    <link rel="manifest" href="/manifest.json">
+    15→    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    16→    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    17→
+    18→    <!-- Google Fonts & Material Icons -->
+    19→    <link rel="preconnect" href="https://fonts.googleapis.com">
+    20→    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    21→    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    22→    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    23→    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    24→    
+    25→    <!-- Tailwind CSS CDN -->
+    26→    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    27→    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    28→    <script src="https://js.puter.com/v2/"></script>
+    29→    <script>
+    30→        tailwind.config = {
+    31→            theme: {
+    32→                extend: {
+    33→                    colors: {
+    34→                        primary: '#009900',
+    35→                        gastro: '#009900',
+    36→                        gastro2: '#1f2937'
+    37→                    }
+    38→                }
+    39→            }
+    40→        }
+    41→    </script>
+    42→    
+    43→    <!-- Custom Style System -->
+    44→    <style>
+    45→        :root {
+    46→            --gastro-primary: #009900;
+    47→            --gastro-primary-hover: #008000;
+    48→            --gastro-bg-gray: rgb(235, 235, 235);
+    49→            --gastro-card-bg: #ffffff;
+    50→            --gastro-text-main: #1f2937;
+    51→            --gastro-text-muted: #6b7280;
+    52→            --gastro-border: #e5e7eb;
+    53→        }
+    54→
+    55→        /* Dark Mode variables */
+    56→        html.dark, :root.dark {
+    57→            --gastro-bg-gray: #09090b;
+    58→            --gastro-card-bg: #18181b;
+    59→            --gastro-text-main: #f4f4f5;
+    60→            --gastro-text-muted: #a1a1aa;
+    61→            --gastro-border: #27272a;
+    62→        }
+    63→
+    64→        /* ── Custom Checkbox (dark-mode safe) ── */
+    65→        .custom-checkbox {
+    66→            appearance: none;
+    67→            -webkit-appearance: none;
+    68→            width: 18px;
+    69→            height: 18px;
+    70→            border: 2px solid var(--gastro-border);
+    71→            border-radius: 4px;
+    72→            background: var(--gastro-card-bg);
+    73→            cursor: pointer;
+    74→            position: relative;
+    75→            flex-shrink: 0;
+    76→            transition: all 0.15s ease;
+    77→        }
+    78→        .custom-checkbox:checked {
+    79→            background: var(--gastro-primary);
+    80→            border-color: var(--gastro-primary);
+    81→        }
+    82→        .custom-checkbox:checked::after {
+    83→            content: '';
+    84→            position: absolute;
+    85→            top: 1px;
+    86→            left: 5px;
+    87→            width: 5px;
+    88→            height: 9px;
+    89→            border: solid white;
+    90→            border-width: 0 2px 2px 0;
+    91→            transform: rotate(45deg);
+    92→        }
+    93→        .custom-checkbox:focus-visible {
+    94→            outline: 2px solid var(--gastro-primary);
+    95→            outline-offset: 2px;
+    96→        }
+    97→        /* Custom Checkbox on light backgrounds (bg-emerald-50, bg-white, popup-card, etc.) */
+    98→        .bg-emerald-50 .custom-checkbox,
+    99→        .bg-white .custom-checkbox,
+   100→        .popup-card .custom-checkbox,
+   101→        .popup-body .custom-checkbox,
+   102→        .control-split-item .custom-checkbox,
+   103→        .bg-gray-50 .custom-checkbox {
+   104→            border-color: #9ca3af;
+   105→            background: #ffffff;
+   106→        }
+   107→        .bg-emerald-50 .custom-checkbox:checked,
+   108→        .bg-white .custom-checkbox:checked,
+   109→        .popup-card .custom-checkbox:checked,
+   110→        .popup-body .custom-checkbox:checked,
+   111→        .control-split-item .custom-checkbox:checked,
+   112→        .bg-gray-50 .custom-checkbox:checked {
+   113→            background: var(--gastro-primary);
+   114→            border-color: var(--gastro-primary);
+   115→        }
+   116→
+   117→        /* ── Order Popup Item Cards ── */
+   118→        .item-card {
+   119→            background: var(--gastro-card-bg);
+   120→            border: 1px solid var(--gastro-border);
+   121→            border-radius: 12px;
+   122→            padding: 8px 12px;
+   123→            margin-bottom: 6px;
+   124→            transition: border-color 0.2s;
+   125→        }
+   126→        .item-card .item-row {
+   127→            display: flex;
+   128→            align-items: center;
+   129→            gap: 8px;
+   130→        }
+   131→        .item-card .item-name {
+   132→            font-size: 13px;
+   133→            font-weight: 800;
+   134→            color: var(--gastro-text-main);
+   135→        }
+   136→        .item-card .item-price {
+   137→            font-size: 12px;
+   138→            font-weight: 800;
+   139→            color: var(--gastro-text-main);
+   140→        }
+   141→        .cat-label {
+   142→            font-size: 10px;
+   143→            font-weight: 900;
+   144→            text-transform: uppercase;
+   145→            letter-spacing: 0.08em;
+   146→            color: var(--gastro-text-muted);
+   147→            padding: 4px 2px 2px;
+   148→            margin-top: 8px;
+   149→        }
+   150→
+   151→        /* ── Action Buttons in Order Popup ── */
+   152→        .btn-action {
+   153→            display: inline-flex;
+   154→            align-items: center;
+   155→            gap: 4px;
+   156→            font-size: 10px;
+   157→            font-weight: 800;
+   158→            padding: 4px 10px;
+   159→            border-radius: 8px;
+   160→            border: 1px solid transparent;
+   161→            cursor: pointer;
+   162→            white-space: nowrap;
+   163→            transition: all 0.15s ease;
+   164→        }
+   165→        .btn-vorbereiten {
+   166→            background: rgba(251, 191, 36, 0.12);
+   167→            color: #fbbf24;
+   168→            border-color: rgba(251, 191, 36, 0.25);
+   169→        }
+   170→        .btn-vorbereiten:hover {
+   171→            background: rgba(251, 191, 36, 0.22);
+   172→        }
+   173→        .btn-fertig {
+   174→            background: rgba(16, 185, 129, 0.12);
+   175→            color: #10b981;
+   176→            border-color: rgba(16, 185, 129, 0.25);
+   177→        }
+   178→        .btn-fertig:hover {
+   179→            background: rgba(16, 185, 129, 0.22);
+   180→        }
+   181→        .btn-pay-item {
+   182→            background: rgba(99, 102, 241, 0.12);
+   183→            color: #818cf8;
+   184→            border-color: rgba(99, 102, 241, 0.25);
+   185→        }
+   186→        .btn-pay-item:hover {
+   187→            background: rgba(99, 102, 241, 0.22);
+   188→        }
+   189→        .btn-storno-item {
+   190→            background: rgba(239, 68, 68, 0.12);
+   191→            color: #f87171;
+   192→            border-color: rgba(239, 68, 68, 0.25);
+   193→        }
+   194→        .btn-storno-item:hover {
+   195→            background: rgba(239, 68, 68, 0.22);
+   196→        }
+   197→
+   198→        /* ── Teilrechnung Box ── */
+   199→        .teilrechnung-box {
+   200→            background: rgba(99, 102, 241, 0.08);
+   201→            border: 1px solid rgba(99, 102, 241, 0.2);
+   202→            border-radius: 12px;
+   203→            padding: 12px;
+   204→        }
+   205→        .teilrechnung-box .item-name,
+   206→        .teilrechnung-box .item-price {
+   207→            color: var(--gastro-text-main);
+   208→        }
+   209→
+   210→        body {
+   211→            font-family: 'Inter', sans-serif;
+   212→            background-color: var(--gastro-bg-gray) !important;
+   213→            color: var(--gastro-text-main) !important;
+   214→            overflow-x: hidden;
+   215→        }
+   216→
+   217→        /* Dark theme dashboard overrides for Tailwind classes */
+   218→        html.dark .bg-white,
+   219→        html.dark .bg-gray-50,
+   220→        html.dark .bg-gray-100,
+   221→        html.dark .bg-gray-200,
+   222→        html.dark .bg-zinc-50,
+   223→        html.dark .bg-zinc-100,
+   224→        html.dark .bg-zinc-200,
+   225→        html.dark .bg-slate-50,
+   226→        html.dark .bg-slate-100,
+   227→        html.dark .bg-neutral-50,
+   228→        html.dark .bg-neutral-100,
+   229→        html.dark .bg-stone-50,
+   230→        html.dark .bg-stone-100,
+   231→        html.dark .bg-emerald-50,
+   232→        html.dark .bg-amber-50,
+   233→        html.dark .bg-teal-50,
+   234→        html.dark .bg-purple-50,
+   235→        html.dark .bg-purple-100,
+   236→        html.dark .bg-violet-50,
+   237→        html.dark .bg-violet-100,
+   238→        html.dark .bg-indigo-50,
+   239→        html.dark .bg-indigo-100,
+   240→        html.dark .from-emerald-50,
+   241→        html.dark .to-teal-50,
+   242→        html.dark .from-amber-50,
+   243→        html.dark .to-orange-50 {
+   244→            background: var(--gastro-card-bg) !important;
+   245→        }
+   246→
+   247→        /* Dark mode hover overrides for light-bg hover states */
+   248→        html.dark .hover\:bg-purple-50,
+   249→        html.dark .hover\:bg-gray-50,
+   250→        html.dark .hover\:bg-purple-100 {
+   251→            --tw-bg-opacity: 1 !important;
+   252→        }
+   253→        html.dark .hover\:bg-purple-50:hover,
+   254→        html.dark .hover\:bg-gray-50:hover,
+   255→        html.dark .hover\:bg-purple-100:hover {
+   256→            background: var(--gastro-bg-gray) !important;
+   257→        }
+   258→
+   259→        /* Override gradient backgrounds in dark mode */
+   260→        html.dark .bg-gradient-to-r {
+   261→            background-image: none !important;
+   262→        }
+   263→        
+   264→        html.dark .text-gray-900,
+   265→        html.dark .text-gray-800,
+   266→        html.dark .text-gray-700,
+   267→        html.dark .text-gray-600,
+   268→        html.dark .text-zinc-900,
+   269→        html.dark .text-zinc-800,
+   270→        html.dark .text-zinc-700,
+   271→        html.dark .text-zinc-600,
+   272→        html.dark .text-slate-900,
+   273→        html.dark .text-slate-800,
+   274→        html.dark .text-slate-700,
+   275→        html.dark .text-slate-600,
+   276→        html.dark .text-neutral-900,
+   277→        html.dark .text-neutral-800,
+   278→        html.dark .text-neutral-700,
+   279→        html.dark .text-neutral-600,
+   280→        html.dark .text-stone-900,
+   281→        html.dark .text-stone-800,
+   282→        html.dark .text-stone-700,
+   283→        html.dark .text-stone-600,
+   284→        html.dark .text-black,
+   285→        html.dark .text-emerald-800,
+   286→        html.dark .text-emerald-700,
+   287→        html.dark .text-amber-800,
+   288→        html.dark .text-amber-700,
+   289→        html.dark .text-amber-600,
+   290→        html.dark .text-purple-800,
+   291→        html.dark .text-purple-700,
+   292→        html.dark .text-purple-600,
+   293→        html.dark .text-violet-800,
+   294→        html.dark .text-violet-700,
+   295→        html.dark .text-violet-600,
+   296→        html.dark .text-indigo-800,
+   297→        html.dark .text-indigo-700,
+   298→        html.dark .text-indigo-600,
+   299→        html.dark .text-rose-800,
+   300→        html.dark .text-rose-700,
+   301→        html.dark .text-rose-600 {
+   302→            color: var(--gastro-text-main) !important;
+   303→        }
+   304→
+   305→        html.dark .text-gray-500,
+   306→        html.dark .text-gray-400,
+   307→        html.dark .text-zinc-500,
+   308→        html.dark .text-zinc-400,
+   309→        html.dark .text-slate-500,
+   310→        html.dark .text-slate-400,
+   311→        html.dark .text-neutral-500,
+   312→        html.dark .text-neutral-400,
+   313→        html.dark .text-stone-500,
+   314→        html.dark .text-stone-400 {
+   315→            color: var(--gastro-text-muted) !important;
+   316→        }
+   317→
+   318→        html.dark .border-gray-100,
+   319→        html.dark .border-gray-200,
+   320→        html.dark .border-gray-300,
+   321→        html.dark .border-zinc-100,
+   322→        html.dark .border-zinc-200,
+   323→        html.dark .border-zinc-300,
+   324→        html.dark .border-slate-100,
+   325→        html.dark .border-slate-200,
+   326→        html.dark .border-neutral-100,
+   327→        html.dark .border-neutral-200,
+   328→        html.dark .border-stone-100,
+   329→        html.dark .border-stone-200,
+   330→        html.dark .border-emerald-100,
+   331→        html.dark .border-emerald-200,
+   332→        html.dark .border-amber-100,
+   333→        html.dark .border-amber-200,
+   334→        html.dark .border-amber-300 {
+   335→            border-color: var(--gastro-border) !important;
+   336→        }
+   337→
+   338→        html.dark .divide-y > :not([hidden]) ~ :not([hidden]) {
+   339→            border-color: var(--gastro-border) !important;
+   340→        }
+   341→        html.dark input, html.dark select, html.dark textarea {
+   342→            background-color: var(--gastro-bg-gray) !important;
+   343→            color: var(--gastro-text-main) !important;
+   344→            border-color: var(--gastro-border) !important;
+   345→        }
+   346→        html.dark input::placeholder, html.dark textarea::placeholder {
+   347→            color: var(--gastro-text-muted) !important;
+   348→            opacity: 0.7;
+   349→        }
+   350→        html.dark .popup-card {
+   351→            background-color: var(--gastro-card-bg) !important;
+   352→            border-color: var(--gastro-border) !important;
+   353→        }
+   354→        html.dark .popup-footer {
+   355→            background-color: var(--gastro-bg-gray) !important;
+   356→            border-top-color: var(--gastro-border) !important;
+   357→        }
+   358→
+   359→        /* Left Sidebar - Responsive styling */
+   360→        aside {
+   361→            width: 280px;
+   362→            background-color: var(--gastro-card-bg);
+   363→            border-right: 1px solid var(--gastro-border);
+   364→            height: 100vh;
+   365→            height: 100dvh;
+   366→            position: fixed;
+   367→            left: 0;
+   368→            top: 0;
+   369→            z-index: 50;
+   370→            display: flex;
+   371→            flex-direction: column;
+   372→            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+   373→        }
+   374→        aside nav {
+   375→            overflow-y: auto;
+   376→        }
+   377→
+   378→        /* On mobile/tablet, hide sidebar off-screen by default */
+   379→        @media (max-width: 1023px) {
+   380→            aside {
+   381→                transform: translateX(-100%);
+   382→            }
+   383→            aside.open {
+   384→                transform: translateX(0);
+   385→                box-shadow: 10px 0 25px -5px rgba(0, 0, 0, 0.15);
+   386→            }
+   387→            main {
+   388→                margin-left: 0 !important;
+   389→            }
+   390→            .sidebar-backdrop {
+   391→                display: none;
+   392→                position: fixed;
+   393→                inset: 0;
+   394→                background-color: rgba(0, 0, 0, 0.4);
+   395→                z-index: 45;
+   396→                backdrop-filter: blur(2px);
+   397→            }
+   398→            .sidebar-backdrop.show {
+   399→                display: block;
+   400→            }
+   401→        }
+   402→
+   403→        /* On desktop, keep sidebar fixed and open by default but allow closing */
+   404→        @media (min-width: 1024px) {
+   405→            aside {
+   406→                transform: translateX(0);
+   407→            }
+   408→            aside.closed {
+   409→                transform: translateX(-100%);
+   410→            }
+   411→            main {
+   412→                margin-left: 280px;
+   413→                transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+   414→            }
+   415→            main.sidebar-closed {
+   416→                margin-left: 0 !important;
+   417→            }
+   418→            .sidebar-backdrop {
+   419→                display: none !important;
+   420→            }
+   421→        }
+   422→
+   423→        .profile-card {
+   424→            padding: 1.5rem;
+   425→            background-color: #1f2937;
+   426→            color: white;
+   427→            display: flex;
+   428→            flex-direction: column;
+   429→            align-items: center;
+   430→            text-align: center;
+   431→        }
+   432→
+   433→        .avatar {
+   434→            width: 60px;
+   435→            height: 60px;
+   436→            border-radius: 50%;
+   437→            background-color: var(--gastro-primary);
+   438→            color: white;
+   439→            display: flex;
+   440→            align-items: center;
+   441→            justify-content: center;
+   442→            font-weight: 800;
+   443→            font-size: 1.25rem;
+   444→            margin-bottom: 0.75rem;
+   445→            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+   446→        }
+   447→
+   448→        nav .nav-btn {
+   449→            width: 100%;
+   450→            display: flex;
+   451→            align-items: center;
+   452→            gap: 0.75rem;
+   453→            padding: 0.85rem 1.25rem;
+   454→            color: var(--gastro-text-muted);
+   455→            font-weight: 600;
+   456→            font-size: 0.9rem;
+   457→            border-left: 4px solid transparent;
+   458→            transition: all 0.2s;
+   459→            background: none;
+   460→            border: none;
+   461→            cursor: pointer;
+   462→            text-align: left;
+   463→        }
+   464→
+   465→        nav .nav-btn:hover {
+   466→            background-color: #f3f4f6;
+   467→            color: var(--gastro-text-main);
+   468→        }
+   469→
+   470→        nav .nav-btn.active {
+   471→            background-color: #e6f5e6;
+   472→            color: var(--gastro-primary);
+   473→            border-left-color: var(--gastro-primary);
+   474→        }
+   475→
+   476→        main {
+   477→            margin-left: 280px;
+   478→            min-height: 100vh;
+   479→            display: flex;
+   480→            flex-direction: column;
+   481→        }
+   482→
+   483→        .content-area {
+   484→            padding: 1.5rem;
+   485→            flex: 1;
+   486→            display: flex;
+   487→            flex-direction: column;
+   488→        }
+   489→
+   490→        /* Tab Content Switching */
+   491→        .admin-tab-content {
+   492→            display: none;
+   493→            flex-direction: column;
+   494→            flex: 1;
+   495→        }
+   496→
+   497→        .admin-tab-content.active {
+   498→            display: flex;
+   499→        }
+   500→
+   501→        /* Seating Plan Canvas */
+   502→        .seating-canvas {
+   503→            position: relative;
+   504→            width: 100%;
+   505→            height: 620px;
+   506→            background-color: var(--gastro-card-bg);
+   507→            border: 2px dashed var(--gastro-border);
+   508→            border-radius: 1rem;
+   509→            margin-top: 1rem;
+   510→            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+   511→            overflow: hidden;
+   512→        }
+   513→
+   514→
+   515→        .seating-canvas.view-mode-grouped {
+   516→            position: relative;
+   517→            width: 100%;
+   518→            height: auto !important;
+   519→            background-color: transparent !important;
+   520→            border: none !important;
+   521→            box-shadow: none !important;
+   522→            overflow: visible !important;
+   523→            display: flex;
+   524→            flex-direction: column;
+   525→            gap: 1.5rem;
+   526→            margin-top: 1rem;
+   527→        }
+   528→        .seating-canvas.view-mode-grouped .sitzplan-table {
+   529→            position: static !important;
+   530→            width: 100% !important;
+   531→            height: 90px !important;
+   532→            margin: 0 !important;
+   533→        }
+   534→
+   535→
+   536→        /* Table Tiles */
+   537→        .sitzplan-table {
+   538→            position: absolute;
+   539→            background-color: var(--gastro-card-bg);
+   540→            border: 2px solid var(--gastro-border);
+   541→            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+   542→            display: flex;
+   543→            flex-direction: column;
+   544→            align-items: center;
+   545→            justify-content: center;
+   546→            cursor: pointer;
+   547→            transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+   548→            font-family: 'Outfit', sans-serif;
+   549→            font-weight: 800;
+   550→            color: var(--gastro-text-main);
+   551→            user-select: none;
+   552→        }
+   553→
+   554→        .sitzplan-table:hover {
+   555→            transform: translateY(-2px);
+   556→            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.12);
+   557→        }
+   558→
+   559→        .sitzplan-table.rect {
+   560→            border-radius: 12px;
+   561→        }
+   562→
+   563→        .sitzplan-table.round {
+   564→            border-radius: 50%;
+   565→        }
+   566→
+   567→        /* Prevent double-tap to zoom on interactive elements on mobile */
+   568→        button,
+   569→        input,
+   570→        select,
+   571→        textarea,
+   572→        a,
+   573→        .sitzplan-table,
+   574→        .btn-action,
+   575→        .table-sel-tile {
+   576→            touch-action: manipulation;
+   577→        }
+   578→
+   579→        /* Styling for table selection tiles in the transfer popup */
+   580→        .table-sel-tile {
+   581→            background-color: #1f2937 !important; /* slate-800 */
+   582→            border: 1px solid #374151 !important; /* slate-700 */
+   583→            border-radius: 12px;
+   584→            padding: 12px;
+   585→            text-align: center;
+   586→            cursor: pointer;
+   587→            transition: all 0.2s ease;
+   588→            display: flex;
+   589→            flex-direction: column;
+   590→            align-items: center;
+   591→            justify-content: center;
+   592→            min-height: 80px;
+   593→        }
+   594→
+   595→        .table-sel-tile:hover {
+   596→            background-color: #374151 !important; /* slate-700 */
+   597→            transform: translateY(-2px);
+   598→            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+   599→        }
+   600→
+   601→        .table-sel-tile.busy {
+   602→            border-color: #f59e0b !important; /* amber-500 */
+   603→            background-color: #1e1b15 !important;
+   604→        }
+   605→
+   606→        .table-sel-tile.busy:hover {
+   607→            background-color: #2c2519 !important;
+   608→        }
+   609→
+   610→        .sitzplan-table.status-free {
+   611→            border-color: var(--gastro-border);
+   612→        }
+   613→
+   614→        .sitzplan-table.status-active {
+   615→            border-color: var(--gastro-primary);
+   616→            background-color: rgba(0, 153, 0, 0.08);
+   617→            color: var(--gastro-primary);
+   618→        }
+   619→
+   620→        .sitzplan-table.status-pending {
+   621→            border-color: #ef4444;
+   622→            background-color: rgba(239, 68, 68, 0.08);
+   623→            animation: tableShake 0.4s infinite;
+   624→        }
+   625→
+   626→        .sitzplan-table.status-calling {
+   627→            border-color: #f59e0b !important;
+   628→            background-color: rgba(245, 158, 11, 0.08) !important;
+   629→            color: #d97706 !important;
+   630→            animation: pulseAmber 1.2s infinite alternate;
+   631→        }
+   632→
+   633→        .sitzplan-table.draggable {
+   634→            cursor: move;
+   635→            border-style: dashed !important;
+   636→            border-color: #3b82f6 !important;
+   637→            background-color: rgba(59, 130, 246, 0.05) !important;
+   638→            color: #3b82f6 !important;
+   639→        }
+   640→
+   641→        @keyframes tableShake {
+   642→            0%, 100% { transform: rotate(0deg); }
+   643→            25% { transform: rotate(-1deg) translateY(-1px); }
+   644→            75% { transform: rotate(1deg) translateY(1px); }
+   645→        }
+   646→
+   647→        @keyframes pulseAmber {
+   648→            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); border-color: #f59e0b; }
+   649→            100% { box-shadow: 0 0 12px 6px rgba(245, 158, 11, 0.1); border-color: #d97706; }
+   650→        }
+   651→
+   652→        /* Service Alerts */
+   653→        .call-bar {
+   654→            display: flex;
+   655→            align-items: center;
+   656→            justify-content: space-between;
+   657→            background-color: rgba(239, 68, 68, 0.08);
+   658→            border: 1px solid rgba(252, 165, 165, 0.3);
+   659→            padding: 0.75rem 1rem;
+   660→            border-radius: 0.75rem;
+   661→            margin-bottom: 0.75rem;
+   662→            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+   663→            animation: pulseBg 1.5s infinite;
+   664→        }
+   665→
+   666→        @keyframes pulseBg {
+   667→            0%, 100% { opacity: 0.95; }
+   668→            50% { opacity: 1; transform: scale(1.005); }
+   669→        }
+   670→
+   671→        /* Overlay Backdrop Modals */
+   672→        .overlay-backdrop {
+   673→            position: fixed;
+   674→            inset: 0;
+   675→            background-color: rgba(0, 0, 0, 0.4);
+   676→            backdrop-filter: blur(4px);
+   677→            display: flex;
+   678→            align-items: center;
+   679→            justify-content: center;
+   680→            z-index: 50;
+   681→            padding: 1rem;
+   682→        }
+   683→
+   684→        .popup-card {
+   685→            background-color: #ffffff;
+   686→            border-radius: 1.5rem;
+   687→            width: 100%;
+   688→            max-width: 480px;
+   689→            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+   690→            overflow: hidden;
+   691→            border: 1px solid #e5e7eb;
+   692→        }
+   693→
+   694→        .popup-header {
+   695→            background: linear-gradient(135deg, #1f2937, #111827);
+   696→            padding: 1.25rem 1.5rem;
+   697→            display: flex;
+   698→            justify-content: space-between;
+   699→            align-items: center;
+   700→        }
+   701→
+   702→        .popup-body {
+   703→            padding: 1.5rem;
+   704→            max-height: 60vh;
+   705→            overflow-y: auto;
+   706→        }
+   707→
+   708→        .popup-footer {
+   709→            background-color: #f9fafb;
+   710→            border-top: 1px solid #e5e7eb;
+   711→            padding: 1rem 1.5rem;
+   712→        }
+   713→
+   714→        /* Toast element */
+   715→        .toast {
+   716→            position: fixed;
+   717→            bottom: 24px;
+   718→            right: 24px;
+   719→            padding: 12px 24px;
+   720→            border-radius: 12px;
+   721→            color: white;
+   722→            font-weight: 700;
+   723→            font-size: 14px;
+   724→            z-index: 1000;
+   725→            opacity: 0;
+   726→            transform: translateY(20px);
+   727→            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+   728→            pointer-events: none;
+   729→            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+   730→        }
+   731→
+   732→        .toast.show {
+   733→            opacity: 1;
+   734→            transform: translateY(0);
+   735→        }
+   736→
+   737→        .toast-success { background-color: #10b981; }
+   738→        .toast-error { background-color: #ef4444; }
+   739→
+   740→        @media (max-width: 640px) {
+   741→            .overlay-backdrop {
+   742→                align-items: flex-end;
+   743→                padding: 0;
+   744→            }
+   745→            .popup-card {
+   746→                max-width: 100% !important;
+   747→                border-bottom-left-radius: 0 !important;
+   748→                border-bottom-right-radius: 0 !important;
+   749→                border-top-left-radius: 1.5rem !important;
+   750→                border-top-right-radius: 1.5rem !important;
+   751→                margin: 0;
+   752→                max-height: 90vh;
+   753→                display: flex;
+   754→                flex-direction: column;
+   755→            }
+   756→            .popup-body {
+   757→                max-height: 70vh !important;
+   758→                overflow-y: auto !important;
+   759→            }
+   760→        }
+   761→
+   762→        /* Config Sub-tab styles */
+   763→        .config-subtab-btn {
+   764→            display: flex;
+   765→            align-items: center;
+   766→            gap: 0.4rem;
+   767→            padding: 0.55rem 1rem;
+   768→            border-radius: 0.75rem;
+   769→            font-size: 0.75rem;
+   770→            font-weight: 700;
+   771→            border: 1px solid var(--gastro-border);
+   772→            background: var(--gastro-card-bg);
+   773→            color: var(--gastro-text-muted);
+   774→            cursor: pointer;
+   775→            transition: all 0.2s;
+   776→        }
+   777→        .config-subtab-btn:hover {
+   778→            background-color: #f3f4f6;
+   779→            color: var(--gastro-text-main);
+   780→        }
+   781→        html.dark .config-subtab-btn:hover {
+   782→            background-color: #27272a;
+   783→        }
+   784→        .config-subtab-btn.active {
+   785→            background-color: #e6f5e6;
+   786→            color: var(--gastro-primary);
+   787→            border-color: var(--gastro-primary);
+   788→        }
+   789→        html.dark .config-subtab-btn.active {
+   790→            background-color: rgba(0, 153, 0, 0.15);
+   791→            color: #22c55e;
+   792→            border-color: #22c55e;
+   793→        }
+   794→        .config-tab-content {
+   795→            display: none;
+   796→        }
+   797→        .config-tab-content.active {
+   798→            display: block;
+   799→        }
+   800→
+   801→        /* Remove annoying browser-native icons from form fields */
+   802→        input[type="text"]::-webkit-search-cancel-button,
+   803→        input[type="search"]::-webkit-search-cancel-button,
+   804→        input[type="number"]::-webkit-inner-spin-button,
+   805→        input[type="number"]::-webkit-outer-spin-button,
+   806→        input[type="date"]::-webkit-calendar-picker-indicator,
+   807→        input[type="time"]::-webkit-calendar-picker-indicator {
+   808→            -webkit-appearance: none;
+   809→            appearance: none;
+   810→            display: none !important;
+   811→            margin: 0;
+   812→            padding: 0;
+   813→        }
+   814→        input[type="number"] {
+   815→            -moz-appearance: textfield;
+   816→        }
+   817→
+   818→        /* ===== PREMIUM DASHBOARD ENHANCEMENTS ===== */
+   819→
+   820→        /* Sidebar enhancements */
+   821→        .sidebar-header {
+   822→            padding: 1rem 1.25rem;
+   823→            border-bottom: 1px solid var(--gastro-border);
+   824→            display: flex;
+   825→            align-items: center;
+   826→            justify-content: center;
+   827→        }
+   828→
+   829→        .profile-card {
+   830→            padding: 1.25rem 1.25rem 1rem;
+   831→            background: linear-gradient(145deg, #1f2937, #111827);
+   832→            color: white;
+   833→            display: flex;
+   834→            flex-direction: column;
+   835→            align-items: center;
+   836→            text-align: center;
+   837→            position: relative;
+   838→            overflow: hidden;
+   839→        }
+   840→        .profile-card::after {
+   841→            content: '';
+   842→            position: absolute;
+   843→            bottom: 0;
+   844→            left: 50%;
+   845→            transform: translateX(-50%);
+   846→            width: 3rem;
+   847→            height: 3px;
+   848→            border-radius: 3px;
+   849→            background: var(--gastro-primary);
+   850→            opacity: 0.6;
+   851→        }
+   852→
+   853→        .avatar {
+   854→            width: 52px;
+   855→            height: 52px;
+   856→            border-radius: 16px;
+   857→            background-color: var(--gastro-primary);
+   858→            color: white;
+   859→            display: flex;
+   860→            align-items: center;
+   861→            justify-content: center;
+   862→            font-weight: 800;
+   863→            font-size: 1.1rem;
+   864→            margin-bottom: 0.625rem;
+   865→            box-shadow: 0 4px 12px rgba(0, 153, 0, 0.25);
+   866→            transition: transform 0.2s, box-shadow 0.2s;
+   867→        }
+   868→        .avatar:hover {
+   869→            transform: scale(1.05);
+   870→            box-shadow: 0 6px 16px rgba(0, 153, 0, 0.35);
+   871→        }
+   872→
+   873→        .nav-group-label {
+   874→            padding: 0.5rem 1.25rem 0.25rem;
+   875→            font-size: 0.625rem;
+   876→            font-weight: 800;
+   877→            text-transform: uppercase;
+   878→            letter-spacing: 0.1em;
+   879→            color: var(--gastro-text-muted);
+   880→            opacity: 0.6;
+   881→        }
+   882→
+   883→        .nav-divider {
+   884→            height: 1px;
+   885→            background-color: var(--gastro-border);
+   886→            margin: 0.5rem 1.25rem;
+   887→        }
+   888→
+   889→        nav .nav-btn {
+   890→            width: 100%;
+   891→            display: flex;
+   892→            align-items: center;
+   893→            gap: 0.75rem;
+   894→            padding: 0.7rem 1.25rem;
+   895→            color: var(--gastro-text-muted);
+   896→            font-weight: 600;
+   897→            font-size: 0.85rem;
+   898→            border-left: 3px solid transparent;
+   899→            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+   900→            background: none;
+   901→            border-top: none;
+   902→            border-right: none;
+   903→            border-bottom: none;
+   904→            cursor: pointer;
+   905→            text-align: left;
+   906→            border-radius: 0;
+   907→            position: relative;
+   908→        }
+   909→
+   910→        nav .nav-btn:hover {
+   911→            background-color: rgba(0, 153, 0, 0.04);
+   912→            color: var(--gastro-text-main);
+   913→            padding-left: 1.5rem;
+   914→        }
+   915→        html.dark nav .nav-btn:hover {
+   916→            background-color: rgba(34, 197, 94, 0.06);
+   917→        }
+   918→
+   919→        nav .nav-btn.active {
+   920→            background: linear-gradient(90deg, rgba(0, 153, 0, 0.08), rgba(0, 153, 0, 0.02));
+   921→            color: var(--gastro-primary);
+   922→            border-left-color: var(--gastro-primary);
+   923→            font-weight: 700;
+   924→        }
+   925→        html.dark nav .nav-btn.active {
+   926→            background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03));
+   927→            color: #22c55e;
+   928→            border-left-color: #22c55e;
+   929→        }
+   930→
+   931→        nav .nav-btn .material-symbols-outlined {
+   932→            font-size: 20px;
+   933→            transition: transform 0.2s;
+   934→        }
+   935→        nav .nav-btn:hover .material-symbols-outlined {
+   936→            transform: scale(1.1);
+   937→        }
+   938→
+   939→        .sidebar-logout {
+   940→            padding: 0.75rem 1.25rem;
+   941→            border-top: 1px solid var(--gastro-border);
+   942→        }
+   943→        .sidebar-logout a {
+   944→            display: flex;
+   945→            align-items: center;
+   946→            gap: 0.5rem;
+   947→            color: #ef4444;
+   948→            font-weight: 700;
+   949→            font-size: 0.8rem;
+   950→            padding: 0.5rem 0.75rem;
+   951→            border-radius: 0.75rem;
+   952→            transition: all 0.2s;
+   953→        }
+   954→        .sidebar-logout a:hover {
+   955→            background-color: rgba(239, 68, 68, 0.08);
+   956→        }
+   957→        html.dark .sidebar-logout a:hover {
+   958→            background-color: rgba(239, 68, 68, 0.12);
+   959→        }
+   960→
+   961→        /* Header enhancements */
+   962→        .dash-header {
+   963→            padding: 0.875rem 1.5rem;
+   964→            background-color: var(--gastro-card-bg);
+   965→            border-bottom: 1px solid var(--gastro-border);
+   966→            display: flex;
+   967→            align-items: center;
+   968→            justify-content: space-between;
+   969→            position: sticky;
+   970→            top: 0;
+   971→            z-index: 40;
+   972→            backdrop-filter: blur(12px);
+   973→            background-color: rgba(255, 255, 255, 0.85);
+   974→        }
+   975→        html.dark .dash-header {
+   976→            background-color: rgba(24, 24, 27, 0.85);
+   977→        }
+   978→
+   979→        .breadcrumb-sep {
+   980→            color: var(--gastro-text-muted);
+   981→            opacity: 0.4;
+   982→            margin: 0 0.25rem;
+   983→        }
+   984→
+   985→        .hamburger-btn {
+   986→            display: none;
+   987→            padding: 0.5rem;
+   988→            border-radius: 0.75rem;
+   989→            border: 1px solid var(--gastro-border);
+   990→            background: var(--gastro-card-bg);
+   991→            color: var(--gastro-text-muted);
+   992→            cursor: pointer;
+   993→            transition: all 0.2s;
+   994→            align-items: center;
+   995→            justify-content: center;
+   996→        }
+   997→        .hamburger-btn:hover {
+   998→            background-color: rgba(0, 153, 0, 0.06);
+   999→            color: var(--gastro-primary);
+  1000→            border-color: var(--gastro-primary);
+  1001→        }
+  1002→        @media (max-width: 1023px) {
+  1003→            .hamburger-btn { display: flex; }
+  1004→        }
+  1005→
+  1006→        .live-badge {
+  1007→            display: inline-flex;
+  1008→            align-items: center;
+  1009→            gap: 0.375rem;
+  1010→            background-color: rgba(16, 185, 129, 0.08);
+  1011→            color: #059669;
+  1012→            font-size: 0.7rem;
+  1013→            font-weight: 800;
+  1014→            padding: 0.375rem 0.75rem;
+  1015→            border-radius: 9999px;
+  1016→            border: 1px solid rgba(16, 185, 129, 0.2);
+  1017→            letter-spacing: 0.02em;
+  1018→        }
+  1019→        html.dark .live-badge {
+  1020→            background-color: rgba(16, 185, 129, 0.12);
+  1021→            color: #34d399;
+  1022→            border-color: rgba(16, 185, 129, 0.25);
+  1023→        }
+  1024→        .live-badge .dot {
+  1025→            width: 6px;
+  1026→            height: 6px;
+  1027→            border-radius: 50%;
+  1028→            background-color: #10b981;
+  1029→            animation: livePulse 2s infinite;
+  1030→        }
+  1031→        @keyframes livePulse {
+  1032→            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  1033→            50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+  1034→        }
+  1035→
+  1036→        /* Stat card enhancements */
+  1037→        .stat-card {
+  1038→            background-color: var(--gastro-card-bg);
+  1039→            border: 1px solid var(--gastro-border);
+  1040→            border-radius: 1rem;
+  1041→            padding: 1.25rem;
+  1042→            position: relative;
+  1043→            overflow: hidden;
+  1044→            transition: transform 0.2s, box-shadow 0.2s;
+  1045→        }
+  1046→        .stat-card:hover {
+  1047→            transform: translateY(-2px);
+  1048→            box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.1);
+  1049→        }
+  1050→        .stat-card .stat-icon {
+  1051→            width: 36px;
+  1052→            height: 36px;
+  1053→            border-radius: 10px;
+  1054→            display: flex;
+  1055→            align-items: center;
+  1056→            justify-content: center;
+  1057→            margin-bottom: 0.75rem;
+  1058→        }
+  1059→        .stat-card .stat-icon .material-symbols-outlined {
+  1060→            font-size: 18px;
+  1061→        }
+  1062→        .stat-card .stat-label {
+  1063→            font-size: 0.625rem;
+  1064→            font-weight: 800;
+  1065→            text-transform: uppercase;
+  1066→            letter-spacing: 0.06em;
+  1067→            color: var(--gastro-text-muted);
+  1068→            margin-bottom: 0.25rem;
+  1069→        }
+  1070→        .stat-card .stat-value {
+  1071→            font-size: 1.5rem;
+  1072→            font-weight: 900;
+  1073→            color: var(--gastro-text-main);
+  1074→            font-family: 'Inter', monospace;
+  1075→            line-height: 1.2;
+  1076→        }
+  1077→        .stat-card .stat-sub {
+  1078→            font-size: 0.6rem;
+  1079→            color: var(--gastro-text-muted);
+  1080→            margin-top: 0.375rem;
+  1081→            line-height: 1.4;
+  1082→        }
+  1083→        .stat-card::before {
+  1084→            content: '';
+  1085→            position: absolute;
+  1086→            top: 0;
+  1087→            right: 0;
+  1088→            width: 80px;
+  1089→            height: 80px;
+  1090→            border-radius: 50%;
+  1091→            opacity: 0.04;
+  1092→            transform: translate(20px, -20px);
+  1093→        }
+  1094→        .stat-card.stat-revenue::before { background: var(--gastro-primary); }
+  1095→        .stat-card.stat-orders::before { background: #3b82f6; }
+  1096→        .stat-card.stat-avg::before { background: #8b5cf6; }
+  1097→
+  1098→        /* Section card enhancements */
+  1099→        .section-card {
+  1100→            background-color: var(--gastro-card-bg);
+  1101→            border: 1px solid var(--gastro-border);
+  1102→            border-radius: 1rem;
+  1103→            overflow: hidden;
+  1104→            transition: box-shadow 0.2s;
+  1105→        }
+  1106→        .section-card:hover {
+  1107→            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+  1108→        }
+  1109→        .section-card-header {
+  1110→            padding: 1rem 1.25rem;
+  1111→            border-bottom: 1px solid var(--gastro-border);
+  1112→            display: flex;
+  1113→            align-items: center;
+  1114→            justify-content: space-between;
+  1115→            gap: 1rem;
+  1116→        }
+  1117→        .section-card-body {
+  1118→            padding: 1.25rem;
+  1119→        }
+  1120→
+  1121→        /* Enhanced table styling */
+  1122→        .dash-table {
+  1123→            width: 100%;
+  1124→            text-align: left;
+  1125→            border-collapse: collapse;
+  1126→            font-size: 0.75rem;
+  1127→        }
+  1128→        .dash-table thead tr {
+  1129→            background: linear-gradient(135deg, #1f2937, #111827);
+  1130→        }
+  1131→        .dash-table thead th {
+  1132→            padding: 0.875rem 1rem;
+  1133→            color: white;
+  1134→            font-weight: 800;
+  1135→            font-size: 0.625rem;
+  1136→            text-transform: uppercase;
+  1137→            letter-spacing: 0.06em;
+  1138→        }
+  1139→        .dash-table tbody tr {
+  1140→            transition: background-color 0.15s;
+  1141→        }
+  1142→        .dash-table tbody tr:hover {
+  1143→            background-color: rgba(0, 153, 0, 0.03);
+  1144→        }
+  1145→        .dash-table tbody td {
+  1146→            padding: 0.875rem 1rem;
+  1147→        }
+  1148→
+  1149→        /* Product card enhancement */
+  1150→        .product-item {
+  1151→            display: flex;
+  1152→            align-items: center;
+  1153→            justify-content: space-between;
+  1154→            padding: 0.75rem;
+  1155→            background: var(--gastro-bg-gray);
+  1156→            border: 1px solid var(--gastro-border);
+  1157→            border-radius: 0.75rem;
+  1158→            transition: all 0.2s;
+  1159→        }
+  1160→        .product-item:hover {
+  1161→            border-color: var(--gastro-primary);
+  1162→            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.12);
+  1163→        }
+  1164→
+  1165→        /* Staff member row enhancement */
+  1166→        .staff-row {
+  1167→            display: flex;
+  1168→            align-items: center;
+  1169→            justify-content: space-between;
+  1170→            padding: 0.625rem 0;
+  1171→            transition: background-color 0.15s;
+  1172→        }
+  1173→        .staff-row:not(:last-child) {
+  1174→            border-bottom: 1px solid var(--gastro-border);
+  1175→        }
+  1176→        .staff-avatar {
+  1177→            width: 32px;
+  1178→            height: 32px;
+  1179→            border-radius: 10px;
+  1180→            background: linear-gradient(135deg, var(--gastro-primary), #065f06);
+  1181→            color: white;
+  1182→            display: flex;
+  1183→            align-items: center;
+  1184→            justify-content: center;
+  1185→            font-weight: 800;
+  1186→            font-size: 0.7rem;
+  1187→            flex-shrink: 0;
+  1188→        }
+  1189→
+  1190→        /* Config sub-tab enhancements */
+  1191→        .config-subtab-btn {
+  1192→            display: inline-flex;
+  1193→            align-items: center;
+  1194→            gap: 0.375rem;
+  1195→            padding: 0.5rem 0.875rem;
+  1196→            border-radius: 0.625rem;
+  1197→            font-size: 0.7rem;
+  1198→            font-weight: 700;
+  1199→            border: 1px solid var(--gastro-border);
+  1200→            background: var(--gastro-card-bg);
+  1201→            color: var(--gastro-text-muted);
+  1202→            cursor: pointer;
+  1203→            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  1204→            white-space: nowrap;
+  1205→        }
+  1206→        .config-subtab-btn:hover {
+  1207→            background-color: rgba(0, 153, 0, 0.04);
+  1208→            color: var(--gastro-text-main);
+  1209→            border-color: rgba(0, 153, 0, 0.2);
+  1210→            transform: translateY(-1px);
+  1211→        }
+  1212→        html.dark .config-subtab-btn:hover {
+  1213→            background-color: rgba(34, 197, 94, 0.06);
+  1214→            border-color: rgba(34, 197, 94, 0.2);
+  1215→        }
+  1216→        .config-subtab-btn.active {
+  1217→            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+  1218→            color: var(--gastro-primary);
+  1219→            border-color: var(--gastro-primary);
+  1220→            font-weight: 800;
+  1221→            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.2);
+  1222→        }
+  1223→        html.dark .config-subtab-btn.active {
+  1224→            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  1225→            color: #22c55e;
+  1226→            border-color: #22c55e;
+  1227→            box-shadow: 0 2px 8px -2px rgba(34, 197, 94, 0.2);
+  1228→        }
+  1229→
+  1230→        /* Form field enhancements */
+  1231→        .form-field {
+  1232→            width: 100%;
+  1233→            background: var(--gastro-bg-gray);
+  1234→            border: 1px solid var(--gastro-border);
+  1235→            border-radius: 0.75rem;
+  1236→            padding: 0.5rem 0.75rem;
+  1237→            font-size: 0.75rem;
+  1238→            transition: border-color 0.2s, box-shadow 0.2s;
+  1239→            color: var(--gastro-text-main);
+  1240→        }
+  1241→        .form-field:focus {
+  1242→            border-color: var(--gastro-primary);
+  1243→            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+  1244→            outline: none;
+  1245→        }
+  1246→        html.dark .form-field:focus {
+  1247→            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  1248→        }
+  1249→
+  1250→        .form-label {
+  1251→            display: block;
+  1252→            font-size: 0.625rem;
+  1253→            font-weight: 800;
+  1254→            text-transform: uppercase;
+  1255→            letter-spacing: 0.04em;
+  1256→            color: var(--gastro-text-muted);
+  1257→            margin-bottom: 0.25rem;
+  1258→        }
+  1259→
+  1260→        .btn-primary {
+  1261→            background: var(--gastro-primary);
+  1262→            color: white;
+  1263→            font-weight: 700;
+  1264→            font-size: 0.75rem;
+  1265→            padding: 0.625rem 1rem;
+  1266→            border-radius: 0.75rem;
+  1267→            transition: all 0.2s;
+  1268→            border: none;
+  1269→            cursor: pointer;
+  1270→            box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.3);
+  1271→        }
+  1272→        .btn-primary:hover {
+  1273→            background: var(--gastro-primary-hover);
+  1274→            box-shadow: 0 4px 12px -2px rgba(0, 153, 0, 0.35);
+  1275→            transform: translateY(-1px);
+  1276→        }
+  1277→
+  1278→        .btn-secondary {
+  1279→            background: #1f2937;
+  1280→            color: white;
+  1281→            font-weight: 700;
+  1282→            font-size: 0.75rem;
+  1283→            padding: 0.625rem 1rem;
+  1284→            border-radius: 0.75rem;
+  1285→            transition: all 0.2s;
+  1286→            border: none;
+  1287→            cursor: pointer;
+  1288→        }
+  1289→        .btn-secondary:hover {
+  1290→            background: #374151;
+  1291→            transform: translateY(-1px);
+  1292→        }
+  1293→
+  1294→        /* Category card in sidebar */
+  1295→        .cat-chip {
+  1296→            display: inline-flex;
+  1297→            align-items: center;
+  1298→            gap: 0.375rem;
+  1299→            background: var(--gastro-bg-gray);
+  1300→            border: 1px solid var(--gastro-border);
+  1301→            padding: 0.375rem 0.75rem;
+  1302→            border-radius: 0.75rem;
+  1303→            font-weight: 600;
+  1304→            font-size: 0.7rem;
+  1305→            transition: all 0.2s;
+  1306→        }
+  1307→        .cat-chip:hover {
+  1308→            border-color: var(--gastro-primary);
+  1309→        }
+  1310→
+  1311→        /* Responsive stat cards */
+  1312→        @media (max-width: 640px) {
+  1313→            .stat-card .stat-value {
+  1314→                font-size: 1.25rem;
+  1315→            }
+  1316→            .stat-card {
+  1317→                padding: 1rem;
+  1318→            }
+  1319→        }
+  1320→
+  1321→        /* ===== LIVE NOTIFICATION BAR ===== */
+  1322→        .live-notification-bar {
+  1323→            position: sticky;
+  1324→            top: 52px;
+  1325→            z-index: 39;
+  1326→            background: transparent;
+  1327→            padding: 0;
+  1328→            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  1329→        }
+  1330→        .live-notification-bar:empty {
+  1331→            display: none;
+  1332→        }
+  1333→        .live-notification-bar.has-items {
+  1334→            padding: 0.5rem 1.5rem;
+  1335→        }
+  1336→
+  1337→        .notif-card {
+  1338→            display: flex;
+  1339→            align-items: stretch;
+  1340→            border-radius: 0.875rem;
+  1341→            overflow: hidden;
+  1342→            margin-bottom: 0.5rem;
+  1343→            box-shadow: 0 4px 12px -2px rgba(0,0,0,0.15);
+  1344→            animation: notifSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  1345→            transition: all 0.3s;
+  1346→        }
+  1347→        .notif-card:last-child {
+  1348→            margin-bottom: 0;
+  1349→        }
+  1350→        .notif-card.notif-order {
+  1351→            border: 2px solid #3b82f6;
+  1352→        }
+  1353→        .notif-card.notif-service {
+  1354→            border: 2px solid #f59e0b;
+  1355→        }
+  1356→        html.dark .notif-card.notif-order {
+  1357→            border-color: #60a5fa;
+  1358→        }
+  1359→        html.dark .notif-card.notif-service {
+  1360→            border-color: #fbbf24;
+  1361→        }
+  1362→
+  1363→        .notif-accent {
+  1364→            width: 6px;
+  1365→            flex-shrink: 0;
+  1366→        }
+  1367→        .notif-order .notif-accent {
+  1368→            background: linear-gradient(180deg, #3b82f6, #2563eb);
+  1369→        }
+  1370→        .notif-service .notif-accent {
+  1371→            background: linear-gradient(180deg, #f59e0b, #d97706);
+  1372→        }
+  1373→
+  1374→        .notif-body {
+  1375→            flex: 1;
+  1376→            min-width: 0;
+  1377→            padding: 0.75rem 1rem;
+  1378→            background: var(--gastro-card-bg);
+  1379→        }
+  1380→        .notif-header {
+  1381→            display: flex;
+  1382→            align-items: center;
+  1383→            justify-content: space-between;
+  1384→            gap: 0.75rem;
+  1385→            margin-bottom: 0.5rem;
+  1386→        }
+  1387→        .notif-title {
+  1388→            font-size: 0.75rem;
+  1389→            font-weight: 900;
+  1390→            display: flex;
+  1391→            align-items: center;
+  1392→            gap: 0.375rem;
+  1393→            white-space: nowrap;
+  1394→        }
+  1395→        .notif-order .notif-title {
+  1396→            color: #3b82f6;
+  1397→        }
+  1398→        .notif-service .notif-title {
+  1399→            color: #f59e0b;
+  1400→        }
+  1401→        html.dark .notif-order .notif-title {
+  1402→            color: #60a5fa;
+  1403→        }
+  1404→        html.dark .notif-service .notif-title {
+  1405→            color: #fbbf24;
+  1406→        }
+  1407→        .notif-badge {
+  1408→            display: inline-flex;
+  1409→            align-items: center;
+  1410→            gap: 0.25rem;
+  1411→            font-size: 0.6rem;
+  1412→            font-weight: 800;
+  1413→            padding: 0.125rem 0.5rem;
+  1414→            border-radius: 9999px;
+  1415→            letter-spacing: 0.03em;
+  1416→            white-space: nowrap;
+  1417→        }
+  1418→        .notif-badge.badge-new {
+  1419→            background: rgba(239, 68, 68, 0.1);
+  1420→            color: #ef4444;
+  1421→            border: 1px solid rgba(239, 68, 68, 0.25);
+  1422→            animation: notifPulse 1.5s infinite;
+  1423→        }
+  1424→        .notif-badge.badge-items {
+  1425→            background: rgba(59, 130, 246, 0.08);
+  1426→            color: #3b82f6;
+  1427→            border: 1px solid rgba(59, 130, 246, 0.15);
+  1428→        }
+  1429→        html.dark .notif-badge.badge-items {
+  1430→            background: rgba(96, 165, 250, 0.1);
+  1431→            color: #60a5fa;
+  1432→            border-color: rgba(96, 165, 250, 0.2);
+  1433→        }
+  1434→
+  1435→        .notif-items {
+  1436→            display: flex;
+  1437→            flex-wrap: wrap;
+  1438→            gap: 0.375rem;
+  1439→        }
+  1440→        .notif-item {
+  1441→            display: inline-flex;
+  1442→            align-items: center;
+  1443→            gap: 0.25rem;
+  1444→            padding: 0.25rem 0.5rem;
+  1445→            border-radius: 0.5rem;
+  1446→            font-size: 0.65rem;
+  1447→            font-weight: 700;
+  1448→            background: var(--gastro-bg-gray);
+  1449→            border: 1px solid var(--gastro-border);
+  1450→            transition: all 0.2s;
+  1451→            cursor: default;
+  1452→        }
+  1453→        .notif-item.item-served {
+  1454→            opacity: 0.4;
+  1455→            text-decoration: line-through;
+  1456→        }
+  1457→        .notif-item .item-qty {
+  1458→            font-weight: 900;
+  1459→            color: var(--gastro-text-muted);
+  1460→            font-size: 0.6rem;
+  1461→        }
+  1462→        .notif-item .item-name {
+  1463→            max-width: 120px;
+  1464→            overflow: hidden;
+  1465→            text-overflow: ellipsis;
+  1466→            white-space: nowrap;
+  1467→        }
+  1468→        .notif-item .btn-serve-item {
+  1469→            display: inline-flex;
+  1470→            align-items: center;
+  1471→            justify-content: center;
+  1472→            width: 18px;
+  1473→            height: 18px;
+  1474→            border-radius: 4px;
+  1475→            background: var(--gastro-primary);
+  1476→            color: white;
+  1477→            border: none;
+  1478→            cursor: pointer;
+  1479→            font-size: 10px;
+  1480→            font-weight: 900;
+  1481→            transition: all 0.15s;
+  1482→            flex-shrink: 0;
+  1483→            padding: 0;
+  1484→            line-height: 1;
+  1485→        }
+  1486→        .notif-item .btn-serve-item:hover {
+  1487→            transform: scale(1.15);
+  1488→            box-shadow: 0 2px 6px rgba(0, 153, 0, 0.3);
+  1489→        }
+  1490→        .notif-item.item-served .btn-serve-item {
+  1491→            background: #9ca3af;
+  1492→            pointer-events: none;
+  1493→        }
+  1494→
+  1495→        .notif-actions {
+  1496→            display: flex;
+  1497→            align-items: center;
+  1498→            gap: 0.375rem;
+  1499→            flex-shrink: 0;
+  1500→            padding: 0.5rem 0.75rem;
+  1501→            background: var(--gastro-card-bg);
+  1502→            border-left: 1px solid var(--gastro-border);
+  1503→        }
+  1504→        .notif-btn {
+  1505→            padding: 0.375rem 0.75rem;
+  1506→            border-radius: 0.625rem;
+  1507→            font-size: 0.65rem;
+  1508→            font-weight: 800;
+  1509→            border: none;
+  1510→            cursor: pointer;
+  1511→            transition: all 0.2s;
+  1512→            display: inline-flex;
+  1513→            align-items: center;
+  1514→            gap: 0.25rem;
+  1515→            white-space: nowrap;
+  1516→        }
+  1517→        .notif-btn-serve-all {
+  1518→            background: var(--gastro-primary);
+  1519→            color: white;
+  1520→            box-shadow: 0 2px 6px rgba(0, 153, 0, 0.2);
+  1521→        }
+  1522→        .notif-btn-serve-all:hover {
+  1523→            background: var(--gastro-primary-hover);
+  1524→            transform: translateY(-1px);
+  1525→            box-shadow: 0 4px 10px rgba(0, 153, 0, 0.3);
+  1526→        }
+  1527→        .notif-btn-done {
+  1528→            background: #ef4444;
+  1529→            color: white;
+  1530→            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+  1531→        }
+  1532→        .notif-btn-done:hover {
+  1533→            background: #dc2626;
+  1534→            transform: translateY(-1px);
+  1535→        }
+  1536→        .notif-btn-details {
+  1537→            background: var(--gastro-bg-gray);
+  1538→            color: var(--gastro-text-muted);
+  1539→            border: 1px solid var(--gastro-border);
+  1540→        }
+  1541→        .notif-btn-details:hover {
+  1542→            color: var(--gastro-text-main);
+  1543→            border-color: var(--gastro-primary);
+  1544→        }
+  1545→
+  1546→        @keyframes notifSlideIn {
+  1547→            from { opacity: 0; transform: translateY(-12px); }
+  1548→            to { opacity: 1; transform: translateY(0); }
+  1549→        }
+  1550→        @keyframes notifPulse {
+  1551→            0%, 100% { opacity: 1; }
+  1552→            50% { opacity: 0.6; }
+  1553→        }
+  1554→
+  1555→        @media (max-width: 640px) {
+  1556→            .live-notification-bar.has-items {
+  1557→                padding: 0.375rem 0.75rem;
+  1558→            }
+  1559→            .notif-card {
+  1560→                flex-direction: column;
+  1561→            }
+  1562→            .notif-actions {
+  1563→                border-left: none;
+  1564→                border-top: 1px solid var(--gastro-border);
+  1565→                padding: 0.5rem;
+  1566→                justify-content: flex-end;
+  1567→            }
+  1568→            .notif-items {
+  1569→                gap: 0.25rem;
+  1570→            }
+  1571→            .notif-item .item-name {
+  1572→                max-width: 80px;
+  1573→            }
+  1574→        }
+  1575→
+  1576→        /* ===== ORDERS FILTER BAR ===== */
+  1577→        .orders-filter-bar {
+  1578→            padding: 1rem 1.25rem;
+  1579→            border-top: 1px solid var(--gastro-border);
+  1580→            display: flex;
+  1581→            flex-direction: column;
+  1582→            gap: 0.75rem;
+  1583→        }
+  1584→        .orders-search-wrap {
+  1585→            position: relative;
+  1586→            max-width: 320px;
+  1587→        }
+  1588→        .orders-search-icon {
+  1589→            position: absolute;
+  1590→            left: 0.75rem;
+  1591→            top: 50%;
+  1592→            transform: translateY(-50%);
+  1593→            font-size: 16px;
+  1594→            color: var(--gastro-text-muted);
+  1595→            pointer-events: none;
+  1596→        }
+  1597→        .orders-search-input {
+  1598→            width: 100%;
+  1599→            padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  1600→            font-size: 0.75rem;
+  1601→            font-weight: 600;
+  1602→            border: 1px solid var(--gastro-border);
+  1603→            border-radius: 0.625rem;
+  1604→            background: var(--gastro-bg-gray);
+  1605→            color: var(--gastro-text-main);
+  1606→            transition: border-color 0.2s, box-shadow 0.2s;
+  1607→        }
+  1608→        .orders-search-input:focus {
+  1609→            outline: none;
+  1610→            border-color: var(--gastro-primary);
+  1611→            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+  1612→        }
+  1613→        html.dark .orders-search-input:focus {
+  1614→            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  1615→        }
+  1616→        .orders-filter-group {
+  1617→            display: flex;
+  1618→            align-items: center;
+  1619→            gap: 0.5rem;
+  1620→            flex-wrap: wrap;
+  1621→        }
+  1622→        .orders-filter-label {
+  1623→            font-size: 0.6rem;
+  1624→            font-weight: 800;
+  1625→            text-transform: uppercase;
+  1626→            letter-spacing: 0.05em;
+  1627→            color: var(--gastro-text-muted);
+  1628→            min-width: 50px;
+  1629→        }
+  1630→        .orders-filter-btns {
+  1631→            display: flex;
+  1632→            gap: 0.25rem;
+  1633→            flex-wrap: wrap;
+  1634→        }
+  1635→        .orders-filter-btn {
+  1636→            padding: 0.35rem 0.75rem;
+  1637→            border-radius: 0.5rem;
+  1638→            font-size: 0.65rem;
+  1639→            font-weight: 700;
+  1640→            border: 1px solid var(--gastro-border);
+  1641→            background: var(--gastro-card-bg);
+  1642→            color: var(--gastro-text-muted);
+  1643→            cursor: pointer;
+  1644→            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  1645→            white-space: nowrap;
+  1646→        }
+  1647→        .orders-filter-btn:hover {
+  1648→            background-color: rgba(0, 153, 0, 0.04);
+  1649→            color: var(--gastro-text-main);
+  1650→            border-color: rgba(0, 153, 0, 0.2);
+  1651→        }
+  1652→        html.dark .orders-filter-btn:hover {
+  1653→            background-color: rgba(34, 197, 94, 0.06);
+  1654→        }
+  1655→        .orders-filter-btn.active {
+  1656→            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+  1657→            color: var(--gastro-primary);
+  1658→            border-color: var(--gastro-primary);
+  1659→            font-weight: 800;
+  1660→            box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.15);
+  1661→        }
+  1662→        html.dark .orders-filter-btn.active {
+  1663→            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  1664→            color: #22c55e;
+  1665→            border-color: #22c55e;
+  1666→            box-shadow: 0 2px 6px -1px rgba(34, 197, 94, 0.15);
+  1667→        }
+  1668→
+  1669→        /* ===== ORDERS PAGINATION ===== */
+  1670→        .orders-pagination {
+  1671→            padding: 0.75rem 1.25rem;
+  1672→            border-top: 1px solid var(--gastro-border);
+  1673→            display: flex;
+  1674→            align-items: center;
+  1675→            justify-content: space-between;
+  1676→            gap: 0.75rem;
+  1677→            flex-wrap: wrap;
+  1678→        }
+  1679→        .orders-pagination-info {
+  1680→            font-size: 0.65rem;
+  1681→            font-weight: 600;
+  1682→            color: var(--gastro-text-muted);
+  1683→        }
+  1684→        .orders-pagination-btns {
+  1685→            display: flex;
+  1686→            align-items: center;
+  1687→            gap: 0.25rem;
+  1688→        }
+  1689→        .orders-page-btn {
+  1690→            display: inline-flex;
+  1691→            align-items: center;
+  1692→            justify-content: center;
+  1693→            min-width: 28px;
+  1694→            height: 28px;
+  1695→            padding: 0 0.375rem;
+  1696→            border-radius: 0.5rem;
+  1697→            font-size: 0.65rem;
+  1698→            font-weight: 700;
+  1699→            border: 1px solid var(--gastro-border);
+  1700→            background: var(--gastro-card-bg);
+  1701→            color: var(--gastro-text-muted);
+  1702→            cursor: pointer;
+  1703→            transition: all 0.15s;
+  1704→        }
+  1705→        .orders-page-btn:hover:not(:disabled) {
+  1706→            background-color: rgba(0, 153, 0, 0.04);
+  1707→            color: var(--gastro-text-main);
+  1708→            border-color: rgba(0, 153, 0, 0.2);
+  1709→        }
+  1710→        .orders-page-btn.active {
+  1711→            background: var(--gastro-primary);
+  1712→            color: white;
+  1713→            border-color: var(--gastro-primary);
+  1714→            font-weight: 800;
+  1715→        }
+  1716→        .orders-page-btn:disabled {
+  1717→            opacity: 0.35;
+  1718→            cursor: not-allowed;
+  1719→        }
+  1720→        .orders-page-btn.nav-arrow {
+  1721→            font-size: 0.8rem;
+  1722→        }
+  1723→
+  1724→        /* Mobile responsive filter bar */
+  1725→        @media (max-width: 640px) {
+  1726→            .orders-search-wrap {
+  1727→                max-width: 100%;
+  1728→            }
+  1729→            .orders-filter-bar {
+  1730→                padding: 0.75rem;
+  1731→            }
+  1732→            .dash-table {
+  1733→                font-size: 0.65rem;
+  1734→            }
+  1735→            .dash-table thead th {
+  1736→                padding: 0.625rem 0.5rem;
+  1737→                font-size: 0.55rem;
+  1738→            }
+  1739→            .dash-table tbody td {
+  1740→                padding: 0.625rem 0.5rem;
+  1741→            }
+  1742→            .orders-pagination {
+  1743→                padding: 0.5rem 0.75rem;
+  1744→                flex-direction: column;
+  1745→                align-items: stretch;
+  1746→            }
+  1747→            .orders-pagination-btns {
+  1748→                justify-content: center;
+  1749→            }
+  1750→        }
+  1751→
+  1752→        /* ===== SLIDE-OVER PANEL ===== */
+  1753→        .edit-slide-over {
+  1754→            position: fixed;
+  1755→            top: 0;
+  1756→            right: 0;
+  1757→            width: 100%;
+  1758→            max-width: 560px;
+  1759→            height: 100vh;
+  1760→            z-index: 60;
+  1761→            transform: translateX(100%);
+  1762→            transition: transform 0.3s cubic-bezier(0.25, 1, 0.35, 1);
+  1763→            background-color: var(--gastro-card-bg);
+  1764→            border-left: 1px solid var(--gastro-border);
+  1765→            box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+  1766→            display: flex;
+  1767→            flex-direction: column;
+  1768→            overflow: hidden;
+  1769→        }
+  1770→        .edit-slide-over.open {
+  1771→            transform: translateX(0);
+  1772→        }
+  1773→        @media (max-width: 640px) {
+  1774→            .edit-slide-over {
+  1775→                max-width: 100%;
+  1776→            }
+  1777→        }
+  1778→        .edit-slide-overlay {
+  1779→            position: fixed;
+  1780→            inset: 0;
+  1781→            background: rgba(0,0,0,0.5);
+  1782→            z-index: 59;
+  1783→            opacity: 0;
+  1784→            transition: opacity 0.3s;
+  1785→            pointer-events: none;
+  1786→        }
+  1787→        .edit-slide-overlay.open {
+  1788→            opacity: 1;
+  1789→            pointer-events: auto;
+  1790→        }
+  1791→
+  1792→        /* ===== BULK ACTION BAR ===== */
+  1793→        .bulk-action-bar {
+  1794→            position: fixed;
+  1795→            bottom: 24px;
+  1796→            left: 50%;
+  1797→            transform: translateX(-50%);
+  1798→            z-index: 50;
+  1799→            background: var(--gastro-card-bg);
+  1800→            border: 1px solid var(--gastro-border);
+  1801→            border-radius: 1rem;
+  1802→            padding: 0.75rem 1.25rem;
+  1803→            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+  1804→            display: flex;
+  1805→            align-items: center;
+  1806→            gap: 0.75rem;
+  1807→        }
+  1808→
+  1809→        /* ===== PRODUCT TABLE ===== */
+  1810→        .product-table th {
+  1811→            font-size: 10px;
+  1812→            font-weight: 800;
+  1813→            text-transform: uppercase;
+  1814→            letter-spacing: 0.05em;
+  1815→            color: #71717a;
+  1816→            padding: 12px 8px;
+  1817→            text-align: left;
+  1818→            border-bottom: 1px solid var(--gastro-border);
+  1819→        }
+  1820→        .product-table td {
+  1821→            padding: 10px 8px;
+  1822→            font-size: 13px;
+  1823→            vertical-align: middle;
+  1824→        }
+  1825→        .product-table tr:hover {
+  1826→            background-color: rgba(0, 153, 0, 0.03);
+  1827→        }
+  1828→        html.dark .product-table tr:hover {
+  1829→            background-color: rgba(34, 197, 94, 0.04);
+  1830→        }
+  1831→
+  1832→        /* Product card view for mobile */
+  1833→        .product-card {
+  1834→            display: flex;
+  1835→            align-items: center;
+  1836→            gap: 12px;
+  1837→            padding: 12px;
+  1838→            border-bottom: 1px solid var(--gastro-border);
+  1839→            transition: background-color 0.15s;
+  1840→        }
+  1841→        .product-card:hover {
+  1842→            background-color: rgba(0, 153, 0, 0.03);
+  1843→        }
+  1844→        html.dark .product-card:hover {
+  1845→            background-color: rgba(34, 197, 94, 0.04);
+  1846→        }
+  1847→        .product-card .drag-handle {
+  1848→            opacity: 0.3;
+  1849→            transition: opacity 0.2s;
+  1850→        }
+  1851→        .product-card:hover .drag-handle,
+  1852→        .product-card:active .drag-handle {
+  1853→            opacity: 1;
+  1854→        }
+  1855→        .product-row .drag-handle {
+  1856→            opacity: 0.3;
+  1857→            transition: opacity 0.2s;
+  1858→        }
+  1859→        .product-row:hover .drag-handle {
+  1860→            opacity: 1;
+  1861→        }
+  1862→        .product-card-img {
+  1863→            width: 40px;
+  1864→            height: 40px;
+  1865→            border-radius: 10px;
+  1866→            background: rgba(0,0,0,0.04);
+  1867→            display: flex;
+  1868→            align-items: center;
+  1869→            justify-content: center;
+  1870→            overflow: hidden;
+  1871→            flex-shrink: 0;
+  1872→        }
+  1873→        html.dark .product-card-img {
+  1874→            background: rgba(255,255,255,0.06);
+  1875→        }
+  1876→        .product-card-img img {
+  1877→            width: 100%;
+  1878→            height: 100%;
+  1879→            object-fit: contain;
+  1880→        }
+  1881→        .product-card-body {
+  1882→            flex: 1;
+  1883→            min-width: 0;
+  1884→        }
+  1885→        .product-card-actions {
+  1886→            display: flex;
+  1887→            align-items: center;
+  1888→            gap: 4px;
+  1889→            flex-shrink: 0;
+  1890→        }
+  1891→
+  1892→        /* Desktop: table view, Mobile: card view */
+  1893→        @media (min-width: 641px) {
+  1894→            .product-card-view { display: none !important; }
+  1895→            .product-table-view { display: block; }
+  1896→        }
+  1897→        @media (max-width: 640px) {
+  1898→            .product-card-view { display: block; }
+  1899→            .product-table-view { display: none !important; }
+  1900→            .product-table thead th:nth-child(n+4),
+  1901→            .product-table tbody td:nth-child(n+4) {
+  1902→                /* hide columns beyond name on very small screens */
+  1903→            }
+  1904→        }
+  1905→
+  1906→        /* Bulk action bar mobile */
+  1907→        @media (max-width: 640px) {
+  1908→            .bulk-action-bar {
+  1909→                left: 12px;
+  1910→                right: 12px;
+  1911→                transform: none;
+  1912→                bottom: 12px;
+  1913→                flex-wrap: wrap;
+  1914→                justify-content: center;
+  1915→                gap: 0.5rem;
+  1916→                padding: 0.625rem 0.75rem;
+  1917→            }
+  1918→        }
+  1919→
+  1920→        /* ===== SPEISEKARTE SUB-TAB ===== */
+  1921→        .speisekarte-subtab-btn {
+  1922→            display: inline-flex;
+  1923→            align-items: center;
+  1924→            gap: 0.375rem;
+  1925→            padding: 0.5rem 0.875rem;
+  1926→            border-radius: 0.625rem;
+  1927→            font-size: 0.7rem;
+  1928→            font-weight: 700;
+  1929→            border: 1px solid var(--gastro-border);
+  1930→            background: var(--gastro-card-bg);
+  1931→            color: var(--gastro-text-muted);
+  1932→            cursor: pointer;
+  1933→            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  1934→            white-space: nowrap;
+  1935→        }
+  1936→        .speisekarte-subtab-btn:hover {
+  1937→            background-color: rgba(0, 153, 0, 0.04);
+  1938→            color: var(--gastro-text-main);
+  1939→            border-color: rgba(0, 153, 0, 0.2);
+  1940→            transform: translateY(-1px);
+  1941→        }
+  1942→        html.dark .speisekarte-subtab-btn:hover {
+  1943→            background-color: rgba(34, 197, 94, 0.06);
+  1944→            border-color: rgba(34, 197, 94, 0.2);
+  1945→        }
+  1946→        .speisekarte-subtab-btn.active {
+  1947→            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+  1948→            color: var(--gastro-primary);
+  1949→            border-color: var(--gastro-primary);
+  1950→            font-weight: 800;
+  1951→            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.2);
+  1952→        }
+  1953→        html.dark .speisekarte-subtab-btn.active {
+  1954→            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  1955→            color: #22c55e;
+  1956→            border-color: #22c55e;
+  1957→            box-shadow: 0 2px 8px -2px rgba(34, 197, 94, 0.2);
+  1958→        }
+  1959→        .speisekarte-tab-content {
+  1960→            display: none;
+  1961→        }
+  1962→        .speisekarte-tab-content.active {
+  1963→            display: block;
+  1964→        }
+  1965→
+  1966→        /* ===== ACCORDION / COLLAPSIBLE ===== */
+  1967→        .accordion-header {
+  1968→            display: flex;
+  1969→            align-items: center;
+  1970→            justify-content: space-between;
+  1971→            padding: 1rem 1.25rem;
+  1972→            cursor: pointer;
+  1973→            transition: background-color 0.2s;
+  1974→            user-select: none;
+  1975→        }
+  1976→        .accordion-header:hover {
+  1977→            background-color: rgba(0, 153, 0, 0.03);
+  1978→        }
+  1979→        html.dark .accordion-header:hover {
+  1980→            background-color: rgba(34, 197, 94, 0.04);
+  1981→        }
+  1982→        .accordion-header .accordion-arrow {
+  1983→            transition: transform 0.2s;
+  1984→        }
+  1985→        .accordion-header.open .accordion-arrow {
+  1986→            transform: rotate(180deg);
+  1987→        }
+  1988→        .accordion-body {
+  1989→            max-height: 0;
+  1990→            overflow: hidden;
+  1991→            transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  1992→        }
+  1993→        .accordion-body.open {
+  1994→            max-height: 5000px;
+  1995→        }
+  1996→
+  1997→        /* ===== SLIDE-OVER PANEL TABS ===== */
+  1998→        .slide-tab-btn {
+  1999→            flex: 1;
+  2000→            padding: 0.625rem 0.5rem;
+
+[showing lines 1-2000 of 7815; use offset=2001 with limit to continue reading]

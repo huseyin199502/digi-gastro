@@ -149,3 +149,28 @@ Stage Summary:
 - Dateien synchronisiert nach /tmp/my-project/ (Container Mount)
 - WICHTIG: Backend main.py Änderungen erfordern Container-Neustart!
   Templates (admin.html, menu.html) werden automatisch neu geladen.
+---
+Task ID: 1
+Agent: Main Agent
+Task: Comprehensive UI audit - fix white-on-white text, Kellner checkbox visibility, serve button Ruckeln
+
+Work Log:
+- Scanned admin.html and menu.html for all readability issues
+- Found design_system.css was overcorrecting: converting white text to dark even on dark backgrounds (popup headers, green buttons, etc.)
+- Fixed custom-checkbox visibility on light backgrounds (bg-emerald-50, bg-white, popup-card)
+- Made checkboxes 20x20px instead of 18px for better touch targets
+- Added _serveLock debounce mechanism to prevent double-clicks on serve buttons
+- Protected all 5 serve functions: serveControlItem, serveAllControlPending, notifServeItem, notifServeAll, setItemStatus
+- Added visual disabled state to serve buttons during requests
+- Added dark-background exceptions to design_system.css for: bg-gastro, bg-amber-600, bg-zinc-800/700/900, bg-gray-800/900
+- Added popup-header, table-sel-tile, profile-card exceptions to preserve white text
+- Added text-zinc-300, text-amber-200, text-amber-400, text-emerald-400 light theme overrides
+- Fixed inline text-amber-200 → text-amber-700 in CSV import modal and service call alerts
+- Fixed transfer modal status badge colors for light theme readability
+- Bumped design_system.css cache version to v=10
+- Increased menu.html Kellner checkbox to 20x20px with border-2
+
+Stage Summary:
+- All 3 issue categories fixed: readability, checkbox visibility, serve Ruckeln
+- design_system.css now has proper exceptions for dark-background containers
+- Serve buttons have debounce protection with visual feedback
