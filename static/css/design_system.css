@@ -572,7 +572,11 @@ html.light .landing-page-wrapper .glass-btn-primary span {
 }
 html.light .landing-page-wrapper .glass-btn-secondary,
 html.light .landing-page-wrapper .glass-btn-secondary span {
-    color: #111827 !important;
+    color: #ffffff !important;
+}
+html.dark .landing-page-wrapper .glass-btn-secondary,
+html.dark .landing-page-wrapper .glass-btn-secondary span {
+    color: #ffffff !important;
 }
 /* SVG icons inside buttons keep their fill */
 html.light .landing-page-wrapper svg path {

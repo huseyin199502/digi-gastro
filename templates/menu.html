@@ -18,7 +18,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=15">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=16">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -237,8 +237,8 @@
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                     <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}">
                 {% endif %}
-                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-md animate-pulse" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
-                <p class="text-sm text-gray-200 max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
+                <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight font-display drop-shadow-md animate-pulse" style="color:#ffffff !important;" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+                <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
                 
                 <!-- Actions Group -->
                 <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
@@ -250,7 +250,7 @@
 
                     <!-- Google Review Link -->
                     <div x-show="restaurantLandingPage.google_rating_url" class="w-full">
-                        <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95">
+                        <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95" style="color:#ffffff !important;">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -265,17 +265,17 @@
                     {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
                     <div class="flex justify-center items-center gap-5 mt-2.5">
                         {% if restaurant.branding.instagram %}
-                        <a href="{{ restaurant.branding.instagram }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Instagram">
+                        <a href="{{ restaurant.branding.instagram }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" style="color:#ffffff !important;" title="Instagram">
                             <i class="fa-brands fa-instagram text-2xl"></i>
                         </a>
                         {% endif %}
                         {% if restaurant.branding.facebook %}
-                        <a href="{{ restaurant.branding.facebook }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="Facebook">
+                        <a href="{{ restaurant.branding.facebook }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" style="color:#ffffff !important;" title="Facebook">
                             <i class="fa-brands fa-facebook text-2xl"></i>
                         </a>
                         {% endif %}
                         {% if restaurant.branding.tiktok %}
-                        <a href="{{ restaurant.branding.tiktok }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant text-on-surface hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" title="TikTok">
+                        <a href="{{ restaurant.branding.tiktok }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" style="color:#ffffff !important;" title="TikTok">
                             <i class="fa-brands fa-tiktok text-2xl"></i>
                         </a>
                         {% endif %}
@@ -286,7 +286,7 @@
 
             <!-- Angebote (Bilder & Videos) - FULL WIDTH -->
             <div x-show="(restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0) || (restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0)" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 x-show="restaurantLandingPage.title_offers" class="text-lg font-bold text-white drop-shadow-md font-display px-3">
+                <h3 x-show="restaurantLandingPage.title_offers" class="text-lg font-bold drop-shadow-md font-display px-3" style="color:#ffffff !important;">
                     <span x-text="restaurantLandingPage.title_offers"></span>
                 </h3>
                 
@@ -340,10 +340,10 @@
                 <div class="flex items-center gap-4">
                     <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
                     <div>
-                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ first_event.display_name or first_event.name or 'Aktion' }} ist aktiv!</h3>
-                        <p class="text-xs text-on-surface drop-shadow-md mt-1 leading-relaxed">
+                        <h3 class="text-base font-black drop-shadow-md font-display uppercase tracking-wider" style="color:#fbbf24 !important;">{{ first_event.display_name or first_event.name or 'Aktion' }} ist aktiv!</h3>
+                        <p class="text-xs drop-shadow-md mt-1 leading-relaxed" style="color:#ffffff !important;">
                             {% if first_event.mode == 'discount' and first_event.discount > 0 %}
-                                Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ first_event.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
+                                Sichern Sie sich jetzt <strong class="font-extrabold" style="color:#fbbf24 !important;">{{ first_event.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
                             {% else %}
                                 Sichern Sie sich jetzt unsere exklusiven Aktionspreise auf ausgewählte Artikel!
                             {% endif %}
@@ -355,7 +355,7 @@
 
             <!-- Galerie (Bilder & Videos) -->
             <div x-show="(restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0) || (restaurantLandingPage.gallery_videos && restaurantLandingPage.gallery_videos.length > 0)" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 x-show="restaurantLandingPage.title_gallery" class="text-lg font-bold text-white drop-shadow-md font-display">
+                <h3 x-show="restaurantLandingPage.title_gallery" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;">
                     <span x-text="restaurantLandingPage.title_gallery"></span>
                 </h3>
                 
@@ -384,7 +384,7 @@
 
             <!-- Video Section (eigenständig) -->
             <div x-show="restaurantLandingPage.videos && restaurantLandingPage.videos.length > 0" class="rounded-3xl p-6 space-y-4 col-span-full relative z-10" style="display: none;">
-                <h3 x-show="restaurantLandingPage.title_videos" class="text-lg font-bold text-white drop-shadow-md font-display">
+                <h3 x-show="restaurantLandingPage.title_videos" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;">
                     <span x-text="restaurantLandingPage.title_videos"></span>
                 </h3>
                 
@@ -400,36 +400,36 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- Info Card 1: Öffnungszeiten -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.oeffnungszeiten">
-                    <h3 x-show="restaurantLandingPage.title_hours" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <h3 x-show="restaurantLandingPage.title_hours" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;">
                         <span x-text="restaurantLandingPage.title_hours"></span>
                     </h3>
-                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" x-text="restaurantLandingPage.oeffnungszeiten"></p>
+                    <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-mono font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.oeffnungszeiten"></p>
                 </div>
                 
                 <!-- Info Card 2: Angebote -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.angebote">
-                    <h3 x-show="restaurantLandingPage.title_happyhour" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <h3 x-show="restaurantLandingPage.title_happyhour" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;">
                         <span x-text="restaurantLandingPage.title_happyhour"></span>
                     </h3>
-                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.angebote"></p>
+                    <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.angebote"></p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <!-- What we offer -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.what_we_offer">
-                    <h3 x-show="restaurantLandingPage.title_about" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <h3 x-show="restaurantLandingPage.title_about" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;">
                         <span x-text="restaurantLandingPage.title_about"></span>
                     </h3>
-                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.what_we_offer"></p>
+                    <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.what_we_offer"></p>
                 </div>
                 
                 <!-- Announcements / News -->
                 <div class="rounded-3xl p-6 space-y-4" x-show="restaurantLandingPage.aktuelles">
-                    <h3 x-show="restaurantLandingPage.title_news" class="text-lg font-bold text-white drop-shadow-md font-display">
+                    <h3 x-show="restaurantLandingPage.title_news" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;">
                         <span x-text="restaurantLandingPage.title_news"></span>
                     </h3>
-                    <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-text="restaurantLandingPage.aktuelles"></p>
+                    <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.aktuelles"></p>
                 </div>
             </div>
 
@@ -438,9 +438,9 @@
                 <div class="space-y-6 mt-6">
                     <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
                         <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
-                            <h3 x-show="section.title" class="text-lg font-bold text-white drop-shadow-md font-display" x-text="section.title"></h3>
+                            <h3 x-show="section.title" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;" x-text="section.title"></h3>
                             <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-cover" :alt="section.title" loading="lazy">
-                            <p class="text-sm text-gray-200 drop-shadow-md whitespace-pre-line leading-relaxed font-medium" x-show="section.content" x-text="section.content"></p>
+                            <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium" style="color:#e5e7eb !important;" x-show="section.content" x-text="section.content"></p>
                         </div>
                     </template>
                 </div>
