@@ -18,7 +18,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=7">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=9">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -341,7 +341,7 @@
                     <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
                     <div>
                         <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ first_event.display_name or first_event.name or 'Aktion' }} ist aktiv!</h3>
-                        <p class="text-xs text-white drop-shadow-md mt-1 leading-relaxed">
+                        <p class="text-xs text-on-surface drop-shadow-md mt-1 leading-relaxed">
                             {% if first_event.mode == 'discount' and first_event.discount > 0 %}
                                 Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ first_event.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
                             {% else %}
