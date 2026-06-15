@@ -332,17 +332,18 @@
                 </template>
             </div>
             
-            {% if hh_active_global %}
+            {% if hh_active_global and active_events %}
             <!-- Aktion Active Card on Landing Page -->
+            {% set first_event = active_events[0] %}
             <div class="border border-amber-500/50 bg-amber-500/20 backdrop-blur-md rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/10 animate-pulse">
                 <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/30 rounded-full blur-2xl"></div>
                 <div class="flex items-center gap-4">
                     <span class="material-symbols-outlined text-amber-400 text-4xl font-black drop-shadow-md animate-spin" style="animation-duration: 6s;">star</span>
                     <div>
-                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+                        <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ first_event.display_name or first_event.name or 'Aktion' }} ist aktiv!</h3>
                         <p class="text-xs text-white drop-shadow-md mt-1 leading-relaxed">
-                            {% if hh_config.get('mode', 'discount') == 'discount' and hh_config.discount > 0 %}
-                                Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ hh_config.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
+                            {% if first_event.mode == 'discount' and first_event.discount > 0 %}
+                                Sichern Sie sich jetzt <strong class="text-amber-400 font-extrabold">{{ first_event.discount }}% Rabatt</strong> auf fast alle Artikel auf unserer Speisekarte!
                             {% else %}
                                 Sichern Sie sich jetzt unsere exklusiven Aktionspreise auf ausgewählte Artikel!
                             {% endif %}

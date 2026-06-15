@@ -380,10 +380,12 @@ def _migrate_database():
 
 def migrate_happy_hour_to_events():
     """One-time migration: convert old Happy Hour data per tenant to the new Events system.
-    Only runs if events table is empty for a given tenant but they have HH config."""
+    Only runs if events table is empty for a given tenant but they have HH config.
+    After migrating, clears happy_hour_price on products and HH config on tenant
+    to prevent ghost events from reappearing on subsequent restarts."""
     try:
         session = SessionLocal()
-        # Check which tenants already have events
+        # Check which tenants already have events (including deleted ones that were re-migrated before)
         tenants_with_events = set()
         try:
             rows = session.execute(sa.text("SELECT DISTINCT tenant_slug FROM events")).fetchall()
@@ -395,6 +397,22 @@ def migrate_happy_hour_to_events():
         tenants = session.query(Tenant).all()
         for t in tenants:
             if t.slug in tenants_with_events:
+                # Already have events (possibly from previous migration) – clear old HH data
+                # to prevent future ghost events if admin deletes all events
+                hh_products = session.query(Product).filter(
+                    Product.tenant_slug == t.slug,
+                    Product.happy_hour_price != None
+                ).all()
+                if hh_products:
+                    for p in hh_products:
+                        p.happy_hour_price = None
+                        p.happy_hour_days = None
+                        p.start_time = None
+                        p.end_time = None
+                    # Clear tenant-level HH config too
+                    t.happy_hour_days = "[]"
+                    t.happy_hour_discount = 0
+                    print(f"[DB Migration] Cleared stale Happy Hour data for tenant '{t.slug}' ({len(hh_products)} products)")
                 continue  # Already migrated
 
             hh_days = json.loads(t.happy_hour_days or "[]")
@@ -444,6 +462,15 @@ def migrate_happy_hour_to_events():
                     event_price=p.happy_hour_price
                 )
                 session.add(ep)
+                # Clear old HH fields on the product so it won't be re-migrated later
+                p.happy_hour_price = None
+                p.happy_hour_days = None
+                p.start_time = None
+                p.end_time = None
+
+            # Clear tenant-level HH config to prevent re-migration
+            t.happy_hour_days = "[]"
+            t.happy_hour_discount = 0
 
             print(f"[DB Migration] Migrated Happy Hour data for tenant '{t.slug}': {len(hh_products)} products -> Event '{hh_display_name}'")
 

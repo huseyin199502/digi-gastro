@@ -1,0 +1,1530 @@
+     1→2026-Jun-15 09:49:28
+     2→[DB] Using PostgreSQL backend
+     3→2026-Jun-15 09:49:28
+     4→[DB Migration] Migrated Happy Hour data for tenant 'memo': 2 products -> Event 'Aktion'
+     5→2026-Jun-15 09:49:28
+     6→[DB Migration] Migrated Happy Hour data for tenant 'deer-lounge': 1 products -> Event 'Aktion'
+     7→2026-Jun-15 09:49:28
+     8→INFO:     Started server process [7]
+     9→2026-Jun-15 09:49:28
+    10→INFO:     Waiting for application startup.
+    11→2026-Jun-15 09:49:28
+    12→INFO:     Application startup complete.
+    13→2026-Jun-15 09:49:28
+    14→INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+    15→2026-Jun-15 09:49:33
+    16→INFO:     127.0.0.1:51162 - "GET /health HTTP/1.1" 200 OK
+    17→2026-Jun-15 09:50:03
+    18→INFO:     127.0.0.1:44360 - "GET /health HTTP/1.1" 200 OK
+    19→2026-Jun-15 09:50:33
+    20→INFO:     127.0.0.1:43058 - "GET /health HTTP/1.1" 200 OK
+    21→2026-Jun-15 09:51:03
+    22→INFO:     127.0.0.1:55740 - "GET /health HTTP/1.1" 200 OK
+    23→2026-Jun-15 09:51:34
+    24→INFO:     127.0.0.1:51622 - "GET /health HTTP/1.1" 200 OK
+    25→2026-Jun-15 09:52:04
+    26→INFO:     127.0.0.1:37738 - "GET /health HTTP/1.1" 200 OK
+    27→2026-Jun-15 09:52:15
+    28→INFO:     10.0.2.4:44408 - "GET / HTTP/1.1" 200 OK
+    29→2026-Jun-15 09:52:15
+    30→INFO:     10.0.2.4:44410 - "GET /manifest.json HTTP/1.1" 200 OK
+    31→2026-Jun-15 09:52:15
+    32→INFO:     10.0.2.4:44408 - "GET /static/images/digigastrologo.jpeg HTTP/1.1" 200 OK
+    33→2026-Jun-15 09:52:15
+    34→INFO:     10.0.2.4:44414 - "GET /static/css/design_system.css?v=8 HTTP/1.1" 200 OK
+    35→2026-Jun-15 09:52:17
+    36→INFO:     10.0.2.4:44408 - "GET /static/videos/hero-bg.mp4 HTTP/1.1" 206 Partial Content
+    37→2026-Jun-15 09:52:17
+    38→INFO:     10.0.2.4:44408 - "GET /static/videos/hero-bg.mp4 HTTP/1.1" 206 Partial Content
+    39→2026-Jun-15 09:52:18
+    40→INFO:     10.0.2.4:44408 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    41→2026-Jun-15 09:52:18
+    42→INFO:     10.0.2.4:44408 - "GET /manifest.json HTTP/1.1" 200 OK
+    43→2026-Jun-15 09:52:20
+    44→INFO:     10.0.2.4:44416 - "WebSocket /ws/deer-lounge" [accepted]
+    45→2026-Jun-15 09:52:20
+    46→INFO:     connection open
+    47→2026-Jun-15 09:52:20
+    48→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    49→2026-Jun-15 09:52:20
+    50→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    51→2026-Jun-15 09:52:24
+    52→INFO:     10.0.2.4:44414 - "DELETE /admin/events/32 HTTP/1.1" 200 OK
+    53→2026-Jun-15 09:52:24
+    54→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    55→2026-Jun-15 09:52:24
+    56→INFO:     10.0.2.4:44408 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    57→2026-Jun-15 09:52:26
+    58→INFO:     10.0.2.4:44408 - "DELETE /admin/events/56 HTTP/1.1" 200 OK
+    59→2026-Jun-15 09:52:26
+    60→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    61→2026-Jun-15 09:52:26
+    62→INFO:     10.0.2.4:44408 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    63→2026-Jun-15 09:52:28
+    64→INFO:     10.0.2.4:44408 - "DELETE /admin/events/58 HTTP/1.1" 200 OK
+    65→2026-Jun-15 09:52:28
+    66→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    67→2026-Jun-15 09:52:28
+    68→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    69→2026-Jun-15 09:52:28
+    70→INFO:     10.0.2.4:44408 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    71→2026-Jun-15 09:52:29
+    72→INFO:     10.0.2.4:44408 - "DELETE /admin/events/36 HTTP/1.1" 200 OK
+    73→2026-Jun-15 09:52:30
+    74→INFO:     10.0.2.4:44408 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    75→2026-Jun-15 09:52:30
+    76→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    77→2026-Jun-15 09:52:33
+    78→INFO:     10.0.2.4:44414 - "DELETE /admin/events/38 HTTP/1.1" 200 OK
+    79→2026-Jun-15 09:52:33
+    80→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    81→2026-Jun-15 09:52:33
+    82→INFO:     10.0.2.4:44414 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    83→2026-Jun-15 09:52:34
+    84→INFO:     10.0.2.4:44414 - "DELETE /admin/events/40 HTTP/1.1" 200 OK
+    85→2026-Jun-15 09:52:34
+    86→INFO:     127.0.0.1:38286 - "GET /health HTTP/1.1" 200 OK
+    87→2026-Jun-15 09:52:34
+    88→INFO:     10.0.2.4:44414 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    89→2026-Jun-15 09:52:34
+    90→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    91→2026-Jun-15 09:52:34
+    92→INFO:     10.0.2.4:47544 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    93→2026-Jun-15 09:52:36
+    94→INFO:     10.0.2.4:47544 - "DELETE /admin/events/42 HTTP/1.1" 200 OK
+    95→2026-Jun-15 09:52:36
+    96→INFO:     10.0.2.4:47544 - "GET /admin/dashboard HTTP/1.1" 200 OK
+    97→2026-Jun-15 09:52:36
+    98→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+    99→2026-Jun-15 09:52:38
+   100→INFO:     10.0.2.4:44408 - "DELETE /admin/events/44 HTTP/1.1" 200 OK
+   101→2026-Jun-15 09:52:38
+   102→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   103→2026-Jun-15 09:52:38
+   104→INFO:     10.0.2.4:47544 - "GET /admin/dashboard HTTP/1.1" 200 OK
+   105→2026-Jun-15 09:52:39
+   106→INFO:     10.0.2.4:47544 - "GET /admin/dashboard HTTP/1.1" 200 OK
+   107→2026-Jun-15 09:52:39
+   108→INFO:     10.0.2.4:47544 - "GET /manifest.json HTTP/1.1" 200 OK
+   109→2026-Jun-15 09:52:39
+   110→INFO:     10.0.2.4:47544 - "GET /static/images/digigastrologo.jpeg HTTP/1.1" 304 Not Modified
+   111→2026-Jun-15 09:52:39
+   112→INFO:     connection closed
+   113→2026-Jun-15 09:52:41
+   114→INFO:     10.0.2.4:38658 - "WebSocket /ws/deer-lounge" [accepted]
+   115→2026-Jun-15 09:52:41
+   116→INFO:     connection open
+   117→2026-Jun-15 09:52:41
+   118→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   119→2026-Jun-15 09:52:41
+   120→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   121→2026-Jun-15 09:52:42
+   122→INFO:     10.0.2.4:44408 - "DELETE /admin/events/52 HTTP/1.1" 200 OK
+   123→2026-Jun-15 09:52:42
+   124→INFO:     10.0.2.4:44408 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   125→2026-Jun-15 09:52:42
+   126→INFO:     10.0.2.4:47544 - "GET /admin/dashboard HTTP/1.1" 200 OK
+   127→2026-Jun-15 09:52:47
+   128→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   129→2026-Jun-15 09:52:52
+   130→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   131→2026-Jun-15 09:52:57
+   132→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   133→2026-Jun-15 09:53:02
+   134→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   135→2026-Jun-15 09:53:05
+   136→INFO:     127.0.0.1:47428 - "GET /health HTTP/1.1" 200 OK
+   137→2026-Jun-15 09:53:07
+   138→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   139→2026-Jun-15 09:53:12
+   140→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   141→2026-Jun-15 09:53:17
+   142→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   143→2026-Jun-15 09:53:22
+   144→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   145→2026-Jun-15 09:53:27
+   146→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   147→2026-Jun-15 09:53:32
+   148→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   149→2026-Jun-15 09:53:35
+   150→INFO:     127.0.0.1:56830 - "GET /health HTTP/1.1" 200 OK
+   151→2026-Jun-15 09:53:37
+   152→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   153→2026-Jun-15 09:53:42
+   154→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   155→2026-Jun-15 09:53:45
+   156→INFO:     10.0.2.4:47544 - "PUT /admin/events/48 HTTP/1.1" 200 OK
+   157→2026-Jun-15 09:53:45
+   158→INFO:     10.0.2.4:47544 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   159→2026-Jun-15 09:53:45
+   160→INFO:     10.0.2.4:43118 - "GET /admin/dashboard HTTP/1.1" 200 OK
+   161→2026-Jun-15 09:53:47
+   162→INFO:     10.0.2.4:43118 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   163→2026-Jun-15 09:53:52
+   164→INFO:     10.0.2.4:43128 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   165→2026-Jun-15 09:53:57
+   166→INFO:     10.0.2.4:43128 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   167→2026-Jun-15 09:54:02
+   168→INFO:     10.0.2.4:43128 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   169→2026-Jun-15 09:54:05
+   170→INFO:     127.0.0.1:50608 - "GET /health HTTP/1.1" 200 OK
+   171→2026-Jun-15 09:54:07
+   172→INFO:     10.0.2.4:43128 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   173→2026-Jun-15 09:54:12
+   174→INFO:     10.0.2.4:43128 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   175→2026-Jun-15 09:54:16
+   176→INFO:     10.0.2.4:43128 - "GET /admin/impersonate/1?role=waiter&z=innen HTTP/1.1" 303 See Other
+   177→2026-Jun-15 09:54:16
+   178→INFO:     10.0.2.4:43128 - "GET /deer-lounge?tisch=1&token=529f508a&z=innen HTTP/1.1" 303 See Other
+   179→2026-Jun-15 09:54:16
+   180→INFO:     10.0.2.4:43128 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+   181→2026-Jun-15 09:54:16
+   182→ERROR:    Exception in ASGI application
+   183→2026-Jun-15 09:54:16
+   184→Traceback (most recent call last):
+   185→2026-Jun-15 09:54:16
+   186→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+   187→2026-Jun-15 09:54:16
+   188→    result = await app(  # type: ignore[func-returns-value]
+   189→2026-Jun-15 09:54:16
+   190→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   191→2026-Jun-15 09:54:16
+   192→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+   193→2026-Jun-15 09:54:16
+   194→    return await self.app(scope, receive, send)
+   195→2026-Jun-15 09:54:16
+   196→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   197→2026-Jun-15 09:54:16
+   198→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+   199→2026-Jun-15 09:54:16
+   200→    await super().__call__(scope, receive, send)
+   201→2026-Jun-15 09:54:16
+   202→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+   203→2026-Jun-15 09:54:16
+   204→    await self.middleware_stack(scope, receive, send)
+   205→2026-Jun-15 09:54:16
+   206→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+   207→2026-Jun-15 09:54:16
+   208→    raise exc
+   209→2026-Jun-15 09:54:16
+   210→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+   211→2026-Jun-15 09:54:16
+   212→    await self.app(scope, receive, _send)
+   213→2026-Jun-15 09:54:16
+   214→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+   215→2026-Jun-15 09:54:16
+   216→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+   217→2026-Jun-15 09:54:16
+   218→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   219→2026-Jun-15 09:54:16
+   220→    raise exc
+   221→2026-Jun-15 09:54:16
+   222→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   223→2026-Jun-15 09:54:16
+   224→    await app(scope, receive, sender)
+   225→2026-Jun-15 09:54:16
+   226→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+   227→2026-Jun-15 09:54:16
+   228→    await self.app(scope, receive, send)
+   229→2026-Jun-15 09:54:16
+   230→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+   231→2026-Jun-15 09:54:16
+   232→    await self.middleware_stack(scope, receive, send)
+   233→2026-Jun-15 09:54:16
+   234→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+   235→2026-Jun-15 09:54:16
+   236→    await route.handle(scope, receive, send)
+   237→2026-Jun-15 09:54:16
+   238→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+   239→2026-Jun-15 09:54:16
+   240→    await super().handle(scope, receive, send)
+   241→2026-Jun-15 09:54:16
+   242→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+   243→2026-Jun-15 09:54:16
+   244→    await self.app(scope, receive, send)
+   245→2026-Jun-15 09:54:16
+   246→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+   247→2026-Jun-15 09:54:16
+   248→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+   249→2026-Jun-15 09:54:16
+   250→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   251→2026-Jun-15 09:54:16
+   252→    raise exc
+   253→2026-Jun-15 09:54:16
+   254→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   255→2026-Jun-15 09:54:16
+   256→    await app(scope, receive, sender)
+   257→2026-Jun-15 09:54:16
+   258→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+   259→2026-Jun-15 09:54:16
+   260→    response = await f(request)
+   261→2026-Jun-15 09:54:16
+   262→               ^^^^^^^^^^^^^^^^
+   263→2026-Jun-15 09:54:16
+   264→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+   265→2026-Jun-15 09:54:16
+   266→    raw_response = await run_endpoint_function(
+   267→2026-Jun-15 09:54:16
+   268→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   269→2026-Jun-15 09:54:16
+   270→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+   271→2026-Jun-15 09:54:16
+   272→    return await run_in_threadpool(dependant.call, **values)
+   273→2026-Jun-15 09:54:16
+   274→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   275→2026-Jun-15 09:54:16
+   276→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+   277→2026-Jun-15 09:54:16
+   278→    return await anyio.to_thread.run_sync(func)
+   279→2026-Jun-15 09:54:16
+   280→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   281→2026-Jun-15 09:54:16
+   282→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+   283→2026-Jun-15 09:54:16
+   284→    return await get_async_backend().run_sync_in_worker_thread(
+   285→2026-Jun-15 09:54:16
+   286→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   287→2026-Jun-15 09:54:16
+   288→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+   289→2026-Jun-15 09:54:16
+   290→    return await future
+   291→2026-Jun-15 09:54:16
+   292→           ^^^^^^^^^^^^
+   293→2026-Jun-15 09:54:16
+   294→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+   295→2026-Jun-15 09:54:16
+   296→    result = context.run(func, *args)
+   297→2026-Jun-15 09:54:16
+   298→             ^^^^^^^^^^^^^^^^^^^^^^^^
+   299→2026-Jun-15 09:54:16
+   300→  File "/app/main.py", line 2882, in get_menu
+   301→2026-Jun-15 09:54:16
+   302→    response = templates.TemplateResponse(
+   303→2026-Jun-15 09:54:16
+   304→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   305→2026-Jun-15 09:54:16
+   306→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+   307→2026-Jun-15 09:54:16
+   308→    return _TemplateResponse(
+   309→2026-Jun-15 09:54:16
+   310→           ^^^^^^^^^^^^^^^^^^
+   311→2026-Jun-15 09:54:16
+   312→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+   313→2026-Jun-15 09:54:16
+   314→    content = template.render(context)
+   315→2026-Jun-15 09:54:16
+   316→              ^^^^^^^^^^^^^^^^^^^^^^^^
+   317→2026-Jun-15 09:54:16
+   318→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+   319→2026-Jun-15 09:54:16
+   320→    self.environment.handle_exception()
+   321→2026-Jun-15 09:54:16
+   322→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+   323→2026-Jun-15 09:54:16
+   324→    raise rewrite_traceback_stack(source=source)
+   325→2026-Jun-15 09:54:16
+   326→  File "/app/templates/menu.html", line 342, in top-level template code
+   327→2026-Jun-15 09:54:16
+   328→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+   329→2026-Jun-15 09:54:16
+   330→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+   331→2026-Jun-15 09:54:16
+   332→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+   333→2026-Jun-15 09:54:16
+   334→    return getattr(obj, attribute)
+   335→2026-Jun-15 09:54:16
+   336→           ^^^^^^^^^^^^^^^^^^^^^^^
+   337→2026-Jun-15 09:54:16
+   338→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+   339→2026-Jun-15 09:54:16
+   340→INFO:     10.0.2.4:52860 - "GET /manifest.json HTTP/1.1" 200 OK
+   341→2026-Jun-15 09:54:16
+   342→INFO:     10.0.2.4:52866 - "GET /static/css/design_system.css?v=7 HTTP/1.1" 200 OK
+   343→2026-Jun-15 09:54:18
+   344→INFO:     10.0.2.4:52866 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+   345→2026-Jun-15 09:54:18
+   346→ERROR:    Exception in ASGI application
+   347→2026-Jun-15 09:54:18
+   348→Traceback (most recent call last):
+   349→2026-Jun-15 09:54:18
+   350→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+   351→2026-Jun-15 09:54:18
+   352→    result = await app(  # type: ignore[func-returns-value]
+   353→2026-Jun-15 09:54:18
+   354→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   355→2026-Jun-15 09:54:18
+   356→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+   357→2026-Jun-15 09:54:18
+   358→    return await self.app(scope, receive, send)
+   359→2026-Jun-15 09:54:18
+   360→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   361→2026-Jun-15 09:54:18
+   362→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+   363→2026-Jun-15 09:54:18
+   364→    await super().__call__(scope, receive, send)
+   365→2026-Jun-15 09:54:18
+   366→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+   367→2026-Jun-15 09:54:18
+   368→    await self.middleware_stack(scope, receive, send)
+   369→2026-Jun-15 09:54:18
+   370→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+   371→2026-Jun-15 09:54:18
+   372→    raise exc
+   373→2026-Jun-15 09:54:18
+   374→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+   375→2026-Jun-15 09:54:18
+   376→    await self.app(scope, receive, _send)
+   377→2026-Jun-15 09:54:18
+   378→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+   379→2026-Jun-15 09:54:18
+   380→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+   381→2026-Jun-15 09:54:18
+   382→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   383→2026-Jun-15 09:54:18
+   384→    raise exc
+   385→2026-Jun-15 09:54:18
+   386→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   387→2026-Jun-15 09:54:18
+   388→    await app(scope, receive, sender)
+   389→2026-Jun-15 09:54:18
+   390→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+   391→2026-Jun-15 09:54:18
+   392→    await self.app(scope, receive, send)
+   393→2026-Jun-15 09:54:18
+   394→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+   395→2026-Jun-15 09:54:18
+   396→    await self.middleware_stack(scope, receive, send)
+   397→2026-Jun-15 09:54:18
+   398→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+   399→2026-Jun-15 09:54:18
+   400→    await route.handle(scope, receive, send)
+   401→2026-Jun-15 09:54:18
+   402→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+   403→2026-Jun-15 09:54:18
+   404→    await super().handle(scope, receive, send)
+   405→2026-Jun-15 09:54:18
+   406→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+   407→2026-Jun-15 09:54:18
+   408→    await self.app(scope, receive, send)
+   409→2026-Jun-15 09:54:18
+   410→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+   411→2026-Jun-15 09:54:18
+   412→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+   413→2026-Jun-15 09:54:18
+   414→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   415→2026-Jun-15 09:54:18
+   416→    raise exc
+   417→2026-Jun-15 09:54:18
+   418→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   419→2026-Jun-15 09:54:18
+   420→    await app(scope, receive, sender)
+   421→2026-Jun-15 09:54:18
+   422→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+   423→2026-Jun-15 09:54:18
+   424→    response = await f(request)
+   425→2026-Jun-15 09:54:18
+   426→               ^^^^^^^^^^^^^^^^
+   427→2026-Jun-15 09:54:18
+   428→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+   429→2026-Jun-15 09:54:18
+   430→    raw_response = await run_endpoint_function(
+   431→2026-Jun-15 09:54:18
+   432→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   433→2026-Jun-15 09:54:18
+   434→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+   435→2026-Jun-15 09:54:18
+   436→    return await run_in_threadpool(dependant.call, **values)
+   437→2026-Jun-15 09:54:18
+   438→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   439→2026-Jun-15 09:54:18
+   440→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+   441→2026-Jun-15 09:54:18
+   442→    return await anyio.to_thread.run_sync(func)
+   443→2026-Jun-15 09:54:18
+   444→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   445→2026-Jun-15 09:54:18
+   446→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+   447→2026-Jun-15 09:54:18
+   448→    return await get_async_backend().run_sync_in_worker_thread(
+   449→2026-Jun-15 09:54:18
+   450→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   451→2026-Jun-15 09:54:18
+   452→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+   453→2026-Jun-15 09:54:18
+   454→    return await future
+   455→2026-Jun-15 09:54:18
+   456→           ^^^^^^^^^^^^
+   457→2026-Jun-15 09:54:18
+   458→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+   459→2026-Jun-15 09:54:18
+   460→    result = context.run(func, *args)
+   461→2026-Jun-15 09:54:18
+   462→             ^^^^^^^^^^^^^^^^^^^^^^^^
+   463→2026-Jun-15 09:54:18
+   464→  File "/app/main.py", line 2882, in get_menu
+   465→2026-Jun-15 09:54:18
+   466→    response = templates.TemplateResponse(
+   467→2026-Jun-15 09:54:18
+   468→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   469→2026-Jun-15 09:54:18
+   470→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+   471→2026-Jun-15 09:54:18
+   472→    return _TemplateResponse(
+   473→2026-Jun-15 09:54:18
+   474→           ^^^^^^^^^^^^^^^^^^
+   475→2026-Jun-15 09:54:18
+   476→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+   477→2026-Jun-15 09:54:18
+   478→    content = template.render(context)
+   479→2026-Jun-15 09:54:18
+   480→              ^^^^^^^^^^^^^^^^^^^^^^^^
+   481→2026-Jun-15 09:54:18
+   482→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+   483→2026-Jun-15 09:54:18
+   484→    self.environment.handle_exception()
+   485→2026-Jun-15 09:54:18
+   486→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+   487→2026-Jun-15 09:54:18
+   488→    raise rewrite_traceback_stack(source=source)
+   489→2026-Jun-15 09:54:18
+   490→  File "/app/templates/menu.html", line 342, in top-level template code
+   491→2026-Jun-15 09:54:18
+   492→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+   493→2026-Jun-15 09:54:18
+   494→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+   495→2026-Jun-15 09:54:18
+   496→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+   497→2026-Jun-15 09:54:18
+   498→    return getattr(obj, attribute)
+   499→2026-Jun-15 09:54:18
+   500→           ^^^^^^^^^^^^^^^^^^^^^^^
+   501→2026-Jun-15 09:54:18
+   502→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+   503→2026-Jun-15 09:54:18
+   504→INFO:     10.0.2.4:52860 - "GET /manifest.json HTTP/1.1" 200 OK
+   505→2026-Jun-15 09:54:18
+   506→INFO:     10.0.2.4:52882 - "GET /static/css/design_system.css?v=7 HTTP/1.1" 200 OK
+   507→2026-Jun-15 09:54:19
+   508→INFO:     10.0.2.4:52882 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+   509→2026-Jun-15 09:54:19
+   510→ERROR:    Exception in ASGI application
+   511→2026-Jun-15 09:54:19
+   512→Traceback (most recent call last):
+   513→2026-Jun-15 09:54:19
+   514→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+   515→2026-Jun-15 09:54:19
+   516→    result = await app(  # type: ignore[func-returns-value]
+   517→2026-Jun-15 09:54:19
+   518→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   519→2026-Jun-15 09:54:19
+   520→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+   521→2026-Jun-15 09:54:19
+   522→    return await self.app(scope, receive, send)
+   523→2026-Jun-15 09:54:19
+   524→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   525→2026-Jun-15 09:54:19
+   526→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+   527→2026-Jun-15 09:54:19
+   528→    await super().__call__(scope, receive, send)
+   529→2026-Jun-15 09:54:19
+   530→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+   531→2026-Jun-15 09:54:19
+   532→    await self.middleware_stack(scope, receive, send)
+   533→2026-Jun-15 09:54:19
+   534→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+   535→2026-Jun-15 09:54:19
+   536→    raise exc
+   537→2026-Jun-15 09:54:19
+   538→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+   539→2026-Jun-15 09:54:19
+   540→    await self.app(scope, receive, _send)
+   541→2026-Jun-15 09:54:19
+   542→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+   543→2026-Jun-15 09:54:19
+   544→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+   545→2026-Jun-15 09:54:19
+   546→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   547→2026-Jun-15 09:54:19
+   548→    raise exc
+   549→2026-Jun-15 09:54:19
+   550→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   551→2026-Jun-15 09:54:19
+   552→    await app(scope, receive, sender)
+   553→2026-Jun-15 09:54:19
+   554→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+   555→2026-Jun-15 09:54:19
+   556→    await self.app(scope, receive, send)
+   557→2026-Jun-15 09:54:19
+   558→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+   559→2026-Jun-15 09:54:19
+   560→    await self.middleware_stack(scope, receive, send)
+   561→2026-Jun-15 09:54:19
+   562→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+   563→2026-Jun-15 09:54:19
+   564→    await route.handle(scope, receive, send)
+   565→2026-Jun-15 09:54:19
+   566→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+   567→2026-Jun-15 09:54:19
+   568→    await super().handle(scope, receive, send)
+   569→2026-Jun-15 09:54:19
+   570→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+   571→2026-Jun-15 09:54:19
+   572→    await self.app(scope, receive, send)
+   573→2026-Jun-15 09:54:19
+   574→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+   575→2026-Jun-15 09:54:19
+   576→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+   577→2026-Jun-15 09:54:19
+   578→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   579→2026-Jun-15 09:54:19
+   580→    raise exc
+   581→2026-Jun-15 09:54:19
+   582→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   583→2026-Jun-15 09:54:19
+   584→    await app(scope, receive, sender)
+   585→2026-Jun-15 09:54:19
+   586→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+   587→2026-Jun-15 09:54:19
+   588→    response = await f(request)
+   589→2026-Jun-15 09:54:19
+   590→               ^^^^^^^^^^^^^^^^
+   591→2026-Jun-15 09:54:19
+   592→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+   593→2026-Jun-15 09:54:19
+   594→    raw_response = await run_endpoint_function(
+   595→2026-Jun-15 09:54:19
+   596→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   597→2026-Jun-15 09:54:19
+   598→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+   599→2026-Jun-15 09:54:19
+   600→    return await run_in_threadpool(dependant.call, **values)
+   601→2026-Jun-15 09:54:19
+   602→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   603→2026-Jun-15 09:54:19
+   604→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+   605→2026-Jun-15 09:54:19
+   606→    return await anyio.to_thread.run_sync(func)
+   607→2026-Jun-15 09:54:19
+   608→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   609→2026-Jun-15 09:54:19
+   610→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+   611→2026-Jun-15 09:54:19
+   612→    return await get_async_backend().run_sync_in_worker_thread(
+   613→2026-Jun-15 09:54:19
+   614→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   615→2026-Jun-15 09:54:19
+   616→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+   617→2026-Jun-15 09:54:19
+   618→    return await future
+   619→2026-Jun-15 09:54:19
+   620→           ^^^^^^^^^^^^
+   621→2026-Jun-15 09:54:19
+   622→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+   623→2026-Jun-15 09:54:19
+   624→    result = context.run(func, *args)
+   625→2026-Jun-15 09:54:19
+   626→             ^^^^^^^^^^^^^^^^^^^^^^^^
+   627→2026-Jun-15 09:54:19
+   628→  File "/app/main.py", line 2882, in get_menu
+   629→2026-Jun-15 09:54:19
+   630→    response = templates.TemplateResponse(
+   631→2026-Jun-15 09:54:19
+   632→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   633→2026-Jun-15 09:54:19
+   634→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+   635→2026-Jun-15 09:54:19
+   636→    return _TemplateResponse(
+   637→2026-Jun-15 09:54:19
+   638→           ^^^^^^^^^^^^^^^^^^
+   639→2026-Jun-15 09:54:19
+   640→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+   641→2026-Jun-15 09:54:19
+   642→    content = template.render(context)
+   643→2026-Jun-15 09:54:19
+   644→              ^^^^^^^^^^^^^^^^^^^^^^^^
+   645→2026-Jun-15 09:54:19
+   646→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+   647→2026-Jun-15 09:54:19
+   648→    self.environment.handle_exception()
+   649→2026-Jun-15 09:54:19
+   650→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+   651→2026-Jun-15 09:54:19
+   652→    raise rewrite_traceback_stack(source=source)
+   653→2026-Jun-15 09:54:19
+   654→  File "/app/templates/menu.html", line 342, in top-level template code
+   655→2026-Jun-15 09:54:19
+   656→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+   657→2026-Jun-15 09:54:19
+   658→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+   659→2026-Jun-15 09:54:19
+   660→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+   661→2026-Jun-15 09:54:19
+   662→    return getattr(obj, attribute)
+   663→2026-Jun-15 09:54:19
+   664→           ^^^^^^^^^^^^^^^^^^^^^^^
+   665→2026-Jun-15 09:54:19
+   666→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+   667→2026-Jun-15 09:54:19
+   668→INFO:     10.0.2.4:52860 - "GET /manifest.json HTTP/1.1" 200 OK
+   669→2026-Jun-15 09:54:19
+   670→INFO:     10.0.2.4:52884 - "GET /static/css/design_system.css?v=7 HTTP/1.1" 200 OK
+   671→2026-Jun-15 09:54:20
+   672→INFO:     10.0.2.4:52884 - "GET /api/tablet-status HTTP/1.1" 200 OK
+   673→2026-Jun-15 09:54:20
+   674→INFO:     10.0.2.4:52884 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+   675→2026-Jun-15 09:54:20
+   676→ERROR:    Exception in ASGI application
+   677→2026-Jun-15 09:54:20
+   678→Traceback (most recent call last):
+   679→2026-Jun-15 09:54:20
+   680→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+   681→2026-Jun-15 09:54:20
+   682→    result = await app(  # type: ignore[func-returns-value]
+   683→2026-Jun-15 09:54:20
+   684→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   685→2026-Jun-15 09:54:20
+   686→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+   687→2026-Jun-15 09:54:20
+   688→    return await self.app(scope, receive, send)
+   689→2026-Jun-15 09:54:20
+   690→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   691→2026-Jun-15 09:54:20
+   692→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+   693→2026-Jun-15 09:54:20
+   694→    await super().__call__(scope, receive, send)
+   695→2026-Jun-15 09:54:20
+   696→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+   697→2026-Jun-15 09:54:20
+   698→    await self.middleware_stack(scope, receive, send)
+   699→2026-Jun-15 09:54:20
+   700→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+   701→2026-Jun-15 09:54:20
+   702→    raise exc
+   703→2026-Jun-15 09:54:20
+   704→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+   705→2026-Jun-15 09:54:20
+   706→    await self.app(scope, receive, _send)
+   707→2026-Jun-15 09:54:20
+   708→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+   709→2026-Jun-15 09:54:20
+   710→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+   711→2026-Jun-15 09:54:20
+   712→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   713→2026-Jun-15 09:54:20
+   714→    raise exc
+   715→2026-Jun-15 09:54:20
+   716→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   717→2026-Jun-15 09:54:20
+   718→    await app(scope, receive, sender)
+   719→2026-Jun-15 09:54:20
+   720→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+   721→2026-Jun-15 09:54:20
+   722→    await self.app(scope, receive, send)
+   723→2026-Jun-15 09:54:20
+   724→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+   725→2026-Jun-15 09:54:20
+   726→    await self.middleware_stack(scope, receive, send)
+   727→2026-Jun-15 09:54:20
+   728→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+   729→2026-Jun-15 09:54:20
+   730→    await route.handle(scope, receive, send)
+   731→2026-Jun-15 09:54:20
+   732→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+   733→2026-Jun-15 09:54:20
+   734→    await super().handle(scope, receive, send)
+   735→2026-Jun-15 09:54:20
+   736→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+   737→2026-Jun-15 09:54:20
+   738→    await self.app(scope, receive, send)
+   739→2026-Jun-15 09:54:20
+   740→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+   741→2026-Jun-15 09:54:20
+   742→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+   743→2026-Jun-15 09:54:20
+   744→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   745→2026-Jun-15 09:54:20
+   746→    raise exc
+   747→2026-Jun-15 09:54:20
+   748→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   749→2026-Jun-15 09:54:20
+   750→    await app(scope, receive, sender)
+   751→2026-Jun-15 09:54:20
+   752→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+   753→2026-Jun-15 09:54:20
+   754→    response = await f(request)
+   755→2026-Jun-15 09:54:20
+   756→               ^^^^^^^^^^^^^^^^
+   757→2026-Jun-15 09:54:20
+   758→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+   759→2026-Jun-15 09:54:20
+   760→    raw_response = await run_endpoint_function(
+   761→2026-Jun-15 09:54:20
+   762→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   763→2026-Jun-15 09:54:20
+   764→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+   765→2026-Jun-15 09:54:20
+   766→    return await run_in_threadpool(dependant.call, **values)
+   767→2026-Jun-15 09:54:20
+   768→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   769→2026-Jun-15 09:54:20
+   770→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+   771→2026-Jun-15 09:54:20
+   772→    return await anyio.to_thread.run_sync(func)
+   773→2026-Jun-15 09:54:20
+   774→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   775→2026-Jun-15 09:54:20
+   776→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+   777→2026-Jun-15 09:54:20
+   778→    return await get_async_backend().run_sync_in_worker_thread(
+   779→2026-Jun-15 09:54:20
+   780→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   781→2026-Jun-15 09:54:20
+   782→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+   783→2026-Jun-15 09:54:20
+   784→    return await future
+   785→2026-Jun-15 09:54:20
+   786→           ^^^^^^^^^^^^
+   787→2026-Jun-15 09:54:20
+   788→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+   789→2026-Jun-15 09:54:20
+   790→    result = context.run(func, *args)
+   791→2026-Jun-15 09:54:20
+   792→             ^^^^^^^^^^^^^^^^^^^^^^^^
+   793→2026-Jun-15 09:54:20
+   794→  File "/app/main.py", line 2882, in get_menu
+   795→2026-Jun-15 09:54:20
+   796→    response = templates.TemplateResponse(
+   797→2026-Jun-15 09:54:20
+   798→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   799→2026-Jun-15 09:54:20
+   800→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+   801→2026-Jun-15 09:54:20
+   802→    return _TemplateResponse(
+   803→2026-Jun-15 09:54:20
+   804→           ^^^^^^^^^^^^^^^^^^
+   805→2026-Jun-15 09:54:20
+   806→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+   807→2026-Jun-15 09:54:20
+   808→    content = template.render(context)
+   809→2026-Jun-15 09:54:20
+   810→              ^^^^^^^^^^^^^^^^^^^^^^^^
+   811→2026-Jun-15 09:54:20
+   812→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+   813→2026-Jun-15 09:54:20
+   814→    self.environment.handle_exception()
+   815→2026-Jun-15 09:54:20
+   816→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+   817→2026-Jun-15 09:54:20
+   818→    raise rewrite_traceback_stack(source=source)
+   819→2026-Jun-15 09:54:20
+   820→  File "/app/templates/menu.html", line 342, in top-level template code
+   821→2026-Jun-15 09:54:20
+   822→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+   823→2026-Jun-15 09:54:20
+   824→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+   825→2026-Jun-15 09:54:20
+   826→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+   827→2026-Jun-15 09:54:20
+   828→    return getattr(obj, attribute)
+   829→2026-Jun-15 09:54:20
+   830→           ^^^^^^^^^^^^^^^^^^^^^^^
+   831→2026-Jun-15 09:54:20
+   832→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+   833→2026-Jun-15 09:54:20
+   834→INFO:     10.0.2.4:52888 - "GET /manifest.json HTTP/1.1" 200 OK
+   835→2026-Jun-15 09:54:20
+   836→INFO:     10.0.2.4:52860 - "GET /static/css/design_system.css?v=7 HTTP/1.1" 200 OK
+   837→2026-Jun-15 09:54:22
+   838→INFO:     10.0.2.4:52860 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+   839→2026-Jun-15 09:54:22
+   840→ERROR:    Exception in ASGI application
+   841→2026-Jun-15 09:54:22
+   842→Traceback (most recent call last):
+   843→2026-Jun-15 09:54:22
+   844→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+   845→2026-Jun-15 09:54:22
+   846→    result = await app(  # type: ignore[func-returns-value]
+   847→2026-Jun-15 09:54:22
+   848→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   849→2026-Jun-15 09:54:22
+   850→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+   851→2026-Jun-15 09:54:22
+   852→    return await self.app(scope, receive, send)
+   853→2026-Jun-15 09:54:22
+   854→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   855→2026-Jun-15 09:54:22
+   856→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+   857→2026-Jun-15 09:54:22
+   858→    await super().__call__(scope, receive, send)
+   859→2026-Jun-15 09:54:22
+   860→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+   861→2026-Jun-15 09:54:22
+   862→    await self.middleware_stack(scope, receive, send)
+   863→2026-Jun-15 09:54:22
+   864→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+   865→2026-Jun-15 09:54:22
+   866→    raise exc
+   867→2026-Jun-15 09:54:22
+   868→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+   869→2026-Jun-15 09:54:22
+   870→    await self.app(scope, receive, _send)
+   871→2026-Jun-15 09:54:22
+   872→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+   873→2026-Jun-15 09:54:22
+   874→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+   875→2026-Jun-15 09:54:22
+   876→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   877→2026-Jun-15 09:54:22
+   878→    raise exc
+   879→2026-Jun-15 09:54:22
+   880→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   881→2026-Jun-15 09:54:22
+   882→    await app(scope, receive, sender)
+   883→2026-Jun-15 09:54:22
+   884→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+   885→2026-Jun-15 09:54:22
+   886→    await self.app(scope, receive, send)
+   887→2026-Jun-15 09:54:22
+   888→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+   889→2026-Jun-15 09:54:22
+   890→    await self.middleware_stack(scope, receive, send)
+   891→2026-Jun-15 09:54:22
+   892→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+   893→2026-Jun-15 09:54:22
+   894→    await route.handle(scope, receive, send)
+   895→2026-Jun-15 09:54:22
+   896→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+   897→2026-Jun-15 09:54:22
+   898→    await super().handle(scope, receive, send)
+   899→2026-Jun-15 09:54:22
+   900→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+   901→2026-Jun-15 09:54:22
+   902→    await self.app(scope, receive, send)
+   903→2026-Jun-15 09:54:22
+   904→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+   905→2026-Jun-15 09:54:22
+   906→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+   907→2026-Jun-15 09:54:22
+   908→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+   909→2026-Jun-15 09:54:22
+   910→    raise exc
+   911→2026-Jun-15 09:54:22
+   912→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+   913→2026-Jun-15 09:54:22
+   914→    await app(scope, receive, sender)
+   915→2026-Jun-15 09:54:22
+   916→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+   917→2026-Jun-15 09:54:22
+   918→    response = await f(request)
+   919→2026-Jun-15 09:54:22
+   920→               ^^^^^^^^^^^^^^^^
+   921→2026-Jun-15 09:54:22
+   922→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+   923→2026-Jun-15 09:54:22
+   924→    raw_response = await run_endpoint_function(
+   925→2026-Jun-15 09:54:22
+   926→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   927→2026-Jun-15 09:54:22
+   928→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+   929→2026-Jun-15 09:54:22
+   930→    return await run_in_threadpool(dependant.call, **values)
+   931→2026-Jun-15 09:54:22
+   932→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   933→2026-Jun-15 09:54:22
+   934→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+   935→2026-Jun-15 09:54:22
+   936→    return await anyio.to_thread.run_sync(func)
+   937→2026-Jun-15 09:54:22
+   938→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   939→2026-Jun-15 09:54:22
+   940→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+   941→2026-Jun-15 09:54:22
+   942→    return await get_async_backend().run_sync_in_worker_thread(
+   943→2026-Jun-15 09:54:22
+   944→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   945→2026-Jun-15 09:54:22
+   946→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+   947→2026-Jun-15 09:54:22
+   948→    return await future
+   949→2026-Jun-15 09:54:22
+   950→           ^^^^^^^^^^^^
+   951→2026-Jun-15 09:54:22
+   952→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+   953→2026-Jun-15 09:54:22
+   954→    result = context.run(func, *args)
+   955→2026-Jun-15 09:54:22
+   956→             ^^^^^^^^^^^^^^^^^^^^^^^^
+   957→2026-Jun-15 09:54:22
+   958→  File "/app/main.py", line 2882, in get_menu
+   959→2026-Jun-15 09:54:22
+   960→    response = templates.TemplateResponse(
+   961→2026-Jun-15 09:54:22
+   962→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   963→2026-Jun-15 09:54:22
+   964→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+   965→2026-Jun-15 09:54:22
+   966→    return _TemplateResponse(
+   967→2026-Jun-15 09:54:22
+   968→           ^^^^^^^^^^^^^^^^^^
+   969→2026-Jun-15 09:54:22
+   970→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+   971→2026-Jun-15 09:54:22
+   972→    content = template.render(context)
+   973→2026-Jun-15 09:54:22
+   974→              ^^^^^^^^^^^^^^^^^^^^^^^^
+   975→2026-Jun-15 09:54:22
+   976→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+   977→2026-Jun-15 09:54:22
+   978→    self.environment.handle_exception()
+   979→2026-Jun-15 09:54:22
+   980→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+   981→2026-Jun-15 09:54:22
+   982→    raise rewrite_traceback_stack(source=source)
+   983→2026-Jun-15 09:54:22
+   984→  File "/app/templates/menu.html", line 342, in top-level template code
+   985→2026-Jun-15 09:54:22
+   986→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+   987→2026-Jun-15 09:54:22
+   988→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+   989→2026-Jun-15 09:54:22
+   990→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+   991→2026-Jun-15 09:54:22
+   992→    return getattr(obj, attribute)
+   993→2026-Jun-15 09:54:22
+   994→           ^^^^^^^^^^^^^^^^^^^^^^^
+   995→2026-Jun-15 09:54:22
+   996→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+   997→2026-Jun-15 09:54:23
+   998→INFO:     10.0.2.4:52888 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+   999→2026-Jun-15 09:54:23
+  1000→ERROR:    Exception in ASGI application
+  1001→2026-Jun-15 09:54:23
+  1002→Traceback (most recent call last):
+  1003→2026-Jun-15 09:54:23
+  1004→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+  1005→2026-Jun-15 09:54:23
+  1006→    result = await app(  # type: ignore[func-returns-value]
+  1007→2026-Jun-15 09:54:23
+  1008→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1009→2026-Jun-15 09:54:23
+  1010→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+  1011→2026-Jun-15 09:54:23
+  1012→    return await self.app(scope, receive, send)
+  1013→2026-Jun-15 09:54:23
+  1014→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1015→2026-Jun-15 09:54:23
+  1016→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+  1017→2026-Jun-15 09:54:23
+  1018→    await super().__call__(scope, receive, send)
+  1019→2026-Jun-15 09:54:23
+  1020→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+  1021→2026-Jun-15 09:54:23
+  1022→    await self.middleware_stack(scope, receive, send)
+  1023→2026-Jun-15 09:54:23
+  1024→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+  1025→2026-Jun-15 09:54:23
+  1026→    raise exc
+  1027→2026-Jun-15 09:54:23
+  1028→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+  1029→2026-Jun-15 09:54:23
+  1030→    await self.app(scope, receive, _send)
+  1031→2026-Jun-15 09:54:23
+  1032→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+  1033→2026-Jun-15 09:54:23
+  1034→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  1035→2026-Jun-15 09:54:23
+  1036→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  1037→2026-Jun-15 09:54:23
+  1038→    raise exc
+  1039→2026-Jun-15 09:54:23
+  1040→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  1041→2026-Jun-15 09:54:23
+  1042→    await app(scope, receive, sender)
+  1043→2026-Jun-15 09:54:23
+  1044→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+  1045→2026-Jun-15 09:54:23
+  1046→    await self.app(scope, receive, send)
+  1047→2026-Jun-15 09:54:23
+  1048→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+  1049→2026-Jun-15 09:54:23
+  1050→    await self.middleware_stack(scope, receive, send)
+  1051→2026-Jun-15 09:54:23
+  1052→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+  1053→2026-Jun-15 09:54:23
+  1054→    await route.handle(scope, receive, send)
+  1055→2026-Jun-15 09:54:23
+  1056→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+  1057→2026-Jun-15 09:54:23
+  1058→    await super().handle(scope, receive, send)
+  1059→2026-Jun-15 09:54:23
+  1060→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+  1061→2026-Jun-15 09:54:23
+  1062→    await self.app(scope, receive, send)
+  1063→2026-Jun-15 09:54:23
+  1064→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+  1065→2026-Jun-15 09:54:23
+  1066→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  1067→2026-Jun-15 09:54:23
+  1068→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  1069→2026-Jun-15 09:54:23
+  1070→    raise exc
+  1071→2026-Jun-15 09:54:23
+  1072→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  1073→2026-Jun-15 09:54:23
+  1074→    await app(scope, receive, sender)
+  1075→2026-Jun-15 09:54:23
+  1076→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+  1077→2026-Jun-15 09:54:23
+  1078→    response = await f(request)
+  1079→2026-Jun-15 09:54:23
+  1080→               ^^^^^^^^^^^^^^^^
+  1081→2026-Jun-15 09:54:23
+  1082→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+  1083→2026-Jun-15 09:54:23
+  1084→    raw_response = await run_endpoint_function(
+  1085→2026-Jun-15 09:54:23
+  1086→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1087→2026-Jun-15 09:54:23
+  1088→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+  1089→2026-Jun-15 09:54:23
+  1090→    return await run_in_threadpool(dependant.call, **values)
+  1091→2026-Jun-15 09:54:23
+  1092→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1093→2026-Jun-15 09:54:23
+  1094→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+  1095→2026-Jun-15 09:54:23
+  1096→    return await anyio.to_thread.run_sync(func)
+  1097→2026-Jun-15 09:54:23
+  1098→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1099→2026-Jun-15 09:54:23
+  1100→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+  1101→2026-Jun-15 09:54:23
+  1102→    return await get_async_backend().run_sync_in_worker_thread(
+  1103→2026-Jun-15 09:54:23
+  1104→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1105→2026-Jun-15 09:54:23
+  1106→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+  1107→2026-Jun-15 09:54:23
+  1108→    return await future
+  1109→2026-Jun-15 09:54:23
+  1110→           ^^^^^^^^^^^^
+  1111→2026-Jun-15 09:54:23
+  1112→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+  1113→2026-Jun-15 09:54:23
+  1114→    result = context.run(func, *args)
+  1115→2026-Jun-15 09:54:23
+  1116→             ^^^^^^^^^^^^^^^^^^^^^^^^
+  1117→2026-Jun-15 09:54:23
+  1118→  File "/app/main.py", line 2882, in get_menu
+  1119→2026-Jun-15 09:54:23
+  1120→    response = templates.TemplateResponse(
+  1121→2026-Jun-15 09:54:23
+  1122→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1123→2026-Jun-15 09:54:23
+  1124→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+  1125→2026-Jun-15 09:54:23
+  1126→    return _TemplateResponse(
+  1127→2026-Jun-15 09:54:23
+  1128→           ^^^^^^^^^^^^^^^^^^
+  1129→2026-Jun-15 09:54:23
+  1130→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+  1131→2026-Jun-15 09:54:23
+  1132→    content = template.render(context)
+  1133→2026-Jun-15 09:54:23
+  1134→              ^^^^^^^^^^^^^^^^^^^^^^^^
+  1135→2026-Jun-15 09:54:23
+  1136→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+  1137→2026-Jun-15 09:54:23
+  1138→    self.environment.handle_exception()
+  1139→2026-Jun-15 09:54:23
+  1140→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+  1141→2026-Jun-15 09:54:23
+  1142→    raise rewrite_traceback_stack(source=source)
+  1143→2026-Jun-15 09:54:23
+  1144→  File "/app/templates/menu.html", line 342, in top-level template code
+  1145→2026-Jun-15 09:54:23
+  1146→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+  1147→2026-Jun-15 09:54:23
+  1148→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  1149→2026-Jun-15 09:54:23
+  1150→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+  1151→2026-Jun-15 09:54:23
+  1152→    return getattr(obj, attribute)
+  1153→2026-Jun-15 09:54:23
+  1154→           ^^^^^^^^^^^^^^^^^^^^^^^
+  1155→2026-Jun-15 09:54:23
+  1156→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+  1157→2026-Jun-15 09:54:24
+  1158→INFO:     10.0.2.4:52904 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+  1159→2026-Jun-15 09:54:24
+  1160→ERROR:    Exception in ASGI application
+  1161→2026-Jun-15 09:54:24
+  1162→Traceback (most recent call last):
+  1163→2026-Jun-15 09:54:24
+  1164→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+  1165→2026-Jun-15 09:54:24
+  1166→    result = await app(  # type: ignore[func-returns-value]
+  1167→2026-Jun-15 09:54:24
+  1168→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1169→2026-Jun-15 09:54:24
+  1170→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+  1171→2026-Jun-15 09:54:24
+  1172→    return await self.app(scope, receive, send)
+  1173→2026-Jun-15 09:54:24
+  1174→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1175→2026-Jun-15 09:54:24
+  1176→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+  1177→2026-Jun-15 09:54:24
+  1178→    await super().__call__(scope, receive, send)
+  1179→2026-Jun-15 09:54:24
+  1180→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+  1181→2026-Jun-15 09:54:24
+  1182→    await self.middleware_stack(scope, receive, send)
+  1183→2026-Jun-15 09:54:24
+  1184→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+  1185→2026-Jun-15 09:54:24
+  1186→    raise exc
+  1187→2026-Jun-15 09:54:24
+  1188→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+  1189→2026-Jun-15 09:54:24
+  1190→    await self.app(scope, receive, _send)
+  1191→2026-Jun-15 09:54:24
+  1192→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+  1193→2026-Jun-15 09:54:24
+  1194→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  1195→2026-Jun-15 09:54:24
+  1196→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  1197→2026-Jun-15 09:54:24
+  1198→    raise exc
+  1199→2026-Jun-15 09:54:24
+  1200→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  1201→2026-Jun-15 09:54:24
+  1202→    await app(scope, receive, sender)
+  1203→2026-Jun-15 09:54:24
+  1204→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+  1205→2026-Jun-15 09:54:24
+  1206→    await self.app(scope, receive, send)
+  1207→2026-Jun-15 09:54:24
+  1208→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+  1209→2026-Jun-15 09:54:24
+  1210→    await self.middleware_stack(scope, receive, send)
+  1211→2026-Jun-15 09:54:24
+  1212→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+  1213→2026-Jun-15 09:54:24
+  1214→    await route.handle(scope, receive, send)
+  1215→2026-Jun-15 09:54:24
+  1216→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+  1217→2026-Jun-15 09:54:24
+  1218→    await super().handle(scope, receive, send)
+  1219→2026-Jun-15 09:54:24
+  1220→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+  1221→2026-Jun-15 09:54:24
+  1222→    await self.app(scope, receive, send)
+  1223→2026-Jun-15 09:54:24
+  1224→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+  1225→2026-Jun-15 09:54:24
+  1226→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  1227→2026-Jun-15 09:54:24
+  1228→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  1229→2026-Jun-15 09:54:24
+  1230→    raise exc
+  1231→2026-Jun-15 09:54:24
+  1232→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  1233→2026-Jun-15 09:54:24
+  1234→    await app(scope, receive, sender)
+  1235→2026-Jun-15 09:54:24
+  1236→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+  1237→2026-Jun-15 09:54:24
+  1238→    response = await f(request)
+  1239→2026-Jun-15 09:54:24
+  1240→               ^^^^^^^^^^^^^^^^
+  1241→2026-Jun-15 09:54:24
+  1242→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+  1243→2026-Jun-15 09:54:24
+  1244→    raw_response = await run_endpoint_function(
+  1245→2026-Jun-15 09:54:24
+  1246→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1247→2026-Jun-15 09:54:24
+  1248→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+  1249→2026-Jun-15 09:54:24
+  1250→    return await run_in_threadpool(dependant.call, **values)
+  1251→2026-Jun-15 09:54:24
+  1252→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1253→2026-Jun-15 09:54:24
+  1254→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+  1255→2026-Jun-15 09:54:24
+  1256→    return await anyio.to_thread.run_sync(func)
+  1257→2026-Jun-15 09:54:24
+  1258→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1259→2026-Jun-15 09:54:24
+  1260→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+  1261→2026-Jun-15 09:54:24
+  1262→    return await get_async_backend().run_sync_in_worker_thread(
+  1263→2026-Jun-15 09:54:24
+  1264→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1265→2026-Jun-15 09:54:24
+  1266→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+  1267→2026-Jun-15 09:54:24
+  1268→    return await future
+  1269→2026-Jun-15 09:54:24
+  1270→           ^^^^^^^^^^^^
+  1271→2026-Jun-15 09:54:24
+  1272→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+  1273→2026-Jun-15 09:54:24
+  1274→    result = context.run(func, *args)
+  1275→2026-Jun-15 09:54:24
+  1276→             ^^^^^^^^^^^^^^^^^^^^^^^^
+  1277→2026-Jun-15 09:54:24
+  1278→  File "/app/main.py", line 2882, in get_menu
+  1279→2026-Jun-15 09:54:24
+  1280→    response = templates.TemplateResponse(
+  1281→2026-Jun-15 09:54:24
+  1282→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1283→2026-Jun-15 09:54:24
+  1284→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+  1285→2026-Jun-15 09:54:24
+  1286→    return _TemplateResponse(
+  1287→2026-Jun-15 09:54:24
+  1288→           ^^^^^^^^^^^^^^^^^^
+  1289→2026-Jun-15 09:54:24
+  1290→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+  1291→2026-Jun-15 09:54:24
+  1292→    content = template.render(context)
+  1293→2026-Jun-15 09:54:24
+  1294→              ^^^^^^^^^^^^^^^^^^^^^^^^
+  1295→2026-Jun-15 09:54:24
+  1296→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+  1297→2026-Jun-15 09:54:24
+  1298→    self.environment.handle_exception()
+  1299→2026-Jun-15 09:54:24
+  1300→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+  1301→2026-Jun-15 09:54:24
+  1302→    raise rewrite_traceback_stack(source=source)
+  1303→2026-Jun-15 09:54:24
+  1304→  File "/app/templates/menu.html", line 342, in top-level template code
+  1305→2026-Jun-15 09:54:24
+  1306→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+  1307→2026-Jun-15 09:54:24
+  1308→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  1309→2026-Jun-15 09:54:24
+  1310→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+  1311→2026-Jun-15 09:54:24
+  1312→    return getattr(obj, attribute)
+  1313→2026-Jun-15 09:54:24
+  1314→           ^^^^^^^^^^^^^^^^^^^^^^^
+  1315→2026-Jun-15 09:54:24
+  1316→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+  1317→2026-Jun-15 09:54:25
+  1318→INFO:     10.0.2.4:48774 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1319→2026-Jun-15 09:54:30
+  1320→INFO:     10.0.2.4:48774 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1321→2026-Jun-15 09:54:32
+  1322→INFO:     10.0.2.4:48774 - "GET /admin/impersonate/2?role=waiter&z=innen HTTP/1.1" 303 See Other
+  1323→2026-Jun-15 09:54:33
+  1324→INFO:     10.0.2.4:48774 - "GET /deer-lounge?tisch=2&token=07810349&z=innen HTTP/1.1" 303 See Other
+  1325→2026-Jun-15 09:54:33
+  1326→INFO:     10.0.2.4:48774 - "GET /deer-lounge?reset=true HTTP/1.1" 500 Internal Server Error
+  1327→2026-Jun-15 09:54:33
+  1328→ERROR:    Exception in ASGI application
+  1329→2026-Jun-15 09:54:33
+  1330→Traceback (most recent call last):
+  1331→2026-Jun-15 09:54:33
+  1332→  File "/usr/local/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+  1333→2026-Jun-15 09:54:33
+  1334→    result = await app(  # type: ignore[func-returns-value]
+  1335→2026-Jun-15 09:54:33
+  1336→             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1337→2026-Jun-15 09:54:33
+  1338→  File "/usr/local/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+  1339→2026-Jun-15 09:54:33
+  1340→    return await self.app(scope, receive, send)
+  1341→2026-Jun-15 09:54:33
+  1342→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1343→2026-Jun-15 09:54:33
+  1344→  File "/usr/local/lib/python3.12/site-packages/fastapi/applications.py", line 1162, in __call__
+  1345→2026-Jun-15 09:54:33
+  1346→    await super().__call__(scope, receive, send)
+  1347→2026-Jun-15 09:54:33
+  1348→  File "/usr/local/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+  1349→2026-Jun-15 09:54:33
+  1350→    await self.middleware_stack(scope, receive, send)
+  1351→2026-Jun-15 09:54:33
+  1352→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+  1353→2026-Jun-15 09:54:33
+  1354→    raise exc
+  1355→2026-Jun-15 09:54:33
+  1356→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+  1357→2026-Jun-15 09:54:33
+  1358→    await self.app(scope, receive, _send)
+  1359→2026-Jun-15 09:54:33
+  1360→  File "/usr/local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+  1361→2026-Jun-15 09:54:33
+  1362→    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  1363→2026-Jun-15 09:54:33
+  1364→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  1365→2026-Jun-15 09:54:33
+  1366→    raise exc
+  1367→2026-Jun-15 09:54:33
+  1368→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  1369→2026-Jun-15 09:54:33
+  1370→    await app(scope, receive, sender)
+  1371→2026-Jun-15 09:54:33
+  1372→  File "/usr/local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+  1373→2026-Jun-15 09:54:33
+  1374→    await self.app(scope, receive, send)
+  1375→2026-Jun-15 09:54:33
+  1376→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+  1377→2026-Jun-15 09:54:33
+  1378→    await self.middleware_stack(scope, receive, send)
+  1379→2026-Jun-15 09:54:33
+  1380→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 680, in app
+  1381→2026-Jun-15 09:54:33
+  1382→    await route.handle(scope, receive, send)
+  1383→2026-Jun-15 09:54:33
+  1384→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 1185, in handle
+  1385→2026-Jun-15 09:54:33
+  1386→    await super().handle(scope, receive, send)
+  1387→2026-Jun-15 09:54:33
+  1388→  File "/usr/local/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+  1389→2026-Jun-15 09:54:33
+  1390→    await self.app(scope, receive, send)
+  1391→2026-Jun-15 09:54:33
+  1392→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 143, in app
+  1393→2026-Jun-15 09:54:33
+  1394→    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  1395→2026-Jun-15 09:54:33
+  1396→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  1397→2026-Jun-15 09:54:33
+  1398→    raise exc
+  1399→2026-Jun-15 09:54:33
+  1400→  File "/usr/local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  1401→2026-Jun-15 09:54:33
+  1402→    await app(scope, receive, sender)
+  1403→2026-Jun-15 09:54:33
+  1404→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 129, in app
+  1405→2026-Jun-15 09:54:33
+  1406→    response = await f(request)
+  1407→2026-Jun-15 09:54:33
+  1408→               ^^^^^^^^^^^^^^^^
+  1409→2026-Jun-15 09:54:33
+  1410→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 683, in app
+  1411→2026-Jun-15 09:54:33
+  1412→    raw_response = await run_endpoint_function(
+  1413→2026-Jun-15 09:54:33
+  1414→                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1415→2026-Jun-15 09:54:33
+  1416→  File "/usr/local/lib/python3.12/site-packages/fastapi/routing.py", line 339, in run_endpoint_function
+  1417→2026-Jun-15 09:54:33
+  1418→    return await run_in_threadpool(dependant.call, **values)
+  1419→2026-Jun-15 09:54:33
+  1420→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1421→2026-Jun-15 09:54:33
+  1422→  File "/usr/local/lib/python3.12/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+  1423→2026-Jun-15 09:54:33
+  1424→    return await anyio.to_thread.run_sync(func)
+  1425→2026-Jun-15 09:54:33
+  1426→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1427→2026-Jun-15 09:54:33
+  1428→  File "/usr/local/lib/python3.12/site-packages/anyio/to_thread.py", line 63, in run_sync
+  1429→2026-Jun-15 09:54:33
+  1430→    return await get_async_backend().run_sync_in_worker_thread(
+  1431→2026-Jun-15 09:54:33
+  1432→           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1433→2026-Jun-15 09:54:33
+  1434→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
+  1435→2026-Jun-15 09:54:33
+  1436→    return await future
+  1437→2026-Jun-15 09:54:33
+  1438→           ^^^^^^^^^^^^
+  1439→2026-Jun-15 09:54:33
+  1440→  File "/usr/local/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
+  1441→2026-Jun-15 09:54:33
+  1442→    result = context.run(func, *args)
+  1443→2026-Jun-15 09:54:33
+  1444→             ^^^^^^^^^^^^^^^^^^^^^^^^
+  1445→2026-Jun-15 09:54:33
+  1446→  File "/app/main.py", line 2882, in get_menu
+  1447→2026-Jun-15 09:54:33
+  1448→    response = templates.TemplateResponse(
+  1449→2026-Jun-15 09:54:33
+  1450→               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  1451→2026-Jun-15 09:54:33
+  1452→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 149, in TemplateResponse
+  1453→2026-Jun-15 09:54:33
+  1454→    return _TemplateResponse(
+  1455→2026-Jun-15 09:54:33
+  1456→           ^^^^^^^^^^^^^^^^^^
+  1457→2026-Jun-15 09:54:33
+  1458→  File "/usr/local/lib/python3.12/site-packages/starlette/templating.py", line 43, in __init__
+  1459→2026-Jun-15 09:54:33
+  1460→    content = template.render(context)
+  1461→2026-Jun-15 09:54:33
+  1462→              ^^^^^^^^^^^^^^^^^^^^^^^^
+  1463→2026-Jun-15 09:54:33
+  1464→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 1295, in render
+  1465→2026-Jun-15 09:54:33
+  1466→    self.environment.handle_exception()
+  1467→2026-Jun-15 09:54:33
+  1468→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 942, in handle_exception
+  1469→2026-Jun-15 09:54:33
+  1470→    raise rewrite_traceback_stack(source=source)
+  1471→2026-Jun-15 09:54:33
+  1472→  File "/app/templates/menu.html", line 342, in top-level template code
+  1473→2026-Jun-15 09:54:33
+  1474→    <h3 class="text-base font-black text-amber-400 drop-shadow-md font-display uppercase tracking-wider">{{ hh_config.get('display_name', 'Aktion') }} ist aktiv!</h3>
+  1475→2026-Jun-15 09:54:33
+  1476→    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  1477→2026-Jun-15 09:54:33
+  1478→  File "/usr/local/lib/python3.12/site-packages/jinja2/environment.py", line 490, in getattr
+  1479→2026-Jun-15 09:54:33
+  1480→    return getattr(obj, attribute)
+  1481→2026-Jun-15 09:54:33
+  1482→           ^^^^^^^^^^^^^^^^^^^^^^^
+  1483→2026-Jun-15 09:54:33
+  1484→jinja2.exceptions.UndefinedError: 'hh_config' is undefined
+  1485→2026-Jun-15 09:54:33
+  1486→INFO:     10.0.2.4:48788 - "GET /manifest.json HTTP/1.1" 200 OK
+  1487→2026-Jun-15 09:54:34
+  1488→INFO:     10.0.2.4:48790 - "GET /uploads/products/ai-9c64ed53.png HTTP/1.1" 304 Not Modified
+  1489→2026-Jun-15 09:54:35
+  1490→INFO:     127.0.0.1:55790 - "GET /health HTTP/1.1" 200 OK
+  1491→2026-Jun-15 09:54:36
+  1492→INFO:     10.0.2.4:48790 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1493→2026-Jun-15 09:54:41
+  1494→INFO:     10.0.2.4:48790 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1495→2026-Jun-15 09:54:47
+  1496→INFO:     10.0.2.4:50808 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1497→2026-Jun-15 09:54:53
+  1498→INFO:     10.0.2.4:50818 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1499→2026-Jun-15 09:54:59
+  1500→INFO:     10.0.2.4:41458 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1501→2026-Jun-15 09:55:05
+  1502→INFO:     10.0.2.4:36838 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1503→2026-Jun-15 09:55:06
+  1504→INFO:     127.0.0.1:33222 - "GET /health HTTP/1.1" 200 OK
+  1505→2026-Jun-15 09:55:11
+  1506→INFO:     10.0.2.4:36846 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1507→2026-Jun-15 09:55:17
+  1508→INFO:     10.0.2.4:43048 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1509→2026-Jun-15 09:55:23
+  1510→INFO:     10.0.2.4:43058 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1511→2026-Jun-15 09:55:29
+  1512→INFO:     10.0.2.4:59226 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1513→2026-Jun-15 09:55:35
+  1514→INFO:     10.0.2.4:51836 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1515→2026-Jun-15 09:55:36
+  1516→INFO:     127.0.0.1:33760 - "GET /health HTTP/1.1" 200 OK
+  1517→2026-Jun-15 09:55:41
+  1518→INFO:     10.0.2.4:51842 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1519→2026-Jun-15 09:55:47
+  1520→INFO:     10.0.2.4:47526 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1521→2026-Jun-15 09:55:53
+  1522→INFO:     10.0.2.4:47530 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1523→2026-Jun-15 09:55:59
+  1524→INFO:     10.0.2.4:46844 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1525→2026-Jun-15 09:56:05
+  1526→INFO:     10.0.2.4:55726 - "GET /api/tablet-status HTTP/1.1" 200 OK
+  1527→2026-Jun-15 09:56:06
+  1528→INFO:     127.0.0.1:40048 - "GET /health HTTP/1.1" 200 OK
+  1529→2026-Jun-15 09:56:11
+  1530→INFO:     10.0.2.4:55736 - "GET /api/tablet-status HTTP/1.1" 200 OK
