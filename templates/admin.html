@@ -2986,8 +2986,9 @@
          TISCH-COCKPIT / CONTROLS MODAL OVERLAY (#control-modal)
     ═══════════════════════════════════════════════════════ -->
     <div id="control-modal" class="overlay-backdrop hidden">
-        <div class="popup-card" style="max-width:550px;">
-            <div class="popup-header">
+        <div class="popup-card flex flex-col" style="max-width:550px;max-height:90vh;">
+            <!-- Sticky Header with total -->
+            <div class="popup-header flex-shrink-0">
                 <div>
                     <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Cockpit</div>
                     <div style="font-size:22px;font-weight:900;color:#fff;" id="control-modal-table-title">Tisch --</div>
@@ -2998,7 +2999,8 @@
                 </div>
             </div>
 
-            <div class="popup-body space-y-5" style="max-height:55vh;">
+            <!-- Scrollable items area -->
+            <div class="popup-body space-y-5 overflow-y-auto flex-1" style="min-height:0;">
                 <!-- Call-To-Action alerts inside Control Modal -->
                 <div id="control-alerts-box" class="hidden"></div>
                 
@@ -3022,8 +3024,8 @@
                 </div>
             </div>
 
-            <!-- Table Control Cockpit Actions Footer -->
-            <div class="popup-footer space-y-3">
+            <!-- Sticky Footer — always visible -->
+            <div class="popup-footer space-y-3 flex-shrink-0 border-t border-zinc-800/30">
                 <!-- Split Pay selector -->
                 <div id="control-split-cockpit" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
                     <div class="flex items-center justify-between text-xs font-extrabold text-zinc-800">
