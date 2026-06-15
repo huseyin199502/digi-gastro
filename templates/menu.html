@@ -461,39 +461,7 @@
                     </button>
                 </div>
 
-                <!-- CATEGORY OVERVIEW: Large vertical category cards -->
-                <div x-show="currentCategory === ''" id="category-list-view" class="space-y-3 py-2">
-                    {% for cat in parent_categories %}
-                    {% set cat_img = category_images.get(cat, '') %}
-
-                    <button onclick="filterCategory('{{ cat }}')" 
-                            class="w-full group relative overflow-hidden rounded-2xl border border-outline-variant/60 hover:border-primary/60 transition-all duration-300 active:scale-[0.98] hover-lift">
-                        <div class="flex items-center h-24 sm:h-28">
-                            <!-- Category Image -->
-                            <div class="relative w-24 sm:w-28 h-full flex-shrink-0 overflow-hidden">
-                                {% if cat_img %}
-                                <img alt="{{ cat }}" class="w-full h-full object-cover" src="{{ cat_img }}" loading="lazy">
-                                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--bg-surface)]"></div>
-                                {% else %}
-                                <div class="w-full h-full bg-surface-container-high flex items-center justify-center">
-                                    <span class="material-symbols-outlined text-4xl text-on-surface-variant/30">restaurant</span>
-                                </div>
-                                {% endif %}
-                            </div>
-                            <!-- Category Info -->
-                            <div class="flex-1 px-4 flex items-center justify-between">
-                                <div class="flex flex-col">
-                                    <h2 class="text-lg sm:text-xl font-black text-on-surface font-display tracking-tight uppercase">{{ cat }}</h2>
-
-                                </div>
-                                <span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-1 transition-all text-2xl">chevron_right</span>
-                            </div>
-                        </div>
-                    </button>
-                    {% endfor %}
-                </div>
-
-                <!-- Combo Deals Section (shown when event with combos is active and no category selected) -->
+                <!-- Combo Deals Section (TOP - shown when event with combos is active and no category selected) -->
                 {% if today_combo_events %}
                 {% set combos_list = [] %}
                 {% for ev in today_combo_events %}
@@ -586,6 +554,38 @@
                 </div>
                 {% endif %}
                 {% endif %}
+
+                <!-- CATEGORY OVERVIEW: Large vertical category cards -->
+                <div x-show="currentCategory === ''" id="category-list-view" class="space-y-3 py-2">
+                    {% for cat in parent_categories %}
+                    {% set cat_img = category_images.get(cat, '') %}
+
+                    <button onclick="filterCategory('{{ cat }}')" 
+                            class="w-full group relative overflow-hidden rounded-2xl border border-outline-variant/60 hover:border-primary/60 transition-all duration-300 active:scale-[0.98] hover-lift">
+                        <div class="flex items-center h-24 sm:h-28">
+                            <!-- Category Image -->
+                            <div class="relative w-24 sm:w-28 h-full flex-shrink-0 overflow-hidden">
+                                {% if cat_img %}
+                                <img alt="{{ cat }}" class="w-full h-full object-cover" src="{{ cat_img }}" loading="lazy">
+                                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--bg-surface)]"></div>
+                                {% else %}
+                                <div class="w-full h-full bg-surface-container-high flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-4xl text-on-surface-variant/30">restaurant</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <!-- Category Info -->
+                            <div class="flex-1 px-4 flex items-center justify-between">
+                                <div class="flex flex-col">
+                                    <h2 class="text-lg sm:text-xl font-black text-on-surface font-display tracking-tight uppercase">{{ cat }}</h2>
+
+                                </div>
+                                <span class="material-symbols-outlined text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-1 transition-all text-2xl">chevron_right</span>
+                            </div>
+                        </div>
+                    </button>
+                    {% endfor %}
+                </div>
 
                 <!-- Combo Deals Banner (shown when a category is selected) -->
                 {% if today_combo_events %}
