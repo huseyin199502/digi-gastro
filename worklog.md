@@ -314,3 +314,44 @@ Stage Summary:
 - Light mode menu has solid white background without grid/tile pattern
 - Landing page "Willkommen bei" text forced white in both dark and light modes
 - Kellner popup has proper scrollable orders with always-visible header (table + total) and footer (buttons)
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Add Kombi-Angebote (Combo Pricing) Feature to Events
+
+Work Log:
+- Created EventCombo and EventComboItem database models in database.py
+- Added migration code for event_combos and event_combo_items tables (both Postgres and SQLite)
+- Updated get_tenant_data() in main.py to load combos for each event from DB
+- Updated create_event API (POST /admin/events) to save combos when creating an event
+- Updated update_event API (PUT /admin/events/{event_id}) to update combos
+- Updated delete_event API (DELETE /admin/events/{event_id}) to delete combos and their items
+- Updated save_tenant_data() in main.py to handle combos in the LiveListProxy save path
+- Updated admin.html:
+  - Added "Kombi-Angebote" section in event modal with "Neue Kombi" button
+  - Added JS functions: addEventCombo, removeEventCombo, updateComboCount, renderCombosList, updateComboField, toggleComboItem, collectComboData
+  - Updated openEventCreateModal to reset combo state
+  - Updated openEventEditModal to load existing combos
+  - Updated collectEventData to include combos in the payload
+  - Updated renderEventsList to show combo count badge on event cards
+- Updated menu.html:
+  - Added "Kombi-Angebote" section showing active combo deals in the Speisekarte view
+  - Each combo shows: name, event badge, product list, combo price, original total (struck through), savings
+  - Added addComboToCart JavaScript function that adds all combo products with proportionally distributed prices
+  - Updated submitOrder to include combo_id in the order payload
+  - Updated event banner text to mention "Kombi-Angebote" when combos are active
+- Updated main.py order submission:
+  - Added combo_id field to OrderItem model
+  - Added combo_lookup building from active events
+  - Added combo price validation: verifies combo is currently active, all required products are in order
+  - Distributes combo price proportionally across combo items (last item gets remainder to avoid rounding errors)
+
+Stage Summary:
+- New "Kombi-Angebote" feature allows creating combo deals within events (e.g., "Cola + Shisha = 18 €")
+- Combos have: name, price, and a list of product IDs
+- Combos only available when their parent event is active (correct day + time)
+- Admin UI: create/edit/delete combos in the event modal
+- Guest UI: combo deals shown as cards with savings display, one-click add to cart
+- Order logic: server validates combo pricing, proportionally distributes combo price
+- Files changed: database.py, main.py, admin.html, menu.html

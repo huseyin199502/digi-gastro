@@ -2883,6 +2883,23 @@
                             </div>
                         </div>
 
+                        <!-- Combo Deals -->
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <label class="form-label mb-0">Kombi-Angebote</label>
+                                    <span id="event-combo-count" class="text-[10px] font-bold text-teal-600 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">0 Kombis</span>
+                                </div>
+                                <button type="button" onclick="addEventCombo()" class="text-[10px] font-bold text-teal-600 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors flex items-center gap-1">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">add</span> Neue Kombi
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-zinc-400 mb-3">Erstelle Kombipreise wie "Cola + Shisha = 18 €". Alle Produkte der Kombi müssen zusammen bestellt werden.</p>
+                            <div class="space-y-3" id="event-combos-list">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
                         <!-- Save Button -->
                         <button onclick="saveEvent()" class="btn-primary w-full flex items-center justify-center gap-1.5" style="background:#7c3aed;box-shadow:0 2px 6px -1px rgba(124,58,237,0.3);">
                             <span class="material-symbols-outlined" style="font-size:14px;">save</span> <span id="event-save-text">Event erstellen</span>
@@ -7391,6 +7408,7 @@
                 const isActive = ev.is_active !== false;
                 const dayStr = (ev.days || []).map(d => d.substring(0,2)).join(', ');
                 const prodCount = (ev.products || []).length;
+                const comboCount = (ev.combos || []).length;
                 const modeLabel = ev.mode === 'discount' ? `${ev.discount}% auf alles` : `${prodCount} Produkte`;
                 const statusColor = isActive ? 'emerald' : 'zinc';
                 const statusBg = isActive ? 'bg-emerald-50 border-emerald-200' : 'bg-zinc-100 border-zinc-200';
@@ -7428,6 +7446,10 @@
                                     <span class="material-symbols-outlined" style="font-size:12px;">lunch_dining</span>
                                     ${modeLabel}
                                 </span>
+                                ${comboCount > 0 ? `<span class="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">loyalty</span>
+                                    ${comboCount} Kombi${comboCount > 1 ? 's' : ''}
+                                </span>` : ''}
                             </div>
                             ${ev.description ? `<p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">${ev.description}</p>` : ''}
                         </div>
@@ -7460,6 +7482,12 @@
 
             renderDaySelector([]);
             renderProductSelector([]);
+            
+            // Reset combos
+            eventCombosData = [];
+            comboIdCounter = 0;
+            renderCombosList();
+            updateComboCount();
 
             document.getElementById('event-modal').classList.remove('hidden');
         }
@@ -7488,6 +7516,23 @@
 
             renderDaySelector(ev.days || []);
             renderProductSelector(ev.products || []);
+
+            // Load existing combos
+            eventCombosData = [];
+            comboIdCounter = 0;
+            if (ev.combos && ev.combos.length > 0) {
+                ev.combos.forEach(combo => {
+                    const c = {
+                        _tempId: ++comboIdCounter,
+                        name: combo.name || '',
+                        combo_price: combo.combo_price || '',
+                        items: (combo.items || []).map(i => ({ product_id: i.product_id }))
+                    };
+                    eventCombosData.push(c);
+                });
+            }
+            renderCombosList();
+            updateComboCount();
 
             document.getElementById('event-modal').classList.remove('hidden');
         }
@@ -7573,6 +7618,132 @@
             if (countEl) countEl.textContent = checked.length + ' ausgewählt';
         }
 
+        // ─── Event Combos JavaScript ───
+        let eventCombosData = []; // Temporary storage while modal is open
+        let comboIdCounter = 0;  // Auto-increment for new combos
+
+        function addEventCombo(existingCombo) {
+            const combo = existingCombo || {
+                _tempId: ++comboIdCounter,
+                name: '',
+                combo_price: '',
+                items: []
+            };
+            if (!combo._tempId) combo._tempId = ++comboIdCounter;
+            
+            if (!existingCombo) {
+                eventCombosData.push(combo);
+            }
+            renderCombosList();
+            updateComboCount();
+        }
+
+        function removeEventCombo(tempId) {
+            eventCombosData = eventCombosData.filter(c => c._tempId !== tempId);
+            renderCombosList();
+            updateComboCount();
+        }
+
+        function updateComboCount() {
+            const countEl = document.getElementById('event-combo-count');
+            if (countEl) countEl.textContent = eventCombosData.length + ' Kombis';
+        }
+
+        function renderCombosList() {
+            const container = document.getElementById('event-combos-list');
+            if (!container) return;
+
+            const products = window._productsData || [];
+
+            if (eventCombosData.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-400">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
+                return;
+            }
+
+            container.innerHTML = eventCombosData.map(combo => {
+                const selectedIds = (combo.items || []).map(i => i.product_id);
+                // Calculate individual price sum
+                const individualSum = selectedIds.reduce((sum, pid) => {
+                    const p = products.find(x => x.id === pid);
+                    return sum + (p ? parseFloat(p.price) : 0);
+                }, 0);
+                const savings = individualSum - (parseFloat(combo.combo_price) || 0);
+                
+                return `
+                <div class="p-3 rounded-xl border border-teal-200 bg-teal-50/50 dark:border-teal-700/40 dark:bg-teal-900/15 space-y-2.5" id="combo-${combo._tempId}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                            <span class="material-symbols-outlined text-teal-600 dark:text-teal-400" style="font-size:16px;">loyalty</span>
+                            <input type="text" placeholder="Kombi-Name, z.B. Cola + Shisha" value="${(combo.name || '').replace(/"/g, '&quot;')}" 
+                                   class="flex-1 bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[11px] font-bold focus:ring-teal-400 focus:border-teal-400" 
+                                   onchange="updateComboField(${combo._tempId}, 'name', this.value)">
+                        </div>
+                        <button type="button" onclick="removeEventCombo(${combo._tempId})" class="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2" title="Kombi entfernen">
+                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 shrink-0">Kombipreis:</label>
+                        <input type="number" step="0.01" min="0" placeholder="18.00" value="${combo.combo_price || ''}" 
+                               class="w-24 bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[11px] font-mono font-bold focus:ring-teal-400 focus:border-teal-400" 
+                               onchange="updateComboField(${combo._tempId}, 'combo_price', this.value)">
+                        <span class="text-[10px] text-zinc-400">€</span>
+                        ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-1.5 block">Produkte in dieser Kombi:</label>
+                        <div class="space-y-1 max-h-[200px] overflow-y-auto">
+                            ${products.filter(p => p.is_available !== false).map(p => {
+                                const isSelected = selectedIds.includes(p.id);
+                                return `
+                                <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isSelected ? 'bg-teal-100 dark:bg-teal-800/40 border border-teal-300 dark:border-teal-600' : 'bg-gray-50 dark:bg-zinc-800/40 border border-transparent'} cursor-pointer transition-colors text-[10px]">
+                                    <input type="checkbox" class="combo-item-toggle rounded text-teal-500 focus:ring-teal-400 shrink-0" 
+                                           data-combo-temp-id="${combo._tempId}" data-product-id="${p.id}" 
+                                           ${isSelected ? 'checked' : ''} 
+                                           onchange="toggleComboItem(${combo._tempId}, ${p.id}, this.checked)">
+                                    <span class="font-bold text-zinc-800 dark:text-zinc-200">${p.name}</span>
+                                    <span class="text-zinc-400 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
+                                </label>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function updateComboField(tempId, field, value) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (combo) {
+                combo[field] = value;
+                // Re-render to update savings display
+                renderCombosList();
+            }
+        }
+
+        function toggleComboItem(tempId, productId, isChecked) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (!combo) return;
+            if (!combo.items) combo.items = [];
+            
+            if (isChecked) {
+                if (!combo.items.find(i => i.product_id === productId)) {
+                    combo.items.push({ product_id: productId });
+                }
+            } else {
+                combo.items = combo.items.filter(i => i.product_id !== productId);
+            }
+            // Re-render to update savings display
+            renderCombosList();
+        }
+
+        function collectComboData() {
+            return eventCombosData.filter(c => c.name && c.combo_price && c.items && c.items.length >= 2).map(c => ({
+                name: c.name.trim(),
+                combo_price: parseFloat(c.combo_price) || 0,
+                items: c.items.filter(i => i.product_id)
+            }));
+        }
+
         function toggleEventDiscountRow() {
             const mode = document.getElementById('event-mode').value;
             const discountRow = document.getElementById('event-discount-row');
@@ -7613,6 +7784,9 @@
                 }
             });
 
+            // Collect combos
+            const combos = collectComboData();
+
             return {
                 editId: editId ? parseInt(editId) : null,
                 name: name || 'Neues Event',
@@ -7624,7 +7798,8 @@
                 mode,
                 discount: mode === 'discount' ? discount : 0,
                 is_active: isActive,
-                products
+                products,
+                combos
             };
         }
 

@@ -533,11 +533,23 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     } for l in db_logs]
     
     # Load events and their products
-    from database import Event as DBEvent, EventProduct as DBEventProduct
+    from database import Event as DBEvent, EventProduct as DBEventProduct, EventCombo as DBEventCombo, EventComboItem as DBEventComboItem
     db_events = session.query(DBEvent).filter_by(tenant_slug=slug).order_by(DBEvent.position, DBEvent.id).all()
     events = []
     for ev in db_events:
         ev_products = session.query(DBEventProduct).filter_by(event_id=ev.id).all()
+        # Load combos for this event
+        ev_combos = session.query(DBEventCombo).filter_by(event_id=ev.id).order_by(DBEventCombo.position, DBEventCombo.id).all()
+        combos = []
+        for combo in ev_combos:
+            combo_items = session.query(DBEventComboItem).filter_by(combo_id=combo.id).all()
+            combos.append({
+                "id": combo.id,
+                "name": combo.name,
+                "combo_price": combo.combo_price,
+                "position": combo.position or 0,
+                "items": [{"product_id": ci.product_id} for ci in combo_items]
+            })
         events.append({
             "id": ev.id,
             "name": ev.name,
@@ -550,7 +562,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "discount": ev.discount or 0,
             "is_active": ev.is_active if ev.is_active is not None else True,
             "position": ev.position or 0,
-            "products": [{"product_id": ep.product_id, "event_price": ep.event_price} for ep in ev_products]
+            "products": [{"product_id": ep.product_id, "event_price": ep.event_price} for ep in ev_products],
+            "combos": combos
         })
     
     return {
@@ -834,7 +847,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         session.add(db_l)
     
     # 8. Update events
-    from database import Event as DBEvent, EventProduct as DBEventProduct
+    from database import Event as DBEvent, EventProduct as DBEventProduct, EventCombo as DBEventCombo, EventComboItem as DBEventComboItem
     existing_events = {ev.id: ev for ev in session.query(DBEvent).filter_by(tenant_slug=slug).all()}
     seen_event_ids = set()
     for idx, ev in enumerate(r.get("events", [])):
@@ -871,6 +884,30 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 event_price=ep.get("event_price")
             )
             session.add(db_ep)
+        
+        # Update event combos
+        existing_combos = session.query(DBEventCombo).filter_by(event_id=db_ev.id).all()
+        for ec in existing_combos:
+            session.query(DBEventComboItem).filter_by(combo_id=ec.id).delete()
+        session.query(DBEventCombo).filter_by(event_id=db_ev.id).delete()
+        
+        for cidx, combo in enumerate(ev.get("combos", [])):
+            if combo.get("name") and combo.get("combo_price") and combo.get("items"):
+                db_combo = DBEventCombo(
+                    event_id=db_ev.id,
+                    name=combo["name"].strip(),
+                    combo_price=round(float(combo["combo_price"]), 2),
+                    position=cidx
+                )
+                session.add(db_combo)
+                session.flush()
+                for ci in combo.get("items", []):
+                    if ci.get("product_id"):
+                        db_combo_item = DBEventComboItem(
+                            combo_id=db_combo.id,
+                            product_id=int(ci["product_id"])
+                        )
+                        session.add(db_combo_item)
     
     for eid, db_ev in existing_events.items():
         if eid not in seen_event_ids:
@@ -1337,6 +1374,7 @@ class OrderItem(BaseModel):
     quantity: int
     note: Optional[str] = None
     item_status: Optional[str] = "pending"
+    combo_id: Optional[int] = None
 
 class OrderPayload(BaseModel):
     table: str
@@ -3001,8 +3039,23 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         ev_end = ev.get("end_time", "20:00")
         ev["_is_currently_active"] = any(day in ev_days for day in possible_days) and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
 
+    # Build combo lookup: combo_id -> {combo_price, product_ids}
+    combo_lookup = {}
+    for ev in events:
+        if not ev.get("_is_currently_active", False):
+            continue
+        for combo in ev.get("combos", []):
+            combo_lookup[combo["id"]] = {
+                "combo_price": combo["combo_price"],
+                "product_ids": [ci["product_id"] for ci in combo.get("items", [])],
+                "event_name": ev.get("display_name", ev.get("name", "Event"))
+            }
+    
+    # Group combo items from the payload
+    combo_items_in_order = {}  # combo_id -> [item indices]
+    
     products_map = {p["id"]: p for p in restaurant.get("products", [])}
-    for item in payload.items:
+    for item_idx, item in enumerate(payload.items):
         prod = products_map.get(item.product_id)
         if prod:
             # SECURITY: Always use the server-side price from DB, never trust client-submitted price
@@ -3022,6 +3075,42 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                     item.price = round(prod["price"] * discount_factor, 2)
                     is_event_price_applied = True
                     break
+    
+    # Validate and apply combo prices
+    # Find items that are marked as combo items in the payload
+    for item in payload.items:
+        combo_id = getattr(item, 'combo_id', None)
+        if combo_id and combo_id in combo_lookup:
+            combo_info = combo_lookup[combo_id]
+            if combo_id not in combo_items_in_order:
+                combo_items_in_order[combo_id] = []
+            combo_items_in_order[combo_id].append(item)
+    
+    # For each combo, verify all required products are present and apply combo pricing
+    for combo_id, combo_items in combo_items_in_order.items():
+        combo_info = combo_lookup[combo_id]
+        required_ids = set(combo_info["product_ids"])
+        present_ids = set(item.product_id for item in combo_items)
+        
+        # Only apply combo pricing if ALL required products are in the order
+        if required_ids.issubset(present_ids) or present_ids.issubset(required_ids):
+            # Calculate proportional pricing
+            combo_price = combo_info["combo_price"]
+            individual_total = sum(products_map.get(item.product_id, {}).get("price", 0) for item in combo_items)
+            
+            if individual_total > 0:
+                # Distribute combo price proportionally
+                remaining = combo_price
+                for i, item in enumerate(combo_items):
+                    prod_price = products_map.get(item.product_id, {}).get("price", 0)
+                    if i == len(combo_items) - 1:
+                        # Last item gets the remainder to avoid rounding errors
+                        item.price = round(remaining, 2)
+                    else:
+                        proportion = prod_price / individual_total
+                        adjusted = round(combo_price * proportion, 2)
+                        item.price = adjusted
+                        remaining -= adjusted
     
     # Clean up temporary flags
     for ev in events:
@@ -6462,7 +6551,7 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
     except Exception:
         return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
     
-    from database import Event as DBEvent, EventProduct as DBEventProduct
+    from database import Event as DBEvent, EventProduct as DBEventProduct, EventCombo as DBEventCombo, EventComboItem as DBEventComboItem
     
     # Create directly in DB to avoid LiveListProxy double-save bug
     existing_count = db.query(DBEvent).filter_by(tenant_slug=slug).count()
@@ -6493,6 +6582,25 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
             )
             db.add(db_ep)
     
+    # Add event combos
+    for idx, combo in enumerate(body.get("combos", [])):
+        if combo.get("name") and combo.get("combo_price") and combo.get("items"):
+            db_combo = DBEventCombo(
+                event_id=db_ev.id,
+                name=combo["name"].strip(),
+                combo_price=round(float(combo["combo_price"]), 2),
+                position=idx
+            )
+            db.add(db_combo)
+            db.flush()  # Get combo ID
+            for ci in combo.get("items", []):
+                if ci.get("product_id"):
+                    db_combo_item = DBEventComboItem(
+                        combo_id=db_combo.id,
+                        product_id=int(ci["product_id"])
+                    )
+                    db.add(db_combo_item)
+    
     try:
         db.commit()
     except Exception as e:
@@ -6516,7 +6624,7 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
         return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
     
     # Update directly in DB to avoid LiveListProxy double-save bug
-    from database import Event as DBEvent, EventProduct as DBEventProduct
+    from database import Event as DBEvent, EventProduct as DBEventProduct, EventCombo as DBEventCombo, EventComboItem as DBEventComboItem
     db_event = db.query(DBEvent).filter_by(id=event_id, tenant_slug=slug).first()
     if not db_event:
         return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
@@ -6543,6 +6651,32 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
                 )
                 db.add(db_ep)
     
+    # Update event combos
+    if "combos" in body:
+        # Delete existing combos and their items (cascade)
+        existing_combos = db.query(DBEventCombo).filter_by(event_id=event_id).all()
+        for ec in existing_combos:
+            db.query(DBEventComboItem).filter_by(combo_id=ec.id).delete()
+        db.query(DBEventCombo).filter_by(event_id=event_id).delete()
+        # Add new combos
+        for idx, combo in enumerate(body["combos"]):
+            if combo.get("name") and combo.get("combo_price") and combo.get("items"):
+                db_combo = DBEventCombo(
+                    event_id=event_id,
+                    name=combo["name"].strip(),
+                    combo_price=round(float(combo["combo_price"]), 2),
+                    position=idx
+                )
+                db.add(db_combo)
+                db.flush()
+                for ci in combo.get("items", []):
+                    if ci.get("product_id"):
+                        db_combo_item = DBEventComboItem(
+                            combo_id=db_combo.id,
+                            product_id=int(ci["product_id"])
+                        )
+                        db.add(db_combo_item)
+    
     try:
         db.commit()
     except Exception as e:
@@ -6561,10 +6695,16 @@ async def delete_event(event_id: int, request: Request, chef_data: tuple = Depen
         return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
     
     # Delete directly from DB to avoid LiveListProxy double-save bug
-    from database import Event as DBEvent, EventProduct as DBEventProduct
+    from database import Event as DBEvent, EventProduct as DBEventProduct, EventCombo as DBEventCombo, EventComboItem as DBEventComboItem
     db_event = db.query(DBEvent).filter_by(id=event_id, tenant_slug=slug).first()
     if not db_event:
         return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
+    
+    # Delete combos and their items first
+    existing_combos = db.query(DBEventCombo).filter_by(event_id=event_id).all()
+    for ec in existing_combos:
+        db.query(DBEventComboItem).filter_by(combo_id=ec.id).delete()
+    db.query(DBEventCombo).filter_by(event_id=event_id).delete()
     
     db.query(DBEventProduct).filter_by(event_id=event_id).delete()
     db.delete(db_event)

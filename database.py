@@ -245,6 +245,22 @@ class EventProduct(Base):
     product_id = Column(Integer, nullable=False)
     event_price = Column(Float, nullable=True)  # Fixed event price (overrides discount %)
 
+class EventCombo(Base):
+    __tablename__ = 'event_combos'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)  # e.g. "Cola + Shisha"
+    combo_price = Column(Float, nullable=False)  # e.g. 18.00
+    position = Column(Integer, default=0)
+
+class EventComboItem(Base):
+    __tablename__ = 'event_combo_items'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    combo_id = Column(Integer, ForeignKey('event_combos.id', ondelete='CASCADE'), nullable=False)
+    product_id = Column(Integer, nullable=False)
+
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
@@ -376,6 +392,56 @@ def _migrate_database():
                 """))
         except Exception as e2:
             print(f"[DB Migration] event_products table creation skipped (may already exist): {e2}")
+
+    # Ensure event_combos table exists
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("""
+                CREATE TABLE IF NOT EXISTS event_combos (
+                    id SERIAL PRIMARY KEY,
+                    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                    name VARCHAR NOT NULL,
+                    combo_price FLOAT NOT NULL,
+                    position INTEGER DEFAULT 0
+                )
+            """))
+    except Exception:
+        try:
+            with engine.begin() as conn:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS event_combos (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                        name VARCHAR NOT NULL,
+                        combo_price FLOAT NOT NULL,
+                        position INTEGER DEFAULT 0
+                    )
+                """))
+        except Exception as e2:
+            print(f"[DB Migration] event_combos table creation skipped (may already exist): {e2}")
+
+    # Ensure event_combo_items table exists
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("""
+                CREATE TABLE IF NOT EXISTS event_combo_items (
+                    id SERIAL PRIMARY KEY,
+                    combo_id INTEGER NOT NULL REFERENCES event_combos(id) ON DELETE CASCADE,
+                    product_id INTEGER NOT NULL
+                )
+            """))
+    except Exception:
+        try:
+            with engine.begin() as conn:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS event_combo_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        combo_id INTEGER NOT NULL REFERENCES event_combos(id) ON DELETE CASCADE,
+                        product_id INTEGER NOT NULL
+                    )
+                """))
+        except Exception as e2:
+            print(f"[DB Migration] event_combo_items table creation skipped (may already exist): {e2}")
 
 
 def migrate_happy_hour_to_events():
