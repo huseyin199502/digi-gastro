@@ -205,3 +205,39 @@ Stage Summary:
 - Event admin UI now properly themed for both light and dark modes
 - Checkboxes clearly visible in all contexts (dark bg, light bg, item-cards)
 - Double-click protection at both client (1.5s lock) and server (3s dedup) levels
+
+---
+Task ID: 3
+Agent: Main
+Task: Fix remaining 3 UI/UX issues: white-on-white readability, Kellner checkbox visibility, serve button Ruckeln
+
+Work Log:
+- Read admin.html (7932 lines), menu.html, design_system.css (742 lines), main.py serve endpoint
+- Task 1: White-on-white text readability
+  - Added CSS fixes in design_system.css for popup-footer light mode text
+  - Added admin section-card-body light mode text fixes
+  - Added event modal panel light mode comprehensive contrast fixes (form labels, inputs, selects, product rows)
+  - Added select dropdown light mode fix (options need dark text on white bg)
+  - Fixed event modal: bg-gray-50, text-zinc-400/500/800 all get proper light-mode overrides
+  - Added event modal save button exception (purple bg keeps white text)
+  - Added light mode fixes for btn-action buttons (Vorbereiten, Fertig, Teilzahlung, Storno) in admin.html
+  - Added event product selector & day selector checkbox accent-color for light mode
+  - Added event modal input/select/type styling for light mode in admin.html
+- Task 2: Kellner partial payment checkbox visibility
+  - Increased control-split-item custom-checkbox to 22px with min-width:22px
+  - Increased item-card (order popup) custom-checkbox to 22px with min-width:22px
+  - Added comprehensive CSS for .teilrechnung-box and .control-split-item checkboxes: 22px, 3px border, ring shadow
+  - Added dark mode checkbox overrides with brighter borders and background
+  - Added checked state with green background, glow shadow, and thicker checkmark
+  - Added item-card checkbox visibility overrides for both light and dark modes
+- Task 3: Serve button debounce/dedup
+  - Increased frontend serve lock from 1.5s to 2s for better network lag protection
+  - Increased backend dedup TTL from 3s to 5s to match frontend lock duration
+  - Updated comments to reflect the synchronized timing
+- Bumped design_system.css cache version from v11 to v12
+
+Stage Summary:
+- White-on-white text fixed in: popup footer, section cards, event modal, select dropdowns, action buttons
+- Checkboxes now 22px with 3px border, visible ring shadow, and dark mode support in all Kellner contexts
+- Serve lock increased to 2s (frontend) + 5s (backend dedup) for robust double-click protection
+- Files changed: design_system.css, admin.html, menu.html, main.py

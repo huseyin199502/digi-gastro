@@ -613,3 +613,130 @@ html.light .bg-\\[\\#7c3aed\\] {
     background-color: #7c3aed !important;
     color: #ffffff !important;
 }
+
+/* ── EVENT PRODUCT SELECTOR CHECKBOXES ── */
+/* Native checkboxes inside event modal need visibility in both themes */
+html.light .ep-toggle,
+html.light .event-day-check {
+    accent-color: #7c3aed !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+html.dark .ep-toggle,
+html.dark .event-day-check {
+    accent-color: #a78bfa !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* ── ADMIN EVENT MODAL LIGHT MODE CONTRAST ── */
+/* Ensure form labels are readable in light mode event modal */
+html.light #event-modal .form-label {
+    color: #374151 !important;
+}
+html.light #event-modal .form-field {
+    color: #111827 !important;
+    background-color: #f9fafb !important;
+    border-color: #d1d5db !important;
+}
+html.light #event-modal .form-field option {
+    color: #111827 !important;
+    background-color: #ffffff !important;
+}
+
+/* ── SELECT DROPDOWN LIGHT MODE FIX ── */
+/* Select options inside popup-card or admin panel need dark text in light mode */
+html.light select option,
+html.light .popup-card select option {
+    color: #111827 !important;
+    background-color: #ffffff !important;
+}
+
+/* ── TEILRECHNUNG CHECKBOX HIGH-VISIBILITY ── */
+/* Kellner partial-payment checkboxes need extra visibility in both themes */
+.teilrechnung-box .custom-checkbox,
+.control-split-item .custom-checkbox {
+    width: 22px !important;
+    height: 22px !important;
+    border-width: 3px !important;
+    border-color: #6b7280 !important;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.12) !important;
+}
+html.dark .teilrechnung-box .custom-checkbox,
+html.dark .control-split-item .custom-checkbox {
+    border-color: #9ca3af !important;
+    background: #1f2937 !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.06), 0 1px 4px rgba(0,0,0,0.3) !important;
+}
+.teilrechnung-box .custom-checkbox:checked,
+.control-split-item .custom-checkbox:checked {
+    background: #009900 !important;
+    border-color: #009900 !important;
+    box-shadow: 0 0 0 2px rgba(0,153,0,0.2), 0 2px 8px rgba(0,153,0,0.3) !important;
+}
+.teilrechnung-box .custom-checkbox:checked::after,
+.control-split-item .custom-checkbox:checked::after {
+    border-width: 0 3px 3px 0 !important;
+}
+
+/* ── KELLNER ITEM-CARD CHECKBOX VISIBILITY ── */
+/* Item cards in order popup: ensure checkboxes stand out against card background */
+.item-card .custom-checkbox {
+    width: 22px !important;
+    height: 22px !important;
+    border-width: 3px !important;
+    border-color: #9ca3af !important;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+html.dark .item-card .custom-checkbox {
+    border-color: #6b7280 !important;
+    background: #1f2937 !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.05), 0 1px 4px rgba(0,0,0,0.25) !important;
+}
+.item-card .custom-checkbox:checked {
+    background: #009900 !important;
+    border-color: #009900 !important;
+    box-shadow: 0 0 0 2px rgba(0,153,0,0.2), 0 2px 8px rgba(0,153,0,0.3) !important;
+}
+
+/* ── POPUP-FOOTER LIGHT MODE TEXT FIX ── */
+/* Ensure confirmation text in popup footer is readable in light mode */
+html.light .popup-footer .text-white,
+html.light .popup-footer [style*="color:#fff"],
+html.light .popup-footer [style*="color: #fff"],
+html.light .popup-footer [style*="color:white"],
+html.light .popup-footer [style*="color: white"] {
+    color: #111827 !important;
+}
+
+/* ── ADMIN SECTION CARD BODY LIGHT MODE ── */
+/* Section card bodies need proper text in light mode */
+html.light .section-card-body {
+    color: #374151 !important;
+}
+html.light .section-card-body .text-zinc-400,
+html.light .section-card-body .text-zinc-500 {
+    color: #6b7280 !important;
+}
+
+/* ── EVENT MODAL PANEL OVERLAY IN LIGHT MODE ── */
+/* The event modal slide-in panel needs proper text contrast */
+html.light #event-modal,
+html.light #event-modal *:not(.popup-header *):not(.bg-gastro):not(.bg-gastro *):not(button[style*="background:#7c3aed"]):not(button[style*="background:#7c3aed"] *) {
+    color: #1f2937 !important;
+}
+html.light #event-modal .bg-gray-50 {
+    background-color: #f3f4f6 !important;
+}
+html.light #event-modal .text-zinc-400,
+html.light #event-modal .text-zinc-500 {
+    color: #6b7280 !important;
+}
+html.light #event-modal .text-zinc-800 {
+    color: #1f2937 !important;
+}
+/* Event modal save button stays purple with white text */
+html.light #event-modal button[style*="background:#7c3aed"],
+html.light #event-modal button[style*="background:#7c3aed"] * {
+    color: #ffffff !important;
+}

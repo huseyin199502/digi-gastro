@@ -7876,9 +7876,9 @@ class ServePayload(BaseModel):
     order_id: int
     item_key: Optional[str] = None
 
-# In-memory dedup cache: prevents double-processing of the same serve request within 3 seconds
+# In-memory dedup cache: prevents double-processing of the same serve request within 5 seconds
 _serve_dedup_cache: Dict[str, float] = {}
-_SERVE_DEDUP_TTL = 3.0  # seconds
+_SERVE_DEDUP_TTL = 5.0  # seconds — matches frontend serve lock duration
 
 def _check_serve_dedup(order_id: int, item_key: Optional[str]) -> bool:
     """Return True if this request is a duplicate (should be skipped)."""
