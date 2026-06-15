@@ -2933,7 +2933,7 @@
                                     <span class="material-symbols-outlined" style="font-size:12px;">add</span> Neue Kombi
                                 </button>
                             </div>
-                            <p class="text-[10px] text-zinc-400 mb-3">Erstelle Kombipreise wie "Cola + Shisha = 18 €". Alle Produkte der Kombi müssen zusammen bestellt werden. Optional: eigene Zeiten & Tage pro Kombi festlegen.</p>
+                            <p class="text-[10px] text-zinc-400 mb-3">Erstelle Kombipreise (z.B. Cola + Shisha = 18€). Wähle einzelne Produkte oder ganze Kategorien.</p>
                             <div class="space-y-3" id="event-combos-list">
                                 <!-- Populated by JS -->
                             </div>
@@ -7531,12 +7531,11 @@
 
             renderDaySelector([]);
             renderProductSelector([]);
-            
+
             // Reset combos
             eventCombosData = [];
-            comboIdCounter = 0;
+            comboTempIdCounter = 0;
             renderCombosList();
-            updateComboCount();
 
             document.getElementById('event-modal').classList.remove('hidden');
         }
@@ -7566,25 +7565,17 @@
             renderDaySelector(ev.days || []);
             renderProductSelector(ev.products || []);
 
-            // Load existing combos
-            eventCombosData = [];
-            comboIdCounter = 0;
-            if (ev.combos && ev.combos.length > 0) {
-                ev.combos.forEach(combo => {
-                    const c = {
-                        _tempId: ++comboIdCounter,
-                        name: combo.name || '',
-                        combo_price: combo.combo_price || '',
-                        items: (combo.items || []).map(i => ({ product_id: i.product_id })),
-                        days: combo.days || null,
-                        start_time: combo.start_time || '',
-                        end_time: combo.end_time || ''
-                    };
-                    eventCombosData.push(c);
-                });
-            }
+            // Load combos from event data
+            eventCombosData = (ev.combos || []).map((c, i) => ({
+                _tempId: ++comboTempIdCounter,
+                name: c.name || '',
+                combo_price: c.combo_price || '',
+                days: c.days || null,
+                start_time: c.start_time || '',
+                end_time: c.end_time || '',
+                items: (c.items || []).map(ci => ({ product_id: ci.product_id }))
+            }));
             renderCombosList();
-            updateComboCount();
 
             document.getElementById('event-modal').classList.remove('hidden');
         }
@@ -7670,207 +7661,6 @@
             if (countEl) countEl.textContent = checked.length + ' ausgewählt';
         }
 
-        // ─── Event Combos JavaScript ───
-        let eventCombosData = []; // Temporary storage while modal is open
-        let comboIdCounter = 0;  // Auto-increment for new combos
-
-        function addEventCombo(existingCombo) {
-            const combo = existingCombo || {
-                _tempId: ++comboIdCounter,
-                name: '',
-                combo_price: '',
-                items: [],
-                days: null,
-                start_time: '',
-                end_time: ''
-            };
-            if (!combo._tempId) combo._tempId = ++comboIdCounter;
-            
-            if (!existingCombo) {
-                eventCombosData.push(combo);
-            }
-            renderCombosList();
-            updateComboCount();
-        }
-
-        function removeEventCombo(tempId) {
-            eventCombosData = eventCombosData.filter(c => c._tempId !== tempId);
-            renderCombosList();
-            updateComboCount();
-        }
-
-        function updateComboCount() {
-            const countEl = document.getElementById('event-combo-count');
-            if (countEl) countEl.textContent = eventCombosData.length + ' Kombis';
-        }
-
-        function renderCombosList() {
-            const container = document.getElementById('event-combos-list');
-            if (!container) return;
-
-            const products = window._productsData || [];
-
-            if (eventCombosData.length === 0) {
-                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-300 dark:text-zinc-400">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
-                return;
-            }
-
-            container.innerHTML = eventCombosData.map(combo => {
-                const selectedIds = (combo.items || []).map(i => i.product_id);
-                // Calculate individual price sum
-                const individualSum = selectedIds.reduce((sum, pid) => {
-                    const p = products.find(x => x.id === pid);
-                    return sum + (p ? parseFloat(p.price) : 0);
-                }, 0);
-                const savings = individualSum - (parseFloat(combo.combo_price) || 0);
-                const comboDays = combo.days || [];
-                const hasOwnDays = Array.isArray(combo.days) && combo.days.length > 0;
-                const hasOwnTime = !!(combo.start_time && combo.end_time);
-                
-                return `
-                <div class="p-3 rounded-xl border-2 border-teal-300 bg-teal-50 dark:border-teal-500 dark:bg-teal-900/30 space-y-2.5" id="combo-${combo._tempId}">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2 flex-1 min-w-0">
-                            <span class="material-symbols-outlined text-teal-600 dark:text-teal-300" style="font-size:16px;">loyalty</span>
-                            <input type="text" placeholder="Kombi-Name, z.B. Cola + Shisha" value="${(combo.name || '').replace(/"/g, '&quot;')}" 
-                                   class="flex-1 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
-                                   onchange="updateComboField(${combo._tempId}, 'name', this.value)">
-                        </div>
-                        <button type="button" onclick="removeEventCombo(${combo._tempId})" class="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2" title="Kombi entfernen">
-                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                        </button>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <label class="text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shrink-0">Kombipreis:</label>
-                        <input type="number" step="0.01" min="0" placeholder="18.00" value="${combo.combo_price || ''}" 
-                               class="w-24 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-mono font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
-                               onchange="updateComboField(${combo._tempId}, 'combo_price', this.value)">
-                        <span class="text-[10px] text-zinc-600 dark:text-zinc-300 font-bold">€</span>
-                        ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-800/50 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
-                    </div>
-                    
-                    <!-- Per-combo time/day restrictions -->
-                    <div class="border-t border-teal-300/60 dark:border-teal-600/50 pt-2.5 space-y-2">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="material-symbols-outlined text-zinc-500 dark:text-zinc-300" style="font-size:14px;">schedule</span>
-                            <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200">Eigene Zeiten & Tage für diese Kombi (optional)</label>
-                        </div>
-                        <p class="text-[9px] text-zinc-500 dark:text-zinc-300 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events. Ausgefüllt = nur in diesem Zeitraum verfügbar.</p>
-                        
-                        <div class="flex flex-wrap gap-1.5">
-                            ${ALL_DAYS.map(day => {
-                                const isSelected = comboDays.includes(day);
-                                return `
-                                <label class="flex items-center gap-1 ${isSelected ? 'bg-teal-200 border-teal-400 text-teal-800 dark:bg-teal-600 dark:border-teal-400 dark:text-white' : 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-zinc-700 dark:border-zinc-500 dark:text-zinc-200'} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 dark:hover:border-teal-400 border">
-                                    <input type="checkbox" class="combo-day-check rounded text-teal-500 focus:ring-0" 
-                                           data-combo-temp-id="${combo._tempId}" value="${day}" ${isSelected ? 'checked' : ''} 
-                                           onchange="toggleComboDay(${combo._tempId}, '${day}', this.checked)">
-                                    <span>${day.substring(0,2)}</span>
-                                </label>`;
-                            }).join('')}
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Von</label>
-                                <input type="time" value="${combo.start_time || ''}" 
-                                       class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
-                                       onchange="updateComboField(${combo._tempId}, 'start_time', this.value)">
-                            </div>
-                            <div>
-                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Bis</label>
-                                <input type="time" value="${combo.end_time || ''}" 
-                                       class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
-                                       onchange="updateComboField(${combo._tempId}, 'end_time', this.value)">
-                            </div>
-                        </div>
-                        ${hasOwnDays || hasOwnTime ? `<div class="text-[9px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-800/50 px-2 py-1 rounded-lg border border-teal-300 dark:border-teal-600">Nur ${hasOwnDays ? comboDays.map(d => d.substring(0,2)).join(', ') + ' ' : ''}${hasOwnTime ? (combo.start_time || '...') + '–' + (combo.end_time || '...') : ''}</div>` : ''}
-                    </div>
-                    
-                    <div>
-                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Produkte in dieser Kombi:</label>
-                        <div class="space-y-1 max-h-[200px] overflow-y-auto">
-                            ${products.filter(p => p.is_available !== false).map(p => {
-                                const isSelected = selectedIds.includes(p.id);
-                                return `
-                                <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isSelected ? 'bg-teal-200 dark:bg-teal-700/60 border border-teal-400 dark:border-teal-500' : 'bg-gray-100 dark:bg-zinc-700/50 border border-transparent'} cursor-pointer transition-colors text-[10px]">
-                                    <input type="checkbox" class="combo-item-toggle rounded text-teal-500 focus:ring-teal-400 shrink-0" 
-                                           data-combo-temp-id="${combo._tempId}" data-product-id="${p.id}" 
-                                           ${isSelected ? 'checked' : ''} 
-                                           onchange="toggleComboItem(${combo._tempId}, ${p.id}, this.checked)">
-                                    <span class="font-bold text-zinc-800 dark:text-white">${p.name}</span>
-                                    <span class="text-zinc-500 dark:text-zinc-300 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
-                                </label>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function updateComboField(tempId, field, value) {
-            const combo = eventCombosData.find(c => c._tempId === tempId);
-            if (combo) {
-                combo[field] = value;
-                // Re-render to update savings display
-                renderCombosList();
-            }
-        }
-
-        function toggleComboItem(tempId, productId, isChecked) {
-            const combo = eventCombosData.find(c => c._tempId === tempId);
-            if (!combo) return;
-            if (!combo.items) combo.items = [];
-            
-            if (isChecked) {
-                if (!combo.items.find(i => i.product_id === productId)) {
-                    combo.items.push({ product_id: productId });
-                }
-            } else {
-                combo.items = combo.items.filter(i => i.product_id !== productId);
-            }
-            // Re-render to update savings display
-            renderCombosList();
-        }
-
-        function toggleComboDay(tempId, day, isChecked) {
-            const combo = eventCombosData.find(c => c._tempId === tempId);
-            if (!combo) return;
-            if (!combo.days) combo.days = [];
-            
-            if (isChecked) {
-                if (!combo.days.includes(day)) {
-                    combo.days.push(day);
-                }
-            } else {
-                combo.days = combo.days.filter(d => d !== day);
-            }
-            // If no days selected, set to null (inherit from event)
-            if (combo.days.length === 0) combo.days = null;
-            renderCombosList();
-        }
-
-        function collectComboData() {
-            return eventCombosData.filter(c => c.name && c.combo_price && c.items && c.items.length >= 2).map(c => {
-                const result = {
-                    name: c.name.trim(),
-                    combo_price: parseFloat(c.combo_price) || 0,
-                    items: c.items.filter(i => i.product_id)
-                };
-                // Only include days/time if explicitly set
-                if (c.days && Array.isArray(c.days) && c.days.length > 0) {
-                    result.days = c.days;
-                }
-                if (c.start_time) {
-                    result.start_time = c.start_time;
-                }
-                if (c.end_time) {
-                    result.end_time = c.end_time;
-                }
-                return result;
-            });
-        }
-
         function toggleEventDiscountRow() {
             const mode = document.getElementById('event-mode').value;
             const discountRow = document.getElementById('event-discount-row');
@@ -7912,7 +7702,14 @@
             });
 
             // Collect combos
-            const combos = collectComboData();
+            const combos = eventCombosData.filter(c => c.name && c.combo_price && (c.items || []).length > 0).map(c => ({
+                name: c.name.trim(),
+                combo_price: parseFloat(c.combo_price) || 0,
+                days: (c.days && c.days.length > 0) ? c.days : null,
+                start_time: c.start_time || null,
+                end_time: c.end_time || null,
+                items: (c.items || []).map(ci => ({ product_id: ci.product_id }))
+            }));
 
             return {
                 editId: editId ? parseInt(editId) : null,
@@ -8009,6 +7806,235 @@
             } catch (err) {
                 window.location.reload();
             }
+        }
+
+        // ═══════════════════════════════════════════════════
+        // COMBO DEALS (Kombi-Angebote)
+        // ═══════════════════════════════════════════════════
+        let eventCombosData = [];
+        let comboTempIdCounter = 0;
+
+        function addEventCombo() {
+            comboTempIdCounter++;
+            eventCombosData.push({
+                _tempId: comboTempIdCounter,
+                name: '',
+                combo_price: '',
+                days: null,
+                start_time: '',
+                end_time: '',
+                items: []
+            });
+            renderCombosList();
+        }
+
+        function removeEventCombo(tempId) {
+            eventCombosData = eventCombosData.filter(c => c._tempId !== tempId);
+            renderCombosList();
+        }
+
+        function updateComboField(tempId, field, value) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (combo) {
+                combo[field] = value;
+                renderCombosList();
+            }
+        }
+
+        function toggleComboItem(tempId, productId, isChecked) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (!combo) return;
+            if (!combo.items) combo.items = [];
+
+            if (isChecked) {
+                if (!combo.items.find(i => i.product_id === productId)) {
+                    combo.items.push({ product_id: productId });
+                }
+            } else {
+                combo.items = combo.items.filter(i => i.product_id !== productId);
+            }
+            renderCombosList();
+        }
+
+        function toggleComboCategory(tempId, categoryName, isChecked) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (!combo) return;
+            if (!combo.items) combo.items = [];
+
+            const products = (window._productsData || []).filter(p => p.is_available !== false && p.category === categoryName);
+
+            if (isChecked) {
+                // Add all products from this category that aren't already selected
+                for (const p of products) {
+                    if (!combo.items.find(i => i.product_id === p.id)) {
+                        combo.items.push({ product_id: p.id });
+                    }
+                }
+            } else {
+                // Remove all products from this category
+                const catProductIds = new Set(products.map(p => p.id));
+                combo.items = combo.items.filter(i => !catProductIds.has(i.product_id));
+            }
+            renderCombosList();
+        }
+
+        function toggleComboDay(tempId, day, isChecked) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (!combo) return;
+            if (!combo.days) combo.days = [];
+
+            if (isChecked) {
+                if (!combo.days.includes(day)) combo.days.push(day);
+            } else {
+                combo.days = combo.days.filter(d => d !== day);
+            }
+            renderCombosList();
+        }
+
+        function renderCombosList() {
+            const container = document.getElementById('event-combos-list');
+            if (!container) return;
+
+            const products = window._productsData || [];
+
+            // Get unique categories from products
+            const categories = [...new Set(products.filter(p => p.is_available !== false).map(p => p.category))].filter(Boolean).sort();
+
+            if (eventCombosData.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-400">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
+                updateComboCount();
+                return;
+            }
+
+            container.innerHTML = eventCombosData.map(combo => {
+                const selectedIds = (combo.items || []).map(i => i.product_id);
+                const individualSum = selectedIds.reduce((sum, pid) => {
+                    const p = products.find(x => x.id === pid);
+                    return sum + (p ? parseFloat(p.price) : 0);
+                }, 0);
+                const savings = individualSum - (parseFloat(combo.combo_price) || 0);
+                const comboDays = combo.days || [];
+                const hasOwnDays = Array.isArray(combo.days) && combo.days.length > 0;
+                const hasOwnTime = !!(combo.start_time && combo.end_time);
+
+                // Determine which categories are fully/partially selected
+                const categoryStates = categories.map(cat => {
+                    const catProducts = products.filter(p => p.is_available !== false && p.category === cat);
+                    const catSelectedCount = catProducts.filter(p => selectedIds.includes(p.id)).length;
+                    return { name: cat, total: catProducts.length, selected: catSelectedCount };
+                });
+
+                return `
+                <div class="p-3 rounded-xl border-2 border-teal-300 bg-teal-50 dark:border-teal-500 dark:bg-teal-900/30 space-y-2.5" id="combo-${combo._tempId}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                            <span class="material-symbols-outlined text-teal-600 dark:text-teal-300" style="font-size:16px;">loyalty</span>
+                            <input type="text" placeholder="Kombi-Name, z.B. Cola + Shisha" value="${(combo.name || '').replace(/"/g, '&quot;')}"
+                                   class="flex-1 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
+                                   onchange="updateComboField(${combo._tempId}, 'name', this.value)">
+                        </div>
+                        <button type="button" onclick="removeEventCombo(${combo._tempId})" class="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2" title="Kombi entfernen">
+                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shrink-0">Kombipreis:</label>
+                        <input type="number" step="0.01" min="0" placeholder="18.00" value="${combo.combo_price || ''}"
+                               class="w-24 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-mono font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
+                               onchange="updateComboField(${combo._tempId}, 'combo_price', this.value)">
+                        <span class="text-[10px] text-zinc-600 dark:text-zinc-300 font-bold">€</span>
+                        ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-800/50 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
+                    </div>
+
+                    <!-- Per-combo time/day restrictions -->
+                    <div class="border-t border-teal-300/60 dark:border-teal-600/50 pt-2.5 space-y-2">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="material-symbols-outlined text-zinc-500 dark:text-zinc-300" style="font-size:14px;">schedule</span>
+                            <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200">Eigene Zeiten & Tage (optional)</label>
+                        </div>
+                        <p class="text-[9px] text-zinc-500 dark:text-zinc-300 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events.</p>
+
+                        <div class="flex flex-wrap gap-1.5">
+                            ${ALL_DAYS.map(day => {
+                                const isSelected = comboDays.includes(day);
+                                return `
+                                <label class="flex items-center gap-1 ${isSelected ? 'bg-teal-200 border-teal-400 text-teal-800 dark:bg-teal-600 dark:border-teal-400 dark:text-white' : 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-zinc-700 dark:border-zinc-500 dark:text-zinc-200'} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 border">
+                                    <input type="checkbox" class="combo-day-check rounded text-teal-500 focus:ring-0"
+                                           data-combo-temp-id="${combo._tempId}" value="${day}" ${isSelected ? 'checked' : ''}
+                                           onchange="toggleComboDay(${combo._tempId}, '${day}', this.checked)">
+                                    <span>${day.substring(0,2)}</span>
+                                </label>`;
+                            }).join('')}
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Von</label>
+                                <input type="time" value="${combo.start_time || ''}"
+                                       class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
+                                       onchange="updateComboField(${combo._tempId}, 'start_time', this.value)">
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Bis</label>
+                                <input type="time" value="${combo.end_time || ''}"
+                                       class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
+                                       onchange="updateComboField(${combo._tempId}, 'end_time', this.value)">
+                            </div>
+                        </div>
+                        ${hasOwnDays || hasOwnTime ? `<div class="text-[9px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-800/50 px-2 py-1 rounded-lg border border-teal-300 dark:border-teal-600">Nur ${hasOwnDays ? comboDays.map(d => d.substring(0,2)).join(', ') + ' ' : ''}${hasOwnTime ? (combo.start_time || '...') + '–' + (combo.end_time || '...') : ''}</div>` : ''}
+                    </div>
+
+                    <!-- Category Quick-Select -->
+                    <div>
+                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Kategorie auswählen:</label>
+                        <div class="flex flex-wrap gap-1.5 mb-2">
+                            ${categoryStates.map(cs => {
+                                const allSelected = cs.total > 0 && cs.selected === cs.total;
+                                const someSelected = cs.selected > 0 && cs.selected < cs.total;
+                                const stateClass = allSelected
+                                    ? 'bg-teal-200 border-teal-400 text-teal-800 dark:bg-teal-600 dark:border-teal-400 dark:text-white'
+                                    : someSelected
+                                        ? 'bg-teal-100 border-teal-300 text-teal-700 dark:bg-teal-700/60 dark:border-teal-500 dark:text-teal-200'
+                                        : 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-zinc-700 dark:border-zinc-500 dark:text-zinc-200';
+                                return `
+                                <label class="flex items-center gap-1 ${stateClass} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 border">
+                                    <input type="checkbox" class="combo-cat-toggle rounded text-teal-500 focus:ring-0"
+                                           data-combo-temp-id="${combo._tempId}" value="${cs.name}" ${allSelected ? 'checked' : ''} ${someSelected ? 'style="opacity:0.5"' : ''}
+                                           onchange="toggleComboCategory(${combo._tempId}, '${cs.name.replace(/'/g, "\\'")}', this.checked)">
+                                    <span>${cs.name}</span>
+                                    <span class="text-[8px] opacity-70">(${cs.selected}/${cs.total})</span>
+                                </label>`;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Individual Products -->
+                    <div>
+                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Produkte in dieser Kombi:</label>
+                        <div class="space-y-1 max-h-[200px] overflow-y-auto">
+                            ${products.filter(p => p.is_available !== false).map(p => {
+                                const isSelected = selectedIds.includes(p.id);
+                                return `
+                                <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isSelected ? 'bg-teal-200 dark:bg-teal-700/60 border border-teal-400 dark:border-teal-500' : 'bg-gray-100 dark:bg-zinc-700/50 border border-transparent'} cursor-pointer transition-colors text-[10px]">
+                                    <input type="checkbox" class="combo-item-toggle rounded text-teal-500 focus:ring-teal-400 shrink-0"
+                                           data-combo-temp-id="${combo._tempId}" data-product-id="${p.id}"
+                                           ${isSelected ? 'checked' : ''}
+                                           onchange="toggleComboItem(${combo._tempId}, ${p.id}, this.checked)">
+                                    <span class="font-bold text-zinc-800 dark:text-white">${p.name}</span>
+                                    <span class="text-zinc-500 dark:text-zinc-300 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
+                                </label>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            updateComboCount();
+        }
+
+        function updateComboCount() {
+            const countEl = document.getElementById('event-combo-count');
+            if (countEl) countEl.textContent = eventCombosData.length + ' Kombi' + (eventCombosData.length !== 1 ? 's' : '');
         }
 
         // Initialize events list on DOMContentLoaded
