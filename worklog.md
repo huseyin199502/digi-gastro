@@ -174,3 +174,34 @@ Stage Summary:
 - All 3 issue categories fixed: readability, checkbox visibility, serve Ruckeln
 - design_system.css now has proper exceptions for dark-background containers
 - Serve buttons have debounce protection with visual feedback
+
+---
+Task ID: ui-audit-checkbox-dedup
+Agent: Main
+Task: Comprehensive UI contrast audit + checkbox visibility + serve dedup
+
+Work Log:
+- Read admin.html, menu.html, design_system.css, main.py for full analysis
+- Identified root causes: Event list items used light-only Tailwind classes (text-zinc-800, bg-purple-50/50) without dark: variants
+- Custom checkboxes had very low contrast (dark border on dark bg, no shadow)
+- Serve endpoint had no server-side dedup, client lock released too fast
+- Fixed event list rendering with proper dark: variants for all text/border/bg
+- Fixed event day selector and product selector with dark mode classes
+- Fixed toggleEventProductRow to toggle dark mode classes properly
+- Rewrote custom-checkbox CSS: 20px size, 2.5px border, gray-500 color, box-shadow
+- Added html.dark .custom-checkbox override for dark mode visibility
+- Added .item-card .custom-checkbox override for order popup contrast
+- Added popup-body/footer text color enforcement for both themes
+- Added control-split-item dark mode overrides
+- Added design_system.css comprehensive light-mode popup contrast fixes
+- Added server-side _serve_dedup_cache (3s TTL) to main.py
+- Replaced _serveLock boolean with _acquireServeLock/_releaseServeLock (1.5s min duration)
+- Updated all 5 serve functions: serveControlItem, serveAllControlPending, notifServeItem, notifServeAll, setItemStatus
+- Bumped design_system.css cache version from v10 to v11
+- Committed and pushed to origin/main
+
+Stage Summary:
+- All 3 user-reported issues fixed: white text on white bg, checkbox visibility, serve button ruckeln
+- Event admin UI now properly themed for both light and dark modes
+- Checkboxes clearly visible in all contexts (dark bg, light bg, item-cards)
+- Double-click protection at both client (1.5s lock) and server (3s dedup) levels
