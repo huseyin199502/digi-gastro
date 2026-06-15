@@ -253,6 +253,10 @@ class EventCombo(Base):
     name = Column(String, nullable=False)  # e.g. "Cola + Shisha"
     combo_price = Column(Float, nullable=False)  # e.g. 18.00
     position = Column(Integer, default=0)
+    # Per-combo time/day restrictions (optional – if empty, inherits event's settings)
+    days = Column(Text, default=None)  # JSON array of German day names, e.g. ["Donnerstag"] – null = inherit from event
+    start_time = Column(String, default=None)  # e.g. "18:00" – null = inherit from event
+    end_time = Column(String, default=None)  # e.g. "20:00" – null = inherit from event
 
 class EventComboItem(Base):
     __tablename__ = 'event_combo_items'
@@ -319,6 +323,11 @@ def _migrate_database():
     add_column_if_missing('products', 'start_time', "VARCHAR")
     add_column_if_missing('products', 'end_time', "VARCHAR")
     add_column_if_missing('products', 'happy_hour_days', "TEXT DEFAULT NULL")
+
+    # Migrate 'event_combos' table – per-combo time/day restrictions
+    add_column_if_missing('event_combos', 'days', "TEXT DEFAULT NULL")
+    add_column_if_missing('event_combos', 'start_time', "VARCHAR DEFAULT NULL")
+    add_column_if_missing('event_combos', 'end_time', "VARCHAR DEFAULT NULL")
 
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")

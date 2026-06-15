@@ -498,7 +498,28 @@
                 {% set combos_list = [] %}
                 {% for ev in active_events %}
                     {% for combo in (ev.combos or []) %}
-                        {% set _ = combos_list.append({'combo': combo, 'event': ev}) %}
+                        {% set combo_has_own_days = combo.days is defined and combo.days is not none and combo.days | length > 0 %}
+                        {% set combo_has_own_time = combo.start_time is defined and combo.start_time is not none and combo.start_time != '' and combo.end_time is defined and combo.end_time is not none and combo.end_time != '' %}
+                        {% set combo_day_match = true %}
+                        {% if combo_has_own_days %}
+                            {% set combo_day_match = false %}
+                            {% for pd in now_possible_days %}
+                                {% if pd in combo.days %}
+                                    {% set combo_day_match = true %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                        {% set combo_time_match = true %}
+                        {% if combo_has_own_time %}
+                            {% if combo.start_time <= now_time and now_time <= combo.end_time %}
+                                {% set combo_time_match = true %}
+                            {% else %}
+                                {% set combo_time_match = false %}
+                            {% endif %}
+                        {% endif %}
+                        {% if combo_day_match and combo_time_match %}
+                            {% set _ = combos_list.append({'combo': combo, 'event': ev}) %}
+                        {% endif %}
                     {% endfor %}
                 {% endfor %}
                 {% if combos_list %}
@@ -526,9 +547,15 @@
                                 <span class="material-symbols-outlined text-teal-400" style="font-size:24px;">loyalty</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
                                     <span class="font-extrabold text-sm text-on-surface">{{ combo.name }}</span>
                                     <span class="text-[9px] font-bold bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
+                                    {% if combo.days is defined and combo.days is not none and combo.days | length > 0 %}
+                                    <span class="text-[8px] font-bold bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-500/30">{% for d in combo.days %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                    {% endif %}
+                                    {% if combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
+                                    <span class="text-[8px] font-bold bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full border border-sky-500/30">{{ combo.start_time }}–{{ combo.end_time }}</span>
+                                    {% endif %}
                                 </div>
                                 <div class="flex flex-wrap gap-1.5 mb-2">
                                     {% for ci in combo.items %}

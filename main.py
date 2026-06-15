@@ -548,6 +548,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
                 "name": combo.name,
                 "combo_price": combo.combo_price,
                 "position": combo.position or 0,
+                "days": json.loads(combo.days) if combo.days else None,
+                "start_time": combo.start_time,
+                "end_time": combo.end_time,
                 "items": [{"product_id": ci.product_id} for ci in combo_items]
             })
         events.append({
@@ -893,11 +896,17 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         
         for cidx, combo in enumerate(ev.get("combos", [])):
             if combo.get("name") and combo.get("combo_price") and combo.get("items"):
+                combo_days = combo.get("days")
+                combo_start = combo.get("start_time") or None
+                combo_end = combo.get("end_time") or None
                 db_combo = DBEventCombo(
                     event_id=db_ev.id,
                     name=combo["name"].strip(),
                     combo_price=round(float(combo["combo_price"]), 2),
-                    position=cidx
+                    position=cidx,
+                    days=json.dumps(combo_days) if combo_days else None,
+                    start_time=combo_start,
+                    end_time=combo_end
                 )
                 session.add(db_combo)
                 session.flush()
@@ -2938,7 +2947,9 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "hh_active_global": any_event_active,
             "active_events": active_events_info,
             "events": events,
-            "price_mode": restaurant.get("price_mode", "brutto")
+            "price_mode": restaurant.get("price_mode", "brutto"),
+            "now_time": now_time,
+            "now_possible_days": possible_days
         }
     )
     
@@ -3045,11 +3056,25 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         if not ev.get("_is_currently_active", False):
             continue
         for combo in ev.get("combos", []):
-            combo_lookup[combo["id"]] = {
-                "combo_price": combo["combo_price"],
-                "product_ids": [ci["product_id"] for ci in combo.get("items", [])],
-                "event_name": ev.get("display_name", ev.get("name", "Event"))
-            }
+            # Check combo-specific time/day restrictions
+            combo_days = combo.get("days")
+            combo_start = combo.get("start_time")
+            combo_end = combo.get("end_time")
+            combo_is_active = True
+            # If combo has own days, check them
+            if combo_days and len(combo_days) > 0:
+                if not any(day in combo_days for day in possible_days):
+                    combo_is_active = False
+            # If combo has own time range, check it
+            if combo_is_active and combo_start and combo_end:
+                if not (combo_start.zfill(5) <= now_time <= combo_end.zfill(5)):
+                    combo_is_active = False
+            if combo_is_active:
+                combo_lookup[combo["id"]] = {
+                    "combo_price": combo["combo_price"],
+                    "product_ids": [ci["product_id"] for ci in combo.get("items", [])],
+                    "event_name": ev.get("display_name", ev.get("name", "Event"))
+                }
     
     # Group combo items from the payload
     combo_items_in_order = {}  # combo_id -> [item indices]
@@ -6585,11 +6610,18 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
     # Add event combos
     for idx, combo in enumerate(body.get("combos", [])):
         if combo.get("name") and combo.get("combo_price") and combo.get("items"):
+            # Per-combo time/day restrictions (optional)
+            combo_days = combo.get("days")
+            combo_start = combo.get("start_time") or None
+            combo_end = combo.get("end_time") or None
             db_combo = DBEventCombo(
                 event_id=db_ev.id,
                 name=combo["name"].strip(),
                 combo_price=round(float(combo["combo_price"]), 2),
-                position=idx
+                position=idx,
+                days=json.dumps(combo_days) if combo_days else None,
+                start_time=combo_start,
+                end_time=combo_end
             )
             db.add(db_combo)
             db.flush()  # Get combo ID
@@ -6661,11 +6693,18 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
         # Add new combos
         for idx, combo in enumerate(body["combos"]):
             if combo.get("name") and combo.get("combo_price") and combo.get("items"):
+                # Per-combo time/day restrictions (optional)
+                combo_days = combo.get("days")
+                combo_start = combo.get("start_time") or None
+                combo_end = combo.get("end_time") or None
                 db_combo = DBEventCombo(
                     event_id=event_id,
                     name=combo["name"].strip(),
                     combo_price=round(float(combo["combo_price"]), 2),
-                    position=idx
+                    position=idx,
+                    days=json.dumps(combo_days) if combo_days else None,
+                    start_time=combo_start,
+                    end_time=combo_end
                 )
                 db.add(db_combo)
                 db.flush()

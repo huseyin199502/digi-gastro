@@ -2894,7 +2894,7 @@
                                     <span class="material-symbols-outlined" style="font-size:12px;">add</span> Neue Kombi
                                 </button>
                             </div>
-                            <p class="text-[10px] text-zinc-400 mb-3">Erstelle Kombipreise wie "Cola + Shisha = 18 €". Alle Produkte der Kombi müssen zusammen bestellt werden.</p>
+                            <p class="text-[10px] text-zinc-400 mb-3">Erstelle Kombipreise wie "Cola + Shisha = 18 €". Alle Produkte der Kombi müssen zusammen bestellt werden. Optional: eigene Zeiten & Tage pro Kombi festlegen.</p>
                             <div class="space-y-3" id="event-combos-list">
                                 <!-- Populated by JS -->
                             </div>
@@ -7446,10 +7446,20 @@
                                     <span class="material-symbols-outlined" style="font-size:12px;">lunch_dining</span>
                                     ${modeLabel}
                                 </span>
-                                ${comboCount > 0 ? `<span class="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
-                                    <span class="material-symbols-outlined" style="font-size:12px;">loyalty</span>
-                                    ${comboCount} Kombi${comboCount > 1 ? 's' : ''}
-                                </span>` : ''}
+                                ${comboCount > 0 ? (() => {
+                                    const combosWithOwnTime = (ev.combos || []).filter(c => (c.days && c.days.length > 0) || (c.start_time && c.end_time));
+                                    let comboHtml = `<span class="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
+                                        <span class="material-symbols-outlined" style="font-size:12px;">loyalty</span>
+                                        ${comboCount} Kombi${comboCount > 1 ? 's' : ''}
+                                    </span>`;
+                                    if (combosWithOwnTime.length > 0) {
+                                        comboHtml += `<span class="flex items-center gap-0.5 text-teal-500 dark:text-teal-400">
+                                            <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
+                                            ${combosWithOwnTime.length} mit eigener Zeit
+                                        </span>`;
+                                    }
+                                    return comboHtml;
+                                })() : ''}
                             </div>
                             ${ev.description ? `<p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">${ev.description}</p>` : ''}
                         </div>
@@ -7526,7 +7536,10 @@
                         _tempId: ++comboIdCounter,
                         name: combo.name || '',
                         combo_price: combo.combo_price || '',
-                        items: (combo.items || []).map(i => ({ product_id: i.product_id }))
+                        items: (combo.items || []).map(i => ({ product_id: i.product_id })),
+                        days: combo.days || null,
+                        start_time: combo.start_time || '',
+                        end_time: combo.end_time || ''
                     };
                     eventCombosData.push(c);
                 });
@@ -7627,7 +7640,10 @@
                 _tempId: ++comboIdCounter,
                 name: '',
                 combo_price: '',
-                items: []
+                items: [],
+                days: null,
+                start_time: '',
+                end_time: ''
             };
             if (!combo._tempId) combo._tempId = ++comboIdCounter;
             
@@ -7668,6 +7684,9 @@
                     return sum + (p ? parseFloat(p.price) : 0);
                 }, 0);
                 const savings = individualSum - (parseFloat(combo.combo_price) || 0);
+                const comboDays = combo.days || [];
+                const hasOwnDays = Array.isArray(combo.days) && combo.days.length > 0;
+                const hasOwnTime = !!(combo.start_time && combo.end_time);
                 
                 return `
                 <div class="p-3 rounded-xl border border-teal-200 bg-teal-50/50 dark:border-teal-700/40 dark:bg-teal-900/15 space-y-2.5" id="combo-${combo._tempId}">
@@ -7690,6 +7709,45 @@
                         <span class="text-[10px] text-zinc-400">€</span>
                         ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
                     </div>
+                    
+                    <!-- Per-combo time/day restrictions -->
+                    <div class="border-t border-teal-200/60 dark:border-teal-700/30 pt-2.5 space-y-2">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:14px;">schedule</span>
+                            <label class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">Eigene Zeiten & Tage für diese Kombi (optional)</label>
+                        </div>
+                        <p class="text-[9px] text-zinc-400 dark:text-zinc-500 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events. Ausgefüllt = nur in diesem Zeitraum verfügbar.</p>
+                        
+                        <div class="flex flex-wrap gap-1.5">
+                            ${ALL_DAYS.map(day => {
+                                const isSelected = comboDays.includes(day);
+                                return `
+                                <label class="flex items-center gap-1 ${isSelected ? 'bg-teal-100 border-teal-300 text-teal-700 dark:bg-teal-800/40 dark:border-teal-600 dark:text-teal-300' : 'bg-gray-50 border-gray-200 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-400'} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 dark:hover:border-teal-500 border">
+                                    <input type="checkbox" class="combo-day-check rounded text-teal-500 focus:ring-0" 
+                                           data-combo-temp-id="${combo._tempId}" value="${day}" ${isSelected ? 'checked' : ''} 
+                                           onchange="toggleComboDay(${combo._tempId}, '${day}', this.checked)">
+                                    <span>${day.substring(0,2)}</span>
+                                </label>`;
+                            }).join('')}
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] text-zinc-400 dark:text-zinc-500 block mb-0.5">Von</label>
+                                <input type="time" value="${combo.start_time || ''}" 
+                                       class="w-full bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-teal-400 focus:border-teal-400" 
+                                       onchange="updateComboField(${combo._tempId}, 'start_time', this.value)">
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-zinc-400 dark:text-zinc-500 block mb-0.5">Bis</label>
+                                <input type="time" value="${combo.end_time || ''}" 
+                                       class="w-full bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-teal-400 focus:border-teal-400" 
+                                       onchange="updateComboField(${combo._tempId}, 'end_time', this.value)">
+                            </div>
+                        </div>
+                        ${hasOwnDays || hasOwnTime ? `<div class="text-[9px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-1 rounded-lg border border-teal-200 dark:border-teal-700/50">Nur ${hasOwnDays ? comboDays.map(d => d.substring(0,2)).join(', ') + ' ' : ''}${hasOwnTime ? (combo.start_time || '...') + '–' + (combo.end_time || '...') : ''}</div>` : ''}
+                    </div>
+                    
                     <div>
                         <label class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-1.5 block">Produkte in dieser Kombi:</label>
                         <div class="space-y-1 max-h-[200px] overflow-y-auto">
@@ -7736,12 +7794,42 @@
             renderCombosList();
         }
 
+        function toggleComboDay(tempId, day, isChecked) {
+            const combo = eventCombosData.find(c => c._tempId === tempId);
+            if (!combo) return;
+            if (!combo.days) combo.days = [];
+            
+            if (isChecked) {
+                if (!combo.days.includes(day)) {
+                    combo.days.push(day);
+                }
+            } else {
+                combo.days = combo.days.filter(d => d !== day);
+            }
+            // If no days selected, set to null (inherit from event)
+            if (combo.days.length === 0) combo.days = null;
+            renderCombosList();
+        }
+
         function collectComboData() {
-            return eventCombosData.filter(c => c.name && c.combo_price && c.items && c.items.length >= 2).map(c => ({
-                name: c.name.trim(),
-                combo_price: parseFloat(c.combo_price) || 0,
-                items: c.items.filter(i => i.product_id)
-            }));
+            return eventCombosData.filter(c => c.name && c.combo_price && c.items && c.items.length >= 2).map(c => {
+                const result = {
+                    name: c.name.trim(),
+                    combo_price: parseFloat(c.combo_price) || 0,
+                    items: c.items.filter(i => i.product_id)
+                };
+                // Only include days/time if explicitly set
+                if (c.days && Array.isArray(c.days) && c.days.length > 0) {
+                    result.days = c.days;
+                }
+                if (c.start_time) {
+                    result.start_time = c.start_time;
+                }
+                if (c.end_time) {
+                    result.end_time = c.end_time;
+                }
+                return result;
+            });
         }
 
         function toggleEventDiscountRow() {
