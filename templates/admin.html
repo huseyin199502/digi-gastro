@@ -466,6 +466,57 @@
             color: #fbbf24 !important;
         }
 
+        /* ── SITZPLAN TABLE TILE DARK MODE CONTRAST ── */
+        /* In dark mode, inline dark colors on table tiles are nearly invisible */
+        /* Override all inline color styles inside sitzplan-table to inherit from parent */
+        html.dark .sitzplan-table span[style*="color:"],
+        html.dark .sitzplan-table a[style*="color:"] {
+            color: inherit !important;
+        }
+        /* Status-specific bright colors for dark mode tiles */
+        html.dark .sitzplan-table.status-active {
+            color: #34d399 !important;  /* emerald-400 */
+        }
+        html.dark .sitzplan-table.status-pending {
+            color: #fca5a5 !important;  /* red-300 */
+        }
+        html.dark .sitzplan-table.status-calling {
+            color: #fcd34d !important;  /* amber-300 */
+        }
+        html.dark .sitzplan-table.status-free {
+            color: #a1a1aa !important;  /* zinc-400 */
+        }
+        /* Dark mode: tile timers need visibility */
+        html.dark .sitzplan-table .tile-timer {
+            color: #fca5a5 !important;
+            background: rgba(239, 68, 68, 0.15) !important;
+        }
+        /* Light mode: ensure tile colors are dark enough on white background */
+        html.light .sitzplan-table.status-active {
+            color: #065f46 !important;
+        }
+        html.light .sitzplan-table.status-pending {
+            color: #9f1239 !important;
+        }
+        html.light .sitzplan-table.status-calling {
+            color: #92400e !important;
+        }
+        html.light .sitzplan-table.status-free {
+            color: #6b7280 !important;
+        }
+        /* Dark mode: sitzplan section containers (Drinnen/Draußen) need dark bg */
+        html.dark .seating-canvas .bg-white {
+            background-color: var(--gastro-card-bg) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .seating-canvas .bg-white h3,
+        html.dark .seating-canvas .bg-white .text-zinc-800 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .seating-canvas .bg-white .text-zinc-400 {
+            color: var(--gastro-text-muted) !important;
+        }
+
         /* Left Sidebar - Responsive styling */
         aside {
             width: 280px;
@@ -811,8 +862,25 @@
 
         .popup-body {
             padding: 1.5rem;
-            max-height: 60vh;
             overflow-y: auto;
+        }
+
+        /* Scrollable area shadow indicator for control modal */
+        #control-modal .popup-body {
+            scroll-behavior: smooth;
+        }
+        #control-modal .popup-body::-webkit-scrollbar {
+            width: 4px;
+        }
+        #control-modal .popup-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #control-modal .popup-body::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+            border-radius: 10px;
+        }
+        html.dark #control-modal .popup-body::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
         }
 
         .popup-footer {
@@ -3272,9 +3340,9 @@
          TISCH-COCKPIT / CONTROLS MODAL OVERLAY (#control-modal)
     ═══════════════════════════════════════════════════════ -->
     <div id="control-modal" class="overlay-backdrop hidden">
-        <div class="popup-card flex flex-col" style="max-width:550px;max-height:92vh;min-height:60vh;">
-            <!-- Sticky Header with total -->
-            <div class="popup-header flex-shrink-0" style="position:sticky;top:0;z-index:10;">
+        <div class="popup-card flex flex-col" style="max-width:550px;max-height:92vh;min-height:50vh;">
+            <!-- Fixed Header with table info + total -->
+            <div class="popup-header flex-shrink-0">
                 <div>
                     <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Cockpit</div>
                     <div style="font-size:22px;font-weight:900;color:#fff;" id="control-modal-table-title">Tisch --</div>
@@ -3288,8 +3356,8 @@
                 </div>
             </div>
 
-            <!-- Scrollable orders area -->
-            <div class="popup-body overflow-y-auto flex-1" style="min-height:0;padding:0.75rem 1.25rem;">
+            <!-- Scrollable orders area — only this section scrolls -->
+            <div class="popup-body overflow-y-auto flex-1" style="min-height:0;max-height:calc(92vh - 180px);padding:0.75rem 1.25rem;">
                 <!-- Call-To-Action alerts inside Control Modal -->
                 <div id="control-alerts-box" class="hidden" style="margin-bottom:0.75rem;"></div>
                 
@@ -3297,8 +3365,8 @@
                 <div id="control-orders-container" class="space-y-3"></div>
             </div>
 
-            <!-- Sticky Footer — always visible -->
-            <div class="popup-footer space-y-2 flex-shrink-0 border-t border-zinc-800/30" style="position:sticky;bottom:0;z-index:10;">
+            <!-- Fixed Footer — always visible at bottom -->
+            <div class="popup-footer space-y-2 flex-shrink-0 border-t border-zinc-800/30">
                 <!-- Split Pay selector -->
                 <div id="control-split-cockpit" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
                     <div class="flex items-center justify-between text-xs font-extrabold text-zinc-800">

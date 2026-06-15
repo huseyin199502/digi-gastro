@@ -338,13 +338,14 @@ html.light, body.light {
 }
 
 html.light .grid-bg, body.light .grid-bg {
-  background-image: 
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-image: none !important;
+}
+html.light .radial-glow, body.light .radial-glow {
+  background-image: none !important;
 }
 
 html.light body, body.light {
-  background-color: var(--bg-obsidian) !important;
+  background-color: #ffffff !important;
   color: var(--text-on-surface) !important;
 }
 
@@ -508,7 +509,8 @@ html.light :not(.landing-page-wrapper) .text-emerald-400 {
 /* NOTE: Using doubled class (.landing-page-wrapper.landing-page-wrapper) to beat
    the :not(.landing-page-wrapper) .text-white rule specificity (0,3,1 vs 0,3,1 → last wins) */
 html.light .landing-page-wrapper,
-html.light .landing-page-wrapper.landing-page-wrapper * {
+html.light .landing-page-wrapper.landing-page-wrapper *,
+html.dark .landing-page-wrapper {
     color: #ffffff !important;
 }
 
@@ -516,7 +518,10 @@ html.light .landing-page-wrapper.landing-page-wrapper * {
 html.light .landing-page-wrapper .text-white,
 html.light .landing-page-wrapper h2,
 html.light .landing-page-wrapper h3,
-html.light .landing-page-wrapper strong.text-on-surface {
+html.light .landing-page-wrapper strong.text-on-surface,
+html.dark .landing-page-wrapper h2,
+html.dark .landing-page-wrapper h3,
+html.dark .landing-page-wrapper .text-white {
     color: #ffffff !important;
 }
 
@@ -740,3 +745,49 @@ html.light #event-modal button[style*="background:#7c3aed"],
 html.light #event-modal button[style*="background:#7c3aed"] * {
     color: #ffffff !important;
 }
+
+/* ── SITZPLAN TABLE TILE DARK MODE CONTRAST ── */
+/* In dark mode, inline dark colors on table tiles are nearly invisible */
+/* Override all inline color styles inside sitzplan-table to inherit from parent */
+html.dark .sitzplan-table span[style*="color:"],
+html.dark .sitzplan-table a[style*="color:"] {
+    color: inherit !important;
+}
+
+/* Status-specific bright colors for dark mode tiles */
+html.dark .sitzplan-table.status-active {
+    color: #34d399 !important;  /* emerald-400 */
+}
+html.dark .sitzplan-table.status-pending {
+    color: #fca5a5 !important;  /* red-300 */
+}
+html.dark .sitzplan-table.status-calling {
+    color: #fcd34d !important;  /* amber-300 */
+}
+html.dark .sitzplan-table.status-free {
+    color: #a1a1aa !important;  /* zinc-400 */
+}
+
+/* Dark mode: tile timers and small text need visibility */
+html.dark .sitzplan-table .tile-timer {
+    color: #fca5a5 !important;
+    background: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* ── SITZPLAN TABLE TILE LIGHT MODE CONTRAST ── */
+/* In light mode, tiles have white background with status tint - keep dark text */
+html.light .sitzplan-table.status-active {
+    color: #065f46 !important;  /* emerald-800 */
+}
+html.light .sitzplan-table.status-pending {
+    color: #9f1239 !important;  /* rose-800 */
+}
+html.light .sitzplan-table.status-calling {
+    color: #92400e !important;  /* amber-800 */
+}
+html.light .sitzplan-table.status-free {
+    color: #6b7280 !important;  /* gray-500 */
+}
+
+/* ── MENU LIGHT MODE: SOLID WHITE BACKGROUND ── */
+/* (Solid white background applied via html.light body rule near top of file) */

@@ -274,3 +274,43 @@ Stage Summary:
 - Multiple orders scrollable without losing sight of total or buttons
 - Professional card-based layout with color-coded status
 - Files changed: templates/admin.html
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: UI fixes - Dark mode Sitzplan contrast, Light mode menu background, Landing page white text, Kellner popup layout
+
+Work Log:
+- Analyzed 4 screenshots (IMG_3062-3065) to identify UI issues
+- Dark Mode Sitzplan: Table tiles used hardcoded dark inline colors (#065f46, #022c22, #9f1239, etc.) invisible on dark backgrounds
+- Light Mode Menu: grid-bg CSS class created visible tiled/grid pattern on menu background; radial-glow also visible
+- Landing Page: "Willkommen bei [Tenant]" text appearing dark in light mode despite CSS rules
+- Kellner popup: Total amount and buttons not visible when multiple orders; needed scrollable middle section
+
+Changes Made:
+1. design_system.css (v14):
+   - html.light .grid-bg: changed to background-image: none !important (removed Kacheln)
+   - html.light .radial-glow: added background-image: none !important
+   - html.light body: changed background-color from var(--bg-obsidian) to #ffffff (solid white)
+   - Added dark mode sitzplan tile overrides: span[style*="color:"] → inherit from parent
+   - Added bright status colors for dark mode tiles: active=#34d399, pending=#fca5a5, calling=#fcd34d, free=#a1a1aa
+   - Added light mode sitzplan tile status colors for consistency
+   - Strengthened landing-page-wrapper rules: added html.dark selectors for h2, h3, .text-white
+   - Updated cache busting version to v=14
+
+2. admin.html:
+   - Added sitzplan dark mode CSS: inline color override → inherit, bright status colors
+   - Added sitzplan light mode CSS: dark status colors on white tiles
+   - Added dark mode section container overrides (bg-white → dark bg, text colors)
+   - Control modal: removed position:sticky (doesn't work in flex), now uses flex layout with fixed header/footer
+   - Control modal: popup-body gets max-height:calc(92vh - 180px) for proper scrolling
+   - Control modal: added custom thin scrollbar styling
+   - Removed max-height:60vh from .popup-body (moved to inline on control modal)
+
+3. Cache versions updated: menu.html, landing.html, login.html → design_system.css?v=14
+
+Stage Summary:
+- Dark mode Sitzplan tiles now show bright readable text (emerald/red/amber) instead of invisible dark text
+- Light mode menu has solid white background without grid/tile pattern
+- Landing page "Willkommen bei" text forced white in both dark and light modes
+- Kellner popup has proper scrollable orders with always-visible header (table + total) and footer (buttons)
