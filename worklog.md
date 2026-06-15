@@ -355,3 +355,31 @@ Stage Summary:
 - Guest UI: combo deals shown as cards with savings display, one-click add to cart
 - Order logic: server validates combo pricing, proportionally distributes combo price
 - Files changed: database.py, main.py, admin.html, menu.html
+---
+Task ID: 1
+Agent: Main Agent
+Task: QR-Code Scan → Willkommen-Seite statt direkter Speisekarte
+
+Work Log:
+- Analysiert: Die currentView-Logik in menu.html nutzt localStorage ('dl_menu_view') um den letzten Tab zu merken
+- Problem: Bei resetSession (QR-Scan) wurde dl_menu_view nicht gelöscht, sodass Kunden bei einem vorherigen Speisekarte-Besuch direkt dorthin geleitet wurden
+- Fix 1 (Alpine init, Z.1355-1363): resetSession löscht jetzt auch localStorage.removeItem('dl_menu_view') und setzt this.currentView = 'landing'
+- Fix 2 (DOMContentLoaded, Z.2491-2499): Gleicher Fix im zweiten resetSession-Block
+
+Stage Summary:
+- Kunden sehen nach QR-Scan jetzt immer die Willkommen-Seite zuerst
+- Die Speisekarte ist über den Tab "Speisekarte" weiterhin erreichbar
+---
+Task ID: 2
+Agent: Main Agent
+Task: Plattform Impressum & Datenschutz: Musterdaten → Mehmet Can Ipek (Vorgründungsphase)
+
+Work Log:
+- Alte Musterdaten entfernt: digi-gastro GmbH & Co. KG, Forstweg 12, 80331 München, Maximilian Schmidt, HRA/HRB, USt-IdNr
+- Impressum ersetzt durch: Mehmet Can Ipek (Vorgründungsphase), Anschrift/Kontakt/Steuer-Nr. = "folgt", Hinweis zur Vorgründungsphase
+- Datenschutzerklärung aktualisiert: Verantwortliche Stelle = Mehmet Can Ipek, erweitert um Abschnitte Cookies, Weitergabe von Daten, technische Daten
+- Alle "folgt"-Platzhalter sind korrekt gemäß § 5 DDG für Vorgründungsphase
+
+Stage Summary:
+- landing.html: IMPRESSUM_TEXT und PRIVACY_TEXT vollständig aktualisiert
+- Alle fehlenden Daten als "folgt" markiert mit Erklärung der Vorgründungsphase

@@ -1356,7 +1356,10 @@
                     if (resetSession) {
                         localStorage.removeItem(`dl_orders_{{ slug }}`);
                         localStorage.removeItem(`dl_cart_{{ slug }}`);
+                        localStorage.removeItem('dl_menu_view');
                         this.cart = [];
+                        // Always start on welcome page after QR scan
+                        this.currentView = 'landing';
                     }
                     
                     // Start with category list view (currentCategory = '')
@@ -2491,6 +2494,7 @@
             if (resetSession) {
                 localStorage.removeItem(`dl_orders_{{ slug }}`);
                 localStorage.removeItem(`dl_cart_{{ slug }}`);
+                localStorage.removeItem('dl_menu_view');
             }
         });
     </script>
