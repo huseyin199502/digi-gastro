@@ -2039,9 +2039,15 @@
                         <div class="stat-icon bg-emerald-500/10">
                             <span class="material-symbols-outlined text-emerald-600">euro</span>
                         </div>
+                        {% if restaurant.price_mode == 'netto' %}
+                        <div class="stat-label">Tagesumsatz (Netto)</div>
+                        <div class="stat-value">{{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €</div>
+                        <div class="stat-sub">Brutto 7%: {{ "%.2f"|format(stats.brutto_7) }} € &middot; Brutto 19%: {{ "%.2f"|format(stats.brutto_19) }} €</div>
+                        {% else %}
                         <div class="stat-label">Tagesumsatz (Brutto)</div>
                         <div class="stat-value">{{ "%.2f"|format(stats.brutto) }} €</div>
-                        <div class="stat-sub">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € · Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
+                        <div class="stat-sub">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € &middot; Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
+                        {% endif %}
                     </div>
                     <div class="stat-card stat-orders">
                         <div class="stat-icon bg-blue-500/10">
@@ -2697,6 +2703,19 @@
                                     <input type="checkbox" name="accepts_card_payment" value="true" onchange="this.form.submit()" {% if restaurant.accepts_card_payment != False %}checked{% endif %}>
                                     <span class="slider"></span>
                                 </label>
+                            </form>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div>
+                                <h4 class="font-bold text-xs text-zinc-800">Preisanzeige</h4>
+                                <p class="text-[10px] text-zinc-400 mt-0.5">Brutto = Endpreise inkl. MwSt &middot; Netto = Preise ohne MwSt (f&uuml;r B2B/Gastronomie)</p>
+                            </div>
+                            <form action="/admin/price-mode-toggle" method="POST" class="inline flex items-center">
+                                <label class="switch">
+                                    <input type="checkbox" name="price_mode_netto" value="true" onchange="this.form.submit()" {% if restaurant.price_mode == 'netto' %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="text-[10px] font-bold ml-2 {% if restaurant.price_mode == 'netto' %}text-amber-600{% else %}text-emerald-600{% endif %}">{% if restaurant.price_mode == 'netto' %}Netto{% else %}Brutto{% endif %}</span>
                             </form>
                         </div>
                     </div>

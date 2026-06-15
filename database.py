@@ -112,6 +112,7 @@ class Tenant(Base):
     happy_hour_display_name = Column(String, default="Aktion")  # What guests see: "Happy Hour", "Shisha Night", "Lunch Deal"
     theme = Column(String, default="dark")
     accepts_card_payment = Column(Boolean, default=True)
+    price_mode = Column(String, default="brutto")  # "brutto" or "netto"
 
 
 class Category(Base):
@@ -280,6 +281,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'accepts_card_payment', "BOOLEAN DEFAULT TRUE")
     add_column_if_missing('tenants', 'happy_hour_mode', "VARCHAR DEFAULT 'discount'")
     add_column_if_missing('tenants', 'happy_hour_display_name', "VARCHAR DEFAULT 'Aktion'")
+    add_column_if_missing('tenants', 'price_mode', "VARCHAR DEFAULT 'brutto'")
 
 
     # Migrate 'tables' table

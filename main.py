@@ -572,6 +572,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "kds_secret": tenant.kds_secret,
         "theme": tenant.theme or "dark",
         "accepts_card_payment": getattr(tenant, "accepts_card_payment", True) if getattr(tenant, "accepts_card_payment", True) is not None else True,
+        "price_mode": getattr(tenant, "price_mode", "brutto") or "brutto",
         "service_calls": service_calls,
         "categories": categories,
         "category_data": category_data,
@@ -642,6 +643,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.kds_secret = r.get("kds_secret")
     tenant.theme = r.get("theme", "dark")
     tenant.accepts_card_payment = r.get("accepts_card_payment", True)
+    tenant.price_mode = r.get("price_mode", "brutto")
 
     
     branding = r.get("branding", {})
@@ -2797,6 +2799,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         prod["display_price"] = prod["price"]
         prod["active_event"] = None  # Track which event applies
         
+        # ── Price Mode: Netto conversion ──
+        # DB always stores brutto prices. If tenant price_mode == "netto", convert.
+        price_mode = restaurant.get("price_mode", "brutto")
+        if price_mode == "netto":
+            cat_type = prod.get("category_type", "küche").lower()
+            mwst_factor = 1.19 if cat_type == "bar" else 1.07
+            prod["price"] = round(prod["price"] / mwst_factor, 2)
+            prod["display_price"] = prod["price"]
+        
         # Check each event to see if this product qualifies
         for ev in events:
             if not ev.get("is_active", True):
@@ -2809,7 +2820,13 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             
             if event_product and event_product.get("event_price"):
                 prod["is_hh_active"] = True
-                prod["display_price"] = event_product["event_price"]
+                event_price_val = event_product["event_price"]
+                # Convert event price to netto if tenant price_mode == netto
+                if price_mode == "netto":
+                    cat_type = prod.get("category_type", "küche").lower()
+                    mwst_factor = 1.19 if cat_type == "bar" else 1.07
+                    event_price_val = round(event_price_val / mwst_factor, 2)
+                prod["display_price"] = event_price_val
                 prod["active_event"] = {"name": ev["name"], "display_name": ev["display_name"], "days": ev["days"]}
                 break  # First matching event wins
             elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
@@ -2881,7 +2898,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "role": role,
             "hh_active_global": any_event_active,
             "active_events": active_events_info,
-            "events": events
+            "events": events,
+            "price_mode": restaurant.get("price_mode", "brutto")
         }
     )
     
@@ -4933,6 +4951,7 @@ async def create_category(
 async def export_products_csv(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     products = restaurant.get("products", [])
+    price_mode = restaurant.get("price_mode", "brutto")
     
     # Generate CSV response
     output = io.StringIO()
@@ -4949,10 +4968,17 @@ async def export_products_csv(request: Request, chef_data: tuple = Depends(requi
         allergens_list = p.get("allergens", [])
         allergens_str = ", ".join(allergens_list) if isinstance(allergens_list, list) else ""
         
+        # Convert price to netto if tenant price_mode == netto
+        export_price = p.get('price', 0.0)
+        if price_mode == "netto":
+            cat_type = p.get("category_type", "küche").lower()
+            mwst_divisor = 1.19 if cat_type == "bar" else 1.07
+            export_price = round(export_price / mwst_divisor, 2)
+        
         writer.writerow([
             p.get("id", ""),
             p.get("name", ""),
-            f"{p.get('price', 0.0):.2f}".replace('.', ','),
+            f"{export_price:.2f}".replace('.', ','),
             p.get("category", ""),
             p.get("category_type", "küche"),
             p.get("description", ""),
@@ -5028,6 +5054,12 @@ async def import_products_csv(
             price = float(price_str)
         except ValueError:
             price = 0.0
+        
+        # If tenant is in netto mode, convert imported netto price to brutto for DB storage
+        price_mode = restaurant.get("price_mode", "brutto")
+        if price_mode == "netto" and price > 0:
+            mwst_factor = 1.19 if category_type == "bar" else 1.07
+            price = round(price * mwst_factor, 2)
             
         desc = row.get("description", "")
         img = row.get("image", "")
@@ -5720,6 +5752,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         "service_calls": restaurant.get("service_calls", []),
         "tables": restaurant.get("tables", []),
         "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "price_mode": restaurant.get("price_mode", "brutto"),
         "stats": {
             "brutto": round(brutto, 2),
             "netto_7": round(netto_7, 2),
@@ -6612,6 +6645,18 @@ async def toggle_card_payment(request: Request, accepts_card_payment: Optional[b
     await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
+@app.post("/admin/price-mode-toggle")
+async def toggle_price_mode(request: Request, price_mode_netto: Optional[bool] = Form(None), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+        
+    restaurant["price_mode"] = "netto" if bool(price_mode_netto) else "brutto"
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    await manager.broadcast(slug, {"type": "update"})
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
 
 @app.put("/api/products/{product_id}")
 async def update_product_api(
@@ -7273,6 +7318,7 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
         db.commit()
         
     paid_orders = [o for o in restaurant.get("orders", []) if o.get("status") == "bezahlt"]
+    price_mode = restaurant.get("price_mode", "brutto")
     
     now_berlin = get_berlin_now()
     output = io.StringIO()
@@ -7313,14 +7359,23 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
                 item_cat_type = item.get("category_type", "küche").lower()
                 item_mwst = 19 if item_cat_type == "bar" else 7
                 
+                # If price_mode == netto, convert stored brutto prices to netto for export
+                if price_mode == "netto":
+                    mwst_divisor = 1.19 if item_cat_type == "bar" else 1.07
+                    export_price = round(price / mwst_divisor, 2)
+                    export_total = round(export_price * quantity, 2)
+                else:
+                    export_price = price
+                    export_total = item_total
+                
                 writer.writerow([
                     o_id,
                     timestamp,
                     table,
                     prod_name,
-                    str(price).replace('.', ','),
+                    str(export_price).replace('.', ','),
                     quantity,
-                    str(item_total).replace('.', ','),
+                    str(export_total).replace('.', ','),
                     item_mwst,
                     str(total_with_tip).replace('.', ','),
                     status

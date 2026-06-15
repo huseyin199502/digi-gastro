@@ -543,6 +543,11 @@
                                     {% else %}
                                     <span class="text-sm font-black text-on-surface leading-none">{{ "%.2f" | format(product.price) | replace('.', ',') }} €</span>
                                     {% endif %}
+                                    {% if price_mode == 'netto' %}
+                                    <span class="text-[9px] text-on-surface-variant/60 leading-none mt-0.5">zzgl. MwSt</span>
+                                    {% else %}
+                                    <span class="text-[9px] text-on-surface-variant/60 leading-none mt-0.5">inkl. MwSt</span>
+                                    {% endif %}
                                 </div>
                                 
                                 {% if is_avail %}
