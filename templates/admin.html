@@ -42,6 +42,13 @@
     
     <!-- Custom Style System -->
     <style>
+        /* iOS Overscroll-Bounce Prevention */
+        html {
+            overscroll-behavior: none;
+        }
+        .modal-overscroll {
+            overscroll-behavior: contain;
+        }
         :root {
             --gastro-primary: #009900;
             --gastro-primary-hover: #008000;
@@ -880,6 +887,7 @@
             justify-content: center;
             z-index: 50;
             padding: 1rem;
+            overscroll-behavior: contain;
         }
 
         .popup-card {
@@ -1988,6 +1996,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            overscroll-behavior: contain;
         }
         .edit-slide-over.open {
             transform: translateX(0);
@@ -2845,7 +2854,7 @@
             </div>
 
             <!-- Event Create/Edit Modal -->
-            <div id="event-modal" class="fixed inset-0 z-50 hidden">
+            <div id="event-modal" class="fixed inset-0 z-50 hidden modal-overscroll">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventModal()"></div>
                 <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
                     <div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 px-6 py-4 flex items-center justify-between">
@@ -4389,12 +4398,13 @@
             const zoneText = controlModalActiveTableZone ? ` (${controlModalActiveTableZone})` : '';
             document.getElementById('control-modal-table-title').textContent = `Tisch ${tableNumber}${zoneText}`;
             document.getElementById('control-modal').classList.remove('hidden');
-            
-            refreshControlModal();
+            document.body.style.overflow = 'hidden';
+                        refreshControlModal();
         }
 
         function closeControlModal() {
             document.getElementById('control-modal').classList.add('hidden');
+            document.body.style.overflow = '';
             controlModalActiveTableNum = null;
             controlModalActiveTableZone = null;
             selectedControlSplitItems = {};
@@ -6190,11 +6200,13 @@
             renderPopup(order);
             const popup = document.getElementById('order-popup');
             if (popup) popup.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
         function closePopup() {
             const popup = document.getElementById('order-popup');
             if (popup) popup.classList.add('hidden');
+            document.body.style.overflow = '';
             activeOrderId = null;
             expandedItemKey = null;
             selectedTeilrechnung = {};
@@ -7194,11 +7206,13 @@
             // Open slide-over
             document.getElementById('edit-slide-over').classList.add('open');
             document.getElementById('edit-slide-overlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
         }
 
         function closeEditSlideOver() {
             document.getElementById('edit-slide-over').classList.remove('open');
             document.getElementById('edit-slide-overlay').classList.remove('open');
+            document.body.style.overflow = '';
         }
 
         function closeEditProductModal() {
@@ -7215,10 +7229,12 @@
         // Quick-create modal
         function openQuickCreateModal() {
             document.getElementById('quick-create-product-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
         function closeQuickCreateModal() {
             document.getElementById('quick-create-product-modal').classList.add('hidden');
+            document.body.style.overflow = '';
         }
 
         async function quickCreateProduct(createAndNext = false) {
@@ -7552,6 +7568,7 @@
             renderCombosList();
 
             document.getElementById('event-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
         function openEventEditModal(eventId) {
@@ -7592,10 +7609,12 @@
             renderCombosList();
 
             document.getElementById('event-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
         function closeEventModal() {
             document.getElementById('event-modal').classList.add('hidden');
+            document.body.style.overflow = '';
         }
 
         function renderDaySelector(selectedDays) {
@@ -8061,10 +8080,12 @@
 
         function openCsvImportModal() {
             document.getElementById('csv-import-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
         function closeCsvImportModal() {
             document.getElementById('csv-import-modal').classList.add('hidden');
+            document.body.style.overflow = '';
         }
 
         function submitEditProduct(event) {
@@ -8376,7 +8397,7 @@
     </script>
     
     <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex flex-col items-center justify-center space-y-4" style="z-index: 9999;">
+    <div id="loading-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex flex-col items-center justify-center space-y-4 modal-overscroll" style="z-index: 9999;">
         <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
     </div>

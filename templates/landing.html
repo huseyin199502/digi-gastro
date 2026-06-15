@@ -67,6 +67,13 @@
         }
     </script>
     <style>
+        /* iOS Overscroll-Bounce Prevention */
+        html {
+            overscroll-behavior: none;
+        }
+        .modal-overscroll {
+            overscroll-behavior: contain;
+        }
         body {
             background-color: #050507;
             color: #f3f4f6;
@@ -678,7 +685,7 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- LOGIN MODAL -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div id="loginModal" class="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/85 backdrop-blur-sm flex justify-center items-start md:items-center p-4 {% if not show_login %}hidden{% endif %}">
+    <div id="loginModal" class="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/85 backdrop-blur-sm flex justify-center items-start md:items-center p-4 modal-overscroll {% if not show_login %}hidden{% endif %}">
         <div class="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/60 relative my-auto md:my-0" id="loginCard">
             <div class="absolute -right-20 -top-20 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl"></div>
             <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/40 relative z-10">
@@ -714,7 +721,7 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- LEGAL MODAL -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div id="legalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm hidden overflow-y-auto">
+    <div id="legalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm hidden overflow-y-auto modal-overscroll">
         <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/60 flex flex-col max-h-[85vh] relative my-4">
             <div class="absolute -right-20 -top-20 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl"></div>
             <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/45 relative z-10">
@@ -855,11 +862,13 @@
                 window.location.href = "{{ login_target }}";
             {% else %}
                 document.getElementById('loginModal').classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
             {% endif %}
         }
 
         function closeLogin() {
             document.getElementById('loginModal').classList.add('hidden');
+            document.body.style.overflow = '';
         }
 
         document.getElementById('loginModal').addEventListener('click', function(e) {
@@ -913,10 +922,12 @@
                 content.innerHTML = PRIVACY_TEXT;
             }
             modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         }
 
         function closeLegal() {
             document.getElementById('legalModal').classList.add('hidden');
+            document.body.style.overflow = '';
         }
 
         document.getElementById('legalModal').addEventListener('click', function(e) {
