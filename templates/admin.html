@@ -7695,7 +7695,7 @@
             const products = window._productsData || [];
 
             if (eventCombosData.length === 0) {
-                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-400">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
+                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-300 dark:text-zinc-400">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
                 return;
             }
 
@@ -7712,12 +7712,12 @@
                 const hasOwnTime = !!(combo.start_time && combo.end_time);
                 
                 return `
-                <div class="p-3 rounded-xl border border-teal-200 bg-teal-50/50 dark:border-teal-700/40 dark:bg-teal-900/15 space-y-2.5" id="combo-${combo._tempId}">
+                <div class="p-3 rounded-xl border-2 border-teal-300 bg-teal-50 dark:border-teal-500 dark:bg-teal-900/30 space-y-2.5" id="combo-${combo._tempId}">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2 flex-1 min-w-0">
-                            <span class="material-symbols-outlined text-teal-600 dark:text-teal-400" style="font-size:16px;">loyalty</span>
+                            <span class="material-symbols-outlined text-teal-600 dark:text-teal-300" style="font-size:16px;">loyalty</span>
                             <input type="text" placeholder="Kombi-Name, z.B. Cola + Shisha" value="${(combo.name || '').replace(/"/g, '&quot;')}" 
-                                   class="flex-1 bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[11px] font-bold focus:ring-teal-400 focus:border-teal-400" 
+                                   class="flex-1 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
                                    onchange="updateComboField(${combo._tempId}, 'name', this.value)">
                         </div>
                         <button type="button" onclick="removeEventCombo(${combo._tempId})" class="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2" title="Kombi entfernen">
@@ -7725,27 +7725,27 @@
                         </button>
                     </div>
                     <div class="flex items-center gap-2">
-                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 shrink-0">Kombipreis:</label>
+                        <label class="text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shrink-0">Kombipreis:</label>
                         <input type="number" step="0.01" min="0" placeholder="18.00" value="${combo.combo_price || ''}" 
-                               class="w-24 bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[11px] font-mono font-bold focus:ring-teal-400 focus:border-teal-400" 
+                               class="w-24 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-mono font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
                                onchange="updateComboField(${combo._tempId}, 'combo_price', this.value)">
-                        <span class="text-[10px] text-zinc-400">€</span>
-                        ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
+                        <span class="text-[10px] text-zinc-600 dark:text-zinc-300 font-bold">€</span>
+                        ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-800/50 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
                     </div>
                     
                     <!-- Per-combo time/day restrictions -->
-                    <div class="border-t border-teal-200/60 dark:border-teal-700/30 pt-2.5 space-y-2">
+                    <div class="border-t border-teal-300/60 dark:border-teal-600/50 pt-2.5 space-y-2">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:14px;">schedule</span>
-                            <label class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">Eigene Zeiten & Tage für diese Kombi (optional)</label>
+                            <span class="material-symbols-outlined text-zinc-500 dark:text-zinc-300" style="font-size:14px;">schedule</span>
+                            <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200">Eigene Zeiten & Tage für diese Kombi (optional)</label>
                         </div>
-                        <p class="text-[9px] text-zinc-400 dark:text-zinc-500 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events. Ausgefüllt = nur in diesem Zeitraum verfügbar.</p>
+                        <p class="text-[9px] text-zinc-500 dark:text-zinc-300 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events. Ausgefüllt = nur in diesem Zeitraum verfügbar.</p>
                         
                         <div class="flex flex-wrap gap-1.5">
                             ${ALL_DAYS.map(day => {
                                 const isSelected = comboDays.includes(day);
                                 return `
-                                <label class="flex items-center gap-1 ${isSelected ? 'bg-teal-100 border-teal-300 text-teal-700 dark:bg-teal-800/40 dark:border-teal-600 dark:text-teal-300' : 'bg-gray-50 border-gray-200 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-400'} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 dark:hover:border-teal-500 border">
+                                <label class="flex items-center gap-1 ${isSelected ? 'bg-teal-200 border-teal-400 text-teal-800 dark:bg-teal-600 dark:border-teal-400 dark:text-white' : 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-zinc-700 dark:border-zinc-500 dark:text-zinc-200'} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 dark:hover:border-teal-400 border">
                                     <input type="checkbox" class="combo-day-check rounded text-teal-500 focus:ring-0" 
                                            data-combo-temp-id="${combo._tempId}" value="${day}" ${isSelected ? 'checked' : ''} 
                                            onchange="toggleComboDay(${combo._tempId}, '${day}', this.checked)">
@@ -7756,34 +7756,34 @@
                         
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="text-[9px] text-zinc-400 dark:text-zinc-500 block mb-0.5">Von</label>
+                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Von</label>
                                 <input type="time" value="${combo.start_time || ''}" 
-                                       class="w-full bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-teal-400 focus:border-teal-400" 
+                                       class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
                                        onchange="updateComboField(${combo._tempId}, 'start_time', this.value)">
                             </div>
                             <div>
-                                <label class="text-[9px] text-zinc-400 dark:text-zinc-500 block mb-0.5">Bis</label>
+                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Bis</label>
                                 <input type="time" value="${combo.end_time || ''}" 
-                                       class="w-full bg-white dark:bg-zinc-800 border border-teal-200 dark:border-teal-700 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-teal-400 focus:border-teal-400" 
+                                       class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400" 
                                        onchange="updateComboField(${combo._tempId}, 'end_time', this.value)">
                             </div>
                         </div>
-                        ${hasOwnDays || hasOwnTime ? `<div class="text-[9px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-1 rounded-lg border border-teal-200 dark:border-teal-700/50">Nur ${hasOwnDays ? comboDays.map(d => d.substring(0,2)).join(', ') + ' ' : ''}${hasOwnTime ? (combo.start_time || '...') + '–' + (combo.end_time || '...') : ''}</div>` : ''}
+                        ${hasOwnDays || hasOwnTime ? `<div class="text-[9px] font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-800/50 px-2 py-1 rounded-lg border border-teal-300 dark:border-teal-600">Nur ${hasOwnDays ? comboDays.map(d => d.substring(0,2)).join(', ') + ' ' : ''}${hasOwnTime ? (combo.start_time || '...') + '–' + (combo.end_time || '...') : ''}</div>` : ''}
                     </div>
                     
                     <div>
-                        <label class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-1.5 block">Produkte in dieser Kombi:</label>
+                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Produkte in dieser Kombi:</label>
                         <div class="space-y-1 max-h-[200px] overflow-y-auto">
                             ${products.filter(p => p.is_available !== false).map(p => {
                                 const isSelected = selectedIds.includes(p.id);
                                 return `
-                                <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isSelected ? 'bg-teal-100 dark:bg-teal-800/40 border border-teal-300 dark:border-teal-600' : 'bg-gray-50 dark:bg-zinc-800/40 border border-transparent'} cursor-pointer transition-colors text-[10px]">
+                                <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isSelected ? 'bg-teal-200 dark:bg-teal-700/60 border border-teal-400 dark:border-teal-500' : 'bg-gray-100 dark:bg-zinc-700/50 border border-transparent'} cursor-pointer transition-colors text-[10px]">
                                     <input type="checkbox" class="combo-item-toggle rounded text-teal-500 focus:ring-teal-400 shrink-0" 
                                            data-combo-temp-id="${combo._tempId}" data-product-id="${p.id}" 
                                            ${isSelected ? 'checked' : ''} 
                                            onchange="toggleComboItem(${combo._tempId}, ${p.id}, this.checked)">
-                                    <span class="font-bold text-zinc-800 dark:text-zinc-200">${p.name}</span>
-                                    <span class="text-zinc-400 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
+                                    <span class="font-bold text-zinc-800 dark:text-white">${p.name}</span>
+                                    <span class="text-zinc-500 dark:text-zinc-300 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
                                 </label>`;
                             }).join('')}
                         </div>

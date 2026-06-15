@@ -494,39 +494,18 @@
                 </div>
 
                 <!-- Combo Deals Section (shown when event with combos is active and no category selected) -->
-                {% if hh_active_global and active_events %}
+                {% if today_combo_events %}
                 {% set combos_list = [] %}
-                {% for ev in active_events %}
+                {% for ev in today_combo_events %}
                     {% for combo in (ev.combos or []) %}
-                        {% set combo_has_own_days = combo.days is defined and combo.days is not none and combo.days | length > 0 %}
-                        {% set combo_has_own_time = combo.start_time is defined and combo.start_time is not none and combo.start_time != '' and combo.end_time is defined and combo.end_time is not none and combo.end_time != '' %}
-                        {% set combo_day_match = true %}
-                        {% if combo_has_own_days %}
-                            {% set combo_day_match = false %}
-                            {% for pd in now_possible_days %}
-                                {% if pd in combo.days %}
-                                    {% set combo_day_match = true %}
-                                {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                        {% set combo_time_match = true %}
-                        {% if combo_has_own_time %}
-                            {% if combo.start_time <= now_time and now_time <= combo.end_time %}
-                                {% set combo_time_match = true %}
-                            {% else %}
-                                {% set combo_time_match = false %}
-                            {% endif %}
-                        {% endif %}
-                        {% if combo_day_match and combo_time_match %}
-                            {% set _ = combos_list.append({'combo': combo, 'event': ev}) %}
-                        {% endif %}
+                        {% set _ = combos_list.append({'combo': combo, 'event': ev}) %}
                     {% endfor %}
                 {% endfor %}
                 {% if combos_list %}
                 <div x-show="currentCategory === ''" class="py-2 space-y-3">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="material-symbols-outlined text-teal-400" style="font-size:20px;">loyalty</span>
-                        <h3 class="text-sm font-black text-on-surface uppercase tracking-wider">Kombi-Angebote</h3>
+                        <h3 class="text-sm font-black text-white uppercase tracking-wider">Kombi-Angebote</h3>
                     </div>
                     {% for item in combos_list %}
                     {% set combo = item.combo %}
@@ -540,7 +519,18 @@
                             {% endif %}
                         {% endfor %}
                     {% endfor %}
-                    <div class="bg-gradient-to-r from-teal-900/60 to-emerald-900/40 border border-teal-500/50 rounded-2xl p-4 relative overflow-hidden">
+                    {% set combo_has_own_time = combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
+                    {% set combo_time_ok = true %}
+                    {% if combo_has_own_time %}
+                        {% if not (combo.start_time <= now_time and now_time <= combo.end_time) %}
+                            {% set combo_time_ok = false %}
+                        {% endif %}
+                    {% else %}
+                        {% if not (ev.start_time <= now_time and now_time <= ev.end_time) %}
+                            {% set combo_time_ok = false %}
+                        {% endif %}
+                    {% endif %}
+                    <div class="bg-gradient-to-r from-teal-900/60 to-emerald-900/40 border border-teal-500/50 rounded-2xl p-4 relative overflow-hidden {% if not combo_time_ok %}opacity-60{% endif %}">
                         <div class="absolute -right-6 -top-6 w-20 h-20 bg-teal-500/20 rounded-full blur-xl"></div>
                         <div class="flex items-start gap-3 relative z-10">
                             <div class="w-12 h-12 rounded-xl bg-teal-500/30 flex items-center justify-center flex-shrink-0">
@@ -553,10 +543,15 @@
                                     {% if combo.days is defined and combo.days is not none and combo.days | length > 0 %}
                                     <span class="text-[8px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo.days %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                                     {% endif %}
-                                    {% if combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
+                                    {% if combo_has_own_time %}
                                     <span class="text-[8px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo.start_time }}–{{ combo.end_time }}</span>
+                                    {% else %}
+                                    <span class="text-[8px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ ev.start_time }}–{{ ev.end_time }}</span>
                                     {% endif %}
                                 </div>
+                                {% if not combo_time_ok %}
+                                <div class="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30 mb-1.5">Verfügbar ab {{ combo.start_time or ev.start_time }} Uhr</div>
+                                {% endif %}
                                 <div class="flex flex-wrap gap-1.5 mb-2">
                                     {% for ci in combo.items %}
                                         {% for p in products %}
@@ -574,11 +569,15 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            {% if not is_readonly and table and not token_error %}
+                            {% if not is_readonly and table and not token_error and combo_time_ok %}
                             <button onclick="addComboToCart({{ combo.id }}, '{{ combo.name | replace("'", "\\'") }}', {{ combo.combo_price }}, {{ combo_product_ids | join(',') }})" 
                                     class="w-11 h-11 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
                                 <span class="material-symbols-outlined font-black text-lg">add</span>
                             </button>
+                            {% elif not combo_time_ok %}
+                            <div class="w-11 h-11 rounded-full bg-zinc-600/50 flex items-center justify-center flex-shrink-0 cursor-not-allowed">
+                                <span class="material-symbols-outlined text-zinc-400" style="font-size:18px;">schedule</span>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
@@ -587,33 +586,12 @@
                 {% endif %}
                 {% endif %}
 
-                <!-- Combo Deals Banner (shown when a category is selected and combos contain products from that category) -->
-                {% if hh_active_global and active_events %}
+                <!-- Combo Deals Banner (shown when a category is selected) -->
+                {% if today_combo_events %}
                 {% set combos_list_all = [] %}
-                {% for ev in active_events %}
+                {% for ev in today_combo_events %}
                     {% for combo in (ev.combos or []) %}
-                        {% set combo_has_own_days = combo.days is defined and combo.days is not none and combo.days | length > 0 %}
-                        {% set combo_has_own_time = combo.start_time is defined and combo.start_time is not none and combo.start_time != '' and combo.end_time is defined and combo.end_time is not none and combo.end_time != '' %}
-                        {% set combo_day_match = true %}
-                        {% if combo_has_own_days %}
-                            {% set combo_day_match = false %}
-                            {% for pd in now_possible_days %}
-                                {% if pd in combo.days %}
-                                    {% set combo_day_match = true %}
-                                {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                        {% set combo_time_match = true %}
-                        {% if combo_has_own_time %}
-                            {% if combo.start_time <= now_time and now_time <= combo.end_time %}
-                                {% set combo_time_match = true %}
-                            {% else %}
-                                {% set combo_time_match = false %}
-                            {% endif %}
-                        {% endif %}
-                        {% if combo_day_match and combo_time_match %}
-                            {% set _ = combos_list_all.append({'combo': combo, 'event': ev}) %}
-                        {% endif %}
+                        {% set _ = combos_list_all.append({'combo': combo, 'event': ev}) %}
                     {% endfor %}
                 {% endfor %}
                 {% if combos_list_all %}
@@ -630,7 +608,18 @@
                             {% endif %}
                         {% endfor %}
                     {% endfor %}
-                    <div class="bg-gradient-to-r from-teal-900/60 to-emerald-900/40 border border-teal-500/50 rounded-2xl p-3 relative overflow-hidden">
+                    {% set combo_has_own_time = combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
+                    {% set combo_time_ok = true %}
+                    {% if combo_has_own_time %}
+                        {% if not (combo.start_time <= now_time and now_time <= combo.end_time) %}
+                            {% set combo_time_ok = false %}
+                        {% endif %}
+                    {% else %}
+                        {% if not (ev.start_time <= now_time and now_time <= ev.end_time) %}
+                            {% set combo_time_ok = false %}
+                        {% endif %}
+                    {% endif %}
+                    <div class="bg-gradient-to-r from-teal-900/60 to-emerald-900/40 border border-teal-500/50 rounded-2xl p-3 relative overflow-hidden {% if not combo_time_ok %}opacity-60{% endif %}">
                         <div class="flex items-center gap-3 relative z-10">
                             <div class="w-10 h-10 rounded-xl bg-teal-500/30 flex items-center justify-center flex-shrink-0">
                                 <span class="material-symbols-outlined text-teal-300" style="font-size:20px;">loyalty</span>
@@ -642,10 +631,15 @@
                                     {% if combo.days is defined and combo.days is not none and combo.days | length > 0 %}
                                     <span class="text-[7px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo.days %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                                     {% endif %}
-                                    {% if combo.start_time is defined and combo.start_time and combo.end_time is defined and combo.end_time %}
+                                    {% if combo_has_own_time %}
                                     <span class="text-[7px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo.start_time }}–{{ combo.end_time }}</span>
+                                    {% else %}
+                                    <span class="text-[7px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ ev.start_time }}–{{ ev.end_time }}</span>
                                     {% endif %}
                                 </div>
+                                {% if not combo_time_ok %}
+                                <div class="text-[8px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-lg border border-amber-500/30 mt-0.5">Ab {{ combo.start_time or ev.start_time }} Uhr</div>
+                                {% endif %}
                                 <div class="flex items-center gap-2 mt-0.5">
                                     <span class="text-sm font-black text-teal-200">{{ "%.2f" | format(combo.combo_price) | replace('.', ',') }} €</span>
                                     {% if individual_total.value > combo.combo_price %}
@@ -654,11 +648,15 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            {% if not is_readonly and table and not token_error %}
+                            {% if not is_readonly and table and not token_error and combo_time_ok %}
                             <button onclick="addComboToCart({{ combo.id }}, '{{ combo.name | replace("'", "\\'") }}', {{ combo.combo_price }}, {{ combo_product_ids | join(',') }})" 
                                     class="w-9 h-9 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
                                 <span class="material-symbols-outlined font-black text-sm">add</span>
                             </button>
+                            {% elif not combo_time_ok %}
+                            <div class="w-9 h-9 rounded-full bg-zinc-600/50 flex items-center justify-center flex-shrink-0 cursor-not-allowed">
+                                <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">schedule</span>
+                            </div>
                             {% endif %}
                         </div>
                     </div>

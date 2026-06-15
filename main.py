@@ -2821,7 +2821,8 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     # Check which events are currently active
     events = restaurant.get("events", [])
     any_event_active = False
-    active_events_info = []  # For banner display
+    active_events_info = []  # For banner display (events active RIGHT NOW)
+    today_events_info = []   # Events that are active today (for combo display)
     
     for ev in events:
         if not ev.get("is_active", True):
@@ -2829,11 +2830,14 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         ev_days = ev.get("days", [])
         ev_start = ev.get("start_time", "18:00")
         ev_end = ev.get("end_time", "20:00")
-        is_active_now = any(day in ev_days for day in possible_days) and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
+        is_today = any(day in ev_days for day in possible_days)
+        is_active_now = is_today and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
         ev["_is_currently_active"] = is_active_now
         if is_active_now:
             any_event_active = True
             active_events_info.append(ev)
+        if is_today and ev.get("combos"):
+            today_events_info.append(ev)
     
     processed_products = []
     active_categories = restaurant.get("categories", [])
@@ -2946,6 +2950,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "role": role,
             "hh_active_global": any_event_active,
             "active_events": active_events_info,
+            "today_combo_events": today_events_info,
             "events": events,
             "price_mode": restaurant.get("price_mode", "brutto"),
             "now_time": now_time,
