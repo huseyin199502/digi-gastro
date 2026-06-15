@@ -6463,40 +6463,43 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
     
     from database import Event as DBEvent, EventProduct as DBEventProduct
     
-    new_event = {
-        "id": None,
-        "name": body.get("name", "Neues Event").strip() or "Neues Event",
-        "display_name": body.get("display_name", body.get("name", "Event")).strip() or "Event",
-        "description": body.get("description", "").strip(),
-        "days": body.get("days", []),
-        "start_time": body.get("start_time", "18:00"),
-        "end_time": body.get("end_time", "20:00"),
-        "mode": body.get("mode", "selected"),
-        "discount": int(body.get("discount", 0)),
-        "is_active": body.get("is_active", True),
-        "position": len(restaurant.get("events", [])),
-        "products": []
-    }
+    # Create directly in DB to avoid LiveListProxy double-save bug
+    existing_count = db.query(DBEvent).filter_by(tenant_slug=slug).count()
     
-    # Add products with event prices
+    db_ev = DBEvent(
+        tenant_slug=slug,
+        name=body.get("name", "Neues Event").strip() or "Neues Event",
+        display_name=body.get("display_name", body.get("name", "Event")).strip() or "Event",
+        description=body.get("description", "").strip(),
+        days=json.dumps(body.get("days", [])),
+        start_time=body.get("start_time", "18:00"),
+        end_time=body.get("end_time", "20:00"),
+        mode=body.get("mode", "selected"),
+        discount=int(body.get("discount", 0)),
+        is_active=body.get("is_active", True),
+        position=existing_count
+    )
+    db.add(db_ev)
+    db.flush()  # Get the ID
+    
+    # Add event products
     for ep in body.get("products", []):
         if ep.get("product_id") and ep.get("event_price"):
-            new_event["products"].append({
-                "product_id": int(ep["product_id"]),
-                "event_price": round(float(ep["event_price"]), 2)
-            })
-    
-    restaurant.setdefault("events", []).append(new_event)
+            db_ep = DBEventProduct(
+                event_id=db_ev.id,
+                product_id=int(ep["product_id"]),
+                event_price=round(float(ep["event_price"]), 2)
+            )
+            db.add(db_ep)
     
     try:
-        save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     
     await manager.broadcast(slug, {"type": "update"})
-    return JSONResponse({"success": True, "event_id": new_event["id"]})
+    return JSONResponse({"success": True, "event_id": db_ev.id})
 
 
 @app.put("/admin/events/{event_id}")
@@ -6511,34 +6514,35 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
     except Exception:
         return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
     
-    # Find the event in the restaurant dict
-    events = restaurant.get("events", [])
-    event = next((e for e in events if e["id"] == event_id), None)
-    if not event:
+    # Update directly in DB to avoid LiveListProxy double-save bug
+    from database import Event as DBEvent, EventProduct as DBEventProduct
+    db_event = db.query(DBEvent).filter_by(id=event_id, tenant_slug=slug).first()
+    if not db_event:
         return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
     
-    event["name"] = body.get("name", event["name"]).strip() or "Event"
-    event["display_name"] = body.get("display_name", body.get("name", event["display_name"])).strip() or "Event"
-    event["description"] = body.get("description", "").strip()
-    event["days"] = body.get("days", event["days"])
-    event["start_time"] = body.get("start_time", event["start_time"])
-    event["end_time"] = body.get("end_time", event["end_time"])
-    event["mode"] = body.get("mode", event["mode"])
-    event["discount"] = int(body.get("discount", 0)) if body.get("mode") == "discount" else 0
-    event["is_active"] = body.get("is_active", event["is_active"])
+    db_event.name = body.get("name", db_event.name).strip() or "Event"
+    db_event.display_name = body.get("display_name", body.get("name", db_event.display_name)).strip() or "Event"
+    db_event.description = body.get("description", "").strip()
+    db_event.days = json.dumps(body.get("days", json.loads(db_event.days or "[]")))
+    db_event.start_time = body.get("start_time", db_event.start_time)
+    db_event.end_time = body.get("end_time", db_event.end_time)
+    db_event.mode = body.get("mode", db_event.mode)
+    db_event.discount = int(body.get("discount", 0)) if body.get("mode") == "discount" else 0
+    db_event.is_active = body.get("is_active", db_event.is_active)
     
-    # Update products
+    # Update event products
     if "products" in body:
-        event["products"] = []
+        db.query(DBEventProduct).filter_by(event_id=event_id).delete()
         for ep in body["products"]:
             if ep.get("product_id") and ep.get("event_price"):
-                event["products"].append({
-                    "product_id": int(ep["product_id"]),
-                    "event_price": round(float(ep["event_price"]), 2)
-                })
+                db_ep = DBEventProduct(
+                    event_id=event_id,
+                    product_id=int(ep["product_id"]),
+                    event_price=round(float(ep["event_price"]), 2)
+                )
+                db.add(db_ep)
     
     try:
-        save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -6555,18 +6559,21 @@ async def delete_event(event_id: int, request: Request, chef_data: tuple = Depen
     if not restaurant.get("is_setup_completed", False):
         return JSONResponse({"success": False, "error": "Setup nicht abgeschlossen"}, status_code=400)
     
-    events = restaurant.get("events", [])
-    event = next((e for e in events if e["id"] == event_id), None)
-    if not event:
+    # Delete directly from DB to avoid LiveListProxy double-save bug
+    from database import Event as DBEvent, EventProduct as DBEventProduct
+    db_event = db.query(DBEvent).filter_by(id=event_id, tenant_slug=slug).first()
+    if not db_event:
         return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
     
-    events.remove(event)
-    # Re-index positions
-    for idx, ev in enumerate(events):
-        ev["position"] = idx
+    db.query(DBEventProduct).filter_by(event_id=event_id).delete()
+    db.delete(db_event)
+    
+    # Re-index remaining events positions
+    remaining_events = db.query(DBEvent).filter_by(tenant_slug=slug).order_by(DBEvent.position, DBEvent.id).all()
+    for idx, ev in enumerate(remaining_events):
+        ev.position = idx
     
     try:
-        save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -6588,22 +6595,24 @@ async def update_event_products(event_id: int, request: Request, chef_data: tupl
     except Exception:
         return JSONResponse({"success": False, "error": "Invalid JSON"}, status_code=400)
     
-    events = restaurant.get("events", [])
-    event = next((e for e in events if e["id"] == event_id), None)
-    if not event:
+    # Update directly in DB to avoid LiveListProxy double-save bug
+    from database import Event as DBEvent, EventProduct as DBEventProduct
+    db_event = db.query(DBEvent).filter_by(id=event_id, tenant_slug=slug).first()
+    if not db_event:
         return JSONResponse({"success": False, "error": "Event nicht gefunden"}, status_code=404)
     
     # Replace product list
-    event["products"] = []
+    db.query(DBEventProduct).filter_by(event_id=event_id).delete()
     for ep in body.get("products", []):
         if ep.get("product_id") and ep.get("event_price"):
-            event["products"].append({
-                "product_id": int(ep["product_id"]),
-                "event_price": round(float(ep["event_price"]), 2)
-            })
+            db_ep = DBEventProduct(
+                event_id=event_id,
+                product_id=int(ep["product_id"]),
+                event_price=round(float(ep["event_price"]), 2)
+            )
+            db.add(db_ep)
     
     try:
-        save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
