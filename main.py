@@ -7,6 +7,7 @@ import urllib.parse
 import secrets
 import csv
 import io
+import time
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -7875,6 +7876,24 @@ class ServePayload(BaseModel):
     order_id: int
     item_key: Optional[str] = None
 
+# In-memory dedup cache: prevents double-processing of the same serve request within 3 seconds
+_serve_dedup_cache: Dict[str, float] = {}
+_SERVE_DEDUP_TTL = 3.0  # seconds
+
+def _check_serve_dedup(order_id: int, item_key: Optional[str]) -> bool:
+    """Return True if this request is a duplicate (should be skipped)."""
+    key = f"{order_id}:{item_key or 'all'}"
+    now = time.time()
+    # Clean up old entries
+    expired = [k for k, t in _serve_dedup_cache.items() if now - t > _SERVE_DEDUP_TTL * 2]
+    for k in expired:
+        del _serve_dedup_cache[k]
+    # Check if recent
+    if key in _serve_dedup_cache and now - _serve_dedup_cache[key] < _SERVE_DEDUP_TTL:
+        return True  # duplicate
+    _serve_dedup_cache[key] = now
+    return False  # not a duplicate, proceed
+
 @app.post("/admin/orders/serve")
 @tenant_lock
 async def serve_order_items(request: Request, payload: ServePayload, db: Session = Depends(get_db)):
@@ -7884,6 +7903,10 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
     user, slug = res
     if user["role"] not in ["chef", "kellner"]:
         raise HTTPException(status_code=403, detail="Kein Zugriff.")
+    
+    # Dedup check: if the same order+item was just served, return success immediately
+    if _check_serve_dedup(payload.order_id, payload.item_key):
+        return {"success": True, "dedup": True}
         
     restaurant = get_restaurant_or_raise(slug, db)
     order = next((o for o in restaurant.get("orders", []) if o["id"] == payload.order_id), None)

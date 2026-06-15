@@ -558,4 +558,58 @@ html.light .landing-page-wrapper svg {
     color: inherit !important;
 }
 
+/* ── ADMIN PANEL LIGHT MODE CONTRAST FIXES ── */
 
+/* Admin sidebar profile card always dark bg → keep white text */
+html.light .profile-card,
+html.light .profile-card * {
+    color: #ffffff !important;
+}
+
+/* Section card headers must be readable on light backgrounds */
+html.light .section-card-header h3,
+html.light .section-card-header span {
+    color: #111827 !important;
+}
+
+/* Event modal panel always needs proper contrast */
+html.light #event-modal .form-label {
+    color: #374151 !important;
+}
+
+/* ── GENERAL CONTRAST SAFETY NET ── */
+
+/* Any text-white on a non-colored background gets corrected in light mode */
+html.light :not(.landing-page-wrapper):not(.bg-rose-500):not(.bg-red-500):not(.bg-green-500):not(.bg-emerald-500):not(.bg-gastro):not(.bg-amber-600):not(.bg-zinc-800):not(.bg-zinc-700):not(.bg-zinc-900):not(.bg-gray-800):not(.bg-gray-900):not(.popup-header):not(.profile-card):not(.table-sel-tile) .text-white {
+    color: var(--text-on-surface) !important;
+}
+
+/* Ensure popup-card children have dark text in light mode */
+html.light .popup-card,
+html.light .popup-card * {
+    color: #111827 !important;
+}
+/* Popup header always has dark gradient bg → white text stays */
+html.light .popup-header,
+html.light .popup-header * {
+    color: #ffffff !important;
+}
+/* Buttons inside popup-card with colored bg → keep white text */
+html.light .popup-card .bg-gastro,
+html.light .popup-card .bg-gastro * {
+    color: #ffffff !important;
+}
+
+/* ── CHECKBOX IMPROVEMENTS FOR CUSTOMER MENU ── */
+
+/* Make checkboxes in the customer menu (dark theme) more visible */
+input[type="checkbox"].custom-checkbox {
+    border-width: 2.5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Product badge event labels need proper contrast in light mode */
+html.light .bg-\\[\\#7c3aed\\] {
+    background-color: #7c3aed !important;
+    color: #ffffff !important;
+}

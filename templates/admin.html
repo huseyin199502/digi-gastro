@@ -61,33 +61,41 @@
             --gastro-border: #27272a;
         }
 
-        /* ── Custom Checkbox (dark-mode safe) ── */
+        /* ── Custom Checkbox (dark-mode safe, high-visibility) ── */
         .custom-checkbox {
             appearance: none;
             -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border: 2px solid var(--gastro-border);
-            border-radius: 4px;
-            background: var(--gastro-card-bg);
+            width: 20px;
+            height: 20px;
+            border: 2.5px solid #9ca3af;
+            border-radius: 5px;
+            background: #ffffff;
             cursor: pointer;
             position: relative;
             flex-shrink: 0;
             transition: all 0.15s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        /* Dark mode: brighter border + dark bg fill */
+        html.dark .custom-checkbox {
+            border-color: #6b7280;
+            background: #1f2937;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         .custom-checkbox:checked {
             background: var(--gastro-primary);
             border-color: var(--gastro-primary);
+            box-shadow: 0 2px 6px rgba(0,153,0,0.25);
         }
         .custom-checkbox:checked::after {
             content: '';
             position: absolute;
-            top: 1px;
-            left: 5px;
+            top: 2px;
+            left: 6px;
             width: 5px;
-            height: 9px;
+            height: 10px;
             border: solid white;
-            border-width: 0 2px 2px 0;
+            border-width: 0 2.5px 2.5px 0;
             transform: rotate(45deg);
         }
         .custom-checkbox:focus-visible {
@@ -110,6 +118,19 @@
         .popup-body .custom-checkbox:checked,
         .control-split-item .custom-checkbox:checked,
         .bg-gray-50 .custom-checkbox:checked {
+            background: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        /* Item-card (dark bg in dark mode) checkbox needs extra contrast */
+        .item-card .custom-checkbox {
+            border-color: #6b7280;
+            background: #1f2937;
+        }
+        html:not(.dark) .item-card .custom-checkbox {
+            border-color: #9ca3af;
+            background: #ffffff;
+        }
+        .item-card .custom-checkbox:checked {
             background: var(--gastro-primary);
             border-color: var(--gastro-primary);
         }
@@ -354,6 +375,50 @@
         html.dark .popup-footer {
             background-color: var(--gastro-bg-gray) !important;
             border-top-color: var(--gastro-border) !important;
+        }
+        /* Ensure popup body text is always readable */
+        html.dark .popup-body {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .popup-footer {
+            color: var(--gastro-text-main) !important;
+        }
+        /* Light mode: ensure popup text stays dark on white background */
+        html.light .popup-body,
+        html.light .popup-footer {
+            color: #1f2937 !important;
+        }
+        /* Control modal split cockpit: ensure text readable in both modes */
+        html.dark .control-split-item {
+            background: rgba(16, 185, 129, 0.08) !important;
+            border-color: rgba(16, 185, 129, 0.2) !important;
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .control-split-item .text-gray-900,
+        html.dark .control-split-item .text-gray-700,
+        html.dark .control-split-item .text-zinc-800,
+        html.dark .control-split-item .text-zinc-700 {
+            color: var(--gastro-text-main) !important;
+        }
+        /* Light mode: control split items keep their default light styling */
+        html.light .control-split-item .text-gray-900,
+        html.light .control-split-item .text-gray-700 {
+            color: #111827 !important;
+        }
+        /* Pending items in control modal: ensure readable in both modes */
+        html.dark #control-pending-list .bg-white {
+            background: var(--gastro-bg-gray) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark #control-pending-list .text-gray-900 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark #control-pending-list .text-gray-700 {
+            color: var(--gastro-text-muted) !important;
+        }
+        /* Ensure alert items in control modal are readable */
+        html.dark #control-alerts-box .text-amber-700 {
+            color: #fbbf24 !important;
         }
 
         /* Left Sidebar - Responsive styling */
@@ -4023,6 +4088,7 @@
         // ── DIGI-STYLE MODAL CONTROL STATE ──
         let controlModalActiveTableNum = null;
         let _serveLock = false; // Prevents double-click / Ruckeln on serve buttons
+        let _serveLockTimer = null; // Minimum lock duration to prevent rapid re-clicks
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
 
@@ -4416,9 +4482,26 @@
             }
         }
 
-        async function serveControlItem(itemKey, orderId) {
-            if (_serveLock) return;
+        function _acquireServeLock() {
+            if (_serveLock) return false;
             _serveLock = true;
+            // Enforce minimum lock duration of 1.5s to prevent rapid re-clicks
+            if (_serveLockTimer) clearTimeout(_serveLockTimer);
+            _serveLockTimer = setTimeout(() => { _serveLock = false; _serveLockTimer = null; }, 1500);
+            return true;
+        }
+        function _releaseServeLock() {
+            // Lock auto-releases after the timer, but also allow early release
+            // if enough time has passed
+            if (_serveLockTimer) {
+                // Timer is still running – let it release the lock
+                return;
+            }
+            _serveLock = false;
+        }
+
+        async function serveControlItem(itemKey, orderId) {
+            if (!_acquireServeLock()) return;
             // Optimistic DOM Update
             allOrders.forEach(o => {
                 if (o.id === orderId && o.items) {
@@ -4488,14 +4571,13 @@
                 showToast("Verbindungsfehler beim Servieren", "error");
                 await checkLiveTischeUpdates();
             } finally {
-                _serveLock = false;
+                _releaseServeLock();
             }
         }
 
         async function serveAllControlPending() {
-            if (_serveLock) return;
-            _serveLock = true;
-            if (!controlModalActiveTableNum) { _serveLock = false; return; }
+            if (!_acquireServeLock()) return;
+            if (!controlModalActiveTableNum) { _releaseServeLock(); return; }
             const tableOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
                 if (controlModalActiveTableZone) {
@@ -4519,7 +4601,7 @@
                 }
             });
             
-            if (orderIds.length === 0) { _serveLock = false; return; }
+            if (orderIds.length === 0) { _releaseServeLock(); return; }
             refreshControlModal();
             
             try {
@@ -4539,7 +4621,7 @@
                 showToast("Verbindungsfehler beim Servieren", "error");
                 await checkLiveTischeUpdates();
             } finally {
-                _serveLock = false;
+                _releaseServeLock();
             }
         }
 
@@ -5140,8 +5222,7 @@
         }
 
         async function notifServeItem(orderId, itemKey, btnEl) {
-            if (_serveLock) return;
-            _serveLock = true;
+            if (!_acquireServeLock()) return;
             if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
@@ -5171,14 +5252,13 @@
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
             } finally {
-                _serveLock = false;
+                _releaseServeLock();
                 if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = ''; }
             }
         }
 
         async function notifServeAll(orderId, btnEl) {
-            if (_serveLock) return;
-            _serveLock = true;
+            if (!_acquireServeLock()) return;
             if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch('/admin/orders/serve', {
@@ -5200,7 +5280,7 @@
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
             } finally {
-                _serveLock = false;
+                _releaseServeLock();
                 if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = ''; }
             }
         }
@@ -6026,8 +6106,7 @@
         }
 
         async function setItemStatus(orderId, itemKey, newStatus) {
-            if (_serveLock) return;
-            _serveLock = true;
+            if (!_acquireServeLock()) return;
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
                     method: 'POST',
@@ -6054,7 +6133,7 @@
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
             } finally {
-                _serveLock = false;
+                _releaseServeLock();
             }
         }
 
@@ -7174,20 +7253,25 @@
                 const statusDot = isActive ? 'bg-emerald-500' : 'bg-zinc-400';
                 const statusText = isActive ? 'Aktiv' : 'Inaktiv';
 
+                const cardBg = isActive ? 'border-purple-200 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-900/15' : 'border-gray-200 dark:border-zinc-700 bg-gray-50/50 dark:bg-zinc-800/40';
+                const iconBg = isActive ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-gray-200 dark:bg-zinc-700';
+                const iconColor = isActive ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 dark:text-zinc-500';
+
                 return `
-                <div class="p-4 rounded-xl border ${isActive ? 'border-purple-200 bg-purple-50/50' : 'border-gray-200 bg-gray-50/50'} transition-all hover:shadow-md">
+                <div class="p-4 rounded-xl border ${cardBg} transition-all hover:shadow-md">
                     <div class="flex items-start gap-3">
-                        <div class="w-10 h-10 rounded-xl ${isActive ? 'bg-purple-100' : 'bg-gray-200'} flex items-center justify-center flex-shrink-0">
-                            <span class="material-symbols-outlined ${isActive ? 'text-purple-600' : 'text-gray-400'}" style="font-size:20px;">celebration</span>
+                        <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined ${iconColor}" style="font-size:20px;">celebration</span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="font-extrabold text-sm text-zinc-800 truncate">${ev.display_name || ev.name}</span>
-                                <span class="text-[9px] font-bold ${statusBg} px-2 py-0.5 rounded-full border flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span> ${statusText}
+                                <span class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100 truncate">${ev.display_name || ev.name}</span>
+                                <span class="text-[9px] font-bold ${statusBg} dark:bg-zinc-800 dark:border-zinc-600 px-2 py-0.5 rounded-full border flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span>
+                                    <span class="dark:text-zinc-300">${statusText}</span>
                                 </span>
                             </div>
-                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 font-medium">
+                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
                                 <span class="flex items-center gap-0.5">
                                     <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
                                     ${ev.start_time || '18:00'} – ${ev.end_time || '20:00'}
@@ -7201,13 +7285,13 @@
                                     ${modeLabel}
                                 </span>
                             </div>
-                            ${ev.description ? `<p class="text-[10px] text-zinc-400 mt-1">${ev.description}</p>` : ''}
+                            ${ev.description ? `<p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">${ev.description}</p>` : ''}
                         </div>
                         <div class="flex items-center gap-1 flex-shrink-0">
-                            <button onclick="openEventEditModal(${ev.id})" class="text-zinc-400 hover:text-purple-500 transition-colors p-1.5 rounded-lg hover:bg-purple-50" title="Bearbeiten">
+                            <button onclick="openEventEditModal(${ev.id})" class="text-zinc-400 dark:text-zinc-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
                             </button>
-                            <button onclick="deleteEvent(${ev.id})" class="text-zinc-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50" title="Löschen">
+                            <button onclick="deleteEvent(${ev.id})" class="text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Löschen">
                                 <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                             </button>
                         </div>
@@ -7274,7 +7358,7 @@
             container.innerHTML = ALL_DAYS.map(day => {
                 const isSelected = selectedDays.includes(day);
                 return `
-                <label class="flex items-center gap-1.5 ${isSelected ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200'} px-3 py-2 rounded-xl text-xs font-bold cursor-pointer select-none transition-colors hover:border-purple-400">
+                <label class="flex items-center gap-1.5 ${isSelected ? 'bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300' : 'bg-gray-50 border-gray-200 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-300'} px-3 py-2 rounded-xl text-xs font-bold cursor-pointer select-none transition-colors hover:border-purple-400 dark:hover:border-purple-500">
                     <input type="checkbox" class="event-day-check rounded text-purple-500 focus:ring-0" value="${day}" ${isSelected ? 'checked' : ''}>
                     <span>${day.substring(0,2)}</span>
                 </label>`;
@@ -7294,19 +7378,19 @@
                 const eventPrice = ep ? ep.event_price : '';
 
                 return `
-                <div class="p-2.5 rounded-xl border ${isSelected ? 'border-purple-300 bg-purple-50' : 'border-gray-100 bg-gray-50'} transition-colors" id="ep-row-${p.id}">
+                <div class="p-2.5 rounded-xl border ${isSelected ? 'border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-900/20' : 'border-gray-100 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800/60'} transition-colors" id="ep-row-${p.id}">
                     <div class="flex items-center gap-2">
                         <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
                             <input type="checkbox" class="ep-toggle rounded text-purple-500 focus:ring-purple-400 shrink-0" data-product-id="${p.id}" ${isSelected ? 'checked' : ''} onchange="toggleEventProductRow(${p.id}, this.checked)">
                             <div class="min-w-0">
-                                <div class="font-bold text-[11px] text-zinc-800 truncate">${p.name}</div>
-                                <div class="text-[9px] text-zinc-500 font-mono">${parseFloat(p.price).toFixed(2)} €</div>
+                                <div class="font-bold text-[11px] text-zinc-800 dark:text-zinc-100 truncate">${p.name}</div>
+                                <div class="text-[9px] text-zinc-500 dark:text-zinc-400 font-mono">${parseFloat(p.price).toFixed(2)} €</div>
                             </div>
                         </label>
                         <div class="ep-price-fields ${isSelected ? '' : 'hidden'}" id="ep-fields-${p.id}">
                             <div class="flex items-center gap-1">
-                                <input type="number" step="0.01" min="0" placeholder="Eventpreis" value="${eventPrice}" class="w-20 bg-white border border-purple-200 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-purple-400 focus:border-purple-400" id="ep-price-${p.id}">
-                                <span class="text-[9px] text-zinc-400">€</span>
+                                <input type="number" step="0.01" min="0" placeholder="Eventpreis" value="${eventPrice}" class="w-20 bg-white dark:bg-zinc-800 border border-purple-200 dark:border-purple-700 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-purple-400 focus:border-purple-400" id="ep-price-${p.id}">
+                                <span class="text-[9px] text-zinc-400 dark:text-zinc-500">€</span>
                             </div>
                         </div>
                     </div>
@@ -7322,16 +7406,16 @@
             if (isChecked) {
                 if (fields) fields.classList.remove('hidden');
                 if (row) {
-                    row.classList.remove('border-gray-100', 'bg-gray-50');
-                    row.classList.add('border-purple-300', 'bg-purple-50');
+                    row.classList.remove('border-gray-100', 'bg-gray-50', 'dark:border-zinc-700', 'dark:bg-zinc-800/60');
+                    row.classList.add('border-purple-300', 'bg-purple-50', 'dark:border-purple-700', 'dark:bg-purple-900/20');
                 }
                 const priceInput = document.getElementById('ep-price-' + productId);
                 if (priceInput) priceInput.focus();
             } else {
                 if (fields) fields.classList.add('hidden');
                 if (row) {
-                    row.classList.remove('border-purple-300', 'bg-purple-50');
-                    row.classList.add('border-gray-100', 'bg-gray-50');
+                    row.classList.remove('border-purple-300', 'bg-purple-50', 'dark:border-purple-700', 'dark:bg-purple-900/20');
+                    row.classList.add('border-gray-100', 'bg-gray-50', 'dark:border-zinc-700', 'dark:bg-zinc-800/60');
                 }
                 const priceInput = document.getElementById('ep-price-' + productId);
                 if (priceInput) priceInput.value = '';
