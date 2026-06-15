@@ -2,7 +2,7 @@
 <html class="{{ restaurant.theme or 'dark' }}" lang="de">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ restaurant.name }} - Speisekarte</title>
     <!-- PWA settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -162,19 +162,19 @@
 
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
-    <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-md p-10 text-center space-y-6 shadow-2xl relative z-50">
-        <div class="flex justify-end -mt-4 -mr-4">
+    <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-md p-6 sm:p-10 text-center space-y-6 shadow-2xl relative z-50">
+        <div class="flex justify-end -mt-2 -mr-2">
             <!-- Compact Language Selection for Read-only -->
-            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner scale-90">
-                <button onclick="setLanguage('de')" id="lang-de-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display">DE</button>
-                <button onclick="setLanguage('en')" id="lang-en-btn-ro" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display">EN</button>
+            <div class="flex bg-surface-container-high border border-outline-variant rounded-full p-0.5 shadow-inner">
+                <button onclick="setLanguage('de')" id="lang-de-btn-ro" class="px-3 py-1.5 rounded-full text-xs font-bold transition bg-primary text-black font-display min-h-[32px]">DE</button>
+                <button onclick="setLanguage('en')" id="lang-en-btn-ro" class="px-3 py-1.5 rounded-full text-xs font-bold transition text-on-surface-variant font-display min-h-[32px]">EN</button>
             </div>
         </div>
         <div class="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center text-4xl mx-auto mb-4 pulse-green">
             <span class="material-symbols-outlined text-4xl">qr_code_scanner</span>
         </div>
         <h2 class="text-2xl font-extrabold text-on-surface tracking-tight font-display" data-translate="scan_required_header">QR-Code Scan erforderlich</h2>
-        <p class="text-xs text-on-surface-variant leading-relaxed">
+        <p class="text-sm text-on-surface-variant leading-relaxed">
             <span data-translate="scan_required_welcome">Willkommen bei</span> <strong class="text-on-surface">{{ restaurant.name }}</strong>!<br><br>
             <span data-translate="scan_required_desc">Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.</span>
         </p>
@@ -454,7 +454,7 @@
             <div id="tab-speisekarte" class="py-2">
 
                 <!-- BACK BUTTON when inside a category -->
-                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[64px] z-40 bg-[var(--bg-obsidian)] pb-2 pt-1">
+                <div x-show="currentCategory !== ''" x-cloak class="sticky top-20 z-40 bg-[var(--bg-obsidian)] pb-2 pt-1">
                     <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
                         <span class="material-symbols-outlined text-xl">arrow_back</span>
                         <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
@@ -508,18 +508,18 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                                     <span class="font-extrabold text-sm text-white">{{ combo['name'] }}</span>
-                                    <span class="text-[9px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
+                                    <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
                                     {% if combo['days'] is defined and combo['days'] is not none and combo['days'] | length > 0 %}
-                                    <span class="text-[8px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo['days'] %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                    <span class="text-[10px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo['days'] %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                                     {% endif %}
                                     {% if combo_has_own_time %}
-                                    <span class="text-[8px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo['start_time'] }}–{{ combo['end_time'] }}</span>
+                                    <span class="text-[10px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo['start_time'] }}–{{ combo['end_time'] }}</span>
                                     {% else %}
-                                    <span class="text-[8px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ ev.start_time }}–{{ ev.end_time }}</span>
+                                    <span class="text-[10px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ ev.start_time }}–{{ ev.end_time }}</span>
                                     {% endif %}
                                 </div>
                                 {% if not combo_time_ok %}
-                                <div class="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30 mb-1.5">Verfügbar ab {{ combo['start_time'] or ev.start_time }} Uhr</div>
+                                <div class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30 mb-1.5">Verfügbar ab {{ combo['start_time'] or ev.start_time }} Uhr</div>
                                 {% endif %}
                                 <div class="flex flex-wrap gap-1.5 mb-2">
                                     {% for ci in combo['items'] %}
@@ -533,8 +533,8 @@
                                 <div class="flex items-center gap-3">
                                     <span class="text-lg font-black text-teal-200">{{ "%.2f" | format(combo['combo_price']) | replace('.', ',') }} €</span>
                                     {% if individual_total.value > combo['combo_price'] %}
-                                    <span class="text-[10px] line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
-                                    <span class="text-[9px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo['combo_price']) | replace('.', ',') }} €</span>
+                                    <span class="text-xs line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
+                                    <span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo['combo_price']) | replace('.', ',') }} €</span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -629,35 +629,35 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="font-extrabold text-xs text-white">{{ combo['name'] }}</span>
-                                    <span class="text-[8px] font-bold bg-teal-500/30 text-teal-200 px-1.5 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
+                                    <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-1.5 py-0.5 rounded-full border border-teal-500/30">{{ ev.display_name }}</span>
                                     {% if combo['days'] is defined and combo['days'] is not none and combo['days'] | length > 0 %}
-                                    <span class="text-[7px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo['days'] %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                                    <span class="text-[10px] font-bold bg-amber-500/25 text-amber-200 px-1.5 py-0.5 rounded-full border border-amber-500/25">{% for d in combo['days'] %}{{ d[:2] }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                                     {% endif %}
                                     {% if combo_has_own_time %}
-                                    <span class="text-[7px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo['start_time'] }}–{{ combo['end_time'] }}</span>
+                                    <span class="text-[10px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ combo['start_time'] }}–{{ combo['end_time'] }}</span>
                                     {% else %}
-                                    <span class="text-[7px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ ev.start_time }}–{{ ev.end_time }}</span>
+                                    <span class="text-[10px] font-bold bg-sky-500/25 text-sky-200 px-1.5 py-0.5 rounded-full border border-sky-500/25">{{ ev.start_time }}–{{ ev.end_time }}</span>
                                     {% endif %}
                                 </div>
                                 {% if not combo_time_ok %}
-                                <div class="text-[8px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-lg border border-amber-500/30 mt-0.5">Ab {{ combo['start_time'] or ev.start_time }} Uhr</div>
+                                <div class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded-lg border border-amber-500/30 mt-0.5">Ab {{ combo['start_time'] or ev.start_time }} Uhr</div>
                                 {% endif %}
                                 <div class="flex items-center gap-2 mt-0.5">
                                     <span class="text-sm font-black text-teal-200">{{ "%.2f" | format(combo['combo_price']) | replace('.', ',') }} €</span>
                                     {% if individual_total.value > combo['combo_price'] %}
-                                    <span class="text-[9px] line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
-                                    <span class="text-[8px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo['combo_price']) | replace('.', ',') }} €</span>
+                                    <span class="text-xs line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
+                                    <span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo['combo_price']) | replace('.', ',') }} €</span>
                                     {% endif %}
                                 </div>
                             </div>
                             {% if not is_readonly and table and not token_error and combo_time_ok %}
                             <button onclick="addComboToCart({{ combo['id'] }}, '{{ combo["name"] | replace("'", "\\'") }}', {{ combo['combo_price'] }}, {{ combo_product_ids | join(',') }})" 
-                                    class="w-9 h-9 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
+                                    class="w-11 h-11 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
                                 <span class="material-symbols-outlined font-black text-sm">add</span>
                             </button>
                             {% elif not combo_time_ok %}
-                            <div class="w-9 h-9 rounded-full bg-zinc-600/50 flex items-center justify-center flex-shrink-0 cursor-not-allowed">
-                                <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">schedule</span>
+                            <div class="w-11 h-11 rounded-full bg-zinc-600/50 flex items-center justify-center flex-shrink-0 cursor-not-allowed">
+                                <span class="material-symbols-outlined text-zinc-400" style="font-size:16px;">schedule</span>
                             </div>
                             {% endif %}
                         </div>
@@ -740,11 +740,11 @@
     {% endif %}
 
     <!-- Slender Legal Footer inside clean container -->
-    <footer class="py-8 bg-surface border-t border-outline-variant text-center text-xs text-on-surface-variant space-y-3">
+    <footer class="py-8 bg-surface border-t border-outline-variant text-center text-sm text-on-surface-variant space-y-3">
         <div class="flex justify-center space-x-4">
-            <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline" data-translate="impressum">Impressum</button>
+            <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline py-1" data-translate="impressum">Impressum</button>
             <span>&bull;</span>
-            <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline" data-translate="datenschutz">Datenschutz</button>
+            <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline py-1" data-translate="datenschutz">Datenschutz</button>
         </div>
         
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
@@ -758,11 +758,11 @@
         <div class="flex items-center gap-1.5">
             <button onclick="openServiceModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
                 <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">notifications_active</span>
-                <span class="text-[10px] font-bold leading-none tracking-wide uppercase" data-translate="nav_service">Service</span>
+                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" data-translate="nav_service">Service</span>
             </button>
             <button onclick="openPaymentModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
                 <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">receipt_long</span>
-                <span class="text-[10px] font-bold leading-none tracking-wide uppercase" data-translate="nav_bill">Rechnung</span>
+                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" data-translate="nav_bill">Rechnung</span>
             </button>
         </div>
         
@@ -771,7 +771,7 @@
             <div class="flex items-center gap-1.5">
                 <div class="relative">
                     <span class="material-symbols-outlined text-lg font-black mt-0.5">shopping_basket</span>
-                    <span id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-black" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
+                    <span id="cart-badge" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-black w-5.5 h-5.5 rounded-full flex items-center justify-center border border-black min-w-[22px] min-h-[22px]" x-show="cartCount > 0" x-text="cartCount" style="display: none;">0</span>
                 </div>
                 <span class="text-sm font-black tracking-tight" data-translate="your_cart">Warenkorb</span>
             </div>
@@ -783,11 +783,11 @@
     <div x-show="role !== 'admin'" class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-xl border-t border-outline-variant/50 py-1 flex justify-around items-center shadow-2xl pb-safe h-[3.25rem]">
         <button @click="currentView = 'landing'" :class="currentView === 'landing' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
             <span class="material-symbols-outlined text-[20px] leading-none">home</span>
-            <span data-translate="tab_welcome" class="text-[10px] font-bold leading-none tracking-wide">Willkommen</span>
+            <span class="text-[11px] font-bold leading-none tracking-wide" data-translate="tab_welcome">Willkommen</span>
         </button>
         <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
             <span class="material-symbols-outlined text-[20px] leading-none">menu_book</span>
-            <span data-translate="tab_menu" class="text-[10px] font-bold leading-none tracking-wide">Speisekarte</span>
+            <span class="text-[11px] font-bold leading-none tracking-wide" data-translate="tab_menu">Speisekarte</span>
         </button>
     </div>
     {% endif %}
@@ -797,9 +797,9 @@
     <div id="datenschutz-content-data" class="hidden">{{ restaurant.datenschutz_content }}</div>
 
     <!-- Legal Documents Modal -->
-    <div id="legal-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-lg p-8 relative flex flex-col max-h-[80vh] shadow-2xl">
-            <button onclick="closeLegalModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+    <div id="legal-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-lg p-5 sm:p-8 relative flex flex-col max-h-[80vh] shadow-2xl my-4">
+            <button onclick="closeLegalModal()" class="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             <h3 id="legal-modal-title" class="text-2xl font-extrabold mb-5 font-display text-on-surface">Rechts-Dokument</h3>
@@ -811,12 +811,12 @@
 
     <!-- CHECKOUT MODAL (BASKET BOTTOM-SHEET) -->
     <div id="cart-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center hidden" onclick="if(event.target === this) closeCartModal()">
-        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant sm:rounded-[2rem] rounded-t-[2.5rem] w-full max-w-md p-5 sm:p-8 relative flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-8">
+        <div id="cart-modal-inner" class="glass-panel border-t border-x border-outline-variant sm:rounded-[2rem] rounded-t-[2.5rem] w-full max-w-md p-5 sm:p-6 relative flex flex-col h-[85vh] sm:h-auto sm:max-h-[85vh] shadow-2xl transition-transform duration-300 translate-y-full pb-6">
             
             <!-- Drag Handle Indicator -->
             <div class="w-12 h-1.5 bg-zinc-800 rounded-full mx-auto mb-4 shrink-0"></div>
 
-            <button onclick="closeCartModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-white transition-colors">
+            <button onclick="closeCartModal()" class="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
@@ -838,9 +838,9 @@
                                 <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
                             </div>
                             <div class="flex items-center space-x-3.5">
-                                <button @click="changeQty(item.cart_id, -1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">-</button>
-                                <span class="font-bold font-mono text-on-surface text-sm w-4 text-center" x-text="item.quantity"></span>
-                                <button @click="changeQty(item.cart_id, 1)" class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">+</button>
+                                <button @click="changeQty(item.cart_id, -1)" class="w-11 h-11 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">-</button>
+                                <span class="font-bold font-mono text-on-surface text-sm w-6 text-center" x-text="item.quantity"></span>
+                                <button @click="changeQty(item.cart_id, 1)" class="w-11 h-11 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">+</button>
                             </div>
                         </div>
                         <input
@@ -848,7 +848,7 @@
                             x-model="item.note"
                             data-translate-placeholder="cart_item_note"
                             placeholder="Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)"
-                            class="w-full bg-background border border-outline-variant/60 text-on-surface text-xs rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
+                            class="w-full bg-background border border-outline-variant/60 text-on-surface text-base rounded-xl px-3 py-2 placeholder-on-surface-variant/50 focus:outline-none focus:border-primary transition-colors"
                         />
                     </div>
                 </template>
@@ -880,13 +880,13 @@
     </div>
 
     <!-- POST-PAYMENT THANK YOU OVERLAY -->
-    <div id="thankyou-overlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 hidden">
-        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-8 text-center space-y-6 shadow-2xl relative">
-            <button @click="closeThankYou()" class="absolute top-4 right-4 text-white/50 hover:text-white transition-colors text-xl font-bold flex items-center justify-center p-2 rounded-full hover:bg-white/10 w-9 h-9" title="Schließen">✕</button>
+    <div id="thankyou-overlay" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="glass-panel border border-outline-variant rounded-3xl max-w-sm w-full p-6 sm:p-8 text-center space-y-6 shadow-2xl relative my-4">
+            <button @click="closeThankYou()" class="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors" title="Schließen"><span class="material-symbols-outlined text-xl">close</span></button>
             <span class="material-symbols-outlined text-primary text-7xl animate-bounce glow-text-primary">check_circle</span>
             <h2 class="text-3xl font-extrabold text-on-surface font-display" data-translate="thank_you">Bestellung erhalten!</h2>
-            <p class="text-xs text-on-surface-variant leading-relaxed font-semibold font-sans pb-2" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
-            <button @click="closeThankYou()" class="w-full btn-premium btn-premium-primary text-xs uppercase py-3.5 rounded-xl shadow-lg font-bold mt-4">
+            <p class="text-sm text-on-surface-variant leading-relaxed font-semibold font-sans pb-2" data-translate="thank_you_desc">Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.</p>
+            <button @click="closeThankYou()" class="w-full btn-premium btn-premium-primary text-sm uppercase py-3.5 rounded-xl shadow-lg font-bold mt-4">
                 Weitere Bestellungen aufnehmen
             </button>
         </div>
@@ -939,7 +939,7 @@
                     <template x-for="item in tableOrders.pending" :key="item.key">
                         <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
-                                <button @click.stop="serveSingleItem(item)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
+                                <button @click.stop="serveSingleItem(item)" class="w-10 h-10 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
                                     <span class="material-symbols-outlined text-base">check</span>
                                 </button>
                                 <div class="flex-1 min-w-0">
@@ -949,7 +949,7 @@
                             </div>
                             <div class="flex items-center gap-3">
                                 <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
-                                <button @click.stop="cancelItem(item)" class="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
+                                <button @click.stop="cancelItem(item)" class="w-10 h-10 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
                                     <span class="material-symbols-outlined text-base">close</span>
                                 </button>
                             </div>
@@ -977,7 +977,7 @@
                                        :checked="selectedSplitItems.some(i => i.key === item.key)"
                                        @change="toggleSplitCheckbox(item)"
                                        class="rounded border-2 border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer"
-                                       style="width:20px;height:20px;">
+                                       style="width:28px;height:28px;min-width:28px;">
                                 
                                 <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
                                 
@@ -988,9 +988,9 @@
                                     <!-- Split Qty controls -->
                                     <template x-if="selectedSplitItems.some(i => i.key === item.key) && item.quantity > 1">
                                         <div class="flex items-center gap-2 mt-1.5 bg-surface w-fit px-2 py-0.5 rounded-lg border border-outline-variant">
-                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">-</button>
+                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-2 py-1 min-w-[32px] min-h-[32px] flex items-center justify-center">-</button>
                                             <span class="text-[11px] font-black text-on-surface font-mono" x-text="getSplitQty(item)"></span>
-                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-1">+</button>
+                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-2 py-1 min-w-[32px] min-h-[32px] flex items-center justify-center">+</button>
                                         </div>
                                     </template>
                                 </div>
@@ -1031,7 +1031,8 @@
     {% endif %}
 
     <script>
-        // Prevent pinch-to-zoom on iOS devices globally
+        // Prevent pinch-to-zoom only for admin/waiter role (they need quick taps without accidental zoom)
+        {% if role == 'admin' or role == 'waiter' %}
         document.addEventListener('gesturestart', function(e) {
             e.preventDefault();
         });
@@ -1046,6 +1047,7 @@
                 e.preventDefault();
             }
         }, { passive: false });
+        {% endif %}
 
 
         const slug = "{{ slug }}";
@@ -1590,9 +1592,9 @@
                     if (enBtn) enBtn.className = lang === 'en' ? "px-3 py-1 rounded-full text-xs font-bold transition bg-primary text-black font-display" : "px-3 py-1 rounded-full text-xs font-bold transition text-on-surface-variant font-display";
                     
                     const deBtnRo = document.getElementById('lang-de-btn-ro');
-                    if (deBtnRo) deBtnRo.className = lang === 'de' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+                    if (deBtnRo) deBtnRo.className = lang === 'de' ? "px-3 py-1.5 rounded-full text-xs font-bold transition bg-primary text-black font-display min-h-[32px]" : "px-3 py-1.5 rounded-full text-xs font-bold transition text-on-surface-variant font-display min-h-[32px]";
                     const enBtnRo = document.getElementById('lang-en-btn-ro');
-                    if (enBtnRo) enBtnRo.className = lang === 'en' ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition bg-primary text-black font-display" : "px-2.5 py-0.5 rounded-full text-[10px] font-bold transition text-on-surface-variant font-display";
+                    if (enBtnRo) enBtnRo.className = lang === 'en' ? "px-3 py-1.5 rounded-full text-xs font-bold transition bg-primary text-black font-display min-h-[32px]" : "px-3 py-1.5 rounded-full text-xs font-bold transition text-on-surface-variant font-display min-h-[32px]";
 
                     // Translate elements
                     document.querySelectorAll('[data-translate]').forEach(el => {
@@ -2500,9 +2502,9 @@
     </script>
 
     <!-- Dynamic Service Request Modal -->
-    <div id="service-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm p-8 relative flex flex-col text-center space-y-6 shadow-2xl">
-            <button onclick="closeServiceModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+    <div id="service-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm p-5 sm:p-8 relative flex flex-col text-center space-y-6 shadow-2xl my-4 max-h-[90vh]">
+            <button onclick="closeServiceModal()" class="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
@@ -2511,7 +2513,7 @@
                     <span class="material-symbols-outlined text-4xl text-primary">notifications_active</span>
                 </div>
                 <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="service_header_modal">Was benötigst du?</h3>
-                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="service_desc_modal">Wähle eine Option und unser Service-Team kommt zu dir.</p>
+                <p class="text-sm text-on-surface-variant mt-1.5 font-medium" data-translate="service_desc_modal">Wähle eine Option und unser Service-Team kommt zu dir.</p>
             </div>
             
             <div class="space-y-3 font-display">
@@ -2537,9 +2539,9 @@
     </div>
 
     <!-- Dynamic Payment Request Modal -->
-    <div id="payment-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm p-8 relative flex flex-col text-center space-y-6 max-h-[92vh] overflow-y-auto shadow-2xl">
-            <button onclick="closePaymentModal()" class="absolute top-5 right-5 text-on-surface-variant hover:text-white transition-colors">
+    <div id="payment-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden overflow-y-auto">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm p-5 sm:p-8 relative flex flex-col text-center space-y-6 max-h-[92vh] overflow-y-auto shadow-2xl my-4">
+            <button onclick="closePaymentModal()" class="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors">
                 <span class="material-symbols-outlined text-2xl">close</span>
             </button>
             
@@ -2548,7 +2550,7 @@
                     <span class="material-symbols-outlined text-4xl text-primary">payments</span>
                 </div>
                 <h3 class="text-2xl font-extrabold text-on-surface font-display" data-translate="payment_header_modal">Rechnung anfordern</h3>
-                <p class="text-xs text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
+                <p class="text-sm text-on-surface-variant mt-1.5 font-medium" data-translate="payment_desc_modal">Wie möchtest du deine Rechnung begleichen?</p>
                 <!-- Outstanding amount display -->
                 <div class="mt-4 bg-primary/10 border border-primary/20 rounded-2xl py-3 px-4 flex items-center justify-between" x-show="currentPaymentSubtotal > 0">
                     <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider" data-translate="payment_outstanding">Offener Betrag</span>
@@ -2601,8 +2603,8 @@
                 </div>
             </div>
             <div class="flex items-center justify-between gap-4 mt-2 font-display">
-                <button onclick="openLegalModal('datenschutz')" class="text-xs text-primary hover:text-primary-hover underline font-bold transition-colors" data-translate="cookie_privacy">Datenschutzerklärung</button>
-                <button onclick="acceptCookies()" class="btn-premium btn-premium-primary text-xs px-5 py-2.5 rounded-xl font-bold active:scale-95 shadow-md shadow-primary/10" data-translate="cookie_btn">Einverstanden</button>
+                <button onclick="openLegalModal('datenschutz')" class="text-sm text-primary hover:text-primary-hover underline font-bold transition-colors py-1" data-translate="cookie_privacy">Datenschutzerklärung</button>
+                <button onclick="acceptCookies()" class="btn-premium btn-premium-primary text-sm px-5 py-3 rounded-xl font-bold active:scale-95 shadow-md shadow-primary/10" data-translate="cookie_btn">Einverstanden</button>
             </div>
         </div>
     </div>

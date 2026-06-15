@@ -2,7 +2,7 @@
 <html lang="de" class="dark scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -324,13 +324,22 @@
                 <a href="#demo" class="hover:text-gold-400 transition-colors duration-250">Live-Demo</a>
                 <a href="#faq" class="hover:text-gold-400 transition-colors duration-250">FAQ</a>
             </div>
+            <!-- Mobile Hamburger Menu -->
+            <button id="mobile-menu-btn" class="md:hidden flex items-center justify-center w-11 h-11 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
             <div class="flex items-center gap-3 sm:gap-4">
-                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors py-2 px-1">Partner-Login</button>
+                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors py-2.5 px-2">Partner-Login</button>
                 <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold text-xs px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold">Demo anfragen</a>
             </div>
         </div>
     </nav>
- 
+    <!-- Mobile Menu Dropdown -->
+    <div id="mobile-menu" class="hidden md:hidden fixed top-16 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800/60 py-4 px-6 space-y-4">
+        <a href="#features" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Features</a>
+        <a href="#demo" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Live-Demo</a>
+        <a href="#faq" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">FAQ</a>
+    </div>
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- HERO SECTION — VIDEO BACKGROUND -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -385,44 +394,44 @@
                                 <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-display">Interaktive Simulation</span>
                             </div>
 
-                            <div class="relative flex gap-4 items-stretch h-80 select-none">
+                            <div class="relative flex flex-col sm:flex-row gap-4 items-stretch sm:h-80 select-none">
                                 <!-- Guest Phone View -->
-                                <div class="w-5/12 bg-zinc-950 border border-zinc-800/80 rounded-[24px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 outline outline-4 outline-zinc-900">
+                                <div class="w-full sm:w-5/12 bg-zinc-950 border border-zinc-800/80 rounded-[24px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 outline outline-4 outline-zinc-900">
                                     <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-3 bg-zinc-900 rounded-full z-20 flex items-center justify-center">
                                         <span class="w-1.5 h-1.5 rounded-full bg-zinc-800/90 ml-4"></span>
                                     </div>
-                                    <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 mt-1">
+                                    <div class="flex justify-between items-center text-[10px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 mt-1">
                                         <span>Tisch 1</span>
                                         <span class="text-gold-500 flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-gold-500 animate-pulse"></span> Live</span>
                                     </div>
                                     <div class="flex-grow py-3 flex flex-col justify-start space-y-2.5 overflow-hidden">
-                                        <div class="text-[9px] font-extrabold text-white tracking-tight leading-none text-center font-display mt-0.5">DEMO Lounge</div>
+                                        <div class="text-[10px] font-extrabold text-white tracking-tight leading-none text-center font-display mt-0.5">DEMO Lounge</div>
                                         <div class="space-y-1.5 pt-1">
                                             <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between">
                                                 <div class="min-w-0">
-                                                    <div class="text-[8px] font-black text-zinc-200 truncate">Coca Cola Zero</div>
-                                                    <div class="text-[7px] font-bold text-gold-500">3,50 €</div>
+                                                    <div class="text-[10px] font-black text-zinc-200 truncate">Coca Cola Zero</div>
+                                                    <div class="text-[9px] font-bold text-gold-500">3,50 €</div>
                                                 </div>
-                                                <button id="demo-add-btn" onclick="addDemoItem()" class="w-4 h-4 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all outline-none">+</button>
+                                                <button id="demo-add-btn" onclick="addDemoItem()" class="w-7 h-7 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-xs hover:scale-110 active:scale-95 transition-all outline-none">+</button>
                                             </div>
                                             <div class="bg-zinc-900/40 border border-zinc-800/40 p-1.5 rounded-lg flex items-center justify-between opacity-75">
                                                 <div class="min-w-0">
-                                                    <div class="text-[8px] font-black text-zinc-250 truncate">Premium Cheeseburger</div>
-                                                    <div class="text-[7px] font-bold text-gold-500">9,50 €</div>
+                                                    <div class="text-[10px] font-black text-zinc-250 truncate">Premium Cheeseburger</div>
+                                                    <div class="text-[9px] font-bold text-gold-500">9,50 €</div>
                                                 </div>
-                                            <div class="w-4 h-4 bg-zinc-900 text-zinc-600 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed">+</div>
+                                            <div class="w-7 h-7 bg-zinc-900 text-zinc-600 rounded-full flex items-center justify-center font-bold text-xs cursor-not-allowed">+</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="pt-2 border-t border-zinc-900/60">
-                                    <button id="demo-submit-btn" onclick="sendDemoOrder()" class="w-full bg-zinc-900 text-zinc-550 cursor-not-allowed font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300">
+                                    <button id="demo-submit-btn" onclick="sendDemoOrder()" class="w-full bg-zinc-900 text-zinc-550 cursor-not-allowed font-black text-[10px] uppercase tracking-wider py-2.5 rounded-lg text-center transition-all duration-300 min-h-[40px]">
                                         Warenkorb leer
                                     </button>
                                 </div>
                             </div>
 
                             <!-- Flying Order Ticket -->
-                            <div id="demo-flying-ticket" class="absolute left-[20%] top-[35%] w-24 bg-gold-500 text-black rounded-lg p-2 font-display text-[8px] font-black shadow-lg shadow-gold-500/30 pointer-events-none hidden z-30">
+                            <div id="demo-flying-ticket" class="absolute left-[20%] top-[35%] w-24 bg-gold-500 text-black rounded-lg p-2 font-display text-[10px] font-black shadow-lg shadow-gold-500/30 pointer-events-none hidden z-30">
                                 <div class="flex justify-between border-b border-black/15 pb-0.5 mb-1">
                                     <span>TISCH 1</span>
                                     <span class="animate-pulse">Neu!</span>
@@ -436,14 +445,14 @@
                                     <source src="https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-40342-large.mp4" type="video/mp4">
                                 </video>
                                 <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/90 z-1 pointer-events-none"></div>
-                                <div class="flex justify-between items-center text-[7px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 relative z-2">
+                                <div class="flex justify-between items-center text-[10px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 relative z-2">
                                     <span>KÜCHEN-MONITOR (KDS)</span>
                                     <span class="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse"></span>
                                 </div>
                                 <div class="flex-grow py-2.5 flex flex-col justify-start space-y-1.5 overflow-hidden relative z-2">
-                                    <div class="text-[7px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Aktive Bestellungen:</div>
+                                    <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">Aktive Bestellungen:</div>
                                     <div id="demo-kds-board" class="space-y-1.5">
-                                        <div class="bg-zinc-950/80 backdrop-blur-md border border-zinc-900 p-2 rounded-lg flex items-center justify-between text-[7px]">
+                                        <div class="bg-zinc-950/80 backdrop-blur-md border border-zinc-900 p-2 rounded-lg flex items-center justify-between text-[10px]">
                                             <div>
                                                 <div class="font-extrabold text-white">Tisch 4 &bull; 4 min</div>
                                                 <div class="text-zinc-400 mt-0.5 font-medium">1x Double Cheeseburger</div>
@@ -452,7 +461,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="text-[6px] text-zinc-600 text-center font-bold relative z-2">Bestellungen erscheinen in Echtzeit</div>
+                                <div class="text-[10px] text-zinc-600 text-center font-bold relative z-2">Bestellungen erscheinen in Echtzeit</div>
                             </div>
                         </div>
 
@@ -524,7 +533,7 @@
                             Schluss mit lautem Rufen quer durch die Bar. Deine Gäste ordern neue Kohle oder Köpfe mit einem einzigen Klick am eigenen Smartphone. Die Anfrage landet in Echtzeit auf dem Monitor des Kohlemeisters, während Shakes und Snacks automatisch an die Bar oder in die Küche geleitet werden.
                         </p>
                     </div>
-                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Spezifisch für Shisha-Bars optimiert</div>
+                    <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; Spezifisch für Shisha-Bars optimiert</div>
                 </div>
 
                 <!-- BENTO CARD 2: KDS -->
@@ -538,7 +547,7 @@
                             Keine Zettelwirtschaft, keine verloren gegangenen Bons und keine fehlerhaften Absprachen mehr. Bestellungen werden übersichtlich auf Küchenmonitoren nach Einlasszeit und Dringlichkeit sortiert dargestellt.
                         </p>
                     </div>
-                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; 100% papierlose Küche</div>
+                    <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; 100% papierlose Küche</div>
                 </div>
 
                 <!-- BENTO CARD 3: Rechnungs-Splitting -->
@@ -552,7 +561,7 @@
                             "Wer zahlt was?" – Für dein Personal ab jetzt kein Stressfaktor mehr. Kellner teilen Speisen und Getränke eines Tisches direkt auf dem Tablet auf und rechnen Produkte einzeln ab. Blitzschnell, intuitiv und ohne Rechenfehler.
                         </p>
                     </div>
-                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Gastro-Professional Standard</div>
+                    <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; Gastro-Professional Standard</div>
                 </div>
 
                 <!-- BENTO CARD 4: GoBD -->
@@ -566,7 +575,7 @@
                             Volle Rechtssicherheit bei jeder Betriebsprüfung. Jede manuelle Änderung, jede Stornierung und jeder Bezahlvorgang wird manipulationssicher in einem kryptografisch verschlüsselten Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. Generiere den finanzamtkonformen Steuerberater-Export mit nur einem Klick.
                         </p>
                     </div>
-                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Lückenloses GoBD-System</div>
+                    <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; Lückenloses GoBD-System</div>
                 </div>
 
                 <!-- BENTO CARD 5: Google-Review-Booster -->
@@ -580,7 +589,7 @@
                             Direkt nach einem positiven Bezahlvorgang leitet das System zufriedene Gäste blitzschnell zur Google-Bewertung weiter. Maximiere deine 5-Sterne-Rezensionen vollkommen organisch und steigere deine lokale Sichtbarkeit — ganz ohne aktives Nachfragen durch dein Personal.
                         </p>
                     </div>
-                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Top Google Rankings auf Autopilot</div>
+                    <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; Top Google Rankings auf Autopilot</div>
                 </div>
 
                 <!-- BENTO CARD 6: Upselling & Happy-Hour -->
@@ -594,7 +603,7 @@
                             Lass die Software für dich verkaufen. Die intelligente Empfehlungs-Engine empfiehlt Gästen im Warenkorb automatisch passende Extras. Preise passen sich zeitgesteuert und vollautomatisch an deine Happy Hour Aktionen an.
                         </p>
                     </div>
-                    <div class="mt-6 text-[10px] font-bold text-gold-500 tracking-widest uppercase">&bull; Bis zu 25% mehr Warenkorb-Wert</div>
+                    <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; Bis zu 25% mehr Warenkorb-Wert</div>
                 </div>
 
             </div>
@@ -677,7 +686,7 @@
                     <span class="material-symbols-outlined text-gold-500">login</span>
                     Partner Login
                 </h3>
-                <button onclick="closeLogin()" class="text-zinc-400 hover:text-white transition-colors">
+                <button onclick="closeLogin()" class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-zinc-800/50 text-zinc-400 hover:text-white transition-colors">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
@@ -688,12 +697,12 @@
                 </div>
                 {% endif %}
                 <div>
-                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
-                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
+                    <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
+                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>
-                    <input type="password" name="password" required placeholder="••••••••" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
+                    <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>
+                    <input type="password" name="password" required placeholder="••••••••" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
                 </div>
                 <button type="submit" class="btn-gold py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all">
                     Einloggen
@@ -705,18 +714,18 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- LEGAL MODAL -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div id="legalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm hidden">
-        <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/60 flex flex-col max-h-[85vh] relative">
+    <div id="legalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm hidden overflow-y-auto">
+        <div class="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/60 flex flex-col max-h-[85vh] relative my-4">
             <div class="absolute -right-20 -top-20 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl"></div>
             <div class="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between bg-zinc-900/45 relative z-10">
                 <h3 id="legalTitle" class="text-lg font-bold text-white font-display">Rechtliche Hinweise</h3>
-                <button onclick="closeLegal()" class="text-zinc-400 hover:text-white transition-colors">
+                <button onclick="closeLegal()" class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-zinc-800/50 text-zinc-400 hover:text-white transition-colors">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
             <div id="legalContent" class="p-6 overflow-y-auto text-zinc-300 text-sm leading-relaxed space-y-4 relative z-10 font-medium"></div>
             <div class="border-t border-zinc-800/60 px-6 py-3.5 flex justify-end bg-zinc-900/40 relative z-10">
-                <button onclick="closeLegal()" class="btn-glass px-4 py-2 rounded-lg text-xs font-bold">Schließen</button>
+                <button onclick="closeLegal()" class="btn-glass px-5 py-2.5 rounded-lg text-sm font-bold">Schließen</button>
             </div>
         </div>
     </div>
@@ -724,16 +733,16 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- FOOTER -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <footer class="border-t border-zinc-900 py-12 text-zinc-500 text-xs relative z-10">
-        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 font-bold uppercase tracking-wider text-[10px]">
+    <footer class="border-t border-zinc-900 py-12 text-zinc-500 text-sm relative z-10">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 font-bold uppercase tracking-wider text-xs">
             <div class="flex items-center gap-2">
                 <span class="text-zinc-400 font-display">digi-gastro.de</span>
                 <span class="text-zinc-700">-</span>
                 <span class="text-zinc-500 normal-case font-medium">Operating System für die Gastronomie von morgen.</span>
             </div>
             <div class="flex gap-6">
-                <button onclick="showLegal('imprint')" class="hover:text-gold-400 transition-colors">Impressum</button>
-                <button onclick="showLegal('privacy')" class="hover:text-gold-400 transition-colors">Datenschutzerklärung</button>
+                <button onclick="showLegal('imprint')" class="hover:text-gold-400 transition-colors py-1">Impressum</button>
+                <button onclick="showLegal('privacy')" class="hover:text-gold-400 transition-colors py-1">Datenschutzerklärung</button>
             </div>
             <div class="text-zinc-500 normal-case font-medium">
                 &copy; 2026 digi-gastro.de. Alle Rechte vorbehalten.
@@ -752,10 +761,10 @@
             demoState.qty = 1;
             const addBtn = document.getElementById('demo-add-btn');
             addBtn.innerHTML = '1';
-            addBtn.className = "w-4 h-4 bg-gold-600 text-white rounded-full flex items-center justify-center font-bold text-[8px]";
+            addBtn.className = "w-7 h-7 bg-gold-600 text-white rounded-full flex items-center justify-center font-bold text-xs";
             const submitBtn = document.getElementById('demo-submit-btn');
             submitBtn.innerHTML = 'Bestellung senden (3,50 €)';
-            submitBtn.className = "w-full bg-gold-500 text-black font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300 animate-custom-pulse cursor-pointer hover:bg-gold-400";
+            submitBtn.className = "w-full bg-gold-500 text-black font-black text-[10px] uppercase tracking-wider py-2.5 rounded-lg text-center transition-all duration-300 animate-custom-pulse cursor-pointer hover:bg-gold-400 min-h-[40px]";
             document.getElementById('demo-guide').innerHTML = 'Super! Klicke jetzt auf den pulsierenden Button <strong class="text-gold-500 font-extrabold">Bestellung senden</strong>, um die Bestellung an die Küche zu übertragen!';
         }
 
@@ -764,10 +773,10 @@
             demoState.hasSent = true;
             const submitBtn = document.getElementById('demo-submit-btn');
             submitBtn.innerHTML = 'Gesendet ✓';
-            submitBtn.className = "w-full bg-zinc-800 text-gold-400 font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300 cursor-not-allowed";
+            submitBtn.className = "w-full bg-zinc-800 text-gold-400 font-black text-[10px] uppercase tracking-wider py-2.5 rounded-lg text-center transition-all duration-300 cursor-not-allowed min-h-[40px]";
             const addBtn = document.getElementById('demo-add-btn');
             addBtn.innerHTML = '1';
-            addBtn.className = "w-4 h-4 bg-zinc-800 text-zinc-600 rounded-full flex items-center justify-center font-bold text-[8px] cursor-not-allowed";
+            addBtn.className = "w-7 h-7 bg-zinc-800 text-zinc-600 rounded-full flex items-center justify-center font-bold text-xs cursor-not-allowed";
             const ticket = document.getElementById('demo-flying-ticket');
             ticket.classList.remove('hidden');
             ticket.classList.add('animate-fly-ticket');
@@ -776,7 +785,7 @@
                 const kdsBoard = document.getElementById('demo-kds-board');
                 const newTicket = document.createElement('div');
                 newTicket.id = 'demo-new-kds-ticket';
-                newTicket.className = "bg-zinc-900/60 border border-gold-500/30 p-2 rounded-lg flex items-center justify-between text-[7px] transition-all duration-500 scale-95 opacity-0";
+                newTicket.className = "bg-zinc-900/60 border border-gold-500/30 p-2 rounded-lg flex items-center justify-between text-[10px] transition-all duration-500 scale-95 opacity-0";
                 newTicket.innerHTML = `
                     <div>
                         <div class="font-extrabold text-white flex items-center gap-1">
@@ -798,7 +807,7 @@
                     if (statusText) {
                         statusText.innerHTML = '✓ Serviert';
                         statusText.className = "bg-gold-500/10 text-gold-400 px-1.5 py-0.5 rounded border border-gold-500/20 font-bold";
-                        newTicket.className = "bg-zinc-900/60 border border-zinc-800/40 p-2 rounded-lg flex items-center justify-between text-[7px] opacity-60 transition-all duration-500";
+                        newTicket.className = "bg-zinc-900/60 border border-zinc-800/40 p-2 rounded-lg flex items-center justify-between text-[10px] opacity-60 transition-all duration-500";
                     }
                     document.getElementById('demo-guide').innerHTML = 'Serviert! Der Kellner hat das Getränk an den Gast übergeben. Die Demo ist abgeschlossen.';
                     document.getElementById('demo-reset-btn').classList.remove('hidden');
@@ -811,10 +820,10 @@
             demoState.hasSent = false;
             const addBtn = document.getElementById('demo-add-btn');
             addBtn.innerHTML = '+';
-            addBtn.className = "w-4 h-4 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-[9px] hover:scale-110 active:scale-95 transition-all";
+            addBtn.className = "w-7 h-7 bg-gold-500 text-black rounded-full flex items-center justify-center font-bold text-xs hover:scale-110 active:scale-95 transition-all";
             const submitBtn = document.getElementById('demo-submit-btn');
             submitBtn.innerHTML = 'Warenkorb leer';
-            submitBtn.className = "w-full bg-zinc-800 text-zinc-500 cursor-not-allowed font-black text-[8px] uppercase tracking-wider py-2 rounded-lg text-center transition-all duration-300";
+            submitBtn.className = "w-full bg-zinc-800 text-zinc-500 cursor-not-allowed font-black text-[10px] uppercase tracking-wider py-2.5 rounded-lg text-center transition-all duration-300 min-h-[40px]";
             const ticket = document.getElementById('demo-flying-ticket');
             ticket.classList.add('hidden');
             ticket.classList.remove('animate-fly-ticket');
@@ -947,8 +956,8 @@
                 </div>
             </div>
             <div class="flex items-center justify-between gap-4 mt-2">
-                <button onclick="showLegal('privacy')" class="text-xs text-gold-500 hover:text-gold-400 underline font-bold uppercase tracking-wider">Datenschutzerklärung</button>
-                <button onclick="acceptCookies()" class="btn-gold text-[10px] px-4 py-2 rounded-xl font-bold">Einverstanden</button>
+                <button onclick="showLegal('privacy')" class="text-sm text-gold-500 hover:text-gold-400 underline font-bold transition-colors py-1">Datenschutzerklärung</button>
+                <button onclick="acceptCookies()" class="btn-gold text-sm px-5 py-3 rounded-xl font-bold">Einverstanden</button>
             </div>
         </div>
     </div>

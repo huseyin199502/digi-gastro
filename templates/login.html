@@ -2,7 +2,7 @@
 <html class="dark" lang="de">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ restaurant_name }} - Admin Login</title>
 
     <!-- PWA Meta Tags -->
@@ -48,9 +48,9 @@
     
     <!-- Visual background enhancements -->
     <div class="fixed inset-0 grid-bg opacity-30 pointer-events-none z-0"></div>
-    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] radial-glow pointer-events-none z-0"></div>
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[350px] radial-glow pointer-events-none z-0"></div>
     
-    <div class="w-full max-w-md glass-panel rounded-2xl p-8 shadow-2xl relative z-10 overflow-hidden">
+    <div class="w-full max-w-md glass-panel rounded-2xl p-6 sm:p-8 shadow-2xl relative z-10 overflow-hidden">
         <!-- Ambient corner glow -->
         <div class="absolute -right-20 -top-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
         
@@ -63,7 +63,7 @@
         </div>
 
         {% if error %}
-        <div class="mb-5 bg-red-950/20 border border-red-500/20 rounded-xl p-4 text-red-300 text-xs flex items-start gap-3">
+        <div class="mb-5 bg-red-950/20 border border-red-500/20 rounded-xl p-4 text-red-300 text-sm flex items-start gap-3">
             <span class="material-symbols-outlined text-red-400 text-sm mt-0.5">error</span>
             <span class="font-medium leading-relaxed">{{ error }}</span>
         </div>
@@ -74,13 +74,13 @@
             <input type="hidden" name="redirect" value="{{ redirect }}">
             {% endif %}
             <div>
-                <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2" for="email">E-Mail Adresse</label>
-                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required value="{{ email if email else '' }}">
+                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2" for="email">E-Mail Adresse</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" id="email" name="email" type="email" placeholder="demo@digi-gastro.de" required value="{{ email if email else '' }}">
             </div>
 
             <div>
-                <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2" for="password">Passwort</label>
-                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-sm transition-all" id="password" name="password" type="password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" required>
+                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2" for="password">Passwort</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" id="password" name="password" type="password" placeholder="••••••••" required>
             </div>
 
             <button class="btn-premium btn-premium-primary py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all" type="submit">
@@ -90,7 +90,7 @@
         </form>
 
         <div class="mt-6 pt-5 border-t border-zinc-800/60 text-center">
-            <a href="/digi-gastro-admin/login" class="text-[11px] text-zinc-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-colors">
+            <a href="/digi-gastro-admin/login" class="text-xs text-zinc-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-colors py-2 inline-block">
                 Partner Login
             </a>
         </div>
