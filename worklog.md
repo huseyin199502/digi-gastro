@@ -241,3 +241,36 @@ Stage Summary:
 - Checkboxes now 22px with 3px border, visible ring shadow, and dark mode support in all Kellner contexts
 - Serve lock increased to 2s (frontend) + 5s (backend dedup) for robust double-click protection
 - Files changed: design_system.css, admin.html, menu.html, main.py
+
+---
+Task ID: 4
+Agent: Main
+Task: Redesign Kellner control modal - per-Bon grouped orders with sticky header/footer
+
+Work Log:
+- Analyzed user screenshot: multiple orders on one table, total not visible, items overflow
+- Complete redesign of the control modal (#control-modal) structure:
+  - NEW: Orders grouped by Bon (receipt) — each order gets its own card with Bon #ID, status badge, and subtotal
+  - NEW: Color-coded Bon cards: amber border = pending items, emerald border = all served
+  - NEW: Left accent bar per Bon card for quick visual scan
+  - NEW: Status badge per Bon: "In Vorbereitung" (amber) or "Serviert" (emerald)
+- Sticky header: Table name + "Gesamt" label + total balance always visible
+- Sticky footer: Action buttons always visible at bottom
+  - "Alle servieren" + "Neue Bestellung" side by side (was stacked before)
+  - "Gesamt bezahlen" only appears when ALL items across all Bons are served
+  - Storno link at bottom
+- Scrollable middle: Multiple Bons can be scrolled while header/footer stay fixed
+- Dark mode CSS fixes for new Bon card elements
+- Light mode contrast fixes for footer buttons (dark:text-zinc-300, dark:border-zinc-600)
+- Removed old flat pending/delivered list containers (#control-pending-container, #control-delivered-container)
+- Replaced with single #control-orders-container that renders per-Bon cards
+- Added empty state when no active orders exist
+- Verified JS syntax (no errors after Jinja2 tag substitution)
+
+Stage Summary:
+- Kellner popup now shows orders per-Bon with individual subtotals
+- Total balance always visible in sticky header
+- Action buttons always accessible in sticky footer
+- Multiple orders scrollable without losing sight of total or buttons
+- Professional card-based layout with color-coded status
+- Files changed: templates/admin.html
