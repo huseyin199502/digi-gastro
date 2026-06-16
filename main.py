@@ -3430,13 +3430,14 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         restaurant["tagesumsatz"] += order["total"]
         restaurant["bestellungen_gesamt"] += 1
         
-        # Rotate table active session token upon payment to clear session
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            import secrets
-            db_table["active_session_token"] = secrets.token_hex(4)
+        # NOTE: We intentionally do NOT rotate active_session_token on payment.
+        # Rotating it kills the customer's cookie, forcing them to re-scan the QR
+        # code if they want to order more after paying (e.g. dessert after paying for drinks).
+        # The token is automatically rotated when a NEW customer scans the QR code
+        # while the table is free (see menu route line ~2723), which is the correct
+        # place for rotation. Security is preserved: active_session_token is still
+        # required for ordering, and a photographed QR code alone is useless without
+        # the active_session_token stored in the cookie.
         
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -3509,14 +3510,9 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] += 1
         
-    # Rotate table active session token upon split payment to clear session ONLY if fully paid
-    if order["status"] == "bezahlt":
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            import secrets
-            db_table["active_session_token"] = secrets.token_hex(4)
+    # NOTE: No token rotation on split payment — see pay_order() for rationale.
+    # The old code rotated active_session_token when order became "bezahlt",
+    # which killed the customer's cookie and forced a re-scan.
 
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -3644,12 +3640,15 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
     order["status"] = "storniert"
     
     # Rotate table active session token upon cancellation to clear session
-    _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-    tables_list = restaurant.get("tables", [])
-    db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-    if db_table:
-        import secrets
-        db_table["active_session_token"] = secrets.token_hex(4)
+    # DISABLED: Same rationale as payment — rotating kills the customer's
+    # cookie and forces a re-scan. The next QR scan on a free table rotates
+    # automatically, so this is redundant and harmful to UX.
+    # _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
+    # tables_list = restaurant.get("tables", [])
+    # db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
+    # if db_table:
+    #     import secrets
+    #     db_table["active_session_token"] = secrets.token_hex(4)
     
     log_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -3844,11 +3843,7 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     if not order["items"]:
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
-        # Rotate session token
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            db_table["active_session_token"] = secrets.token_hex(4)
+        # NOTE: No token rotation — see pay_order() for rationale.
     else:
         update_order_status_by_items(order)
 
@@ -3927,11 +3922,7 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
     if not order["items"]:
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
-        # Rotate session token
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        db_table = next((t for t in restaurant.get("tables", []) if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            db_table["active_session_token"] = secrets.token_hex(4)
+        # NOTE: No token rotation — see pay_order() for rationale.
     else:
         update_order_status_by_items(order)
 
@@ -4153,13 +4144,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
 
     if not order["items"]:
         order["status"] = "storniert"
-        # Rotate table active session token upon cancellation to clear session
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            import secrets
-            db_table["active_session_token"] = secrets.token_hex(4)
+        # NOTE: No token rotation — see pay_order() for rationale.
     else:
         update_order_status_by_items(order)
 
@@ -4253,13 +4238,7 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
     if not order["items"]:
         order["status"] = "storniert"
-        # Rotate table active session token upon cancellation to clear session
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            import secrets
-            db_table["active_session_token"] = secrets.token_hex(4)
+        # NOTE: No token rotation — see pay_order() for rationale.
     else:
         update_order_status_by_items(order)
 
@@ -8414,14 +8393,8 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] += 1
         
-        # Rotate table active session token upon payment to clear session
-        _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-        tables_list = restaurant.get("tables", [])
-        db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-        if db_table:
-            import secrets
-            db_table["active_session_token"] = secrets.token_hex(4)
-            
+        # NOTE: No token rotation on payment — see pay_order() for rationale.
+        
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
