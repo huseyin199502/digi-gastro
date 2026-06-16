@@ -967,6 +967,7 @@
             .overlay-backdrop {
                 align-items: flex-end;
                 padding: 0;
+                overflow: hidden;
             }
             .popup-card {
                 max-width: 100% !important;
@@ -975,17 +976,27 @@
                 border-top-left-radius: 1.5rem !important;
                 border-top-right-radius: 1.5rem !important;
                 margin: 0;
-                max-height: 90vh;
+                max-height: 90vh !important;
                 display: flex;
                 flex-direction: column;
             }
             .popup-body {
-                max-height: 70vh !important;
+                max-height: 55vh !important;
                 overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
             }
-            .popup-header { padding: 0.75rem 1rem; }
+            .popup-header { 
+                padding: 0.75rem 1rem;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                flex-shrink: 0;
+            }
             .popup-body { padding: 1rem; }
-            .popup-footer { padding: 0.75rem 1rem; }
+            .popup-footer { 
+                padding: 0.75rem 1rem;
+                flex-shrink: 0;
+            }
         }
 
         /* Config Sub-tab styles */
@@ -4709,17 +4720,14 @@
         function _acquireServeLock() {
             if (_serveLock) return false;
             _serveLock = true;
-            // Enforce minimum lock duration of 2s to prevent rapid re-clicks and network lag
             if (_serveLockTimer) clearTimeout(_serveLockTimer);
-            _serveLockTimer = setTimeout(() => { _serveLock = false; _serveLockTimer = null; }, 2000);
+            _serveLockTimer = setTimeout(() => { _serveLock = false; _serveLockTimer = null; }, 300);
             return true;
         }
         function _releaseServeLock() {
-            // Lock auto-releases after the timer, but also allow early release
-            // if enough time has passed
             if (_serveLockTimer) {
-                // Timer is still running – let it release the lock
-                return;
+                clearTimeout(_serveLockTimer);
+                _serveLockTimer = null;
             }
             _serveLock = false;
         }
@@ -4789,11 +4797,11 @@
                 });
                 if (!res.ok) {
                     showToast("Fehler beim Servieren", "error");
-                    await checkLiveTischeUpdates();
+                    checkLiveTischeUpdates();
                 }
             } catch (e) {
                 showToast("Verbindungsfehler beim Servieren", "error");
-                await checkLiveTischeUpdates();
+                checkLiveTischeUpdates();
             } finally {
                 _releaseServeLock();
             }
@@ -4840,10 +4848,10 @@
                 if (!results.every(r => r.ok)) {
                     showToast("Einige Artikel konnten nicht serviert werden", "error");
                 }
-                await checkLiveTischeUpdates();
+                checkLiveTischeUpdates();
             } catch (e) {
                 showToast("Verbindungsfehler beim Servieren", "error");
-                await checkLiveTischeUpdates();
+                checkLiveTischeUpdates();
             } finally {
                 _releaseServeLock();
             }
@@ -5447,6 +5455,19 @@
 
         async function notifServeItem(orderId, itemKey, btnEl) {
             if (!_acquireServeLock()) return;
+            // Optimistic UI update FIRST
+            const order = allOrders.find(o => o.id === orderId);
+            if (order) {
+                const parts = itemKey.split('_');
+                const pid = parts[0];
+                const status = parts[parts.length - 1];
+                const noteParts = parts.slice(1, parts.length - 1).join('_');
+                const item = order.items.find(i => String(i.product_id) === pid 
+                    && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
+                    && (i.item_status || 'pending') === status);
+                if (item) item.item_status = 'delivered';
+            }
+            renderLiveNotificationBar(allOrders, allCalls);
             if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
@@ -5454,25 +5475,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ item_key: itemKey, status: 'delivered' })
                 });
-                if (res.ok) {
-                    // Optimistically update local state
-                    const order = allOrders.find(o => o.id === orderId);
-                    if (order) {
-                        const parts = itemKey.split('_');
-                        const pid = parts[0];
-                        const status = parts[parts.length - 1];
-                        const noteParts = parts.slice(1, parts.length - 1).join('_');
-                        const item = order.items.find(i => String(i.product_id) === pid 
-                            && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
-                            && (i.item_status || 'pending') === status);
-                        if (item) item.item_status = 'delivered';
-                    }
-                    // Re-render notification bar immediately
-                    renderLiveNotificationBar(allOrders, allCalls);
-                    await checkLiveTischeUpdates();
-                } else {
+                if (!res.ok) {
                     showToast('Fehler beim Servieren', 'error');
                 }
+                // Background sync – no await
+                checkLiveTischeUpdates();
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
             } finally {
@@ -5483,6 +5490,12 @@
 
         async function notifServeAll(orderId, btnEl) {
             if (!_acquireServeLock()) return;
+            // Optimistic UI update FIRST
+            const order = allOrders.find(o => o.id === orderId);
+            if (order && order.items) {
+                order.items.forEach(i => { i.item_status = 'delivered'; });
+            }
+            renderLiveNotificationBar(allOrders, allCalls);
             if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch('/admin/orders/serve', {
@@ -5490,17 +5503,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order_id: orderId })
                 });
-                if (res.ok) {
-                    // Optimistically mark all items as delivered locally
-                    const order = allOrders.find(o => o.id === orderId);
-                    if (order && order.items) {
-                        order.items.forEach(i => { i.item_status = 'delivered'; });
-                    }
-                    renderLiveNotificationBar(allOrders, allCalls);
-                    await checkLiveTischeUpdates();
-                } else {
+                if (!res.ok) {
                     showToast('Fehler beim Servieren', 'error');
                 }
+                // Background sync – no await
+                checkLiveTischeUpdates();
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
             } finally {
