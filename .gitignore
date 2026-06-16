@@ -18,3 +18,12 @@ env/
 .DS_Store
 Thumbs.db
 tool-results/
+
+# ── Agent artifacts (never part of the actual app) ───────────────
+skills/
+upload/
+scripts/
+agent-ctx/
+worklog.md
+download/
+*.log

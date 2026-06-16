@@ -56,3 +56,17 @@ docs/
 dist/
 build/
 *.egg-info/
+
+# ── Agent artifacts (NOT part of the actual app) ──
+skills/
+upload/
+scripts/
+agent-ctx/
+worklog.md
+download/
+
+# ── Large media files that shouldn't be in the repo ──
+*.mov
+*.MP4
+*.mp4
+!static/videos/*.mp4
