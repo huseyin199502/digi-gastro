@@ -5374,6 +5374,14 @@
                 if (controlModalActiveTableNum) {
                     refreshControlModal();
                 }
+                
+                // Real-time popup update: if the order popup is open, re-render it with fresh data
+                if (activeOrderId) {
+                    const freshOrder = allOrders.find(o => o.id === activeOrderId);
+                    if (freshOrder) {
+                        renderPopup(freshOrder);
+                    }
+                }
             } catch (e) {
                 console.error("Error updating live tiles:", e);
             }

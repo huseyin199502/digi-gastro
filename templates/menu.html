@@ -767,13 +767,13 @@
     <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] sm:bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-1.5">
-            <button onclick="openServiceModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_service" title="Service Rufen">
+            <button onclick="openServiceModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all relative" data-translate-title="nav_service" title="Service Rufen" :disabled="_serviceCooldownUntil > Date.now()" :class="_serviceCooldownUntil > Date.now() ? 'opacity-50 cursor-not-allowed' : ''">
                 <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">notifications_active</span>
-                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" data-translate="nav_service">Service</span>
+                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" x-text="_serviceCooldownLabel || 'Service'"></span>
             </button>
-            <button onclick="openPaymentModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all" data-translate-title="nav_bill" title="Rechnung Anfordern">
+            <button onclick="openPaymentModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all relative" data-translate-title="nav_bill" title="Rechnung Anfordern" :disabled="_serviceCooldownUntil > Date.now()" :class="_serviceCooldownUntil > Date.now() ? 'opacity-50 cursor-not-allowed' : ''">
                 <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">receipt_long</span>
-                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" data-translate="nav_bill">Rechnung</span>
+                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" x-text="_serviceCooldownLabel || 'Rechnung'"></span>
             </button>
         </div>
         
@@ -1305,6 +1305,9 @@
                     }
                 },
                 selectedServiceType: 'kellner',
+                    _serviceCooldownUntil: 0, // timestamp when cooldown expires
+                    _serviceCooldownLabel: '', // display text for remaining time
+                    _serviceCooldownInterval: null, // interval timer
                 selectedPaymentType: 'zahlen_bar',
                 currentPaymentSubtotal: 0,
                 translations: translations,
@@ -1934,8 +1937,31 @@
                 },
 
                 confirmServiceRequest() {
+                    // Spam protection: 30-second cooldown between service calls
+                    const now = Date.now();
+                    if (now < this._serviceCooldownUntil) {
+                        const remaining = Math.ceil((this._serviceCooldownUntil - now) / 1000);
+                        showToast(`Bitte warte noch ${remaining} Sekunden vor der nächsten Anfrage.`, "info");
+                        return;
+                    }
                     this.sendServiceRequestAPI(this.selectedServiceType);
                     this.closeServiceModal();
+                    
+                    // Start 30-second cooldown
+                    this._serviceCooldownUntil = now + 30000;
+                    this._serviceCooldownLabel = '30s';
+                    if (this._serviceCooldownInterval) clearInterval(this._serviceCooldownInterval);
+                    this._serviceCooldownInterval = setInterval(() => {
+                        const remaining = Math.ceil((this._serviceCooldownUntil - Date.now()) / 1000);
+                        if (remaining <= 0) {
+                            this._serviceCooldownLabel = '';
+                            this._serviceCooldownUntil = 0;
+                            clearInterval(this._serviceCooldownInterval);
+                            this._serviceCooldownInterval = null;
+                        } else {
+                            this._serviceCooldownLabel = `${remaining}s`;
+                        }
+                    }, 1000);
                 },
 
                 openPaymentModal() {
@@ -1957,18 +1983,37 @@
                             // Fallback to current cart total if no orders placed yet
                             this.currentPaymentSubtotal = this.cartTotal;
                         }
+                        
+                        // Block payment request when there's nothing to pay
+                        if (this.currentPaymentSubtotal <= 0) {
+                            showToast("Du musst zuerst etwas bestellen, bevor du die Rechnung anfordern kannst.", "info");
+                            return;
+                        }
+                        
+                        this.selectPaymentOption('zahlen_bar');
+                        const modal = document.getElementById("payment-modal");
+                        if (modal) {
+                            modal.classList.remove("hidden");
+                            document.body.style.overflow = 'hidden';
+                        }
                     })
                     .catch(err => {
                         console.error("Fehler beim Abrufen der Tisch-Summe:", err);
                         this.currentPaymentSubtotal = this.cartTotal;
+                        
+                        // Block payment request when there's nothing to pay
+                        if (this.currentPaymentSubtotal <= 0) {
+                            showToast("Du musst zuerst etwas bestellen, bevor du die Rechnung anfordern kannst.", "info");
+                            return;
+                        }
+                        
+                        this.selectPaymentOption('zahlen_bar');
+                        const modal = document.getElementById("payment-modal");
+                        if (modal) {
+                            modal.classList.remove("hidden");
+                            document.body.style.overflow = 'hidden';
+                        }
                     });
-
-                    this.selectPaymentOption('zahlen_bar');
-                    const modal = document.getElementById("payment-modal");
-                    if (modal) {
-                        modal.classList.remove("hidden");
-                        document.body.style.overflow = 'hidden';
-                    }
                 },
 
                 closePaymentModal() {
@@ -1986,8 +2031,32 @@
 
 
                 confirmPaymentRequest() {
+                    // Spam protection: 30-second cooldown between service calls
+                    const now = Date.now();
+                    if (now < this._serviceCooldownUntil) {
+                        const remaining = Math.ceil((this._serviceCooldownUntil - now) / 1000);
+                        showToast(`Bitte warte noch ${remaining} Sekunden vor der nächsten Anfrage.`, "info");
+                        return;
+                    }
                     this.sendServiceRequestAPI(this.selectedPaymentType);
                     this.closePaymentModal();
+                    
+                    // Start 30-second cooldown
+                    this._serviceCooldownUntil = now + 30000;
+                    this._serviceCooldownLabel = '30s';
+                    if (this._serviceCooldownInterval) clearInterval(this._serviceCooldownInterval);
+                    this._serviceCooldownInterval = setInterval(() => {
+                        const remaining = Math.ceil((this._serviceCooldownUntil - Date.now()) / 1000);
+                        if (remaining <= 0) {
+                            this._serviceCooldownLabel = '';
+                            this._serviceCooldownUntil = 0;
+                            clearInterval(this._serviceCooldownInterval);
+                            this._serviceCooldownInterval = null;
+                        } else {
+                            this._serviceCooldownLabel = `${remaining}s`;
+                        }
+                    }, 1000);
+                    
                     // Show review popup instead of direct redirect
                     const googleUrl = this.restaurantLandingPage.google_rating_url;
                     if (googleUrl) {
