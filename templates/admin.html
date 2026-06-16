@@ -4284,6 +4284,21 @@
         let controlModalActiveTableNum = null;
         let _serveLock = false; // Prevents double-click / Ruckeln on serve buttons
         let _serveLockTimer = null; // Minimum lock duration to prevent rapid re-clicks
+        let _optimisticServes = new Map(); // orderId -> Set of item_keys optimistically served
+        // Tracks optimistic serve updates so the poll doesn't overwrite them with stale server data
+        function _trackOptimisticServe(orderId, itemKey) {
+            if (!_optimisticServes.has(orderId)) _optimisticServes.set(orderId, new Set());
+            _optimisticServes.get(orderId).add(itemKey);
+            // Auto-expire after 5 seconds (server should have processed by then)
+            setTimeout(() => {
+                const set = _optimisticServes.get(orderId);
+                if (set) { set.delete(itemKey); if (set.size === 0) _optimisticServes.delete(orderId); }
+            }, 5000);
+        }
+        function _trackOptimisticServeAll(orderId) {
+            _optimisticServes.set(orderId, new Set(['__all__']));
+            setTimeout(() => { _optimisticServes.delete(orderId); }, 5000);
+        }
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
 
@@ -4734,6 +4749,8 @@
 
         async function serveControlItem(itemKey, orderId) {
             if (!_acquireServeLock()) return;
+            // Track optimistic serve so poll doesn't overwrite it
+            _trackOptimisticServe(orderId, itemKey);
             // Optimistic DOM Update
             allOrders.forEach(o => {
                 if (o.id === orderId && o.items) {
@@ -4825,6 +4842,8 @@
             tableOrders.forEach(o => {
                 if (o.items && o.items.some(i => (i.item_status || 'pending') !== 'delivered')) {
                     orderIds.push(o.id);
+                    // Track optimistic serve-all for each order
+                    _trackOptimisticServeAll(o.id);
                     o.items.forEach(i => {
                         if ((i.item_status || 'pending') !== 'delivered') {
                             i.item_status = 'delivered';
@@ -5275,7 +5294,47 @@
                 allOrders = allOrders.map(o => {
                     updatedIds.add(o.id);
                     if (liveOrdersMap[o.id]) {
-                        return liveOrdersMap[o.id]; // Use fresh live data
+                        const liveOrder = liveOrdersMap[o.id];
+                        // PROTECT optimistic serve updates from being overwritten by stale poll data.
+                        // If we recently served items optimistically but the server hasn't caught up yet,
+                        // preserve the local item_status instead of reverting to old server data.
+                        const pendingKeys = _optimisticServes.get(o.id);
+                        if (pendingKeys && pendingKeys.size > 0 && liveOrder.items && o.items) {
+                            const protectedOrder = { ...liveOrder };
+                            if (pendingKeys.has('__all__')) {
+                                // All items were optimistically served — keep all local statuses
+                                protectedOrder.items = liveOrder.items.map(liveItem => {
+                                    const localItem = o.items.find(i =>
+                                        String(i.product_id) === String(liveItem.product_id) &&
+                                        (i.note || '').trim() === (liveItem.note || '').trim()
+                                    );
+                                    if (localItem && localItem.item_status === 'delivered' && (liveItem.item_status || 'pending') !== 'delivered') {
+                                        return { ...liveItem, item_status: 'delivered' };
+                                    }
+                                    return liveItem;
+                                });
+                            } else {
+                                // Specific items were optimistically served — protect those
+                                protectedOrder.items = liveOrder.items.map(liveItem => {
+                                    const localItem = o.items.find(i =>
+                                        String(i.product_id) === String(liveItem.product_id) &&
+                                        (i.note || '').trim() === (liveItem.note || '').trim()
+                                    );
+                                    if (localItem && localItem.item_status === 'delivered' && (liveItem.item_status || 'pending') !== 'delivered') {
+                                        // Check if this local item matches any pending optimistic key
+                                        const noteSlug = (localItem.note || '').replace(/\s+/g, '_');
+                                        const prevStatus = liveItem.item_status || 'pending';
+                                        const key = `${localItem.product_id}_${noteSlug}_${prevStatus}`;
+                                        if (pendingKeys.has(key)) {
+                                            return { ...liveItem, item_status: 'delivered' };
+                                        }
+                                    }
+                                    return liveItem;
+                                });
+                            }
+                            return protectedOrder;
+                        }
+                        return liveOrder; // Use fresh live data
                     }
                     // Order was in allOrders but NOT in live API anymore.
                     // If it was still in an active state, it must have been
@@ -5455,6 +5514,8 @@
 
         async function notifServeItem(orderId, itemKey, btnEl) {
             if (!_acquireServeLock()) return;
+            // Track optimistic serve so poll doesn't overwrite it
+            _trackOptimisticServe(orderId, itemKey);
             // Optimistic UI update FIRST
             const order = allOrders.find(o => o.id === orderId);
             if (order) {
@@ -5490,6 +5551,8 @@
 
         async function notifServeAll(orderId, btnEl) {
             if (!_acquireServeLock()) return;
+            // Track optimistic serve-all so poll doesn't overwrite it
+            _trackOptimisticServeAll(orderId);
             // Optimistic UI update FIRST
             const order = allOrders.find(o => o.id === orderId);
             if (order && order.items) {
@@ -6340,6 +6403,8 @@
 
         async function setItemStatus(orderId, itemKey, newStatus) {
             if (!_acquireServeLock()) return;
+            // Track optimistic serve so poll doesn't overwrite it
+            if (newStatus === 'delivered') _trackOptimisticServe(orderId, itemKey);
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
                     method: 'POST',
