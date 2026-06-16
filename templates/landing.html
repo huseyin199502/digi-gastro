@@ -896,7 +896,15 @@
                 new URLSearchParams(window.location.search).has('pwa');
             if (!isStandalone) return;
             {% if is_logged_in %}
-            // Already logged in inside the PWA — nothing to do.
+            // Already logged in inside the PWA.
+            // Don't show the landing page — go straight to the dashboard
+            // so the owner lands on the Sitzplan when opening the app.
+            const target = "{{ login_target }}";
+            if (target && target.length > 0) {
+                // Use replace() so the landing page doesn't end up in the
+                // back-stack history (Back button would jump out of the app).
+                window.location.replace(target);
+            }
             return;
             {% else %}
             // Don't auto-open if the URL has a hash anchor (e.g. #features)
