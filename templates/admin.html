@@ -3866,6 +3866,7 @@
         
         const slug = "{{ slug }}";
         const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
+        function escHtml(s) { const d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
 
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
@@ -4341,8 +4342,8 @@
                                 <label class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/80 cursor-pointer border border-zinc-800/50 transition-colors">
                                     <input type="checkbox" value="${key}" class="custom-checkbox shrink-0">
                                     <div class="flex-1 min-w-0">
-                                        <div class="text-xs font-bold text-white truncate">${item.quantity}x ${item.name}</div>
-                                        ${item.note ? `<div class="text-[10px] text-amber-400 font-medium mt-0.5">✎ ${item.note}</div>` : ''}
+                                        <div class="text-xs font-bold text-white truncate">${item.quantity}x ${escHtml(item.name)}</div>
+                                        ${item.note ? `<div class="text-[10px] text-amber-400 font-medium mt-0.5">✎ ${escHtml(item.note)}</div>` : ''}
                                     </div>
                                     <span class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${statusBg}">${statusLabel}</span>
                                 </label>
@@ -4564,8 +4565,8 @@
                                     <span class="material-symbols-outlined text-base">check</span>
                                 </button>
                                 <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${item.name}</span>
-                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
+                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
@@ -4590,8 +4591,8 @@
                                        class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
                                 <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 font-black text-base select-none">done_all</span>
                                 <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${item.name}</span>
-                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${item.note}</span>` : ''}
+                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
+                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
                                 </div>
                             </div>
                             <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
@@ -4749,64 +4750,76 @@
 
         async function serveControlItem(itemKey, orderId) {
             if (!_acquireServeLock()) return;
-            // Track optimistic serve so poll doesn't overwrite it
-            _trackOptimisticServe(orderId, itemKey);
-            // Optimistic DOM Update
-            allOrders.forEach(o => {
-                if (o.id === orderId && o.items) {
-                    const parts = itemKey.split('_');
-                    if (parts.length >= 4 && parts[parts.length - 1].match(/^\d+$/)) {
-                        parts.pop();
+            try {
+                // Track optimistic serve so poll doesn't overwrite it
+                // Extract short key format from control-modal key (orderId_pid_noteSlug_status_idx)
+                const cmParts = itemKey.split('_');
+                let shortKey = itemKey;
+                if (cmParts.length >= 4 && cmParts[0] === String(orderId)) {
+                    // Remove orderId prefix and unit index suffix
+                    const withoutOrderId = cmParts.slice(1);
+                    if (/^\d+$/.test(withoutOrderId[withoutOrderId.length - 1])) {
+                        shortKey = withoutOrderId.slice(0, -1).join('_');
+                    } else {
+                        shortKey = withoutOrderId.join('_');
                     }
-                    if (parts.length >= 2 && parts[0] === String(orderId)) {
-                        parts.shift();
-                    }
-                    const cleanKey = parts.join('_');
-                    
-                    const matchedItem = o.items.find(i => {
-                        const noteSlug = (i.note || '').replace(/\s+/g, '_');
-                        const status = i.item_status || 'pending';
-                        return `${i.product_id}_${noteSlug}_${status}` === cleanKey;
-                    });
-                    
-                    if (matchedItem) {
-                        if (matchedItem.quantity > 1) {
-                            matchedItem.quantity -= 1;
-                            let delivered = o.items.find(i => {
-                                const noteSlug = (i.note || '').replace(/\s+/g, '_');
-                                return i.product_id === matchedItem.product_id && 
-                                       noteSlug === (matchedItem.note || '').replace(/\s+/g, '_') && 
-                                       i.item_status === 'delivered';
-                            });
-                            if (delivered) {
-                                delivered.quantity += 1;
-                            } else {
-                                o.items.push({
-                                    ...matchedItem,
-                                    quantity: 1,
-                                    item_status: 'delivered'
+                }
+                _trackOptimisticServe(orderId, shortKey);
+                // Optimistic DOM Update
+                allOrders.forEach(o => {
+                    if (o.id === orderId && o.items) {
+                        const parts = itemKey.split('_');
+                        if (parts.length >= 4 && parts[parts.length - 1].match(/^\d+$/)) {
+                            parts.pop();
+                        }
+                        if (parts.length >= 2 && parts[0] === String(orderId)) {
+                            parts.shift();
+                        }
+                        const cleanKey = parts.join('_');
+                        
+                        const matchedItem = o.items.find(i => {
+                            const noteSlug = (i.note || '').replace(/\s+/g, '_');
+                            const status = i.item_status || 'pending';
+                            return `${i.product_id}_${noteSlug}_${status}` === cleanKey;
+                        });
+                        
+                        if (matchedItem) {
+                            if (matchedItem.quantity > 1) {
+                                matchedItem.quantity -= 1;
+                                let delivered = o.items.find(i => {
+                                    const noteSlug = (i.note || '').replace(/\s+/g, '_');
+                                    return i.product_id === matchedItem.product_id && 
+                                           noteSlug === (matchedItem.note || '').replace(/\s+/g, '_') && 
+                                           i.item_status === 'delivered';
                                 });
-                            }
-                        } else {
-                            matchedItem.item_status = 'delivered';
-                            let delivered = o.items.find(i => {
-                                const noteSlug = (i.note || '').replace(/\s+/g, '_');
-                                return i !== matchedItem &&
-                                       i.product_id === matchedItem.product_id && 
-                                       noteSlug === (matchedItem.note || '').replace(/\s+/g, '_') && 
-                                       i.item_status === 'delivered';
-                            });
-                            if (delivered) {
-                                delivered.quantity += matchedItem.quantity;
-                                o.items = o.items.filter(i => i !== matchedItem);
+                                if (delivered) {
+                                    delivered.quantity += 1;
+                                } else {
+                                    o.items.push({
+                                        ...matchedItem,
+                                        quantity: 1,
+                                        item_status: 'delivered'
+                                    });
+                                }
+                            } else {
+                                matchedItem.item_status = 'delivered';
+                                let delivered = o.items.find(i => {
+                                    const noteSlug = (i.note || '').replace(/\s+/g, '_');
+                                    return i !== matchedItem &&
+                                           i.product_id === matchedItem.product_id && 
+                                           noteSlug === (matchedItem.note || '').replace(/\s+/g, '_') && 
+                                           i.item_status === 'delivered';
+                                });
+                                if (delivered) {
+                                    delivered.quantity += matchedItem.quantity;
+                                    o.items = o.items.filter(i => i !== matchedItem);
+                                }
                             }
                         }
                     }
-                }
-            });
-            refreshControlModal();
+                });
+                refreshControlModal();
 
-            try {
                 const res = await fetch('/admin/orders/serve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4817,7 +4830,7 @@
                     checkLiveTischeUpdates();
                 }
             } catch (e) {
-                showToast("Verbindungsfehler beim Servieren", "error");
+                showToast("Fehler beim Servieren", "error");
                 checkLiveTischeUpdates();
             } finally {
                 _releaseServeLock();
@@ -5379,7 +5392,15 @@
                 if (activeOrderId) {
                     const freshOrder = allOrders.find(o => o.id === activeOrderId);
                     if (freshOrder) {
-                        renderPopup(freshOrder);
+                        if (freshOrder.status === 'bezahlt' || freshOrder.status === 'storniert') {
+                            closePopup();
+                            showToast('Bestellung wurde bereits abgeschlossen', 'info');
+                        } else {
+                            renderPopup(freshOrder);
+                        }
+                    } else {
+                        closePopup();
+                        showToast('Bestellung nicht mehr vorhanden', 'info');
                     }
                 }
             } catch (e) {
@@ -5433,7 +5454,7 @@
                     
                     return `<span class="notif-item ${isServed ? 'item-served' : ''}" data-order-id="${order.id}" data-item-key="${key}">
                         <span class="item-qty">${item.quantity}×</span>
-                        <span class="item-name" title="${item.name}${item.note ? ' ('+item.note+')' : ''}">${item.name}</span>
+                        <span class="item-name" title="${escHtml(item.name)}${item.note ? ' ('+escHtml(item.note)+')' : ''}">${escHtml(item.name)}</span>
                         ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}', this)" title="Als serviert markieren">✓</button>` : ''}
                     </span>`;
                 }).join('');
@@ -6388,9 +6409,9 @@
                                 ${checkboxHtml}
                                 <div style="flex:1;min-width:0;">
                                     <div class="item-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                        ${checkmarks}${item.name}
+                                        ${checkmarks}${escHtml(item.name)}
                                     </div>
-                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${item.note}</div>` : ''}
+                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${escHtml(item.note)}</div>` : ''}
                                 </div>
                                 <div style="display:flex;align-items:center;gap:.5rem;">
                                     ${actionBtn}
@@ -6645,9 +6666,9 @@
                             <div class="item-row" style="cursor: default;">
                                 <div style="flex:1;min-width:0;">
                                     <div class="item-name">
-                                        ✔️ ${item.name}
+                                        ✔️ ${escHtml(item.name)}
                                     </div>
-                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${item.note}</div>` : ''}
+                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${escHtml(item.note)}</div>` : ''}
                                 </div>
                                 <div style="display:flex;align-items:center;gap:.5rem;">
                                     <div class="item-price" style="margin-right:.5rem;">

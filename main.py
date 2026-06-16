@@ -113,11 +113,19 @@ class ConnectionManager:
 
     async def broadcast(self, slug: str, message: dict):
         if slug in self.active_connections:
+            dead = []
             for connection in self.active_connections[slug]:
                 try:
                     await connection.send_json(message)
                 except Exception:
+                    dead.append(connection)
+            for d in dead:
+                try:
+                    self.active_connections[slug].remove(d)
+                except ValueError:
                     pass
+            if slug in self.active_connections and not self.active_connections[slug]:
+                del self.active_connections[slug]
 
 manager = ConnectionManager()
 
@@ -2490,8 +2498,12 @@ def post_tenant_erstellen(request: Request, name: str = Form(...), slug: str = F
     tenant["is_setup_completed"] = False
     tenant["is_onboarded"] = False
     
-    save_restaurant_to_db(slug_lower, tenant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug_lower, tenant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     
     success_msg = f"Konto erfolgreich erstellt! <br><b>Login:</b> {slug_lower}@digi-gastro.de <br><b>Passwort:</b> {generated_pw}"
     return RedirectResponse(url=f"/digi-gastro-admin?success={urllib.parse.quote(success_msg)}", status_code=303)
@@ -3205,8 +3217,12 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         active_order["status"] = "eingegangen"  # Mark as eingegangen so it blinks orange again
         active_order["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        try:
+            save_restaurant_to_db(slug, restaurant, db)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         await manager.broadcast(slug, {"type": "new_order", "order_id": active_order["id"], "table_number": table_num, "status": "eingegangen"})
         return {"success": True, "order_id": active_order["id"]}
 
@@ -3226,8 +3242,12 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     }
     
     restaurant["orders"].append(new_order)
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "new_order", "order_id": new_order.get("id"), "table_number": table_num, "status": "eingegangen"})
     return {"success": True, "order_id": new_order.get("id")}
 
@@ -3681,16 +3701,20 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
+    VALID_ITEM_STATUSES = {"pending", "confirmed", "delivered"}
+
 def parse_item_key(item_key: str):
-    """Splits composite key into (product_id_str, note_slug, status_str)."""
+    """Splits composite key into (product_id_str, note_slug, status_str).
+    Parses from the right since status is always from a known set,
+    which makes the note_slug robust against underscores in notes."""
     key_parts = item_key.split("_")
     pid_str = key_parts[0]
-    if len(key_parts) >= 3:
+    if len(key_parts) >= 2 and key_parts[-1] in VALID_ITEM_STATUSES:
         status_str = key_parts[-1]
         note_slug = "_".join(key_parts[1:-1])
     else:
         status_str = None
-        note_slug = key_parts[1] if len(key_parts) > 1 else ""
+        note_slug = "_".join(key_parts[1:])
     return pid_str, note_slug, status_str
 
 def merge_duplicate_order_items(order):
@@ -4431,8 +4455,12 @@ def get_onboarding(request: Request, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     restaurant["is_setup_completed"] = True
     restaurant["is_onboarded"] = True
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return RedirectResponse(url="/admin/dashboard")
 
 @app.post("/admin/onboarding")
@@ -4482,8 +4510,12 @@ def post_onboarding(
     
     resp = RedirectResponse(url="/admin", status_code=303)
     resp.set_cookie(key="session", value=f"{slug}:{chef_name}:chef:{chef_pin}", httponly=True, max_age=31536000)
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return resp
 
 @app.get("/admin/impersonate/{table_number}")
@@ -4791,8 +4823,12 @@ def post_login(
             if not staff_list and pin_str == "1111":
                 staff_list = [{"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"}]
                 restaurant["staff"] = staff_list
-                save_restaurant_to_db(slug, restaurant, db)
-                db.commit()
+                try:
+                    save_restaurant_to_db(slug, restaurant, db)
+                    db.commit()
+                except Exception as e:
+                    db.rollback()
+                    raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
                 
             employee = next((s for s in staff_list if str(s.get("pin_code", s.get("pin"))) == pin_str), None)
             if employee:
@@ -4923,8 +4959,12 @@ async def create_table(
         restaurant["tables"].append(table_entry)
         
         restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
@@ -4941,8 +4981,12 @@ async def delete_table(request: Request, table_num: str, zone: Optional[str] = N
             restaurant["tables"] = [t for t in restaurant["tables"] if t["number"] != table_num]
         restaurant["tables"] = sort_tables_in_grid(restaurant["tables"])
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
@@ -5008,8 +5052,12 @@ async def profile_update(
             
     restaurant["categories"] = categories
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
@@ -5031,8 +5079,12 @@ async def save_sitzplan_positions(request: Request, payload: dict, chef_data: tu
             t["height"] = float(payload[payload_key].get("height", t.get("height", 80.0)))
             t["shape"] = str(payload[payload_key].get("shape", t.get("shape", "rect")))
 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "refresh_tables"})
     return {"success": True}
 
@@ -5060,8 +5112,12 @@ async def create_category(
     
     if cat and cat not in restaurant["categories"]:
         restaurant["categories"].append(cat)
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
@@ -6000,7 +6056,7 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
 def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     unpaid_sum = 0.0
-    t_num = str(table_num).replace("Tisch", "").strip()
+    t_num, t_zone = parse_active_table_num(str(table_num))
     
     # Parse guest session cookie to get zone + token
     cookie_zone = ""
@@ -6058,8 +6114,12 @@ def add_staff(request: Request, staff_name: str = Form(...), role: str = Form(..
         "pin": pin_str,
         "pin_code": pin_str
     })
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/staff-loeschen/{pin_code}")
@@ -6069,8 +6129,12 @@ def delete_staff(request: Request, pin_code: str, chef_data: tuple = Depends(req
         return RedirectResponse(url="/admin/setup", status_code=303)
         
     restaurant["staff"] = [s for s in restaurant.get("staff", []) if str(s.get("pin_code")) != str(pin_code).strip()]
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/branding")
@@ -6124,8 +6188,12 @@ async def update_branding(
     if theme:
         restaurant["theme"] = theme
     update_legal_placeholders(restaurant)
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
@@ -6492,8 +6560,12 @@ async def update_landingpage(
         "custom_sections": cleaned_custom_sections
     }
     
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
@@ -6587,8 +6659,12 @@ async def delete_landing_image(
                 except Exception as e:
                     print(f"[Cleanup] Failed to delete file {full_path}: {e}")
                 
-    save_restaurant_to_db(slug, restaurant, db)
-    db.commit()
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
@@ -6606,7 +6682,8 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
         try:
             c_table, c_tok = session_val.split(":", 1)
             c_clean_num, c_clean_zone = parse_active_table_num(c_table)
-            if c_clean_num != str(table_num).strip():
+            raw_num, raw_zone = parse_active_table_num(str(table_num))
+            if c_clean_num != raw_num:
                 is_valid = False
             else:
                 c_token = c_tok
@@ -6623,22 +6700,22 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     if c_token:
         if cookie_zone:
             # Security: Only accept active_session_token for customer access
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone and t.get("active_session_token") == c_token), None)
+            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num and t.get("zone") == cookie_zone and t.get("active_session_token") == c_token), None)
         if not db_table:
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("active_session_token") == c_token), None)
+            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num and t.get("active_session_token") == c_token), None)
     if not db_table:
         if cookie_zone:
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip() and t.get("zone") == cookie_zone), None)
+            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num and t.get("zone") == cookie_zone), None)
         if not db_table:
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(table_num).strip()), None)
+            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num), None)
         
     zone = db_table.get("zone", "") if db_table else ""
-    target_table_name = f"Tisch {table_num} ({zone})" if zone else f"Tisch {table_num}"
+    target_table_name = f"Tisch {raw_num} ({zone})" if zone else f"Tisch {raw_num}"
     table_orders = []
 
     
     for o in restaurant.get("orders", []):
-        if (o.get("table") == target_table_name or str(o.get("table")).strip() == str(table_num).strip() or str(o.get("table")).strip() == target_table_name.strip()) and o.get("status") not in ["bezahlt", "storniert"]:
+        if (o.get("table") == target_table_name or str(o.get("table")).strip() == raw_num or str(o.get("table")).strip() == target_table_name.strip()) and o.get("status") not in ["bezahlt", "storniert"]:
             table_orders.append(o)
 
             
@@ -7599,8 +7676,12 @@ def generate_images(chef_data: tuple = Depends(require_chef_user_flat), db: Sess
             updated_count += 1
             
     if updated_count > 0:
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        try:
+            save_restaurant_to_db(slug, restaurant, db)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     return JSONResponse({"success": True, "updated_count": updated_count})
 
@@ -7617,8 +7698,12 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
     if not restaurant.get("is_setup_completed", False):
         restaurant["is_setup_completed"] = True
         restaurant["is_onboarded"] = True
-        save_restaurant_to_db(slug, restaurant, db)
-        db.commit()
+        try:
+            save_restaurant_to_db(slug, restaurant, db)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     paid_orders = [o for o in restaurant.get("orders", []) if o.get("status") == "bezahlt"]
     price_mode = restaurant.get("price_mode", "brutto")

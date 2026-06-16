@@ -1558,7 +1558,7 @@
                 },
 
                 get cartTotal() {
-                    return this.cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                    return this.cart.reduce((acc, i) => acc + ((i.price || 0) * (i.quantity || 0)), 0);
                 },
 
                 get cartCount() {
@@ -1985,7 +1985,7 @@
                         }
                         
                         // Block payment request when there's nothing to pay
-                        if (this.currentPaymentSubtotal <= 0) {
+                        if (!this.currentPaymentSubtotal || isNaN(this.currentPaymentSubtotal) || this.currentPaymentSubtotal <= 0) {
                             showToast("Du musst zuerst etwas bestellen, bevor du die Rechnung anfordern kannst.", "info");
                             return;
                         }
@@ -2002,7 +2002,7 @@
                         this.currentPaymentSubtotal = this.cartTotal;
                         
                         // Block payment request when there's nothing to pay
-                        if (this.currentPaymentSubtotal <= 0) {
+                        if (!this.currentPaymentSubtotal || isNaN(this.currentPaymentSubtotal) || this.currentPaymentSubtotal <= 0) {
                             showToast("Du musst zuerst etwas bestellen, bevor du die Rechnung anfordern kannst.", "info");
                             return;
                         }
@@ -2225,7 +2225,7 @@
 
                 async fetchAdminDrawerState() {
                     try {
-                        const rawTable = getTableFromUrl();
+                        const rawTable = getTableFromUrl() || "{{ table }}";
                         if (!rawTable) return;
                         // Build table identifiers to match (with and without zone)
                         const cleanNum = String(rawTable).replace(/^Tisch\s*/i, '').split('(')[0].trim();
@@ -2349,7 +2349,7 @@
 
                 async fetchGuestTableStatus() {
                     try {
-                        const tableNum = getTableFromUrl();
+                        const tableNum = getTableFromUrl() || "{{ table }}";
                         if (!tableNum) return;
                         
                         const res = await fetch(`/api/{{ slug }}/table-status/${encodeURIComponent(tableNum)}`);
