@@ -303,8 +303,8 @@
 <body class="bg-obsidian text-zinc-100 font-sans min-h-screen relative overflow-x-hidden">
 
     <!-- PRELOADER -->
-    <div id="preloader" class="fixed inset-0 bg-zinc-950 z-50 flex flex-col items-center justify-center transition-all duration-500 ease-in-out">
-        <div class="flex flex-col items-center gap-4">
+    <div id="preloader" class="fixed inset-0 bg-zinc-950 z-[100] flex flex-col items-center justify-center transition-opacity duration-500 ease-in-out pointer-events-none" style="opacity:1">
+        <div class="flex flex-col items-center gap-4 pointer-events-none">
             <div class="relative w-16 h-16 flex items-center justify-center">
                 <div class="absolute inset-0 rounded-2xl border border-gold-500/20 border-t-gold-500 animate-spin"></div>
                 <span class="material-symbols-outlined text-gold-500 text-3xl font-light animate-pulse">restaurant</span>
@@ -319,7 +319,7 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- NAVIGATION -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-50 transition-all duration-300">
+    <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-[60] transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
@@ -336,12 +336,17 @@
                 <i class="fa-solid fa-bars text-lg"></i>
             </button>
             <div class="flex items-center gap-2 sm:gap-4">
-                <button onclick="openLogin()" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors py-2.5 px-2 sm:px-3 rounded-lg hover:bg-zinc-800/40">
-                    <i class="fa-solid fa-right-to-bracket text-[11px] text-gold-500/90"></i>
+                <button onclick="openLogin()" 
+                        class="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-colors min-h-[44px] min-w-[44px] px-2 sm:px-3 rounded-lg hover:bg-zinc-800/40 active:bg-zinc-800/60 active:scale-95 touch-manipulation relative z-10"
+                        style="-webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;">
+                    <i class="fa-solid fa-right-to-bracket text-[13px] text-gold-500"></i>
                     <span class="hidden sm:inline">Partner-Login</span>
                     <span class="sm:hidden">Login</span>
                 </button>
-                <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold text-xs px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold">Demo</a>
+                <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" 
+                   target="_blank" rel="noopener" 
+                   class="btn-gold text-xs px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold min-h-[44px] flex items-center active:scale-95 touch-manipulation"
+                   style="-webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;">Demo</a>
             </div>
         </div>
     </nav>
@@ -1026,14 +1031,29 @@
     <!-- PRELOADER, SCROLL, CONSENT, PARALLAX -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <script>
-        // Preloader
-        window.addEventListener('load', () => {
+        // Preloader — robust against PWA load-event race condition.
+        // In iOS PWAs the 'load' event can fire BEFORE this script registers
+        // the listener (page comes from cache, very fast). The preloader then
+        // stays visible forever and blocks all taps on the nav.
+        // Fix: check readyState immediately + multiple fallbacks.
+        function killPreloader() {
             const preloader = document.getElementById('preloader');
-            if (preloader) {
-                preloader.classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => preloader.remove(), 550);
-            }
-        });
+            if (!preloader) return;
+            preloader.style.opacity = '0';
+            preloader.style.pointerEvents = 'none';
+            setTimeout(() => {
+                if (preloader && preloader.parentNode) preloader.parentNode.removeChild(preloader);
+            }, 550);
+        }
+        // Case 1: Page already fully loaded (cache hit, PWA cold start).
+        if (document.readyState === 'complete') {
+            killPreloader();
+        } else {
+            // Case 2: Still loading — register listener.
+            window.addEventListener('load', killPreloader);
+            // Case 3: Fallback — kill after 3s no matter what.
+            setTimeout(killPreloader, 3000);
+        }
 
         // Navbar scroll
         window.addEventListener('scroll', () => {
