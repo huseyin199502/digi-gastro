@@ -190,7 +190,8 @@
     {% else %}
 
     <!-- Top Navigation Bar / Header -->
-    <header class="grid grid-cols-3 items-center px-4 sm:px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant">
+    <header class="grid grid-cols-3 items-center px-4 sm:px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
+            style="padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
         <div class="flex justify-start">
             {% if restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}">

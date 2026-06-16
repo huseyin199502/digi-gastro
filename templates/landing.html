@@ -319,7 +319,8 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- NAVIGATION -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-[60] transition-all duration-300">
+    <nav class="border-b border-zinc-800/40 bg-zinc-950/70 backdrop-blur-xl sticky top-0 z-[60] transition-all duration-300"
+         style="padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
@@ -350,8 +351,9 @@
             </div>
         </div>
     </nav>
-    <!-- Mobile Menu Dropdown -->
-    <div id="mobile-menu" class="hidden md:hidden fixed top-16 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800/60 py-4 px-6 space-y-4">
+    <!-- Mobile Menu Dropdown — positioned below nav + safe-area-inset-top -->
+    <div id="mobile-menu" class="hidden md:hidden fixed left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800/60 py-4 px-6 space-y-4"
+         style="top: calc(4rem + env(safe-area-inset-top));">
         <a href="#features" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Features</a>
         <a href="#demo" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Live-Demo</a>
         <a href="#faq" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">FAQ</a>
