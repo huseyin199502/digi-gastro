@@ -5887,6 +5887,115 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/{slug}/products-lite")
+def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)):
+    """Lightweight product data endpoint for real-time WebSocket updates.
+    Returns only the fields that can change (price, availability, happy hour status)
+    without rendering the entire page template. ~2KB vs ~200KB full page."""
+    restaurant = get_restaurant_or_raise(slug, db)
+    
+    # Process Events (same logic as menu page)
+    berlin_now = get_berlin_now()
+    now_time = berlin_now.strftime("%H:%M")
+    weekday_idx = berlin_now.weekday()
+    days_names = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
+    
+    events = restaurant.get("events", [])
+    active_categories = restaurant.get("categories", [])
+    price_mode = restaurant.get("price_mode", "brutto")
+    
+    # Determine active events
+    for ev in events:
+        if not ev.get("is_active", True):
+            ev["_is_currently_active"] = False
+            continue
+        ev_days = ev.get("days", [])
+        ev_start = ev.get("start_time", "18:00")
+        ev_end = ev.get("end_time", "20:00")
+        is_today = any(day in ev_days for day in possible_days)
+        is_active_now = is_today and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
+        ev["_is_currently_active"] = is_active_now
+    
+    # Build lightweight product list
+    products_lite = []
+    for p in restaurant.get("products", []):
+        if p.get("category") not in active_categories:
+            continue
+        
+        is_hh_active = False
+        display_price = p.get("price", 0)
+        active_event = None
+        
+        # Price mode conversion
+        if price_mode == "netto":
+            cat_type = p.get("category_type", "küche").lower()
+            mwst_factor = 1.19 if cat_type == "bar" else 1.07
+            display_price = round(display_price / mwst_factor, 2)
+        
+        # Event pricing
+        for ev in events:
+            if not ev.get("is_active", True) or not ev.get("_is_currently_active", False):
+                continue
+            
+            event_products = ev.get("products", [])
+            if event_products:
+                matched_ep = next((ep for ep in event_products if ep.get("product_id") == p.get("id")), None)
+                if matched_ep and matched_ep.get("event_price") is not None:
+                    is_hh_active = True
+                    event_price_val = matched_ep["event_price"]
+                    if price_mode == "netto":
+                        cat_type = p.get("category_type", "küche").lower()
+                        mwst_factor = 1.19 if cat_type == "bar" else 1.07
+                        event_price_val = round(event_price_val / mwst_factor, 2)
+                    display_price = event_price_val
+                    active_event = {"name": ev["name"], "display_name": ev.get("display_name", "")}
+                    break
+            elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
+                is_hh_active = True
+                discount_factor = (100 - ev["discount"]) / 100.0
+                display_price = round(p["price"] * discount_factor, 2)
+                if price_mode == "netto":
+                    cat_type = p.get("category_type", "küche").lower()
+                    mwst_factor = 1.19 if cat_type == "bar" else 1.07
+                    display_price = round(display_price / mwst_factor, 2)
+                active_event = {"name": ev["name"], "display_name": ev.get("display_name", "")}
+                break
+        
+        products_lite.append({
+            "id": p.get("id"),
+            "is_available": p.get("is_available", True),
+            "price": display_price,
+            "is_hh_active": is_hh_active,
+            "active_event": active_event,
+            "category": p.get("category", "")
+        })
+    
+    # Check if any event is active (for banner)
+    any_event_active = any(ev.get("_is_currently_active", False) for ev in events if ev.get("is_active", True))
+    active_events_info = []
+    for ev in events:
+        if ev.get("is_active", True) and ev.get("_is_currently_active", False):
+            active_events_info.append({
+                "name": ev.get("name", ""),
+                "display_name": ev.get("display_name", ""),
+                "mode": ev.get("mode", "selected"),
+                "discount": ev.get("discount", 0)
+            })
+    
+    # Clean up temporary flags
+    for ev in events:
+        ev.pop("_is_currently_active", None)
+    
+    return {
+        "products": products_lite,
+        "any_event_active": any_event_active,
+        "active_events": active_events_info,
+        "server_time": berlin_now.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
 @app.get("/api/{slug}/table-unpaid-sum/{table_num}")
 def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
