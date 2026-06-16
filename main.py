@@ -1330,6 +1330,59 @@ def parse_active_table_num(active_table_num: str):
         clean_num = clean_num[:idx_paren].strip()
     return clean_num, clean_zone
 
+
+def _maybe_rotate_table_session_token(restaurant, order_table_str):
+    """
+    Option B (Token-Rotation): Rotiert den active_session_token eines Tisches,
+    ABER NUR dann, wenn der Tisch nach dieser Finalisierung (bezahlt/storniert)
+    KEINE offenen Bestellungen mehr hat.
+
+    Zweck:
+      - Gäste, die bereits gegangen sind, können mit ihrem alten Cookie nicht
+        mehr bestellen (Cookie-Wert stimmt nicht mehr mit DB überein → 403).
+      - Gäste, die noch am Tisch sitzen (z.B. getrennte Bestellungen, eine
+        bezahlt, eine noch offen), behalten ihre Session — Cookie bleibt gültig.
+
+    WICHTIG — bestehende QR-Codes bleiben gültig:
+      Diese Funktion verändert ausschließlich `active_session_token` (den
+      dynamischen Session-Token im Cookie). Sie berührt NICHT:
+        - `restaurant["security_token"]` (Master-Token des Tenants)
+        - `db_table["security_token"]` (printed_token = der Token, der in den
+          ausgedruckten QR-Codes steht und nie geändert werden darf)
+      QR-Codes, die bereits im Laden hängen, funktionieren also weiterhin.
+    """
+    if not order_table_str:
+        return
+    _num, _zone = parse_active_table_num(str(order_table_str))
+    if not _num:
+        return
+    # Mögliche Tisch-Strings in der DB (mit und ohne Zone)
+    possible_tables = [f"Tisch {_num}"]
+    if _zone:
+        possible_tables.insert(0, f"Tisch {_num} ({_zone})")
+    # Hat der Tisch noch andere offene Bestellungen?
+    has_open = any(
+        o.get("table") in possible_tables
+        and o.get("status") not in ["bezahlt", "storniert"]
+        for o in restaurant.get("orders", [])
+    )
+    if has_open:
+        return  # Nicht rotieren — andere Gäste sitzen noch am Tisch
+    # Tisch-Datensatz finden und Token rotieren
+    tables_list = restaurant.get("tables", [])
+    db_table = None
+    if _zone:
+        db_table = next((t for t in tables_list
+                         if str(t.get("number")) == _num
+                         and t.get("zone") == _zone), None)
+    if not db_table:
+        db_table = next((t for t in tables_list
+                         if str(t.get("number")) == _num), None)
+    if db_table:
+        import secrets
+        db_table["active_session_token"] = secrets.token_hex(4)
+
+
 def require_user_and_slug(request: Request, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -2721,21 +2774,25 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 return RedirectResponse(url=f"/{slug}/sitz-expired", status_code=303)
             
             if not open_orders:
-                # Table is FREE! Dynamic session initialization for new guest
-                import secrets
-                new_session_tok = secrets.token_hex(4)
-                db_table["active_session_token"] = new_session_tok
-                
-                # Update DB synchronously
-                db = SessionLocal()
-                try:
-                    save_restaurant_to_db(slug, restaurant, db)
-                    db.commit()
-                finally:
-                    db.close()
-                    
+                # Table is FREE — but we DO NOT rotate the token on every scan!
+                # Option B: Token wird einmalig erzeugt (falls noch nicht vorhanden)
+                # und dann für alle Scanner am selben Tisch beibehalten.
+                # Rotation passiert NUR nach Bezahlen/Stornieren (siehe _maybe_rotate_table_session_token).
+                # Das verhindert die 403-Fehler, die entstanden, wenn mehrere Gäste
+                # nacheinander denselben QR-Code gescannt haben.
+                if not active_session_tok:
+                    import secrets
+                    active_session_tok = secrets.token_hex(4)
+                    db_table["active_session_token"] = active_session_tok
+                    # Update DB synchronously — nur beim ersten Mal nötig
+                    db = SessionLocal()
+                    try:
+                        save_restaurant_to_db(slug, restaurant, db)
+                        db.commit()
+                    finally:
+                        db.close()
                 table = table_display_name
-                token = new_session_tok
+                token = active_session_tok
                 reset_session = True
             else:
                 # Table is NOT free (active session). Join session.
@@ -3430,14 +3487,12 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         restaurant["tagesumsatz"] += order["total"]
         restaurant["bestellungen_gesamt"] += 1
         
-        # NOTE: We intentionally do NOT rotate active_session_token on payment.
-        # Rotating it kills the customer's cookie, forcing them to re-scan the QR
-        # code if they want to order more after paying (e.g. dessert after paying for drinks).
-        # The token is automatically rotated when a NEW customer scans the QR code
-        # while the table is free (see menu route line ~2723), which is the correct
-        # place for rotation. Security is preserved: active_session_token is still
-        # required for ordering, and a photographed QR code alone is useless without
-        # the active_session_token stored in the cookie.
+        # Option B: Rotate active_session_token IF the table has no more open orders.
+        # This invalidates cookies of guests who have left, while preserving cookies
+        # of any remaining guests at the same table (e.g. split-table scenario).
+        # CRITICAL: Does NOT touch printed_token/security_token — printed QR codes
+        # remain valid. Only the dynamic active_session_token (stored in cookie) rotates.
+        _maybe_rotate_table_session_token(restaurant, order.get("table"))
         
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -3509,10 +3564,8 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
     if not order["items"]:
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] += 1
-        
-    # NOTE: No token rotation on split payment — see pay_order() for rationale.
-    # The old code rotated active_session_token when order became "bezahlt",
-    # which killed the customer's cookie and forced a re-scan.
+        # Option B: Rotate active_session_token IF the table has no more open orders.
+        _maybe_rotate_table_session_token(restaurant, order.get("table"))
 
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -3639,16 +3692,10 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
         
     order["status"] = "storniert"
     
-    # Rotate table active session token upon cancellation to clear session
-    # DISABLED: Same rationale as payment — rotating kills the customer's
-    # cookie and forces a re-scan. The next QR scan on a free table rotates
-    # automatically, so this is redundant and harmful to UX.
-    # _rot_num, _rot_zone = parse_active_table_num(str(order["table"]))
-    # tables_list = restaurant.get("tables", [])
-    # db_table = next((t for t in tables_list if str(t.get("number")) == _rot_num and (not _rot_zone or t.get("zone") == _rot_zone)), None)
-    # if db_table:
-    #     import secrets
-    #     db_table["active_session_token"] = secrets.token_hex(4)
+    # Option B: Rotate active_session_token IF the table has no more open orders.
+    # See _maybe_rotate_table_session_token() for full rationale.
+    # CRITICAL: Does NOT touch printed_token/security_token — printed QR codes remain valid.
+    _maybe_rotate_table_session_token(restaurant, order.get("table"))
     
     log_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -3843,7 +3890,8 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     if not order["items"]:
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
-        # NOTE: No token rotation — see pay_order() for rationale.
+        # Option B: Rotate active_session_token IF the table has no more open orders.
+        _maybe_rotate_table_session_token(restaurant, order.get("table"))
     else:
         update_order_status_by_items(order)
 
@@ -3922,7 +3970,8 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
     if not order["items"]:
         order["status"] = "bezahlt"
         restaurant["bestellungen_gesamt"] = restaurant.get("bestellungen_gesamt", 0) + 1
-        # NOTE: No token rotation — see pay_order() for rationale.
+        # Option B: Rotate active_session_token IF the table has no more open orders.
+        _maybe_rotate_table_session_token(restaurant, order.get("table"))
     else:
         update_order_status_by_items(order)
 
@@ -4144,7 +4193,8 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
 
     if not order["items"]:
         order["status"] = "storniert"
-        # NOTE: No token rotation — see pay_order() for rationale.
+        # Option B: Rotate active_session_token IF the table has no more open orders.
+        _maybe_rotate_table_session_token(restaurant, order.get("table"))
     else:
         update_order_status_by_items(order)
 
@@ -4238,7 +4288,8 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
     if not order["items"]:
         order["status"] = "storniert"
-        # NOTE: No token rotation — see pay_order() for rationale.
+        # Option B: Rotate active_session_token IF the table has no more open orders.
+        _maybe_rotate_table_session_token(restaurant, order.get("table"))
     else:
         update_order_status_by_items(order)
 
@@ -6651,6 +6702,12 @@ async def delete_landing_image(
 def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
+    # Parse the requested table_num ONCE, UPFRONT — so raw_num is always available
+    # even when no guest cookie is present (e.g. admin "Vorschau" preview mode,
+    # where table_num may be the literal string "Vorschau").
+    # This fixes the NameError on raw_num that previously caused 500 errors.
+    raw_num, raw_zone = parse_active_table_num(str(table_num))
+    
     # Session verification cookie check
     cookie_name = f"guest_session_{slug}"
     session_val = request.cookies.get(cookie_name)
@@ -6661,7 +6718,6 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
         try:
             c_table, c_tok = session_val.split(":", 1)
             c_clean_num, c_clean_zone = parse_active_table_num(c_table)
-            raw_num, raw_zone = parse_active_table_num(str(table_num))
             if c_clean_num != raw_num:
                 is_valid = False
             else:

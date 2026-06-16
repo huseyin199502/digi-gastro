@@ -5113,6 +5113,15 @@
                 }
                 pollInterval = setInterval(checkLiveTischeUpdates, 5000);
                 checkLiveTischeUpdates();
+                // ── WS-RECONNECT CATCH-UP ──
+                // Wenn der WS kurz getrennt war (z.B. 5-30s), konnten wir Broadcasts
+                // für neue Bestellungen / Service-Rufe verpassen. Die Polling-Fallback
+                // hat die UI zwar aktuell gehalten, aber der SOUND fehlt für Bestellungen,
+                // die während der Trennung reingekommen sind — weil seenOrderIds nur
+                // IDs speichert, für die wir einen WS-Message gesehen haben.
+                // Hier holen wir den aktuellen Stand und spielen für alle "eingegangen"-
+                // Bestellungen, die wir noch nicht gesehen haben, den Sound nach.
+                catchUpMissedAlerts();
                 
                 pongReceived = true;
                 if (wsHeartbeatInterval) clearInterval(wsHeartbeatInterval);
@@ -5182,6 +5191,42 @@
                 console.error("Admin WebSocket error:", err);
                 ws.close();
             };
+        }
+
+        /**
+         * WS-Reconnect Catch-Up:
+         * Wird bei jedem erfolgreichen WS-(Re)connect aufgerufen. Prüft alle
+         * aktuellen Bestellungen und Service-Rufe gegen die seenOrderIds /
+         * seenCallIds Sets. Für alle "eingegangen"-Bestellungen und Service-Rufe,
+         * die während der WS-Trennung reingekommen sind, wird der Sound nachgespielt
+         * und die ID zum seen-Set hinzugefügt.
+         *
+         * Verhindert, dass der Admin eine Bestellung akustisch verpasst, wenn der
+         * WS für ein paar Sekunden unterbrochen war (z.B. Netzwerk-Wackler,
+         * Server-Restart, Tab im Hintergrund).
+         */
+        function catchUpMissedAlerts() {
+            if (!initialDone) return;
+            fetch(`/api/tablet-status`)
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (!data) return;
+                    (data.orders || []).forEach(o => {
+                        if (o.status === 'eingegangen' && !seenOrderIds.has(o.id)) {
+                            console.log("WS-Reconnect catch-up: playing sound for missed order #" + o.id);
+                            playNewOrderSound();
+                            seenOrderIds.add(o.id);
+                        }
+                    });
+                    (data.service_calls || []).forEach(c => {
+                        if (!seenCallIds.has(c.id)) {
+                            console.log("WS-Reconnect catch-up: playing sound for missed service call #" + c.id);
+                            playServiceSound();
+                            seenCallIds.add(c.id);
+                        }
+                    });
+                })
+                .catch(err => console.warn("catchUpMissedAlerts fetch failed:", err));
         }
 
         function startFallbackPolling() {

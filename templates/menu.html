@@ -879,9 +879,12 @@
             <!-- Checkout actions -->
             <div class="shrink-0 font-display">
                 {% if table and not token_error %}
-                    <button onclick="submitOrder()" class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider">
-                        <span class="material-symbols-outlined text-lg">send</span>
-                        <span data-translate="order_pay">Jetzt bestellen</span>
+                    <button id="submit-order-btn" onclick="submitOrder()" :disabled="isSubmitting"
+                        class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider disabled:opacity-60 disabled:cursor-wait">
+                        <span x-show="!isSubmitting" class="material-symbols-outlined text-lg">send</span>
+                        <span x-show="isSubmitting" class="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                        <span x-show="!isSubmitting" data-translate="order_pay">Jetzt bestellen</span>
+                        <span x-show="isSubmitting" data-translate="order_sending">Wird gesendet…</span>
                     </button>
                 {% else %}
                     <button disabled class="w-full bg-surface-container-high text-on-surface-variant/20 h-[78px] rounded-2xl flex items-center justify-center space-x-2 cursor-not-allowed border border-outline-variant text-sm md:text-base font-black uppercase tracking-wider">
@@ -1256,6 +1259,10 @@
                     } catch(e) {}
                     return [];
                 })(),
+                // Debounce / Button-Sperre für submitOrder() — verhindert, dass
+                // schnelles Mehrfachklicken ("200-Artikel-Bug") mehrere Requests
+                // gleichzeitig abschickt. Siehe submitOrder() weiter unten.
+                isSubmitting: false,
                 currentLang: 'de',
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
@@ -2140,6 +2147,24 @@
                 },
 
                 submitOrder() {
+                    // ── DEBOUNCE / BUTTON-SPERRE ──
+                    // Verhindert den "200-Artikel-Bug": wenn ein Kunde mehrfach
+                    // schnell auf "Jetzt bestellen" klickt (z.B. weil die Seite
+                    // kurz hängt), werden ohne diesen Schutz 20 Requests fast
+                    // gleichzeitig abgefeuert. Das Backend merged alle in EINE
+                    // Bestellung → eine einzige Bestellung mit 200+ Items.
+                    // Mit diesem Guard wird der zweite Klick ignoriert, bis der
+                    // erste Request fertig ist.
+                    if (this.isSubmitting) {
+                        console.log("submitOrder() bereits laufend — Klick ignoriert (Debounce).");
+                        return;
+                    }
+                    if (!this.cart || this.cart.length === 0) {
+                        showToast("Warenkorb ist leer.", "error");
+                        return;
+                    }
+                    this.isSubmitting = true;
+
                     const rawTable = getTableFromUrl() || "{{ table }}";
                     const token = '{{ token }}' || '';
                     // Normalize: strip any existing "Tisch" prefix to avoid double "Tisch Tisch"
@@ -2191,7 +2216,13 @@
                             document.body.style.overflow = 'hidden';
                         }
                     })
-                    .catch(err => console.error(err));
+                    .catch(err => console.error(err))
+                    .finally(() => {
+                        // Button wieder freigeben — egal ob Erfolg oder Fehler.
+                        // Kurze Verzögerung (300ms), damit der User den "Wird gesendet…"
+                        // Spinner visuell wahrnimmt und nicht sofort wieder klicken kann.
+                        setTimeout(() => { this.isSubmitting = false; }, 300);
+                    });
                 },
 
                 closeThankYou() {
