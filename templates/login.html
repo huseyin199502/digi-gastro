@@ -73,6 +73,12 @@
         </div>
         {% endif %}
 
+        <!-- PWA Standalone Notice (auto-shown via JS when running as installed app) -->
+        <div id="pwa-login-notice" class="hidden mb-5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3.5 text-emerald-200 text-xs flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-emerald-400 text-sm mt-0.5">info</span>
+            <span class="leading-relaxed"><strong class="text-emerald-100">App-Modus erkannt.</strong> Die installierte App verwaltet ihren eigenen Login-Speicher. Bitte einmalig anmelden — danach bleibst du dauerhaft eingeloggt.</span>
+        </div>
+
         <form action="/admin/login" method="POST" class="space-y-5">
             {% if redirect %}
             <input type="hidden" name="redirect" value="{{ redirect }}">
@@ -99,5 +105,18 @@
             </a>
         </div>
     </div>
+
+    <script>
+        // PWA Standalone Detection — show notice if user opened login page from installed app.
+        (function () {
+            const isStandalone =
+                window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true ||
+                new URLSearchParams(window.location.search).has('pwa');
+            if (!isStandalone) return;
+            const notice = document.getElementById('pwa-login-notice');
+            if (notice) notice.classList.remove('hidden');
+        })();
+    </script>
 </body>
 </html>

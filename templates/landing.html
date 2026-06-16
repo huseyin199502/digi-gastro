@@ -335,9 +335,13 @@
             <button id="mobile-menu-btn" class="md:hidden flex items-center justify-center w-11 h-11 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
                 <i class="fa-solid fa-bars text-lg"></i>
             </button>
-            <div class="flex items-center gap-3 sm:gap-4">
-                <button onclick="openLogin()" class="text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors py-2.5 px-2">Partner-Login</button>
-                <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold text-xs px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold">Demo anfragen</a>
+            <div class="flex items-center gap-2 sm:gap-4">
+                <button onclick="openLogin()" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors py-2.5 px-2 sm:px-3 rounded-lg hover:bg-zinc-800/40">
+                    <i class="fa-solid fa-right-to-bracket text-[11px] text-gold-500/90"></i>
+                    <span class="hidden sm:inline">Partner-Login</span>
+                    <span class="sm:hidden">Login</span>
+                </button>
+                <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold text-xs px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold">Demo</a>
             </div>
         </div>
     </nav>
@@ -703,6 +707,9 @@
                     {{ error }}
                 </div>
                 {% endif %}
+                <div id="pwa-login-notice" class="hidden p-3.5 bg-gold-500/10 border border-gold-500/25 rounded-xl text-gold-200 text-xs leading-relaxed">
+                    <strong class="text-gold-100">App-Modus erkannt.</strong> Aus Sicherheitsgründen verwendet die installierte App einen eigenen Login-Speicher. Bitte einmalig anmelden — danach bleibst du dauerhaft eingeloggt.
+                </div>
                 <div>
                     <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
                     <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
@@ -865,6 +872,48 @@
                 document.body.style.overflow = 'hidden';
             {% endif %}
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // PWA Standalone Detection & Auto-Login-Prompt
+        // ─────────────────────────────────────────────────────────────
+        // iOS/Android PWAs have a SEPARATE cookie jar from the browser.
+        // If the user saved the app to their home screen while logged in
+        // via Safari/Chrome, the PWA will NOT have those session cookies.
+        // → Detect standalone mode and auto-open the login modal so the
+        //   owner doesn't see a blank "not logged in" state with no clear
+        //   way forward.
+        (function detectPwaStandalone() {
+            const isStandalone =
+                window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true ||
+                new URLSearchParams(window.location.search).has('pwa');
+            if (!isStandalone) return;
+            {% if is_logged_in %}
+            // Already logged in inside the PWA — nothing to do.
+            return;
+            {% else %}
+            // Don't auto-open if the URL has a hash anchor (e.g. #features)
+            // or if the login modal is already visible (e.g. show_login=1).
+            const hasHashAnchor = window.location.hash && window.location.hash.length > 1;
+            const modalAlreadyVisible = !document.getElementById('loginModal').classList.contains('hidden');
+            if (hasHashAnchor || modalAlreadyVisible) {
+                // Even if we don't auto-open, show the PWA hint inside the modal
+                // so the user understands why they need to log in again.
+                const notice = document.getElementById('pwa-login-notice');
+                if (notice) notice.classList.remove('hidden');
+                return;
+            }
+            // Show the PWA-specific notice inside the login modal.
+            const notice = document.getElementById('pwa-login-notice');
+            if (notice) notice.classList.remove('hidden');
+            // Auto-open login modal after short delay (lets the page settle first).
+            setTimeout(() => {
+                if (document.getElementById('loginModal').classList.contains('hidden')) {
+                    openLogin();
+                }
+            }, 600);
+            {% endif %}
+        })();
 
         function closeLogin() {
             document.getElementById('loginModal').classList.add('hidden');
