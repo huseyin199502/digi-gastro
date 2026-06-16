@@ -3701,7 +3701,7 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
-    VALID_ITEM_STATUSES = {"pending", "confirmed", "delivered"}
+VALID_ITEM_STATUSES = {"pending", "confirmed", "delivered"}
 
 def parse_item_key(item_key: str):
     """Splits composite key into (product_id_str, note_slug, status_str).
