@@ -1383,6 +1383,30 @@ def _maybe_rotate_table_session_token(restaurant, order_table_str):
         db_table["active_session_token"] = secrets.token_hex(4)
 
 
+def _ensure_original_total(order):
+    """
+    Fix 6 — 'Nie wieder 0€ im Admin-Report':
+    Stellt sicher, dass `order["original_total"]` existiert und den
+    ursprünglichen Warenwert der Bestellung speichert.
+
+    Hintergrund: Bei Teilzahlung (pay-item), Stornierung einzelner Artikel
+    (cancel-item) oder Zusammenführen von Tischen wird `order["total"]` neu
+    berechnet — und wenn alle Items weg sind, steht dort 0,00 €. Der Admin
+    sieht dann im Report eine 0€-Bestellung, obwohl eigentlich z.B. 43,50 €
+    bestellt wurden.
+
+    `original_total` wird NUR hochgesetzt (bei Erstellung und Merge), nie
+    reduziert. Diese Funktion backfillt das Feld für Alt-Bestellungen, die
+    es noch nicht haben — mit dem aktuellen `total`, falls dieser > 0 ist,
+    sonst mit 0 (Best-Effort für historische Daten).
+    """
+    if "original_total" not in order or order.get("original_total") is None:
+        cur_total = order.get("total", 0.0) or 0.0
+        # Backfill: der aktuelle total ist der beste Schätzwert für den
+        # ursprünglichen Warenwert, den wir haben. Besser als 0.
+        order["original_total"] = round(cur_total, 2)
+
+
 def require_user_and_slug(request: Request, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
     if not res:
@@ -3055,6 +3079,18 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
+    # ── FIX 5: Serverseitige Validierung gegen leere Bestellungen ──
+    # Verhindert, dass durch schnelles Mehrfachklicken (Debounce-Race) oder
+    # anderweitig fehlerhafte Client-Requests Bestellungen mit 0€ und ohne
+    # Items erstellt werden. Diese tauchten vorher als "0,00 € — Bezahlt"
+    # im Admin-Report auf und verfälschten die Umsatzstatistik.
+    if not payload.items or len(payload.items) == 0:
+        raise HTTPException(status_code=400, detail="Warenkorb ist leer — Bestellung abgelehnt.")
+    # Verhindere auch Bestellungen, bei denen alle Items quantity=0 haben
+    total_qty = sum(getattr(i, 'quantity', 0) or 0 for i in payload.items)
+    if total_qty <= 0:
+        raise HTTPException(status_code=400, detail="Warenkorb enthält keine gültigen Artikel.")
+    
     # Parse table number and optional zone from payload (e.g. "1 (Drinnen)" or "1")
     payload_table_raw = str(payload.table)
     table_num = payload_table_raw.replace("Tisch", "").split("(")[0].strip()
@@ -3268,6 +3304,14 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                 existing_item["quantity"] += new_item.quantity
             else:
                 active_order["items"].append(new_item.model_dump())
+        # ── FIX 6a: original_total bei Merge hochsetzen (nur hoch, nie runter) ──
+        # original_total spiegelt den kumulierten Warenwert, der jemals am Tisch
+        # bestellt wurde — auch nach Teilzahlung/Stornierung bleibt er unverändert,
+        # damit der Admin im Report sieht, was ursprünglich bestellt wurde.
+        if "original_total" not in active_order or active_order.get("original_total") is None:
+            # Backfill für Alt-Bestellungen, die das Feld noch nicht haben
+            active_order["original_total"] = round(active_order.get("total", 0.0), 2)
+        active_order["original_total"] = round(active_order["original_total"] + total, 2)
         active_order["total"] = round(active_order["total"] + total, 2)
         active_order["total_with_tip"] = round(active_order["total_with_tip"] + total, 2)
         active_order["tip_amount"] = round(active_order["tip_amount"], 2)
@@ -3290,6 +3334,12 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         "table": order_table_name,
         "items": [item.model_dump() for item in payload.items],
         "total": round(total, 2),
+        # ── FIX 6a: original_total speichert den ursprünglichen Warenwert ──
+        # Wird bei Erstellung gesetzt und bei Merge hochgesetzt. Wird NIE
+        # reduziert — auch nicht bei pay-item/cancel-item/transfer/teilzahlung.
+        # So sieht der Admin im Report immer, was tatsächlich bestellt wurde,
+        # unabhängig von späteren Teilzahlungen oder Stornierungen.
+        "original_total": round(total, 2),
         "total_with_tip": round(total_with_tip, 2),
         "tip_amount": 0.0,
         "status": "eingegangen",
@@ -3487,6 +3537,12 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         restaurant["tagesumsatz"] += order["total"]
         restaurant["bestellungen_gesamt"] += 1
         
+        # ── Fix 6: original_total sicherstellen (für Admin-Report) ──
+        # Beim normalen "Alles auf einmal bezahlen" wird `total` nicht verändert.
+        # Wir backfillen hier nur `original_total`, falls die Bestellung noch
+        # keins hat (Alt-Daten), damit der Report konsistent ist.
+        _ensure_original_total(order)
+        
         # Option B: Rotate active_session_token IF the table has no more open orders.
         # This invalidates cookies of guests who have left, while preserving cookies
         # of any remaining guests at the same table (e.g. split-table scenario).
@@ -3557,6 +3613,11 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
     for item in items_to_remove:
         order["items"].remove(item)
         
+    # ── Fix 6d: original_total sichern (falls noch nicht vorhanden) ──
+    # Bei der Teilzahlung wird `total` neu berechnet (reduziert um den
+    # bezahlten Anteil). `original_total` bleibt unverändert und zeigt
+    # im Admin-Report den ursprünglichen Warenwert.
+    _ensure_original_total(order)
     order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
     order["total_with_tip"] = round(order["total"], 2)
     restaurant["tagesumsatz"] += round(total_split_amount, 2)
@@ -3624,16 +3685,31 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
                 t_item["quantity"] += s_item.get("quantity", 0)
             else:
                 target_order["items"].append(copy.deepcopy(s_item))
-                
+
+        # ── Fix 6c: original_total auf Ziel-Bestellung übertragen ──
+        # Die Zusammenführung überträgt den Warenwert von source auf target.
+        # Wir addieren den source-Warenwert auf den target.original_total,
+        # damit der Report später den korrekten kumulierten Wert zeigt.
+        _ensure_original_total(source_order)
+        _ensure_original_total(target_order)
+        moved_amount = round(source_order.get("original_total", 0.0), 2)
+        target_order["original_total"] = round(target_order.get("original_total", 0.0) + moved_amount, 2)
+
         # Recalculate target order totals
         target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
         target_order["total_with_tip"] = round(target_order["total"], 2)
-        
-        # Mark source order as storniert
+
+        # Mark source order as storniert — ABER total NICHT auf 0 setzen!
+        # ── Fix 6c: source_order.total bleibt auf dem ursprünglichen Wert stehen ──
+        # Früher wurde hier `total = 0.0` gesetzt, was im Admin-Report als
+        # 0€-Storno erschien. Wir lassen den total auf dem Wert, den er vor
+        # der Zusammenführung hatte (das entspricht dem umgebuchten Betrag).
+        # original_total bleibt ohnehin unverändert.
         source_order["status"] = "storniert"
-        source_order["total"] = 0.0
-        source_order["total_with_tip"] = 0.0
+        # Items leeren — die wurden ja auf target verschoben
         source_order["items"] = []
+        # total NICHT anfassen — er zeigt weiterhin den umgebuchten Betrag
+        source_order["total_with_tip"] = round(source_order.get("total", 0.0), 2)
 
     # 2. Sync security tokens so mobile sessions remain valid for the guests
     tables_list = restaurant.get("tables", [])
@@ -3691,6 +3767,11 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
         
     order["status"] = "storniert"
+    
+    # ── Fix 6: original_total sicherstellen (für Admin-Report) ──
+    # Beim Stornieren einer ganzen Bestellung wird `total` nicht angerührt.
+    # Wir backfillen `original_total` für Alt-Bestellungen.
+    _ensure_original_total(order)
     
     # Option B: Rotate active_session_token IF the table has no more open orders.
     # See _maybe_rotate_table_session_token() for full rationale.
@@ -3879,6 +3960,11 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     if matched_item["quantity"] <= 0:
         order["items"].remove(matched_item)
 
+    # ── Fix 6b: original_total sichern (falls noch nicht vorhanden) ──
+    # _ensure_original_total backfillt das Feld für Alt-Bestellungen.
+    # Danach wird `total` neu berechnet, aber `original_total` bleibt unverändert.
+    _ensure_original_total(order)
+
     # Recalculate order total
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
     order["total_with_tip"] = round(order["total"], 2)
@@ -3957,6 +4043,9 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
         matched_item["quantity"] -= qty_to_pay
         if matched_item["quantity"] <= 0:
             order["items"].remove(matched_item)
+
+    # ── Fix 6b: original_total sichern (falls noch nicht vorhanden) ──
+    _ensure_original_total(order)
 
     # Recalculate order total
     order["total"] = round(sum(i["price"] * i["quantity"] for i in order["items"]), 2)
@@ -4062,6 +4151,12 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     if source_item["quantity"] <= 0:
         source_order["items"].remove(source_item)
 
+    # ── Fix 6c (transfer-item): original_total sichern VOR der Neuberechnung ──
+    # Damit der Admin-Report den ursprünglichen Warenwert der Quell-Bestellung
+    # sieht, sichern wir original_total (Backfill falls nicht vorhanden).
+    # original_total wird NIE reduziert — auch nicht, wenn Artikel umgebucht werden.
+    _ensure_original_total(source_order)
+
     # If source order has no items left, remove it from list
     if not source_order.get("items", []):
         restaurant["orders"].remove(source_order)
@@ -4094,6 +4189,9 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             new_item = copy.deepcopy(source_item_copy)
             new_item["quantity"] = qty_to_move
             target_order["items"].append(new_item)
+        # ── Fix 6c (transfer-item): original_total auf Ziel-Bestellung addieren ──
+        _ensure_original_total(target_order)
+        target_order["original_total"] = round(target_order.get("original_total", 0.0) + item_amount, 2)
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
         target_order["total_with_tip"] = round(target_order["total"], 2)
         update_order_status_by_items(target_order)
@@ -4106,6 +4204,8 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "table": target_table_str,
             "items": [moved_item],
             "total": round(item_amount, 2),
+            # ── Fix 6c: original_total bei Neuerstellung setzen ──
+            "original_total": round(item_amount, 2),
             "total_with_tip": round(item_amount, 2),
             "tip_amount": 0.0,
             "status": "eingegangen",
@@ -4670,7 +4770,15 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
         else:
             filtered_orders.append(o)
             
-    brutto = sum(o["total"] for o in filtered_orders if o.get("status") == "bezahlt")
+    # ── Fix 6e: brutto verwendet original_total, falls vorhanden ──
+    # Bei per Einzelartikel-Zahlung (pay-item) abgearbeiteten Bestellungen ist
+    # `o["total"]` = 0 (alle Items wurden entfernt), aber `original_total`
+    # enthält den ursprünglichen Warenwert. Wir nehmen max(total, original_total),
+    # damit der Bruttoumsatz korrekt ist — egal über welchen Weg bezahlt wurde.
+    brutto = sum(
+        max(o.get("total", 0.0) or 0.0, o.get("original_total", 0.0) or 0.0)
+        for o in filtered_orders if o.get("status") == "bezahlt"
+    )
     
     netto_7 = 0.0
     netto_19 = 0.0
@@ -5913,7 +6021,15 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         if dt.date() == now.date():
             filtered_orders.append(o)
             
-    brutto = sum(o["total"] for o in filtered_orders if o.get("status") == "bezahlt")
+    # ── Fix 6e: brutto verwendet original_total, falls vorhanden ──
+    # Bei per Einzelartikel-Zahlung (pay-item) abgearbeiteten Bestellungen ist
+    # `o["total"]` = 0 (alle Items wurden entfernt), aber `original_total`
+    # enthält den ursprünglichen Warenwert. Wir nehmen max(total, original_total),
+    # damit der Bruttoumsatz korrekt ist — egal über welchen Weg bezahlt wurde.
+    brutto = sum(
+        max(o.get("total", 0.0) or 0.0, o.get("original_total", 0.0) or 0.0)
+        for o in filtered_orders if o.get("status") == "bezahlt"
+    )
     total_tip = sum(o.get("tip_amount", 0.0) for o in filtered_orders if o.get("status") == "bezahlt")
     total_orders = len([o for o in filtered_orders if o.get("status") == "bezahlt"])
     
@@ -8441,6 +8557,11 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
     for item in items_to_remove:
         order["items"].remove(item)
         
+    # ── Fix 6d: original_total sichern (falls noch nicht vorhanden) ──
+    # Bei der Teilzahlung wird `total` neu berechnet (reduziert um den
+    # bezahlten Anteil). `original_total` bleibt unverändert und zeigt
+    # im Admin-Report den ursprünglichen Warenwert.
+    _ensure_original_total(order)
     order["total"] = round(sum(item["price"] * item["quantity"] for item in order["items"]), 2)
     order["total_with_tip"] = round(order["total"], 2)
     restaurant["tagesumsatz"] += round(total_split_amount, 2)
@@ -8552,6 +8673,8 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 "table": t_table_display,
                 "items": [],
                 "total": 0.0,
+                # ── Fix 6c: original_total initialisieren ──
+                "original_total": 0.0,
                 "total_with_tip": 0.0,
                 "tip_amount": 0.0,
                 "status": "eingegangen",
@@ -8609,13 +8732,25 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                     remaining_items.append(item)
             
             source_order["items"] = remaining_items
+            # ── Fix 6c (admin-transfer): original_total auf source behalten ──
+            _ensure_original_total(source_order)
             source_order["total"] = round(sum(i["price"] * i["quantity"] for i in remaining_items), 2)
             source_order["total_with_tip"] = round(source_order["total"], 2)
             if not remaining_items:
                 source_order["status"] = "storniert"
-                source_order["total"] = 0.0
-                source_order["total_with_tip"] = 0.0
-                
+                # FRÜHER: source_order["total"] = 0.0 → führte zu 0€-Bons im Report
+                # JETZT: total NICHT auf 0 setzen. original_total bleibt erhalten
+                # und zeigt im Report den Wert der umgebuchten Artikel.
+                # total_with_tip auf gleichem Wert wie total halten
+                source_order["total_with_tip"] = round(source_order.get("total", 0.0), 2)
+
+        # ── Fix 6c (admin-transfer): original_total auf target akkumulieren ──
+        _ensure_original_total(target_order)
+        target_order["original_total"] = round(
+            target_order.get("original_total", 0.0)
+            + sum(source_order.get("original_total", 0.0) for source_order in source_orders),
+            2
+        )
         target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
         target_order["total_with_tip"] = round(target_order["total"], 2)
     else:
@@ -8631,6 +8766,12 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 source_order["table"] = t_table_display
                 target_order = source_order
             else:
+                # ── Fix 6c (admin-transfer): original_total sichern VOR Merge ──
+                _ensure_original_total(source_order)
+                _ensure_original_total(target_order)
+                moved_amount = round(source_order.get("original_total", 0.0), 2)
+                target_order["original_total"] = round(target_order.get("original_total", 0.0) + moved_amount, 2)
+
                 for s_item in source_order.get("items", []):
                     t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending")), None)
                     if t_item:
@@ -8641,10 +8782,12 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
                 target_order["total_with_tip"] = round(target_order["total"], 2)
                 
+                # ── Fix 6c: source NICHT auf 0€ setzen ──
                 source_order["status"] = "storniert"
-                source_order["total"] = 0.0
-                source_order["total_with_tip"] = 0.0
+                # FRÜHER: source_order["total"] = 0.0 → 0€-Bons im Report
+                # JETZT: total bleibt auf dem Wert der umgebuchten Artikel
                 source_order["items"] = []
+                source_order["total_with_tip"] = round(source_order.get("total", 0.0), 2)
                 
     tables_list = restaurant.get("tables", [])
     s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)

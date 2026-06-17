@@ -4217,6 +4217,21 @@
                     }
                     
                     const total = typeof o.total === 'number' ? o.total.toFixed(2).replace('.', ',') : '0,00';
+                    // ── Fix 6e: original_total anzeigen, wenn total durch Teilzahlung/Storno/Transfer reduziert wurde ──
+                    // Nie wieder 0€ im Report — der Chef sieht immer den ursprünglich bestellten Warenwert.
+                    const originalTotal = typeof o.original_total === 'number' ? o.original_total : null;
+                    let totalHtml;
+                    if (originalTotal !== null && originalTotal > 0 && o.total === 0) {
+                        // Bestellung wurde per Einzelartikel-Zahlung/Storno/Transfer komplett abgearbeitet
+                        // → zeige original_total als durchgestrichenen + finalen Wert
+                        totalHtml = `<span class="text-zinc-900 font-mono">${originalTotal.toFixed(2).replace('.', ',')} €</span>`;
+                    } else if (originalTotal !== null && originalTotal > o.total && o.total > 0) {
+                        // Teilzahlung: zeige Restbetrag + (ursprünglich)
+                        totalHtml = `<span class="text-zinc-900 font-mono">${total} €</span>` +
+                                    `<div class="text-[9px] text-zinc-400 font-mono">orig: ${originalTotal.toFixed(2).replace('.', ',')} €</div>`;
+                    } else {
+                        totalHtml = `<span class="text-zinc-900 font-mono">${total} €</span>`;
+                    }
                     const mwst = o.mwst_rate || 19;
                     const displayTable = String(o.table || '');
                     const timestamp = o.timestamp || '';
@@ -4225,7 +4240,7 @@
                         <td class="font-bold text-zinc-800">Bon #${o.id}</td>
                         <td class="font-extrabold">${displayTable}</td>
                         <td class="text-zinc-500 font-mono">${timestamp}</td>
-                        <td class="font-extrabold text-zinc-900 font-mono">${total} €</td>
+                        <td class="font-extrabold text-zinc-900 font-mono">${totalHtml}</td>
                         <td class="text-zinc-500">${mwst}%</td>
                         <td>${statusHtml}</td>
                     </tr>`;
