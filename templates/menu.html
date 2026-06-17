@@ -536,7 +536,7 @@
             <div id="tab-speisekarte" class="py-2">
 
                 <!-- BACK BUTTON when inside a category -->
-                <div x-show="currentCategory !== ''" x-cloak class="sticky top-20 z-40 bg-[var(--bg-obsidian)] pb-2 pt-1">
+                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[calc(5rem+env(safe-area-inset-top))] z-40 bg-[var(--bg-obsidian)] pb-1.5 pt-1 -mt-1">
                     <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
                         <span class="material-symbols-outlined text-xl">arrow_back</span>
                         <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
@@ -841,14 +841,14 @@
     <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] sm:bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300"
          style="bottom: calc(3.5rem + env(safe-area-inset-bottom));">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
-        <div class="flex items-center gap-1.5">
-            <button onclick="openServiceModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all relative" data-translate-title="nav_service" title="Service Rufen" :disabled="_serviceCooldownUntil > Date.now()" :class="_serviceCooldownUntil > Date.now() ? 'opacity-50 cursor-not-allowed' : ''">
+        <div class="flex items-center gap-2">
+            <button onclick="openServiceModal()" class="w-[68px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all relative px-1" data-translate-title="nav_service" title="Service Rufen" :disabled="_serviceCooldownUntil > Date.now()" :class="_serviceCooldownUntil > Date.now() ? 'opacity-50 cursor-not-allowed' : ''">
                 <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">notifications_active</span>
-                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" x-text="_serviceCooldownLabel || 'Service'"></span>
+                <span class="text-[11px] font-bold leading-none tracking-tight uppercase whitespace-nowrap" x-text="_serviceCooldownLabel || 'Service'"></span>
             </button>
-            <button onclick="openPaymentModal()" class="w-[54px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all relative" data-translate-title="nav_bill" title="Rechnung Anfordern" :disabled="_serviceCooldownUntil > Date.now()" :class="_serviceCooldownUntil > Date.now() ? 'opacity-50 cursor-not-allowed' : ''">
+            <button onclick="openPaymentModal()" class="w-[68px] h-11 rounded-xl bg-surface border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all relative px-1" data-translate-title="nav_bill" title="Rechnung Anfordern" :disabled="_serviceCooldownUntil > Date.now()" :class="_serviceCooldownUntil > Date.now() ? 'opacity-50 cursor-not-allowed' : ''">
                 <span class="material-symbols-outlined text-[20px] leading-none mb-0.5">receipt_long</span>
-                <span class="text-[11px] font-bold leading-none tracking-wide uppercase" x-text="_serviceCooldownLabel || 'Rechnung'"></span>
+                <span class="text-[11px] font-bold leading-none tracking-tight uppercase whitespace-nowrap" x-text="_serviceCooldownLabel || 'Rechnung'"></span>
             </button>
         </div>
         
