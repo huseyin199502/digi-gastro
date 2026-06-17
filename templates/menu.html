@@ -842,7 +842,7 @@
             </h3>
 
             <!-- Cart Items -->
-            <div id="cart-modal-items" class="flex-1 overflow-y-auto space-y-3 mb-6 pr-1 font-display">
+            <div id="cart-modal-items" class="flex-1 overflow-y-auto space-y-3 mb-6 pr-1 font-display" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
                 <template x-if="cart.length === 0">
                     <div class="text-center py-8 text-on-surface-variant text-sm font-semibold" x-text="translations[currentLang].empty_cart">Ihr Warenkorb ist leer.</div>
                 </template>
@@ -882,7 +882,8 @@
             <div class="shrink-0 font-display">
                 {% if table and not token_error %}
                     <button id="submit-order-btn" onclick="submitOrder()" :disabled="isSubmitting"
-                        class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider disabled:opacity-60 disabled:cursor-wait">
+                        class="btn-premium btn-premium-primary w-full h-[78px] rounded-2xl flex items-center justify-center space-x-2 text-sm md:text-base font-black shadow-lg shadow-primary/20 uppercase tracking-wider disabled:opacity-60 disabled:cursor-wait"
+                        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
                         <span x-show="!isSubmitting" class="material-symbols-outlined text-lg">send</span>
                         <span x-show="isSubmitting" class="material-symbols-outlined text-lg animate-spin">progress_activity</span>
                         <span x-show="!isSubmitting" data-translate="order_pay">Jetzt bestellen</span>

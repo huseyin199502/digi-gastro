@@ -2677,9 +2677,9 @@
                 
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
                     <div class="flex flex-wrap gap-2">
-                        <button id="tab-zone-gesamt" onclick="setSeatingTab('gesamt')" class="px-4 py-2 rounded-xl text-xs font-black bg-gastro text-white border border-gastro transition shadow-sm">Gesamt</button>
-                        <button id="tab-zone-drinnen" onclick="setSeatingTab('drinnen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Drinnen</button>
-                        <button id="tab-zone-draussen" onclick="setSeatingTab('draußen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Draußen</button>
+                        <button id="tab-zone-gesamt" onclick="setSeatingTab('gesamt')" class="px-4 py-2 rounded-xl text-xs font-black bg-gastro text-white border border-gastro transition shadow-sm">Gesamt <span id="zone-count-gesamt" class="ml-1 font-bold">(0)</span></button>
+                        <button id="tab-zone-drinnen" onclick="setSeatingTab('drinnen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Drinnen <span id="zone-count-drinnen" class="ml-1 font-bold">(0)</span></button>
+                        <button id="tab-zone-draussen" onclick="setSeatingTab('draußen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Draußen <span id="zone-count-draussen" class="ml-1 font-bold">(0)</span></button>
                     </div>
                     
                     <div class="flex flex-wrap items-center gap-3">
@@ -6838,6 +6838,22 @@
             return z === 'draußen' || z === 'draussen' || z === 'terrasse';
         }
 
+        // Aktualisiert die Tisch-Anzahlen in den Sitzplan-Tab-Buttons (Gesamt/Drinnen/Draußen).
+        // Wird von renderSitzplanTiles aufgerufen — sobald Tische geladen/bearbeitet werden.
+        function updateSeatingTabCounts() {
+            const tables = isEditMode ? (tempTables || []) : (allTables || []);
+            const drinnenCount = tables.filter(t => isDrinnenZone(t.zone)).length;
+            const draussenCount = tables.filter(t => isDraussenZone(t.zone)).length;
+            const gesamtCount = tables.length;
+
+            const elGesamt = document.getElementById('zone-count-gesamt');
+            const elDrinnen = document.getElementById('zone-count-drinnen');
+            const elDraussen = document.getElementById('zone-count-draussen');
+            if (elGesamt) elGesamt.textContent = `(${gesamtCount})`;
+            if (elDrinnen) elDrinnen.textContent = `(${drinnenCount})`;
+            if (elDraussen) elDraussen.textContent = `(${draussenCount})`;
+        }
+
         function setSeatingTab(zone) {
             sitzplanFilterZone = zone;
             ['gesamt', 'drinnen', 'draußen'].forEach(z => {
@@ -7038,6 +7054,10 @@
         function renderSitzplanTiles() {
             const root = document.getElementById('admin-tiles-root');
             if (!root) return;
+
+            // Tisch-Anzahlen in den Tab-Buttons aktualisieren (Gesamt/Drinnen/Draußen).
+            // Wird bei jedem Render aufgerufen, damit Add/Remove/Edit sofort sichtbar ist.
+            updateSeatingTabCounts();
 
             if (isEditMode) {
                 root.classList.add('edit-mode');
