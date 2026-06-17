@@ -1696,6 +1696,7 @@
             font-weight: 700;
             background: var(--gastro-bg-gray);
             border: 1px solid var(--gastro-border);
+            color: var(--gastro-text-main);
             transition: all 0.2s;
             cursor: default;
         }
@@ -1713,6 +1714,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            color: var(--gastro-text-main);
         }
         .notif-item .btn-serve-item {
             display: inline-flex;
@@ -5662,19 +5664,19 @@
                             const itemName = (item.name || '').replace(/'/g, "\\'");
                             if (isPending) {
                                 return `
-                                <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;">
+                                <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
                                             <span class="material-symbols-outlined text-base">check</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
-                                            <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
-                                            ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
+                                            <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
+                                            ${item.note ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#b45309;">✎ ${escHtml(item.note)}</span>` : ''}
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
-                                        <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
+                                        <span class="font-extrabold font-mono text-[11px]" style="color:#374151;">${item.price.toFixed(2).replace('.', ',')} €</span>
+                                        <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
                                             <span class="material-symbols-outlined text-sm">close</span>
                                         </button>
                                     </div>
@@ -5682,18 +5684,18 @@
                             } else {
                                 const isChecked = !!selectedControlSplitItems[item.key];
                                 return `
-                                <div class="control-split-item flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;">
+                                <div class="control-split-item flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
                                         <input type="checkbox" ${isChecked ? 'checked' : ''}
                                                onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
                                                class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
-                                        <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 font-black text-base select-none">done_all</span>
+                                        <span class="material-symbols-outlined font-black text-base select-none" style="color:#059669;">done_all</span>
                                         <div class="flex-1 min-w-0">
-                                            <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
-                                            ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
+                                            <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
+                                            ${item.note ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#b45309;">✎ ${escHtml(item.note)}</span>` : ''}
                                         </div>
                                     </div>
-                                    <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
+                                    <span class="font-extrabold font-mono text-[11px]" style="color:#374151;">${item.price.toFixed(2).replace('.', ',')} €</span>
                                 </div>`;
                             }
                         }).join('');
