@@ -2152,33 +2152,37 @@
             grid-template-columns: 28px 1fr auto auto;
             gap: 0.5rem;
             padding: 0.5rem 0.4rem;
-            border-bottom: 1px dashed var(--gastro-border);
+            border-bottom: 1px dashed rgba(0,0,0,0.12);
             align-items: center;
             font-size: 0.78rem;
         }
         .bon-detail-item:last-child { border-bottom: none; }
         .bon-detail-item-qty {
-            background: var(--gastro-bg-gray);
-            color: var(--gastro-text-main);
+            background: rgba(255,255,255,0.55);
+            color: #1f2937;
             border-radius: 0.35rem;
             font-weight: 800;
             text-align: center;
             font-size: 0.7rem;
             padding: 0.2rem 0;
         }
+        /* WICHTIG: bon-detail-item-name/-meta/-price MUSS immer dunkel sein,
+           weil der Item-Hintergrund via lightenColor(group.color, 94) immer
+           ein helles Pastell ist — auch im Dark Mode. Weisser Text auf hellem
+           Pastell war unlesbar (Bug-Report: "Hauptgruppen Produkte sind weiss"). */
         .bon-detail-item-name {
             font-weight: 700;
-            color: var(--gastro-text-main);
+            color: #1f2937;
         }
         .bon-detail-item-meta {
             font-size: 0.65rem;
-            color: var(--gastro-text-muted);
+            color: #4b5563;
             margin-top: 1px;
         }
         .bon-detail-item-price {
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             font-weight: 700;
-            color: var(--gastro-text-main);
+            color: #374151;
             text-align: right;
             min-width: 60px;
         }
@@ -5023,13 +5027,16 @@
                             cancelled: 'storniert'
                         };
                         const statusLabel = statusLabels[itemStatus] || itemStatus;
-                        const categoryLabel = (item.category_type === 'bar') ? 'Bar · 19%' : (item.category_type === 'shisha') ? 'Shisha · 19%' : 'Küche · 7%';
+                        // MwSt-Kennzeichnung (Bar/Shisha/Küche · 19%/7%) nur im Brutto-Modus anzeigen.
+                        // Im Netto-Modus will der Chef reine Netto-Preise sehen — keine MwSt-Hinweise.
+                        const categoryLabel = (PRICE_MODE === 'netto') ? '' : ((item.category_type === 'bar') ? 'Bar · 19%' : (item.category_type === 'shisha') ? 'Shisha · 19%' : 'Küche · 7%');
+                        const metaLine = categoryLabel ? `${fmtEUR(price)} · ${categoryLabel}` : fmtEUR(price);
                         const noteHtml = item.note ? `<div class="text-[10px] text-zinc-500 italic mt-0.5">📝 ${escapeHtml(item.note)}</div>` : '';
                         return `<div class="bon-detail-item" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};">
                             <div class="bon-detail-item-qty">${qty}×</div>
                             <div>
                                 <div class="bon-detail-item-name">${escapeHtml(item.name || 'Unbekannt')}</div>
-                                <div class="bon-detail-item-meta">${fmtEUR(price)} · ${categoryLabel}</div>
+                                <div class="bon-detail-item-meta">${metaLine}</div>
                                 ${noteHtml}
                             </div>
                             <div class="bon-detail-item-price">${fmtEUR(lineTotal)}</div>
