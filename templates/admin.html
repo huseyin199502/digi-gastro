@@ -5604,53 +5604,72 @@
                 const statusColor = od.allServed ? 'emerald' : od.hasPending ? 'amber' : 'zinc';
                 const bonBg = od.allServed ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-amber-200 dark:border-amber-800/40';
                 const bonAccent = od.allServed ? 'bg-emerald-500' : 'bg-amber-500';
-                
+
+                // Kombiniere alle Items (pending + delivered) und gruppiere sie nach Hauptgruppe
+                // WICHTIG: Für das Grouping MUSS product_id gesetzt sein, damit getProductCategory() funktioniert
+                const allItemsForGrouping = [
+                    ...od.pendingItems.map(it => ({ ...it, item_status: 'pending' })),
+                    ...od.deliveredItems.map(it => ({ ...it, item_status: 'delivered' }))
+                ];
+
                 let itemsHtml = '';
-                
-                // Pending items for this order
-                if (od.hasPending) {
-                    itemsHtml += od.pendingItems.map(item => `
-                        <div class="flex items-center justify-between p-2.5 bg-white dark:bg-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-700 text-xs shadow-sm">
-                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
-                                    <span class="material-symbols-outlined text-base">check</span>
-                                </button>
-                                <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
-                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
-                                </div>
+                if (allItemsForGrouping.length > 0) {
+                    const groups = groupItemsBySuperGroup(allItemsForGrouping);
+                    itemsHtml = groups.map(group => {
+                        const textColor = getContrastTextColor(group.color);
+                        const lightBg = lightenColor(group.color, 94);
+                        const iconHtml = group.icon ? `<span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;margin-right:3px;">${escapeHtml(group.icon)}</span>` : '';
+                        const groupSubtotal = group.subtotal || 0;
+                        const groupHeader = `
+                            <div style="margin:4px 0 4px 0;padding:4px 10px;border-radius:8px;background:${escapeHtml(group.color)};color:${textColor};font-size:10px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;">
+                                <span>${iconHtml}${escapeHtml(group.name)}</span>
+                                <span style="font-size:9px;font-weight:700;opacity:.85;">${groupSubtotal.toFixed(2).replace('.', ',')} €</span>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
-                                <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
-                                    <span class="material-symbols-outlined text-sm">close</span>
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-                
-                // Delivered items for this order
-                if (od.hasDelivered) {
-                    itemsHtml += od.deliveredItems.map(item => {
-                        const isChecked = !!selectedControlSplitItems[item.key];
-                        return `
-                        <div class="control-split-item flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/30 text-xs shadow-sm">
-                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                <input type="checkbox" ${isChecked ? 'checked' : ''} 
-                                       onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
-                                       class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
-                                <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 font-black text-base select-none">done_all</span>
-                                <div class="flex-1 min-w-0">
-                                    <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
-                                    ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
-                                </div>
-                            </div>
-                            <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
-                        </div>`;
+                        `;
+                        const groupItemsHtml = group.items.map(item => {
+                            const isPending = (item.item_status || item.status) === 'pending';
+                            const itemName = (item.name || '').replace(/'/g, "\\'");
+                            if (isPending) {
+                                return `
+                                <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;">
+                                    <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                            <span class="material-symbols-outlined text-base">check</span>
+                                        </button>
+                                        <div class="flex-1 min-w-0">
+                                            <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
+                                            ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
+                                        <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
+                                            <span class="material-symbols-outlined text-sm">close</span>
+                                        </button>
+                                    </div>
+                                </div>`;
+                            } else {
+                                const isChecked = !!selectedControlSplitItems[item.key];
+                                return `
+                                <div class="control-split-item flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;">
+                                    <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                                        <input type="checkbox" ${isChecked ? 'checked' : ''}
+                                               onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
+                                               class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
+                                        <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 font-black text-base select-none">done_all</span>
+                                        <div class="flex-1 min-w-0">
+                                            <span class="font-extrabold text-gray-900 dark:text-zinc-100 block truncate text-[12px]">${escHtml(item.name)}</span>
+                                            ${item.note ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 block font-medium mt-0.5">✎ ${escHtml(item.note)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <span class="font-extrabold text-gray-600 dark:text-zinc-300 font-mono text-[11px]">${item.price.toFixed(2).replace('.', ',')} €</span>
+                                </div>`;
+                            }
+                        }).join('');
+                        return groupHeader + groupItemsHtml;
                     }).join('');
                 }
-                
+
                 return `
                 <div class="rounded-2xl border ${bonBg} overflow-hidden shadow-sm">
                     <!-- Bon Header -->
