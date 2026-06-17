@@ -1207,6 +1207,43 @@
             background-color: rgba(239, 68, 68, 0.12);
         }
 
+        /* ── Period-Switcher Button Styles ── */
+        .period-switch-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.4rem 0.85rem;
+            border-radius: 0.625rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            letter-spacing: 0.01em;
+        }
+        .period-switch-active {
+            background: var(--gastro-primary);
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 153, 0, 0.2);
+        }
+        .period-switch-inactive {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+        .period-switch-inactive:hover {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        html.dark .period-switch-inactive {
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            border-color: var(--gastro-border);
+        }
+        html.dark .period-switch-inactive:hover {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+        }
+
         /* Header enhancements */
         .dash-header {
             padding: 0.875rem 1.5rem;
@@ -2825,6 +2862,35 @@
                     </div>
                 </div>
 
+                <!-- Zeitraum-Switcher: Heute / Dieser Monat / Letzter Monat / Gesamt -->
+                <!-- Wechselt die URL ?period= und lädt die Seite mit neuen Stats neu -->
+                <div class="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <span class="text-[10px] font-black text-zinc-500 uppercase tracking-wider mr-2 flex items-center gap-1">
+                        <span class="material-symbols-outlined" style="font-size:14px;">calendar_month</span>
+                        Zeitraum:
+                    </span>
+                    <a href="/admin/dashboard?period=heute"
+                       class="period-switch-btn {% if period == 'heute' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
+                       data-period="heute">
+                        Heute
+                    </a>
+                    <a href="/admin/dashboard?period=monat"
+                       class="period-switch-btn {% if period == 'monat' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
+                       data-period="monat">
+                        Dieser Monat
+                    </a>
+                    <a href="/admin/dashboard?period=letzter_monat"
+                       class="period-switch-btn {% if period == 'letzter_monat' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
+                       data-period="letzter_monat">
+                        Letzter Monat
+                    </a>
+                    <a href="/admin/dashboard?period=all"
+                       class="period-switch-btn {% if period == 'all' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
+                       data-period="all">
+                        Gesamt
+                    </a>
+                </div>
+
                 <!-- Sales Statistics Overview Grid -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                     <div class="stat-card stat-revenue">
@@ -2832,11 +2898,15 @@
                             <span class="material-symbols-outlined text-emerald-600">euro</span>
                         </div>
                         {% if restaurant.price_mode == 'netto' %}
-                        <div class="stat-label" id="kpi-revenue-label">Tagesumsatz</div>
+                        <div class="stat-label" id="kpi-revenue-label">
+                            {% if period == 'heute' %}Tagesumsatz{% elif period == 'monat' %}Monatsumsatz{% elif period == 'letzter_monat' %}Letzter Monat{% else %}Gesamtumsatz{% endif %}
+                        </div>
                         <div class="stat-value" id="kpi-netto-total">{{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €</div>
                         <div class="stat-sub">Summe aller bezahlten Bons</div>
                         {% else %}
-                        <div class="stat-label" id="kpi-revenue-label">Tagesumsatz</div>
+                        <div class="stat-label" id="kpi-revenue-label">
+                            {% if period == 'heute' %}Tagesumsatz{% elif period == 'monat' %}Monatsumsatz{% elif period == 'letzter_monat' %}Letzter Monat{% else %}Gesamtumsatz{% endif %}
+                        </div>
                         <div class="stat-value" id="kpi-netto-total">{{ "%.2f"|format(stats.brutto) }} €</div>
                         <div class="stat-sub">Summe aller bezahlten Bons</div>
                         {% endif %}
