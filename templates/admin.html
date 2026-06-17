@@ -5106,8 +5106,10 @@
         //  HAUPTGRUPPEN (SuperGroups) — JS
         // ════════════════════════════════════════════════════════════════
 
-        let _superGroups = [];          // [{id, name, color, icon, position}]
-        let _superGroupCategories = []; // [{id, name, super_group_id}]
+        // Server-side Pre-Render: verhindert Race Condition bei schnellem Tab-Wechsel nach Page-Load.
+        // Werte kommen aus restaurant.super_groups und restaurant.category_data (vom Backend geladen).
+        let _superGroups = {{ restaurant.super_groups | tojson if restaurant.super_groups else '[]' }};
+        let _superGroupCategories = {{ restaurant.category_data | tojson if restaurant.category_data else '[]' }};
 
         // Kontrast-Funktion: gibt '#ffffff' oder '#1f2937' zurück je nach Hintergrund-Helligkeit
         function getContrastTextColor(hexColor) {
@@ -5178,7 +5180,7 @@
                         <button onclick="openSuperGroupEditModal(${sg.id})" class="text-zinc-400 hover:text-emerald-500 p-1" title="Bearbeiten">
                             <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                         </button>
-                        <button onclick="deleteSuperGroup(${sg.id}, '${escapeHtml(sg.name).replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-600 p-1" title="Löschen">
+                        <button onclick="deleteSuperGroup(${sg.id}, '${sg.name.replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-600 p-1" title="Löschen">
                             <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
                         </button>
                     </div>
@@ -6202,6 +6204,8 @@
                         checkLiveTischeUpdates();
                     } else if (data.type === "update" || data.type === "refresh_tables") {
                         checkLiveTischeUpdates();
+                        // Bei generellem Update: SuperGroups auch neu laden (falls Admin-Änderungen von anderer Session kommen)
+                        loadSuperGroups();
                     }
                 } catch (e) {
                     console.error("Failed to parse admin websocket message:", e);
@@ -7445,9 +7449,10 @@
 
             items.forEach(item => {
                 const catName = getProductCategory(item);
-                const sg = (window._superGroupCategories || []).find(c => c.name === catName);
+                // WICHTIG: _superGroupCategories und _superGroups sind let-Variablen (keine window-Properties!)
+                const sg = (_superGroupCategories || []).find(c => c.name === catName);
                 const sgInfo = sg && sg.super_group_id
-                    ? (window._superGroups || []).find(s => s.id === sg.super_group_id)
+                    ? (_superGroups || []).find(s => s.id === sg.super_group_id)
                     : null;
 
                 if (sgInfo) {
@@ -7779,44 +7784,55 @@
         function renderTeilrechnungView(order) {
             const container = document.getElementById('popup-items');
             if (!container) return;
-            
-            let itemsHtml = '';
-            let total = 0;
-            const selectedItemsGrouped = {};
 
+            // Sammle ausgewählte Items erst als flache Liste
+            const selectedItems = [];
+            let total = 0;
             Object.keys(selectedTeilrechnung).forEach(key => {
                 const qty = selectedTeilrechnung[key];
                 const parts = key.split('_');
                 const pid = parts[0];
                 const status = parts[parts.length - 1];
                 const noteParts = parts.slice(1, parts.length - 1).join('_');
-                
-                const item = order.items.find(i => String(i.product_id) === pid 
+
+                const item = order.items.find(i => String(i.product_id) === pid
                     && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
                     && (i.item_status || 'pending') === status);
                 if (item) {
-                    const c = getProductCategory(item);
-                    if (!selectedItemsGrouped[c]) selectedItemsGrouped[c] = [];
-                    selectedItemsGrouped[c].push({ item, qty, key });
+                    // Kopie mit ausgewählter qty — Original bleibt unangetastet
+                    selectedItems.push({ ...item, quantity: qty, _teilKey: key });
                     total += item.price * qty;
                 }
             });
 
-            Object.keys(selectedItemsGrouped).forEach(cat => {
-                itemsHtml += `<div class="cat-label">${cat}</div>`;
-                selectedItemsGrouped[cat].forEach(({ item, qty, key }) => {
+            // Gruppiere ausgewählte Items nach Hauptgruppe (gleiche Logik wie renderPopupItems)
+            const groups = groupItemsBySuperGroup(selectedItems);
+
+            let itemsHtml = '';
+            groups.forEach(group => {
+                const textColor = getContrastTextColor(group.color);
+                const lightBg = lightenColor(group.color, 92);
+                const iconHtml = group.icon ? `<span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">${escapeHtml(group.icon)}</span>` : '';
+                itemsHtml += `
+                    <div style="margin:8px 0 4px 0;padding:6px 10px;border-radius:8px;background:${escapeHtml(group.color)};color:${textColor};font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;">
+                        <span>${iconHtml}${escapeHtml(group.name)}</span>
+                        <span style="font-size:10px;font-weight:700;opacity:.85;">${group.subtotal.toFixed(2).replace('.', ',')} €</span>
+                    </div>
+                `;
+                group.items.forEach(item => {
+                    const key = item._teilKey;
                     itemsHtml += `
-                        <div class="item-card" style="border-color: rgba(16, 185, 129, 0.4);">
+                        <div class="item-card" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color: rgba(16, 185, 129, 0.4);">
                             <div class="item-row" style="cursor: default;">
                                 <div style="flex:1;min-width:0;">
-                                    <div class="item-name">
+                                    <div class="item-name" style="color:#1f2937;">
                                         ✔️ ${escHtml(item.name)}
                                     </div>
-                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${escHtml(item.note)}</div>` : ''}
+                                    ${item.note ? `<div style="font-size:11px;color:#b45309;font-weight:600;margin-top:1px;">✎ ${escHtml(item.note)}</div>` : ''}
                                 </div>
                                 <div style="display:flex;align-items:center;gap:.5rem;">
-                                    <div class="item-price" style="margin-right:.5rem;">
-                                        ${qty}× ${item.price.toFixed(2).replace('.', ',')} €
+                                    <div class="item-price" style="margin-right:.5rem;color:#1f2937;font-weight:700;">
+                                        ${item.quantity}× ${item.price.toFixed(2).replace('.', ',')} €
                                     </div>
                                     <button onclick="removeFromTeilrechnung('${key}')" style="touch-action: manipulation; width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;">
                                         －
@@ -7834,7 +7850,7 @@
                         <span>📋 Teilrechnung</span>
                         <button onclick="clearTeilrechnung()" style="font-size:10px;color:#9ca3af;text-decoration:underline;background:none;border:none;cursor:pointer;">Abbrechen</button>
                     </div>
-                    
+
                     ${itemsHtml}
 
                     <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;">
