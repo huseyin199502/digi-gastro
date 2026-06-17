@@ -468,23 +468,12 @@
         html.light .popup-footer {
             color: #1f2937 !important;
         }
-        /* Control modal split cockpit: ensure text readable in both modes */
-        html.dark .control-split-item {
-            background: rgba(16, 185, 129, 0.08) !important;
-            border-color: rgba(16, 185, 129, 0.2) !important;
-            color: var(--gastro-text-main) !important;
-        }
-        html.dark .control-split-item .text-gray-900,
-        html.dark .control-split-item .text-gray-700,
-        html.dark .control-split-item .text-zinc-800,
-        html.dark .control-split-item .text-zinc-700 {
-            color: var(--gastro-text-main) !important;
-        }
-        /* Light mode: control split items keep their default light styling */
-        html.light .control-split-item .text-gray-900,
-        html.light .control-split-item .text-gray-700 {
-            color: #111827 !important;
-        }
+        /* Control modal split cockpit: Items haben Pastell-BG via lightenColor(group.color, 94).
+           Das Pastell ist immer hell (auch im Dark Mode), deshalb MUSS der Text dunkel sein.
+           Die alten !important-Overrides fuer .control-split-item wurden entfernt, weil sie
+           im Dark Mode var(--gastro-text-main) = weiss erzwingen wollten → weisser Text auf
+           hellem Pastell = unlesbar (Bug: 'Kontrast Fehler nach servieren').
+           Jetzt ist die Inline color:#1f2937 auf den Item-Divs die einzige Quelle der Wahrheit. */
         /* Control modal Bon cards: ensure readable in dark mode */
         html.dark #control-orders-container .bg-gray-50 {
             background: var(--gastro-bg-gray) !important;
