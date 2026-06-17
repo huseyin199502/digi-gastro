@@ -489,7 +489,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "status": o.status,
             "timestamp": o.timestamp,
             "mwst_rate": o.mwst_rate,
-            "waiter_id": o.waiter_id
+            "waiter_id": o.waiter_id,
+            "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None
         })
         
     db_staff = session.query(Staff).filter_by(tenant_slug=slug).order_by(Staff.id).all()
@@ -761,6 +762,14 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         db_o.timestamp = o.get("timestamp")
         db_o.mwst_rate = o.get("mwst_rate", 19)
         db_o.waiter_id = o.get("waiter_id")
+        # original_total dauerhaft in DB sichern — nie wieder 0€ nach Server-Restart
+        _ot = o.get("original_total")
+        if _ot is None:
+            _ot = o.get("total", 0.0) or 0.0
+        try:
+            db_o.original_total = float(_ot)
+        except Exception:
+            db_o.original_total = 0.0
         
         if db_o.id is None:
             session.flush()
@@ -6061,10 +6070,20 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
     paid_orders = [o for o in orders if o.get("status") == "bezahlt"]
     paid_orders_sorted = sorted(paid_orders, key=lambda x: x.get("timestamp", ""), reverse=True)
     for o in paid_orders_sorted[:5]:
+        # original_total mitsenden — sonst zeigt das Admin-Dashboard nach
+        # Teilzahlung/Storno/Transfer 0€ anstatt den echten Warenwert.
+        _ot = o.get("original_total")
+        _t = o.get("total", 0.0) or 0.0
+        if _ot is None:
+            _ot = _t
+        # Im Dashboard immer den höheren Wert nehmen (max von total und original_total)
+        # → „Nie wieder 0€ im Admin-Report"
+        display_total = max(_t, _ot) if _ot else _t
         recent_payments.append({
             "id": o.get("id"),
             "table": o.get("table"),
-            "total": o.get("total"),
+            "total": display_total,
+            "original_total": _ot,
             "tip_amount": o.get("tip_amount", 0.0),
             "timestamp": o.get("timestamp", "")
         })

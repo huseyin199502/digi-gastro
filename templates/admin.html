@@ -1970,6 +1970,214 @@
             font-size: 0.8rem;
         }
 
+        /* ===== CUSTOM DATE RANGE PICKER ===== */
+        .orders-custom-date-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        .orders-date-input {
+            padding: 0.45rem 0.6rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.5rem;
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-main);
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .orders-date-input:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+        .orders-apply-btn {
+            padding: 0.45rem 0.9rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            border: none;
+            border-radius: 0.5rem;
+            background: var(--gastro-primary);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .orders-apply-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .orders-clear-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 0.4rem;
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-muted);
+            border: 1px solid var(--gastro-border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .orders-clear-btn:hover { color: #dc2626; border-color: #dc2626; }
+        .orders-select {
+            padding: 0.45rem 0.6rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.5rem;
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-main);
+            cursor: pointer;
+            min-width: 130px;
+        }
+        .orders-select:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+
+        /* ===== SORT ICONS ===== */
+        .sort-icon {
+            display: inline-block;
+            font-size: 12px;
+            color: var(--gastro-text-muted);
+            margin-left: 2px;
+            min-width: 12px;
+        }
+        .sort-icon.active { color: var(--gastro-primary); font-weight: 800; }
+
+        /* ===== CLICKABLE ORDER ROW ===== */
+        #orders-tbody tr {
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        #orders-tbody tr:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+        }
+        html.dark #orders-tbody tr:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+        }
+        .bon-detail-chevron {
+            color: var(--gastro-text-muted);
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        #orders-tbody tr:hover .bon-detail-chevron {
+            color: var(--gastro-primary);
+            transform: translateX(2px);
+        }
+
+        /* ===== BON DETAIL MODAL ===== */
+        #bon-detail-modal .popup-body {
+            max-height: 70vh;
+        }
+        .bon-detail-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+        }
+        .bon-detail-stat {
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.625rem;
+            padding: 0.6rem 0.75rem;
+        }
+        .bon-detail-stat-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gastro-text-muted);
+        }
+        .bon-detail-stat-value {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--gastro-text-main);
+            margin-top: 2px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .bon-detail-items-header {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gastro-text-muted);
+            margin: 0.75rem 0 0.4rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--gastro-border);
+        }
+        .bon-detail-item {
+            display: grid;
+            grid-template-columns: 28px 1fr auto auto;
+            gap: 0.5rem;
+            padding: 0.5rem 0.4rem;
+            border-bottom: 1px dashed var(--gastro-border);
+            align-items: center;
+            font-size: 0.78rem;
+        }
+        .bon-detail-item:last-child { border-bottom: none; }
+        .bon-detail-item-qty {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+            border-radius: 0.35rem;
+            font-weight: 800;
+            text-align: center;
+            font-size: 0.7rem;
+            padding: 0.2rem 0;
+        }
+        .bon-detail-item-name {
+            font-weight: 700;
+            color: var(--gastro-text-main);
+        }
+        .bon-detail-item-meta {
+            font-size: 0.65rem;
+            color: var(--gastro-text-muted);
+            margin-top: 1px;
+        }
+        .bon-detail-item-price {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-weight: 700;
+            color: var(--gastro-text-main);
+            text-align: right;
+            min-width: 60px;
+        }
+        .bon-detail-item-status {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .bon-detail-item-status.pending { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+        .bon-detail-item-status.confirmed { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
+        .bon-detail-item-status.delivered { background: rgba(16, 185, 129, 0.15); color: #047857; }
+        .bon-detail-item-status.paid { background: rgba(16, 185, 129, 0.2); color: #065f46; }
+        .bon-detail-item-status.cancelled { background: rgba(220, 38, 38, 0.15); color: #b91c1c; }
+        .bon-detail-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0.4rem;
+            margin-top: 0.4rem;
+            background: var(--gastro-bg-gray);
+            border-radius: 0.5rem;
+            font-weight: 800;
+        }
+        .bon-detail-0hint {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #b45309;
+            padding: 0.4rem 0.6rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+        html.dark .bon-detail-0hint { color: #fbbf24; }
+
         /* Mobile responsive filter bar */
         @media (max-width: 640px) {
             .orders-search-wrap {
@@ -2477,7 +2685,7 @@
                         {% if restaurant.price_mode == 'netto' %}
                         <div class="stat-label">Tagesumsatz (Netto)</div>
                         <div class="stat-value">{{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €</div>
-                        <div class="stat-sub">Brutto 7%: {{ "%.2f"|format(stats.brutto_7) }} € &middot; Brutto 19%: {{ "%.2f"|format(stats.brutto_19) }} €</div>
+                        <div class="stat-sub">Reine Nettoeinnahmen — ohne MwSt-Ausweisung</div>
                         {% else %}
                         <div class="stat-label">Tagesumsatz (Brutto)</div>
                         <div class="stat-value">{{ "%.2f"|format(stats.brutto) }} €</div>
@@ -2499,6 +2707,14 @@
                         <div class="stat-label">Schnitt / Bon</div>
                         <div class="stat-value">{{ "%.2f"|format(stats.avg_basket) }} €</div>
                         <div class="stat-sub">Ø Warenkorb pro Abrechnung</div>
+                    </div>
+                    <div class="stat-card stat-avg">
+                        <div class="stat-icon bg-amber-500/10">
+                            <span class="material-symbols-outlined text-amber-600">volunteer_activism</span>
+                        </div>
+                        <div class="stat-label">Trinkgeld</div>
+                        <div class="stat-value">{{ "%.2f"|format(stats.tip) }} €</div>
+                        <div class="stat-sub">Heute erhalten</div>
                     </div>
                 </div>
 
@@ -2533,6 +2749,22 @@
                                 <button onclick="setOrdersDateFilter('all')" class="orders-filter-btn" data-filter="all">Alle</button>
                             </div>
                         </div>
+                        <!-- Custom Date Range -->
+                        <div class="orders-filter-group" id="orders-custom-date-group">
+                            <span class="orders-filter-label">
+                                <span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px;">calendar_month</span>
+                                Zeitraum (von-bis)
+                            </span>
+                            <div class="orders-custom-date-row">
+                                <input type="date" id="orders-date-from" class="orders-date-input" onchange="onCustomDateChanged()">
+                                <span class="text-zinc-400 text-xs font-bold">bis</span>
+                                <input type="date" id="orders-date-to" class="orders-date-input" onchange="onCustomDateChanged()">
+                                <button onclick="applyCustomDateRange()" class="orders-apply-btn">Anwenden</button>
+                                <button onclick="clearCustomDateRange()" class="orders-clear-btn" title="Benutzerdefinierten Zeitraum löschen">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">close</span>
+                                </button>
+                            </div>
+                        </div>
                         <!-- Status Filter -->
                         <div class="orders-filter-group">
                             <span class="orders-filter-label">Status</span>
@@ -2543,21 +2775,31 @@
                                 <button onclick="setOrdersStatusFilter('storniert')" class="orders-filter-btn" data-status="storniert">Storniert</button>
                             </div>
                         </div>
+                        <!-- Tisch Filter -->
+                        <div class="orders-filter-group">
+                            <span class="orders-filter-label">Tisch</span>
+                            <select id="orders-table-filter" class="orders-select" onchange="renderOrdersTable()">
+                                <option value="all">Alle Tische</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Orders Table (dynamic) -->
                 <div class="section-card">
                     <div class="overflow-x-auto">
-                        <table class="dash-table">
+                        <table class="dash-table" id="orders-table">
                             <thead>
                                 <tr>
-                                    <th>Bon ID</th>
-                                    <th>Tisch</th>
-                                    <th>Zeitstempel</th>
-                                    <th>Gesamt</th>
+                                    <th class="cursor-pointer select-none" onclick="setOrdersSort('id')">Bon ID <span id="sort-icon-id" class="sort-icon"></span></th>
+                                    <th class="cursor-pointer select-none" onclick="setOrdersSort('table')">Tisch <span id="sort-icon-table" class="sort-icon"></span></th>
+                                    <th class="cursor-pointer select-none" onclick="setOrdersSort('timestamp')">Zeitstempel <span id="sort-icon-timestamp" class="sort-icon"></span></th>
+                                    <th class="cursor-pointer select-none" onclick="setOrdersSort('total')">Gesamt <span id="sort-icon-total" class="sort-icon"></span></th>
+                                    {% if restaurant.price_mode != 'netto' %}
                                     <th>MwSt</th>
+                                    {% endif %}
                                     <th>Status</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="orders-tbody" class="divide-y divide-gray-100">
@@ -3547,6 +3789,26 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════
+         BON DETAIL MODAL (#bon-detail-modal) — Clickable Bons im Admin-Report
+         Zeigt alle Buchungen, Teilzahlungen, Stornos, Trinkgeld — der Chef
+         kann jeden Bon vollständig nachvollziehen.
+    ═══════════════════════════════════════════════════════ -->
+    <div id="bon-detail-modal" class="overlay-backdrop hidden" style="z-index:85;">
+        <div class="popup-card" style="max-width:580px;">
+            <div class="popup-header" style="background: linear-gradient(135deg, #064e3b, #047857);">
+                <div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Bon-Details</div>
+                    <div style="font-size:18px;font-weight:900;color:#fff;" id="bon-detail-title">Bon #--</div>
+                </div>
+                <button onclick="closeBonDetailModal()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <div class="popup-body" id="bon-detail-body">
+                <!-- Wird von openBonDetail() gefüllt -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
          TABLE SELECTOR OVERLAY / MODAL (#table-sel-overlay)
     ═══════════════════════════════════════════════════════ -->
     <div id="table-sel-overlay" class="overlay-backdrop hidden" style="z-index:70;">
@@ -4046,6 +4308,9 @@
             const hashTab = window.location.hash.replace('#', '');
             const activeTab = hashTab || localStorage.getItem('dl_admin_active_tab') || 'live';
             switchAdminTab(activeTab, false);
+            // Tisch-Filter + Sort-Icons initialisieren
+            populateTableFilter();
+            updateSortIcons();
         });
 
         // Handle browser back/forward
@@ -4081,11 +4346,17 @@
         }
         let tempTables = [];
         
-        // ── ORDERS TABLE: FILTER + PAGINATION STATE ──
-        let _ordersDateFilter = 'today';    // today | 7d | 30d | all
+        // ── ORDERS TABLE: FILTER + PAGINATION + SORT STATE ──
+        let _ordersDateFilter = 'today';    // today | 7d | 30d | all | custom
         let _ordersStatusFilter = 'all';    // all | aktiv | bezahlt | storniert
         let _ordersPage = 1;
         const _ordersPerPage = 25;
+        let _ordersSortField = 'timestamp'; // id | table | timestamp | total
+        let _ordersSortDir = 'desc';        // asc | desc
+        let _ordersCustomFrom = null;       // YYYY-MM-DD or null
+        let _ordersCustomTo = null;         // YYYY-MM-DD or null
+        // Preis-Modus (netto/brutto) — bestimmt MwSt-Spalten-Sichtbarkeit
+        const PRICE_MODE = {{ (restaurant.price_mode or 'brutto') | tojson }};
 
         function setOrdersDateFilter(filter) {
             _ordersDateFilter = filter;
@@ -4094,7 +4365,116 @@
             document.querySelectorAll('.orders-filter-btn[data-filter]').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.filter === filter);
             });
+            // Wenn ein Preset gewählt wird, benutzerdefinierten Zeitraum zurücksetzen
+            if (filter !== 'custom') {
+                _ordersCustomFrom = null;
+                _ordersCustomTo = null;
+                const fromEl = document.getElementById('orders-date-from');
+                const toEl = document.getElementById('orders-date-to');
+                if (fromEl) fromEl.value = '';
+                if (toEl) toEl.value = '';
+            }
             renderOrdersTable();
+        }
+
+        function onCustomDateChanged() {
+            // Automatisch aktivieren sobald beide Daten gesetzt sind
+            const fromEl = document.getElementById('orders-date-from');
+            const toEl = document.getElementById('orders-date-to');
+            if (fromEl && toEl && fromEl.value && toEl.value) {
+                applyCustomDateRange();
+            }
+        }
+
+        function applyCustomDateRange() {
+            const fromEl = document.getElementById('orders-date-from');
+            const toEl = document.getElementById('orders-date-to');
+            if (!fromEl || !toEl) return;
+            if (!fromEl.value || !toEl.value) {
+                alert('Bitte Start- und Enddatum wählen.');
+                return;
+            }
+            // Sicherstellen, dass from <= to
+            if (fromEl.value > toEl.value) {
+                const tmp = fromEl.value;
+                fromEl.value = toEl.value;
+                toEl.value = tmp;
+            }
+            _ordersCustomFrom = fromEl.value;
+            _ordersCustomTo = toEl.value;
+            _ordersDateFilter = 'custom';
+            _ordersPage = 1;
+            // Preset-Buttons deaktivieren
+            document.querySelectorAll('.orders-filter-btn[data-filter]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            renderOrdersTable();
+        }
+
+        function clearCustomDateRange() {
+            _ordersCustomFrom = null;
+            _ordersCustomTo = null;
+            const fromEl = document.getElementById('orders-date-from');
+            const toEl = document.getElementById('orders-date-to');
+            if (fromEl) fromEl.value = '';
+            if (toEl) toEl.value = '';
+            // Auf "Heute" zurücksetzen als Default
+            setOrdersDateFilter('today');
+        }
+
+        function setOrdersSort(field) {
+            if (_ordersSortField === field) {
+                _ordersSortDir = (_ordersSortDir === 'asc') ? 'desc' : 'asc';
+            } else {
+                _ordersSortField = field;
+                _ordersSortDir = (field === 'timestamp' || field === 'id') ? 'desc' : 'asc';
+            }
+            updateSortIcons();
+            renderOrdersTable();
+        }
+
+        function updateSortIcons() {
+            const fields = ['id', 'table', 'timestamp', 'total'];
+            fields.forEach(f => {
+                const el = document.getElementById('sort-icon-' + f);
+                if (!el) return;
+                if (f === _ordersSortField) {
+                    el.textContent = _ordersSortDir === 'asc' ? '▲' : '▼';
+                    el.classList.add('active');
+                } else {
+                    el.textContent = '';
+                    el.classList.remove('active');
+                }
+            });
+        }
+
+        function populateTableFilter() {
+            const select = document.getElementById('orders-table-filter');
+            if (!select || !allOrders) return;
+            // Eindeutige Tische sammeln
+            const tables = new Set();
+            allOrders.forEach(o => {
+                if (o.table) tables.add(String(o.table));
+            });
+            // Tisch-Nummer für Sortierung extrahieren
+            const tableList = Array.from(tables).sort((a, b) => {
+                const numA = parseInt(a.match(/\d+/)?.[0] || '0', 10);
+                const numB = parseInt(b.match(/\d+/)?.[0] || '0', 10);
+                return numA - numB;
+            });
+            // Aktuelle Auswahl merken
+            const currentVal = select.value;
+            select.innerHTML = '<option value="all">Alle Tische</option>';
+            tableList.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                select.appendChild(opt);
+            });
+            // Auswahl wiederherstellen falls noch gültig
+            if (currentVal && (currentVal === 'all' || tableList.includes(currentVal))) {
+                select.value = currentVal;
+            }
         }
 
         function setOrdersStatusFilter(filter) {
@@ -4113,33 +4493,48 @@
             const now = new Date();
             const searchEl = document.getElementById('orders-search');
             const searchVal = searchEl ? searchEl.value.trim().toLowerCase() : '';
+            const tableFilterEl = document.getElementById('orders-table-filter');
+            const tableFilterVal = tableFilterEl ? tableFilterEl.value : 'all';
             
             return allOrders.filter(o => {
                 // 1. Date filter
-                if (_ordersDateFilter !== 'all' && o.timestamp) {
-                    try {
-                        // Parse timestamp like "2025-06-10 14:30:00"
-                        const ts = o.timestamp.replace(' ', 'T');
-                        const orderDate = new Date(ts);
-                        if (isNaN(orderDate.getTime())) return true; // If can't parse, show it
-                        
-                        const diffMs = now - orderDate;
-                        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-                        
-                        if (_ordersDateFilter === 'today') {
-                            // Same calendar day
-                            if (orderDate.getFullYear() !== now.getFullYear() ||
-                                orderDate.getMonth() !== now.getMonth() ||
-                                orderDate.getDate() !== now.getDate()) {
-                                return false;
+                if (_ordersDateFilter !== 'all') {
+                    if (o.timestamp) {
+                        try {
+                            const ts = o.timestamp.replace(' ', 'T');
+                            const orderDate = new Date(ts);
+                            if (!isNaN(orderDate.getTime())) {
+                                if (_ordersDateFilter === 'today') {
+                                    if (orderDate.getFullYear() !== now.getFullYear() ||
+                                        orderDate.getMonth() !== now.getMonth() ||
+                                        orderDate.getDate() !== now.getDate()) {
+                                        return false;
+                                    }
+                                } else if (_ordersDateFilter === '7d') {
+                                    const diffDays = (now - orderDate) / (1000 * 60 * 60 * 24);
+                                    if (diffDays > 7) return false;
+                                } else if (_ordersDateFilter === '30d') {
+                                    const diffDays = (now - orderDate) / (1000 * 60 * 60 * 24);
+                                    if (diffDays > 30) return false;
+                                } else if (_ordersDateFilter === 'custom') {
+                                    // Benutzerdefinierter Zeitraum (von-bis inkl. Enddatum)
+                                    if (_ordersCustomFrom) {
+                                        const fromDate = new Date(_ordersCustomFrom + 'T00:00:00');
+                                        if (orderDate < fromDate) return false;
+                                    }
+                                    if (_ordersCustomTo) {
+                                        const toDate = new Date(_ordersCustomTo + 'T23:59:59');
+                                        if (orderDate > toDate) return false;
+                                    }
+                                }
                             }
-                        } else if (_ordersDateFilter === '7d') {
-                            if (diffDays > 7) return false;
-                        } else if (_ordersDateFilter === '30d') {
-                            if (diffDays > 30) return false;
+                        } catch (e) {
+                            // Wenn timestamp nicht parsebar: in Preset-Filtern anzeigen, in custom ausblenden
+                            if (_ordersDateFilter === 'custom') return false;
                         }
-                    } catch (e) {
-                        // If timestamp can't be parsed, include the order
+                    } else if (_ordersDateFilter === 'custom') {
+                        // Kein Timestamp + custom Filter → ausblenden
+                        return false;
                     }
                 }
                 
@@ -4155,7 +4550,12 @@
                     }
                 }
                 
-                // 3. Search filter
+                // 3. Tisch filter
+                if (tableFilterVal && tableFilterVal !== 'all') {
+                    if (String(o.table || '') !== tableFilterVal) return false;
+                }
+                
+                // 4. Search filter
                 if (searchVal) {
                     const bonId = String(o.id).toLowerCase();
                     const tableStr = String(o.table || '').toLowerCase();
@@ -4165,10 +4565,37 @@
                 
                 return true;
             }).sort((a, b) => {
-                // Sort by timestamp descending (newest first)
-                const tA = a.timestamp ? a.timestamp.replace(' ', 'T') : '';
-                const tB = b.timestamp ? b.timestamp.replace(' ', 'T') : '';
-                return tB.localeCompare(tA);
+                // Sortierung — Default: timestamp desc (neueste zuerst)
+                const field = _ordersSortField || 'timestamp';
+                const dir = _ordersSortDir === 'asc' ? 1 : -1;
+                
+                let valA, valB;
+                if (field === 'id') {
+                    valA = a.id || 0;
+                    valB = b.id || 0;
+                } else if (field === 'table') {
+                    valA = String(a.table || '');
+                    valB = String(b.table || '');
+                    // Numerische Tisch-Sortierung
+                    const numA = parseInt(valA.match(/\d+/)?.[0] || '0', 10);
+                    const numB = parseInt(valB.match(/\d+/)?.[0] || '0', 10);
+                    return (numA - numB) * dir;
+                } else if (field === 'timestamp') {
+                    valA = a.timestamp ? a.timestamp.replace(' ', 'T') : '';
+                    valB = b.timestamp ? b.timestamp.replace(' ', 'T') : '';
+                    return valB.localeCompare(valA) * dir;
+                } else if (field === 'total') {
+                    // original_total berücksichtigen — nie 0€ für sort
+                    const getSortVal = (o) => {
+                        const t = typeof o.total === 'number' ? o.total : 0;
+                        const ot = typeof o.original_total === 'number' ? o.original_total : 0;
+                        return Math.max(t, ot);
+                    };
+                    valA = getSortVal(a);
+                    valB = getSortVal(b);
+                    return (valA - valB) * dir;
+                }
+                return 0;
             });
         }
 
@@ -4235,14 +4662,16 @@
                     const mwst = o.mwst_rate || 19;
                     const displayTable = String(o.table || '');
                     const timestamp = o.timestamp || '';
+                    const mwstCell = (PRICE_MODE === 'netto') ? '' : `<td class="text-zinc-500">${mwst}%</td>`;
                     
-                    return `<tr>
+                    return `<tr onclick="openBonDetail(${o.id})" class="bon-row">
                         <td class="font-bold text-zinc-800">Bon #${o.id}</td>
                         <td class="font-extrabold">${displayTable}</td>
                         <td class="text-zinc-500 font-mono">${timestamp}</td>
                         <td class="font-extrabold text-zinc-900 font-mono">${totalHtml}</td>
-                        <td class="text-zinc-500">${mwst}%</td>
+                        ${mwstCell}
                         <td>${statusHtml}</td>
+                        <td><span class="material-symbols-outlined bon-detail-chevron">chevron_right</span></td>
                     </tr>`;
                 }).join('');
             }
@@ -4250,9 +4679,21 @@
             // Render pagination
             if (paginationEl) {
                 if (totalItems <= _ordersPerPage) {
-                    paginationEl.innerHTML = totalItems > 0 
-                        ? `<span class="orders-pagination-info">${totalItems} Bestellung${totalItems !== 1 ? 'en' : ''}</span>`
-                        : '';
+                    // Auch ohne Paginierung: klare Anzeige der Gesamtanzahl
+                    let infoText = '';
+                    if (totalItems === 0) {
+                        infoText = 'Keine Bestellungen';
+                    } else if (totalItems === 1) {
+                        infoText = '1 Bestellung gesamt';
+                    } else {
+                        infoText = `${totalItems} Bestellungen gesamt`;
+                    }
+                    // Aktiver Filter anzeigen, damit der Chef sieht was gefiltert ist
+                    const filterDesc = buildFilterDescription();
+                    if (filterDesc) {
+                        infoText += ` · ${filterDesc}`;
+                    }
+                    paginationEl.innerHTML = `<span class="orders-pagination-info">${infoText}</span>`;
                 } else {
                     let pageBtnsHtml = '';
                     
@@ -4286,12 +4727,42 @@
                     
                     const startNum = startIdx + 1;
                     const endNum = endIdx;
+                    const filterDesc = buildFilterDescription();
+                    const filterSuffix = filterDesc ? ` · ${filterDesc}` : '';
                     paginationEl.innerHTML = `
-                        <span class="orders-pagination-info">${startNum}–${endNum} von ${totalItems}</span>
+                        <span class="orders-pagination-info">Seite ${_ordersPage} von ${totalPages} — ${startNum}–${endNum} von ${totalItems} Bestellungen${filterSuffix}</span>
                         <div class="orders-pagination-btns">${pageBtnsHtml}</div>
                     `;
                 }
             }
+        }
+
+        function buildFilterDescription() {
+            const parts = [];
+            // Zeitraum
+            if (_ordersDateFilter === 'today') parts.push('Heute');
+            else if (_ordersDateFilter === '7d') parts.push('7 Tage');
+            else if (_ordersDateFilter === '30d') parts.push('30 Tage');
+            else if (_ordersDateFilter === 'all') parts.push('Alle Zeiträume');
+            else if (_ordersDateFilter === 'custom' && _ordersCustomFrom && _ordersCustomTo) {
+                // Format DD.MM.YYYY
+                const fmt = (s) => {
+                    const [y, m, d] = s.split('-');
+                    return `${d}.${m}.${y}`;
+                };
+                parts.push(`${fmt(_ordersCustomFrom)} – ${fmt(_ordersCustomTo)}`);
+            }
+            // Status
+            if (_ordersStatusFilter !== 'all') {
+                const map = { aktiv: 'Aktiv', bezahlt: 'Bezahlt', storniert: 'Storniert' };
+                if (map[_ordersStatusFilter]) parts.push(map[_ordersStatusFilter]);
+            }
+            // Tisch
+            const tfEl = document.getElementById('orders-table-filter');
+            if (tfEl && tfEl.value && tfEl.value !== 'all') {
+                parts.push(tfEl.value);
+            }
+            return parts.join(' · ');
         }
 
         function goOrdersPage(page) {
@@ -4302,6 +4773,175 @@
             if (tableEl) {
                 tableEl.closest('.section-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
+        }
+
+        // ── BON DETAIL MODAL ──
+        // Der Chef kann auf jeden Bon klicken und sieht die komplette Buchungshistorie:
+        // Artikel, Mengen, Einzelpreise, Teilzahlungen, Stornos, Trinkgeld, Kellner, Zeit.
+        function openBonDetail(orderId) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) return;
+            const modal = document.getElementById('bon-detail-modal');
+            const titleEl = document.getElementById('bon-detail-title');
+            const bodyEl = document.getElementById('bon-detail-body');
+            if (!modal || !titleEl || !bodyEl) return;
+
+            titleEl.textContent = `Bon #${order.id}`;
+
+            const oStatus = (order.status || '').toLowerCase();
+            let statusLabel = 'Aktiv';
+            let statusColor = 'amber';
+            if (oStatus === 'bezahlt') { statusLabel = 'Bezahlt'; statusColor = 'emerald'; }
+            else if (oStatus === 'storniert') { statusLabel = 'Storniert'; statusColor = 'rose'; }
+
+            const fmtEUR = (v) => (typeof v === 'number' ? v.toFixed(2).replace('.', ',') : '0,00') + ' €';
+            const total = typeof order.total === 'number' ? order.total : 0;
+            const originalTotal = typeof order.original_total === 'number' ? order.original_total : null;
+            const tip = typeof order.tip_amount === 'number' ? order.tip_amount : 0;
+            const totalWithTip = typeof order.total_with_tip === 'number' ? order.total_with_tip : (total + tip);
+
+            // Items-Liste rendern
+            const items = order.items || [];
+            let itemsHtml = '';
+            if (items.length === 0) {
+                itemsHtml = '<div class="text-xs text-zinc-400 italic py-3 text-center">Keine Artikel mehr auf diesem Bon — alle Artikel wurden einzeln bezahlt, storniert oder auf einen anderen Tisch umbucht.</div>';
+            } else {
+                itemsHtml = items.map(item => {
+                    const qty = item.quantity || 1;
+                    const price = item.price || 0;
+                    const lineTotal = price * qty;
+                    const itemStatus = (item.item_status || 'pending').toLowerCase();
+                    const statusLabels = {
+                        pending: 'offen',
+                        confirmed: 'bestätigt',
+                        delivered: 'serviert',
+                        paid: 'bezahlt',
+                        cancelled: 'storniert'
+                    };
+                    const statusLabel = statusLabels[itemStatus] || itemStatus;
+                    const categoryLabel = (item.category_type === 'bar') ? 'Bar · 19%' : (item.category_type === 'shisha') ? 'Shisha · 19%' : 'Küche · 7%';
+                    const noteHtml = item.note ? `<div class="text-[10px] text-zinc-500 italic mt-0.5">📝 ${escapeHtml(item.note)}</div>` : '';
+                    return `<div class="bon-detail-item">
+                        <div class="bon-detail-item-qty">${qty}×</div>
+                        <div>
+                            <div class="bon-detail-item-name">${escapeHtml(item.name || 'Unbekannt')}</div>
+                            <div class="bon-detail-item-meta">${fmtEUR(price)} · ${categoryLabel}</div>
+                            ${noteHtml}
+                        </div>
+                        <div class="bon-detail-item-price">${fmtEUR(lineTotal)}</div>
+                        <span class="bon-detail-item-status ${itemStatus}">${statusLabel}</span>
+                    </div>`;
+                }).join('');
+            }
+
+            // 0€-Hinweis: Wenn ein Bon 0€ anzeigt aber original_total > 0
+            let zeroHintHtml = '';
+            if (originalTotal !== null && originalTotal > 0 && total === 0) {
+                zeroHintHtml = `<div class="bon-detail-0hint">
+                    ℹ️ Dieser Bon zeigt aktuell 0,00 €, weil alle Artikel einzeln bezahlt, storniert oder umbucht wurden. Der ursprüngliche Warenwert betrug <b>${fmtEUR(originalTotal)}</b> — dieser Betrag erscheint im Report.
+                </div>`;
+            } else if (originalTotal !== null && originalTotal > total && total > 0) {
+                zeroHintHtml = `<div class="bon-detail-0hint">
+                    ℹ️ Teilzahlung erkannt: Es wurden bereits <b>${fmtEUR(originalTotal - total)}</b> über Einzelartikel-Zahlung abgerechnet. Restbetrag auf diesem Bon: <b>${fmtEUR(total)}</b>.
+                </div>`;
+            }
+
+            // Kellner-Info
+            const waiterHtml = order.waiter_id
+                ? `<div class="bon-detail-stat">
+                    <div class="bon-detail-stat-label">Kellner</div>
+                    <div class="bon-detail-stat-value" style="font-size:0.85rem;">${escapeHtml(order.waiter_id)}</div>
+                </div>`
+                : '';
+
+            // MwSt-Spalte nur im Brutto-Modus
+            const mwstHtml = (PRICE_MODE === 'netto') ? '' : `<div class="bon-detail-stat">
+                <div class="bon-detail-stat-label">MwSt</div>
+                <div class="bon-detail-stat-value" style="font-size:0.85rem;">${order.mwst_rate || 19}%</div>
+            </div>`;
+
+            bodyEl.innerHTML = `
+                <div class="bon-detail-summary">
+                    <div class="bon-detail-stat">
+                        <div class="bon-detail-stat-label">Tisch</div>
+                        <div class="bon-detail-stat-value" style="font-size:0.85rem;">${escapeHtml(order.table || '--')}</div>
+                    </div>
+                    <div class="bon-detail-stat">
+                        <div class="bon-detail-stat-label">Zeitstempel</div>
+                        <div class="bon-detail-stat-value" style="font-size:0.78rem;">${escapeHtml(order.timestamp || '--')}</div>
+                    </div>
+                    <div class="bon-detail-stat">
+                        <div class="bon-detail-stat-label">Status</div>
+                        <div class="bon-detail-stat-value" style="font-size:0.85rem;color:${statusColor === 'emerald' ? '#047857' : statusColor === 'rose' ? '#b91c1c' : '#b45309'};">${statusLabel}</div>
+                    </div>
+                    ${mwstHtml}
+                    ${waiterHtml}
+                    <div class="bon-detail-stat">
+                        <div class="bon-detail-stat-label">Trinkgeld</div>
+                        <div class="bon-detail-stat-value" style="color:#b45309;">${fmtEUR(tip)}</div>
+                    </div>
+                </div>
+
+                <div class="bon-detail-items-header">Artikel (${items.length})</div>
+                <div id="bon-detail-items">${itemsHtml}</div>
+
+                ${zeroHintHtml}
+
+                <div class="bon-detail-total-row" style="margin-top:0.75rem;">
+                    <span class="text-sm">Bon-Gesamt (aktuell)</span>
+                    <span class="font-mono">${fmtEUR(total)}</span>
+                </div>
+                ${originalTotal !== null && originalTotal !== total ? `
+                <div class="bon-detail-total-row" style="margin-top:0.4rem;background:rgba(245,158,11,0.08);border:1px dashed rgba(245,158,11,0.4);">
+                    <span class="text-sm" style="color:#b45309;">Original-Warenwert</span>
+                    <span class="font-mono" style="color:#b45309;">${fmtEUR(originalTotal)}</span>
+                </div>` : ''}
+                ${tip > 0 ? `
+                <div class="bon-detail-total-row" style="margin-top:0.4rem;background:rgba(245,158,11,0.08);">
+                    <span class="text-sm">+ Trinkgeld</span>
+                    <span class="font-mono">${fmtEUR(tip)}</span>
+                </div>` : ''}
+                <div class="bon-detail-total-row" style="margin-top:0.4rem;background:linear-gradient(135deg, rgba(0,153,0,0.12), rgba(0,153,0,0.04));border:1px solid rgba(0,153,0,0.25);">
+                    <span class="text-sm font-extrabold">Gesamt bezahlt</span>
+                    <span class="font-mono font-extrabold" style="font-size:1.05rem;">${fmtEUR(totalWithTip)}</span>
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBonDetailModal() {
+            const modal = document.getElementById('bon-detail-modal');
+            if (modal) modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // Schließen bei Klick auf Backdrop
+        document.addEventListener('DOMContentLoaded', () => {
+            const bonModal = document.getElementById('bon-detail-modal');
+            if (bonModal) {
+                bonModal.addEventListener('click', (e) => {
+                    if (e.target === bonModal) closeBonDetailModal();
+                });
+            }
+            // ESC-Taste schließt Bon-Modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const m = document.getElementById('bon-detail-modal');
+                    if (m && !m.classList.contains('hidden')) closeBonDetailModal();
+                }
+            });
+        });
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // ── DIGI-STYLE MODAL CONTROL STATE ──

@@ -161,6 +161,7 @@ class Order(Base):
     timestamp = Column(String, nullable=False)
     mwst_rate = Column(Integer, default=19)
     waiter_id = Column(String, nullable=True)
+    original_total = Column(Float, default=0.0)  # Nie wieder 0€: echter Warenwert, wird beim Anlegen gesetzt und nie reduziert
 
 class OrderItem(Base):
     __tablename__ = 'order_items'
@@ -335,6 +336,9 @@ def _migrate_database():
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
     add_column_if_missing('order_items', 'note', "TEXT")
+
+    # Migrate 'orders' table — original_total sichert den echten Warenwert gegen 0€-Bug bei Teilzahlung/Storno/Transfer
+    add_column_if_missing('orders', 'original_total', "FLOAT DEFAULT 0.0")
 
     # Ensure events and event_products tables exist
     try:
