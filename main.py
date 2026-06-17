@@ -8656,6 +8656,418 @@ def orders_export_pdf(
     )
 
 
+# ════════════════════════════════════════════════════════════════════
+# MONATSREPORT / ZEITRAUM-REPORT PDF
+# Professioneller Umsatzreport für einen beliebigen Zeitraum.
+# Zeigt: Gesamtumsatz, Zusammenfassung, Top-Tische, Top-Produkte, Tägliche Umsätze.
+# Netto-Only Darstellung (kein Brutto, kein MwSt-Ausweis im Frontend).
+# ════════════════════════════════════════════════════════════════════
+@app.get("/admin/monatsreport/pdf")
+def monatsreport_pdf(
+    request: Request,
+    frm: str = Query(..., description="Start-Datum YYYY-MM-DD"),
+    to: str = Query(..., description="End-Datum YYYY-MM-DD"),
+    db: Session = Depends(get_db)
+):
+    """Professioneller Umsatzreport PDF für einen Zeitraum (von-bis).
+    Netto-Only Darstellung — keine MwSt, kein Brutto im Report."""
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login")
+
+    restaurant = get_restaurant_or_raise(slug, db)
+    restaurant_name = restaurant.get("name", slug)
+    price_mode = restaurant.get("price_mode", "brutto")
+    all_orders = restaurant.get("orders", [])
+
+    # ── Zeitraum parsen ──
+    from datetime import datetime, timedelta
+    try:
+        date_from = datetime.strptime(frm, "%Y-%m-%d")
+        date_to = datetime.strptime(to, "%Y-%m-%d")
+        # Enddatum inkl. bis 23:59:59
+        date_to_end = date_to.replace(hour=23, minute=59, second=59)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ungültiges Datum. Format: YYYY-MM-DD")
+
+    if date_from > date_to:
+        raise HTTPException(status_code=400, detail="Start-Datum muss vor End-Datum liegen")
+
+    # ── Bestellungen im Zeitraum filtern (nur bezahlt) ──
+    paid_orders_in_range = []
+    for o in all_orders:
+        if o.get("status") != "bezahlt":
+            continue
+        ts = o.get("timestamp", "")
+        if not ts:
+            continue
+        try:
+            order_date = datetime.strptime(ts.replace(" ", "T"), "%Y-%m-%dT%H:%M:%S")
+        except Exception:
+            try:
+                order_date = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                continue
+        if date_from <= order_date <= date_to_end:
+            paid_orders_in_range.append((o, order_date))
+
+    # ── Metriken berechnen ──
+    total_revenue = 0.0
+    by_table = {}      # table_name -> {count, revenue}
+    by_product = {}    # product_name -> {qty, revenue}
+    by_day = {}        # date_str -> {count, revenue}
+
+    for o, order_date in paid_orders_in_range:
+        # Netto-Modus: netto_7 + netto_19 aus Items berechnen
+        # Brutto-Modus: total verwenden
+        if price_mode == "netto":
+            order_netto = 0.0
+            for item in o.get("items", []):
+                item_price = item.get("price", 0.0) or 0.0
+                item_qty = item.get("quantity", 0) or 0
+                item_total = item_price * item_qty
+                is_food = item.get("category_type", "küche") == "küche"
+                if is_food:
+                    order_netto += item_total / 1.07
+                else:
+                    order_netto += item_total / 1.19
+            order_revenue = order_netto
+        else:
+            order_revenue = float(_get_display_total(o))
+        total_revenue += order_revenue
+
+        # Nach Tisch
+        table_name = o.get("table", "Unbekannt")
+        if table_name not in by_table:
+            by_table[table_name] = {"count": 0, "revenue": 0.0}
+        by_table[table_name]["count"] += 1
+        by_table[table_name]["revenue"] += order_revenue
+
+        # Nach Produkt
+        for item in o.get("items", []):
+            name = item.get("name", "Unbekannt")
+            qty = item.get("quantity", 0) or 0
+            item_price = item.get("price", 0.0) or 0.0
+            item_total = item_price * qty
+            if price_mode == "netto":
+                is_food = item.get("category_type", "küche") == "küche"
+                if is_food:
+                    item_total = item_total / 1.07
+                else:
+                    item_total = item_total / 1.19
+            if name not in by_product:
+                by_product[name] = {"qty": 0, "revenue": 0.0}
+            by_product[name]["qty"] += qty
+            by_product[name]["revenue"] += item_total
+
+        # Nach Tag
+        day_str = order_date.strftime("%d.%m.%Y")
+        if day_str not in by_day:
+            by_day[day_str] = {"count": 0, "revenue": 0.0}
+        by_day[day_str]["count"] += 1
+        by_day[day_str]["revenue"] += order_revenue
+
+    total_bons = len(paid_orders_in_range)
+    avg_basket = total_revenue / total_bons if total_bons > 0 else 0.0
+
+    # Top-Tische (nach Umsatz)
+    top_tables = sorted(by_table.items(), key=lambda x: x[1]["revenue"], reverse=True)[:5]
+    max_table_revenue = top_tables[0][1]["revenue"] if top_tables else 1.0
+
+    # Top-Produkte (nach Menge)
+    top_products = sorted(by_product.items(), key=lambda x: x[1]["qty"], reverse=True)[:10]
+
+    # Tägliche Umsätze (sortiert nach Datum)
+    daily_sorted = sorted(by_day.items(), key=lambda x: datetime.strptime(x[0], "%d.%m.%Y"))
+
+    # ── PDF generieren mit ReportLab ──
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    )
+    from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    import io as _io
+
+    def fmt_eur(v):
+        try:
+            return f"{float(v):.2f}".replace(".", ",") + " €"
+        except Exception:
+            return "0,00 €"
+
+    def fmt_pct(v):
+        try:
+            return f"{float(v):.1f}%"
+        except Exception:
+            return "0,0%"
+
+    # Font registrieren
+    font_name = "Helvetica"
+    font_bold = "Helvetica-Bold"
+    try:
+        for path in [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        ]:
+            try:
+                pdfmetrics.registerFont(TTFont("DejaVuSans", path))
+                font_name = "DejaVuSans"
+                bold_path = path.replace("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", bold_path))
+                font_bold = "DejaVuSans-Bold"
+                break
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    buffer = _io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"Umsatzreport — {restaurant_name}",
+        author=restaurant_name,
+    )
+
+    styles = getSampleStyleSheet()
+
+    # Styles
+    brand_style = ParagraphStyle(
+        "Brand", parent=styles["Normal"],
+        fontName=font_bold, fontSize=20, leading=24,
+        textColor=colors.HexColor("#0f172a"), spaceAfter=2
+    )
+    title_style = ParagraphStyle(
+        "Title2", parent=styles["Normal"],
+        fontName=font_name, fontSize=11, leading=14,
+        textColor=colors.HexColor("#64748b"), spaceAfter=14
+    )
+    meta_style = ParagraphStyle(
+        "Meta", parent=styles["Normal"],
+        fontName=font_name, fontSize=8, leading=11,
+        textColor=colors.HexColor("#94a3b8")
+    )
+    section_style = ParagraphStyle(
+        "Section", parent=styles["Heading2"],
+        fontName=font_bold, fontSize=12, leading=15,
+        textColor=colors.HexColor("#0f172a"), spaceAfter=8, spaceBefore=14
+    )
+    big_value_style = ParagraphStyle(
+        "BigValue", parent=styles["Normal"],
+        fontName=font_bold, fontSize=28, leading=32,
+        textColor=colors.HexColor("#064e3b"), spaceAfter=4, alignment=TA_LEFT
+    )
+    sub_value_style = ParagraphStyle(
+        "SubValue", parent=styles["Normal"],
+        fontName=font_name, fontSize=9, leading=12,
+        textColor=colors.HexColor("#64748b")
+    )
+    footer_style = ParagraphStyle(
+        "Footer", parent=styles["Normal"],
+        fontName=font_name, fontSize=8, leading=11,
+        textColor=colors.HexColor("#94a3b8"), alignment=TA_CENTER
+    )
+
+    elements = []
+
+    # ── Header ──
+    elements.append(Paragraph(restaurant_name, brand_style))
+    elements.append(Paragraph("Umsatzreport", title_style))
+
+    from_dt = date_from.strftime("%d.%m.%Y")
+    to_dt = date_to.strftime("%d.%m.%Y")
+    now_str = datetime.now().strftime("%d.%m.%Y, %H:%M Uhr")
+    elements.append(Paragraph(f"Zeitraum: {from_dt} – {to_dt}", meta_style))
+    elements.append(Paragraph(f"Erstellt am: {now_str}", meta_style))
+    elements.append(Spacer(1, 10))
+
+    # ── Großer Gesamtumsatz-Block ──
+    summary_inner = [
+        [Paragraph("<b>GESAMTUMSATZ</b>", ParagraphStyle("GSLabel", fontName=font_bold, fontSize=9, textColor=colors.HexColor("#64748b"), leading=12))],
+        [Paragraph(fmt_eur(total_revenue), big_value_style)],
+        [Paragraph(f"{total_bons} Bons · Ø {fmt_eur(avg_basket)} pro Bon", sub_value_style)],
+    ]
+    summary_table = Table(summary_inner, colWidths=[170 * mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f0fdf4")),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#bbf7d0")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 18),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 18),
+        ("TOPPADDING", (0, 0), (-1, -1), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 18))
+
+    # ── Zusammenfassung ──
+    elements.append(Paragraph("Zusammenfassung", section_style))
+    summary_data = [
+        ["Bestellungen gesamt:", str(total_bons)],
+        ["Bezahlt:", str(total_bons)],
+        ["Ø Bon-Wert:", fmt_eur(avg_basket)],
+    ]
+    summary_t = Table(summary_data, colWidths=[100 * mm, 70 * mm])
+    summary_t.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTNAME", (0, 0), (0, -1), font_bold),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#475569")),
+        ("TEXTCOLOR", (1, 0), (1, -1), colors.HexColor("#0f172a")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ("LINEABOVE", (0, 0), (-1, 0), 0.4, colors.HexColor("#cbd5e1")),
+    ]))
+    elements.append(summary_t)
+    elements.append(Spacer(1, 14))
+
+    # ── Top-Tische ──
+    if top_tables:
+        elements.append(Paragraph("Umsatz nach Tisch (Top 5)", section_style))
+        table_header = ["Tisch", "Bons", "Umsatz", "Anteil"]
+        table_rows = [table_header]
+        for table_name, data in top_tables:
+            pct = (data["revenue"] / total_revenue * 100) if total_revenue > 0 else 0
+            # Balken aus █-Zeichen
+            bar_count = int((data["revenue"] / max_table_revenue) * 10) if max_table_revenue > 0 else 0
+            bar = "█" * bar_count + "░" * (10 - bar_count)
+            table_rows.append([
+                table_name,
+                str(data["count"]),
+                fmt_eur(data["revenue"]),
+                f"{fmt_pct(pct)}  {bar}"
+            ])
+        top_tables_t = Table(table_rows, colWidths=[55 * mm, 20 * mm, 35 * mm, 60 * mm])
+        top_tables_t.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, 0), font_bold),
+            ("FONTNAME", (0, 1), (-1, -1), font_name),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#475569")),
+            ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#0f172a")),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("ALIGN", (2, 0), (2, -1), "RIGHT"),
+            ("ALIGN", (3, 0), (3, -1), "LEFT"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#e2e8f0")),
+            ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ]))
+        elements.append(top_tables_t)
+        elements.append(Spacer(1, 14))
+
+    # ── Top-Produkte ──
+    if top_products:
+        elements.append(Paragraph("Top-Produkte", section_style))
+        prod_header = ["#", "Produkt", "Menge", "Umsatz"]
+        prod_rows = [prod_header]
+        for i, (prod_name, data) in enumerate(top_products, 1):
+            prod_rows.append([
+                str(i),
+                prod_name,
+                str(data["qty"]),
+                fmt_eur(data["revenue"]),
+            ])
+        top_prod_t = Table(prod_rows, colWidths=[10 * mm, 85 * mm, 25 * mm, 50 * mm])
+        top_prod_t.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, 0), font_bold),
+            ("FONTNAME", (0, 1), (-1, -1), font_name),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#475569")),
+            ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#0f172a")),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (2, 0), (3, -1), "RIGHT"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#e2e8f0")),
+            ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ]))
+        elements.append(top_prod_t)
+        elements.append(Spacer(1, 14))
+
+    # ── Tägliche Umsätze ──
+    if daily_sorted:
+        elements.append(Paragraph("Tägliche Umsätze", section_style))
+        day_header = ["Datum", "Bons", "Umsatz"]
+        day_rows = [day_header]
+        for day_str, data in daily_sorted:
+            day_rows.append([
+                day_str,
+                str(data["count"]),
+                fmt_eur(data["revenue"]),
+            ])
+        # Summen-Zeile
+        day_rows.append([
+            "GESAMT",
+            str(total_bons),
+            fmt_eur(total_revenue),
+        ])
+        daily_t = Table(day_rows, colWidths=[60 * mm, 30 * mm, 50 * mm])
+        daily_t.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, 0), font_bold),
+            ("FONTNAME", (0, 1), (-1, -2), font_name),
+            ("FONTNAME", (0, -1), (-1, -1), font_bold),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#fef3c7")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#475569")),
+            ("TEXTCOLOR", (0, 1), (-1, -2), colors.HexColor("#0f172a")),
+            ("TEXTCOLOR", (0, -1), (-1, -1), colors.HexColor("#92400e")),
+            ("ALIGN", (1, 0), (2, -1), "RIGHT"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#e2e8f0")),
+            ("LINEABOVE", (0, -1), (-1, -1), 0.6, colors.HexColor("#92400e")),
+            ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ]))
+        elements.append(daily_t)
+
+    elements.append(Spacer(1, 30))
+
+    # ── Footer: Unterschrift-Linie + Branding ──
+    sig_data = [["Ort/Datum: ____________________", "Unterschrift: ____________________"]]
+    sig_t = Table(sig_data, colWidths=[85 * mm, 85 * mm])
+    sig_t.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#64748b")),
+        ("TOPPADDING", (0, 0), (-1, -1), 20),
+    ]))
+    elements.append(sig_t)
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("Generiert von digi-gastro · digi-gastro.de", footer_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    from_dt_fn = date_from.strftime("%Y-%m-%d")
+    to_dt_fn = date_to.strftime("%Y-%m-%d")
+    filename = f"umsatzreport-{slug}-{from_dt_fn}-bis-{to_dt_fn}.pdf"
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
 @app.get("/admin/orders-export/xlsx")
 def orders_export_xlsx(
     request: Request,

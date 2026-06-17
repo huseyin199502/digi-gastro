@@ -1207,7 +1207,123 @@
             background-color: rgba(239, 68, 68, 0.12);
         }
 
-        /* ── Period-Switcher Button Styles ── */
+        /* ── Reports Redesign: Tagesumsatz-Card & Zeitraum-Report ── */
+        .reports-day-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border: 1px solid #bbf7d0;
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.15);
+        }
+        .reports-day-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .reports-day-card-value {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #064e3b;
+            line-height: 1.2;
+            margin: 0.25rem 0;
+            font-family: 'Outfit', sans-serif;
+        }
+        .reports-day-card-sub {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        html.dark .reports-day-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        html.dark .reports-day-card-value {
+            color: #34d399;
+        }
+        html.dark .reports-day-card-sub {
+            color: #9ca3af;
+        }
+
+        /* Zeitraum-Report Inputs */
+        .reports-date-input {
+            width: 100%;
+            padding: 0.6rem 0.85rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.625rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+            background: #fff;
+            transition: all 0.15s ease;
+        }
+        .reports-date-input:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+        html.dark .reports-date-input {
+            background: var(--gastro-card-bg);
+            border-color: var(--gastro-border);
+            color: var(--gastro-text-main);
+        }
+
+        .reports-generate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.65rem 1.25rem;
+            background: var(--gastro-primary);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 800;
+            border-radius: 0.625rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(0, 153, 0, 0.2);
+            white-space: nowrap;
+        }
+        .reports-generate-btn:hover {
+            background: var(--gastro-primary-hover);
+            box-shadow: 0 4px 8px rgba(0, 153, 0, 0.3);
+        }
+        .reports-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .reports-quick-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.75rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .reports-quick-btn:hover {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        html.dark .reports-quick-btn {
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            border-color: var(--gastro-border);
+        }
+        html.dark .reports-quick-btn:hover {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+        }
+
+        /* ── Period-Switcher Button Styles (legacy, no longer used but kept for safety) ── */
         .period-switch-btn {
             display: inline-flex;
             align-items: center;
@@ -2849,139 +2965,113 @@
 
             </div>
 
-            <!-- 📈 TAB 2: BESTELLUNGEN & STATS (finanzen) -->
+            <!-- 📈 TAB 2: BESTELLUNGEN & STATS (finanzen) — REDESIGNED -->
             <div id="admin-tab-finanzen" class="admin-tab-content">
-                <!-- Overview Summary -->
-                <div class="section-card mb-6">
-                    <div class="section-card-header">
+
+                <!-- ════════════════════════════════════════════════════════
+                     SECTION 1: TAGESUMSATZ (immer "Heute", live aktualisiert)
+                     ════════════════════════════════════════════════════════ -->
+                <div class="reports-day-card mb-6">
+                    <div class="reports-day-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">insights</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Tagesübersicht</h3>
+                            <span class="material-symbols-outlined text-emerald-600" style="font-size:18px;">today</span>
+                            <span class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Tagesumsatz</span>
                         </div>
-                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{{ restaurant.name }}</span>
+                        <span class="text-[10px] text-zinc-400 font-medium" id="kpi-day-date"></span>
                     </div>
-                </div>
-
-                <!-- Zeitraum-Switcher: Heute / Dieser Monat / Letzter Monat / Gesamt -->
-                <!-- Wechselt die URL ?period= und lädt die Seite mit neuen Stats neu -->
-                <div class="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                    <span class="text-[10px] font-black text-zinc-500 uppercase tracking-wider mr-2 flex items-center gap-1">
-                        <span class="material-symbols-outlined" style="font-size:14px;">calendar_month</span>
-                        Zeitraum:
-                    </span>
-                    <a href="/admin/dashboard?period=heute"
-                       class="period-switch-btn {% if period == 'heute' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
-                       data-period="heute">
-                        Heute
-                    </a>
-                    <a href="/admin/dashboard?period=monat"
-                       class="period-switch-btn {% if period == 'monat' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
-                       data-period="monat">
-                        Dieser Monat
-                    </a>
-                    <a href="/admin/dashboard?period=letzter_monat"
-                       class="period-switch-btn {% if period == 'letzter_monat' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
-                       data-period="letzter_monat">
-                        Letzter Monat
-                    </a>
-                    <a href="/admin/dashboard?period=all"
-                       class="period-switch-btn {% if period == 'all' %}period-switch-active{% else %}period-switch-inactive{% endif %}"
-                       data-period="all">
-                        Gesamt
-                    </a>
-                </div>
-
-                <!-- Sales Statistics Overview Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                    <div class="stat-card stat-revenue">
-                        <div class="stat-icon bg-emerald-500/10">
-                            <span class="material-symbols-outlined text-emerald-600">euro</span>
-                        </div>
+                    <div class="reports-day-card-value" id="kpi-day-total">
                         {% if restaurant.price_mode == 'netto' %}
-                        <div class="stat-label" id="kpi-revenue-label">
-                            {% if period == 'heute' %}Tagesumsatz{% elif period == 'monat' %}Monatsumsatz{% elif period == 'letzter_monat' %}Letzter Monat{% else %}Gesamtumsatz{% endif %}
-                        </div>
-                        <div class="stat-value" id="kpi-netto-total">{{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €</div>
-                        <div class="stat-sub">Summe aller bezahlten Bons</div>
+                            {{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €
                         {% else %}
-                        <div class="stat-label" id="kpi-revenue-label">
-                            {% if period == 'heute' %}Tagesumsatz{% elif period == 'monat' %}Monatsumsatz{% elif period == 'letzter_monat' %}Letzter Monat{% else %}Gesamtumsatz{% endif %}
-                        </div>
-                        <div class="stat-value" id="kpi-netto-total">{{ "%.2f"|format(stats.brutto) }} €</div>
-                        <div class="stat-sub">Summe aller bezahlten Bons</div>
+                            {{ "%.2f"|format(stats.brutto) }} €
                         {% endif %}
                     </div>
-                    <div class="stat-card stat-orders">
-                        <div class="stat-icon bg-blue-500/10">
-                            <span class="material-symbols-outlined text-blue-600">receipt</span>
-                        </div>
-                        <div class="stat-label">Bestellungen</div>
-                        <div class="stat-value">{{ stats.orders_count }}</div>
-                        <div class="stat-sub">Erfolgreich abgerechnete Bons</div>
-                    </div>
-                    <div class="stat-card stat-avg">
-                        <div class="stat-icon bg-violet-500/10">
-                            <span class="material-symbols-outlined text-violet-600">shopping_cart</span>
-                        </div>
-                        <div class="stat-label">Schnitt / Bon</div>
-                        <div class="stat-value">{{ "%.2f"|format(stats.avg_basket) }} €</div>
-                        <div class="stat-sub">Ø Warenkorb pro Abrechnung</div>
+                    <div class="reports-day-card-sub">
+                        <span id="kpi-day-bons">{{ stats.orders_count }} Bons</span>
+                        <span class="text-zinc-300">·</span>
+                        <span>Ø <span id="kpi-day-avg">{{ "%.2f"|format(stats.avg_basket) }} €</span> pro Bon</span>
                     </div>
                 </div>
 
-                <!-- Orders management bar with filters -->
+                <!-- ════════════════════════════════════════════════════════
+                     SECTION 2: ZEITRAUM-REPORT (PDF-Generierung)
+                     ════════════════════════════════════════════════════════ -->
+                <div class="section-card mb-6 reports-zeitraum-card">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">picture_as_pdf</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Zeitraum-Report erstellen</h3>
+                        </div>
+                    </div>
+                    <div class="section-card-body">
+                        <p class="text-xs text-zinc-500 mb-4">Wähle einen Zeitraum und generiere einen professionellen PDF-Report mit Gesamtumsatz, Top-Tischen, Top-Produkten und täglichen Umsätzen.</p>
+                        <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Von</label>
+                                <input type="date" id="report-date-from" class="reports-date-input">
+                            </div>
+                            <div class="text-zinc-400 text-sm font-bold hidden sm:block pb-2">–</div>
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Bis</label>
+                                <input type="date" id="report-date-to" class="reports-date-input">
+                            </div>
+                            <button onclick="generateZeitraumReport()" id="btn-generate-report" class="reports-generate-btn">
+                                <span class="material-symbols-outlined" style="font-size:16px;">download</span>
+                                PDF-Report erstellen
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <button onclick="setQuickRange('today')" class="reports-quick-btn">Heute</button>
+                            <button onclick="setQuickRange('thisMonth')" class="reports-quick-btn">Dieser Monat</button>
+                            <button onclick="setQuickRange('lastMonth')" class="reports-quick-btn">Letzter Monat</button>
+                            <button onclick="setQuickRange('last7d')" class="reports-quick-btn">Letzte 7 Tage</button>
+                            <button onclick="setQuickRange('last30d')" class="reports-quick-btn">Letzte 30 Tage</button>
+                            <button onclick="setQuickRange('thisYear')" class="reports-quick-btn">Dieses Jahr</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════════════════════════════════════════════════════
+                     SECTION 3: BELEGE & BONS (vereinfachte Tabelle)
+                     ════════════════════════════════════════════════════════ -->
                 <div class="section-card mb-6">
                     <div class="section-card-header flex-wrap gap-3">
                         <div class="flex items-center gap-2">
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">receipt_long</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Abrechnungen verwalten</h3>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Belege &amp; Bons</h3>
                             <span id="orders-count-badge" class="text-[9px] font-black bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-200">0</span>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <!-- Export buttons — respektieren aktuellen Filter -->
-                            <button onclick="exportOrders('pdf')" class="btn-secondary flex items-center gap-1.5 text-xs" title="Gefilterte Bestellungen als PDF exportieren">
-                                <span class="material-symbols-outlined" style="font-size:14px;">picture_as_pdf</span> PDF
-                            </button>
-                            <button onclick="exportOrders('xlsx')" class="btn-secondary flex items-center gap-1.5 text-xs" title="Gefilterte Bestellungen als Excel exportieren">
-                                <span class="material-symbols-outlined" style="font-size:14px;">table_view</span> Excel
-                            </button>
-                            <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs" title="GOBD-konformer CSV-Export für Steuerberater">
-                                <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU
-                            </a>
+                            <!-- Export-Dropdown -->
+                            <div class="relative">
+                                <button onclick="toggleExportMenu()" class="btn-secondary flex items-center gap-1.5 text-xs">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">download</span> Export
+                                    <span class="material-symbols-outlined" style="font-size:14px;">expand_more</span>
+                                </button>
+                                <div id="export-menu" class="hidden absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl py-1 z-50 min-w-[200px]">
+                                    <button onclick="exportOrders('pdf'); toggleExportMenu()" class="w-full text-left px-3 py-2 text-xs font-bold hover:bg-gray-50 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">picture_as_pdf</span>
+                                        Bestellliste (PDF)
+                                    </button>
+                                    <button onclick="exportOrders('xlsx'); toggleExportMenu()" class="w-full text-left px-3 py-2 text-xs font-bold hover:bg-gray-50 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">table_view</span>
+                                        Bestellliste (Excel)
+                                    </button>
+                                    <div class="border-t border-gray-100 my-1"></div>
+                                    <a href="/admin/gobd-export" download class="w-full text-left px-3 py-2 text-xs font-bold hover:bg-gray-50 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">verified</span>
+                                        GOBD / GDPdU (CSV)
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <!-- Filter Bar -->
+                    <!-- Simplified Filter Bar -->
                     <div class="orders-filter-bar">
                         <!-- Search -->
                         <div class="orders-search-wrap">
                             <span class="material-symbols-outlined orders-search-icon">search</span>
                             <input type="text" id="orders-search" class="orders-search-input" placeholder="Bon-Nr. oder Tisch suchen..." oninput="renderOrdersTable()">
-                        </div>
-                        <!-- Date Filter -->
-                        <div class="orders-filter-group">
-                            <span class="orders-filter-label">Zeitraum</span>
-                            <div class="orders-filter-btns">
-                                <button onclick="setOrdersDateFilter('today')" class="orders-filter-btn active" data-filter="today">Heute</button>
-                                <button onclick="setOrdersDateFilter('7d')" class="orders-filter-btn" data-filter="7d">7 Tage</button>
-                                <button onclick="setOrdersDateFilter('30d')" class="orders-filter-btn" data-filter="30d">30 Tage</button>
-                                <button onclick="setOrdersDateFilter('all')" class="orders-filter-btn" data-filter="all">Alle</button>
-                            </div>
-                        </div>
-                        <!-- Custom Date Range -->
-                        <div class="orders-filter-group" id="orders-custom-date-group">
-                            <span class="orders-filter-label">
-                                <span class="material-symbols-outlined" style="font-size:13px;vertical-align:-2px;">calendar_month</span>
-                                Zeitraum (von-bis)
-                            </span>
-                            <div class="orders-custom-date-row">
-                                <input type="date" id="orders-date-from" class="orders-date-input" onchange="onCustomDateChanged()">
-                                <span class="text-zinc-400 text-xs font-bold">bis</span>
-                                <input type="date" id="orders-date-to" class="orders-date-input" onchange="onCustomDateChanged()">
-                                <button onclick="applyCustomDateRange()" class="orders-apply-btn">Anwenden</button>
-                                <button onclick="clearCustomDateRange()" class="orders-clear-btn" title="Benutzerdefinierten Zeitraum löschen">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">close</span>
-                                </button>
-                            </div>
                         </div>
                         <!-- Status Filter -->
                         <div class="orders-filter-group">
@@ -3013,9 +3103,6 @@
                                     <th class="cursor-pointer select-none" onclick="setOrdersSort('table')">Tisch <span id="sort-icon-table" class="sort-icon"></span></th>
                                     <th class="cursor-pointer select-none" onclick="setOrdersSort('timestamp')">Zeitstempel <span id="sort-icon-timestamp" class="sort-icon"></span></th>
                                     <th class="cursor-pointer select-none" onclick="setOrdersSort('total')">Gesamt <span id="sort-icon-total" class="sort-icon"></span></th>
-                                    {% if restaurant.price_mode != 'netto' %}
-                                    <th>MwSt</th>
-                                    {% endif %}
                                     <th>Status</th>
                                     <th></th>
                                 </tr>
@@ -4662,6 +4749,148 @@
         // Preis-Modus (netto/brutto) — bestimmt MwSt-Spalten-Sichtbarkeit
         const PRICE_MODE = {{ (restaurant.price_mode or 'brutto') | tojson }};
 
+        // ═══════════════════════════════════════════════════════════════
+        // NEUE REPORTS-FUNKTIONEN (Redesign)
+        // ═══════════════════════════════════════════════════════════════
+
+        // Setzt das heutige Datum in das kpi-day-date Element
+        function updateDayDateLabel() {
+            const el = document.getElementById('kpi-day-date');
+            if (!el) return;
+            const now = new Date();
+            const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+            const day = days[now.getDay()];
+            const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            el.textContent = `${day}, ${dateStr}`;
+        }
+
+        // Quick-Range Buttons für Zeitraum-Report
+        function setQuickRange(range) {
+            const fromEl = document.getElementById('report-date-from');
+            const toEl = document.getElementById('report-date-to');
+            if (!fromEl || !toEl) return;
+
+            const now = new Date();
+            const fmt = (d) => d.toISOString().split('T')[0];
+
+            if (range === 'today') {
+                fromEl.value = fmt(now);
+                toEl.value = fmt(now);
+            } else if (range === 'thisMonth') {
+                const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                fromEl.value = fmt(first);
+                toEl.value = fmt(now);
+            } else if (range === 'lastMonth') {
+                const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const last = new Date(now.getFullYear(), now.getMonth(), 0);
+                fromEl.value = fmt(first);
+                toEl.value = fmt(last);
+            } else if (range === 'last7d') {
+                const from = new Date(now);
+                from.setDate(from.getDate() - 6);
+                fromEl.value = fmt(from);
+                toEl.value = fmt(now);
+            } else if (range === 'last30d') {
+                const from = new Date(now);
+                from.setDate(from.getDate() - 29);
+                fromEl.value = fmt(from);
+                toEl.value = fmt(now);
+            } else if (range === 'thisYear') {
+                const first = new Date(now.getFullYear(), 0, 1);
+                fromEl.value = fmt(first);
+                toEl.value = fmt(now);
+            }
+        }
+
+        // Generiert den Zeitraum-PDF-Report
+        function generateZeitraumReport() {
+            const fromEl = document.getElementById('report-date-from');
+            const toEl = document.getElementById('report-date-to');
+            const btn = document.getElementById('btn-generate-report');
+
+            if (!fromEl || !toEl) {
+                alert('Datumsfelder nicht gefunden.');
+                return;
+            }
+            if (!fromEl.value || !toEl.value) {
+                alert('Bitte sowohl Von- als auch Bis-Datum auswählen.');
+                return;
+            }
+
+            // Loading state
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="material-symbols-outlined animate-spin" style="font-size:16px;">progress_activity</span> Generiere...`;
+            }
+
+            const url = `/admin/monatsreport/pdf?frm=${encodeURIComponent(fromEl.value)}&to=${encodeURIComponent(toEl.value)}`;
+
+            fetch(url, { method: 'GET', credentials: 'same-origin' })
+                .then(resp => {
+                    if (!resp.ok) {
+                        return resp.json().then(err => {
+                            throw new Error(err.detail || 'Export fehlgeschlagen: ' + resp.status);
+                        });
+                    }
+                    const cd = resp.headers.get('content-disposition') || '';
+                    let filename = 'umsatzreport.pdf';
+                    const match = cd.match(/filename="?([^";]+)"?/);
+                    if (match) filename = match[1];
+                    return resp.blob().then(blob => ({ blob, filename }));
+                })
+                .then(({ blob, filename }) => {
+                    const objUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = objUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+                })
+                .catch(err => {
+                    console.error('Zeitraum-Report error:', err);
+                    alert('Report-Erstellung fehlgeschlagen: ' + err.message);
+                })
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                });
+        }
+
+        // Export-Dropdown toggle
+        function toggleExportMenu() {
+            const menu = document.getElementById('export-menu');
+            if (!menu) return;
+            menu.classList.toggle('hidden');
+            // Schließen bei Klick außerhalb
+            if (!menu.classList.contains('hidden')) {
+                setTimeout(() => {
+                    const closeHandler = (e) => {
+                        if (!menu.contains(e.target) && !e.target.closest('button[onclick="toggleExportMenu()"]')) {
+                            menu.classList.add('hidden');
+                            document.removeEventListener('click', closeHandler);
+                        }
+                    };
+                    document.addEventListener('click', closeHandler);
+                }, 10);
+            }
+        }
+
+        // Init Reports: Default-Datum setzen
+        function initReportsDefaults() {
+            // Default: Dieser Monat
+            setQuickRange('thisMonth');
+            updateDayDateLabel();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ENDE NEUE REPORTS-FUNKTIONEN
+        // ═══════════════════════════════════════════════════════════════
+
         function setOrdersDateFilter(filter) {
             _ordersDateFilter = filter;
             _ordersPage = 1;
@@ -5311,6 +5540,8 @@
                     if (m && !m.classList.contains('hidden')) closeBonDetailModal();
                 }
             });
+            // Reports: Default-Datum (Diesen Monat) setzen + Datumslabel
+            if (typeof initReportsDefaults === 'function') initReportsDefaults();
         });
 
         function escapeHtml(str) {
@@ -6615,22 +6846,32 @@
                         }
                         lastLiveTischeHash = currentHash;
 
-                        // Real-time KPI Card Updates (only if tab is dashboard/live)
+                        // Real-time KPI Card Updates — NUR Tagesumsatz-Card (immer "heute")
+                        // Bug-Fix: Früher wurden auch Werte für "Monat"/"Letzter Monat" mit
+                        // "heute"-Daten überschrieben → sprangen auf 0. Jetzt gibt es nur noch
+                        // die Tagesumsatz-Card, die per Definition immer "heute" anzeigt.
                         if (data.stats) {
-                            // Netto-Modus: nur Netto-Werte aktualisieren, keine Brutto/MwSt anzeigen.
-                            // Brutto-Werte bleiben im Backend für GOBD-Export erhalten, werden aber
-                            // im Frontend nicht mehr sichtbar gemacht.
-                            const elNettoTotal = document.getElementById('kpi-netto-total');
-                            if (elNettoTotal) {
-                                const nettoSum = (data.stats.netto_7 || 0) + (data.stats.netto_19 || 0);
-                                elNettoTotal.textContent = `${nettoSum.toFixed(2).replace('.', ',')} €`;
+                            const elDayTotal = document.getElementById('kpi-day-total');
+                            if (elDayTotal) {
+                                // Netto-Modus: netto_7 + netto_19
+                                // Brutto-Modus: brutto
+                                const daySum = (PRICE_MODE === 'netto')
+                                    ? (data.stats.netto_7 || 0) + (data.stats.netto_19 || 0)
+                                    : (data.stats.brutto || 0);
+                                elDayTotal.textContent = `${daySum.toFixed(2).replace('.', ',')} €`;
                             }
 
-                            const elNetto19 = document.getElementById('kpi-netto-19');
-                            if (elNetto19) elNetto19.textContent = `${data.stats.netto_19.toFixed(2).replace('.', ',')} €`;
+                            const elDayBons = document.getElementById('kpi-day-bons');
+                            if (elDayBons) {
+                                const count = data.stats.orders_count || 0;
+                                elDayBons.textContent = `${count} ${count === 1 ? 'Bon' : 'Bons'}`;
+                            }
 
-                            const elNetto7 = document.getElementById('kpi-netto-7');
-                            if (elNetto7) elNetto7.textContent = `${data.stats.netto_7.toFixed(2).replace('.', ',')} €`;
+                            const elDayAvg = document.getElementById('kpi-day-avg');
+                            if (elDayAvg) {
+                                const avg = data.stats.avg_basket || 0;
+                                elDayAvg.textContent = `${avg.toFixed(2).replace('.', ',')} €`;
+                            }
 
                             const feedContainer = document.getElementById('live-payments-feed');
                             if (feedContainer) {
