@@ -39,7 +39,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=16">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=17">
 
     <script id="tailwind-config">
         tailwind.config = {
@@ -297,6 +297,85 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* ════════════════════════════════════════════════════════════════════
+           ADDITIONAL MOBILE ENHANCEMENTS (landing) — additive only
+           ════════════════════════════════════════════════════════════════════ */
+
+        /* ── Mobile (≤640px): performance & legibility ── */
+        @media (max-width: 640px) {
+            /* Disable heavy blur on small screens for performance */
+            .backdrop-blur-xl,
+            .backdrop-blur-md,
+            .backdrop-blur-lg {
+                backdrop-filter: blur(8px) !important;
+                -webkit-backdrop-filter: blur(8px) !important;
+            }
+            /* Disable float animations on mobile (saves battery + smoother scroll) */
+            .animate-float-slow,
+            .animate-float-slower,
+            .animate-float-medium {
+                animation: none !important;
+            }
+            /* Reduce shadow intensity */
+            .shadow-2xl {
+                box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5) !important;
+            }
+            /* Form inputs: 16px to prevent iOS auto-zoom */
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ── Small phone (≤480px) ── */
+        @media (max-width: 480px) {
+            /* Disable aurora background animation (GPU-intensive on old phones) */
+            .aurora-bg {
+                animation: none !important;
+            }
+            /* Tighter section padding on tiny screens */
+            section {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+        }
+
+        /* ── Landscape phone ── */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            nav.sticky {
+                height: 3rem !important;
+            }
+        }
+
+        /* ── Reduced motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            .animate-float-slow,
+            .animate-float-slower,
+            .animate-float-medium,
+            .aurora-bg,
+            [class*="animate-"] {
+                animation: none !important;
+            }
+        }
+
+        /* ── Print styles for marketing material ── */
+        @media print {
+            nav, footer, .fixed, .cookie-banner {
+                display: none !important;
+            }
+            body {
+                background: #fff !important;
+                color: #000 !important;
+            }
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -323,7 +402,7 @@
          style="padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
+                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" decoding="async" fetchpriority="high" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
                 <div id="logo-fallback-nav" class="hidden h-10 w-10 rounded-xl bg-zinc-900 border border-gold-500/30 items-center justify-center text-gold-500 font-bold">dg</div>
                 <span class="text-xl font-black tracking-tight font-display text-white">digi-gastro<span class="text-gold-500">.de</span></span>
             </div>

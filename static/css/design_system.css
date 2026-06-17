@@ -815,3 +815,159 @@ html.light .sitzplan-table.status-free {
 
 /* ── MENU LIGHT MODE: SOLID WHITE BACKGROUND ── */
 /* (Solid white background applied via html.light body rule near top of file) */
+
+/* ════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE ENHANCEMENTS (additive only — no overrides)
+   These rules add mobile breakpoints that were previously missing.
+   They only kick in below specific widths and do NOT change existing
+   desktop behavior. Safe to layer on top of Tailwind utility classes.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet breakpoint (≤1023px) ── */
+@media (max-width: 1023px) {
+    /* Slightly tighter glass panels on smaller screens for readability */
+    .glass-panel {
+        backdrop-filter: blur(18px) saturate(160%);
+        -webkit-backdrop-filter: blur(18px) saturate(160%);
+    }
+    .glass-card {
+        backdrop-filter: blur(12px) saturate(140%);
+        -webkit-backdrop-filter: blur(12px) saturate(140%);
+    }
+}
+
+/* ── Mobile breakpoint (≤768px) ── */
+@media (max-width: 768px) {
+    /* Reduce shadow intensity to save GPU on mobile */
+    .glass-panel {
+        box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
+    }
+    .glass-card {
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .glass-card:hover {
+        /* Hover-lift disabled on touch devices (no hover anyway, saves repaints) */
+        transform: none;
+    }
+
+    /* Premium buttons: slightly tighter padding for narrow viewports */
+    .btn-premium {
+        letter-spacing: 0.01em;
+    }
+
+    /* Inputs: ensure 16px font-size to prevent iOS auto-zoom on focus
+       (also handled per-template via @media below — defense in depth) */
+    .input-premium,
+    .input-premium input,
+    .input-premium select,
+    .input-premium textarea {
+        font-size: 16px;
+    }
+}
+
+/* ── Small phone breakpoint (≤480px) ── */
+@media (max-width: 480px) {
+    /* Disable heavy backdrop-filter on very small screens for performance
+       (older phones struggle with blur+saturate combos) */
+    .glass-panel {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        background: rgba(11, 12, 16, 0.85);
+    }
+    .glass-card {
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        background: rgba(17, 19, 26, 0.78);
+    }
+
+    /* Reduce scrollbar size further */
+    ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+}
+
+/* ── Reduced motion: respect user preference ── */
+@media (prefers-reduced-motion: reduce) {
+    .glass-card,
+    .btn-premium,
+    .btn-premium-primary,
+    .btn-premium-secondary,
+    .glass-btn-primary,
+    .glass-btn-secondary {
+        transition: none !important;
+        animation: none !important;
+    }
+    .glass-card:hover {
+        transform: none !important;
+    }
+}
+
+/* ── Print styles (for receipts, invoices, reports) ── */
+@media print {
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+    .glass-panel,
+    .glass-card {
+        background: #fff !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        color: #000 !important;
+    }
+    .btn-premium,
+    .glow-primary,
+    .glow-gold {
+        box-shadow: none !important;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   IMAGE LOADING OPTIMIZATIONS
+   ════════════════════════════════════════════════════════════════════ */
+img {
+    /* Native lazy-loading fallback: decode async to avoid blocking main thread */
+    decoding: async;
+}
+
+/* Prevent layout shift while images load — smooth mobile scroll */
+img[loading="lazy"] {
+    content-visibility: auto;
+}
+
+/* Image error state: subtle placeholder instead of broken icon */
+img:not([src]),
+img[src=""] {
+    opacity: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FOCUS VISIBLE: keyboard navigation accessibility
+   ════════════════════════════════════════════════════════════════════ */
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Remove default outline only when focus-visible is supported (modern browsers) */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   HIGH CONTRAST MODE support
+   ════════════════════════════════════════════════════════════════════ */
+@media (prefers-contrast: high) {
+    .glass-panel,
+    .glass-card {
+        border-width: 2px !important;
+        border-color: var(--text-on-surface) !important;
+    }
+    .text-on-surface-variant {
+        color: var(--text-on-surface) !important;
+    }
+}

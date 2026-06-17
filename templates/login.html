@@ -20,7 +20,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <!-- Premium Design System -->
-    <link rel="stylesheet" href="/static/css/design_system.css?v=16">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=17">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -45,6 +45,39 @@
             color: #f3f4f6;
             font-family: var(--font-sans);
         }
+
+        /* ── Mobile (≤640px): prevent iOS auto-zoom on input focus ── */
+        @media (max-width: 640px) {
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ── Small phone (≤480px): lighter blur for performance ── */
+        @media (max-width: 480px) {
+            .glass-panel {
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+            }
+            .shadow-2xl {
+                box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5) !important;
+            }
+        }
+
+        /* ── Reduced motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            .hover-lift {
+                transition: none !important;
+            }
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -61,7 +94,7 @@
         
         <div class="text-center mb-8">
             <div class="inline-flex p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 mb-4 shadow-lg shadow-emerald-500/5 hover-lift">
-                <img alt="digi-gastro logo" class="h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" onerror="this.src='https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300'">
+                <img alt="digi-gastro logo" class="h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" decoding="async" fetchpriority="high" onerror="this.src='https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300'">
             </div>
             <h2 class="text-2xl font-black text-white tracking-tight font-display bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Admin Login</h2>
             <p class="text-xs text-zinc-400 mt-2 font-medium tracking-wide uppercase">{{ restaurant_name }} Management Panel</p>

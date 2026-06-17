@@ -708,6 +708,30 @@
             overflow: hidden;
         }
 
+        /* ── Responsive seating canvas height ── */
+        @media (max-width: 1023px) {
+            .seating-canvas {
+                height: 520px;
+            }
+        }
+        @media (max-width: 768px) {
+            .seating-canvas {
+                height: 440px;
+            }
+        }
+        @media (max-width: 480px) {
+            .seating-canvas {
+                height: 60vh;
+                min-height: 320px;
+            }
+        }
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            .seating-canvas {
+                height: 70vh;
+                min-height: 280px;
+            }
+        }
+
 
         .seating-canvas.view-mode-grouped {
             position: relative;
@@ -2559,6 +2583,104 @@
             color: #22c55e;
             border-left-color: #22c55e;
         }
+
+        /* ════════════════════════════════════════════════════════════════════
+           ADDITIONAL MOBILE ENHANCEMENTS (admin) — additive only
+           ════════════════════════════════════════════════════════════════════ */
+
+        /* ── Tablet (≤1023px): tighter content padding ── */
+        @media (max-width: 1023px) {
+            .content-area {
+                padding: 1rem;
+            }
+            .dash-header {
+                padding: 0.75rem 1rem;
+                padding-top: calc(0.75rem + env(safe-area-inset-top));
+            }
+        }
+
+        /* ── Mobile (≤640px): optimized for one-handed use ── */
+        @media (max-width: 640px) {
+            .content-area {
+                padding: 0.75rem;
+            }
+            .dash-header {
+                padding: 0.625rem 0.75rem;
+                padding-top: calc(0.625rem + env(safe-area-inset-top));
+            }
+            /* Make tables more compact on mobile */
+            .dash-table {
+                font-size: 0.75rem;
+            }
+            /* Larger tap targets for nav buttons when sidebar is open */
+            aside.open .nav-btn,
+            aside.open .nav-sub-btn {
+                padding: 0.95rem 1.25rem;
+            }
+            /* Form inputs: 16px to prevent iOS auto-zoom */
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+            /* Bulk action bar: full-width on mobile */
+            .bulk-action-bar {
+                left: 12px !important;
+                right: 12px !important;
+                transform: none !important;
+                bottom: 12px !important;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+                padding: 0.625rem 0.75rem;
+            }
+        }
+
+        /* ── Small phone (≤480px): minimal chrome ── */
+        @media (max-width: 480px) {
+            .content-area {
+                padding: 0.5rem;
+            }
+            /* Hide breadcrumbs on very small screens (saves space) */
+            .breadcrumb-sep,
+            .hidden.lg\\:flex {
+                display: none !important;
+            }
+            /* Tighter card spacing */
+            .section-card {
+                border-radius: 0.875rem;
+            }
+        }
+
+        /* ── Landscape phone (short height) ── */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            .dash-header {
+                padding: 0.5rem 0.75rem;
+                padding-top: calc(0.5rem + env(safe-area-inset-top));
+            }
+            .content-area {
+                padding: 0.5rem;
+            }
+        }
+
+        /* ── Reduced motion: disable heavy animations ── */
+        @media (prefers-reduced-motion: reduce) {
+            .notif-card,
+            .slide-up-modal,
+            .edit-slide-over {
+                animation: none !important;
+                transition: none !important;
+            }
+            aside {
+                transition: none !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
@@ -2570,14 +2692,14 @@
     <aside>
         <div class="sidebar-header">
             <a href="/" class="flex items-center gap-2.5 justify-center">
-                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro" class="h-8 w-auto object-contain rounded-lg shadow-sm">
+                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro" class="h-8 w-auto object-contain rounded-lg shadow-sm" decoding="async" fetchpriority="high">
             </a>
         </div>
         
         <div class="profile-card">
             <div class="avatar {% if restaurant.branding and restaurant.branding.logo_url %}bg-white p-1{% endif %} overflow-hidden flex items-center justify-center">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-                    <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }}" class="w-full h-full object-contain rounded-[12px]">
+                    <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }}" class="w-full h-full object-contain rounded-[12px]" decoding="async" fetchpriority="high">
                 {% else %}
                     {{ restaurant.name[:2].upper() if restaurant.name else 'DG' }}
                 {% endif %}
@@ -2931,7 +3053,7 @@
                                     <td>
                                         <div class="w-8 h-8 rounded-lg bg-zinc-200/50 flex items-center justify-center overflow-hidden shrink-0 relative">
                                             {% if p.image and not p.image.lower().endswith('.pdf') %}
-                                                <img src="{{ p.image }}" alt="{{ p.name }}" class="relative z-10 max-w-full max-h-full object-contain" loading="lazy" style="width:32px;height:32px;">
+                                                <img src="{{ p.image }}" alt="{{ p.name }}" class="relative z-10 max-w-full max-h-full object-contain" loading="lazy" decoding="async" style="width:32px;height:32px;">
                                             {% else %}
                                                 <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">fastfood</span>
                                             {% endif %}
@@ -3002,7 +3124,7 @@
                             <input type="checkbox" class="product-checkbox shrink-0" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
                             <div class="product-card-img">
                                 {% if p.image and not p.image.lower().endswith('.pdf') %}
-                                    <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy">
+                                    <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy" decoding="async" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw">
                                 {% else %}
                                     <span class="material-symbols-outlined text-zinc-400" style="font-size:18px;">fastfood</span>
                                 {% endif %}
@@ -3431,7 +3553,7 @@
                         <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
                             {% if restaurant.branding and restaurant.branding.logo_url %}
                             <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200">
+                                <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200" decoding="async">
                                 <span class="text-[10px] text-zinc-400 font-bold">Aktuelles Logo</span>
                             </div>
                             {% endif %}
@@ -3641,7 +3763,7 @@
                                     <div class="flex flex-wrap gap-2 mt-1">
                                         {% for img in restaurant.landing_page.offer_images %}
                                         <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot" loading="lazy" decoding="async">
                                             <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
                                                 <span class="material-symbols-outlined text-base">delete</span>
                                             </button>
@@ -3667,7 +3789,7 @@
                                     <div class="flex flex-wrap gap-2 mt-1">
                                         {% for img in restaurant.landing_page.slideshow_images %}
                                         <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow" loading="lazy" decoding="async">
                                             <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
                                                 <span class="material-symbols-outlined text-base">delete</span>
                                             </button>
@@ -3693,7 +3815,7 @@
                                             <div class="flex flex-wrap gap-2 mt-1">
                                                 {% for img in restaurant.landing_page.gallery_images %}
                                                 <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie">
+                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie" loading="lazy" decoding="async">
                                                     <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
                                                         <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                                                     </button>
@@ -4086,7 +4208,7 @@
                 <div id="edit-product-image-preview" class="hidden">
                     <label class="form-label">Vorschau</label>
                     <div class="w-32 h-32 rounded-xl bg-zinc-100 border border-zinc-200 overflow-hidden flex items-center justify-center">
-                        <img id="edit-product-preview-img" src="" alt="Vorschau" class="max-w-full max-h-full object-contain">
+                        <img id="edit-product-preview-img" src="" alt="Vorschau" class="max-w-full max-h-full object-contain" decoding="async">
                     </div>
                 </div>
             </div>

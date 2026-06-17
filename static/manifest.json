@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "digi-gastro – Digitale Speisekarte & Bestellsystem",
   "short_name": "digi-gastro",
   "description": "Premium digitales Gastronomie-Bestellsystem für kontaktloses Bestellen, Tischverwaltung und Live-Betrieb",
@@ -10,6 +11,9 @@
   "background_color": "#0d0d11",
   "theme_color": "#C9A84C",
   "categories": ["food", "business"],
+  "lang": "de",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/static/images/digigastrologo.jpeg",

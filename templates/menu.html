@@ -18,7 +18,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=16">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=17">
     
     <script id="tailwind-config">
         tailwind.config = {
@@ -139,6 +139,79 @@
             object-fit: contain;
             display: block;
         }
+
+        /* ════════════════════════════════════════════════════════════════════
+           MOBILE ENHANCEMENTS — additive only, no category/product layout changes
+           These rules improve mobile UX without touching the existing
+           grid layout, badge positioning, or card structure.
+           ════════════════════════════════════════════════════════════════════ */
+
+        /* ── Small phone (≤480px) — performance & legibility ── */
+        @media (max-width: 480px) {
+            /* Slightly tighter header for more content space on tiny screens */
+            header.sticky {
+                height: 3.5rem;
+            }
+            /* Disable heavy box-shadows on mobile for GPU savings */
+            .shadow-2xl {
+                box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5) !important;
+            }
+            /* Smooth scroll for bottom-sheet modals on iOS */
+            .modal-overscroll {
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        /* ── Mobile bottom-sheet modal: ensure proper sizing ── */
+        @media (max-width: 640px) {
+            /* Bottom-sheet modals should fill width minus safe-area */
+            #cart-modal-inner,
+            #legal-modal > div {
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            /* Ensure form inputs use 16px to prevent iOS auto-zoom */
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ── Landscape phone: prevent UI collapse ── */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            /* Compact header in landscape */
+            header.sticky {
+                height: 3.5rem !important;
+            }
+            /* Bottom navigation: thinner in landscape */
+            .fixed.bottom-0.inset-x-0 {
+                height: 2.75rem !important;
+            }
+        }
+
+        /* ── Reduced motion: respect user preference ── */
+        @media (prefers-reduced-motion: reduce) {
+            .slide-up-modal,
+            .animate-cart-pulse,
+            .animate-fade-in {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* ── Dark mode: prevent flash of white background ── */
+        @media (prefers-color-scheme: dark) {
+            html:not(.light) body {
+                background-color: var(--bg-obsidian);
+            }
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -194,7 +267,7 @@
             style="padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
         <div class="flex justify-start">
             {% if restaurant.branding and restaurant.branding.logo_url %}
-                <img alt="{{ restaurant.name }} Logo" class="h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}">
+                <img alt="{{ restaurant.name }} Logo" class="h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
             {% else %}
                 <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-xl sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
             {% endif %}
@@ -244,7 +317,7 @@
         <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper" id="landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-                    <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}">
+                    <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
                 {% endif %}
                 <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight font-display drop-shadow-md animate-pulse" style="color:#ffffff !important;" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
                 <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
@@ -689,8 +762,8 @@
                         
                         <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-zinc-900/50 flex items-center justify-center">
                             {% if product.image and not product.image.lower().endswith('.pdf') %}
-                            <img alt="{{ product.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-110 pointer-events-none" src="{{ product.image }}" loading="lazy">
-                            <img alt="{{ product.name }}" class="relative z-10 max-w-full max-h-full object-contain" src="{{ product.image }}" loading="lazy">
+                            <img alt="{{ product.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-110 pointer-events-none" src="{{ product.image }}" loading="lazy" decoding="async">
+                            <img alt="{{ product.name }}" class="relative z-10 max-w-full max-h-full object-contain" src="{{ product.image }}" loading="lazy" decoding="async" sizes="(max-width: 640px) 45vw, (max-width: 768px) 30vw, (max-width: 1024px) 22vw, 18vw">
                             {% else %}
 
                             <div class="flex flex-col items-center justify-center text-on-surface-variant/20">

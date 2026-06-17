@@ -150,3 +150,91 @@
 .sitzplan-table.draggable:hover .edit-table-shape-btn {
     display: block;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   RESPONSIVE SITZPLAN — Mobile / Tablet Breakpoints
+   The original .sitzplan-map-container had a fixed height: 600px which
+   is too tall on landscape phones and too cramped on portrait phones.
+   These rules progressively reduce height & adjust table tiles.
+   They are additive and only activate below specific widths.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet landscape & small laptops (≤1023px) ── */
+@media (max-width: 1023px) {
+    .sitzplan-map-container {
+        height: 520px;
+        background-size: 20px 20px;
+    }
+}
+
+/* ── Tablet portrait & large phones (≤768px) ── */
+@media (max-width: 768px) {
+    .sitzplan-map-container {
+        height: 440px;
+        background-size: 18px 18px;
+        border-radius: 1rem;
+    }
+
+    /* Slightly larger touch targets on tables for fat fingers */
+    .sitzplan-table {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Hide tiny edit-mode badges on small screens (too small to read/use) */
+    .edit-table-badge {
+        display: none;
+    }
+
+    /* Larger resize handles for touch */
+    .resize-handle {
+        width: 16px;
+        height: 16px;
+    }
+    .resize-handle.se {
+        right: -8px;
+        bottom: -8px;
+    }
+    .resize-handle.nw {
+        left: -8px;
+        top: -8px;
+    }
+}
+
+/* ── Phone (≤480px) ── */
+@media (max-width: 480px) {
+    .sitzplan-map-container {
+        /* Use viewport-relative height so canvas fills available screen
+           without forcing user to scroll past empty space */
+        height: 60vh;
+        min-height: 320px;
+        background-size: 16px 16px;
+        border-radius: 0.75rem;
+    }
+
+    /* Hide edit-table-shape-btn entirely on phones — too fiddly with touch */
+    .edit-table-shape-btn {
+        display: none !important;
+    }
+    .sitzplan-table.draggable:hover .edit-table-shape-btn {
+        display: none !important;
+    }
+}
+
+/* ── Landscape phone (short height) ── */
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+    .sitzplan-map-container {
+        height: 70vh;
+        min-height: 280px;
+    }
+}
+
+/* ── Reduced motion: disable pulse animation ── */
+@media (prefers-reduced-motion: reduce) {
+    .sitzplan-table.status-pending {
+        animation: none !important;
+    }
+    .sitzplan-table:active {
+        transform: none !important;
+    }
+}
