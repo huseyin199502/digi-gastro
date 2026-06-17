@@ -536,7 +536,7 @@
             <div id="tab-speisekarte" class="py-2">
 
                 <!-- BACK BUTTON when inside a category -->
-                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[calc(5rem+env(safe-area-inset-top))] z-40 bg-[var(--bg-obsidian)] pb-1.5 pt-1 -mt-1">
+                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[calc(5rem+env(safe-area-inset-top))] z-40 bg-[var(--bg-obsidian)] pb-2 pt-0 -mt-2">
                     <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
                         <span class="material-symbols-outlined text-xl">arrow_back</span>
                         <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
