@@ -2832,13 +2832,13 @@
                             <span class="material-symbols-outlined text-emerald-600">euro</span>
                         </div>
                         {% if restaurant.price_mode == 'netto' %}
-                        <div class="stat-label">Tagesumsatz (Netto)</div>
-                        <div class="stat-value">{{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €</div>
-                        <div class="stat-sub">Reine Nettoeinnahmen — ohne MwSt-Ausweisung</div>
+                        <div class="stat-label" id="kpi-revenue-label">Tagesumsatz</div>
+                        <div class="stat-value" id="kpi-netto-total">{{ "%.2f"|format(stats.netto_7 + stats.netto_19) }} €</div>
+                        <div class="stat-sub">Summe aller bezahlten Bons</div>
                         {% else %}
-                        <div class="stat-label">Tagesumsatz (Brutto)</div>
-                        <div class="stat-value">{{ "%.2f"|format(stats.brutto) }} €</div>
-                        <div class="stat-sub">Netto 7%: {{ "%.2f"|format(stats.netto_7) }} € &middot; Netto 19%: {{ "%.2f"|format(stats.netto_19) }} €</div>
+                        <div class="stat-label" id="kpi-revenue-label">Tagesumsatz</div>
+                        <div class="stat-value" id="kpi-netto-total">{{ "%.2f"|format(stats.brutto) }} €</div>
+                        <div class="stat-sub">Summe aller bezahlten Bons</div>
                         {% endif %}
                     </div>
                     <div class="stat-card stat-orders">
@@ -3632,14 +3632,13 @@
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
                             <div>
                                 <h4 class="font-bold text-xs text-zinc-800">Preisanzeige</h4>
-                                <p class="text-[10px] text-zinc-400 mt-0.5">Brutto = Endpreise inkl. MwSt &middot; Netto = Preise ohne MwSt (f&uuml;r B2B/Gastronomie)</p>
+                                <p class="text-[10px] text-zinc-400 mt-0.5">Steuert die Preisdarstellung in Speisekarte &amp; Reports</p>
                             </div>
                             <form action="/admin/price-mode-toggle" method="POST" class="inline flex items-center">
                                 <label class="switch">
                                     <input type="checkbox" name="price_mode_netto" value="true" onchange="this.form.submit()" {% if restaurant.price_mode == 'netto' %}checked{% endif %}>
                                     <span class="slider"></span>
                                 </label>
-                                <span class="text-[10px] font-bold ml-2 {% if restaurant.price_mode == 'netto' %}text-amber-600{% else %}text-emerald-600{% endif %}">{% if restaurant.price_mode == 'netto' %}Netto{% else %}Brutto{% endif %}</span>
                             </form>
                         </div>
                     </div>
@@ -6548,21 +6547,21 @@
 
                         // Real-time KPI Card Updates (only if tab is dashboard/live)
                         if (data.stats) {
-                            const elBrutto = document.getElementById('kpi-brutto');
-                            if (elBrutto) elBrutto.textContent = `${data.stats.brutto.toFixed(2).replace('.', ',')} €`;
-                            
+                            // Netto-Modus: nur Netto-Werte aktualisieren, keine Brutto/MwSt anzeigen.
+                            // Brutto-Werte bleiben im Backend für GOBD-Export erhalten, werden aber
+                            // im Frontend nicht mehr sichtbar gemacht.
+                            const elNettoTotal = document.getElementById('kpi-netto-total');
+                            if (elNettoTotal) {
+                                const nettoSum = (data.stats.netto_7 || 0) + (data.stats.netto_19 || 0);
+                                elNettoTotal.textContent = `${nettoSum.toFixed(2).replace('.', ',')} €`;
+                            }
+
                             const elNetto19 = document.getElementById('kpi-netto-19');
                             if (elNetto19) elNetto19.textContent = `${data.stats.netto_19.toFixed(2).replace('.', ',')} €`;
-                            
-                            const elBrutto19 = document.getElementById('kpi-brutto-19');
-                            if (elBrutto19) elBrutto19.textContent = `${data.stats.brutto_19.toFixed(2).replace('.', ',')}`;
-                            
+
                             const elNetto7 = document.getElementById('kpi-netto-7');
                             if (elNetto7) elNetto7.textContent = `${data.stats.netto_7.toFixed(2).replace('.', ',')} €`;
-                            
-                            const elBrutto7 = document.getElementById('kpi-brutto-7');
-                            if (elBrutto7) elBrutto7.textContent = `${data.stats.brutto_7.toFixed(2).replace('.', ',')}`;
-                            
+
                             const feedContainer = document.getElementById('live-payments-feed');
                             if (feedContainer) {
                                 if (!data.recent_payments || !data.recent_payments.length) {
