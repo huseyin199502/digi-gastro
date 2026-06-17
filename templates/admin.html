@@ -5480,6 +5480,37 @@
                         refreshControlModal();
         }
 
+        // Helper für Notification-Karten: öffnet das Cockpit für den Tisch
+        // einer bestimmten Order, anstatt das ältere order-popup zu öffnen.
+        // Vermeidet Verwirrung durch zwei unterschiedliche Popups (Cockpit vs order-popup).
+        function openCockpitForOrder(orderId) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) {
+                showToast('Bestellung nicht mehr verfügbar', 'error');
+                return;
+            }
+            const tableStr = String(order.table || '').trim();
+            // Mögliche Formate: "1", "Tisch 1", "Tisch 1 (innen)", "Tisch 1 (drinnen)"
+            let tableNum = null;
+            let zone = '';
+            const m1 = tableStr.match(/Tisch\s+(\d+)\s*(?:\(([^)]+)\))?/i);
+            if (m1) {
+                tableNum = m1[1];
+                zone = m1[2] || '';
+            } else {
+                const m2 = tableStr.match(/^(\d+)\s*(?:\(([^)]+)\))?/);
+                if (m2) {
+                    tableNum = m2[1];
+                    zone = m2[2] || '';
+                }
+            }
+            if (!tableNum) {
+                showToast('Tisch konnte nicht ermittelt werden', 'error');
+                return;
+            }
+            openControlModal(tableNum, zone);
+        }
+
         function closeControlModal() {
             document.getElementById('control-modal').classList.add('hidden');
             document.body.style.overflow = '';
@@ -6596,8 +6627,8 @@
                             <button class="notif-btn notif-btn-serve-all" onclick="notifServeAll(${order.id}, this)" title="Alle als serviert markieren">
                                 <span class="material-symbols-outlined" style="font-size:13px;">done_all</span> Serviert
                             </button>
-                            <button class="notif-btn notif-btn-details" onclick="openPopup(${order.id})" title="Bestellung öffnen">
-                                <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
+                            <button class="notif-btn notif-btn-details" onclick="openCockpitForOrder(${order.id})" title="Tisch-Cockpit öffnen">
+                                <span class="material-symbols-outlined" style="font-size:13px;">point_of_sale</span>
                             </button>
                         </div>
                     </div>
