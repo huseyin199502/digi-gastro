@@ -1686,6 +1686,43 @@
             flex-wrap: wrap;
             gap: 0.375rem;
         }
+        /* Hauptgruppen-Grouping in der Notification-Bar */
+        .notif-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .notif-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .notif-group-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 0.4rem;
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            align-self: flex-start;
+            line-height: 1.4;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        .notif-group-header .notif-group-count {
+            font-size: 0.6rem;
+            font-weight: 800;
+            opacity: 0.85;
+            background: rgba(255,255,255,0.22);
+            padding: 0 0.35rem;
+            border-radius: 9999px;
+            line-height: 1.4;
+        }
+        html.dark .notif-group-header .notif-group-count {
+            background: rgba(0,0,0,0.22);
+        }
         .notif-item {
             display: inline-flex;
             align-items: center;
@@ -6596,17 +6633,29 @@
                 const displayTable = /^Tisch\s/i.test(String(order.table)) ? order.table : `Tisch ${order.table}`;
                 const isNew = seenOrderIds.has(order.id) ? '' : '<span class="notif-badge badge-new">NEU</span>';
 
-                let itemsHtml = unservedItems.map(item => {
-                    const status = item.item_status || 'pending';
-                    const isServed = status === 'delivered';
-                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                    const key = `${item.product_id}_${noteSlug}_${status}`;
-                    
-                    return `<span class="notif-item ${isServed ? 'item-served' : ''}" data-order-id="${order.id}" data-item-key="${key}">
-                        <span class="item-qty">${item.quantity}×</span>
-                        <span class="item-name" title="${escHtml(item.name)}${item.note ? ' ('+escHtml(item.note)+')' : ''}">${escHtml(item.name)}</span>
-                        ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}', this)" title="Als serviert markieren">✓</button>` : ''}
-                    </span>`;
+                // Items nach Hauptgruppe (SuperGroup) gruppieren — gleiche Logik wie im Cockpit-Popup.
+                // So sieht der Kellner auf einen Blick: welche Getränke, welche Speisen, etc. offen sind.
+                const groups = groupItemsBySuperGroup(unservedItems);
+                let itemsHtml = groups.map(group => {
+                    const textColor = getContrastTextColor(group.color);
+                    const iconHtml = group.icon ? `<span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;margin-right:2px;">${escapeHtml(group.icon)}</span>` : '';
+                    const headerHtml = `<div class="notif-group-header" style="background:${escapeHtml(group.color)};color:${textColor};">
+                        ${iconHtml}${escapeHtml(group.name)}
+                        <span class="notif-group-count">${group.items.length}</span>
+                    </div>`;
+                    const groupItemsHtml = group.items.map(item => {
+                        const status = item.item_status || 'pending';
+                        const isServed = status === 'delivered';
+                        const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                        const key = `${item.product_id}_${noteSlug}_${status}`;
+                        
+                        return `<span class="notif-item ${isServed ? 'item-served' : ''}" data-order-id="${order.id}" data-item-key="${key}">
+                            <span class="item-qty">${item.quantity}×</span>
+                            <span class="item-name" title="${escHtml(item.name)}${item.note ? ' ('+escHtml(item.note)+')' : ''}">${escHtml(item.name)}</span>
+                            ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}', this)" title="Als serviert markieren">✓</button>` : ''}
+                        </span>`;
+                    }).join('');
+                    return `<div class="notif-group">${headerHtml}<div class="notif-items">${groupItemsHtml}</div></div>`;
                 }).join('');
 
                 html += `
@@ -6621,7 +6670,7 @@
                                     ${isNew}
                                 </div>
                             </div>
-                            <div class="notif-items">
+                            <div class="notif-groups">
                                 ${itemsHtml}
                             </div>
                         </div>
