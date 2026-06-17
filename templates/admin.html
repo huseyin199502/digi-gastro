@@ -2780,6 +2780,10 @@
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm">
                     <div class="flex flex-wrap gap-2">
                         <button id="tab-zone-gesamt" onclick="setSeatingTab('gesamt')" class="px-4 py-2 rounded-xl text-xs font-black bg-gastro text-white border border-gastro transition shadow-sm">Gesamt <span id="zone-count-gesamt" class="ml-1 font-bold">(0)</span></button>
+                        <button id="tab-zone-aktiv" onclick="setSeatingTab('aktiv')" class="px-4 py-2 rounded-xl text-xs font-bold border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 transition flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                            Aktiv <span id="zone-count-aktiv" class="ml-1 font-bold">(0)</span>
+                        </button>
                         <button id="tab-zone-drinnen" onclick="setSeatingTab('drinnen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Drinnen <span id="zone-count-drinnen" class="ml-1 font-bold">(0)</span></button>
                         <button id="tab-zone-draussen" onclick="setSeatingTab('draußen')" class="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition">Draußen <span id="zone-count-draussen" class="ml-1 font-bold">(0)</span></button>
                     </div>
@@ -6947,27 +6951,70 @@
             const drinnenCount = tables.filter(t => isDrinnenZone(t.zone)).length;
             const draussenCount = tables.filter(t => isDraussenZone(t.zone)).length;
             const gesamtCount = tables.length;
+            // Aktive Tische = Tische mit offener Bestellung oder Service-Ruf
+            const aktivCount = isEditMode ? 0 : tables.filter(t => isTableActive(t)).length;
 
             const elGesamt = document.getElementById('zone-count-gesamt');
             const elDrinnen = document.getElementById('zone-count-drinnen');
             const elDraussen = document.getElementById('zone-count-draussen');
+            const elAktiv = document.getElementById('zone-count-aktiv');
             if (elGesamt) elGesamt.textContent = `(${gesamtCount})`;
             if (elDrinnen) elDrinnen.textContent = `(${drinnenCount})`;
             if (elDraussen) elDraussen.textContent = `(${draussenCount})`;
+            if (elAktiv) elAktiv.textContent = `(${aktivCount})`;
+        }
+
+        // Hilfsfunktion: Ist ein Tisch aktiv? (Bestellung offen oder Service-Ruf aktiv)
+        // Wird für den "Aktiv"-Tab verwendet, damit Kellner sofort aktive Tische sieht.
+        function isTableActive(table) {
+            const tNumStr = String(table.number);
+            const currentZone = (table.zone || '').trim();
+            const tsPlain = `Tisch ${tNumStr}`;
+            const tsZone = currentZone ? `Tisch ${tNumStr} (${currentZone})` : tsPlain;
+
+            // Aktive Bestellung? (status !== bezahlt && !== storniert)
+            const hasOrder = allOrders.some(o => {
+                const t = String(o.table || '');
+                const matchesTable = currentZone
+                    ? (t === tsZone || t === tNumStr)
+                    : (t === tsPlain || t === tNumStr);
+                return matchesTable && o.status !== 'bezahlt' && o.status !== 'storniert';
+            });
+
+            // Aktiver Service-Ruf?
+            const hasCall = allCalls.some(c => {
+                const callTableStr = String(c.table || '');
+                if (currentZone) {
+                    return callTableStr === tsZone;
+                }
+                return callTableStr === tsPlain;
+            });
+
+            return hasOrder || hasCall;
         }
 
         function setSeatingTab(zone) {
             sitzplanFilterZone = zone;
-            ['gesamt', 'drinnen', 'draußen'].forEach(z => {
-                const idMap = {
-                    'gesamt': 'tab-zone-gesamt',
-                    'drinnen': 'tab-zone-drinnen',
-                    'draußen': 'tab-zone-draussen'
-                };
+            const tabs = ['gesamt', 'aktiv', 'drinnen', 'draußen'];
+            const idMap = {
+                'gesamt': 'tab-zone-gesamt',
+                'aktiv': 'tab-zone-aktiv',
+                'drinnen': 'tab-zone-drinnen',
+                'draußen': 'tab-zone-draussen'
+            };
+            tabs.forEach(z => {
                 const btn = document.getElementById(idMap[z]);
-                if (btn) {
-                    if (z === zone) {
+                if (!btn) return;
+                if (z === zone) {
+                    if (z === 'aktiv') {
+                        // Aktiv-Tab: eigenes rosa Design bleibt auch im aktivierten Zustand
+                        btn.className = "px-4 py-2 rounded-xl text-xs font-black bg-rose-500 text-white border border-rose-500 transition shadow-sm flex items-center gap-1.5";
+                    } else {
                         btn.className = "px-4 py-2 rounded-xl text-xs font-black bg-gastro text-white border border-gastro transition shadow-sm";
+                    }
+                } else {
+                    if (z === 'aktiv') {
+                        btn.className = "px-4 py-2 rounded-xl text-xs font-bold border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 transition flex items-center gap-1.5";
                     } else {
                         btn.className = "px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 transition";
                     }
@@ -7192,11 +7239,80 @@
                 root.innerHTML = filteredTables.map(t => renderTileHtml(t)).join('');
                 initDragAndResize();
             } else {
+                // ── AKTIV-TAB: Nur aktive Tische, gruppiert nach Drinnen/Draußen ──
+                // WICHTIG: Tisch 1 Drinnen und Tisch 1 Draußen können gleichzeitig existieren.
+                // Deshalb wird im Aktiv-Tab nach Zone gruppiert angezeigt – Kellner verwechselt nicht.
+                if (sitzplanFilterZone === 'aktiv') {
+                    const activeDrinnen = tables.filter(t => isDrinnenZone(t.zone) && isTableActive(t));
+                    const activeDraussen = tables.filter(t => isDraussenZone(t.zone) && isTableActive(t));
+                    const totalActive = activeDrinnen.length + activeDraussen.length;
+
+                    let html = '';
+
+                    if (totalActive === 0) {
+                        html = `
+                            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center">
+                                <span class="material-symbols-outlined text-zinc-300" style="font-size:48px;">check_circle</span>
+                                <p class="text-sm font-bold text-zinc-700 mt-2">Keine aktiven Tische</p>
+                                <p class="text-xs text-zinc-400 mt-1">Alle Tische sind frei — neue Bestellungen erscheinen hier automatisch.</p>
+                            </div>
+                        `;
+                    } else {
+                        if (activeDrinnen.length) {
+                            html += `
+                                <div class="bg-white p-5 rounded-2xl shadow-sm border border-rose-100 mb-4">
+                                    <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                        Drinnen – Aktiv <span class="text-xs text-zinc-400 font-normal">(${activeDrinnen.length} ${activeDrinnen.length === 1 ? 'Tisch' : 'Tische'})</span>
+                                    </h3>
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                                        ${activeDrinnen.map(t => renderTileHtml(t)).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        if (activeDraussen.length) {
+                            html += `
+                                <div class="bg-white p-5 rounded-2xl shadow-sm border border-rose-100">
+                                    <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                        Draußen – Aktiv <span class="text-xs text-zinc-400 font-normal">(${activeDraussen.length} ${activeDraussen.length === 1 ? 'Tisch' : 'Tische'})</span>
+                                    </h3>
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                                        ${activeDraussen.map(t => renderTileHtml(t)).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        // Falls eine Zone leer ist, Hinweis zeigen
+                        if (activeDrinnen.length === 0 && activeDraussen.length > 0) {
+                            html = `
+                                <div class="bg-zinc-50 p-3 rounded-xl border border-zinc-200 mb-4 text-center">
+                                    <p class="text-xs text-zinc-500 font-medium">ℹ️ Keine aktiven Tische drinnen</p>
+                                </div>
+                            ` + html;
+                        }
+                        if (activeDraussen.length === 0 && activeDrinnen.length > 0) {
+                            html += `
+                                <div class="bg-zinc-50 p-3 rounded-xl border border-zinc-200 mt-4 text-center">
+                                    <p class="text-xs text-zinc-500 font-medium">ℹ️ Keine aktiven Tische draußen</p>
+                                </div>
+                            `;
+                        }
+                    }
+
+                    root.innerHTML = html;
+                    updateTimers();
+                    return;
+                }
+
                 const drinnenTables = tables.filter(t => isDrinnenZone(t.zone));
                 const draussenTables = tables.filter(t => isDraussenZone(t.zone));
-                
+
                 let html = '';
-                
+
                 if (sitzplanFilterZone === 'gesamt' || sitzplanFilterZone === 'drinnen') {
                     html += `
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4">
@@ -7211,7 +7327,7 @@
                         </div>
                     `;
                 }
-                
+
                 if (sitzplanFilterZone === 'gesamt' || sitzplanFilterZone === 'draußen') {
                     html += `
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
