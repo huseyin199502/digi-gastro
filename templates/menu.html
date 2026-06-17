@@ -536,7 +536,7 @@
             <div id="tab-speisekarte">
 
                 <!-- BACK BUTTON when inside a category -->
-                <div x-show="currentCategory !== ''" x-cloak class="sticky top-[calc(5rem+env(safe-area-inset-top))] z-40 bg-[var(--bg-obsidian)] pb-2 pt-0">
+                <div x-show="currentCategory !== ''" x-cloak id="back-to-categories-bar" class="sticky top-20 z-40 bg-[var(--bg-obsidian)] pb-2 pt-0" style="margin-top:0 !important; padding-top:0 !important;">
                     <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
                         <span class="material-symbols-outlined text-xl">arrow_back</span>
                         <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
@@ -2884,6 +2884,41 @@
                 }
             }
         });
+
+        // ════════════════════════════════════════════════════════════════════
+        // DYNAMIC BACK-BUTTON POSITIONING
+        // The header height varies (h-20 = 80px base, but with safe-area-inset-top
+        // it grows). Instead of guessing with CSS calc(), we measure the actual
+        // rendered header height and set the back-button's sticky top to match.
+        // This guarantees 0px gap between header bottom and back-button.
+        // ════════════════════════════════════════════════════════════════════
+        (function() {
+            function adjustBackButtonTop() {
+                const header = document.querySelector('header.sticky');
+                const backBtn = document.getElementById('back-to-categories-bar');
+                if (!header || !backBtn) return;
+                const headerHeight = header.getBoundingClientRect().height;
+                // Set sticky top to exact header height — button sticks flush with header bottom
+                backBtn.style.top = headerHeight + 'px';
+                // Force margin/padding to 0 (kills any inherited spacing)
+                backBtn.style.marginTop = '0px';
+                backBtn.style.paddingTop = '0px';
+            }
+            // Run on load, DOMContentLoaded, resize, orientationchange, and after Alpine.js init
+            window.addEventListener('DOMContentLoaded', adjustBackButtonTop);
+            window.addEventListener('load', adjustBackButtonTop);
+            window.addEventListener('resize', adjustBackButtonTop);
+            window.addEventListener('orientationchange', () => setTimeout(adjustBackButtonTop, 200));
+            // Re-run after a delay to catch late layout shifts (fonts, images loading)
+            setTimeout(adjustBackButtonTop, 500);
+            setTimeout(adjustBackButtonTop, 1500);
+            // Re-run when scroll happens (in case iOS Safari URL bar show/hide changes viewport)
+            let scrollTimer = null;
+            window.addEventListener('scroll', () => {
+                if (scrollTimer) clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(adjustBackButtonTop, 100);
+            }, { passive: true });
+        })();
 
     </script>
     <!-- Beautiful fullscreen Image Lightbox modal -->
