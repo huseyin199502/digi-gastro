@@ -9,6 +9,10 @@ venv/
 ENV/
 env/
 
+# Node (for Tailwind build pipeline)
+node_modules/
+npm-debug.log*
+
 # Databases
 *.db
 *.db-journal

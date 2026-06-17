@@ -1,0 +1,11 @@
+/* tailwind-input.css — source file for the Tailwind build pipeline
+   This file is the entry point. The CLI compiles it together with
+   all class names found in templates/*.html into tailwind-built.css.
+   Do NOT edit static/css/tailwind-built.css directly — it is generated. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Optional: custom component classes can go here ──
+   (we keep it minimal — the design_system.css handles custom styling) */
