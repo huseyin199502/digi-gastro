@@ -115,13 +115,27 @@ class Tenant(Base):
     price_mode = Column(String, default="brutto")  # "brutto" or "netto"
 
 
-class Category(Base):
-    __tablename__ = 'categories'
-    
+class SuperGroup(Base):
+    """Hauptgruppen-System: fasst mehrere Kategorien zu einer Obergruppe zusammen.
+    Wird verwendet für die Gruppierung im Kasse-Popup, Bon-Detail-Modal und PDF/Excel-Export.
+    NULL super_group_id auf Category = automatisch 'Sonstiges' Bucket (kein Eintrag hier)."""
+    __tablename__ = 'super_groups'
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     name = Column(String, nullable=False)
     position = Column(Integer, default=0)
+    color = Column(String, default="#374151")  # Hex-Farbe für Header/Hintergrund
+    icon = Column(String, default="")  # Optional Material Symbols Name
+
+class Category(Base):
+    __tablename__ = 'categories'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)
+    position = Column(Integer, default=0)
+    super_group_id = Column(Integer, nullable=True)  # FK zu super_groups.id; NULL = 'Sonstiges' Bucket
 
 class Product(Base):
     __tablename__ = 'products'
@@ -332,6 +346,7 @@ def _migrate_database():
 
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")
+    add_column_if_missing('categories', 'super_group_id', "INTEGER")
 
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
@@ -455,6 +470,35 @@ def _migrate_database():
                 """))
         except Exception as e2:
             print(f"[DB Migration] event_combo_items table creation skipped (may already exist): {e2}")
+
+    # Ensure super_groups table exists (Hauptgruppen für Kasse-Popup Gruppierung)
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("""
+                CREATE TABLE IF NOT EXISTS super_groups (
+                    id SERIAL PRIMARY KEY,
+                    tenant_slug VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+                    name VARCHAR NOT NULL,
+                    position INTEGER DEFAULT 0,
+                    color VARCHAR DEFAULT '#374151',
+                    icon VARCHAR DEFAULT ''
+                )
+            """))
+    except Exception:
+        try:
+            with engine.begin() as conn:
+                conn.execute(sa.text("""
+                    CREATE TABLE IF NOT EXISTS super_groups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        tenant_slug VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+                        name VARCHAR NOT NULL,
+                        position INTEGER DEFAULT 0,
+                        color VARCHAR DEFAULT '#374151',
+                        icon VARCHAR DEFAULT ''
+                    )
+                """))
+        except Exception as e2:
+            print(f"[DB Migration] super_groups table creation skipped (may already exist): {e2}")
 
 
 def migrate_happy_hour_to_events():

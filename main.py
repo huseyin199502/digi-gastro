@@ -439,7 +439,18 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     
     db_categories = session.query(Category).filter_by(tenant_slug=slug).order_by(Category.position, Category.id).all()
     categories = [c.name for c in db_categories]
-    category_data = [{"id": c.id, "name": c.name} for c in db_categories]
+    category_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None)} for c in db_categories]
+
+    # Load super_groups for this tenant (Hauptgruppen)
+    from database import SuperGroup as DBSuperGroup
+    db_super_groups = session.query(DBSuperGroup).filter_by(tenant_slug=slug).order_by(DBSuperGroup.position, DBSuperGroup.id).all()
+    super_groups = [{
+        "id": sg.id,
+        "name": sg.name,
+        "position": sg.position or 0,
+        "color": sg.color or "#374151",
+        "icon": sg.icon or ""
+    } for sg in db_super_groups]
     
     db_products = session.query(Product).filter_by(tenant_slug=slug).order_by(Product.position, Product.id).all()
     products = []
@@ -602,6 +613,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "service_calls": service_calls,
         "categories": categories,
         "category_data": category_data,
+        "super_groups": super_groups,
         "products": products,
         "orders": orders,
         "staff": staff,
@@ -695,10 +707,39 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         tenant.happy_hour_display_name = hh.get("display_name", "Aktion")
     
     session.flush()
-    # 1. Update categories
-    session.query(Category).filter_by(tenant_slug=slug).delete()
+    # 1. Update categories (match by name to preserve super_group_id; only add/remove changed)
+    existing_cats = {c.name: c for c in session.query(Category).filter_by(tenant_slug=slug).all()}
+    # Build map: name -> super_group_id from incoming category_data (if present)
+    cat_super_map = {}
+    for cd in (r.get("category_data") or []):
+        if isinstance(cd, dict) and cd.get("name"):
+            try:
+                cat_super_map[cd["name"]] = cd.get("super_group_id")
+            except Exception:
+                pass
+    incoming_cat_names = set(r.get("categories", []))
+    # Remove categories that no longer exist
+    for cname, c in existing_cats.items():
+        if cname not in incoming_cat_names:
+            session.delete(c)
+    # Add or update categories
     for idx, cat_name in enumerate(r.get("categories", [])):
-        session.add(Category(tenant_slug=slug, name=cat_name, position=idx))
+        if cat_name in existing_cats:
+            # Update existing (preserve super_group_id unless explicitly changed)
+            db_c = existing_cats[cat_name]
+            db_c.position = idx
+            if cat_name in cat_super_map:
+                try:
+                    db_c.super_group_id = cat_super_map[cat_name]
+                except Exception:
+                    pass
+        else:
+            # New category
+            sg_id = cat_super_map.get(cat_name)
+            try:
+                session.add(Category(tenant_slug=slug, name=cat_name, position=idx, super_group_id=sg_id))
+            except Exception:
+                session.add(Category(tenant_slug=slug, name=cat_name, position=idx))
         
     # 2. Update products
     existing_products = {p.id: p for p in session.query(Product).filter_by(tenant_slug=slug).all()}
@@ -1291,6 +1332,105 @@ def get_restaurant_or_raise(slug: str, db):
     if not r.get("active", True):
         raise TenantSuspendedException(slug)
     return r
+
+# ── Hauptgruppen (SuperGroups) ───────────────────────────────────────────────
+def ensure_default_super_groups(slug: str, session):
+    """Legt beim ersten Aufruf 3 Standard-Hauptgruppen an, falls der Tenant noch keine hat.
+    'Sonstiges' wird NICHT angelegt — das ist der implizite NULL-Bucket."""
+    from database import SuperGroup as DBSuperGroup
+    existing = session.query(DBSuperGroup).filter_by(tenant_slug=slug).count()
+    if existing > 0:
+        return
+    defaults = [
+        {"name": "Shisha",   "color": "#7c3aed", "icon": "whatshot"},      # lila
+        {"name": "Getränke", "color": "#0ea5e9", "icon": "local_bar"},     # blau
+        {"name": "Snacks",   "color": "#f59e0b", "icon": "restaurant"},    # orange
+    ]
+    for idx, d in enumerate(defaults):
+        session.add(DBSuperGroup(
+            tenant_slug=slug, name=d["name"], color=d["color"], icon=d["icon"], position=idx
+        ))
+    session.commit()
+    print(f"[SuperGroups] Default-Hauptgruppen für '{slug}' angelegt: Shisha, Getränke, Snacks")
+
+
+def build_category_to_super_group_map(slug: str, session) -> dict:
+    """Gibt {category_name: {id, name, color, icon, position}} zurück.
+    Kategorien ohne super_group_id fehlen in der Map → Aufrufer behandelt sie als 'Sonstiges'."""
+    from database import SuperGroup as DBSuperGroup
+    sg_by_id = {sg.id: sg for sg in session.query(DBSuperGroup).filter_by(tenant_slug=slug).all()}
+    out = {}
+    for c in session.query(Category).filter_by(tenant_slug=slug).all():
+        sg = sg_by_id.get(getattr(c, "super_group_id", None))
+        if sg:
+            out[c.name] = {
+                "id": sg.id,
+                "name": sg.name,
+                "color": sg.color or "#374151",
+                "icon": sg.icon or "",
+                "position": sg.position or 0,
+            }
+    return out
+
+
+def group_items_by_super_group(items: list, slug: str, session) -> list:
+    """Gruppiert Bestell-Items nach Hauptgruppe.
+    Gibt eine sortierte Liste von {name, color, icon, items[], subtotal} zurück.
+    NULL-Bucket (= keine Hauptgruppe) wird als 'Sonstiges' angefügt — aber nur wenn Items drin sind.
+    Leere Gruppen werden NICHT zurückgegeben."""
+    cat_to_sg = build_category_to_super_group_map(slug, session)
+    # Produkte lookup: product_id -> category name (für Items, die nur product_id haben)
+    products_by_id = {p.id: p for p in session.query(Product).filter_by(tenant_slug=slug).all()}
+
+    # Group buckets
+    buckets = {}  # sg_id -> {"name", "color", "icon", "position", "items": []}
+    sonstiges_items = []
+
+    for item in items:
+        # 1. Item's category name auflösen
+        cat_name = None
+        if "category" in item and item["category"]:
+            cat_name = item["category"]
+        else:
+            # Lookup via product_id
+            pid = item.get("product_id")
+            if pid and pid in products_by_id:
+                cat_name = products_by_id[pid].category
+        # 2. SuperGroup für die Kategorie finden
+        sg_info = cat_to_sg.get(cat_name) if cat_name else None
+        if sg_info:
+            bucket_key = sg_info["id"]
+            if bucket_key not in buckets:
+                buckets[bucket_key] = {
+                    "id": sg_info["id"],
+                    "name": sg_info["name"],
+                    "color": sg_info["color"],
+                    "icon": sg_info["icon"],
+                    "position": sg_info["position"],
+                    "items": []
+                }
+            buckets[bucket_key]["items"].append(item)
+        else:
+            # NULL-Bucket = Sonstiges
+            sonstiges_items.append(item)
+
+    # Sortiere buckets nach position, dann name
+    sorted_buckets = sorted(buckets.values(), key=lambda b: (b["position"], b["name"]))
+    # Sonstiges ans Ende, nur wenn Items vorhanden
+    if sonstiges_items:
+        sorted_buckets.append({
+            "id": None,
+            "name": "Sonstiges",
+            "color": "#6b7280",  # gray-500
+            "icon": "category",
+            "position": 9999,
+            "items": sonstiges_items
+        })
+    # Subtotals berechnen
+    for b in sorted_buckets:
+        b["subtotal"] = sum((i.get("price", 0) or 0) * (i.get("quantity", 1) or 1) for i in b["items"])
+    return sorted_buckets
+
 
 def get_current_user(request: Request, slug: str) -> Optional[dict]:
     # Check unified session cookie first
@@ -7480,6 +7620,203 @@ async def update_category_api(
     
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True, "new_name": new_full_name, "affected": affected_products}
+
+
+# ════════════════════════════════════════════════════════════════
+#  HAUPTGRUPPEN (SuperGroups) — CRUD Endpoints
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/super-groups")
+async def list_super_groups(chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Liste alle Hauptgruppen des Tenants + die Zuordnung der Kategorien."""
+    user, slug, restaurant = chef_data
+    ensure_default_super_groups(slug, db)
+    super_groups = restaurant.get("super_groups") or []
+    # Pull fresh from DB to ensure consistency
+    from database import SuperGroup as DBSuperGroup
+    db_sgs = db.query(DBSuperGroup).filter_by(tenant_slug=slug).order_by(DBSuperGroup.position, DBSuperGroup.id).all()
+    super_groups = [{
+        "id": sg.id, "name": sg.name, "position": sg.position or 0,
+        "color": sg.color or "#374151", "icon": sg.icon or ""
+    } for sg in db_sgs]
+    # Categories with their super_group_id
+    cat_data = restaurant.get("category_data") or []
+    # Refresh from DB
+    db_cats = db.query(Category).filter_by(tenant_slug=slug).all()
+    cat_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None)} for c in db_cats]
+    return {"super_groups": super_groups, "categories": cat_data}
+
+
+@app.post("/api/super-groups")
+async def create_super_group(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Neue Hauptgruppe anlegen."""
+    user, slug, restaurant = chef_data
+    from database import SuperGroup as DBSuperGroup
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name darf nicht leer sein.")
+    color = (body.get("color") or "#374151").strip()
+    icon = (body.get("icon") or "").strip()
+    # Check duplicate
+    existing = db.query(DBSuperGroup).filter_by(tenant_slug=slug, name=name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Hauptgruppe mit diesem Namen existiert bereits.")
+    max_pos = db.query(DBSuperGroup).filter_by(tenant_slug=slug).count()
+    sg = DBSuperGroup(tenant_slug=slug, name=name, color=color, icon=icon, position=max_pos)
+    db.add(sg)
+    db.commit()
+    db.refresh(sg)
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "id": sg.id, "name": sg.name, "color": sg.color, "icon": sg.icon, "position": sg.position}
+
+
+@app.put("/api/super-groups/{sg_id}")
+async def update_super_group(
+    sg_id: int,
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Hauptgruppe aktualisieren (Name, Farbe, Icon, Position)."""
+    user, slug, restaurant = chef_data
+    from database import SuperGroup as DBSuperGroup
+    sg = db.query(DBSuperGroup).filter_by(id=sg_id, tenant_slug=slug).first()
+    if not sg:
+        raise HTTPException(status_code=404, detail="Hauptgruppe nicht gefunden.")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if "name" in body:
+        name = (body["name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name darf nicht leer sein.")
+        # Check duplicate (excluding current)
+        dup = db.query(DBSuperGroup).filter_by(tenant_slug=slug, name=name).first()
+        if dup and dup.id != sg_id:
+            raise HTTPException(status_code=400, detail="Hauptgruppe mit diesem Namen existiert bereits.")
+        sg.name = name
+    if "color" in body:
+        sg.color = (body["color"] or "#374151").strip()
+    if "icon" in body:
+        sg.icon = (body["icon"] or "").strip()
+    if "position" in body:
+        try:
+            sg.position = int(body["position"])
+        except Exception:
+            pass
+    db.commit()
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "id": sg.id, "name": sg.name, "color": sg.color, "icon": sg.icon, "position": sg.position}
+
+
+@app.delete("/api/super-groups/{sg_id}")
+async def delete_super_group(
+    sg_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Hauptgruppe löschen. Zugehörige Kategorien werden auf NULL (Sonstiges) zurückgesetzt."""
+    user, slug, restaurant = chef_data
+    from database import SuperGroup as DBSuperGroup
+    sg = db.query(DBSuperGroup).filter_by(id=sg_id, tenant_slug=slug).first()
+    if not sg:
+        raise HTTPException(status_code=404, detail="Hauptgruppe nicht gefunden.")
+    # Reset all categories pointing to this super_group_id to NULL (= Sonstiges Bucket)
+    cats_to_reset = db.query(Category).filter_by(tenant_slug=slug, super_group_id=sg_id).all()
+    for c in cats_to_reset:
+        c.super_group_id = None
+    db.delete(sg)
+    db.commit()
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "reset_categories": len(cats_to_reset)}
+
+
+@app.put("/api/categories/{cat_id}/super-group")
+async def assign_category_super_group(
+    cat_id: int,
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Weist einer Kategorie eine Hauptgruppe zu. super_group_id=null setzt zurück auf Sonstiges."""
+    user, slug, restaurant = chef_data
+    cat = db.query(Category).filter_by(id=cat_id, tenant_slug=slug).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Kategorie nicht gefunden.")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    new_sg_id = body.get("super_group_id")
+    if new_sg_id is None or new_sg_id == "null" or new_sg_id == "":
+        cat.super_group_id = None
+    else:
+        try:
+            new_sg_id_int = int(new_sg_id)
+            from database import SuperGroup as DBSuperGroup
+            sg = db.query(DBSuperGroup).filter_by(id=new_sg_id_int, tenant_slug=slug).first()
+            if not sg:
+                raise HTTPException(status_code=404, detail="Hauptgruppe nicht gefunden.")
+            cat.super_group_id = new_sg_id_int
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ungültige super_group_id.")
+    db.commit()
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "category_id": cat.id, "super_group_id": cat.super_group_id}
+
+
+@app.post("/api/super-groups/bulk-assign")
+async def bulk_assign_super_groups(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Mehrere Kategorien gleichzeitig einer Hauptgruppe zuweisen.
+    Body: {"assignments": [{"category_id": 1, "super_group_id": 2}, ...]}"""
+    user, slug, restaurant = chef_data
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    assignments = body.get("assignments") or []
+    if not isinstance(assignments, list):
+        raise HTTPException(status_code=400, detail="assignments muss eine Liste sein.")
+    from database import SuperGroup as DBSuperGroup
+    valid_sg_ids = {sg.id for sg in db.query(DBSuperGroup).filter_by(tenant_slug=slug).all()}
+    updated = 0
+    for a in assignments:
+        if not isinstance(a, dict):
+            continue
+        cat_id = a.get("category_id")
+        new_sg_id = a.get("super_group_id")
+        if cat_id is None:
+            continue
+        cat = db.query(Category).filter_by(id=cat_id, tenant_slug=slug).first()
+        if not cat:
+            continue
+        if new_sg_id is None or new_sg_id == "null" or new_sg_id == "":
+            cat.super_group_id = None
+        else:
+            try:
+                new_sg_id_int = int(new_sg_id)
+                if new_sg_id_int not in valid_sg_ids:
+                    continue
+                cat.super_group_id = new_sg_id_int
+            except (ValueError, TypeError):
+                continue
+        updated += 1
+    db.commit()
+    await manager.broadcast(slug, {"type": "update"})
+    return {"success": True, "updated": updated}
 
 
 @app.post("/admin/product-toggle/{product_id}")

@@ -3081,6 +3081,88 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 🆕 HAUPTGRUPPEN VERWALTUNG -->
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">category</span>
+                                <h3 class="font-extrabold text-sm text-zinc-800">Hauptgruppen</h3>
+                            </div>
+                            <button onclick="openSuperGroupCreateModal()" class="btn-primary text-[11px] px-3 py-1.5 flex items-center gap-1">
+                                <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Hauptgruppe
+                            </button>
+                        </div>
+                        <div class="section-card-body space-y-4">
+                            <p class="text-[11px] text-zinc-500 leading-relaxed">
+                                Hauptgruppen fassen mehrere Kategorien im Kasse-Popup, Bon-Detail und PDF/Excel-Export zu Überschriften zusammen.
+                                Beispiel: Die Kategorien <em>Whiskey</em>, <em>Cocktails</em>, <em>Softdrinks</em> werden alle der Hauptgruppe <em>Getränke</em> zugeordnet.
+                                Artikel ohne Zuordnung landen automatisch unter <em>Sonstiges</em> (wird nur angezeigt, wenn Artikel vorhanden sind).
+                            </p>
+
+                            <!-- Hauptgruppen Liste -->
+                            <div id="super-groups-list" class="space-y-2">
+                                <!-- Wird von JS gefüllt -->
+                            </div>
+
+                            <hr class="border-zinc-200 my-2">
+
+                            <!-- Kategorie-Zuweisung (Bulk) -->
+                            <div>
+                                <h4 class="font-extrabold text-xs text-zinc-700 mb-2 flex items-center gap-1">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">link</span>
+                                    Kategorien zu Hauptgruppen zuordnen
+                                </h4>
+                                <p class="text-[10px] text-zinc-500 mb-2">Wähle pro Kategorie die Hauptgruppe aus. Änderungen werden sofort gespeichert.</p>
+                                <div id="super-groups-assignment" class="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+                                    <!-- Wird von JS gefüllt -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 🆕 HAUPTGRUPPE MODAL (anlegen/bearbeiten) -->
+            <div id="super-group-modal" class="overlay-backdrop hidden" style="z-index:60;">
+                <div class="popup-card" style="max-width:420px;">
+                    <div class="popup-header" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                        <div>
+                            <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:800;text-transform:uppercase;letter-spacing:.07em;">Hauptgruppe</div>
+                            <div style="font-size:18px;font-weight:900;color:#fff;" id="super-group-modal-title">Neue Hauptgruppe</div>
+                        </div>
+                        <button onclick="closeSuperGroupModal()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">✕</button>
+                    </div>
+                    <form onsubmit="event.preventDefault(); submitSuperGroupForm();" class="popup-body space-y-4">
+                        <input type="hidden" id="super-group-edit-id" value="">
+                        <div>
+                            <label class="form-label">Name</label>
+                            <input type="text" id="super-group-name" required placeholder="z.B. Desserts, Cocktails" class="form-field" maxlength="50">
+                        </div>
+                        <div>
+                            <label class="form-label">Farbe (für Kasse-Popup)</label>
+                            <div class="flex items-center gap-3">
+                                <input type="color" id="super-group-color" value="#6366f1" class="w-12 h-10 rounded-lg border border-zinc-200 cursor-pointer">
+                                <input type="text" id="super-group-color-text" value="#6366f1" class="form-field flex-1 font-mono text-xs uppercase" maxlength="7">
+                            </div>
+                            <p class="text-[9px] text-zinc-400 mt-1">Textfarbe wird automatisch an Hintergrund angepasst (weiß/schwarz)</p>
+                        </div>
+                        <div>
+                            <label class="form-label">Icon (optional)</label>
+                            <input type="text" id="super-group-icon" placeholder="z.B. local_bar, restaurant, whatshot" class="form-field">
+                            <p class="text-[9px] text-zinc-400 mt-1">
+                                Material Symbol Name — siehe <a href="https://fonts.google.com/icons" target="_blank" class="text-indigo-500 underline">fonts.google.com/icons</a>
+                            </p>
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button type="submit" class="flex-1 bg-gastro hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow">
+                                Speichern
+                            </button>
+                            <button type="button" onclick="closeSuperGroupModal()" class="flex-1 border border-gray-200 hover:bg-gray-50 text-zinc-700 font-bold text-xs py-2.5 rounded-xl transition">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -4301,6 +4383,9 @@
             if (tabId === 'finanzen') {
                 renderOrdersTable();
             }
+            if (tabId === 'kategorien') {
+                loadSuperGroups();
+            }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -4310,6 +4395,8 @@
             // Tisch-Filter + Sort-Icons initialisieren
             populateTableFilter();
             updateSortIcons();
+            // Hauptgruppen immer laden — wird für Kasse-Popup & Bon-Detail-Modal gebraucht
+            loadSuperGroups();
         });
 
         // Handle browser back/forward
@@ -4866,37 +4953,51 @@
             const tip = typeof order.tip_amount === 'number' ? order.tip_amount : 0;
             const totalWithTip = typeof order.total_with_tip === 'number' ? order.total_with_tip : (total + tip);
 
-            // Items-Liste rendern
+            // Items-Liste nach Hauptgruppen gruppiert rendern
             const items = order.items || [];
             let itemsHtml = '';
             if (items.length === 0) {
                 itemsHtml = '<div class="text-xs text-zinc-400 italic py-3 text-center">Keine Artikel mehr auf diesem Bon — alle Artikel wurden einzeln bezahlt, storniert oder auf einen anderen Tisch umbucht.</div>';
             } else {
-                itemsHtml = items.map(item => {
-                    const qty = item.quantity || 1;
-                    const price = item.price || 0;
-                    const lineTotal = price * qty;
-                    const itemStatus = (item.item_status || 'pending').toLowerCase();
-                    const statusLabels = {
-                        pending: 'offen',
-                        confirmed: 'bestätigt',
-                        delivered: 'serviert',
-                        paid: 'bezahlt',
-                        cancelled: 'storniert'
-                    };
-                    const statusLabel = statusLabels[itemStatus] || itemStatus;
-                    const categoryLabel = (item.category_type === 'bar') ? 'Bar · 19%' : (item.category_type === 'shisha') ? 'Shisha · 19%' : 'Küche · 7%';
-                    const noteHtml = item.note ? `<div class="text-[10px] text-zinc-500 italic mt-0.5">📝 ${escapeHtml(item.note)}</div>` : '';
-                    return `<div class="bon-detail-item">
-                        <div class="bon-detail-item-qty">${qty}×</div>
-                        <div>
-                            <div class="bon-detail-item-name">${escapeHtml(item.name || 'Unbekannt')}</div>
-                            <div class="bon-detail-item-meta">${fmtEUR(price)} · ${categoryLabel}</div>
-                            ${noteHtml}
+                // Nutze die gleiche Gruppierungslogik wie das Kasse-Popup
+                const groups = groupItemsBySuperGroup(items);
+                itemsHtml = groups.map(group => {
+                    const textColor = getContrastTextColor(group.color);
+                    const lightBg = lightenColor(group.color, 94);
+                    const iconHtml = group.icon ? `<span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;">${escapeHtml(group.icon)}</span>` : '';
+                    const groupHeader = `
+                        <div style="margin:8px 0 4px 0;padding:5px 10px;border-radius:8px;background:${escapeHtml(group.color)};color:${textColor};font-size:10px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;">
+                            <span>${iconHtml}${escapeHtml(group.name)}</span>
+                            <span style="font-size:9px;font-weight:700;opacity:.85;">${fmtEUR(group.subtotal)}</span>
                         </div>
-                        <div class="bon-detail-item-price">${fmtEUR(lineTotal)}</div>
-                        <span class="bon-detail-item-status ${itemStatus}">${statusLabel}</span>
-                    </div>`;
+                    `;
+                    const itemsList = group.items.map(item => {
+                        const qty = item.quantity || 1;
+                        const price = item.price || 0;
+                        const lineTotal = price * qty;
+                        const itemStatus = (item.item_status || 'pending').toLowerCase();
+                        const statusLabels = {
+                            pending: 'offen',
+                            confirmed: 'bestätigt',
+                            delivered: 'serviert',
+                            paid: 'bezahlt',
+                            cancelled: 'storniert'
+                        };
+                        const statusLabel = statusLabels[itemStatus] || itemStatus;
+                        const categoryLabel = (item.category_type === 'bar') ? 'Bar · 19%' : (item.category_type === 'shisha') ? 'Shisha · 19%' : 'Küche · 7%';
+                        const noteHtml = item.note ? `<div class="text-[10px] text-zinc-500 italic mt-0.5">📝 ${escapeHtml(item.note)}</div>` : '';
+                        return `<div class="bon-detail-item" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};">
+                            <div class="bon-detail-item-qty">${qty}×</div>
+                            <div>
+                                <div class="bon-detail-item-name">${escapeHtml(item.name || 'Unbekannt')}</div>
+                                <div class="bon-detail-item-meta">${fmtEUR(price)} · ${categoryLabel}</div>
+                                ${noteHtml}
+                            </div>
+                            <div class="bon-detail-item-price">${fmtEUR(lineTotal)}</div>
+                            <span class="bon-detail-item-status ${itemStatus}">${statusLabel}</span>
+                        </div>`;
+                    }).join('');
+                    return groupHeader + itemsList;
                 }).join('');
             }
 
@@ -4999,6 +5100,234 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  HAUPTGRUPPEN (SuperGroups) — JS
+        // ════════════════════════════════════════════════════════════════
+
+        let _superGroups = [];          // [{id, name, color, icon, position}]
+        let _superGroupCategories = []; // [{id, name, super_group_id}]
+
+        // Kontrast-Funktion: gibt '#ffffff' oder '#1f2937' zurück je nach Hintergrund-Helligkeit
+        function getContrastTextColor(hexColor) {
+            if (!hexColor || typeof hexColor !== 'string') return '#ffffff';
+            let c = hexColor.trim().replace('#', '');
+            if (c.length === 3) c = c.split('').map(ch => ch + ch).join('');
+            if (c.length !== 6) return '#ffffff';
+            const r = parseInt(c.substr(0, 2), 16);
+            const g = parseInt(c.substr(2, 2), 16);
+            const b = parseInt(c.substr(4, 2), 16);
+            // Relative luminance (WCAG)
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.55 ? '#1f2937' : '#ffffff';
+        }
+
+        // Sanftes Pastell-Hintergrund-Derivat für Item-Zeilen (aus Hauptgruppen-Farbe)
+        function lightenColor(hexColor, percent) {
+            if (!hexColor || typeof hexColor !== 'string') return '#f9fafb';
+            let c = hexColor.trim().replace('#', '');
+            if (c.length === 3) c = c.split('').map(ch => ch + ch).join('');
+            if (c.length !== 6) return '#f9fafb';
+            const r = parseInt(c.substr(0, 2), 16);
+            const g = parseInt(c.substr(2, 2), 16);
+            const b = parseInt(c.substr(4, 2), 16);
+            const factor = percent / 100;
+            const nr = Math.min(255, Math.round(r + (255 - r) * factor));
+            const ng = Math.min(255, Math.round(g + (255 - g) * factor));
+            const nb = Math.min(255, Math.round(b + (255 - b) * factor));
+            return '#' + [nr, ng, nb].map(x => x.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function loadSuperGroups() {
+            try {
+                const res = await fetch('/api/super-groups', { credentials: 'same-origin' });
+                if (!res.ok) {
+                    console.error('loadSuperGroups: HTTP', res.status);
+                    return;
+                }
+                const data = await res.json();
+                _superGroups = data.super_groups || [];
+                _superGroupCategories = data.categories || [];
+                renderSuperGroupsList();
+                renderSuperGroupsAssignment();
+            } catch (e) {
+                console.error('loadSuperGroups error:', e);
+            }
+        }
+
+        function renderSuperGroupsList() {
+            const container = document.getElementById('super-groups-list');
+            if (!container) return;
+            if (!_superGroups.length) {
+                container.innerHTML = '<p class="text-[10px] text-zinc-400 italic text-center py-3">Noch keine Hauptgruppen angelegt.</p>';
+                return;
+            }
+            const sorted = [..._superGroups].sort((a, b) => (a.position || 0) - (b.position || 0));
+            container.innerHTML = sorted.map(sg => {
+                const textColor = getContrastTextColor(sg.color);
+                const catCount = _superGroupCategories.filter(c => c.super_group_id === sg.id).length;
+                const iconHtml = sg.icon ? `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">${escapeHtml(sg.icon)}</span> ` : '';
+                return `
+                    <div class="flex items-center gap-3 rounded-xl p-2.5 border border-zinc-200" style="background:${sg.color}1A;">
+                        <div style="width:28px;height:28px;border-radius:8px;background:${escapeHtml(sg.color)};color:${textColor};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${iconHtml || '📁'}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-xs text-zinc-800 truncate">${escapeHtml(sg.name)}</div>
+                            <div class="text-[9px] text-zinc-500">${catCount} Kategorie(n) zugeordnet</div>
+                        </div>
+                        <button onclick="openSuperGroupEditModal(${sg.id})" class="text-zinc-400 hover:text-emerald-500 p-1" title="Bearbeiten">
+                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                        </button>
+                        <button onclick="deleteSuperGroup(${sg.id}, '${escapeHtml(sg.name).replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-600 p-1" title="Löschen">
+                            <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderSuperGroupsAssignment() {
+            const container = document.getElementById('super-groups-assignment');
+            if (!container) return;
+            if (!_superGroupCategories.length) {
+                container.innerHTML = '<p class="text-[10px] text-zinc-400 italic text-center py-3">Keine Kategorien vorhanden.</p>';
+                return;
+            }
+            container.innerHTML = _superGroupCategories.map(cat => {
+                const sg = _superGroups.find(s => s.id === cat.super_group_id);
+                const sgColor = sg ? sg.color : '#9ca3af';
+                const options = [
+                    `<option value="" ${!cat.super_group_id ? 'selected' : ''}>— Sonstiges (auto) —</option>`,
+                    ..._superGroups
+                        .sort((a, b) => (a.position || 0) - (b.position || 0))
+                        .map(s => `<option value="${s.id}" ${cat.super_group_id === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`)
+                ].join('');
+                return `
+                    <div class="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5">
+                        <div style="width:8px;height:8px;border-radius:50%;background:${escapeHtml(sgColor)};flex-shrink:0;"></div>
+                        <span class="text-xs font-bold text-zinc-700 flex-1 truncate">${escapeHtml(cat.name)}</span>
+                        <select onchange="assignCategorySuperGroup(${cat.id}, this.value)" class="bg-white border border-zinc-200 rounded-md text-[10px] px-1.5 py-1 font-bold text-zinc-700 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none">
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openSuperGroupCreateModal() {
+            document.getElementById('super-group-edit-id').value = '';
+            document.getElementById('super-group-modal-title').textContent = 'Neue Hauptgruppe';
+            document.getElementById('super-group-name').value = '';
+            document.getElementById('super-group-color').value = '#6366f1';
+            document.getElementById('super-group-color-text').value = '#6366f1';
+            document.getElementById('super-group-icon').value = '';
+            document.getElementById('super-group-modal').classList.remove('hidden');
+        }
+
+        function openSuperGroupEditModal(sgId) {
+            const sg = _superGroups.find(s => s.id === sgId);
+            if (!sg) return;
+            document.getElementById('super-group-edit-id').value = sg.id;
+            document.getElementById('super-group-modal-title').textContent = 'Hauptgruppe bearbeiten';
+            document.getElementById('super-group-name').value = sg.name;
+            document.getElementById('super-group-color').value = sg.color;
+            document.getElementById('super-group-color-text').value = sg.color;
+            document.getElementById('super-group-icon').value = sg.icon || '';
+            document.getElementById('super-group-modal').classList.remove('hidden');
+        }
+
+        function closeSuperGroupModal() {
+            document.getElementById('super-group-modal').classList.add('hidden');
+        }
+
+        // Color picker ↔ text input sync
+        document.addEventListener('DOMContentLoaded', function() {
+            const colorPicker = document.getElementById('super-group-color');
+            const colorText = document.getElementById('super-group-color-text');
+            if (colorPicker) colorPicker.addEventListener('input', e => { if (colorText) colorText.value = e.target.value.toUpperCase(); });
+            if (colorText) colorText.addEventListener('input', e => {
+                let v = e.target.value.trim();
+                if (!v.startsWith('#')) v = '#' + v;
+                if (/^#[0-9a-fA-F]{6}$/.test(v) && colorPicker) colorPicker.value = v;
+            });
+        });
+
+        async function submitSuperGroupForm() {
+            const editId = document.getElementById('super-group-edit-id').value;
+            const name = document.getElementById('super-group-name').value.trim();
+            const color = document.getElementById('super-group-color').value.trim();
+            const icon = document.getElementById('super-group-icon').value.trim();
+            if (!name) { showToast('Name darf nicht leer sein', 'error'); return; }
+
+            try {
+                let res;
+                if (editId) {
+                    res = await fetch(`/api/super-groups/${editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, color, icon })
+                    });
+                } else {
+                    res = await fetch('/api/super-groups', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, color, icon })
+                    });
+                }
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+                    showToast(err.detail || 'Fehler beim Speichern', 'error');
+                    return;
+                }
+                closeSuperGroupModal();
+                await loadSuperGroups();
+                showToast(editId ? 'Hauptgruppe aktualisiert' : 'Hauptgruppe angelegt', 'success');
+            } catch (e) {
+                console.error('submitSuperGroupForm error:', e);
+                showToast('Netzwerkfehler', 'error');
+            }
+        }
+
+        async function deleteSuperGroup(sgId, sgName) {
+            if (!confirm(`Hauptgruppe "${sgName}" löschen?\n\nZugeordnete Kategorien werden automatisch auf "Sonstiges" zurückgesetzt.`)) return;
+            try {
+                const res = await fetch(`/api/super-groups/${sgId}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+                    showToast(err.detail || 'Fehler beim Löschen', 'error');
+                    return;
+                }
+                await loadSuperGroups();
+                showToast('Hauptgruppe gelöscht', 'success');
+            } catch (e) {
+                console.error('deleteSuperGroup error:', e);
+                showToast('Netzwerkfehler', 'error');
+            }
+        }
+
+        async function assignCategorySuperGroup(catId, sgIdValue) {
+            const sgId = sgIdValue === '' ? null : parseInt(sgIdValue);
+            try {
+                const res = await fetch(`/api/categories/${catId}/super-group`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ super_group_id: sgId })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+                    showToast(err.detail || 'Fehler beim Zuweisen', 'error');
+                    await loadSuperGroups(); // rollback UI
+                    return;
+                }
+                // Update local state
+                const cat = _superGroupCategories.find(c => c.id === catId);
+                if (cat) cat.super_group_id = sgId;
+                renderSuperGroupsList(); // Update cat count
+                showToast('Zuordnung gespeichert', 'success');
+            } catch (e) {
+                console.error('assignCategorySuperGroup error:', e);
+                showToast('Netzwerkfehler', 'error');
+            }
         }
 
         // ── DIGI-STYLE MODAL CONTROL STATE ──
@@ -7108,6 +7437,53 @@
             }
         }
 
+        // ── Helper: Items client-seitig nach Hauptgruppe (SuperGroup) gruppieren ──
+        function groupItemsBySuperGroup(items) {
+            // Buckets: sg_id -> {id, name, color, icon, position, items[]}
+            const buckets = {};
+            const sonstigesItems = [];
+
+            items.forEach(item => {
+                const catName = getProductCategory(item);
+                const sg = (window._superGroupCategories || []).find(c => c.name === catName);
+                const sgInfo = sg && sg.super_group_id
+                    ? (window._superGroups || []).find(s => s.id === sg.super_group_id)
+                    : null;
+
+                if (sgInfo) {
+                    if (!buckets[sgInfo.id]) {
+                        buckets[sgInfo.id] = {
+                            id: sgInfo.id,
+                            name: sgInfo.name,
+                            color: sgInfo.color || '#374151',
+                            icon: sgInfo.icon || '',
+                            position: sgInfo.position || 0,
+                            items: []
+                        };
+                    }
+                    buckets[sgInfo.id].items.push(item);
+                } else {
+                    sonstigesItems.push(item);
+                }
+            });
+
+            const sorted = Object.values(buckets).sort((a, b) => (a.position || 0) - (b.position || 0) || a.name.localeCompare(b.name));
+            if (sonstigesItems.length > 0) {
+                sorted.push({
+                    id: null,
+                    name: 'Sonstiges',
+                    color: '#6b7280',
+                    icon: 'category',
+                    position: 9999,
+                    items: sonstigesItems
+                });
+            }
+            sorted.forEach(b => {
+                b.subtotal = b.items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+            });
+            return sorted;
+        }
+
         function renderPopupItems(order) {
             const container = document.getElementById('popup-items');
             if (!container) return;
@@ -7116,19 +7492,22 @@
                 return;
             }
 
-            const cats = {};
-            order.items.forEach(item => {
-                const c = getProductCategory(item);
-                if (!cats[c]) cats[c] = [];
-                cats[c].push(item);
-            });
+            const groups = groupItemsBySuperGroup(order.items);
 
             let html = '';
-            Object.keys(cats).forEach(cat => {
-                html += `<div class="cat-label">${cat}</div>`;
-                const subtotal = cats[cat].reduce((s, i) => s + i.price * i.quantity, 0);
+            groups.forEach(group => {
+                const textColor = getContrastTextColor(group.color);
+                const lightBg = lightenColor(group.color, 92);  // sehr helles Derivat für Item-Hintergrund
+                const iconHtml = group.icon ? `<span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">${escapeHtml(group.icon)}</span>` : '';
+                // Header der Hauptgruppe
+                html += `
+                    <div style="margin:8px 0 4px 0;padding:6px 10px;border-radius:8px;background:${escapeHtml(group.color)};color:${textColor};font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;">
+                        <span>${iconHtml}${escapeHtml(group.name)}</span>
+                        <span style="font-size:10px;font-weight:700;opacity:.85;">${group.items.length} Artikel</span>
+                    </div>
+                `;
 
-                cats[cat].forEach(item => {
+                group.items.forEach(item => {
                     const itemStatus = item.item_status || 'pending';
                     const noteSlug = (item.note || '').replace(/\s+/g, '_');
                     const key = `${item.product_id}_${noteSlug}_${itemStatus}`;
@@ -7166,21 +7545,21 @@
                     }
 
                     html += `
-                        <div class="item-card hover:border-primary/40 transition-colors" ${rowClick}>
+                        <div class="item-card hover:border-primary/40 transition-colors" ${rowClick} style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};">
                             <div class="item-row">
                                 <button onclick="event.stopPropagation();cancelItemDirect(${order.id}, '${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;margin-right:8px;flex-shrink:0;" title="Artikel stornieren">
                                     <span class="material-symbols-outlined" style="font-size: 20px;">block</span>
                                 </button>
                                 ${checkboxHtml}
                                 <div style="flex:1;min-width:0;">
-                                    <div class="item-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    <div class="item-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1f2937;">
                                         ${checkmarks}${escHtml(item.name)}
                                     </div>
-                                    ${item.note ? `<div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:1px;">✎ ${escHtml(item.note)}</div>` : ''}
+                                    ${item.note ? `<div style="font-size:11px;color:#b45309;font-weight:600;margin-top:1px;">✎ ${escHtml(item.note)}</div>` : ''}
                                 </div>
                                 <div style="display:flex;align-items:center;gap:.5rem;">
                                     ${actionBtn}
-                                    <div class="item-price" style="margin-left:.5rem;flex-shrink:0;">
+                                    <div class="item-price" style="margin-left:.5rem;flex-shrink:0;color:#1f2937;font-weight:700;">
                                         ${item.quantity}× ${item.price.toFixed(2).replace('.', ',')} €
                                     </div>
                                 </div>
@@ -7189,7 +7568,7 @@
                     `;
                 });
 
-                html += `<div style="text-align:right;font-size:11px;font-weight:800;color:#10b981;margin-bottom:8px;padding-right:4px;">Zwischensumme: ${subtotal.toFixed(2).replace('.', ',')} €</div>`;
+                html += `<div style="text-align:right;font-size:11px;font-weight:800;color:${escapeHtml(group.color)};margin-bottom:8px;padding-right:4px;">Zwischensumme: ${group.subtotal.toFixed(2).replace('.', ',')} €</div>`;
             });
 
             container.innerHTML = html;
