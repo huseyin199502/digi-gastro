@@ -83,7 +83,7 @@ def process_and_optimize_general_image(image_bytes) -> bytes:
 
 
 
-from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -7967,6 +7967,668 @@ def gobd_export(request: Request, db: Session = Depends(get_db)):
             "Expires": "0"
         }
     )
+
+
+# ==========================================
+# ORDERS EXPORT: PDF + XLSX (filtered by user's current filter state)
+# ==========================================
+
+def _filter_orders_for_export(orders, range_param, status_param, date_from, date_to, table_param, search_param):
+    """
+    Shared filter logic for PDF/Excel exports. Mirrors the JS getFilteredOrders()
+    so the export always matches exactly what the admin sees on screen.
+    """
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    filtered = []
+
+    search_lower = (search_param or "").strip().lower()
+
+    for o in orders:
+        # 1. Date filter
+        if range_param and range_param != "all":
+            ts = o.get("timestamp", "")
+            order_date = None
+            if ts:
+                try:
+                    order_date = datetime.strptime(ts.replace(" ", "T"), "%Y-%m-%dT%H:%M:%S")
+                except Exception:
+                    try:
+                        order_date = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        order_date = None
+
+            if range_param == "today":
+                if not order_date or order_date.date() != now.date():
+                    continue
+            elif range_param == "7d":
+                if not order_date or (now - order_date).days > 7:
+                    continue
+            elif range_param == "30d":
+                if not order_date or (now - order_date).days > 30:
+                    continue
+            elif range_param == "custom":
+                if not order_date:
+                    continue
+                if date_from:
+                    try:
+                        from_date = datetime.strptime(date_from, "%Y-%m-%d")
+                        if order_date < from_date:
+                            continue
+                    except Exception:
+                        pass
+                if date_to:
+                    try:
+                        to_date = datetime.strptime(date_to, "%Y-%m-%d")
+                        # inkl. Enddatum (bis 23:59:59)
+                        if order_date > to_date.replace(hour=23, minute=59, second=59):
+                            continue
+                    except Exception:
+                        pass
+
+        # 2. Status filter
+        if status_param and status_param != "all":
+            o_status = (o.get("status", "") or "").lower()
+            if status_param == "aktiv":
+                if o_status in ("bezahlt", "storniert"):
+                    continue
+            elif status_param == "bezahlt":
+                if o_status != "bezahlt":
+                    continue
+            elif status_param == "storniert":
+                if o_status != "storniert":
+                    continue
+
+        # 3. Tisch filter
+        if table_param and table_param != "all":
+            if str(o.get("table", "")) != table_param:
+                continue
+
+        # 4. Search filter
+        if search_lower:
+            bon_id = str(o.get("id", "")).lower()
+            table_str = str(o.get("table", "")).lower()
+            if search_lower not in bon_id and search_lower not in table_str:
+                continue
+
+        filtered.append(o)
+
+    # Sort by timestamp desc (newest first) — same as default JS sort
+    filtered.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return filtered
+
+
+def _get_display_total(o):
+    """Nie wieder 0€ im Export: zeige original_total wenn total=0."""
+    t = o.get("total", 0.0) or 0.0
+    ot = o.get("original_total")
+    if ot is None or ot == 0:
+        return t
+    return max(t, ot)
+
+
+@app.get("/admin/orders-export/pdf")
+def orders_export_pdf(
+    request: Request,
+    date_range: str = Query("today", alias="range"),
+    status: str = "all",
+    frm: str = "",
+    to: str = "",
+    table: str = "all",
+    search: str = "",
+    db: Session = Depends(get_db)
+):
+    """Export der gefilterten Bestellungen als PDF — für Buchhaltung & Steuerberater."""
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login")
+
+    restaurant = get_restaurant_or_raise(slug, db)
+    all_orders = restaurant.get("orders", [])
+    price_mode = restaurant.get("price_mode", "brutto")
+    restaurant_name = restaurant.get("name", slug)
+
+    orders = _filter_orders_for_export(all_orders, date_range, status, frm, to, table, search)
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    )
+    from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    import io as _io
+
+    # Deutsches Format: Komma als Dezimaltrenner
+    def fmt_eur(v):
+        try:
+            return f"{float(v):.2f}".replace(".", ",") + " €"
+        except Exception:
+            return "0,00 €"
+
+    # Try to register a Unicode font that supports the € sign cleanly.
+    # Fallback to Helvetica if registration fails.
+    font_name = "Helvetica"
+    font_bold = "Helvetica-Bold"
+    try:
+        # DejaVuSans is widely available and supports €, Umlauts, etc.
+        for path in [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        ]:
+            try:
+                pdfmetrics.registerFont(TTFont("DejaVuSans", path))
+                font_name = "DejaVuSans"
+                # Bold variant
+                bold_path = path.replace("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
+                pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", bold_path))
+                font_bold = "DejaVuSans-Bold"
+                break
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    buffer = _io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+        title=f"Bestellreport — {restaurant_name}",
+        author=restaurant_name,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "Title2", parent=styles["Heading1"],
+        fontName=font_bold, fontSize=18, leading=22,
+        textColor=colors.HexColor("#064e3b"), spaceAfter=4
+    )
+    subtitle_style = ParagraphStyle(
+        "Subtitle", parent=styles["Normal"],
+        fontName=font_name, fontSize=9, leading=12,
+        textColor=colors.HexColor("#666666"), spaceAfter=10
+    )
+    section_style = ParagraphStyle(
+        "Section", parent=styles["Heading2"],
+        fontName=font_bold, fontSize=11, leading=14,
+        textColor=colors.HexColor("#1f2937"), spaceAfter=6, spaceBefore=8
+    )
+
+    elements = []
+    elements.append(Paragraph(f"Bestellreport — {restaurant_name}", title_style))
+
+    # Filter-Beschreibung
+    from datetime import datetime
+    filter_parts = []
+    range_labels = {"today": "Heute", "7d": "Letzte 7 Tage", "30d": "Letzte 30 Tage", "all": "Alle Zeiträume"}
+    if date_range == "custom" and frm and to:
+        filter_parts.append(f"Zeitraum: {frm} bis {to}")
+    elif date_range in range_labels:
+        filter_parts.append(f"Zeitraum: {range_labels[date_range]}")
+    if status and status != "all":
+        status_labels = {"aktiv": "Aktiv", "bezahlt": "Bezahlt", "storniert": "Storniert"}
+        filter_parts.append(f"Status: {status_labels.get(status, status)}")
+    if table and table != "all":
+        filter_parts.append(f"Tisch: {table}")
+    if search:
+        filter_parts.append(f"Suche: &quot;{search}&quot;")
+    filter_text = " · ".join(filter_parts) if filter_parts else "Keine Filter aktiv"
+    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+    elements.append(Paragraph(
+        f"{filter_text}<br/>Erstellt am: {now_str} · Preis-Modus: {price_mode.capitalize()}",
+        subtitle_style
+    ))
+
+    # Summary
+    total_count = len(orders)
+    paid_count = len([o for o in orders if (o.get("status", "") or "").lower() == "bezahlt"])
+    cancelled_count = len([o for o in orders if (o.get("status", "") or "").lower() == "storniert"])
+    active_count = total_count - paid_count - cancelled_count
+    total_revenue = sum(_get_display_total(o) for o in orders if (o.get("status", "") or "").lower() == "bezahlt")
+    avg_basket = (total_revenue / paid_count) if paid_count > 0 else 0.0
+
+    elements.append(Paragraph("Zusammenfassung", section_style))
+    summary_data = [
+        ["Bestellungen gesamt:", str(total_count)],
+        ["Davon bezahlt:", str(paid_count)],
+        ["Davon aktiv:", str(active_count)],
+        ["Davon storniert:", str(cancelled_count)],
+        ["Umsatz (bezahlt):", fmt_eur(total_revenue)],
+        ["Ø Bon-Wert:", fmt_eur(avg_basket)],
+    ]
+    summary_table = Table(summary_data, colWidths=[80 * mm, 50 * mm])
+    summary_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTNAME", (0, 0), (0, -1), font_bold),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#374151")),
+        ("TEXTCOLOR", (1, 0), (1, -1), colors.HexColor("#111827")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, colors.HexColor("#9ca3af")),
+        ("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.HexColor("#9ca3af")),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 10))
+
+    # Orders table
+    elements.append(Paragraph("Bestellungen im Detail", section_style))
+
+    # Header
+    header = ["Bon ID", "Tisch", "Zeitstempel", "Status"]
+    if price_mode != "netto":
+        header.append("MwSt")
+    header.append("Gesamt")
+
+    table_data = [header]
+    for o in orders:
+        row = [
+            f"#{o.get('id', '')}",
+            str(o.get("table", "")),
+            str(o.get("timestamp", "")),
+            str(o.get("status", "")).capitalize(),
+        ]
+        if price_mode != "netto":
+            row.append(f"{o.get('mwst_rate', 19)}%")
+        row.append(fmt_eur(_get_display_total(o)))
+        table_data.append(row)
+
+    # Total row
+    total_row = ["", "", "", "GESAMT"]
+    if price_mode != "netto":
+        total_row.append("")
+    total_row.append(fmt_eur(sum(_get_display_total(o) for o in orders)))
+    table_data.append(total_row)
+
+    # Column widths: total ~180mm on A4
+    if price_mode != "netto":
+        col_widths = [20 * mm, 30 * mm, 38 * mm, 25 * mm, 15 * mm, 30 * mm]
+    else:
+        col_widths = [22 * mm, 33 * mm, 42 * mm, 28 * mm, 35 * mm]
+
+    orders_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    orders_table.setStyle(TableStyle([
+        # Header
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#064e3b")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), font_bold),
+        ("FONTSIZE", (0, 0), (-1, 0), 8.5),
+        ("ALIGN", (0, 0), (-1, 0), "LEFT"),
+        ("ALIGN", (-1, 0), (-1, 0), "RIGHT"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+        ("TOPPADDING", (0, 0), (-1, 0), 6),
+        # Body
+        ("FONTNAME", (0, 1), (-1, -2), font_name),
+        ("FONTSIZE", (0, 1), (-1, -1), 8.5),
+        ("TEXTCOLOR", (0, 1), (-1, -2), colors.HexColor("#111827")),
+        ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
+        ("ALIGN", (3, 1), (3, -1), "LEFT"),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
+        ("TOPPADDING", (0, 1), (-1, -1), 4),
+        # Row striping
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f9fafb")]),
+        # Grid
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#064e3b")),
+        ("LINEBELOW", (0, 1), (-1, -2), 0.25, colors.HexColor("#e5e7eb")),
+        # Total row
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d1fae5")),
+        ("FONTNAME", (0, -1), (-1, -1), font_bold),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.HexColor("#064e3b")),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.HexColor("#064e3b")),
+        ("TOPPADDING", (0, -1), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 6),
+    ]))
+    elements.append(orders_table)
+
+    # Footer note
+    elements.append(Spacer(1, 14))
+    footer_style = ParagraphStyle(
+        "Footer", parent=styles["Normal"],
+        fontName=font_name, fontSize=7, leading=9,
+        textColor=colors.HexColor("#9ca3af"), alignment=TA_CENTER
+    )
+    elements.append(Paragraph(
+        f"Dieser Report wurde maschinell erstellt — {restaurant_name} · digi-gastro.de",
+        footer_style
+    ))
+
+    doc.build(elements)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    filename = f"bestellreport-{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@app.get("/admin/orders-export/xlsx")
+def orders_export_xlsx(
+    request: Request,
+    date_range: str = Query("today", alias="range"),
+    status: str = "all",
+    frm: str = "",
+    to: str = "",
+    table: str = "all",
+    search: str = "",
+    db: Session = Depends(get_db)
+):
+    """Export der gefilterten Bestellungen als Excel — für Buchhaltung & Steuerberater."""
+    res = get_current_user_and_slug(request)
+    if not res:
+        return RedirectResponse(url="/admin/login")
+    user, slug = res
+    if user["role"] != "chef":
+        return RedirectResponse(url="/admin/login")
+
+    restaurant = get_restaurant_or_raise(slug, db)
+    all_orders = restaurant.get("orders", [])
+    price_mode = restaurant.get("price_mode", "brutto")
+    restaurant_name = restaurant.get("name", slug)
+
+    orders = _filter_orders_for_export(all_orders, date_range, status, frm, to, table, search)
+
+    import io as _io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+
+    # ── Sheet 1: Bestellungen ──
+    ws = wb.active
+    ws.title = "Bestellungen"
+
+    # Header styling
+    header_font = Font(bold=True, color="FFFFFF", size=11, name="Calibri")
+    header_fill = PatternFill(start_color="064E3B", end_color="064E3B", fill_type="solid")
+    header_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    total_font = Font(bold=True, color="064E3B", size=11)
+    total_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin", color="E5E7EB"),
+        right=Side(style="thin", color="E5E7EB"),
+        top=Side(style="thin", color="E5E7EB"),
+        bottom=Side(style="thin", color="E5E7EB"),
+    )
+
+    # Title row
+    ws.merge_cells("A1:G1")
+    ws["A1"] = f"Bestellreport — {restaurant_name}"
+    ws["A1"].font = Font(bold=True, size=14, color="064E3B")
+    ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[1].height = 24
+
+    # Filter info row
+    from datetime import datetime
+    range_labels = {"today": "Heute", "7d": "Letzte 7 Tage", "30d": "Letzte 30 Tage", "all": "Alle Zeiträume"}
+    filter_parts = []
+    if date_range == "custom" and frm and to:
+        filter_parts.append(f"Zeitraum: {frm} bis {to}")
+    elif date_range in range_labels:
+        filter_parts.append(f"Zeitraum: {range_labels[date_range]}")
+    if status and status != "all":
+        status_labels = {"aktiv": "Aktiv", "bezahlt": "Bezahlt", "storniert": "Storniert"}
+        filter_parts.append(f"Status: {status_labels.get(status, status)}")
+    if table and table != "all":
+        filter_parts.append(f"Tisch: {table}")
+    if search:
+        filter_parts.append(f"Suche: {search}")
+    filter_text = " · ".join(filter_parts) if filter_parts else "Keine Filter aktiv"
+
+    ws.merge_cells("A2:G2")
+    ws["A2"] = f"{filter_text}  ·  Erstellt am: {datetime.now().strftime('%d.%m.%Y %H:%M')}  ·  Preis-Modus: {price_mode.capitalize()}"
+    ws["A2"].font = Font(size=9, color="666666", italic=True)
+    ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[2].height = 16
+
+    # Empty row
+    ws.row_dimensions[3].height = 6
+
+    # Header row (row 4)
+    header_row = 4
+    headers = ["Bon ID", "Tisch", "Zeitstempel", "Status"]
+    if price_mode != "netto":
+        headers.append("MwSt")
+    headers.append("Gesamt (€)")
+    headers.append("Original-Warenwert (€)")
+
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+    ws.row_dimensions[header_row].height = 28
+
+    # Data rows
+    data_start = header_row + 1
+    for row_offset, o in enumerate(orders):
+        row = data_start + row_offset
+        col = 1
+        ws.cell(row=row, column=col, value=f"#{o.get('id', '')}"); col += 1
+        ws.cell(row=row, column=col, value=str(o.get("table", ""))); col += 1
+        ws.cell(row=row, column=col, value=str(o.get("timestamp", ""))); col += 1
+        ws.cell(row=row, column=col, value=str(o.get("status", "")).capitalize()); col += 1
+        if price_mode != "netto":
+            ws.cell(row=row, column=col, value=f"{o.get('mwst_rate', 19)}%"); col += 1
+        # Gesamt — als Zahl damit Excel sum-fähig ist
+        display_total = _get_display_total(o)
+        ws.cell(row=row, column=col, value=float(display_total)); col += 1
+        # Original-Warenwert
+        ot = o.get("original_total")
+        ws.cell(row=row, column=col, value=float(ot) if ot is not None else float(display_total)); col += 1
+
+        # Style the row
+        for c in range(1, col):
+            cell = ws.cell(row=row, column=c)
+            cell.border = thin_border
+            cell.font = Font(size=10, name="Calibri")
+            if c == col - 2:  # Gesamt-Spalte
+                cell.number_format = '#,##0.00 "€"'
+                cell.alignment = Alignment(horizontal="right")
+            elif c == col - 1:  # Original-Spalte
+                cell.number_format = '#,##0.00 "€"'
+                cell.alignment = Alignment(horizontal="right")
+            elif c == 4:  # Status
+                cell.alignment = Alignment(horizontal="left")
+            # Alternating row background
+            if row_offset % 2 == 1:
+                cell.fill = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid")
+
+    # Total row
+    total_row_idx = data_start + len(orders)
+    if len(orders) > 0:
+        total_row_idx += 1  # empty row before total
+
+    ws.cell(row=total_row_idx, column=1, value="GESAMT")
+    ws.merge_cells(start_row=total_row_idx, start_column=1, end_row=total_row_idx, end_column=3)
+    total_cell_label = ws.cell(row=total_row_idx, column=1)
+    total_cell_label.font = total_font
+    total_cell_label.fill = total_fill
+    total_cell_label.alignment = Alignment(horizontal="right", vertical="center")
+
+    # Status count
+    bezahlt_count = len([o for o in orders if (o.get("status", "") or "").lower() == "bezahlt"])
+    ws.cell(row=total_row_idx, column=4, value=f"{bezahlt_count} bezahlt")
+    ws.cell(row=total_row_idx, column=4).font = total_font
+    ws.cell(row=total_row_idx, column=4).fill = total_fill
+
+    # MwSt column empty in total row
+    if price_mode != "netto":
+        ws.cell(row=total_row_idx, column=5, value="")
+        ws.cell(row=total_row_idx, column=5).fill = total_fill
+
+    # Sum of totals — use Excel SUM formula
+    gesamt_col = len(headers) - 1
+    orig_col = len(headers)
+    if len(orders) > 0:
+        first_data_row = data_start
+        last_data_row = data_start + len(orders) - 1
+        ws.cell(row=total_row_idx, column=gesamt_col,
+                value=f"=SUM({get_column_letter(gesamt_col)}{first_data_row}:{get_column_letter(gesamt_col)}{last_data_row})")
+        ws.cell(row=total_row_idx, column=orig_col,
+                value=f"=SUM({get_column_letter(orig_col)}{first_data_row}:{get_column_letter(orig_col)}{last_data_row})")
+
+    for c in [gesamt_col, orig_col]:
+        cell = ws.cell(row=total_row_idx, column=c)
+        cell.font = total_font
+        cell.fill = total_fill
+        cell.number_format = '#,##0.00 "€"'
+        cell.alignment = Alignment(horizontal="right")
+        cell.border = Border(top=Side(style="medium", color="064E3B"))
+
+    # Column widths
+    widths = [10, 18, 22, 14]
+    if price_mode != "netto":
+        widths.append(8)
+    widths.append(16)  # Gesamt
+    widths.append(20)  # Original
+    for idx, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = w
+
+    # Freeze header row
+    ws.freeze_panes = f"A{header_row + 1}"
+
+    # ── Sheet 2: Artikel-Details (eine Zeile pro Artikel) ──
+    ws2 = wb.create_sheet("Artikel-Details")
+
+    ws2.merge_cells("A1:I1")
+    ws2["A1"] = f"Artikel-Details — {restaurant_name}"
+    ws2["A1"].font = Font(bold=True, size=14, color="064E3B")
+    ws2.row_dimensions[1].height = 24
+
+    item_headers = ["Bon ID", "Tisch", "Zeitstempel", "Artikel", "Kategorie", "MwSt (%)", "Einzelpreis (€)", "Menge", "Gesamt (€)"]
+    for col_idx, header in enumerate(item_headers, start=1):
+        cell = ws2.cell(row=3, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+    ws2.row_dimensions[3].height = 28
+
+    item_row = 4
+    for o in orders:
+        o_id = o.get("id", "")
+        o_table = str(o.get("table", ""))
+        o_timestamp = str(o.get("timestamp", ""))
+        items = o.get("items", [])
+        if not items:
+            # Wenn keine Artikel mehr (z.B. pay-item everything), trotzdem eine Zeile mit leerem Artikel
+            for col_idx, val in enumerate([f"#{o_id}", o_table, o_timestamp, "(keine Artikel)", "", "", "", "", ""], start=1):
+                cell = ws2.cell(row=item_row, column=col_idx, value=val)
+                cell.border = thin_border
+                cell.font = Font(size=10, italic=True, color="9CA3AF")
+            item_row += 1
+        else:
+            for item in items:
+                item_cat = (item.get("category_type", "küche") or "küche").lower()
+                item_mwst = 19 if item_cat == "bar" else 7
+                category_label = {"küche": "Küche", "bar": "Bar", "shisha": "Shisha"}.get(item_cat, item_cat.capitalize())
+                price = float(item.get("price", 0.0) or 0.0)
+                qty = int(item.get("quantity", 1) or 1)
+                # Im Netto-Modus: Nettopreis aus Brutto-Preis berechnen
+                if price_mode == "netto":
+                    mwst_divisor = 1.19 if item_cat == "bar" else 1.07
+                    export_price = round(price / mwst_divisor, 4)
+                else:
+                    export_price = price
+                line_total = round(export_price * qty, 2)
+
+                row_values = [
+                    f"#{o_id}", o_table, o_timestamp,
+                    item.get("name", ""),
+                    category_label,
+                    item_mwst,
+                    export_price,
+                    qty,
+                    line_total
+                ]
+                for col_idx, val in enumerate(row_values, start=1):
+                    cell = ws2.cell(row=item_row, column=col_idx, value=val)
+                    cell.border = thin_border
+                    cell.font = Font(size=10, name="Calibri")
+                    if col_idx in (7, 9):  # price columns
+                        cell.number_format = '#,##0.00 "€"'
+                        cell.alignment = Alignment(horizontal="right")
+                item_row += 1
+
+    # Column widths
+    item_widths = [10, 14, 22, 28, 12, 10, 16, 8, 16]
+    for idx, w in enumerate(item_widths, start=1):
+        ws2.column_dimensions[get_column_letter(idx)].width = w
+    ws2.freeze_panes = "A4"
+
+    # ── Sheet 3: Zusammenfassung ──
+    ws3 = wb.create_sheet("Zusammenfassung")
+    ws3.merge_cells("A1:B1")
+    ws3["A1"] = "Zusammenfassung"
+    ws3["A1"].font = Font(bold=True, size=14, color="064E3B")
+    ws3.row_dimensions[1].height = 24
+
+    total_count = len(orders)
+    paid_count = len([o for o in orders if (o.get("status", "") or "").lower() == "bezahlt"])
+    cancelled_count = len([o for o in orders if (o.get("status", "") or "").lower() == "storniert"])
+    active_count = total_count - paid_count - cancelled_count
+    total_revenue = sum(_get_display_total(o) for o in orders if (o.get("status", "") or "").lower() == "bezahlt")
+    avg_basket = (total_revenue / paid_count) if paid_count > 0 else 0.0
+
+    summary_rows = [
+        ("Bestellungen gesamt", total_count),
+        ("Davon bezahlt", paid_count),
+        ("Davon aktiv", active_count),
+        ("Davon storniert", cancelled_count),
+        ("Umsatz (bezahlt) in €", round(total_revenue, 2)),
+        ("Ø Bon-Wert in €", round(avg_basket, 2)),
+    ]
+    for row_idx, (label, value) in enumerate(summary_rows, start=3):
+        ws3.cell(row=row_idx, column=1, value=label).font = Font(bold=True, size=11)
+        ws3.cell(row=row_idx, column=1).alignment = Alignment(horizontal="left", vertical="center")
+        ws3.cell(row=row_idx, column=2, value=value).font = Font(size=11)
+        ws3.cell(row=row_idx, column=2).alignment = Alignment(horizontal="right", vertical="center")
+        if "€" in label:
+            ws3.cell(row=row_idx, column=2).number_format = '#,##0.00 "€"'
+        ws3.cell(row=row_idx, column=1).border = thin_border
+        ws3.cell(row=row_idx, column=2).border = thin_border
+
+    ws3.column_dimensions["A"].width = 30
+    ws3.column_dimensions["B"].width = 20
+
+    # Write to buffer
+    buffer = _io.BytesIO()
+    wb.save(buffer)
+    xlsx_bytes = buffer.getvalue()
+    buffer.close()
+
+    filename = f"bestellreport-{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
 
 # ==========================================
 # LAUNCH-READY WIZARD & SETUP ROUTES

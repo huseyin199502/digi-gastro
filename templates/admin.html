@@ -2708,14 +2708,6 @@
                         <div class="stat-value">{{ "%.2f"|format(stats.avg_basket) }} €</div>
                         <div class="stat-sub">Ø Warenkorb pro Abrechnung</div>
                     </div>
-                    <div class="stat-card stat-avg">
-                        <div class="stat-icon bg-amber-500/10">
-                            <span class="material-symbols-outlined text-amber-600">volunteer_activism</span>
-                        </div>
-                        <div class="stat-label">Trinkgeld</div>
-                        <div class="stat-value">{{ "%.2f"|format(stats.tip) }} €</div>
-                        <div class="stat-sub">Heute erhalten</div>
-                    </div>
                 </div>
 
                 <!-- Orders management bar with filters -->
@@ -2727,8 +2719,15 @@
                             <span id="orders-count-badge" class="text-[9px] font-black bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-200">0</span>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs">
-                                <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU Export
+                            <!-- Export buttons — respektieren aktuellen Filter -->
+                            <button onclick="exportOrders('pdf')" class="btn-secondary flex items-center gap-1.5 text-xs" title="Gefilterte Bestellungen als PDF exportieren">
+                                <span class="material-symbols-outlined" style="font-size:14px;">picture_as_pdf</span> PDF
+                            </button>
+                            <button onclick="exportOrders('xlsx')" class="btn-secondary flex items-center gap-1.5 text-xs" title="Gefilterte Bestellungen als Excel exportieren">
+                                <span class="material-symbols-outlined" style="font-size:14px;">table_view</span> Excel
+                            </button>
+                            <a href="/admin/gobd-export" download class="btn-secondary flex items-center gap-1.5 text-xs" title="GOBD-konformer CSV-Export für Steuerberater">
+                                <span class="material-symbols-outlined" style="font-size:14px;">download</span> GOBD / GDPdU
                             </a>
                         </div>
                     </div>
@@ -4775,6 +4774,73 @@
             }
         }
 
+        // ── EXPORT: PDF + Excel — respektiert aktuellen Filter ──
+        // Der Chef bekommt genau das exportiert, was er gerade auf dem Bildschirm sieht.
+        function exportOrders(format) {
+            const params = new URLSearchParams();
+            // Zeitraum
+            params.append('range', _ordersDateFilter || 'today');
+            if (_ordersDateFilter === 'custom') {
+                if (_ordersCustomFrom) params.append('frm', _ordersCustomFrom);
+                if (_ordersCustomTo) params.append('to', _ordersCustomTo);
+            }
+            // Status
+            if (_ordersStatusFilter && _ordersStatusFilter !== 'all') {
+                params.append('status', _ordersStatusFilter);
+            }
+            // Tisch
+            const tableEl = document.getElementById('orders-table-filter');
+            if (tableEl && tableEl.value && tableEl.value !== 'all') {
+                params.append('table', tableEl.value);
+            }
+            // Search
+            const searchEl = document.getElementById('orders-search');
+            if (searchEl && searchEl.value.trim()) {
+                params.append('search', searchEl.value.trim());
+            }
+            // URL zusammenbauen und Download auslösen
+            const url = `/admin/orders-export/${format}?${params.toString()}`;
+            // loading state
+            const btn = event?.currentTarget;
+            let originalHtml = '';
+            if (btn) {
+                originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="material-symbols-outlined animate-spin" style="font-size:14px;">progress_activity</span> Export…`;
+            }
+            // Fetch als Blob damit der Browser einen sauberen Download macht
+            fetch(url, { method: 'GET', credentials: 'same-origin' })
+                .then(resp => {
+                    if (!resp.ok) throw new Error('Export fehlgeschlagen: ' + resp.status);
+                    // Filename aus Content-Disposition extrahieren
+                    const cd = resp.headers.get('content-disposition') || '';
+                    let filename = `bestellreport.${format}`;
+                    const match = cd.match(/filename="?([^";]+)"?/);
+                    if (match) filename = match[1];
+                    return resp.blob().then(blob => ({ blob, filename }));
+                })
+                .then(({ blob, filename }) => {
+                    const objUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = objUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+                })
+                .catch(err => {
+                    console.error('Export error:', err);
+                    alert('Export fehlgeschlagen: ' + err.message);
+                })
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                });
+        }
+
         // ── BON DETAIL MODAL ──
         // Der Chef kann auf jeden Bon klicken und sieht die komplette Buchungshistorie:
         // Artikel, Mengen, Einzelpreise, Teilzahlungen, Stornos, Trinkgeld, Kellner, Zeit.
@@ -4876,10 +4942,6 @@
                     </div>
                     ${mwstHtml}
                     ${waiterHtml}
-                    <div class="bon-detail-stat">
-                        <div class="bon-detail-stat-label">Trinkgeld</div>
-                        <div class="bon-detail-stat-value" style="color:#b45309;">${fmtEUR(tip)}</div>
-                    </div>
                 </div>
 
                 <div class="bon-detail-items-header">Artikel (${items.length})</div>
@@ -4896,13 +4958,8 @@
                     <span class="text-sm" style="color:#b45309;">Original-Warenwert</span>
                     <span class="font-mono" style="color:#b45309;">${fmtEUR(originalTotal)}</span>
                 </div>` : ''}
-                ${tip > 0 ? `
-                <div class="bon-detail-total-row" style="margin-top:0.4rem;background:rgba(245,158,11,0.08);">
-                    <span class="text-sm">+ Trinkgeld</span>
-                    <span class="font-mono">${fmtEUR(tip)}</span>
-                </div>` : ''}
                 <div class="bon-detail-total-row" style="margin-top:0.4rem;background:linear-gradient(135deg, rgba(0,153,0,0.12), rgba(0,153,0,0.04));border:1px solid rgba(0,153,0,0.25);">
-                    <span class="text-sm font-extrabold">Gesamt bezahlt</span>
+                    <span class="text-sm font-extrabold">Gesamt</span>
                     <span class="font-mono font-extrabold" style="font-size:1.05rem;">${fmtEUR(totalWithTip)}</span>
                 </div>
             `;
