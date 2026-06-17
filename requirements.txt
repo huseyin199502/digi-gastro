@@ -12,4 +12,6 @@ pillow
 rembg
 onnxruntime
 qrcode[pil]
+reportlab
+openpyxl
 
