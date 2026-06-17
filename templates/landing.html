@@ -36,39 +36,13 @@
     <meta name="twitter:image" content="/static/images/digigastrologo.jpeg">
 
     <!-- Fonts & Styling -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- BUILT TAILWIND CSS — parallel load for testing (CDN still active) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=1" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=1"></noscript>
+    <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
+    <link rel="preload" href="/static/css/tailwind-built.css?v=2" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=2"></noscript>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/design_system.css?v=17">
 
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#C9A84C',
-                        gold: {
-                            50: '#FDF8E8',
-                            100: '#FAF0C8',
-                            200: '#F5E08A',
-                            300: '#EFD04D',
-                            400: '#D4B94F',
-                            500: '#C9A84C',
-                            600: '#A8872E',
-                            700: '#866A24',
-                            800: '#654F1B',
-                            900: '#433512',
-                        },
-                        charcoal: '#0b0c10',
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         /* iOS Overscroll-Bounce Prevention */
         html {

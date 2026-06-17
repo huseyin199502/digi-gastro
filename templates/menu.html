@@ -14,34 +14,13 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
     <!-- Tailwind and FontAwesome / Material Symbols -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- BUILT TAILWIND CSS — parallel load for testing (CDN still active) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=1" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=1"></noscript>
+    <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
+    <link rel="preload" href="/static/css/tailwind-built.css?v=2" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=2"></noscript>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/design_system.css?v=17">
-    
-    <script id="tailwind-config">
-        tailwind.config = {
-          darkMode: "class",
-          theme: {
-            extend: {
-              colors: {
-                "on-surface": "var(--text-on-surface)",
-                "outline-variant": "var(--border-subtle)",
-                "primary": "var(--color-primary)",
-                "accent": "var(--color-accent-gold)",
-                "background": "var(--bg-obsidian)",
-                "surface": "var(--bg-surface)",
-                "surface-container-high": "var(--bg-surface-elevated)",
-                "on-surface-variant": "var(--text-on-surface-variant)"
-              }
-            }
-          }
-        }
-    </script>
     <style>
         /* Alpine.js x-cloak: hide elements until Alpine initializes */
         [x-cloak] { display: none !important; }

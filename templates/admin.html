@@ -22,27 +22,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- BUILT TAILWIND CSS — parallel load for testing (CDN still active) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=1" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=1"></noscript>
+    <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
+    <link rel="preload" href="/static/css/tailwind-built.css?v=2" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=2"></noscript>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://js.puter.com/v2/"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#009900',
-                        gastro: '#009900',
-                        gastro2: '#1f2937'
-                    }
-                }
-            }
-        }
-    </script>
-    
+
     <!-- Custom Style System -->
     <style>
         /* iOS Overscroll-Bounce Prevention */
@@ -60,6 +45,9 @@
             --gastro-text-main: #1f2937;
             --gastro-text-muted: #6b7280;
             --gastro-border: #e5e7eb;
+            /* Override Tailwind primary to admin green (was set via CDN tailwind.config before) */
+            --color-primary: #009900;
+            --color-primary-rgb: 0 153 0;
         }
 
         /* Dark Mode variables */

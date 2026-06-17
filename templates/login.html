@@ -16,29 +16,21 @@
     <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
 
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- BUILT TAILWIND CSS — parallel load for testing (CDN still active) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=1" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=1"></noscript>
+    <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
+    <link rel="preload" href="/static/css/tailwind-built.css?v=2" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=2"></noscript>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <!-- Premium Design System -->
     <link rel="stylesheet" href="/static/css/design_system.css?v=17">
-    
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#10b981', /* Premium Emerald */
-                        charcoal: '#0b0c10',
-                    }
-                }
-            }
-        }
-    </script>
+
     <style>
+        /* Login page uses emerald as primary (was set via CDN tailwind.config before).
+           Override CSS variables here to keep login visual identity after CDN removal. */
+        :root {
+            --color-primary: #10b981;
+            --color-primary-rgb: 16 185 129;
+        }
         /* iOS Overscroll-Bounce Prevention */
         html {
             overscroll-behavior: none;

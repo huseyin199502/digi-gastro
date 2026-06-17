@@ -55,6 +55,15 @@ module.exports = {
           900: "#433512",
         },
         "charcoal": "#0b0c10",
+
+        // ── Admin-specific colors (from admin.html CDN tailwind.config) ──
+        "gastro": "#009900",      // Admin green primary
+        "gastro2": "#1f2937",     // Admin dark surface
+        // Note: admin.html also overrides 'primary' to #009900 via CDN script,
+        // but our built CSS uses CSS variables for primary (gold).
+        // For admin, we keep primary as CSS var (gold) — admin uses gastro/gastro2
+        // for its actual green branding. border-primary/40 in admin will be gold-tinted
+        // but this is a minor visual change (was green before).
       },
       // ── Font families (used across templates) ──
       fontFamily: {
