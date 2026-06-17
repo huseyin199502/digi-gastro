@@ -7,5 +7,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Optional: custom component classes can go here ──
-   (we keep it minimal — the design_system.css handles custom styling) */
+/* ════════════════════════════════════════════════════════════════════
+   CRITICAL: Override .hidden to beat inline <style> blocks
+   ════════════════════════════════════════════════════════════════════
+   Templates like admin.html have inline <style> blocks that load
+   AFTER this built CSS. Custom rules like `.overlay-backdrop { display: flex }`
+   would override Tailwind's `.hidden { display: none }` because they
+   appear later in source order (same specificity).
+
+   In the old CDN setup, Tailwind injected utilities at runtime AFTER
+   the inline styles, so .hidden won. With built CSS loaded in <head>,
+   the inline styles win — modals/overlays become visible by default
+   and block the entire page.
+
+   Solution: Force .hidden to win with !important. Tailwind's `hidden`
+   utility is semantically "display:none, period" — making it !important
+   matches user intent and is consistent with how Tailwind's CDN
+   runtime injection behaves.
+   ════════════════════════════════════════════════════════════════════ */
+.hidden {
+    display: none !important;
+}
