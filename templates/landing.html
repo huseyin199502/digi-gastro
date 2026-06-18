@@ -46,9 +46,6 @@
 
     <!-- Google Search Console Verifizierung: via HTML-Datei unter /google25bbbffb97f06aaa.html -->
 
-    <!-- Umami Analytics (privacy-friendly, self-hosted) -->
-    <script defer src="https://analytics.digi-gastro.de/script.js" data-website-id="UMAMI_WEBSITE_ID_HIER_EINFUEGEN"></script>
-
     <!-- ════════════════════════════════════════════════════════════════
          Structured Data (JSON-LD) für Google Rich Snippets
          ════════════════════════════════════════════════════════════════ -->
@@ -132,11 +129,14 @@
     </script>
 
     <!-- Fonts & Styling -->
+    <!-- Preconnect to Google Fonts (Performance) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
     <link rel="preload" href="/static/css/tailwind-built.css?v=3" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=3"></noscript>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/design_system.css?v=17">
 
     <style>
@@ -450,7 +450,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 </head>
 <body class="bg-obsidian text-zinc-100 font-sans min-h-screen relative overflow-x-hidden no-image-save"
       oncontextmenu="return false;"
@@ -520,7 +520,7 @@
     <header class="hero-section relative w-full overflow-hidden bg-[#050507]">
         <!-- Video — determines hero height naturally, NO cropping -->
         <div class="hero-video-wrap relative w-full" style="aspect-ratio: 1028/720;">
-            <video autoplay loop muted playsinline class="block w-full h-full" style="object-fit: fill;">
+            <video loop muted playsinline preload="metadata" class="block w-full h-full" style="object-fit: fill;" id="hero-video">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
@@ -1214,12 +1214,44 @@
         // Case 1: Page already fully loaded (cache hit, PWA cold start).
         if (document.readyState === 'complete') {
             killPreloader();
-        } else {
-            // Case 2: Still loading — register listener.
-            window.addEventListener('load', killPreloader);
-            // Case 3: Fallback — kill after 3s no matter what.
-            setTimeout(killPreloader, 3000);
+        } else if (document.readyState === 'interactive') {
+            // DOMContentLoaded bereits gefeuert → Preloader sofort killen
+            setTimeout(killPreloader, 100);
         }
+        // Case 2: Still loading — register listener.
+        window.addEventListener('load', killPreloader);
+        // Case 3: Fallback — kill nach max 3s egal was passiert
+        setTimeout(killPreloader, 3000);
+
+        // ── Hero Video: Lazy Start via Intersection Observer ──
+        // Video wird erst abgespielt wenn es im Viewport sichtbar ist.
+        // Auf Mobile spart das massiv Ladezeit (2.8 MB Video nicht blockierend).
+        (function() {
+            const heroVideo = document.getElementById('hero-video');
+            if (!heroVideo) return;
+            // Auf Mobile (max-width: 768px): Video gar nicht autoplayen
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                // Mobile: Video nicht laden, nur erstes Frame anzeigen
+                heroVideo.preload = 'none';
+                return;
+            }
+            // Desktop: Video starten wenn im Viewport
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            heroVideo.play().catch(() => {});
+                        } else {
+                            heroVideo.pause();
+                        }
+                    });
+                }, { threshold: 0.1 });
+                observer.observe(heroVideo);
+            } else {
+                // Fallback: direkt abspielen
+                heroVideo.play().catch(() => {});
+            }
+        })();
 
         // Navbar scroll
         window.addEventListener('scroll', () => {
