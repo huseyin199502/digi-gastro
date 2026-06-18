@@ -7484,10 +7484,10 @@ async def update_landingpage(
                 "_has_new_image": sec.get("_has_new_image", False)
             })
     
-    # Also check custom_sections_json for backward compatibility (image-bearing custom sections)
-    # BUG-FIX: Früher wurde existing["image"] immer mit sec.get("image","") überschrieben,
-    # was den gerade hochgeladenen Bild-Pfad wieder mit "" überschrieb. Jetzt nur noch
-    # setzen wenn das existing-Section noch KEIN Bild hat (also wirklich leer ist).
+    # Also check custom_sections_json for backward compatibility
+    # BUG-FIX: backward-compat Code konnte gelöschte Sections mit Bildern wieder
+    # hinzufügen. Jetzt: NUR Bilder übernehmen wenn die Section auch in
+    # landing_sections_json existiert (also nicht gelöscht wurde).
     if custom_sections_json:
         try:
             compat_sections = json_module.loads(custom_sections_json)
@@ -7502,12 +7502,8 @@ async def update_landingpage(
                                     existing["image"] = sec.get("image", "")
                                 found = True
                                 break
-                        if not found and (sec.get("title") or sec.get("content") or sec.get("image")):
-                            custom_sections.append({
-                                "title": str(sec.get("title", "")).strip(),
-                                "content": str(sec.get("content", "")).strip(),
-                                "image": str(sec.get("image", "")).strip()
-                            })
+                        # BUG-FIX: Gelöschte Sections NICHT wieder hinzufügen!
+                        # if not found → Section wurde gelöscht → nicht wiederherstellen
         except Exception:
             pass
     
@@ -7545,16 +7541,13 @@ async def update_landingpage(
                         custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
                 custom_image_idx += 1
     
-    # Preserve existing custom section images
-    old_custom = landing_page.get("custom_sections", [])
-    if isinstance(old_custom, list):
-        for old_sec in old_custom:
-            if isinstance(old_sec, dict) and old_sec.get("image"):
-                for new_sec in custom_sections:
-                    if new_sec.get("title") == old_sec.get("title") and not new_sec.get("image"):
-                        new_sec["image"] = old_sec["image"]
-                        break
-    
+    # BUG-FIX: "Preserve existing custom section images" Code entfernt!
+    # Dieser Code hat Bilder von GELÖSCHTEN Sections auf neue Sections mit
+    # gleichem Titel übertragen → gelöschte Bilder tauchten wieder auf.
+    # Das image-Feld wird bereits korrekt aus dem hidden input
+    # (section_image_existing_custom_*) via prepareLandingFormSubmit() gesetzt.
+    # Keine "Preserve" Logik mehr nötig.
+
     # Clean up custom sections
     cleaned_custom_sections = []
     for sec in custom_sections:
