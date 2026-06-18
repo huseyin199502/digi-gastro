@@ -3786,12 +3786,23 @@
                             </form>
                         </div>
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                            <div>
-                                <h4 class="font-bold text-xs text-zinc-800">Preisanzeige</h4>
-                                <p class="text-[10px] text-zinc-400 mt-0.5">Steuert die Preisdarstellung in Speisekarte &amp; Reports</p>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <h4 class="font-bold text-xs text-zinc-800">Preisanzeige: Brutto oder Netto</h4>
+                                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full {% if restaurant.price_mode == 'netto' %}bg-amber-100 text-amber-700 border border-amber-200{% else %}bg-emerald-100 text-emerald-700 border border-emerald-200{% endif %}">
+                                        {% if restaurant.price_mode == 'netto' %}NETTO{% else %}BRUTTO{% endif %}
+                                    </span>
+                                </div>
+                                <p class="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
+                                    <span class="font-bold text-zinc-700">Brutto (aus):</span> Preise inkl. 19% MwSt — Gäste sehen Endpreise.<br>
+                                    <span class="font-bold text-zinc-700">Netto (an):</span> Preise ohne MwSt — für Gastronomie/B2B, keine Steuer-Ausweisung.
+                                </p>
+                                <p class="text-[10px] text-zinc-400 mt-1.5 italic">
+                                    Wirkt sich auf Speisekarte, Reports und PDF-Exporte aus.
+                                </p>
                             </div>
-                            <form action="/admin/price-mode-toggle" method="POST" class="inline flex items-center">
-                                <label class="switch">
+                            <form action="/admin/price-mode-toggle" method="POST" class="inline flex items-center ml-3 shrink-0">
+                                <label class="switch" title="{% if restaurant.price_mode == 'netto' %}Aktuell: Netto-Anzeige — Klick um auf Brutto zu wechseln{% else %}Aktuell: Brutto-Anzeige — Klick um auf Netto zu wechseln{% endif %}">
                                     <input type="checkbox" name="price_mode_netto" value="true" onchange="this.form.submit()" {% if restaurant.price_mode == 'netto' %}checked{% endif %}>
                                     <span class="slider"></span>
                                 </label>
