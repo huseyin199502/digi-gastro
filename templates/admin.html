@@ -4055,7 +4055,7 @@
                                                 {% else %}
                                                 <img src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover" alt="Sektions-Bild">
                                                 {% endif %}
-                                                <button type="button" onclick="deleteLandingImage('{{ cs.image }}', this)" class="text-red-400 hover:text-red-600 text-[10px] font-bold" title="Bild l&ouml;schen">Entfernen</button>
+                                                <button type="button" onclick="deleteLandingImage('{{ cs.image }}', 'custom', this)" class="text-red-400 hover:text-red-600 text-[10px] font-bold" title="Bild l&ouml;schen">Entfernen</button>
                                                 <input type="hidden" name="section_image_existing_custom_{{ loop.index }}" value="{{ cs.image }}">
                                             </div>
                                             {% endif %}
@@ -10415,11 +10415,11 @@
 
         function deleteLandingImage(imageUrl, imageType, buttonElement) {
             if (!confirm('Dieses Datei wirklich löschen?')) return;
-            
+
             const formData = new FormData();
             formData.append('image_url', imageUrl);
             formData.append('image_type', imageType);
-            
+
             fetch('/admin/landingpage/delete-image', {
                 method: 'POST',
                 body: formData
@@ -10427,9 +10427,15 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    // Für image-thumb-container (offer, slideshow, gallery, video)
                     const container = buttonElement.closest('.image-thumb-container');
                     if (container) {
                         container.remove();
+                    }
+                    // Für Custom Section Bilder (anderer Container)
+                    const customContainer = buttonElement.closest('.flex.items-center.gap-2.mt-1');
+                    if (customContainer) {
+                        customContainer.remove();
                     }
                     showToast('Datei erfolgreich gelöscht', 'success');
                 } else {
