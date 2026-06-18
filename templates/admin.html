@@ -9,10 +9,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="digi-gastro Admin">
-    <meta name="theme-color" content="#009900">
+    <meta name="theme-color" content="#C9A84C">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
     <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
 
     <!-- Google Fonts & Material Icons -->
@@ -10340,11 +10343,21 @@
         }
     
     </script>
-    
+
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex flex-col items-center justify-center space-y-4 modal-overscroll" style="z-index: 9999;">
         <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
     </div>
+    <!-- PWA Service Worker Registrierung -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((reg) => console.log('[PWA] SW registriert:', reg.scope))
+                    .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
+            });
+        }
+    </script>
 </body>
 </html>

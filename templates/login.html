@@ -9,11 +9,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="digi-gastro Login">
-    <meta name="theme-color" content="#009900">
+    <meta name="theme-color" content="#C9A84C">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
 
     <!-- Tailwind CSS -->
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
@@ -146,6 +148,16 @@
             const notice = document.getElementById('pwa-login-notice');
             if (notice) notice.classList.remove('hidden');
         })();
+    </script>
+    <!-- PWA Service Worker Registrierung -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((reg) => console.log('[PWA] SW registriert:', reg.scope))
+                    .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
+            });
+        }
     </script>
 </body>
 </html>

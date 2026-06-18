@@ -12,7 +12,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
     
     <!-- SEO Optimization -->
     <title>digi-gastro.de | Das intelligente Betriebssystem für moderne Gastronomie</title>
@@ -1198,6 +1200,16 @@
                 });
             }
         });
+    </script>
+    <!-- PWA Service Worker Registrierung -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((reg) => console.log('[PWA] SW registriert:', reg.scope))
+                    .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
+            });
+        }
     </script>
 </body>
 </html>

@@ -8,11 +8,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ restaurant.name }}">
-    <meta name="theme-color" content="#009900">
+    <meta name="theme-color" content="#C9A84C">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/jpeg" href="/static/images/digigastrologo.jpeg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
     <!-- Tailwind and FontAwesome / Material Symbols -->
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
     <link rel="preload" href="/static/css/tailwind-built.css?v=3" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -2836,21 +2838,29 @@
             }
         }
 
-        // Unregister any active PWA Service Workers to prevent unexpected background reloads and cache conflicts
+        // ── PWA Service Worker Registrierung ──
+        // Cache-First für statische Assets, Network-First für HTML-Seiten.
+        // Aktiviert Offline-Funktionalität für Kellner in Funklöchern.
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.getRegistrations()
-                    .then(registrations => {
-                        for (let registration of registrations) {
-                            registration.unregister().then(success => {
-                                if (success) {
-                                    console.log('Successfully unregistered service worker');
-                                }
-                            });
-                        }
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((registration) => {
+                        console.log('[PWA] SW registriert:', registration.scope);
+                        // Bei Update: neue SW übernehmen
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('[PWA] Update verfügbar — aktiviere...');
+                                        newWorker.postMessage('SKIP_WAITING');
+                                    }
+                                });
+                            }
+                        });
                     })
-                    .catch(err => {
-                        console.error('Failed to get service worker registrations:', err);
+                    .catch((err) => {
+                        console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err);
                     });
             });
         }
