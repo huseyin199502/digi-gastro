@@ -4097,6 +4097,19 @@
                                     {% endfor %}
                                 </div>
                                 {% endif %}
+                                {% if restaurant.landing_page and restaurant.landing_page.offer_videos %}
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    {% for vid in restaurant.landing_page.offer_videos %}
+                                    <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
+                                        <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+                                        <span class="absolute top-0.5 left-0.5 bg-black/70 text-white text-[8px] font-bold px-1 rounded">VIDEO</span>
+                                        <button type="button" onclick="deleteLandingImage('{{ vid }}', 'offer_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                            <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
 
