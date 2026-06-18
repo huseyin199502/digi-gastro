@@ -2869,6 +2869,63 @@
             max-height: 5000px;
         }
 
+        /* ===== LANDINGPAGE EDITOR TABS ===== */
+        .lp-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        html.dark .lp-tabs { border-bottom-color: var(--gastro-border); }
+        .lp-tab-btn {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #9ca3af;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        .lp-tab-btn:hover { color: #4b5563; }
+        html.dark .lp-tab-btn:hover { color: #d1d5db; }
+        .lp-tab-btn.active {
+            color: var(--gastro-primary);
+            border-bottom-color: var(--gastro-primary);
+        }
+        html.dark .lp-tab-btn.active { color: #22c55e; border-bottom-color: #22c55e; }
+        .lp-tab-btn .material-symbols-outlined { font-size: 15px; }
+        .lp-tab-panel { display: none; }
+        .lp-tab-panel.active { display: block; }
+        .lp-section-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        html.dark .lp-section-box {
+            background: var(--gastro-card-bg);
+            border-color: var(--gastro-border);
+        }
+        .lp-section-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        html.dark .lp-section-title { color: #f4f4f5; }
+
         /* ===== SLIDE-OVER PANEL TABS ===== */
         .slide-tab-btn {
             flex: 1;
@@ -4030,7 +4087,29 @@
                             <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
                                 <input type="hidden" name="custom_sections_json" id="custom_sections_json">
                                 <input type="hidden" name="landing_sections_json" id="landing_sections_json">
-                                <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100 space-y-3">
+
+                                <!-- ═══ TAB-NAVIGATION ═══ -->
+                                <div class="lp-tabs">
+                                    <button type="button" class="lp-tab-btn active" data-tab="welcome" onclick="switchLPTab('welcome')">
+                                        <span class="material-symbols-outlined">waving_hand</span> Willkommen
+                                    </button>
+                                    <button type="button" class="lp-tab-btn" data-tab="sections" onclick="switchLPTab('sections')">
+                                        <span class="material-symbols-outlined">extension</span> Sektionen
+                                    </button>
+                                    <button type="button" class="lp-tab-btn" data-tab="offers" onclick="switchLPTab('offers')">
+                                        <span class="material-symbols-outlined">star</span> Was wir bieten
+                                    </button>
+                                    <button type="button" class="lp-tab-btn" data-tab="slideshow" onclick="switchLPTab('slideshow')">
+                                        <span class="material-symbols-outlined">slideshow</span> Diashow
+                                    </button>
+                                    <button type="button" class="lp-tab-btn" data-tab="gallery" onclick="switchLPTab('gallery')">
+                                        <span class="material-symbols-outlined">photo_library</span> Galerie
+                                    </button>
+                                </div>
+
+                                <!-- ═══ TAB 1: Willkommen ═══ -->
+                                <div class="lp-tab-panel active" id="lp-panel-welcome">
+                                <div class="lp-section-box">
                                     <div class="flex items-center justify-between">
                                         <h4 class="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5">
                                             <span class="material-symbols-outlined text-emerald-600" style="font-size:16px;">waving_hand</span>
@@ -4052,7 +4131,11 @@
                                         <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="form-field">
                                     </div>
                                 </div>
-                                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100 space-y-3">
+                                </div><!-- /lp-tab-panel welcome -->
+
+                                <!-- ═══ TAB 2: Sektionen ═══ -->
+                                <div class="lp-tab-panel" id="lp-panel-sections">
+                                <div class="lp-section-box">
                                     <div class="flex items-center justify-between">
                                         <h4 class="font-extrabold text-xs text-blue-800 flex items-center gap-1.5">
                                             <span class="material-symbols-outlined text-blue-600" style="font-size:16px;">dashboard_customize</span>
@@ -4127,7 +4210,11 @@
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100 space-y-3">
+                                </div><!-- /lp-tab-panel sections -->
+
+                                <!-- ═══ TAB 3: Was wir bieten ═══ -->
+                                <div class="lp-tab-panel" id="lp-panel-offers">
+                                <div class="lp-section-box">
                                     <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
                                         <span class="material-symbols-outlined text-amber-600" style="font-size:16px;">star</span>
                                         Was wir bieten / Highlights
@@ -4153,6 +4240,11 @@
                                     </div>
                                     {% endif %}
                                 </div>
+                                </div><!-- /lp-tab-panel offers -->
+
+                                <!-- ═══ TAB 4: Diashow ═══ -->
+                                <div class="lp-tab-panel" id="lp-panel-slideshow">
+                                <div class="lp-section-box">
                                 <div class="space-y-2">
                                     <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
                                         <div>
@@ -4179,7 +4271,11 @@
                                     </div>
                                     {% endif %}
                                 </div>
-                                <div class="bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4 rounded-xl border border-violet-100 space-y-3">
+                                </div><!-- /lp-tab-panel slideshow -->
+
+                                <!-- ═══ TAB 5: Galerie ═══ -->
+                                <div class="lp-tab-panel" id="lp-panel-gallery">
+                                <div class="lp-section-box">
                                     <h4 class="font-extrabold text-xs text-violet-800 flex items-center gap-1.5">
                                         <span class="material-symbols-outlined text-violet-600" style="font-size:16px;">collections</span>
                                         Galerie & Videos
@@ -4229,6 +4325,8 @@
                                         </div>
                                     </div>
                                 </div>
+                                </div><!-- /lp-tab-panel gallery -->
+
                                 <button type="submit" class="btn-primary w-full">Landingpage speichern</button>
                             </form>
                         </div>
@@ -9607,6 +9705,18 @@
             header.classList.toggle('open');
             const body = header.nextElementSibling;
             body.classList.toggle('open');
+        }
+
+        // ── Landingpage Editor: Tab-Wechsel ──
+        function switchLPTab(tabId) {
+            // Alle Tabs deaktivieren
+            document.querySelectorAll('.lp-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.lp-tab-panel').forEach(panel => panel.classList.remove('active'));
+            // Gewählten Tab aktivieren
+            const btn = document.querySelector(`.lp-tab-btn[data-tab="${tabId}"]`);
+            const panel = document.getElementById('lp-panel-' + tabId);
+            if (btn) btn.classList.add('active');
+            if (panel) panel.classList.add('active');
         }
 
         function toggleHHForm(productId) {
