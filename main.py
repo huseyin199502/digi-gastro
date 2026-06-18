@@ -1928,10 +1928,27 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
     total_tenants = len(all_tenants)
     active_tenants = sum(1 for t in all_tenants if t.active)
     inactive_tenants = total_tenants - active_tenants
-    
-    # Calculate total revenue across all tenants
-    total_revenue = sum(t.tagesumsatz or 0 for t in all_tenants)
-    total_orders = sum(t.bestellungen_gesamt or 0 for t in all_tenants)
+
+    # ── Bug-Fix: Tagesumsatz korrekt aus Bestellungen berechnen ──
+    # VORHER: t.tagesumsatz war ein kumulativer Zähler der nie zurückgesetzt wurde
+    # → zeigte Gesamtumsatz aller Zeiten, nicht heutigen Tagesumsatz
+    # JETZT: Berechne echten Tagesumsatz aus bezahlten Bestellungen von heute
+    from datetime import datetime as _dt
+    today_str = _dt.now().strftime("%Y-%m-%d")
+    tenant_daily_revenue = {}
+    for t in all_tenants:
+        daily_rev = 0.0
+        try:
+            restaurant = load_restaurant_from_db(t.slug, db)
+            if restaurant:
+                for o in restaurant.get("orders", []):
+                    if o.get("status") == "bezahlt":
+                        ts = o.get("timestamp", "")
+                        if ts and ts.startswith(today_str):
+                            daily_rev += float(o.get("total", 0.0) or 0.0)
+        except Exception:
+            pass
+        tenant_daily_revenue[t.slug] = daily_rev
     
     tenant_cards = ""
     for t in all_tenants:
@@ -1977,7 +1994,7 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
               <div class="revenue-display">
                 <span class="material-symbols-outlined" style="font-size:14px;color:#fbbf24;">euro</span>
                 <span class="revenue-label">Tagesumsatz:</span>
-                <span class="revenue-value">{(t.tagesumsatz or 0):.2f} €</span>
+                <span class="revenue-value">{tenant_daily_revenue.get(t.slug, 0.0):.2f} €</span>
               </div>
               <button type="button" class="tenant-btn btn-revenue-toggle" onclick="toggleRevenueForm('rev-form-{t.slug}')" title="Umsatz anpassen">
                 <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
@@ -7468,18 +7485,21 @@ async def update_landingpage(
             })
     
     # Also check custom_sections_json for backward compatibility (image-bearing custom sections)
+    # BUG-FIX: Früher wurde existing["image"] immer mit sec.get("image","") überschrieben,
+    # was den gerade hochgeladenen Bild-Pfad wieder mit "" überschrieb. Jetzt nur noch
+    # setzen wenn das existing-Section noch KEIN Bild hat (also wirklich leer ist).
     if custom_sections_json:
         try:
             compat_sections = json_module.loads(custom_sections_json)
             if isinstance(compat_sections, list):
-                # Merge with image data from existing custom sections
                 for i, sec in enumerate(compat_sections):
                     if isinstance(sec, dict):
-                        # Check if this section already exists by title match
                         found = False
                         for existing in custom_sections:
                             if existing.get("title") == sec.get("title", "").strip():
-                                existing["image"] = sec.get("image", "")
+                                # NUR Bild übernehmen wenn existing noch keins hat
+                                if not existing.get("image") and sec.get("image"):
+                                    existing["image"] = sec.get("image", "")
                                 found = True
                                 break
                         if not found and (sec.get("title") or sec.get("content") or sec.get("image")):
