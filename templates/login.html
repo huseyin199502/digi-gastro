@@ -78,7 +78,11 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body class="flex items-center justify-center min-h-screen p-4 relative overflow-y-auto"
+<body class="flex items-center justify-center min-h-screen p-4 relative overflow-y-auto no-image-save"
+      oncontextmenu="return false;"
+      ondragstart="return false;"
+      oncopy="return false;"
+      oncut="return false;"
       style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: max(1rem, env(safe-area-inset-bottom)); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right));">
     
     <!-- Visual background enhancements -->
@@ -91,7 +95,7 @@
         
         <div class="text-center mb-8">
             <div class="inline-flex p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 mb-4 shadow-lg shadow-emerald-500/5 hover-lift">
-                <img alt="digi-gastro logo" class="h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" decoding="async" fetchpriority="high" onerror="this.src='https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300'">
+                <img alt="digi-gastro logo" class="header-logo h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" decoding="async" fetchpriority="high" onerror="this.src='https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300'">
             </div>
             <h2 class="text-2xl font-black text-white tracking-tight font-display bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Admin Login</h2>
             <p class="text-xs text-zinc-400 mt-2 font-medium tracking-wide uppercase">{{ restaurant_name }} Management Panel</p>

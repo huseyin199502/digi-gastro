@@ -326,7 +326,26 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "superpassword123")
 
 # Static files: project assets (CSS, JS, built-in images)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-# Uploads served separately so they survive from the persistent volume
+# Uploads served separately so they survive from the persistent volume.
+# WICHTIG: Bilder dürfen nicht im Browser-Cache landen, sonst kann man sie
+# offline aus dem Cache klauen. Daher: Cache-Control: no-store für /uploads/.
+# Logo und Branding-Assets sind in /static/ → dürfen gecacht werden (Service Worker).
+from starlette.middleware import Middleware
+from starlette.responses import Response as StarletteResponse
+
+@app.middleware("http")
+async def no_cache_uploads_middleware(request: Request, call_next):
+    """Verhindert Caching von Kunden-Uploads (Bilder, Logos, Produktfotos).
+    Schützt vor Offline-Klau aus dem Browser-Cache."""
+    response = await call_next(request)
+    if request.url.path.startswith("/uploads/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        # X-Content-Type-Options verhindert MIME-Sniffing-Angriffe
+        response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ──────────────────────────────────────────────────────────────────

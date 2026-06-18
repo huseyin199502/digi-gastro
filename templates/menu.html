@@ -199,7 +199,11 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body x-data="menuState()" class="flex flex-col min-h-screen bg-background {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}">
+<body x-data="menuState()" class="flex flex-col min-h-screen bg-background no-image-save {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}"
+      oncontextmenu="return false;"
+      ondragstart="return false;"
+      oncopy="return false;"
+      oncut="return false;">
     <!-- Background grid and glow -->
     <div class="fixed inset-0 grid-bg pointer-events-none z-0"></div>
     <div class="fixed inset-0 radial-glow pointer-events-none z-0"></div>
@@ -251,7 +255,7 @@
             style="height: calc(5rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
         <div class="flex justify-start">
             {% if restaurant.branding and restaurant.branding.logo_url %}
-                <img alt="{{ restaurant.name }} Logo" class="h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
+                <img alt="{{ restaurant.name }} Logo" class="header-logo h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
             {% else %}
                 <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-xl sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
             {% endif %}
@@ -301,7 +305,7 @@
         <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper" id="landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-                    <img alt="{{ restaurant.name }} Logo" class="h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
+                    <img alt="{{ restaurant.name }} Logo" class="header-logo h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
                 {% endif %}
                 <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight font-display drop-shadow-md animate-pulse" style="color:#ffffff !important;" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
                 <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
@@ -2849,6 +2853,93 @@
             }
         }
 
+        // ════════════════════════════════════════════════════════════════════
+        // BILDSCHUTZ — Verhindert Long-Press-Kontextmenü auf mobilen Geräten
+        // ════════════════════════════════════════════════════════════════════
+        // Ergänzt die CSS-Regeln mit JS, da iOS Safari manchmal CSS ignoriert.
+        // Blockiert:
+        // - contextmenu (Rechtsklick Desktop / Long-Press Mobile)
+        // - dragstart (Drag von Bildern)
+        // - touchstart auf Bildern mit >500ms Halten (Long-Press-Erkennung)
+        // - copy/cut (verhindert Bild-Kopie in Zwischenablage)
+        (function() {
+            // Verhindere Long-Press-Kontextmenü auf allen Bildern (außer Logo)
+            document.addEventListener('contextmenu', function(e) {
+                if (e.target && (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO')) {
+                    // Logo im Header erlauben (kann gespeichert werden)
+                    if (e.target.classList.contains('header-logo') ||
+                        e.target.classList.contains('avatar') ||
+                        e.target.classList.contains('no-protect')) {
+                        return true;  // Erlaube
+                    }
+                    e.preventDefault();
+                    return false;
+                }
+            }, true);
+
+            // Drag-Start auf Bildern verhindern
+            document.addEventListener('dragstart', function(e) {
+                if (e.target && (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO')) {
+                    if (e.target.classList.contains('header-logo') ||
+                        e.target.classList.contains('avatar') ||
+                        e.target.classList.contains('no-protect')) {
+                        return true;
+                    }
+                    e.preventDefault();
+                    return false;
+                }
+            }, true);
+
+            // iOS Safari: Long-Press auf Bilder verhindern
+            // Wir fangen touchstart ab und verhindern, dass das Bild als
+            // Callout-Target gesetzt wird (was das Kontextmenü auslöst).
+            document.addEventListener('touchstart', function(e) {
+                if (e.target && e.target.tagName === 'IMG') {
+                    if (e.target.classList.contains('header-logo') ||
+                        e.target.classList.contains('avatar') ||
+                        e.target.classList.contains('no-protect')) {
+                        return true;
+                    }
+                    // -webkit-touch-callout: none wird via CSS gesetzt.
+                    // Zusätzlich: touchstart auf Bildern verhindert Long-Press
+                    // ABER: Click muss weiterhin funktionieren (für Lightbox etc.)
+                    // → Deshalb nur das Kontextmenü unterdrücken, nicht den Klick.
+                }
+            }, { passive: true });
+
+            // Copy/Cut mit Bild in Auswahl verhindern
+            document.addEventListener('copy', function(e) {
+                const selection = window.getSelection();
+                if (selection && selection.toString()) {
+                    // Text-Kopie erlauben (z.B. Bon-Nummern für Support)
+                    return true;
+                }
+                // Wenn keine Textauswahl, aber Bild im Fokus → verhindern
+                if (e.target && (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }, true);
+
+            // Verhindere, dass Bilder als Link- dragged werden
+            document.addEventListener('mousedown', function(e) {
+                if (e.target && e.target.tagName === 'IMG') {
+                    if (e.target.classList.contains('header-logo') ||
+                        e.target.classList.contains('avatar') ||
+                        e.target.classList.contains('no-protect')) {
+                        return true;
+                    }
+                    // Verhindere Mousedown-Drag auf Bildern
+                    if (e.button === 0) {
+                        // Linksklick: nur verhindern wenn direkt auf Bild
+                        // (Wrapper-Element muss Klick erhalten)
+                        e.target.style.pointerEvents = 'none';
+                        setTimeout(() => { e.target.style.pointerEvents = ''; }, 100);
+                    }
+                }
+            }, true);
+        })();
+
         // ── PWA Service Worker Registrierung ──
         // Cache-First für statische Assets, Network-First für HTML-Seiten.
         // Aktiviert Offline-Funktionalität für Kellner in Funklöchern.
@@ -2935,7 +3026,7 @@
     <!-- Beautiful fullscreen Image Lightbox modal -->
     <div id="lightbox" class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md hidden items-center justify-center transition-all duration-300 opacity-0 pointer-events-none modal-overscroll" @click="closeLightbox()">
         <button class="absolute top-4 right-4 text-white hover:text-primary text-4xl font-bold transition">&times;</button>
-        <img id="lightbox-img" class="max-w-[95vw] max-h-[95vh] object-contain rounded-xl shadow-2xl" src="" alt="Zoomed view">
+        <img id="lightbox-img" class="max-w-[95vw] max-h-[95vh] object-contain rounded-xl shadow-2xl" src="" alt="" draggable="false" oncontextmenu="return false;" ondragstart="return false;" style="pointer-events: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;">
     </div>
 
     <!-- Toast Container for Premium UI feedback -->

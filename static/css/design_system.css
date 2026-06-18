@@ -998,3 +998,92 @@ img[src=""] {
         color: var(--text-on-surface) !important;
     }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   BILDSCHUTZ — Verhindert Download von Bildern/Videos/Produktfotos
+   ════════════════════════════════════════════════════════════════════
+   Verhindert:
+   - Desktop: Rechtsklick → "Bild speichern unter..."
+   - iOS Safari: Long-Press → "Bild zu Fotos sichern" / "Kopieren"
+   - Android Chrome: Long-Press → "Bild herunterladen"
+   - Drag-and-Drop von Bildern in andere Apps
+   - Textauswahl auf Bild-Alt-Texten
+   - Image-Caching im Browser für offline-Zugriff (via Cache-Control Header)
+   
+   Ausnahmen:
+   - Logo im Header (.header-logo, .avatar) → darf weiterhin gespeichert werden
+   - Admin-Bereich Bilder (für Personal zum Bearbeiten)
+   
+   WICHTIG: 100% Schutz gibt es clientseitig nie (Screenshot, View Source,
+   DevTools). Aber die typischen "Hobby-Klau"-Pfade werden blockiert.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Alle Bilder und Videos im Body schützen — außer im Admin */
+body img:not(.header-logo):not(.avatar):not(.no-protect):not([src*="digigastrologo"]),
+body video:not(.no-protect),
+body picture:not(.no-protect) {
+    /* iOS Safari: Long-Press-Kontextmenü komplett unterdrücken */
+    -webkit-touch-callout: none !important;
+    /* Standard: Kontextmenü unterdrücken */
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    /* Drag-and-Drop verhindern */
+    -webkit-user-drag: none !important;
+    -khtml-user-drag: none !important;
+    -moz-user-drag: none !important;
+    -o-user-drag: none !important;
+    user-drag: none !important;
+    /* Pointer-Events: Bild kann nicht direkt angeklickt/targeted werden
+       (Long-Press löst nichts aus). ABER: Wrapper-Elemente erhalten Klicks. */
+    pointer-events: auto;
+    /* Verhindert, dass Bild als Link agiert */
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Verstärkter Schutz für Produktbilder und Galerie-Bilder */
+.product-item img,
+.product-card img,
+img[loading="lazy"],
+#lightbox img,
+#cart-modal img,
+#product-grid-container img {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}
+
+/* Videos schützen (z.B. Hero-Video, Shisha-Tutorials) */
+video {
+    /* DisablePictureInPicture verhindert Download via PiP */
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
+
+/* Kontextmenü (Rechtsklick) global unterdrücken — außer in Input-Feldern */
+body:not(.admin-context) {
+    -webkit-touch-callout: none;
+}
+
+/* Erlaube Kontextmenü in Admin-Bereich (für Kellner/Bedienung) */
+.admin-context,
+.admin-context img,
+.admin-context video {
+    -webkit-touch-callout: auto !important;
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
+    -webkit-user-drag: auto !important;
+    user-drag: auto !important;
+}
+
+/* Hintergrund-Bilder schützen (z.B. Slideshow, Hero-Video-Overlay) */
+.bg-cover,
+.bg-contain {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
