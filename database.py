@@ -278,10 +278,29 @@ class EventCombo(Base):
 
 class EventComboItem(Base):
     __tablename__ = 'event_combo_items'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     combo_id = Column(Integer, ForeignKey('event_combos.id', ondelete='CASCADE'), nullable=False)
     product_id = Column(Integer, nullable=False)
+
+
+# ════════════════════════════════════════════════════════════════════
+# Super-Admin Revenue Adjustments (Gott-Modus Audit-Log)
+# ════════════════════════════════════════════════════════════════════
+# Log-Tabelle für manuelle Umsatz-Anpassungen durch admin@digi-gastro.de.
+# Jede Änderung wird hier gespeichert — nur Super-Admin sieht diese Logs.
+# Tenant-Admins haben keinen Zugriff auf diese Tabelle.
+# ════════════════════════════════════════════════════════════════════
+class RevenueAdjustment(Base):
+    __tablename__ = 'revenue_adjustments'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False, index=True)
+    adjustment = Column(Float, nullable=False)            # positiver oder negativer Wert in €
+    old_value = Column(Float, nullable=False)             # alter Tagesumsatz vor Anpassung
+    new_value = Column(Float, nullable=False)             # neuer Tagesumsatz nach Anpassung
+    adjusted_by = Column(String, default="admin@digi-gastro.de", nullable=False)
+    adjusted_at = Column(String, nullable=False)          # ISO-Format Timestamp
 
 # Create all tables
 Base.metadata.create_all(bind=engine)

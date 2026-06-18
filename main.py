@@ -426,15 +426,16 @@ async def tenant_suspended_handler(request: Request, exc: TenantSuspendedExcepti
 # ----------------------------------------------------
 from sqlalchemy.orm import Session
 from database import (
-    Tenant, 
-    Category, 
-    Product, 
-    Order, 
-    OrderItem as DBOrderItem, 
-    Staff, 
-    ServiceCall, 
-    Table, 
+    Tenant,
+    Category,
+    Product,
+    Order,
+    OrderItem as DBOrderItem,
+    Staff,
+    ServiceCall,
+    Table,
     AuditLog,
+    RevenueAdjustment,
     SessionLocal,
     STANDARD_PRODUCTS,
     get_db,
@@ -1893,6 +1894,27 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
                 <span class="cred-pw">{t.password or ''}</span>
               </div>
             </div>
+            <div class="tenant-revenue-row">
+              <div class="revenue-display">
+                <span class="material-symbols-outlined" style="font-size:14px;color:#fbbf24;">euro</span>
+                <span class="revenue-label">Tagesumsatz:</span>
+                <span class="revenue-value">{(t.tagesumsatz or 0):.2f} €</span>
+              </div>
+              <button type="button" class="tenant-btn btn-revenue-toggle" onclick="toggleRevenueForm('rev-form-{t.slug}')" title="Umsatz anpassen">
+                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                <span>Anpassen</span>
+              </button>
+            </div>
+            <form id="rev-form-{t.slug}" method="POST" action="/digi-gastro-admin/tenant-adjust-revenue/{t.slug}" class="revenue-form" style="display:none;">
+              <div class="revenue-form-row">
+                <input type="number" step="0.01" name="adjustment" placeholder="+150.00 oder -50.00" required class="revenue-input" />
+                <button type="submit" class="tenant-btn btn-revenue-save" title="Anpassung speichern">
+                  <span class="material-symbols-outlined" style="font-size:14px;">save</span>
+                  <span>Speichern</span>
+                </button>
+              </div>
+              <small class="revenue-hint">Positiver Wert = hinzufügen, negativer Wert = abziehen</small>
+            </form>
           </div>
           <div class="tenant-card-actions">
             <form method="POST" action="/digi-gastro-admin/tenant-reset-password/{t.slug}" class="inline">
@@ -1913,7 +1935,61 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
           </div>
         </div>
         """
-        
+
+    # ── Audit-Log: letzte 10 Umsatz-Anpassungen ──
+    audit_entries = db.query(RevenueAdjustment).order_by(
+        RevenueAdjustment.id.desc()
+    ).limit(10).all()
+
+    if audit_entries:
+        audit_rows = ""
+        for log in audit_entries:
+            delta_class = "audit-delta-positive" if log.adjustment >= 0 else "audit-delta-negative"
+            delta_str = f"+{log.adjustment:.2f} €" if log.adjustment >= 0 else f"{log.adjustment:.2f} €"
+            audit_rows += f"""
+            <tr>
+              <td>{log.adjusted_at}</td>
+              <td><strong>{log.tenant_slug}</strong></td>
+              <td>{log.old_value:.2f} €</td>
+              <td class="{delta_class}">{delta_str}</td>
+              <td><strong>{log.new_value:.2f} €</strong></td>
+            </tr>
+            """
+        audit_log_html = f"""
+        <div class="audit-log-section" id="audit-log-section">
+          <div class="audit-log-title">
+            <span class="material-symbols-outlined" style="font-size:18px;color:#fbbf24;">history</span>
+            Audit-Log – letzte Umsatz-Anpassungen
+          </div>
+          <table class="audit-log-table">
+            <thead>
+              <tr>
+                <th>Zeitpunkt</th>
+                <th>Tenant</th>
+                <th>Alter Wert</th>
+                <th>Anpassung</th>
+                <th>Neuer Wert</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit_rows}
+            </tbody>
+          </table>
+        </div>
+        """
+    else:
+        audit_log_html = """
+        <div class="audit-log-section" id="audit-log-section">
+          <div class="audit-log-title">
+            <span class="material-symbols-outlined" style="font-size:18px;color:#fbbf24;">history</span>
+            Audit-Log – letzte Umsatz-Anpassungen
+          </div>
+          <div class="audit-empty">
+            Noch keine Umsatz-Anpassungen durchgeführt.
+          </div>
+        </div>
+        """
+
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -2255,6 +2331,138 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
       gap: 0.5rem;
       flex-wrap: wrap;
     }}
+    /* ── Tenant Revenue Row (Super-Admin Umsatz-Anpassung) ── */
+    .tenant-revenue-row {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.625rem 0 0.375rem;
+      margin-top: 0.5rem;
+      border-top: 1px dashed #2c2c2e;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }}
+    .revenue-display {{
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }}
+    .revenue-label {{
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }}
+    .revenue-value {{
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #fbbf24;
+      font-family: 'JetBrains Mono', monospace;
+    }}
+    .btn-revenue-toggle {{
+      background: rgba(245, 158, 11, 0.1);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }}
+    .btn-revenue-toggle:hover {{
+      background: rgba(245, 158, 11, 0.2);
+      border-color: #fbbf24;
+    }}
+    .revenue-form {{
+      padding: 0.75rem 0 0.25rem;
+      margin-top: 0.5rem;
+      border-top: 1px solid #1c1c1e;
+    }}
+    .revenue-form-row {{
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }}
+    .revenue-input {{
+      flex: 1;
+      min-width: 140px;
+      padding: 0.5rem 0.75rem;
+      background: #0c0c0e;
+      border: 1px solid #2c2c2e;
+      border-radius: 0.5rem;
+      color: #f4f4f5;
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }}
+    .revenue-input:focus {{
+      outline: none;
+      border-color: #fbbf24;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+    }}
+    .btn-revenue-save {{
+      background: #fbbf24;
+      color: #0c0c0e;
+      border: 1px solid #fbbf24;
+      font-weight: 800;
+    }}
+    .btn-revenue-save:hover {{
+      background: #f59e0b;
+      border-color: #f59e0b;
+    }}
+    .revenue-hint {{
+      display: block;
+      margin-top: 0.375rem;
+      font-size: 0.65rem;
+      color: #71717a;
+      font-style: italic;
+    }}
+    /* ── Audit-Log Sektion ── */
+    .audit-log-section {{
+      margin-top: 2rem;
+      padding: 1.25rem;
+      background: #0f0f10;
+      border: 1px solid #1c1c1e;
+      border-radius: 0.75rem;
+    }}
+    .audit-log-title {{
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #f4f4f5;
+      margin-bottom: 1rem;
+    }}
+    .audit-log-table {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }}
+    .audit-log-table th {{
+      text-align: left;
+      padding: 0.5rem 0.625rem;
+      background: #18181b;
+      color: #a1a1aa;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid #27272a;
+    }}
+    .audit-log-table td {{
+      padding: 0.5rem 0.625rem;
+      border-bottom: 1px solid #1c1c1e;
+      color: #d4d4d8;
+      vertical-align: top;
+    }}
+    .audit-log-table tr:hover td {{
+      background: rgba(255, 255, 255, 0.02);
+    }}
+    .audit-delta-positive {{ color: #22c55e; font-weight: 700; font-family: monospace; }}
+    .audit-delta-negative {{ color: #ef4444; font-weight: 700; font-family: monospace; }}
+    .audit-empty {{
+      padding: 2rem 1rem;
+      text-align: center;
+      color: #71717a;
+      font-size: 0.8rem;
+    }}
     .tenant-btn {{
       display: inline-flex; align-items: center; gap: 0.25rem;
       padding: 0.375rem 0.625rem;
@@ -2389,9 +2597,9 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
           <span class="material-symbols-outlined">store</span>
           Partner
         </a>
-        <a href="/" target="_blank" class="nav-item">
-          <span class="material-symbols-outlined">language</span>
-          Landingpage
+        <a href="/digi-gastro-admin" class="nav-item" onclick="document.getElementById('audit-log-section').scrollIntoView({{behavior:'smooth'}})">
+          <span class="material-symbols-outlined">history</span>
+          Audit-Log
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -2421,7 +2629,7 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
       <div class="content">
         {alert_html}
 
-        <!-- Stats Grid -->
+        <!-- Stats Grid (reduziert: nur Partner + Aktiv, kein Gesamt-Umsatz/Bestellungen) -->
         <div class="stats-grid">
           <div class="stat-card sc-partners">
             <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
@@ -2438,22 +2646,6 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
             <div class="stat-label">Aktiv</div>
             <div class="stat-value">{active_tenants}</div>
             <div class="stat-sub">{inactive_tenants} inaktiv</div>
-          </div>
-          <div class="stat-card sc-revenue">
-            <div class="stat-icon" style="background:rgba(245,158,11,0.1);">
-              <span class="material-symbols-outlined" style="font-size:18px;color:#fbbf24;">euro</span>
-            </div>
-            <div class="stat-label">Tagesumsatz</div>
-            <div class="stat-value">{total_revenue:.2f} €</div>
-            <div class="stat-sub">Alle Partner Gesamt</div>
-          </div>
-          <div class="stat-card sc-orders">
-            <div class="stat-icon" style="background:rgba(139,92,246,0.1);">
-              <span class="material-symbols-outlined" style="font-size:18px;color:#a78bfa;">receipt</span>
-            </div>
-            <div class="stat-label">Bestellungen</div>
-            <div class="stat-value">{total_orders}</div>
-            <div class="stat-sub">Gesamt über alle Partner</div>
           </div>
         </div>
 
@@ -2502,11 +2694,26 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
             </div>
           </div>
         </div>
+
+        {audit_log_html}
+
       </div>
     </div>
   </div>
 
   <script>
+    // ── Revenue-Form toggle (Gott-Modus Umsatz-Anpassung) ──
+    function toggleRevenueForm(formId) {{
+      const form = document.getElementById(formId);
+      if (!form) return;
+      form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none';
+      if (form.style.display === 'block') {{
+        // Fokus aufs Input für schnelle Eingabe
+        const input = form.querySelector('input[name="adjustment"]');
+        if (input) setTimeout(() => input.focus(), 50);
+      }}
+    }}
+
     function toggleSidebar() {{
       const sb = document.getElementById('sidebar');
       const bd = document.getElementById('backdrop');
@@ -2808,14 +3015,69 @@ def post_tenant_toggle(request: Request, slug_key: str, db: Session = Depends(ge
     session_cookie = request.cookies.get("session_global")
     if not session_cookie or session_cookie != "admin@digi-gastro.de":
         raise HTTPException(status_code=403, detail="Kein Zugriff")
-        
+
     slug_lower = slug_key.lower().strip()
     tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
     if tenant:
         tenant.active = not tenant.active
         db.commit()
-        
+
     return RedirectResponse(url="/digi-gastro-admin", status_code=303)
+
+
+# ════════════════════════════════════════════════════════════════════
+# SUPER-ADMIN GOTTMODUS: Tenant-Umsatz manipulieren
+# ════════════════════════════════════════════════════════════════════
+# Erlaubt admin@digi-gastro.de den Tagesumsatz eines Tenants manuell
+# anzupassen (positiv = hinzufügen, negativ = abziehen).
+# Keine Rechenschaftspflicht, kein Grund erforderlich.
+# Jede Änderung wird in der Tabelle revenue_adjustments geloggt
+# (nur für Super-Admin sichtbar).
+# ════════════════════════════════════════════════════════════════════
+@app.post("/digi-gastro-admin/tenant-adjust-revenue/{slug_key}")
+def post_tenant_adjust_revenue(
+    request: Request,
+    slug_key: str,
+    adjustment: float = Form(...),
+    db: Session = Depends(get_db)
+):
+    # Auth-Check: nur Super-Admin
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        return RedirectResponse(url="/digi-gastro-admin?error=Tenant+nicht+gefunden", status_code=303)
+
+    # Alter und neuer Wert berechnen
+    old_value = float(tenant.tagesumsatz or 0.0)
+    new_value = old_value + float(adjustment)
+    # Negativer Tagesumsatz nicht erlaubt
+    if new_value < 0:
+        new_value = 0.0
+
+    # Tenant-Update
+    tenant.tagesumsatz = new_value
+
+    # Audit-Log Eintrag
+    from datetime import datetime
+    log_entry = RevenueAdjustment(
+        tenant_slug=slug_lower,
+        adjustment=float(adjustment),
+        old_value=old_value,
+        new_value=new_value,
+        adjusted_by="admin@digi-gastro.de",
+        adjusted_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    db.add(log_entry)
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/digi-gastro-admin?success=Umsatz+fuer+{slug_lower}+angepasst:+{adjustment:+.2f}+EUR",
+        status_code=303
+    )
 
 
 
