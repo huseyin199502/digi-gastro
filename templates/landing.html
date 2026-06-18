@@ -520,7 +520,7 @@
     <header class="hero-section relative w-full overflow-hidden bg-[#050507]">
         <!-- Video — determines hero height naturally, NO cropping -->
         <div class="hero-video-wrap relative w-full" style="aspect-ratio: 1028/720;">
-            <video loop muted playsinline preload="metadata" class="block w-full h-full" style="object-fit: fill;" id="hero-video">
+            <video autoplay loop muted playsinline preload="auto" class="block w-full h-full" style="object-fit: fill;" id="hero-video" poster="/static/images/icon-512.png">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
@@ -1223,34 +1223,24 @@
         // Case 3: Fallback — kill nach max 3s egal was passiert
         setTimeout(killPreloader, 3000);
 
-        // ── Hero Video: Lazy Start via Intersection Observer ──
-        // Video wird erst abgespielt wenn es im Viewport sichtbar ist.
-        // Auf Mobile spart das massiv Ladezeit (2.8 MB Video nicht blockierend).
+        // ── Hero Video: Sofort abspielen mit poster-Bild als Fallback ──
+        // Das Video ist schön und soll auf allen Geräten laufen.
+        // poster-Bild zeigt sofort das Logo während das Video lädt (bessere UX).
         (function() {
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
-            // Auf Mobile (max-width: 768px): Video gar nicht autoplayen
-            if (window.matchMedia('(max-width: 768px)').matches) {
-                // Mobile: Video nicht laden, nur erstes Frame anzeigen
-                heroVideo.preload = 'none';
-                return;
-            }
-            // Desktop: Video starten wenn im Viewport
-            if ('IntersectionObserver' in window) {
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            heroVideo.play().catch(() => {});
-                        } else {
-                            heroVideo.pause();
-                        }
-                    });
-                }, { threshold: 0.1 });
-                observer.observe(heroVideo);
-            } else {
-                // Fallback: direkt abspielen
-                heroVideo.play().catch(() => {});
-            }
+            // Auf Desktop: Video sofort abspielen (autoplay Attribut schon gesetzt)
+            // Auf Mobile: Auch abspielen, aber mit niedrigerer Priorität
+            heroVideo.play().catch(() => {
+                // Falls autoplay blockiert wird: nach erstem User-Interaktion versuchen
+                const tryPlay = () => {
+                    heroVideo.play().catch(() => {});
+                    document.removeEventListener('touchstart', tryPlay);
+                    document.removeEventListener('click', tryPlay);
+                };
+                document.addEventListener('touchstart', tryPlay, { once: true });
+                document.addEventListener('click', tryPlay, { once: true });
+            });
         })();
 
         // Navbar scroll
