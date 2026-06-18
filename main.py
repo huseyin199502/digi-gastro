@@ -4322,7 +4322,7 @@ def renew_pos_secret(request: Request, chef_data: tuple = Depends(require_chef_u
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
+    return RedirectResponse(url="/admin/dashboard#landingpage", status_code=303)
 
 
 @app.post("/admin/renew-kds-secret")
@@ -7512,8 +7512,12 @@ async def update_landingpage(
             pass
     
     # Process custom section image/video uploads
+    # BUG-FIX: Leere File-Inputs herausfiltern! Browser sendet alle <input type="file">
+    # mit name="custom_section_images", auch leere. Das verschiebte den Index und
+    # das falsche (leere) File wurde der Section zugeordnet.
+    valid_uploads = [f for f in (custom_section_images or []) if f and f.filename]
     custom_image_idx = 0
-    if custom_section_images:
+    if valid_uploads:
         os.makedirs(landing_dir, exist_ok=True)
         new_image_section_indices = []
         for i, section in enumerate(custom_sections):
@@ -7521,8 +7525,8 @@ async def update_landingpage(
                 new_image_section_indices.append(i)
 
         for sec_idx in new_image_section_indices:
-            if custom_image_idx < len(custom_section_images):
-                file = custom_section_images[custom_image_idx]
+            if custom_image_idx < len(valid_uploads):
+                file = valid_uploads[custom_image_idx]
                 if file.filename:
                     if is_valid_image(file.filename):
                         safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.jpg"

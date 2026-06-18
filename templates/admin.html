@@ -3151,6 +3151,10 @@
                 <span class="material-symbols-outlined">group</span>
                 <span>Personal & Account</span>
             </button>
+            <button id="tab-btn-landingpage" onclick="switchAdminTab('landingpage')" class="nav-btn">
+                <span class="material-symbols-outlined">campaign</span>
+                <span>Landingpage</span>
+            </button>
             <button id="tab-btn-einstellungen" onclick="switchAdminTab('einstellungen')" class="nav-btn">
                 <span class="material-symbols-outlined">settings</span>
                 <span>Einstellungen</span>
@@ -3952,6 +3956,248 @@
                 </div>
             </div>
 
+            <!-- 🌐 TAB: LANDINGPAGE (landingpage) -->
+            <div id="admin-tab-landingpage" class="admin-tab-content">
+                <div class="dash-header">
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleSidebar()" class="hamburger-btn">
+                            <span class="material-symbols-outlined" style="font-size:20px;">menu</span>
+                        </button>
+                        <span id="breadcrumb-current" class="text-sm font-extrabold tracking-tight">Landingpage</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <a href="/{{ slug }}" target="_blank" class="btn-secondary flex items-center gap-1.5 text-xs">
+                            <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Live-Vorschau
+                        </a>
+                    </div>
+                </div>
+                <div id="live-notification-bar" class="live-notification-bar"></div>
+                <div class="content-area">
+                    <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
+                        <input type="hidden" name="custom_sections_json" id="custom_sections_json">
+                        <input type="hidden" name="landing_sections_json" id="landing_sections_json">
+
+                        <!-- SEKTION 1: Willkommens-Bereich -->
+                        <div class="section-card mb-4">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-emerald-600" style="font-size:18px;">waving_hand</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">Willkommens-Bereich</h3>
+                                </div>
+                            </div>
+                            <div class="section-card-body space-y-3">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="form-label">Willkommens-Titel</label>
+                                        <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="form-field">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Willkommens-Untertitel</label>
+                                        <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genie&szlig;e deinen Aufenthalt" class="form-field">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label">Google Bewertung Link</label>
+                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="form-field">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SEKTION 2: Eigene Sektionen -->
+                        <div class="section-card mb-4">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-blue-600" style="font-size:18px;">dashboard_customize</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">Eigene Sektionen</h3>
+                                </div>
+                                <button type="button" onclick="addLandingSection()" class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Sektion
+                                </button>
+                            </div>
+                            <div class="section-card-body">
+                                <p class="text-[10px] text-blue-500 mb-3">Hier kannst du beliebig viele Sektionen hinzuf&uuml;gen (z.B. &Uuml;ber uns, &Ouml;ffnungszeiten, Flyer-Bilder). Bilder werden full-width untereinander angezeigt.</p>
+                                <div id="landing-sections-container" class="space-y-2">
+                                    {% if restaurant.landing_page %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-gray-200 space-y-2" data-section-type="about">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-emerald-500 text-sm">info</span>
+                                            <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Uuml;ber uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                        </div>
+                                        <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field">{{ restaurant.landing_page.what_we_offer }}</textarea>
+                                    </div>
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-gray-200 space-y-2" data-section-type="hours">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-blue-500 text-sm">schedule</span>
+                                            <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Ouml;ffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                        </div>
+                                        <textarea name="section_content_hours" rows="2" placeholder="&Ouml;ffnungszeiten..." class="form-field">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
+                                    </div>
+                                    {% if restaurant.landing_page.custom_sections %}
+                                    {% for cs in restaurant.landing_page.custom_sections %}
+                                    <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
+                                                <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            </div>
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <textarea name="section_content_custom_{{ loop.index }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field">{{ cs.content if cs.content else '' }}</textarea>
+                                        <div class="space-y-1.5">
+                                            <label class="form-label">Foto/Video f&uuml;r diese Sektion (optional)</label>
+                                            <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                            {% if cs.image %}
+                                            <div class="flex items-center gap-2 mt-1">
+                                                {% if cs.image.endswith('.mp4') or cs.image.endswith('.webm') %}
+                                                <video src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover bg-zinc-100" muted></video>
+                                                {% else %}
+                                                <img src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover" alt="Sektions-Bild">
+                                                {% endif %}
+                                                <button type="button" onclick="deleteLandingImage('{{ cs.image }}', this)" class="text-red-400 hover:text-red-600 text-[10px] font-bold" title="Bild l&ouml;schen">Entfernen</button>
+                                                <input type="hidden" name="section_image_existing_custom_{{ loop.index }}" value="{{ cs.image }}">
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SEKTION 3: Was wir bieten / Highlights -->
+                        <div class="section-card mb-4">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-amber-600" style="font-size:18px;">star</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">Was wir bieten / Highlights</h3>
+                                </div>
+                            </div>
+                            <div class="section-card-body space-y-3">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="form-label">Titel: Was wir bieten</label>
+                                        <input type="text" name="title_what_we_offer" value="{{ restaurant.landing_page.title_what_we_offer if restaurant.landing_page else '' }}" placeholder="Standard: Was wir bieten" class="form-field">
+                                    </div>
+                                    <div class="text-[9px] text-amber-600 font-bold self-end">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
+                                </div>
+                                <input type="file" name="offer_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    {% for img in restaurant.landing_page.offer_images %}
+                                    <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
+                                        <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot" loading="lazy" decoding="async">
+                                        <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                            <span class="material-symbols-outlined text-base">delete</span>
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- SEKTION 4: Diashow -->
+                        <div class="section-card mb-4">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-indigo-600" style="font-size:18px;">slideshow</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">Diashow (Hintergrund)</h3>
+                                </div>
+                            </div>
+                            <div class="section-card-body space-y-3">
+                                <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
+                                    <div>
+                                        <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
+                                        <div class="text-[9px] text-zinc-400">L&auml;uft im Hintergrund der Landingpage</div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="text-[9px] text-zinc-500 font-bold">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
+                                <input type="file" name="slideshow_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    {% for img in restaurant.landing_page.slideshow_images %}
+                                    <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
+                                        <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow" loading="lazy" decoding="async">
+                                        <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                            <span class="material-symbols-outlined text-base">delete</span>
+                                        </button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- SEKTION 5: Galerie & Videos -->
+                        <div class="section-card mb-4">
+                            <div class="section-card-header">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-violet-600" style="font-size:18px;">collections</span>
+                                    <h3 class="font-extrabold text-sm text-zinc-800">Galerie & Videos</h3>
+                                </div>
+                            </div>
+                            <div class="section-card-body space-y-3">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="form-label">Titel: Galerie</label>
+                                        <input type="text" name="title_gallery" value="{{ restaurant.landing_page.title_gallery if restaurant.landing_page else '' }}" placeholder="Standard: Galerie" class="form-field">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Titel: Videos</label>
+                                        <input type="text" name="title_videos" value="{{ restaurant.landing_page.title_videos if restaurant.landing_page else '' }}" placeholder="Standard: Videos" class="form-field">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label">Galerie-Bilder (werden im Grid angezeigt)</label>
+                                    <input type="file" name="gallery_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                    {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
+                                    <div class="flex flex-wrap gap-2 mt-1">
+                                        {% for img in restaurant.landing_page.gallery_images %}
+                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
+                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie" loading="lazy" decoding="async">
+                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined text-base">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <label class="form-label">Videos</label>
+                                    <input type="file" name="landing_videos" multiple accept="video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                    {% if restaurant.landing_page and restaurant.landing_page.gallery_videos %}
+                                    <div class="flex flex-wrap gap-2 mt-1">
+                                        {% for vid in restaurant.landing_page.gallery_videos %}
+                                        <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
+                                            <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
+                                            <button type="button" onclick="deleteLandingImage('{{ vid }}', 'video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2 text-sm py-3">
+                            <span class="material-symbols-outlined" style="font-size:18px;">save</span>
+                            Landingpage speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+
             <!-- ⚙️ TAB: EINSTELLUNGEN (einstellungen) -->
             <div id="admin-tab-einstellungen" class="admin-tab-content">
                 <!-- Section 1: Restaurantprofil & Branding -->
@@ -4073,265 +4319,7 @@
                     </div>
                 </div>
 
-                <!-- Section 3: Landingpage (collapsible) -->
-                <div class="section-card mb-4">
-                    <div class="accordion-header" onclick="toggleAccordion(this)">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">campaign</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Landingpage bearbeiten</h3>
-                        </div>
-                        <span class="material-symbols-outlined accordion-arrow text-zinc-400" style="font-size:20px;">expand_more</span>
-                    </div>
-                    <div class="accordion-body">
-                        <div class="section-card-body">
-                            <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
-                                <input type="hidden" name="custom_sections_json" id="custom_sections_json">
-                                <input type="hidden" name="landing_sections_json" id="landing_sections_json">
-
-                                <!-- ═══ TAB-NAVIGATION ═══ -->
-                                <div class="lp-tabs">
-                                    <button type="button" class="lp-tab-btn active" data-tab="welcome" onclick="switchLPTab('welcome')">
-                                        <span class="material-symbols-outlined">waving_hand</span> Willkommen
-                                    </button>
-                                    <button type="button" class="lp-tab-btn" data-tab="sections" onclick="switchLPTab('sections')">
-                                        <span class="material-symbols-outlined">extension</span> Sektionen
-                                    </button>
-                                    <button type="button" class="lp-tab-btn" data-tab="offers" onclick="switchLPTab('offers')">
-                                        <span class="material-symbols-outlined">star</span> Was wir bieten
-                                    </button>
-                                    <button type="button" class="lp-tab-btn" data-tab="slideshow" onclick="switchLPTab('slideshow')">
-                                        <span class="material-symbols-outlined">slideshow</span> Diashow
-                                    </button>
-                                    <button type="button" class="lp-tab-btn" data-tab="gallery" onclick="switchLPTab('gallery')">
-                                        <span class="material-symbols-outlined">photo_library</span> Galerie
-                                    </button>
-                                </div>
-
-                                <!-- ═══ TAB 1: Willkommen ═══ -->
-                                <div class="lp-tab-panel active" id="lp-panel-welcome">
-                                <div class="lp-section-box">
-                                    <div class="flex items-center justify-between">
-                                        <h4 class="font-extrabold text-xs text-emerald-800 flex items-center gap-1.5">
-                                            <span class="material-symbols-outlined text-emerald-600" style="font-size:16px;">waving_hand</span>
-                                            Willkommens-Bereich
-                                        </h4>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="form-label">Willkommens-Titel</label>
-                                            <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="form-field">
-                                        </div>
-                                        <div>
-                                            <label class="form-label">Willkommens-Untertitel</label>
-                                            <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genie&szlig;en Sie feine K&uuml;che und Drinks" class="form-field">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Google Bewertung Link</label>
-                                        <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="form-field">
-                                    </div>
-                                </div>
-                                </div><!-- /lp-tab-panel welcome -->
-
-                                <!-- ═══ TAB 2: Sektionen ═══ -->
-                                <div class="lp-tab-panel" id="lp-panel-sections">
-                                <div class="lp-section-box">
-                                    <div class="flex items-center justify-between">
-                                        <h4 class="font-extrabold text-xs text-blue-800 flex items-center gap-1.5">
-                                            <span class="material-symbols-outlined text-blue-600" style="font-size:16px;">dashboard_customize</span>
-                                            Sektionen der Landingpage
-                                        </h4>
-                                        <button type="button" onclick="addLandingSection()" class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow">
-                                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Sektion
-                                        </button>
-                                    </div>
-                                    <p class="text-[9px] text-blue-500">Hier kannst du beliebig viele Sektionen hinzuf&uuml;gen, bearbeiten oder l&ouml;schen.</p>
-                                    <div id="landing-sections-container" class="space-y-3">
-                                        {% if restaurant.landing_page %}
-                                        {% if restaurant.landing_page.what_we_offer %}
-                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="about">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">info</span>
-                                                    <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Uuml;ber uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                                </div>
-                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
-                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                                                </button>
-                                            </div>
-                                            <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field">{{ restaurant.landing_page.what_we_offer }}</textarea>
-                                        </div>
-                                        {% endif %}
-                                        {% if restaurant.landing_page.oeffnungszeiten %}
-                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-blue-100 space-y-2" data-section-type="hours">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="material-symbols-outlined text-blue-500" style="font-size:14px;">schedule</span>
-                                                    <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Ouml;ffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                                </div>
-                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
-                                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                                                </button>
-                                            </div>
-                                            <textarea name="section_content_hours" rows="2" placeholder="&Ouml;ffnungszeiten..." class="form-field">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
-                                        </div>
-                                        {% endif %}
-                                        {% if restaurant.landing_page.custom_sections %}
-                                        {% for cs in restaurant.landing_page.custom_sections %}
-                                        <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
-                                                    <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
-                                                </div>
-                                                <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
-                                                    <span class="material-symbols-outlined text-sm">delete</span>
-                                                </button>
-                                            </div>
-                                            <textarea name="section_content_custom_{{ loop.index }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field">{{ cs.content if cs.content else '' }}</textarea>
-                                            <div class="space-y-1.5">
-                                                <label class="form-label">Foto/Video f&uuml;r diese Sektion (optional)</label>
-                                                <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
-                                                {% if cs.image %}
-                                                <div class="flex items-center gap-2 mt-1">
-                                                    {% if cs.image.endswith('.mp4') or cs.image.endswith('.webm') %}
-                                                    <video src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover bg-zinc-100" muted></video>
-                                                    {% else %}
-                                                    <img src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover" alt="Sektions-Bild">
-                                                    {% endif %}
-                                                    <button type="button" onclick="deleteLandingImage('{{ cs.image }}', this)" class="text-red-400 hover:text-red-600 text-[10px] font-bold" title="Bild l&ouml;schen">Entfernen</button>
-                                                    <input type="hidden" name="section_image_existing_custom_{{ loop.index }}" value="{{ cs.image }}">
-                                                </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                        {% endif %}
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                </div><!-- /lp-tab-panel sections -->
-
-                                <!-- ═══ TAB 3: Was wir bieten ═══ -->
-                                <div class="lp-tab-panel" id="lp-panel-offers">
-                                <div class="lp-section-box">
-                                    <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-amber-600" style="font-size:16px;">star</span>
-                                        Was wir bieten / Highlights
-                                    </h4>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="form-label">Titel: Was wir bieten</label>
-                                            <input type="text" name="title_what_we_offer" value="{{ restaurant.landing_page.title_what_we_offer if restaurant.landing_page else '' }}" placeholder="Standard: Was wir bieten" class="form-field">
-                                        </div>
-                                        <div class="text-[9px] text-amber-600 font-bold self-end">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
-                                    </div>
-                                    <input type="file" name="offer_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
-                                    {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
-                                    <div class="flex flex-wrap gap-2 mt-1">
-                                        {% for img in restaurant.landing_page.offer_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-amber-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Angebot" loading="lazy" decoding="async">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'offer', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                </div><!-- /lp-tab-panel offers -->
-
-                                <!-- ═══ TAB 4: Diashow ═══ -->
-                                <div class="lp-tab-panel" id="lp-panel-slideshow">
-                                <div class="lp-section-box">
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
-                                        <div>
-                                            <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
-                                            <div class="text-[9px] text-zinc-400">L&auml;uft im Hintergrund der Landingpage</div>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                    <div class="text-[9px] text-zinc-500 font-bold">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
-                                    <input type="file" name="slideshow_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
-                                    {% if restaurant.landing_page and restaurant.landing_page.slideshow_images %}
-                                    <div class="flex flex-wrap gap-2 mt-1">
-                                        {% for img in restaurant.landing_page.slideshow_images %}
-                                        <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                            <img src="{{ img }}" class="w-full h-full object-cover" alt="Diashow" loading="lazy" decoding="async">
-                                            <button type="button" onclick="deleteLandingImage('{{ img }}', 'slideshow', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                <span class="material-symbols-outlined text-base">delete</span>
-                                            </button>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                </div><!-- /lp-tab-panel slideshow -->
-
-                                <!-- ═══ TAB 5: Galerie ═══ -->
-                                <div class="lp-tab-panel" id="lp-panel-gallery">
-                                <div class="lp-section-box">
-                                    <h4 class="font-extrabold text-xs text-violet-800 flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-violet-600" style="font-size:16px;">collections</span>
-                                        Galerie & Videos
-                                    </h4>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="space-y-2">
-                                            <div>
-                                                <label class="form-label">Titel: Galerie</label>
-                                                <input type="text" name="title_gallery" value="{{ restaurant.landing_page.title_gallery if restaurant.landing_page else '' }}" placeholder="Standard: Galerie" class="form-field">
-                                            </div>
-                                            <div class="text-[9px] text-violet-600 font-bold">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
-                                            <input type="file" name="gallery_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
-                                            {% if restaurant.landing_page and restaurant.landing_page.gallery_images %}
-                                            <div class="flex flex-wrap gap-2 mt-1">
-                                                {% for img in restaurant.landing_page.gallery_images %}
-                                                <div class="image-thumb-container relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 group bg-zinc-950 flex items-center justify-center">
-                                                    <img src="{{ img }}" class="w-full h-full object-cover" alt="Galerie" loading="lazy" decoding="async">
-                                                    <button type="button" onclick="deleteLandingImage('{{ img }}', 'gallery', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                                                    </button>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                        <div class="space-y-2">
-                                            <div>
-                                                <label class="form-label">Titel: Videos</label>
-                                                <input type="text" name="title_videos" value="{{ restaurant.landing_page.title_videos if restaurant.landing_page else '' }}" placeholder="Standard: Videos" class="form-field">
-                                            </div>
-                                            <div class="bg-violet-100/50 p-2 rounded-xl border border-violet-200">
-                                                <div class="text-[9px] text-violet-600 font-bold mb-1.5">Max. 40 Sekunden | MP4, WebM, MOV | Autoplay & Dauerschleife</div>
-                                                <input type="file" name="landing_videos" multiple accept="video/mp4,video/webm,video/quicktime,video/*" class="form-field">
-                                            </div>
-                                            {% if restaurant.landing_page and restaurant.landing_page.videos %}
-                                            <div class="flex flex-wrap gap-2 mt-1">
-                                                {% for vid in restaurant.landing_page.videos %}
-                                                <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
-                                                    <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
-                                                    <button type="button" onclick="deleteLandingImage('{{ vid }}', 'video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
-                                                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                                                    </button>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                                </div><!-- /lp-tab-panel gallery -->
-
-                                <button type="submit" class="btn-primary w-full">Landingpage speichern</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+                <!-- Section 3: Landingpage → verschoben in eigenen Tab (admin-tab-landingpage) -->
 
                 <!-- Section 4: QR & Tische (collapsible) -->
                 <div class="section-card mb-4">
@@ -4978,7 +4966,7 @@
         function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
             // Validate tabId — only allow known tabs
-            const validTabs = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'einstellungen'];
+            const validTabs = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
             if (!validTabs.includes(tabId)) tabId = 'live';
 
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
@@ -4997,6 +4985,7 @@
                 'kategorien': 'Kategorien',
                 'happyhour': 'Events',
                 'personal': 'Personal & Account',
+                'landingpage': 'Landingpage',
                 'einstellungen': 'Einstellungen'
             };
             const breadcrumb = document.getElementById('breadcrumb-current');
@@ -10614,7 +10603,7 @@
         let touchEndX = 0;
         let touchEndY = 0;
 
-        const tabsSequence = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'einstellungen'];
+        const tabsSequence = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
 
         function isModalOpen() {
             const modals = document.querySelectorAll('.overlay-backdrop');
