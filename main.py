@@ -681,7 +681,12 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.kds_secret = r.get("kds_secret")
     tenant.theme = r.get("theme", "dark")
     tenant.accepts_card_payment = r.get("accepts_card_payment", True)
-    tenant.price_mode = r.get("price_mode", "brutto")
+    # ── Bug-Fix: price_mode defensiv setzen — r.get(key, default) liefert
+    # den Default NUR bei fehlendem Key, nicht bei None. Damit None nie in
+    # die DB geschrieben wird, verwenden wir "or 'brutto'".
+    _pm = r.get("price_mode") or "brutto"
+    # Validiere: nur 'brutto' oder 'netto' erlaubt
+    tenant.price_mode = _pm if _pm in ("brutto", "netto") else "brutto"
 
     
     branding = r.get("branding", {})
@@ -6228,6 +6233,28 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
             "timestamp": o.get("timestamp", "")
         })
 
+    # ── recent_cancellations: zuletzt stornierte Bons ──
+    # WICHTIG: Frontend nutzt diese Liste, um stornierte Bons korrekt als
+    # "Storniert" zu markieren. Ohne dieses Feld würde das Frontend beim
+    # Verschwinden eines Bons aus active_orders fälschlich "Bezahlt" raten.
+    # Siehe Frontend updateLiveTiles() für die Verbrauchslogik.
+    recent_cancellations = []
+    cancelled_orders = [o for o in orders if o.get("status") == "storniert"]
+    cancelled_sorted = sorted(cancelled_orders, key=lambda x: x.get("timestamp", ""), reverse=True)
+    for o in cancelled_sorted[:10]:
+        _ot = o.get("original_total")
+        _t = o.get("total", 0.0) or 0.0
+        if _ot is None:
+            _ot = _t
+        display_total = max(_t, _ot) if _ot else _t
+        recent_cancellations.append({
+            "id": o.get("id"),
+            "table": o.get("table"),
+            "total": display_total,
+            "original_total": _ot,
+            "timestamp": o.get("timestamp", "")
+        })
+
     return {
         "orders": active_orders,
         "service_calls": restaurant.get("service_calls", []),
@@ -6244,7 +6271,8 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
             "orders_count": total_orders,
             "avg_basket": round(avg_basket, 2)
         },
-        "recent_payments": recent_payments
+        "recent_payments": recent_payments,
+        "recent_cancellations": recent_cancellations
     }
 
 
@@ -8467,11 +8495,14 @@ def orders_export_pdf(
         row.append(fmt_eur(_get_display_total(o)))
         table_data.append(row)
 
-    # Total row
+    # Total row — NUR bezahlte Bons summieren (Bug-Fix: stornierte Bons
+    # wurden bisher fälschlich in die GESAMT-Summe einberechnet, was zu
+    # Umsatzverzerrung in Buchhaltungs-PDFs führte).
+    paid_orders_for_total = [o for o in orders if (o.get("status", "") or "").lower() == "bezahlt"]
     total_row = ["", "", "", "GESAMT"]
     if price_mode != "netto":
         total_row.append("")
-    total_row.append(fmt_eur(sum(_get_display_total(o) for o in orders)))
+    total_row.append(fmt_eur(sum(_get_display_total(o) for o in paid_orders_for_total)))
     table_data.append(total_row)
 
     # Column widths: total ~180mm on A4
@@ -9112,16 +9143,18 @@ def orders_export_xlsx(
         ws.cell(row=total_row_idx, column=5, value="")
         ws.cell(row=total_row_idx, column=5).fill = total_fill
 
-    # Sum of totals — use Excel SUM formula
+    # Sum of totals — NUR bezahlte Bons summieren (Bug-Fix: stornierte Bons
+    # wurden bisher via SUM-Formel fälschlich in die GESAMT-Summe einberechnet).
+    # Statt Excel SUM-Formel (die alle Zeilen summiert inkl. storniert) verwenden
+    # wir den vorgerechneten Wert der nur bezahlte Bons enthält.
     gesamt_col = len(headers) - 1
     orig_col = len(headers)
-    if len(orders) > 0:
-        first_data_row = data_start
-        last_data_row = data_start + len(orders) - 1
-        ws.cell(row=total_row_idx, column=gesamt_col,
-                value=f"=SUM({get_column_letter(gesamt_col)}{first_data_row}:{get_column_letter(gesamt_col)}{last_data_row})")
-        ws.cell(row=total_row_idx, column=orig_col,
-                value=f"=SUM({get_column_letter(orig_col)}{first_data_row}:{get_column_letter(orig_col)}{last_data_row})")
+    paid_orders_for_total = [o for o in orders if (o.get("status", "") or "").lower() == "bezahlt"]
+    if paid_orders_for_total:
+        gesamt_sum = sum(_get_display_total(o) for o in paid_orders_for_total)
+        orig_sum = sum((o.get("original_total") or _get_display_total(o)) for o in paid_orders_for_total)
+        ws.cell(row=total_row_idx, column=gesamt_col, value=round(gesamt_sum, 2))
+        ws.cell(row=total_row_idx, column=orig_col, value=round(orig_sum, 2))
 
     for c in [gesamt_col, orig_col]:
         cell = ws.cell(row=total_row_idx, column=c)

@@ -3098,6 +3098,7 @@
                                     <th class="cursor-pointer select-none" onclick="setOrdersSort('table')">Tisch <span id="sort-icon-table" class="sort-icon"></span></th>
                                     <th class="cursor-pointer select-none" onclick="setOrdersSort('timestamp')">Zeitstempel <span id="sort-icon-timestamp" class="sort-icon"></span></th>
                                     <th class="cursor-pointer select-none" onclick="setOrdersSort('total')">Gesamt <span id="sort-icon-total" class="sort-icon"></span></th>
+                                    <th id="th-mwst" class="text-zinc-500" style="display:none;">MwSt</th>
                                     <th>Status</th>
                                     <th></th>
                                 </tr>
@@ -4742,7 +4743,13 @@
         let _ordersCustomFrom = null;       // YYYY-MM-DD or null
         let _ordersCustomTo = null;         // YYYY-MM-DD or null
         // Preis-Modus (netto/brutto) — bestimmt MwSt-Spalten-Sichtbarkeit
-        const PRICE_MODE = {{ (restaurant.price_mode or 'brutto') | tojson }};
+        // ── Bug-Fix: Defensive Normalisierung — falls Backend leer/None/Großbuchstaben
+        // liefert, normalisieren wir auf lowercase 'brutto'/'netto'. Verhindert
+        // dass MwSt im Netto-Modus angezeigt wird weil PRICE_MODE === 'Netto' (mit N).
+        const _RAW_PRICE_MODE = {{ (restaurant.price_mode or 'brutto') | tojson }};
+        const PRICE_MODE = (_RAW_PRICE_MODE || '').toString().trim().toLowerCase() === 'netto'
+            ? 'netto'
+            : 'brutto';
 
         // ═══════════════════════════════════════════════════════════════
         // NEUE REPORTS-FUNKTIONEN (Redesign)
@@ -4880,6 +4887,12 @@
             // Default: Dieser Monat
             setQuickRange('thisMonth');
             updateDayDateLabel();
+            // MwSt-Tabellen-Header nur im Brutto-Modus anzeigen
+            // (Netto-Modus: Spalte wird via PRICE_MODE-Check im Body auch ausgeblendet)
+            const thMwst = document.getElementById('th-mwst');
+            if (thMwst) {
+                thMwst.style.display = (PRICE_MODE === 'netto') ? 'none' : '';
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -6787,7 +6800,7 @@
                         (data.orders || []).forEach(o => { if (o.status === 'eingegangen') seenOrderIds.add(o.id); });
                         (data.service_calls || []).forEach(c => { seenCallIds.add(c.id); });
                         initialDone = true;
-                        updateLiveTiles(data.orders || [], data.service_calls || [], data.tables || []);
+                        updateLiveTiles(data.orders || [], data.service_calls || [], data.tables || [], data.recent_cancellations || []);
                     }
                 }).catch(()=>{});
 
@@ -6811,6 +6824,7 @@
                         const safeOrders = data.orders || [];
                         const safeCalls = data.service_calls || [];
                         const safeTables = data.tables || [];
+                        const safeCancellations = data.recent_cancellations || [];
                         const ordersState = safeOrders.map(o => {
                             const itemsStatusStr = (o.items || []).map(i => `${i.product_id}:${i.item_status || 'pending'}`).join(',');
                             return `${o.id}:${o.status}:${o.total}:${itemsStatusStr}`;
@@ -6837,7 +6851,7 @@
 
                         // Always update if control modal is open, otherwise use hash to avoid unnecessary re-renders
                         if (controlModalActiveTableNum || lastLiveTischeHash === null || lastLiveTischeHash !== currentHash) {
-                            updateLiveTiles(safeOrders, safeCalls, safeTables);
+                            updateLiveTiles(safeOrders, safeCalls, safeTables, safeCancellations);
                         }
                         lastLiveTischeHash = currentHash;
 
@@ -6897,7 +6911,7 @@
                 .catch(err => console.warn("Live status polling error:", err));
         }
 
-        function updateLiveTiles(orders, serviceCalls, tables) {
+        function updateLiveTiles(orders, serviceCalls, tables, cancellations) {
             try {
                 // Merge live orders into allOrders instead of replacing.
                 // Live API only returns active orders, but allOrders contains
@@ -6905,7 +6919,12 @@
                 const liveOrdersMap = {};
                 const liveOrderIds = new Set();
                 (orders || []).forEach(o => { liveOrdersMap[o.id] = o; liveOrderIds.add(o.id); });
-                
+
+                // Build a Set of cancelled order IDs from the API response
+                // (Backend liefert recent_cancellations — siehe main.py /api/tablet-status)
+                const cancelledIds = new Set();
+                (cancellations || []).forEach(c => { cancelledIds.add(c.id); });
+
                 // Update existing orders with live data, add new ones,
                 // and mark orders that disappeared from live API as completed
                 const updatedIds = new Set();
@@ -6913,6 +6932,14 @@
                     updatedIds.add(o.id);
                     if (liveOrdersMap[o.id]) {
                         const liveOrder = liveOrdersMap[o.id];
+                        // ── Bug-Fix: Lokalen Final-Status (bezahlt/storniert) nie durch
+                        // Live-Daten überschreiben. Server hat u.U. noch nicht propagiert.
+                        const localFinal = (o.status === 'bezahlt' || o.status === 'storniert');
+                        const liveFinal  = (liveOrder.status === 'bezahlt' || liveOrder.status === 'storniert');
+                        if (localFinal && !liveFinal) {
+                            // Server hat den Abschluss noch nicht propagiert — lokalen Final-Status bewahren.
+                            return { ...liveOrder, status: o.status };
+                        }
                         // PROTECT optimistic serve updates from being overwritten by stale poll data.
                         // If we recently served items optimistically but the server hasn't caught up yet,
                         // preserve the local item_status instead of reverting to old server data.
@@ -6954,10 +6981,16 @@
                         }
                         return liveOrder; // Use fresh live data
                     }
-                    // Order was in allOrders but NOT in live API anymore.
-                    // If it was still in an active state, it must have been
-                    // cancelled or paid elsewhere — mark it accordingly.
+                    // ── Bug-Fix: Order war in allOrders, aber NICHT mehr in live API.
+                    // Frühher: pauschal auf 'bezahlt' gesetzt → stornierte Bons wurden
+                    // fälschlich als 'Bezahlt' angezeigt (Bon #209 Bug).
+                    // Jetzt: Prüfe recent_cancellations aus der API-Response.
+                    //   - Wenn Bon-ID in cancellations enthalten → status='storniert'
+                    //   - Sonst: nur als 'bezahlt' markieren wenn vorher aktiv war
                     if (o.status !== 'bezahlt' && o.status !== 'storniert') {
+                        if (cancelledIds.has(o.id)) {
+                            return { ...o, status: 'storniert' };
+                        }
                         return { ...o, status: 'bezahlt' };
                     }
                     return o;

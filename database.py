@@ -112,7 +112,10 @@ class Tenant(Base):
     happy_hour_display_name = Column(String, default="Aktion")  # What guests see: "Happy Hour", "Shisha Night", "Lunch Deal"
     theme = Column(String, default="dark")
     accepts_card_payment = Column(Boolean, default=True)
-    price_mode = Column(String, default="brutto")  # "brutto" or "netto"
+    # ── Bug-Fix: server_default="brutto" stellt sicher, dass auch Roh-SQL-INSERTs
+    # ohne price_mode-Angabe automatisch 'brutto' bekommen (nicht NULL).
+    # default="brutto" greift nur bei SQLAlchemy-INSERTs.
+    price_mode = Column(String, default="brutto", server_default="brutto")  # "brutto" or "netto"
 
 
 class SuperGroup(Base):
@@ -317,6 +320,18 @@ def _migrate_database():
     add_column_if_missing('tenants', 'happy_hour_mode', "VARCHAR DEFAULT 'discount'")
     add_column_if_missing('tenants', 'happy_hour_display_name', "VARCHAR DEFAULT 'Aktion'")
     add_column_if_missing('tenants', 'price_mode', "VARCHAR DEFAULT 'brutto'")
+
+    # ── Bug-Fix: Existierende NULL-Werte in price_mode auf 'brutto' setzen.
+    # Früher konnten NULL-Werte entstehen (kein server_default, save-Pfad nicht
+    # defensiv). Jetzt: einmalig alle NULLs bereinigen.
+    try:
+        with engine.begin() as conn:
+            if _IS_POSTGRES:
+                conn.execute(sa.text("UPDATE tenants SET price_mode = 'brutto' WHERE price_mode IS NULL"))
+            else:
+                conn.execute(sa.text("UPDATE tenants SET price_mode = 'brutto' WHERE price_mode IS NULL OR price_mode = ''"))
+    except Exception as e:
+        print(f"[Migration] price_mode NULL-Bereinigung übersprungen: {e}")
 
 
     # Migrate 'tables' table
