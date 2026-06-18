@@ -68,7 +68,7 @@
             -webkit-appearance: none;
             width: 28px;
             height: 28px;
-            border: 2.5px solid #9ca3af;
+            border: 2.5px solid #6b7280;
             border-radius: 5px;
             background: #ffffff;
             cursor: pointer;
@@ -77,16 +77,27 @@
             transition: all 0.15s ease;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
-        /* Dark mode: brighter border + dark bg fill */
+        /* Dark mode: HELLER Border (3px) + hellerer BG für besseren Kontrast */
         html.dark .custom-checkbox {
-            border-color: #6b7280;
-            background: #1f2937;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            border-color: #e5e7eb;
+            border-width: 2.5px;
+            background: #374151;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+        }
+        /* Dark mode: hover/focus state deutlicher */
+        html.dark .custom-checkbox:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(229, 231, 235, 0.15);
         }
         .custom-checkbox:checked {
             background: var(--gastro-primary);
             border-color: var(--gastro-primary);
             box-shadow: 0 2px 6px rgba(0,153,0,0.25);
+        }
+        html.dark .custom-checkbox:checked {
+            background: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
         }
         .custom-checkbox:checked::after {
             content: '';
@@ -110,7 +121,7 @@
         .popup-body .custom-checkbox,
         .control-split-item .custom-checkbox,
         .bg-gray-50 .custom-checkbox {
-            border-color: #9ca3af;
+            border-color: #6b7280;
             background: #ffffff;
         }
         .bg-emerald-50 .custom-checkbox:checked,
@@ -128,12 +139,206 @@
             background: #1f2937;
         }
         html:not(.dark) .item-card .custom-checkbox {
-            border-color: #9ca3af;
+            border-color: #6b7280;
             background: #ffffff;
+        }
+        html.dark .item-card .custom-checkbox {
+            border-color: #e5e7eb;
+            background: #374151;
         }
         .item-card .custom-checkbox:checked {
             background: var(--gastro-primary);
             border-color: var(--gastro-primary);
+        }
+        html.dark .item-card .custom-checkbox:checked {
+            background: #22c55e;
+            border-color: #22c55e;
+        }
+
+        /* ── Toggle Switch (Brutto/Netto, Kartenzahlung, Shisha-Modus) ──
+           Hoch-Kontrast Toggle für Dark- und Light-Mode.
+           Vorher: Klassen .switch und .slider waren nirgends definiert →
+           Browser-Default-Checkbox wurde gezeigt (schwer erkennbar). */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background-color: #cbd5e1;
+            border: 2px solid #94a3b8;
+            border-radius: 9999px;
+            transition: all 0.2s ease;
+        }
+        .slider::before {
+            content: "";
+            position: absolute;
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #ffffff;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        /* Eingeschaltet (checked) */
+        .switch input:checked + .slider {
+            background-color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        .switch input:checked + .slider::before {
+            transform: translate(22px, -50%);
+            background-color: #ffffff;
+        }
+        /* Hover/Focus States */
+        .switch:hover .slider {
+            border-color: #64748b;
+        }
+        .switch input:checked + .slider:hover {
+            background-color: #15803d;
+            border-color: #15803d;
+        }
+        .switch input:focus-visible + .slider {
+            outline: 2px solid var(--gastro-primary);
+            outline-offset: 2px;
+        }
+        /* Dark Mode: hellere Slider-BG für besseren Kontrast */
+        html.dark .slider {
+            background-color: #475569;
+            border-color: #94a3b8;
+        }
+        html.dark .switch:hover .slider {
+            border-color: #cbd5e1;
+        }
+        html.dark .switch input:checked + .slider {
+            background-color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+        }
+        html.dark .switch input:checked + .slider:hover {
+            background-color: #16a34a;
+            border-color: #16a34a;
+        }
+        html.dark .slider::before {
+            background-color: #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        }
+
+        /* ── Preisanzeige Toggle Row: Dark Mode Kontrast ──
+           Vorher: text-zinc-500/700 waren im Dark Mode kaum lesbar.
+           Jetzt: eigene Klassen mit klaren Dark-Mode-Farben. */
+        .toggle-title {
+            color: #1f2937;
+        }
+        .toggle-desc {
+            color: #4b5563;
+        }
+        .toggle-label {
+            color: #1f2937;
+        }
+        .toggle-hint {
+            color: #6b7280;
+        }
+        .toggle-badge {
+            color: #fff;
+        }
+        .badge-netto {
+            background: #d97706;
+            border: 1px solid #b45309;
+            color: #fffbeb;
+        }
+        .badge-brutto {
+            background: #059669;
+            border: 1px solid #047857;
+            color: #ecfdf5;
+        }
+
+        html.dark .dark-mode-toggle-row {
+            background: var(--gastro-card-bg) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .toggle-title {
+            color: #f3f4f6 !important;
+        }
+        html.dark .toggle-desc {
+            color: #d1d5db !important;
+        }
+        html.dark .toggle-label {
+            color: #ffffff !important;
+        }
+        html.dark .toggle-hint {
+            color: #9ca3af !important;
+        }
+        html.dark .badge-netto {
+            background: #f59e0b !important;
+            border-color: #d97706 !important;
+            color: #1f2937 !important;
+        }
+        html.dark .badge-brutto {
+            background: #10b981 !important;
+            border-color: #059669 !important;
+            color: #052e16 !important;
+        }
+
+        /* ── Standard-Checkboxen: Dark Mode Kontrast ──
+           Vorher: Default-Checkbox im Dark Mode kaum sichtbar (dunkel auf dunkel).
+           Jetzt: Heller Border + glow für bessere Sichtbarkeit. */
+        html.dark input[type="checkbox"] {
+            /* Nur Standard-Checkboxen, nicht .switch input (unsichtbar gemacht) oder
+               .custom-checkbox (hat eigene Regeln) */
+            appearance: auto;
+            -webkit-appearance: auto;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            background: #374151;
+            cursor: pointer;
+            accent-color: #22c55e;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        html.dark input[type="checkbox"]:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.1);
+        }
+        html.dark input[type="checkbox"]:checked {
+            background: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+        }
+        html.dark input[type="checkbox"]:focus-visible {
+            outline: 2px solid #22c55e;
+            outline-offset: 2px;
+        }
+        /* .switch input muss unsichtbar bleiben (Toggle-Logik) */
+        html.dark .switch input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 0;
+            height: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+        }
+        /* .custom-checkbox hat eigene Regeln → nicht überschreiben */
+        html.dark input.custom-checkbox[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
         }
 
         /* ── Order Popup Item Cards ── */
@@ -3785,19 +3990,19 @@
                                 </label>
                             </form>
                         </div>
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 dark-mode-toggle-row">
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1">
-                                    <h4 class="font-bold text-xs text-zinc-800">Preisanzeige: Brutto oder Netto</h4>
-                                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full {% if restaurant.price_mode == 'netto' %}bg-amber-100 text-amber-700 border border-amber-200{% else %}bg-emerald-100 text-emerald-700 border border-emerald-200{% endif %}">
+                                    <h4 class="font-bold text-xs text-zinc-800 toggle-title">Preisanzeige: Brutto oder Netto</h4>
+                                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full toggle-badge {% if restaurant.price_mode == 'netto' %}badge-netto{% else %}badge-brutto{% endif %}">
                                         {% if restaurant.price_mode == 'netto' %}NETTO{% else %}BRUTTO{% endif %}
                                     </span>
                                 </div>
-                                <p class="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
-                                    <span class="font-bold text-zinc-700">Brutto (aus):</span> Preise inkl. 19% MwSt — Gäste sehen Endpreise.<br>
-                                    <span class="font-bold text-zinc-700">Netto (an):</span> Preise ohne MwSt — für Gastronomie/B2B, keine Steuer-Ausweisung.
+                                <p class="text-[10px] mt-0.5 leading-relaxed toggle-desc">
+                                    <span class="font-bold toggle-label">Brutto (aus):</span> Preise inkl. 19% MwSt — Gäste sehen Endpreise.<br>
+                                    <span class="font-bold toggle-label">Netto (an):</span> Preise ohne MwSt — für Gastronomie/B2B, keine Steuer-Ausweisung.
                                 </p>
-                                <p class="text-[10px] text-zinc-400 mt-1.5 italic">
+                                <p class="text-[10px] mt-1.5 italic toggle-hint">
                                     Wirkt sich auf Speisekarte, Reports und PDF-Exporte aus.
                                 </p>
                             </div>
