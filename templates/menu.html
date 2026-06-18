@@ -247,8 +247,8 @@
     {% else %}
 
     <!-- Top Navigation Bar / Header -->
-    <header class="grid grid-cols-3 items-center px-4 sm:px-6 h-20 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
-            style="padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
+    <header class="grid grid-cols-3 items-center px-4 sm:px-6 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
+            style="height: calc(5rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
         <div class="flex justify-start">
             {% if restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
@@ -1722,7 +1722,7 @@
                     }
 
                     this.currentCategory = category;
-                    
+
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
                         const itemCat = item.getAttribute('data-category');
@@ -1734,7 +1734,18 @@
                     });
 
                     this.applyAllFilters();
-                    
+
+                    // Back-Button Position neu berechnen, da er jetzt sichtbar wird.
+                    // WICHTIG: iOS Safari ändert die Header-Höhe je nach Notch/Safe-Area.
+                    // Ohne diesen Aufruf könnte der Button mit dem Logo überlappen.
+                    if (typeof adjustBackButtonTop === 'function') {
+                        this.$nextTick(() => {
+                            adjustBackButtonTop();
+                            // Zweiter Aufruf nach kurzer Verzögerung für späte Layout-Shifts
+                            setTimeout(adjustBackButtonTop, 50);
+                        });
+                    }
+
                     // Scroll to top AFTER Alpine.js has updated the DOM (only on user click, not on WS re-apply)
                     if (isUserAction) {
                         this.$nextTick(() => {
@@ -2884,18 +2895,21 @@
         // rendered header height and set the back-button's sticky top to match.
         // This guarantees 0px gap between header bottom and back-button.
         // ════════════════════════════════════════════════════════════════════
+        // Global definiert, damit Alpine-Komponente (filterCategory) es aufrufen kann
+        function adjustBackButtonTop() {
+            const header = document.querySelector('header.sticky');
+            const backBtn = document.getElementById('back-to-categories-bar');
+            if (!header || !backBtn) return;
+            const headerHeight = header.getBoundingClientRect().height;
+            // Set sticky top to exact header height — button sticks flush with header bottom
+            backBtn.style.top = headerHeight + 'px';
+            // Force margin/padding to 0 (kills any inherited spacing)
+            backBtn.style.marginTop = '0px';
+            backBtn.style.paddingTop = '0px';
+        }
+        window.adjustBackButtonTop = adjustBackButtonTop;
+
         (function() {
-            function adjustBackButtonTop() {
-                const header = document.querySelector('header.sticky');
-                const backBtn = document.getElementById('back-to-categories-bar');
-                if (!header || !backBtn) return;
-                const headerHeight = header.getBoundingClientRect().height;
-                // Set sticky top to exact header height — button sticks flush with header bottom
-                backBtn.style.top = headerHeight + 'px';
-                // Force margin/padding to 0 (kills any inherited spacing)
-                backBtn.style.marginTop = '0px';
-                backBtn.style.paddingTop = '0px';
-            }
             // Run on load, DOMContentLoaded, resize, orientationchange, and after Alpine.js init
             window.addEventListener('DOMContentLoaded', adjustBackButtonTop);
             window.addEventListener('load', adjustBackButtonTop);
@@ -2910,6 +2924,11 @@
                 if (scrollTimer) clearTimeout(scrollTimer);
                 scrollTimer = setTimeout(adjustBackButtonTop, 100);
             }, { passive: true });
+            // Re-run when iOS Safari URL bar shows/hides (visibilitychange + pageshow)
+            window.addEventListener('pageshow', adjustBackButtonTop);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) setTimeout(adjustBackButtonTop, 100);
+            });
         })();
 
     </script>
