@@ -4106,6 +4106,21 @@
                                                 </button>
                                             </div>
                                             <textarea name="section_content_custom_{{ loop.index }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field">{{ cs.content if cs.content else '' }}</textarea>
+                                            <div class="space-y-1.5">
+                                                <label class="form-label">Foto/Video f&uuml;r diese Sektion (optional)</label>
+                                                <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                                                {% if cs.image %}
+                                                <div class="flex items-center gap-2 mt-1">
+                                                    {% if cs.image.endswith('.mp4') or cs.image.endswith('.webm') %}
+                                                    <video src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover bg-zinc-100" muted></video>
+                                                    {% else %}
+                                                    <img src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover" alt="Sektions-Bild">
+                                                    {% endif %}
+                                                    <button type="button" onclick="deleteLandingImage('{{ cs.image }}', this)" class="text-red-400 hover:text-red-600 text-[10px] font-bold" title="Bild l&ouml;schen">Entfernen</button>
+                                                    <input type="hidden" name="section_image_existing_custom_{{ loop.index }}" value="{{ cs.image }}">
+                                                </div>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                         {% endfor %}
                                         {% endif %}
@@ -10348,6 +10363,10 @@
                     </button>
                 </div>
                 <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">${content || ''}</textarea>
+                <div class="space-y-1.5">
+                    <label class="form-label">Foto/Video für diese Sektion (optional)</label>
+                    <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
+                </div>
             `;
             container.appendChild(sectionDiv);
             sectionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -10371,24 +10390,36 @@
                 const type = item.getAttribute('data-section-type');
                 const titleInput = item.querySelector('input[type="text"]');
                 const contentTextarea = item.querySelector('textarea');
+                // Für custom sections: Bild-Upload und bestehendes Bild erfassen
+                const fileInput = item.querySelector('input[type="file"]');
+                const existingImageInput = item.querySelector('input[name*="section_image_existing"]');
+                const hasNewImage = fileInput && fileInput.files && fileInput.files.length > 0;
+                const existingImage = existingImageInput ? existingImageInput.value : '';
+
                 if (titleInput || contentTextarea) {
-                    sections.push({
+                    const sectionData = {
                         type: type,
                         title: titleInput ? titleInput.value.trim() : '',
                         content: contentTextarea ? contentTextarea.value.trim() : ''
-                    });
+                    };
+                    // Custom section: Bild-Info hinzufügen
+                    if (type === 'custom') {
+                        sectionData.image = existingImage || '';
+                        sectionData._has_new_image = hasNewImage;
+                    }
+                    sections.push(sectionData);
                 }
             });
             document.getElementById('landing_sections_json').value = JSON.stringify(sections);
-            
+
             // Also build custom_sections_json for backward compatibility
             const customSections = sections.filter(s => s.type === 'custom').map(s => ({
                 title: s.title,
                 content: s.content,
-                image: ''
+                image: s.image || ''
             }));
             document.getElementById('custom_sections_json').value = JSON.stringify(customSections);
-            
+
             return true;
         }
 

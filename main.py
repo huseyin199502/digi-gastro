@@ -348,6 +348,20 @@ async def no_cache_uploads_middleware(request: Request, call_next):
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+
+# ════════════════════════════════════════════════════════════════════
+# PageSpeed: Cache-Control für statische Assets (Performance)
+# ════════════════════════════════════════════════════════════════════
+@app.middleware("http")
+async def cache_static_assets_middleware(request: Request, call_next):
+    """Set Cache-Control für statische Assets (CSS, JS, Bilder, Icons).
+    PageSpeed: 'Use efficient cache lifetimes' Fix."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/css/") or path.startswith("/static/js/") or path.startswith("/static/images/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
+
 # ──────────────────────────────────────────────────────────────────
 # HEALTH CHECK – must be registered BEFORE any middleware so Docker
 # HEALTHCHECK and Coolify never get a 404.
@@ -7476,7 +7490,7 @@ async def update_landingpage(
         except Exception:
             pass
     
-    # Process custom section image uploads
+    # Process custom section image/video uploads
     custom_image_idx = 0
     if custom_section_images:
         os.makedirs(landing_dir, exist_ok=True)
@@ -7484,18 +7498,26 @@ async def update_landingpage(
         for i, section in enumerate(custom_sections):
             if section.get("_has_new_image"):
                 new_image_section_indices.append(i)
-        
+
         for sec_idx in new_image_section_indices:
             if custom_image_idx < len(custom_section_images):
                 file = custom_section_images[custom_image_idx]
-                if file.filename and is_valid_image(file.filename):
-                    safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.jpg"
-                    file_path = os.path.join(landing_dir, safe_name)
-                    content = await file.read()
-                    content = process_and_optimize_general_image(content)
-                    with open(file_path, "wb") as fh:
-                        fh.write(content)
-                    custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
+                if file.filename:
+                    if is_valid_image(file.filename):
+                        safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.jpg"
+                        file_path = os.path.join(landing_dir, safe_name)
+                        content = await file.read()
+                        content = process_and_optimize_general_image(content)
+                        with open(file_path, "wb") as fh:
+                            fh.write(content)
+                        custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
+                    elif is_valid_video(file.filename):
+                        safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.mp4"
+                        file_path = os.path.join(landing_dir, safe_name)
+                        content = await file.read()
+                        with open(file_path, "wb") as fh:
+                            fh.write(content)
+                        custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
                 custom_image_idx += 1
     
     # Preserve existing custom section images

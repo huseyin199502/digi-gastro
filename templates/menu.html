@@ -440,7 +440,7 @@
                     </div>
                 </template>
 
-                <!-- Gallery Images -->
+                <!-- Gallery Images (Grid wie bisher) -->
                 <template x-if="restaurantLandingPage.gallery_images && restaurantLandingPage.gallery_images.length > 0">
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         <template x-for="img in restaurantLandingPage.gallery_images" :key="img">
@@ -503,13 +503,18 @@
                 </div>
             </div>
 
-            <!-- Custom Sections (Eigene Sektionen) -->
+            <!-- Custom Sections (Eigene Sektionen) — Bilder/Videos full-width, nicht gecroppt, untereinander -->
             <template x-if="restaurantLandingPage.custom_sections && restaurantLandingPage.custom_sections.length > 0">
                 <div class="space-y-6 mt-6">
-                    <template x-for="section in restaurantLandingPage.custom_sections" :key="section.title">
+                    <template x-for="(section, idx) in restaurantLandingPage.custom_sections" :key="idx">
                         <div class="rounded-3xl p-6 space-y-4" x-show="section.content || section.image">
                             <h3 x-show="section.title" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;" x-text="section.title"></h3>
-                            <img x-show="section.image" :src="section.image" class="w-full rounded-2xl object-cover" :alt="section.title" loading="lazy">
+                            <template x-if="section.image && (section.image.endsWith('.mp4') || section.image.endsWith('.webm') || section.image.endsWith('.mov'))">
+                                <video :src="section.image" autoplay loop muted playsinline class="w-full h-auto rounded-2xl" controls></video>
+                            </template>
+                            <template x-if="section.image && !(section.image.endsWith('.mp4') || section.image.endsWith('.webm') || section.image.endsWith('.mov'))">
+                                <img :src="section.image" class="w-full h-auto rounded-2xl object-contain" :alt="section.title || 'Sektions-Bild'" loading="lazy" decoding="async">
+                            </template>
                             <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium" style="color:#e5e7eb !important;" x-show="section.content" x-text="section.content"></p>
                         </div>
                     </template>
