@@ -365,7 +365,7 @@
                     <div class="space-y-3 px-3">
                         <template x-for="vid in restaurantLandingPage.offer_videos" :key="vid">
                             <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
-                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full w-full"></video>
+                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full w-full" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture></video>
                             </div>
                         </template>
                     </div>
@@ -415,7 +415,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
                         <template x-for="vid in restaurantLandingPage.gallery_videos" :key="vid">
                             <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
-                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture></video>
                             </div>
                         </template>
                     </div>
@@ -442,7 +442,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <template x-for="vid in restaurantLandingPage.videos" :key="vid">
                         <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
-                            <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+                            <video :src="vid" autoplay loop muted playsinline class="landing-video-full" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture></video>
                         </div>
                     </template>
                 </div>
@@ -491,7 +491,7 @@
                         <div class="rounded-3xl p-6 space-y-4 bg-[var(--bg-obsidian)]/80 backdrop-blur-sm" x-show="section.content || section.image">
                             <h3 x-show="section.title" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;" x-text="section.title"></h3>
                             <template x-if="section.image && (section.image.endsWith('.mp4') || section.image.endsWith('.webm') || section.image.endsWith('.mov'))">
-                                <video :src="section.image" autoplay loop muted playsinline class="w-full h-auto rounded-2xl" controls></video>
+                                <video :src="section.image" autoplay loop muted playsinline class="w-full h-auto rounded-2xl" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture></video>
                             </template>
                             <template x-if="section.image && !(section.image.endsWith('.mp4') || section.image.endsWith('.webm') || section.image.endsWith('.mov'))">
                                 <img :src="section.image" class="w-full h-auto rounded-2xl object-contain" :alt="section.title || 'Sektions-Bild'" loading="lazy" decoding="async">
