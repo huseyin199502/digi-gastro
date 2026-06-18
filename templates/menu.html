@@ -354,51 +354,32 @@
                 </div>
             </div>
 
-            <!-- Angebote (Bilder & Videos) - FULL WIDTH -->
-            <div x-show="(restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0) || (restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0)" class="rounded-3xl p-3 space-y-4 col-span-full relative z-10" style="display: none;">
+            <!-- Angebote (Bilder & Videos) - FULL WIDTH, vertikal untereinander -->
+            <div x-show="(restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0) || (restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0)" class="rounded-3xl p-3 space-y-3 col-span-full relative z-10" style="display: none;">
                 <h3 x-show="restaurantLandingPage.title_offers" class="text-lg font-bold drop-shadow-md font-display px-3" style="color:#ffffff !important;">
                     <span x-text="restaurantLandingPage.title_offers"></span>
                 </h3>
-                
-                <!-- Offer Videos -->
+
+                <!-- Offer Videos — vertikal untereinander -->
                 <template x-if="restaurantLandingPage.offer_videos && restaurantLandingPage.offer_videos.length > 0">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 px-3">
+                    <div class="space-y-3 px-3">
                         <template x-for="vid in restaurantLandingPage.offer_videos" :key="vid">
                             <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
-                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full"></video>
+                                <video :src="vid" autoplay loop muted playsinline class="landing-video-full w-full"></video>
                             </div>
                         </template>
                     </div>
                 </template>
 
-                <!-- Offer Images Slider -->
+                <!-- Offer Images — vertikal untereinander, NICHT gecroppt, full-width -->
                 <template x-if="restaurantLandingPage.offer_images && restaurantLandingPage.offer_images.length > 0">
-                <div class="relative w-full overflow-hidden rounded-2xl bg-zinc-950/40 border border-outline-variant/30 group">
-                    <div id="offer-slider" class="flex w-full transition-transform duration-500 ease-out" style="transform: translateX(0%);">
+                    <div class="space-y-3 px-3">
                         <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="img">
-                            <div class="w-full shrink-0 relative flex items-center justify-center cursor-zoom-in" @click="openLightbox(img)">
-                                <img :src="img" alt="Angebot" class="w-full h-auto object-cover" loading="lazy">
+                            <div class="rounded-2xl overflow-hidden bg-zinc-900 border border-outline-variant/30 shadow-lg">
+                                <img :src="img" alt="Angebot" class="w-full h-auto object-contain" loading="lazy" decoding="async">
                             </div>
                         </template>
                     </div>
-                    
-                    <!-- Prev/Next Controls -->
-                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                        <button type="button" @click="prevOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
-                            <span class="material-symbols-outlined text-sm font-bold">chevron_left</span>
-                        </button>
-                        <button type="button" @click="nextOfferSlide()" class="pointer-events-auto bg-black/60 hover:bg-black text-white rounded-full w-9 h-9 flex items-center justify-center border border-white/10 active:scale-90 transition">
-                            <span class="material-symbols-outlined text-sm font-bold">chevron_right</span>
-                        </button>
-                    </div>
-
-                    <!-- Slide Indicator dots -->
-                    <div x-show="restaurantLandingPage.offer_images.length > 1" class="absolute bottom-4 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
-                        <template x-for="(img, idx) in restaurantLandingPage.offer_images" :key="'dot-'+idx">
-                            <div class="w-1.5 h-1.5 rounded-full transition-all duration-300" :class="currentOfferIdx === idx ? 'bg-primary w-4' : 'bg-white/40'"></div>
-                        </template>
-                    </div>
-                </div>
                 </template>
             </div>
             

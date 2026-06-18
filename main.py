@@ -7463,7 +7463,8 @@ async def update_landingpage(
             custom_sections.append({
                 "title": sec_title,
                 "content": sec_content,
-                "image": ""
+                "image": sec.get("image", ""),
+                "_has_new_image": sec.get("_has_new_image", False)
             })
     
     # Also check custom_sections_json for backward compatibility (image-bearing custom sections)
