@@ -1915,6 +1915,37 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
               </div>
               <small class="revenue-hint">Positiver Wert = hinzufügen, negativer Wert = abziehen</small>
             </form>
+            <div class="cleanup-row">
+              <div class="cleanup-label">
+                <span class="material-symbols-outlined" style="font-size:13px;color:#ef4444;">cleaning_services</span>
+                <span>Bestellungen aufräumen:</span>
+              </div>
+              <div class="cleanup-buttons">
+                <button type="button" class="tenant-btn btn-cleanup btn-cleanup-cancelled" onclick="confirmCleanup('{t.slug}', 'cancelled')" title="Nur stornierte Bestellungen löschen">
+                  <span class="material-symbols-outlined" style="font-size:14px;">remove_circle</span>
+                  <span>Stornierte</span>
+                </button>
+                <button type="button" class="tenant-btn btn-cleanup btn-cleanup-date" onclick="toggleDateCleanup('cleanup-date-{t.slug}')" title="Bestellungen vor Datum löschen">
+                  <span class="material-symbols-outlined" style="font-size:14px;">event_busy</span>
+                  <span>Vor Datum</span>
+                </button>
+                <button type="button" class="tenant-btn btn-cleanup btn-cleanup-all" onclick="confirmCleanup('{t.slug}', 'all')" title="ALLE Bestellungen löschen (kompletter Reset)">
+                  <span class="material-symbols-outlined" style="font-size:14px;">delete_forever</span>
+                  <span>Alle</span>
+                </button>
+              </div>
+            </div>
+            <form id="cleanup-date-{t.slug}" method="POST" action="/digi-gastro-admin/tenant-cleanup-orders/{t.slug}" class="revenue-form cleanup-date-form" style="display:none;">
+              <input type="hidden" name="mode" value="before_date" />
+              <div class="revenue-form-row">
+                <input type="date" name="cutoff_date" required class="revenue-input" />
+                <button type="submit" class="tenant-btn btn-cleanup-save" title="Bestellungen vor diesem Datum löschen">
+                  <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                  <span>Löschen</span>
+                </button>
+              </div>
+              <small class="revenue-hint">Löscht alle Bestellungen VOR dem gewählten Datum (exklusiv)</small>
+            </form>
           </div>
           <div class="tenant-card-actions">
             <form method="POST" action="/digi-gastro-admin/tenant-reset-password/{t.slug}" class="inline">
@@ -2413,6 +2444,76 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
       color: #71717a;
       font-style: italic;
     }}
+    /* ── Cleanup-Buttons (Bestellungen löschen) ── */
+    .cleanup-row {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      margin-top: 0.5rem;
+      border-top: 1px dashed #2c2c2e;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }}
+    .cleanup-label {{
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }}
+    .cleanup-buttons {{
+      display: flex;
+      gap: 0.375rem;
+      flex-wrap: wrap;
+    }}
+    .btn-cleanup {{
+      font-size: 0.6rem;
+      padding: 0.35rem 0.55rem;
+    }}
+    .btn-cleanup-cancelled {{
+      background: rgba(245, 158, 11, 0.1);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }}
+    .btn-cleanup-cancelled:hover {{
+      background: rgba(245, 158, 11, 0.2);
+      border-color: #fbbf24;
+    }}
+    .btn-cleanup-date {{
+      background: rgba(59, 130, 246, 0.1);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }}
+    .btn-cleanup-date:hover {{
+      background: rgba(59, 130, 246, 0.2);
+      border-color: #60a5fa;
+    }}
+    .btn-cleanup-all {{
+      background: rgba(239, 68, 68, 0.1);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }}
+    .btn-cleanup-all:hover {{
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #f87171;
+    }}
+    .btn-cleanup-save {{
+      background: #ef4444;
+      color: #fff;
+      border: 1px solid #ef4444;
+      font-weight: 800;
+    }}
+    .btn-cleanup-save:hover {{
+      background: #dc2626;
+      border-color: #dc2626;
+    }}
+    .cleanup-date-form {{
+      margin-top: 0.375rem;
+    }}
     /* ── Audit-Log Sektion ── */
     .audit-log-section {{
       margin-top: 2rem;
@@ -2711,6 +2812,45 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         // Fokus aufs Input für schnelle Eingabe
         const input = form.querySelector('input[name="adjustment"]');
         if (input) setTimeout(() => input.focus(), 50);
+      }}
+    }}
+
+    // ── Cleanup: Date-Form auf/zu klappen ──
+    function toggleDateCleanup(formId) {{
+      const form = document.getElementById(formId);
+      if (!form) return;
+      form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none';
+      if (form.style.display === 'block') {{
+        const input = form.querySelector('input[type="date"]');
+        if (input) {{
+          // Default: heute vor 7 Tagen
+          const d = new Date();
+          d.setDate(d.getDate() - 7);
+          input.value = d.toISOString().split('T')[0];
+          setTimeout(() => input.focus(), 50);
+        }}
+      }}
+    }}
+
+    // ── Cleanup: Bestätigungs-Dialog für Hard Delete ──
+    function confirmCleanup(slug, mode) {{
+      const messages = {{
+        'all': 'ACHTUNG: Wirklich ALLE Bestellungen von "' + slug + '" unwiderruflich löschen?\\n\\nDas betrifft auch bereits bezahlte Bestellungen!\\nEin Backup wird automatisch erstellt.',
+        'cancelled': 'Stornierte Bestellungen von "' + slug + '" löschen?\\n\\nEin Backup wird automatisch erstellt.',
+      }};
+      const msg = messages[mode] || 'Bestellungen löschen?';
+      if (confirm(msg)) {{
+        // Dynamisches Formular erstellen und absenden
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/digi-gastro-admin/tenant-cleanup-orders/' + slug;
+        const modeInput = document.createElement('input');
+        modeInput.type = 'hidden';
+        modeInput.name = 'mode';
+        modeInput.value = mode;
+        form.appendChild(modeInput);
+        document.body.appendChild(form);
+        form.submit();
       }}
     }}
 
@@ -3076,6 +3216,163 @@ def post_tenant_adjust_revenue(
 
     return RedirectResponse(
         url=f"/digi-gastro-admin?success=Umsatz+fuer+{slug_lower}+angepasst:+{adjustment:+.2f}+EUR",
+        status_code=303
+    )
+
+
+# ════════════════════════════════════════════════════════════════════
+# SUPER-ADMIN GOTTMODUS: Test-Bestellungen hart löschen (Hard Delete)
+# ════════════════════════════════════════════════════════════════════
+# 3 Modi:
+#   1. all        = Alle Bestellungen des Tenants löschen (kompletter Reset)
+#   2. before_date = Alle Bestellungen vor einem bestimmten Datum löschen
+#   3. cancelled  = Nur stornierte Bestellungen löschen (Cleanup)
+#
+# Vor jeder Löschung wird ein JSON-Backup in /app/data/backups/ abgelegt.
+# Jede Löschung wird ins revenue_adjustments Audit-Log eingetragen.
+# Nur admin@digi-gastro.de darf das.
+# ════════════════════════════════════════════════════════════════════
+@app.post("/digi-gastro-admin/tenant-cleanup-orders/{slug_key}")
+def post_tenant_cleanup_orders(
+    request: Request,
+    slug_key: str,
+    mode: str = Form(...),
+    cutoff_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    # Auth-Check: nur Super-Admin
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        return RedirectResponse(url="/digi-gastro-admin?error=Tenant+nicht+gefunden", status_code=303)
+
+    # Mode validieren
+    if mode not in ("all", "before_date", "cancelled"):
+        return RedirectResponse(url="/digi-gastro-admin?error=Ungueltiger+Modus", status_code=303)
+
+    # cutoff_date parsen (falls mode=before_date)
+    cutoff_dt = None
+    if mode == "before_date":
+        if not cutoff_date:
+            return RedirectResponse(url="/digi-gastro-admin?error=Datum+erforderlich", status_code=303)
+        try:
+            cutoff_dt = datetime.strptime(cutoff_date, "%Y-%m-%d")
+        except Exception:
+            return RedirectResponse(url="/digi-gastro-admin?error=Ungueltiges+Datum", status_code=303)
+
+    # Restaurant laden um Bestellungen zu kriegen
+    restaurant = load_restaurant_from_db(slug_lower, db)
+    if not restaurant:
+        return RedirectResponse(url="/digi-gastro-admin?error=Restaurant+nicht+gefunden", status_code=303)
+
+    all_orders = restaurant.get("orders", [])
+
+    # Bestellungen zum Löschen identifizieren
+    orders_to_delete = []
+    orders_to_keep = []
+    for o in all_orders:
+        delete_this = False
+        if mode == "all":
+            delete_this = True
+        elif mode == "cancelled":
+            if (o.get("status") or "").lower() == "storniert":
+                delete_this = True
+        elif mode == "before_date":
+            ts = o.get("timestamp", "")
+            try:
+                order_dt = datetime.strptime(ts.replace(" ", "T"), "%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                try:
+                    order_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    order_dt = None
+            if order_dt and order_dt < cutoff_dt:
+                delete_this = True
+
+        if delete_this:
+            orders_to_delete.append(o)
+        else:
+            orders_to_keep.append(o)
+
+    if not orders_to_delete:
+        return RedirectResponse(
+            url=f"/digi-gastro-admin?success=Keine+Bestellungen+zum+Loeschen+gefunden+({slug_lower})",
+            status_code=303
+        )
+
+    # ── Backup in JSON-Datei schreiben ──
+    import json as _json
+    import os as _os
+    backup_dir = _os.environ.get("BACKUP_DIR", "/app/data/backups")
+    if not _os.path.isabs(backup_dir):
+        backup_dir = _os.path.join(UPLOAD_DIR, "..", "backups")
+    _os.makedirs(backup_dir, exist_ok=True)
+
+    from datetime import datetime as _dt
+    timestamp_str = _dt.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"{slug_lower}_orders_backup_{timestamp_str}_mode-{mode}.json"
+    backup_path = _os.path.join(backup_dir, backup_filename)
+
+    backup_data = {
+        "tenant_slug": slug_lower,
+        "mode": mode,
+        "cutoff_date": cutoff_date,
+        "deleted_at": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "deleted_by": "admin@digi-gastro.de",
+        "orders_count": len(orders_to_delete),
+        "orders": orders_to_delete,
+    }
+    try:
+        with open(backup_path, "w", encoding="utf-8") as f:
+            _json.dump(backup_data, f, ensure_ascii=False, indent=2, default=str)
+    except Exception as e:
+        print(f"[Cleanup] Backup fehlgeschlagen: {e}")
+        # Trotzdem weitermachen — Löschung ist wichtiger als Backup
+
+    # ── Hard Delete aus DB: OrderItem + Order Einträge ──
+    deleted_order_ids = [o.get("id") for o in orders_to_delete if o.get("id")]
+    if deleted_order_ids:
+        # OrderItems der zu löschenden Bestellungen löschen
+        db.query(DBOrderItem).filter(DBOrderItem.order_id.in_(deleted_order_ids)).delete(synchronize_session=False)
+        # Order-Einträge löschen
+        db.query(Order).filter(Order.id.in_(deleted_order_ids)).delete(synchronize_session=False)
+
+    # ── Tagesumsatz neu berechnen (Summe der verbleibenden bezahlten Bestellungen) ──
+    new_tagesumsatz = sum(
+        float(o.get("total", 0.0) or 0.0)
+        for o in orders_to_keep
+        if (o.get("status") or "").lower() == "bezahlt"
+    )
+    old_tagesumsatz = float(tenant.tagesumsatz or 0.0)
+    tenant.tagesumsatz = new_tagesumsatz
+    tenant.bestellungen_gesamt = len([o for o in orders_to_keep if (o.get("status") or "").lower() == "bezahlt"])
+
+    # ── Audit-Log Eintrag ──
+    log_entry = RevenueAdjustment(
+        tenant_slug=slug_lower,
+        adjustment=-(old_tagesumsatz - new_tagesumsatz),  # negative Anpassung = Differenz
+        old_value=old_tagesumsatz,
+        new_value=new_tagesumsatz,
+        adjusted_by="admin@digi-gastro.de (cleanup)",
+        adjusted_at=_dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    db.add(log_entry)
+    db.commit()
+
+    mode_labels = {
+        "all": "alle Bestellungen",
+        "before_date": f"Bestellungen vor {cutoff_date}",
+        "cancelled": "stornierte Bestellungen",
+    }
+    success_msg = f"{len(orders_to_delete)} {mode_labels.get(mode, 'Bestellungen')} von <b>{slug_lower}</b> gelöscht. Backup: {backup_filename}"
+
+    import urllib.parse
+    return RedirectResponse(
+        url=f"/digi-gastro-admin?success={urllib.parse.quote(success_msg)}",
         status_code=303
     )
 
