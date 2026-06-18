@@ -367,6 +367,66 @@ async def favicon():
 async def apple_touch_icon():
     return FileResponse("static/images/digigastrologo.jpeg")
 
+# ════════════════════════════════════════════════════════════════════
+# SEO: robots.txt + sitemap.xml
+# ════════════════════════════════════════════════════════════════════
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    """robots.txt – erlaubt Google alle öffentlichen Seiten, sperrt
+    Admin/API/Uploads. Verweist auf sitemap.xml."""
+    content = """User-agent: *
+Allow: /
+Allow: /static/
+Disallow: /admin
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /digi-gastro-admin
+Disallow: /*/admin
+Disallow: /*/tablet
+Disallow: /*/kitchen
+Disallow: /*/bestellen
+Disallow: /*/stornieren
+Disallow: /*/cancel-item
+
+# Sitemap
+Sitemap: https://digi-gastro.de/sitemap.xml
+"""
+    return Response(content=content, media_type="text/plain", headers={
+        "Cache-Control": "public, max-age=86400"
+    })
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    """sitemap.xml – listet alle öffentlichen Seiten die Google
+    indexieren soll. Aktuell: Landingpage + statische Sektionen."""
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    base = "https://digi-gastro.de"
+
+    urls = [
+        # Hauptseite
+        {"loc": f"{base}/", "priority": "1.0", "changefreq": "weekly", "lastmod": today},
+        # Sektionen der Landingpage (Anker)
+        {"loc": f"{base}/#features", "priority": "0.8", "changefreq": "monthly", "lastmod": today},
+        {"loc": f"{base}/#demo", "priority": "0.8", "changefreq": "monthly", "lastmod": today},
+        {"loc": f"{base}/#faq", "priority": "0.7", "changefreq": "monthly", "lastmod": today},
+    ]
+
+    xml_parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        xml_parts.append("  <url>")
+        xml_parts.append(f"    <loc>{u['loc']}</loc>")
+        xml_parts.append(f"    <lastmod>{u['lastmod']}</lastmod>")
+        xml_parts.append(f"    <changefreq>{u['changefreq']}</changefreq>")
+        xml_parts.append(f"    <priority>{u['priority']}</priority>")
+        xml_parts.append("  </url>")
+    xml_parts.append('</urlset>')
+
+    return Response(content="\n".join(xml_parts), media_type="application/xml", headers={
+        "Cache-Control": "public, max-age=3600"
+    })
+
 @app.get("/manifest.json", include_in_schema=False)
 async def manifest():
     return FileResponse(
