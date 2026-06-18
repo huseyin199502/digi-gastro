@@ -7348,8 +7348,9 @@
                     renderServiceCallsAlerts();
                 }
                 
-                // Update live notification bar (always visible across tabs)
-                renderLiveNotificationBar(orders, serviceCalls);
+                // Live notification bar für Bestellungen entfernt (per User-Vorgabe)
+                // Service-Rufe werden weiterhin angezeigt
+                renderServiceCallsAlerts();
                 
                 // Update orders table if finanzen tab is active
                 if (activeTab === 'finanzen') {
@@ -7387,142 +7388,11 @@
         let _notifDismissedCalls = new Set();  // call IDs manually dismissed
 
         function renderLiveNotificationBar(orders, serviceCalls) {
+            // DEAKTIVIERT per User-Vorgabe — Bestell-Popups wurden entfernt.
+            // Tisch-Kacheln zeigen weiterhin Status (farbig). Sound bleibt.
+            // Service-Rufe werden über renderServiceCallsAlerts() angezeigt.
             const bar = document.getElementById('live-notification-bar');
-            if (!bar) return;
-
-            // Clean up dismissed sets: remove IDs that no longer exist in active data
-            const activeOrderIds = new Set((orders || []).map(o => o.id));
-            const activeCallIds = new Set((serviceCalls || []).map(c => c.id));
-            for (const id of _notifDismissedOrders) {
-                if (!activeOrderIds.has(id)) _notifDismissedOrders.delete(id);
-            }
-            for (const id of _notifDismissedCalls) {
-                if (!activeCallIds.has(id)) _notifDismissedCalls.delete(id);
-            }
-
-            let html = '';
-
-            // 1. Active orders with unserved (pending/confirmed) items
-            const activeOrders = (orders || []).filter(o => 
-                o.status !== 'bezahlt' && 
-                o.status !== 'storniert' && 
-                !_notifDismissedOrders.has(o.id) &&
-                o.items && o.items.some(i => (i.item_status || 'pending') !== 'delivered')
-            );
-
-            activeOrders.forEach(order => {
-                const unservedItems = (order.items || []).filter(i => (i.item_status || 'pending') !== 'delivered');
-                const totalItems = unservedItems.length;
-                if (totalItems === 0) return;
-
-                const displayTable = /^Tisch\s/i.test(String(order.table)) ? order.table : `Tisch ${order.table}`;
-                const isNew = seenOrderIds.has(order.id) ? '' : '<span class="notif-badge badge-new">NEU</span>';
-
-                // Items nach Hauptgruppe (SuperGroup) gruppieren — gleiche Logik wie im Cockpit-Popup.
-                // So sieht der Kellner auf einen Blick: welche Getränke, welche Speisen, etc. offen sind.
-                const groups = groupItemsBySuperGroup(unservedItems);
-                let itemsHtml = groups.map(group => {
-                    const textColor = getContrastTextColor(group.color);
-                    const iconHtml = group.icon ? `<span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;margin-right:2px;">${escapeHtml(group.icon)}</span>` : '';
-                    const headerHtml = `<div class="notif-group-header" style="background:${escapeHtml(group.color)};color:${textColor};">
-                        ${iconHtml}${escapeHtml(group.name)}
-                        <span class="notif-group-count">${group.items.length}</span>
-                    </div>`;
-                    const groupItemsHtml = group.items.map(item => {
-                        const status = item.item_status || 'pending';
-                        const isServed = status === 'delivered';
-                        const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                        const key = `${item.product_id}_${noteSlug}_${status}`;
-                        
-                        return `<span class="notif-item ${isServed ? 'item-served' : ''}" data-order-id="${order.id}" data-item-key="${key}">
-                            <span class="item-qty">${item.quantity}×</span>
-                            <span class="item-name" title="${escHtml(item.name)}${item.note ? ' ('+escHtml(item.note)+')' : ''}">${escHtml(item.name)}</span>
-                            ${!isServed ? `<button class="btn-serve-item" onclick="notifServeItem(${order.id}, '${key}', this)" title="Als serviert markieren">✓</button>` : ''}
-                        </span>`;
-                    }).join('');
-                    return `<div class="notif-group">${headerHtml}<div class="notif-items">${groupItemsHtml}</div></div>`;
-                }).join('');
-
-                html += `
-                    <div class="notif-card notif-order" data-notif-order="${order.id}">
-                        <div class="notif-accent"></div>
-                        <div class="notif-body">
-                            <div class="notif-header">
-                                <div class="notif-title">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
-                                    ${displayTable}
-                                    <span class="notif-badge badge-items">${totalItems} offene Artikel</span>
-                                    ${isNew}
-                                </div>
-                            </div>
-                            <div class="notif-groups">
-                                ${itemsHtml}
-                            </div>
-                        </div>
-                        <div class="notif-actions">
-                            <button class="notif-btn notif-btn-serve-all" onclick="notifServeAll(${order.id}, this)" title="Alle als serviert markieren">
-                                <span class="material-symbols-outlined" style="font-size:13px;">done_all</span> Serviert
-                            </button>
-                            <button class="notif-btn notif-btn-details" onclick="openCockpitForOrder(${order.id})" title="Tisch-Cockpit öffnen">
-                                <span class="material-symbols-outlined" style="font-size:13px;">point_of_sale</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            // 2. Active service calls
-            const activeCalls = (serviceCalls || []).filter(c => !_notifDismissedCalls.has(c.id));
-
-            activeCalls.forEach(c => {
-                const cType = String(c.type).toLowerCase();
-                let cIcon = '🔔';
-                let cText = c.type.toUpperCase() + ' RUF';
-                
-                if (cType.includes('kohle')) {
-                    cIcon = '💨';
-                    cText = 'KOHLE RUF';
-                } else if (cType.includes('bar')) {
-                    cIcon = '💵';
-                    cText = 'BAR RUF';
-                } else if (cType.includes('karte')) {
-                    cIcon = '💳';
-                    cText = 'KARTE RUF';
-                } else if (cType.includes('rechnung') || cType.includes('zahlen') || cType.includes('kasse') || cType.includes('bill') || cType.includes('pay')) {
-                    cIcon = '💵';
-                    cText = 'RECHNUNG RUF';
-                }
-
-                const displayTableName = /^Tisch\s/i.test(String(c.table)) ? String(c.table) : `Tisch ${c.table}`;
-                const isNewCall = !seenCallIds.has(c.id) ? '<span class="notif-badge badge-new">NEU</span>' : '';
-
-                html += `
-                    <div class="notif-card notif-service" data-notif-call="${c.id}">
-                        <div class="notif-accent"></div>
-                        <div class="notif-body">
-                            <div class="notif-header">
-                                <div class="notif-title">
-                                    <span>${cIcon}</span>
-                                    ${displayTableName}: <strong>${cText}</strong>
-                                    ${isNewCall}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="notif-actions">
-                            <button class="notif-btn notif-btn-done" onclick="notifResolveCall(${c.id})" title="Als erledigt markieren">
-                                <span class="material-symbols-outlined" style="font-size:13px;">check</span> Erledigt
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            bar.innerHTML = html;
-            if (html) {
-                bar.classList.add('has-items');
-            } else {
-                bar.classList.remove('has-items');
-            }
+            if (bar) { bar.innerHTML = ''; bar.classList.remove('has-items'); }
         }
 
         async function notifServeItem(orderId, itemKey, btnEl) {
@@ -7541,7 +7411,7 @@
                     && (i.item_status || 'pending') === status);
                 if (item) item.item_status = 'delivered';
             }
-            renderLiveNotificationBar(allOrders, allCalls);
+            // renderLiveNotificationBar entfernt — Bestell-Popups werden nicht mehr angezeigt
             if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
@@ -7571,7 +7441,7 @@
             if (order && order.items) {
                 order.items.forEach(i => { i.item_status = 'delivered'; });
             }
-            renderLiveNotificationBar(allOrders, allCalls);
+            // renderLiveNotificationBar entfernt — Bestell-Popups werden nicht mehr angezeigt
             if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
             try {
                 const res = await fetch('/admin/orders/serve', {
@@ -7596,7 +7466,8 @@
             try {
                 await fetch(`/${slug}/service-erledigt/${callId}`, { method: 'POST' });
                 _notifDismissedCalls.add(callId);
-                renderLiveNotificationBar(allOrders, allCalls);
+                // renderLiveNotificationBar entfernt — Service-Rufe werden über renderServiceCallsAlerts angezeigt
+                renderServiceCallsAlerts();
                 await checkLiveTischeUpdates();
             } catch (e) {
                 showToast('Fehler beim Erledigen des Rufs', 'error');
