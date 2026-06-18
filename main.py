@@ -361,6 +361,11 @@ def health_check_early():
 async def favicon():
     return FileResponse("static/images/digigastrologo.jpeg")
 
+@app.get("/google25bbbffb97f06aaa.html", include_in_schema=False)
+async def google_verification():
+    """Google Search Console Verifizierungsdatei."""
+    return FileResponse("static/google25bbbffb97f06aaa.html", media_type="text/html")
+
 @app.get("/apple-touch-icon.png", include_in_schema=False)
 @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
 @app.get("/apple-touch-icon-120x120.png", include_in_schema=False)
