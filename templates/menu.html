@@ -488,7 +488,7 @@
             <template x-if="restaurantLandingPage.custom_sections && restaurantLandingPage.custom_sections.length > 0">
                 <div class="space-y-6 mt-6 relative z-10">
                     <template x-for="(section, idx) in restaurantLandingPage.custom_sections" :key="idx">
-                        <div class="rounded-3xl p-6 space-y-4 bg-[var(--bg-obsidian)]/80 backdrop-blur-sm" x-show="section.content || section.image">
+                        <div class="rounded-3xl p-6 space-y-4 bg-[var(--bg-obsidian)]/80 backdrop-blur-sm" x-show="section.title || section.content || section.image">
                             <h3 x-show="section.title" class="text-lg font-bold drop-shadow-md font-display" style="color:#ffffff !important;" x-text="section.title"></h3>
                             <template x-if="section.image && (section.image.endsWith('.mp4') || section.image.endsWith('.webm') || section.image.endsWith('.mov'))">
                                 <video :src="section.image" autoplay loop muted playsinline class="w-full h-auto rounded-2xl" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture></video>

@@ -4037,6 +4037,7 @@
                                     <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
                                         <div class="flex items-center justify-between">
                                             <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-zinc-400 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
                                                 <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
                                                 <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
                                             </div>
@@ -10236,6 +10237,18 @@
         // NOTE: allEvents and allProducts are already initialized from server-side Jinja2 data above
         document.addEventListener('DOMContentLoaded', function() {
             renderEventsList();
+
+            // SortableJS für Landingpage Custom Sections (Drag & Drop Sortierung)
+            const lpContainer = document.getElementById('landing-sections-container');
+            if (lpContainer && typeof Sortable !== 'undefined') {
+                Sortable.create(lpContainer, {
+                    handle: '.lp-drag-handle',
+                    animation: 200,
+                    ghostClass: 'opacity-30',
+                    filter: 'input, textarea, button, .form-field',
+                    preventOnFilter: false,
+                });
+            }
         });
 
         // closeEditProductModal is defined above (delegates to closeEditSlideOver)
@@ -10344,6 +10357,7 @@
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-zinc-400 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
                         <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
                         <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
                     </div>
@@ -10351,7 +10365,7 @@
                         <span class="material-symbols-outlined text-sm">delete</span>
                     </button>
                 </div>
-                <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">${content || ''}</textarea>
+                <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion (optional)..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">${content || ''}</textarea>
                 <div class="space-y-1.5">
                     <label class="form-label">Foto/Video für diese Sektion (optional)</label>
                     <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
@@ -10373,13 +10387,13 @@
 
         function prepareLandingFormSubmit() {
             // Collect all dynamic sections into landing_sections_json
+            // Reihenfolge = DOM-Reihenfolge (nach Drag&Drop Sortierung)
             const sections = [];
             const sectionItems = document.querySelectorAll('.landing-section-item');
             sectionItems.forEach(item => {
                 const type = item.getAttribute('data-section-type');
                 const titleInput = item.querySelector('input[type="text"]');
                 const contentTextarea = item.querySelector('textarea');
-                // Für custom sections: Bild-Upload und bestehendes Bild erfassen
                 const fileInput = item.querySelector('input[type="file"]');
                 const existingImageInput = item.querySelector('input[name*="section_image_existing"]');
                 const hasNewImage = fileInput && fileInput.files && fileInput.files.length > 0;
@@ -10391,7 +10405,6 @@
                         title: titleInput ? titleInput.value.trim() : '',
                         content: contentTextarea ? contentTextarea.value.trim() : ''
                     };
-                    // Custom section: Bild-Info hinzufügen
                     if (type === 'custom') {
                         sectionData.image = existingImage || '';
                         sectionData._has_new_image = hasNewImage;
