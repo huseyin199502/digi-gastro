@@ -5129,13 +5129,74 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
     if not order:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
     if order["status"] in ["bezahlt", "storniert"]:
-        raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+        # ── Idempotenz für bereits abgeschlossene Orders ──
+        # Wenn ein Kellner denselben Cancel-Request zweimal abschickt (Race
+        # Condition, Doppelklick, oder Frontend-Retry), soll der zweite
+        # Request nicht als Fehler angezeigt werden — sonst denkt der Kellner
+        # "Storno fehlgeschlagen" und bestellt neu → DOPPELTE BUCHUNG.
+        # Siehe "Wasser doppelt gebucht"-Bug.
+        try:
+            log_entry_done = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "employee_name": employee["name"],
+                "employee_role": employee["role"],
+                "action": f"Storno-Versuch (bereits erledigt) für Bestellung #{order_id}",
+                "details": f"Tisch: {order['table']}, Status: {order['status']}. Bestellung ist bereits abgeschlossen — vermutlich vorheriger Storno erfolgreich."
+            }
+            if "audit_log" not in restaurant:
+                restaurant["audit_log"] = []
+            restaurant["audit_log"].append(log_entry_done)
+            save_restaurant_to_db(slug, restaurant, db)
+            db.commit()
+        except Exception:
+            db.rollback()
+        return {"success": True, "already_cancelled": True, "detail": f"Bestellung ist bereits {order['status']}"}
 
     # Find item by status-sensitive composite key
     matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=order_id)
 
     if not matched_item:
-        raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+        # ── Idempotenz-Schutz ──
+        # Wenn der Artikel nicht mehr gefunden wird, kann das zwei Gründe haben:
+        #   (a) Er wurde bereits storniert (z.B. durch einen vorherigen Request
+        #       derselben User-Aktion, der der Frontend-Optimistic-UI zuvorkam).
+        #   (b) Der item_key ist tatsächlich falsch.
+        # In beiden Fällen geben wir 200 OK mit einem Hinweis zurück statt 404,
+        # damit das Frontend nicht "Fehler" anzeigt und der Kellner in Panik
+        # eine Zweitbestellung auslöst. Siehe "Wasser doppelt gebucht"-Bug.
+        item_pid = None
+        try:
+            # Versuche product_id aus dem Key zu extrahieren für den Audit-Log
+            from collections import UserList, UserDict
+            key_str = payload.item_key or ""
+            # Format: "{order_id}_{product_id}_{note}_{status}_{idx}" oder "{product_id}_{note}_{status}_{idx}"
+            prefix = f"{order_id}_"
+            if key_str.startswith(prefix):
+                key_str = key_str[len(prefix):]
+            parts = key_str.split("_")
+            if parts and parts[0].isdigit():
+                item_pid = int(parts[0])
+        except Exception:
+            pass
+        
+        # Audit-Log schreiben, damit der Vorgang nachvollziehbar bleibt
+        try:
+            log_entry_idem = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "employee_name": employee["name"],
+                "employee_role": employee["role"],
+                "action": f"Storno-Versuch (bereits erledigt) für Artikel in Bestellung #{order_id}",
+                "details": f"Tisch: {order['table']}, item_key: {payload.item_key}, product_id: {item_pid}. Artikel wurde nicht gefunden — vermutlich bereits storniert."
+            }
+            if "audit_log" not in restaurant:
+                restaurant["audit_log"] = []
+            restaurant["audit_log"].append(log_entry_idem)
+            save_restaurant_to_db(slug, restaurant, db)
+            db.commit()
+        except Exception:
+            db.rollback()
+        
+        return {"success": True, "already_cancelled": True, "detail": "Artikel wurde bereits storniert"}
 
     qty_to_cancel = min(payload.quantity, matched_item["quantity"])
     cancelled_amount = round(qty_to_cancel * matched_item["price"], 2)

@@ -1047,7 +1047,7 @@
                         <p class="text-xs text-emerald-500/60 font-semibold italic text-center py-2">Keine ausstehenden Bestellungen.</p>
                     </template>
                     <template x-for="item in tableOrders.pending" :key="item.key">
-                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs">
+                        <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs" :class="_cancellingItemKey === item.key ? 'opacity-50 pointer-events-none' : ''">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <button @click.stop="serveSingleItem(item)" class="w-10 h-10 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
                                     <span class="material-symbols-outlined text-base">check</span>
@@ -1059,8 +1059,12 @@
                             </div>
                             <div class="flex items-center gap-3">
                                 <span class="font-extrabold text-on-surface font-mono" x-text="(item.price * item.quantity).toFixed(2) + ' €'"></span>
-                                <button @click.stop="cancelItem(item)" class="w-10 h-10 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20">
-                                    <span class="material-symbols-outlined text-base">close</span>
+                                <button @click.stop="cancelItem(item)" :disabled="_cancellingItemKey === item.key" class="w-10 h-10 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-colors border border-rose-500/20 disabled:opacity-50">
+                                    <span x-show="_cancellingItemKey !== item.key" class="material-symbols-outlined text-base">close</span>
+                                    <svg x-show="_cancellingItemKey === item.key" class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
                                 </button>
                             </div>
                         </div>
@@ -1409,6 +1413,13 @@
                 // schnelles Mehrfachklicken ("200-Artikel-Bug") mehrere Requests
                 // gleichzeitig abschickt. Siehe submitOrder() weiter unten.
                 isSubmitting: false,
+                // ── Storno-UI-State ──
+                // _cancelInProgress: verhindert Mehrfach-Klicks auf Storno-Button
+                // _cancellingItemKey: Item.key, das gerade storniert wird → Spinner + disabled
+                // _recentCancellations: letzte 60s Stornos → Anti-Duplikat-Warnung bei Neu-Bestellung
+                _cancelInProgress: false,
+                _cancellingItemKey: null,
+                _recentCancellations: [],
                 currentLang: 'de',
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
@@ -2320,6 +2331,32 @@
                         showToast("Warenkorb ist leer.", "error");
                         return;
                     }
+
+                    // ── ANTI-DUPLIKAT-SCHUTZ ──
+                    // Szenario: Kellner storniert ein Produkt → sieht es wegen UI-Bug
+                    // noch im Cockpit → denkt "Storno fehlgeschlagen" → bestellt neu.
+                    // Resultat: DOPPELTE BESTELLUNG (Kunde hat einmal bestellt, System
+                    // verbucht zweimal). Falls ein Produkt im Warenkorb ist, das in
+                    // den letzten 60 Sekunden storniert wurde → Warnung mit Bestätigung.
+                    if (this._recentCancellations && this._recentCancellations.length > 0) {
+                        const recentProductIds = this._recentCancellations.map(r => r.product_id);
+                        const duplicateItems = this.cart.filter(c => recentProductIds.includes(c.id));
+                        if (duplicateItems.length > 0) {
+                            const names = [...new Set(duplicateItems.map(d => d.name_de || d.name))].join(', ');
+                            const confirmed = confirm(
+                                `⚠️ Hinweis: Sie haben gerade folgende Artikel storniert:\n\n${names}\n\n` +
+                                `Möchten Sie diese wirklich neu bestellen? ` +
+                                `(Bestätigen Sie nur, wenn der Kunde tatsächlich nochmal bestellen möchte.)`
+                            );
+                            if (!confirmed) return;
+                            // Nach Bestätigung: diese Stornos aus dem Cache löschen,
+                            // damit nicht bei jedem weiteren Bestellen erneut gewarnt wird.
+                            this._recentCancellations = this._recentCancellations.filter(
+                                r => !duplicateItems.some(d => d.id === r.product_id)
+                            );
+                        }
+                    }
+
                     this.isSubmitting = true;
 
                     const rawTable = getTableFromUrl() || "{{ table }}";
@@ -2602,28 +2639,56 @@
                 },
 
                 async cancelItem(item) {
-                    // Race Condition Schutz: nicht mehrfach ausführen
+                    // ── Race Condition Schutz: nicht mehrfach ausführen ──
                     if (this._cancelInProgress) return;
                     this._cancelInProgress = true;
+                    // Visuelles Feedback: Cancel-Button sofort als "in Arbeit" markieren
+                    // (damit der Kellner sieht, dass der Klick registriert wurde)
+                    this._cancellingItemKey = item.key;
 
                     let qty = item.quantity;
                     if (qty > 1) {
                         const qtyStr = prompt(`Wie viele ${item.name} stornieren? (Max: ${qty})`, qty);
-                        if (qtyStr === null) { this._cancelInProgress = false; return; }
+                        if (qtyStr === null) {
+                            this._cancelInProgress = false;
+                            this._cancellingItemKey = null;
+                            return;
+                        }
                         qty = parseInt(qtyStr, 10);
                         if (isNaN(qty) || qty < 1 || qty > item.quantity) {
                             showToast("Ungültige Menge", "error");
                             this._cancelInProgress = false;
+                            this._cancellingItemKey = null;
                             return;
                         }
                     }
 
                     let pin = prompt("Bitte Chef-PIN eingeben:");
-                    if (pin === null) { this._cancelInProgress = false; return; }
+                    if (pin === null) {
+                        this._cancelInProgress = false;
+                        this._cancellingItemKey = null;
+                        return;
+                    }
                     if (!pin.trim()) {
                         showToast("PIN erforderlich", "error");
                         this._cancelInProgress = false;
+                        this._cancellingItemKey = null;
                         return;
+                    }
+
+                    // ── OPTIMISTIC UI: Item SOFORT aus pending-Array entfernen ──
+                    // Vorher wurde nur item.item_status='cancelled' gesetzt, aber das
+                    // Template rendert alle Items in pending — das Item blieb sichtbar,
+                    // bis fetchAdminDrawerState() (200-500ms später) die Liste ersetzt.
+                    // In diesem Zeitfenster hat der Kellner oft "Storno fehlgeschlagen"
+                    // gedacht und neu bestellt → DOPPELTE BESTELLUNG.
+                    // Jetzt: Item sofort aus Array löschen, Kellner sieht sofort klaren Erfolg.
+                    const optimisticKey = item.key;
+                    if (item.quantity === qty) {
+                        const idx = this.tableOrders.pending.findIndex(i => i.key === optimisticKey);
+                        if (idx > -1) this.tableOrders.pending.splice(idx, 1);
+                    } else {
+                        item.quantity -= qty;
                     }
 
                     try {
@@ -2634,29 +2699,62 @@
                         });
 
                         if (res.ok) {
-                            showToast(`✔️ ${qty}x ${item.name} storniert`, "success");
-                            // Optimistic UI: Item sofort ausblenden
-                            if (item.quantity === qty) {
-                                item.item_status = 'cancelled';
+                            // ── Idempotenz-Flag auswerten ──
+                            // Wenn Backend meldet already_cancelled=true, war der
+                            // Artikel bereits storniert (Race Condition oder
+                            // Doppelklick). Wir zeigen trotzdem Erfolg, damit der
+                            // Kellner nicht in Panik eine Zweitbestellung auslöst.
+                            const data = await res.json().catch(() => ({}));
+                            if (data.already_cancelled) {
+                                showToast(`✔️ ${item.name} wurde bereits storniert`, "success");
                             } else {
-                                item.quantity -= qty;
+                                showToast(`✔️ ${qty}x ${item.name} storniert`, "success");
                             }
-                            // Refresh from server to get accurate state
-                            await this.fetchAdminDrawerState();
+                            // Storno merken — falls Kellner dasselbe Produkt sofort
+                            // neu bestellt, bekommen wir eine Warnung (Anti-Duplikat).
+                            if (!this._recentCancellations) this._recentCancellations = [];
+                            this._recentCancellations.push({
+                                product_id: item.product_id,
+                                name: item.name,
+                                timestamp: Date.now()
+                            });
+                            // Ältere als 60s entfernen
+                            this._recentCancellations = this._recentCancellations.filter(
+                                r => Date.now() - r.timestamp < 60000
+                            );
+                            // Refresh im Hintergrund — UI ist bereits aktualisiert
+                            this.fetchAdminDrawerState();
                         } else if (res.status === 404 || res.status === 400) {
                             // Artikel bereits storniert → nicht als Fehler anzeigen
+                            // (sollte dank Backend-Idempotenz kaum noch vorkommen,
+                            //  aber als Safety-Net behalten)
                             showToast(`✔️ ${item.name} wurde bereits storniert`, "success");
-                            // Item aus UI entfernen
-                            item.item_status = 'cancelled';
-                            await this.fetchAdminDrawerState();
+                            // Defensiv: Item sicher aus pending entfernen
+                            const idx2 = this.tableOrders.pending.findIndex(i => i.key === optimisticKey);
+                            if (idx2 > -1) this.tableOrders.pending.splice(idx2, 1);
+                            this.fetchAdminDrawerState();
                         } else {
+                            // Fehler: Item wiederherstellen (rollback optimistic UI)
                             const err = await res.json().catch(() => ({}));
                             showToast(err.detail || "Fehler beim Stornieren", "error");
+                            // Rollback: Item wieder ins pending einfügen
+                            if (item.quantity === qty) {
+                                this.tableOrders.pending.push(item);
+                            } else {
+                                item.quantity += qty;
+                            }
                         }
                     } catch (e) {
                         showToast("Verbindungsfehler beim Stornieren", "error");
+                        // Rollback: Item wiederherstellen
+                        if (item.quantity === qty) {
+                            this.tableOrders.pending.push(item);
+                        } else {
+                            item.quantity += qty;
+                        }
                     } finally {
                         this._cancelInProgress = false;
+                        this._cancellingItemKey = null;
                     }
                 },
 
