@@ -6824,13 +6824,14 @@
                 if (res.ok) {
                     showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
                     await checkLiveTischeUpdates();
-                    // Cockpit sofort aktualisieren damit Item verschwindet
                     if (controlModalActiveTableNum) refreshControlModal();
                 } else if (res.status === 404 || res.status === 400) {
-                    // Artikel bereits storniert → nicht als Fehler
                     showToast(`✅ ${itemName} wurde bereits storniert`, 'success');
+                    // Item sofort aus DOM entfernen — nicht auf Server-Refresh warten
+                    const itemEl = document.querySelector(`[data-item-key="${itemKey}"]`) ||
+                                   document.querySelector(`[onclick*="${itemKey}"]`)?.closest('.control-item, .item-card, tr, div');
+                    if (itemEl) itemEl.remove();
                     await checkLiveTischeUpdates();
-                    // Cockpit aktualisieren — Item ist weg, muss aus UI verschwinden
                     if (controlModalActiveTableNum) refreshControlModal();
                 } else {
                     const err = await res.json().catch(() => ({}));
