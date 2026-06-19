@@ -184,10 +184,12 @@ def _validate_ws_cookies(slug: str, cookies: dict) -> bool:
                 # Verify the tenant slug actually exists to prevent random connections
                 try:
                     db_check = SessionLocal()
-                    tenant_exists = db_check.query(Tenant).filter(Tenant.slug == slug_lower).first() is not None
-                    db_check.close()
-                    if tenant_exists:
-                        return True
+                    try:
+                        tenant_exists = db_check.query(Tenant).filter(Tenant.slug == slug_lower).first() is not None
+                        if tenant_exists:
+                            return True
+                    finally:
+                        db_check.close()
                 except Exception:
                     pass
         except Exception:
@@ -1256,6 +1258,9 @@ class LiveListProxy(UserList):
             curr[self.path[-1]].append(value)
             save_restaurant_to_db(self.slug, full_data, db)
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -1272,6 +1277,9 @@ class LiveListProxy(UserList):
             curr[self.path[-1]].remove(value)
             save_restaurant_to_db(self.slug, full_data, db)
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -1321,6 +1329,9 @@ class LiveDictProxy(UserDict):
             curr[key] = value
             save_restaurant_to_db(self.slug, full_data, db)
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -1338,6 +1349,9 @@ class LiveDictProxy(UserDict):
                 del curr[key]
             save_restaurant_to_db(self.slug, full_data, db)
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -1371,6 +1385,9 @@ class RestaurantsProxy(UserDict):
         try:
             save_restaurant_to_db(slug_lower, value, db)
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
             
@@ -1424,6 +1441,9 @@ class RestaurantsProxy(UserDict):
                 slug_lower = slug.lower().strip()
                 save_restaurant_to_db(slug_lower, r_val, db)
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 

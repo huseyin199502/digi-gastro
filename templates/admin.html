@@ -6797,18 +6797,24 @@
             }
         }
 
+        let _cancelControlInProgress = false;
         async function cancelControlItem(itemKey, orderId, maxQty, itemName) {
+            // Race Condition Schutz
+            if (_cancelControlInProgress) return;
+            _cancelControlInProgress = true;
+
             let qty = maxQty;
             if (maxQty > 1) {
                 const qtyStr = prompt(`Wie viele ${itemName} stornieren? (Max: ${maxQty})`, maxQty);
-                if (qtyStr === null) return;
+                if (qtyStr === null) { _cancelControlInProgress = false; return; }
                 qty = parseInt(qtyStr, 10);
                 if (isNaN(qty) || qty < 1 || qty > maxQty) {
                     showToast('Ungültige Menge', 'error');
+                    _cancelControlInProgress = false;
                     return;
                 }
             }
-            
+
             try {
                 const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
                     method: 'POST',
@@ -6818,12 +6824,18 @@
                 if (res.ok) {
                     showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
                     await checkLiveTischeUpdates();
+                } else if (res.status === 404 || res.status === 400) {
+                    // Artikel bereits storniert → nicht als Fehler
+                    showToast(`✅ ${itemName} wurde bereits storniert`, 'success');
+                    await checkLiveTischeUpdates();
                 } else {
                     const err = await res.json().catch(() => ({}));
                     showToast(err.detail || 'Fehler beim Stornieren', 'error');
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _cancelControlInProgress = false;
             }
         }
 
