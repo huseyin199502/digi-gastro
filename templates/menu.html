@@ -124,6 +124,49 @@
             display: block;
         }
 
+        /* ════════════════════════════════════════════════════════════════
+           MARKDOWN STYLES für Custom Sections
+           ════════════════════════════════════════════════════════════════ */
+        .lp-markdown { line-height: 1.6; }
+        .lp-markdown .lp-md-h3 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #C9A84C !important;
+            margin: 0.75rem 0 0.5rem;
+            font-family: 'Outfit', sans-serif;
+        }
+        .lp-markdown .lp-md-h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #ffffff !important;
+            margin: 0.5rem 0 0.375rem;
+            font-family: 'Outfit', sans-serif;
+        }
+        .lp-markdown strong { font-weight: 800; color: #ffffff; }
+        .lp-markdown em { font-style: italic; }
+        .lp-markdown .lp-md-hr {
+            border: none;
+            border-top: 1px solid rgba(201, 168, 76, 0.3);
+            margin: 0.75rem 0;
+        }
+        .lp-markdown .lp-md-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0.5rem 0;
+        }
+        .lp-markdown .lp-md-list li {
+            padding-left: 1.25rem;
+            position: relative;
+            margin-bottom: 0.25rem;
+        }
+        .lp-markdown .lp-md-list li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: #C9A84C;
+            font-weight: bold;
+        }
+
         /* ════════════════════════════════════════════════════════════════════
            MOBILE ENHANCEMENTS — additive only, no category/product layout changes
            These rules improve mobile UX without touching the existing
@@ -496,7 +539,7 @@
                             <template x-if="section.image && !(section.image.endsWith('.mp4') || section.image.endsWith('.webm') || section.image.endsWith('.mov'))">
                                 <img :src="section.image" class="w-full h-auto rounded-2xl object-contain" :alt="section.title || 'Sektions-Bild'" loading="lazy" decoding="async">
                             </template>
-                            <p class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium" style="color:#e5e7eb !important;" x-show="section.content" x-text="section.content"></p>
+                            <div class="text-sm drop-shadow-md whitespace-pre-line leading-relaxed font-medium lp-markdown" style="color:#e5e7eb !important;" x-show="section.content" x-html="renderMarkdown(section.content)"></div>
                         </div>
                     </template>
                 </div>
@@ -1299,6 +1342,59 @@
             }
             return tableNum;
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // MARKDOWN RENDERER für Custom Sections
+        // Unterstützt: **fett**, *kursiv*, ## Überschrift, ### Unter-Überschrift,
+        // {gold}Text{/gold}, {white}Text{/white}, {red}Text{/red}, {green}Text{/green},
+        // --- (Trennlinie), Listen mit - oder *
+        // ═══════════════════════════════════════════════════════════════
+        window.renderMarkdown = function(text) {
+            if (!text) return '';
+            let html = text;
+
+            // XSS-Schutz: HTML-Tags escapen
+            html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            // Farben: {gold}Text{/gold} etc.
+            html = html.replace(/\{gold\}([\s\S]*?)\{\/gold\}/gi, '<span style="color:#C9A84C;font-weight:700;">$1</span>');
+            html = html.replace(/\{white\}([\s\S]*?)\{\/white\}/gi, '<span style="color:#ffffff;font-weight:700;">$1</span>');
+            html = html.replace(/\{red\}([\s\S]*?)\{\/red\}/gi, '<span style="color:#ef4444;font-weight:700;">$1</span>');
+            html = html.replace(/\{green\}([\s\S]*?)\{\/green\}/gi, '<span style="color:#22c55e;font-weight:700;">$1</span>');
+            html = html.replace(/\{blue\}([\s\S]*?)\{\/blue\}/gi, '<span style="color:#3b82f6;font-weight:700;">$1</span>');
+
+            // Überschriften (vor fett/kursiv, sonst passiert das im Heading)
+            html = html.replace(/^### (.+)$/gm, '<h4 class="lp-md-h4">$1</h4>');
+            html = html.replace(/^## (.+)$/gm, '<h3 class="lp-md-h3">$1</h3>');
+
+            // Trennlinie
+            html = html.replace(/^---$/gm, '<hr class="lp-md-hr">');
+
+            // Fett und kursiv
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+            // Listen (- oder * am Zeilenanfang)
+            html = html.replace(/(?:^|\n)((?:[-*] .+(?:\n|$))+)/g, function(match, listBlock) {
+                const items = listBlock.trim().split('\n').map(line => {
+                    return '<li>' + line.replace(/^[-*] /, '') + '</li>';
+                }).join('');
+                return '\n<ul class="lp-md-list">' + items + '</ul>';
+            });
+
+            // Zeilenumbrüche (aber nicht innerhalb von HTML-Tags)
+            html = html.replace(/\n/g, '<br>\n');
+
+            // Doppelt <br> nach Block-Elementen entfernen
+            html = html.replace(/(<\/h[34]>)<br>\n/g, '$1\n');
+            html = html.replace(/(<\/ul>)<br>\n/g, '$1\n');
+            html = html.replace(/(<hr class="lp-md-hr">)<br>\n/g, '$1\n');
+            html = html.replace(/<br>\n(<h[34])/g, '\n$1');
+            html = html.replace(/<br>\n(<ul)/g, '\n$1');
+            html = html.replace(/<br>\n(<hr)/g, '\n$1');
+
+            return html;
+        };
 
         function menuState() {
             return {

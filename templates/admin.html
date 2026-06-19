@@ -4016,6 +4016,18 @@
                             </div>
                             <div class="section-card-body">
                                 <p class="text-[10px] text-blue-500 mb-3">Hier kannst du beliebig viele Sektionen hinzuf&uuml;gen (z.B. &Uuml;ber uns, &Ouml;ffnungszeiten, Flyer-Bilder). Bilder werden full-width untereinander angezeigt.</p>
+                                <div class="bg-blue-50 dark:bg-zinc-800 rounded-lg p-2 mb-3 text-[9px] text-blue-700 dark:text-blue-300 font-bold leading-relaxed">
+                                    <strong>Markdown-Formatierung m&ouml;glich:</strong><br>
+                                    <code>**fett**</code> = <strong>fett</strong> &nbsp;|&nbsp;
+                                    <code>*kursiv*</code> = <em>kursiv</em><br>
+                                    <code>## &Uuml;berschrift</code> = gro&szlig;e goldene &Uuml;berschrift<br>
+                                    <code>{gold}Text{/gold}</code> = <span style="color:#C9A84C;font-weight:700;">goldener Text</span><br>
+                                    <code>{white}Text{/white}</code> = <span style="color:#000;background:#fff;padding:0 2px;">wei&szlig;er Text</span><br>
+                                    <code>{red}Text{/red}</code> = <span style="color:#ef4444;font-weight:700;">roter Text</span><br>
+                                    <code>{green}Text{/green}</code> = <span style="color:#22c55e;font-weight:700;">gr&uuml;ner Text</span><br>
+                                    <code>---</code> = Trennlinie &nbsp;|&nbsp;
+                                    <code>- Eintrag</code> = Listenpunkt
+                                </div>
                                 <div id="landing-sections-container" class="space-y-2">
                                     {% if restaurant.landing_page %}
                                     <div class="landing-section-item bg-white p-3 rounded-xl border border-gray-200 space-y-2" data-section-type="about">
