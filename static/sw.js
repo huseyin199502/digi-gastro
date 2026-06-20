@@ -5,9 +5,8 @@
 
 // SW_VERSION — bei JEDEM Code-/Asset-Update bumpen, sonst merkt der Browser
 // kein SW-Update (Byte-Equal-Check). Format: YYYY-MM-DD-v<N>.
-// Update 2026-06-20-v7: Mobile-Video-Version hinzugefügt (670 KB statt 2.8 MB)
-// → Video startet 4x schneller auf Mobile.
-const SW_VERSION = '2026-06-20-v7';
+// Update 2026-06-20-v8: Safari iOS src per JS + load() vor play() + mehr Events.
+const SW_VERSION = '2026-06-20-v8';
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
