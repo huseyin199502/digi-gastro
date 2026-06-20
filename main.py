@@ -1703,13 +1703,22 @@ async def get_restaurant_cached(slug: str, db) -> Optional[dict]:
 
 
 async def invalidate_restaurant_cache(slug: str) -> None:
-    """Async cache invalidation — use in async endpoints after explicit commits."""
+    """Async cache invalidation — use in async endpoints after explicit commits.
+
+    BUG FIX: Invalidiert auch tablet-status:{slug}:* Cache-Keys.
+    """
     if redis_client is None:
         return
     try:
         await redis_client.delete(_restaurant_cache_key(slug))
     except Exception as e:
         print(f"[Redis Cache] async invalidate failed for {slug}: {e}")
+    # BUG FIX: tablet-status Cache invalidieren
+    try:
+        async for key in redis_client.scan_iter(f"tablet-status:{slug}:*", count=100):
+            await redis_client.delete(key)
+    except Exception as e:
+        print(f"[Redis Cache] async tablet-status invalidate failed for {slug}: {e}")
 
 
 def invalidate_restaurant_cache_sync(slug: str) -> None:
@@ -1717,6 +1726,13 @@ def invalidate_restaurant_cache_sync(slug: str) -> None:
 
     Uses the module-level sync_redis_client (separate connection pool from
     the async client). Non-fatal if Redis is unavailable.
+
+    BUG FIX (Serve-Bug "Item springt zurück"):
+    Vorher wurde nur der `restaurant:{slug}` Cache gelöscht, aber NICHT der
+    `tablet-status:{slug}:*` Cache (3s TTL). Das führte dazu, dass nach einem
+    Serve/Cancel/Pay die tablet-status API für bis zu 3 Sekunden veraltete
+    Daten zurückgab — das Item "sprang zurück" auf pending/confired.
+    Jetzt löschen wir ALLE tablet-status Keys für diesen Slug mit SCAN.
     """
     if sync_redis_client is None:
         return
@@ -1724,6 +1740,23 @@ def invalidate_restaurant_cache_sync(slug: str) -> None:
         sync_redis_client.delete(_restaurant_cache_key(slug))
     except Exception as e:
         print(f"[Redis Cache] sync invalidate failed for {slug}: {e}")
+
+    # ── BUG FIX: tablet-status Cache invalidieren ──
+    # Lösche ALLE tablet-status:{slug}:* Keys (verschiedene Auth-Kombinationen).
+    # Verwende SCAN (nicht KEYS) für Performance — findet alle passenden Keys.
+    try:
+        pattern = f"tablet-status:{slug}:*"
+        cursor = 0
+        while True:
+            cursor, keys = sync_redis_client.scan(
+                cursor=cursor, match=pattern, count=100
+            )
+            if keys:
+                sync_redis_client.delete(*keys)
+            if cursor == 0:
+                break
+    except Exception as e:
+        print(f"[Redis Cache] tablet-status invalidate failed for {slug}: {e}")
 
 
 from collections import UserList, UserDict
