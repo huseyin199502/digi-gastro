@@ -479,7 +479,7 @@
          style="padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="header-logo h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" decoding="async" fetchpriority="high" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
+                <img src="/static/images/digigastrologo.jpeg" alt="digi-gastro Logo" class="header-logo h-8 sm:h-10 w-8 sm:w-10 rounded-xl border border-gold-500/30 object-contain hover:scale-105 transition-transform" decoding="async" fetchpriority="high" draggable="false" onerror="this.style.display='none'; document.getElementById('logo-fallback-nav').style.display='flex'">
                 <div id="logo-fallback-nav" class="hidden h-10 w-10 rounded-xl bg-zinc-900 border border-gold-500/30 items-center justify-center text-gold-500 font-bold">dg</div>
                 <span class="text-xl font-black tracking-tight font-display text-white">digi-gastro<span class="text-gold-500">.de</span></span>
             </div>
@@ -522,7 +522,7 @@
     <header class="hero-section relative w-full overflow-hidden bg-[#050507]">
         <!-- Video — determines hero height naturally, NO cropping -->
         <div class="hero-video-wrap relative w-full" style="aspect-ratio: 1028/720;">
-            <video autoplay loop muted playsinline preload="auto" class="block w-full h-full" style="object-fit: fill;" id="hero-video" poster="/static/images/icon-512.png">
+            <video autoplay loop muted playsinline preload="metadata" class="block w-full h-full" style="object-fit: fill;" id="hero-video" poster="/static/images/icon-512.png" disablepictureinpicture disableremoteplayback controlslist="nodownload nofullscreen noplaybackrate">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
@@ -617,8 +617,8 @@
 
                             <!-- Kitchen Monitor -->
                             <div class="flex-grow bg-zinc-950 border border-zinc-800/80 rounded-[20px] p-2.5 flex flex-col justify-between shadow-2xl relative z-10 overflow-hidden outline outline-4 outline-zinc-900">
-                                <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover opacity-20 z-0 pointer-events-none">
-                                    <source src="https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-40342-large.mp4" type="video/mp4">
+                                <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover opacity-20 z-0 pointer-events-none" disablepictureinpicture disableremoteplayback controlslist="nodownload nofullscreen noplaybackrate">
+                                    <source src="/static/videos/hero-bg.mp4" type="video/mp4">
                                 </video>
                                 <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/90 z-1 pointer-events-none"></div>
                                 <div class="flex justify-between items-center text-[10px] text-zinc-500 font-bold px-1.5 pb-1 border-b border-zinc-900/60 relative z-2">
@@ -692,7 +692,7 @@
     <section id="features" class="py-16 md:py-28 relative z-10">
         <div class="max-w-7xl mx-auto px-6">
             <div class="text-center max-w-3xl mx-auto mb-16">
-                <h1 class="text-3xl sm:text-5xl font-black text-white font-display tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Das All-in-One Gastro-Betriebssystem</h1>
+                <h2 class="text-3xl sm:text-5xl font-black text-white font-display tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Das All-in-One Gastro-Betriebssystem</h2>
                 <p class="text-zinc-400 mt-4 text-sm sm:text-base font-medium">Alles, was deine Gastronomie für mehr Profitabilität, glücklichere Mitarbeiter und fehlerfreie Abläufe benötigt.</p>
             </div>
             

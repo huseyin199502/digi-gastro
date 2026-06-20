@@ -1,15 +1,20 @@
 // ════════════════════════════════════════════════════════════════════
-// digi-gastro Service Worker v1.0
-// Cache-First für statische Assets, Network-First für API/WebSocket
+// digi-gastro Service Worker
+// Cache-First für statische Assets, Network-First (OHNE HTML-Cache) für Navigationen
 // ════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'digi-gastro-v1';
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+// SW_VERSION — bei JEDEM Code-/Asset-Update bumpen, sonst merkt der Browser
+// kein SW-Update (Byte-Equal-Check). Format: YYYY-MM-DD-v<N>.
+const SW_VERSION = '2026-06-20-v1';
+const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
+const STATIC_CACHE = `${CACHE_NAME}-static`;
+const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
 
 // Statische Assets die gecacht werden (Cache-First)
+// WICHTIG: '/' bewusst NICHT precachen — Landingpage ist dynamisch
+// (Login-Status, login_target) und würde sonst veraltete/personalisierte
+// Versionen ausliefern (Issues 6.21 + 6.22).
 const STATIC_ASSETS = [
-    '/',
     '/manifest.json',
     '/static/css/design_system.css?v=17',
     '/static/css/tailwind-built.css?v=3',
@@ -30,6 +35,8 @@ const NEVER_CACHE_PATTERNS = [
     /\/uploads\//,          // Kunden-Uploads (logos, produkte)
     /\/deer-lounge\//,      // Tenant-Slugs
     /\/digi-gastro-admin/,  // Platform-Admin
+    /\/login/,              // Login-Seite (authed-context)
+    /^\/$/,                 // Root-Landingpage (dynamisch, personalisiert)
 ];
 
 // ────────────────────────────────────────────────────────────────────
@@ -49,19 +56,22 @@ self.addEventListener('install', (event) => {
 // ACTIVATE: Alte Caches löschen, neue übernehmen
 // ────────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activate —清理 alte caches');
+    console.log('[SW] Activate — cleanup alte caches für Version:', SW_VERSION);
     event.waitUntil(
         caches.keys()
             .then((keys) => {
                 return Promise.all(
                     keys
-                        .filter((key) => !key.startsWith(CACHE_VERSION))
+                        .filter((key) => !key.startsWith(CACHE_NAME))
                         .map((key) => {
                             console.log('[SW] Lösche alten Cache:', key);
                             return caches.delete(key);
                         })
                 );
             })
+            // clients.claim() aktiviert den neuen SW sofort für alle offenen Tabs
+            // (zusammen mit skipWaiting() in install). Verhindert, dass Nutzer
+            // alte HTML/JS-Version mit neuem SW-Cache mismatch haben.
             .then(() => self.clients.claim())
     );
 });
@@ -136,27 +146,27 @@ async function cacheFirst(request) {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// NETWORK-FIRST: Network → Fallback: Cache
-// Für HTML-Seiten (immer frisch wenn online, Cache wenn offline)
+// NETWORK-FIRST: Network → Fallback: Offline-Response (KEIN HTML-Cache!)
+// Für HTML-Seiten (immer frisch wenn online, Offline-Response wenn offline)
+//
+// WICHTIG (Issue 6.22): HTML-Navigationen werden bewusst NICHT im Cache
+// abgelegt, damit keine authentifizierten/personalisierten Seiten
+// (Login-Status, Chef-Ansicht, etc.) überleben und versehentlich anderen
+// Nutzern auf demselben Gerät angezeigt werden. Statische Assets bleiben
+// weiterhin cache-first (siehe cacheFirst()).
 // ────────────────────────────────────────────────────────────────────
 async function networkFirst(request) {
     try {
         const response = await fetch(request);
-        if (response && response.status === 200) {
-            const cache = await caches.open(RUNTIME_CACHE);
-            cache.put(request, response.clone());
-        }
+        // HTML-Navigationen bewusst NICHT cachen (Issue 6.21 + 6.22).
+        // Statische Assets werden bereits in cacheFirst() behandelt.
         return response;
     } catch (err) {
-        // Offline: versuche Cache
+        // Offline: versuche Cache (sollte bei HTML nichts finden — by design)
         const cached = await caches.match(request);
         if (cached) return cached;
 
-        // Fallback: Startseite aus Static-Cache
-        const fallback = await caches.match('/');
-        if (fallback) return fallback;
-
-        // Letzter Ausweg: 508-Lookback-Response
+        // Letzter Ausweg: 503-Offline-Response
         return new Response(
             `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem;text-align:center;">
             <h2>Offline</h2>

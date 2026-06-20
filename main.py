@@ -1,6 +1,7 @@
 from fastapi.staticfiles import StaticFiles
 import asyncio
 import copy
+import html as html_module
 import json
 import os
 import urllib.parse
@@ -10,6 +11,28 @@ import io
 import time
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+
+def html_escape(s):
+    """HTML-escape für sichere Template-Interpolation in f-Strings.
+    Verhindert reflektierte/stored XSS via Query-Parametern oder DB-Werten."""
+    if s is None:
+        return ""
+    return html_module.escape(str(s), quote=True)
+
+def js_escape(s):
+    """JS-string-escape für sichere Interpolation in JavaScript-Kontexten
+    (z.B. onclick="foo('...')"). Verhindert JS-String-Breakout."""
+    if s is None:
+        return ""
+    return (str(s)
+            .replace('\\', '\\\\')
+            .replace("'", "\\'")
+            .replace('"', '\\"')
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('<', '\\u003c')
+            .replace('>', '\\u003e')
+            .replace('&', '\\u0026'))
 
 def get_berlin_now():
     now = datetime.now()
@@ -97,12 +120,15 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
+        # Track last activity per connection for heartbeat detection
+        self._last_activity: Dict[int, float] = {}
 
     async def connect(self, slug: str, websocket: WebSocket):
         await websocket.accept()
         if slug not in self.active_connections:
             self.active_connections[slug] = []
         self.active_connections[slug].append(websocket)
+        self._last_activity[id(websocket)] = time.time()
 
     def disconnect(self, slug: str, websocket: WebSocket):
         if slug in self.active_connections:
@@ -110,22 +136,59 @@ class ConnectionManager:
                 self.active_connections[slug].remove(websocket)
             if not self.active_connections[slug]:
                 del self.active_connections[slug]
+        self._last_activity.pop(id(websocket), None)
 
     async def broadcast(self, slug: str, message: dict):
-        if slug in self.active_connections:
-            dead = []
-            for connection in self.active_connections[slug]:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    dead.append(connection)
-            for d in dead:
-                try:
-                    self.active_connections[slug].remove(d)
-                except ValueError:
-                    pass
-            if slug in self.active_connections and not self.active_connections[slug]:
-                del self.active_connections[slug]
+        """
+        Audit Fix 5.5 — broadcast() parallel + Timeout.
+        Vorher: seriell — ein langsamer Client blockierte alle anderen + Event Loop.
+        Jetzt: parallel mit 2s Timeout pro Client. Tote Connections werden entfernt.
+        """
+        if slug not in self.active_connections:
+            return
+        connections = list(self.active_connections[slug])
+        if not connections:
+            return
+
+        async def _safe_send(conn: WebSocket):
+            try:
+                await asyncio.wait_for(conn.send_json(message), timeout=2.0)
+                self._last_activity[id(conn)] = time.time()
+                return None
+            except Exception:
+                return conn  # connection is dead
+
+        # Parallel broadcast mit asyncio.gather — viel schneller als seriell
+        results = await asyncio.gather(*[_safe_send(c) for c in connections], return_exceptions=False)
+        dead = [r for r in results if r is not None]
+
+        for d in dead:
+            try:
+                self.active_connections[slug].remove(d)
+            except (ValueError, KeyError):
+                pass
+        if slug in self.active_connections and not self.active_connections[slug]:
+            del self.active_connections[slug]
+
+    async def cleanup_stale_connections(self, max_age_seconds: int = 120):
+        """
+        Audit Fix 5.6 — Stale Connections aufräumen.
+        Wird periodisch vom Startup-Task aufgerufen.
+        Entfernt Connections, die seit >max_age_seconds keine Aktivität mehr hatten.
+        """
+        now = time.time()
+        slugs_to_check = list(self.active_connections.keys())
+        for slug in slugs_to_check:
+            conns = list(self.active_connections.get(slug, []))
+            for conn in conns:
+                conn_id = id(conn)
+                last_seen = self._last_activity.get(conn_id, 0)
+                if now - last_seen > max_age_seconds:
+                    try:
+                        await conn.close(code=1001, reason="stale")
+                    except Exception:
+                        pass
+                    self.disconnect(slug, conn)
 
 manager = ConnectionManager()
 
@@ -227,6 +290,11 @@ async def websocket_endpoint(websocket: WebSocket, slug: str):
 # RACE CONDITION PROTECTION – per-tenant async locks
 # Prevents lost updates when concurrent requests read-modify-write
 # the same tenant data (e.g. two orders arriving at the same time).
+#
+# Audit Fix 5.1 — Multi-Worker-Safety via PostgreSQL Advisory Locks
+# Vorher: nur asyncio.Lock (prozess-lokal) → bei gunicorn -w N verloren.
+# Jetzt: Zusätzlich pg_advisory_lock für cross-worker Serialisierung.
+# In SQLite-Mode (Local-Dev) fällt der Advisory-Lock weg — nur asyncio.Lock.
 # ──────────────────────────────────────────────────────────────────
 _tenant_locks: Dict[str, asyncio.Lock] = {}
 
@@ -236,6 +304,31 @@ def _get_tenant_lock(slug: str) -> asyncio.Lock:
         _tenant_locks[slug_lower] = asyncio.Lock()
     return _tenant_locks[slug_lower]
 
+
+def _pg_advisory_lock_key(slug: str) -> int:
+    """Generiert einen deterministischen 64-bit Integer aus dem Slug für pg_advisory_lock.
+    PostgreSQL Advisory Locks akzeptieren nur BIGINT. Wir hashen den Slug."""
+    import hashlib
+    h = hashlib.sha1(slug.lower().strip().encode("utf-8")).digest()
+    # Nehme erste 8 Bytes als int64 (signed)
+    val = int.from_bytes(h[:8], byteorder="big", signed=True)
+    return val
+
+
+async def _acquire_pg_advisory_lock(slug: str, db_session) -> None:
+    """Acquires a PostgreSQL advisory lock (cross-worker safe).
+    Only called in Postgres mode. SQLite mode skips this."""
+    if not _IS_LOCAL_DEV:
+        try:
+            from sqlalchemy import text as _sa_text
+            key = _pg_advisory_lock_key(slug)
+            # pg_advisory_xact_lock is automatically released at COMMIT/ROLLBACK
+            db_session.execute(_sa_text("SELECT pg_advisory_xact_lock(:k)"), {"k": key})
+        except Exception as e:
+            print(f"[tenant_lock] pg_advisory_lock failed for {slug}: {e}")
+            # Fallback: continue without cross-worker lock (asyncio.Lock still applies)
+
+
 import functools
 
 def tenant_lock(func):
@@ -244,22 +337,36 @@ def tenant_lock(func):
     function signature so we can extract the tenant identity.
     The lock serialises all read-modify-write cycles for the same tenant,
     preventing lost updates under concurrent access.
+
+    Audit Fix 5.1: In Multi-Worker (Postgres) mode, zusätzlich pg_advisory_xact_lock.
     """
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         # Try to get slug from kwargs first (FastAPI injects it), then from path
         slug = kwargs.get("slug")
+        request_obj = None
+        db_session = kwargs.get("db")
         if not slug:
             # Fallback: inspect Request object in args
             for arg in args:
                 if isinstance(arg, Request):
-                    # Try path params
+                    request_obj = arg
                     slug = arg.path_params.get("slug")
                     if slug:
                         break
         if not slug:
             # Last resort: run without lock (shouldn't happen)
             return await func(*args, **kwargs)
+
+        # ── Audit Fix 5.1: Cross-Worker Lock via PostgreSQL Advisory Lock ──
+        # In Multi-Worker-Modus (gunicorn -w N) ist asyncio.Lock prozess-lokal
+        # und schützt nicht zwischen Workern. pg_advisory_xact_lock wird automatisch
+        # bei Commit/Rollback freigegeben.
+        # In SQLite-Modus (Local-Dev) überspringen wir diesen Schritt.
+        if not _IS_LOCAL_DEV and db_session is not None:
+            await _acquire_pg_advisory_lock(slug, db_session)
+
+        # asyncio.Lock: serialisiert innerhalb dieses Prozesses
         async with _get_tenant_lock(slug):
             return await func(*args, **kwargs)
     return wrapper
@@ -364,6 +471,48 @@ async def cache_static_assets_middleware(request: Request, call_next):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
 
+# ════════════════════════════════════════════════════════════════════
+# Security Headers (Audit Issue 6.9)
+# Schützt vor Clickjacking, MIME-Sniffing, Mixed Content, XSS u.a.
+# ════════════════════════════════════════════════════════════════════
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    # X-Frame-Options: verhindert Clickjacking via iframe-Einbindung
+    response.headers["X-Frame-Options"] = "DENY"
+    # X-Content-Type-Options: verhindert MIME-Sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Referrer-Policy: nur Origin an Dritte senden (keine Query-Parameter)
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # HSTS: HTTPS erzwingen (nur in Produktion relevant — wenn nicht localhost)
+    host = request.url.hostname or ""
+    if host not in ("localhost", "127.0.0.1", "testserver", "0.0.0.0"):
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Permissions-Policy: deaktiviert Features, die wir nicht brauchen
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=()"
+    # CSP — restriktiv aber funktional:
+    # - default-src 'self': nur eigene Ressourcen
+    # - script-src 'self' 'unsafe-inline': Alpine.js/Tailwind brauchen inline
+    # - style-src 'self' 'unsafe-inline' + Google Fonts (falls noch verwendet)
+    # - img-src 'self' data: blob: https: (Bilder von überall)
+    # - media-src 'self' data: blob: https:
+    # - connect-src 'self' ws: wss: (WebSocket)
+    # - font-src 'self' https://fonts.gstatic.com data:
+    # - frame-ancestors 'none': Clickjacking-Schutz
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "img-src 'self' data: blob: https:; "
+        "media-src 'self' data: blob: https:; "
+        "connect-src 'self' ws: wss:; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+    return response
+
 # ──────────────────────────────────────────────────────────────────
 # HEALTH CHECK – must be registered BEFORE any middleware so Docker
 # HEALTHCHECK and Coolify never get a 404.
@@ -372,6 +521,25 @@ async def cache_static_assets_middleware(request: Request, call_next):
 def health_check_early():
     """Lightweight liveness probe – always returns 200 when the app is up."""
     return JSONResponse({"status": "ok"})
+
+# ──────────────────────────────────────────────────────────────────
+# Startup Background Tasks (Audit Fix 5.6 — WebSocket Stale Cleanup)
+# ──────────────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def _start_ws_cleanup_task():
+    """Startet Background-Task, der alle 60s stale WebSocket-Connections entfernt."""
+    async def _cleanup_loop():
+        while True:
+            try:
+                await asyncio.sleep(60)
+                await manager.cleanup_stale_connections(max_age_seconds=180)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"[WS Cleanup] Fehler: {e}")
+                await asyncio.sleep(60)
+
+    asyncio.create_task(_cleanup_loop())
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -524,6 +692,12 @@ from database import (
     engine,
     run_migrations
 )
+
+# ── Local-dev detection (für Cookie-Attribute) ──
+# In Lokal-Dev (SQLite, kein HTTPS) setzen wir `secure=False`, damit Cookies
+# auch ohne HTTPS funktionieren. In Produktion (Postgres, HTTPS) → secure=True.
+import database as _db_module
+_IS_LOCAL_DEV = not getattr(_db_module, "_IS_POSTGRES", False)
 
 INITIAL_RESTAURANTS = {}
 
@@ -1557,37 +1731,113 @@ def group_items_by_super_group(items: list, slug: str, session) -> list:
 
 
 def get_current_user(request: Request, slug: str) -> Optional[dict]:
+    """
+    Liefert den aktuellen User anhand des Session-Cookies.
+    Vertraut NICHT dem Cookie-Wert allein — validiert name+role+pin gegen die DB.
+
+    Sicherheits-Fix (Audit Issue 6.3 + 3.1):
+    Vorher wurde `session=anytenant:Owner:chef:irgendwas` akzeptiert, ohne zu
+    prüfen, ob es in der DB einen Chef mit diesem Namen gibt. Jetzt prüfen wir
+    gegen restaurant['staff'] und restaurant['email'].
+    """
+    slug_lower = slug.lower().strip() if slug else ""
     # Check unified session cookie first
     session = request.cookies.get("session")
     if session:
         try:
-            parts = session.split(":")
-            if len(parts) == 4 and parts[0] == slug:
-                return {"name": parts[1], "role": parts[2], "pin": parts[3]}
+            parts = session.split(":", 3)  # split into max 4 parts (pin can contain ':')
+            if len(parts) == 4 and parts[0].lower().strip() == slug_lower:
+                cookie_name, cookie_role, cookie_pin = parts[1], parts[2], parts[3]
+                # ── DB-Validierung ──
+                # Wir öffnen eine kurze Session, um name+role+pin zu verifizieren.
+                # Vermeidet Cookie-Forgery: Angreifer kann nicht einfach
+                # `x:Owner:chef:x` setzen, es sei denn, der Tenant hat wirklich
+                # einen Staff-Eintrag mit diesem Namen+PIN.
+                from database import Tenant as DBTenant, Staff as DBStaff
+                db = SessionLocal()
+                try:
+                    tenant = db.query(DBTenant).filter_by(slug=slug_lower).first()
+                    if not tenant:
+                        return None
+                    # Owner-Vergleich (Chef-Login über globale /login Route)
+                    if cookie_role == "chef" and cookie_name == "Owner":
+                        # Owner darf sich nur einloggen, wenn das Plaintext-Passwort
+                        # mit dem in der DB übereinstimmt. Bis Passwort-Hashing
+                        # ausgerollt ist, ist das die beste Validierung.
+                        if cookie_pin and tenant.password and cookie_pin == tenant.password:
+                            return {"name": "Owner", "role": "chef", "pin": cookie_pin}
+                        return None
+                    # Staff-Vergleich (Mitarbeiter)
+                    staff_member = db.query(DBStaff).filter_by(
+                        tenant_slug=slug_lower,
+                        name=cookie_name
+                    ).first()
+                    if staff_member and staff_member.role == cookie_role:
+                        # PIN gegen DB validieren (falls PIN gesetzt)
+                        expected_pin = str(staff_member.pin_code or staff_member.pin or "")
+                        if expected_pin and cookie_pin == expected_pin:
+                            return {"name": cookie_name, "role": cookie_role, "pin": cookie_pin}
+                        # Für Staff ohne PIN-Pflicht (z.B. Zubereiter) — nur Name+Role prüfen
+                        if not expected_pin and cookie_role in ("zubereiter", "kueche"):
+                            return {"name": cookie_name, "role": cookie_role, "pin": cookie_pin}
+                    return None
+                finally:
+                    db.close()
         except Exception:
             pass
 
     # Fallback to legacy/device-specific session cookie
-    session_legacy = request.cookies.get(f"session_{slug}")
+    session_legacy = request.cookies.get(f"session_{slug_lower}")
     if session_legacy:
         try:
-            parts = session_legacy.split(":")
+            parts = session_legacy.split(":", 2)
             if len(parts) == 3:
-                return {"name": parts[0], "role": parts[1], "pin": parts[2]}
+                cookie_name, cookie_role, cookie_pin = parts
+                from database import Tenant as DBTenant, Staff as DBStaff
+                db = SessionLocal()
+                try:
+                    tenant = db.query(DBTenant).filter_by(slug=slug_lower).first()
+                    if not tenant:
+                        return None
+                    if cookie_role == "chef" and cookie_name == "Owner":
+                        if cookie_pin and tenant.password and cookie_pin == tenant.password:
+                            return {"name": "Owner", "role": "chef", "pin": cookie_pin}
+                        return None
+                    staff_member = db.query(DBStaff).filter_by(
+                        tenant_slug=slug_lower,
+                        name=cookie_name
+                    ).first()
+                    if staff_member and staff_member.role == cookie_role:
+                        expected_pin = str(staff_member.pin_code or staff_member.pin or "")
+                        if expected_pin and cookie_pin == expected_pin:
+                            return {"name": cookie_name, "role": cookie_role, "pin": cookie_pin}
+                        if not expected_pin and cookie_role in ("zubereiter", "kueche"):
+                            return {"name": cookie_name, "role": cookie_role, "pin": cookie_pin}
+                    return None
+                finally:
+                    db.close()
         except Exception:
             pass
     return None
 
 def get_current_user_and_slug(request: Request) -> Optional[tuple]:
+    """
+    Wie get_current_user, aber ohne bekannten Slug — extrahiert ihn aus dem Cookie.
+    Validiert ebenfalls gegen die DB (Issue 6.3).
+    """
     session = request.cookies.get("session")
     if not session:
         return None
     try:
-        parts = session.split(":")
-        if len(parts) == 4:
-            slug = parts[0]
-            user = {"name": parts[1], "role": parts[2], "pin": parts[3]}
-            return user, slug
+        parts = session.split(":", 3)
+        if len(parts) != 4:
+            return None
+        slug, cookie_name, cookie_role, cookie_pin = parts
+        slug_lower = slug.lower().strip()
+        user = get_current_user(request, slug_lower)
+        if user is None:
+            return None
+        return user, slug_lower
     except Exception:
         pass
     return None
@@ -1678,6 +1928,53 @@ def _ensure_original_total(order):
         # Backfill: der aktuelle total ist der beste Schätzwert für den
         # ursprünglichen Warenwert, den wir haben. Besser als 0.
         order["original_total"] = round(cur_total, 2)
+
+
+def _recalculate_order_totals(order):
+    """
+    Audit Fix 3.x — Zentrale Helper-Funktion für Order-Konsistenz.
+    Berechnet `total`, `total_with_tip` neu und stellt Invarianten sicher:
+      - total = sum(price * quantity für alle items)
+      - total_with_tip = total + tip_amount
+      - original_total wird NIE reduziert (nur hochgesetzt via _ensure_original_total)
+
+    Diese Funktion sollte nach JEDER Item-Mutation aufgerufen werden
+    (cancel, pay-item, serve, transfer, add-manual).
+    Verhindert inkonsistente Totals wie im historischen "0€-Report"-Bug.
+    """
+    # 1. total neu berechnen aus Items
+    new_total = round(sum(
+        (i.get("price", 0.0) or 0.0) * (i.get("quantity", 0) or 0)
+        for i in order.get("items", [])
+    ), 2)
+    order["total"] = new_total
+
+    # 2. tip_amount defensiv setzen
+    tip = float(order.get("tip_amount", 0.0) or 0.0)
+    order["tip_amount"] = round(tip, 2)
+
+    # 3. total_with_tip = total + tip_amount (Invariante durchsetzen)
+    order["total_with_tip"] = round(new_total + tip, 2)
+
+    # 4. original_total sicherstellen (nur hochsetzen, nie runter)
+    _ensure_original_total(order)
+
+
+def _audit_log(restaurant, employee_name: str, employee_role: str, action: str, details: str = ""):
+    """
+    Audit Fix 1.x — Zentraler Helper für AuditLog-Einträge.
+    Verwendet get_berlin_now() statt datetime.now() (Issue: 2h Versatz).
+    Alle Mutations-Endpoints sollten diesen Helper nutzen.
+    """
+    if "audit_log" not in restaurant:
+        restaurant["audit_log"] = []
+    restaurant["audit_log"].append({
+        "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
+        "employee_name": employee_name or "Unbekannt",
+        "employee_role": employee_role or "unbekannt",
+        "action": action,
+        "details": details
+    })
 
 
 def require_user_and_slug(request: Request, db: Session = Depends(get_db)):
@@ -1909,12 +2206,12 @@ def global_login_post(
         slug = tenant.slug
         target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
         resp = RedirectResponse(url=target, status_code=303)
-        resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
+        resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
         return resp
         
     if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
         resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-        resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+        resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
         return resp
         
     return templates.TemplateResponse(
@@ -1939,9 +2236,9 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
     
     alert_html = ""
     if error:
-        alert_html = f'<div class="alert alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {error}</div>'
+        alert_html = f'<div class="alert alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {html_escape(error)}</div>'
     elif success:
-        alert_html = f'<div class="alert alert-success"><span class="material-symbols-outlined" style="font-size:16px;">check_circle</span> {success}</div>'
+        alert_html = f'<div class="alert alert-success"><span class="material-symbols-outlined" style="font-size:16px;">check_circle</span> {html_escape(success)}</div>'
     
     # Fetch real tenant data from database
     all_tenants = db.query(Tenant).order_by(Tenant.slug).all()
@@ -2993,7 +3290,7 @@ def get_global_login(request: Request, error: Optional[str] = None):
         
     error_html = ""
     if error:
-        error_html = f'<div class="alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {error}</div>'
+        error_html = f'<div class="alert-error"><span class="material-symbols-outlined" style="font-size:16px;">error</span> {html_escape(error)}</div>'
         
     html_content = f"""<!DOCTYPE html>
 <html lang="de">
@@ -3185,7 +3482,7 @@ def get_global_login(request: Request, error: Optional[str] = None):
 def post_global_login(request: Request, email: str = Form(...), password: str = Form(...)):
     if email == "admin@digi-gastro.de" and password == ADMIN_PASSWORD:
         resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-        resp.set_cookie(key="session_global", value=email, httponly=True, max_age=31536000)
+        resp.set_cookie(key="session_global", value=email, httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
         return resp
     return get_global_login(request, error="Ungültige E-Mail-Adresse oder Passwort.")
 
@@ -4048,24 +4345,34 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     products_map = {p["id"]: p for p in restaurant.get("products", [])}
     for item_idx, item in enumerate(payload.items):
         prod = products_map.get(item.product_id)
-        if prod:
-            # SECURITY: Always use the server-side price from DB, never trust client-submitted price
-            item.price = prod["price"]
-            is_event_price_applied = False
-            # Check each active event for this product
-            for ev in events:
-                if not ev.get("_is_currently_active", False):
-                    continue
-                event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
-                if event_product and event_product.get("event_price"):
-                    item.price = event_product["event_price"]
-                    is_event_price_applied = True
-                    break
-                elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
-                    discount_factor = (100 - ev["discount"]) / 100.0
-                    item.price = round(prod["price"] * discount_factor, 2)
-                    is_event_price_applied = True
-                    break
+        # SECURITY FIX (Audit Issue 3.3): Reject unknown product_ids explicitly.
+        # Without this, the `if prod:` block was skipped and fake items with
+        # manipulated price/name were persisted into the order. Raising here
+        # closes the "fake item with manipulated price" attack vector.
+        if not prod:
+            raise HTTPException(status_code=400, detail=f"Unbekanntes Produkt: {item.product_id}")
+        # SECURITY: Always use the server-side price from DB, never trust client-submitted price
+        item.price = prod["price"]
+        # SECURITY FIX (Audit Issue 3.2): Use DB-authoritative name to prevent
+        # Stored-XSS via client-supplied name and audit-trail/report pollution.
+        # The client-supplied name was previously persisted verbatim, allowing
+        # e.g. `<img src=x onerror=alert(1)>` as item name.
+        item.name = prod["name"]
+        is_event_price_applied = False
+        # Check each active event for this product
+        for ev in events:
+            if not ev.get("_is_currently_active", False):
+                continue
+            event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
+            if event_product and event_product.get("event_price"):
+                item.price = event_product["event_price"]
+                is_event_price_applied = True
+                break
+            elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
+                discount_factor = (100 - ev["discount"]) / 100.0
+                item.price = round(prod["price"] * discount_factor, 2)
+                is_event_price_applied = True
+                break
     
     # Validate and apply combo prices
     # Find items that are marked as combo items in the payload
@@ -4112,22 +4419,17 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     expected_pos = restaurant.get("pos_token")
     is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
     if not is_staff:
-        session = request.cookies.get(f"session_{slug}")
-        if session:
-            # Validate session cookie format (name:role:pin) and check role
-            try:
-                parts = session.split(":")
-                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
-                    is_staff = True
-            except Exception:
-                pass
-        if not is_staff:
-            res = get_current_user_and_slug(request)
-            if res:
-                user, session_slug = res
-                if session_slug == slug and user["role"] in ["chef", "kellner"]:
-                    is_staff = True
-            
+        # SECURITY FIX (Audit Issue 3.1): Validate staff cookie against the DB
+        # via get_current_user (which checks name+role+pin against restaurant
+        # staff records). Do NOT trust the cookie format alone — otherwise a
+        # forged `session_{slug}=x:chef:x` cookie would bypass the photographed-QR
+        # protection that the active_session_token check below enforces.
+        # get_current_user handles both the unified `session` cookie
+        # (slug:name:role:pin) AND the legacy `session_{slug}` cookie.
+        user = get_current_user(request, slug)
+        if user and user.get("role") in ["chef", "kellner"]:
+            is_staff = True
+
     if not is_staff:
         master_token = restaurant.get("security_token")
         table_token = db_table.get("active_session_token") if db_table else None
@@ -4383,36 +4685,55 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
     order = next((o for o in restaurant.get("orders", []) if o["id"] == order_id), None)
     if not order:
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
-        
+
+    # ── Audit Fix 1.1: bezahl darf storniert-Status nicht überschreiben ──
+    # Vorher: if order["status"] != "bezahlt": → storniert wurde zu bezahlt.
+    # Das führte zu doppeltem Umsatz im Report (stornierter Bon = Umsatz).
+    # Jetzt: nur von "offen" → "bezahlt" erlauben, storniert blockieren.
+    if order["status"] == "storniert":
+        # Idempotenz: bereits abgeschlossen → 200 OK mit Hinweis (kein Fehler)
+        return {"success": True, "already_done": True, "detail": "Bestellung ist bereits storniert — nicht bezahlbar."}
+
     if order["status"] != "bezahlt":
         order["status"] = "bezahlt"
-        order["tip_amount"] = 0.0
-        order["total_with_tip"] = round(order["total"], 2)
+        # ── Audit Fix 3.x: tip_amount NICHT löschen, falls zuvor per Trinkgeld-UI gesetzt ──
+        # Vorher: order["tip_amount"] = 0.0 (löscht Tip!)
+        # Jetzt: tip_amount nur auf 0 setzen, falls noch nicht vorhanden
+        if "tip_amount" not in order or order.get("tip_amount") is None:
+            order["tip_amount"] = 0.0
+        order["total_with_tip"] = round(order.get("total", 0.0) + order.get("tip_amount", 0.0), 2)
         order["waiter_id"] = waiter_id
-        
-        restaurant["tagesumsatz"] += order["total"]
-        restaurant["bestellungen_gesamt"] += 1
-        
+
+        # ── Audit Fix: tagesumsatz nur einmal addieren (vorherige Doppel-Addition möglich) ──
+        restaurant["tagesumsatz"] = round(float(restaurant.get("tagesumsatz", 0.0) or 0.0) + float(order.get("total", 0.0) or 0.0), 2)
+        restaurant["bestellungen_gesamt"] = int(restaurant.get("bestellungen_gesamt", 0) or 0) + 1
+
         # ── Fix 6: original_total sicherstellen (für Admin-Report) ──
-        # Beim normalen "Alles auf einmal bezahlen" wird `total` nicht verändert.
-        # Wir backfillen hier nur `original_total`, falls die Bestellung noch
-        # keins hat (Alt-Daten), damit der Report konsistent ist.
         _ensure_original_total(order)
-        
+
+        # ── Audit Fix 1.x: AuditLog-Eintrag für bezahlen (vorher: keiner) ──
+        # Ermittle Mitarbeiter-Namen für Audit-Log
+        emp_name = "POS-Tablet"
+        emp_role = "pos"
+        if is_auth:
+            user = get_current_user(request, slug)
+            if user:
+                emp_name = user.get("name", "Unbekannt")
+                emp_role = user.get("role", "kellner")
+        _audit_log(restaurant, emp_name, emp_role,
+                   f"Bezahlung Bestellung #{order_id}",
+                   f"Tisch: {order.get('table', '?')}, Betrag: {order.get('total', 0.0):.2f} €, Trinkgeld: {order.get('tip_amount', 0.0):.2f} €")
+
         # Option B: Rotate active_session_token IF the table has no more open orders.
-        # This invalidates cookies of guests who have left, while preserving cookies
-        # of any remaining guests at the same table (e.g. split-table scenario).
-        # CRITICAL: Does NOT touch printed_token/security_token — printed QR codes
-        # remain valid. Only the dynamic active_session_token (stored in cookie) rotates.
         _maybe_rotate_table_session_token(restaurant, order.get("table"))
-        
+
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zahlung: {e}")
-        
+
     await manager.broadcast(slug, {"type": "update"})
     return {"success": True}
 
@@ -4506,12 +4827,17 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    # AUDIT FIX: capture employee name/role for audit-log entry.
+    emp_name = "POS-Tablet"
+    emp_role = "pos"
     if not is_auth:
         user = get_current_user(request, slug)
         if not user and request.url.hostname == "testserver":
             user = {"name": "Test-Kellner", "role": "kellner"}
         if user and user["role"] in ["chef", "kellner"]:
             is_auth = True
+            emp_name = user.get("name") or "Unbekannt"
+            emp_role = user.get("role") or "unbekannt"
     if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
         
@@ -4530,6 +4856,8 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
     target_order = next((o for o in restaurant.get("orders", []) if (o.get("table") == t_table or o.get("table") == f"Tisch {t_table_num}") and o.get("status") not in ["bezahlt", "storniert"]), None)
 
     # 1. Update/Merge active order
+    moved_amount_for_log = 0.0
+    merge_target_existed = target_order is not None
     if not target_order:
         # Move order directly to new table
         source_order["table"] = t_table
@@ -4550,6 +4878,7 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
         _ensure_original_total(target_order)
         moved_amount = round(source_order.get("original_total", 0.0), 2)
         target_order["original_total"] = round(target_order.get("original_total", 0.0) + moved_amount, 2)
+        moved_amount_for_log = moved_amount
 
         # Recalculate target order totals
         target_order["total"] = round(sum(item["price"] * item["quantity"] for item in target_order["items"]), 2)
@@ -4577,7 +4906,27 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
         # can join/see the active session of the target table.
         # DO NOT copy or overwrite the static 'security_token' (which matches the printed QR code).
         t_db_table["active_session_token"] = s_db_table.get("active_session_token")
-        
+
+    # AUDIT FIX: log the table merge for traceability (Audit Issue 3.x
+    # audit-log extension). Distinguishes between "renamed source to target"
+    # (no target existed) and actual merge with moved amount.
+    if merge_target_existed:
+        _audit_log(
+            restaurant,
+            emp_name,
+            emp_role,
+            f"Tisch-Zusammenführung {s_table} nach {t_table}",
+            f"Bestellung #{source_order.get('id')}, Original-Warenwert verschoben: {moved_amount_for_log} €"
+        )
+    else:
+        _audit_log(
+            restaurant,
+            emp_name,
+            emp_role,
+            f"Tisch-Umbenennung {s_table} nach {t_table}",
+            f"Bestellung #{source_order.get('id')} (kein Ziel-Tisch vorhanden, Bestellung wurde nur verschoben)"
+        )
+
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
@@ -4788,12 +5137,17 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    # AUDIT FIX: capture employee name/role for audit-log entry.
+    emp_name = "POS-Tablet"
+    emp_role = "pos"
     if not is_auth:
         user = get_current_user(request, slug)
         if not user and request.url.hostname == "testserver":
             user = {"name": "Test-Kellner", "role": "kellner"}
         if user and user["role"] in ["chef", "kellner"]:
             is_auth = True
+            emp_name = user.get("name") or "Unbekannt"
+            emp_role = user.get("role") or "unbekannt"
     if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
 
@@ -4810,7 +5164,12 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
 
     qty_to_pay = min(payload.quantity, matched_item["quantity"])
+    # SECURITY FIX (Audit Issue 3.8): Reject non-positive pay-quantity to
+    # prevent negative-quantity attacks that would inflate totals or revenue.
+    if qty_to_pay <= 0:
+        raise HTTPException(status_code=400, detail="Ungültige Menge für Teilzahlung.")
     paid_amount = round(qty_to_pay * matched_item["price"], 2)
+    paid_item_name = matched_item.get("name", "Artikel")
 
     matched_item["quantity"] -= qty_to_pay
     if matched_item["quantity"] <= 0:
@@ -4836,6 +5195,17 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
         _maybe_rotate_table_session_token(restaurant, order.get("table"))
     else:
         update_order_status_by_items(order)
+
+    # AUDIT FIX: log the partial payment for traceability (Audit Issue 3.x
+    # audit-log extension). Captures who paid which item and how much, so
+    # later reconciliation can match tagesumsatz increases to specific items.
+    _audit_log(
+        restaurant,
+        emp_name,
+        emp_role,
+        f"Teilzahlung {qty_to_pay}x {paid_item_name} (Bestellung #{order_id})",
+        f"Tisch: {order.get('table')}, Betrag: {paid_amount} €"
+    )
 
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -4956,12 +5326,17 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    # AUDIT FIX: capture employee name/role for audit-log entry.
+    emp_name = "POS-Tablet"
+    emp_role = "pos"
     if not is_auth:
         user = get_current_user(request, slug)
         if not user and request.url.hostname == "testserver":
             user = {"name": "Test-Kellner", "role": "kellner"}
         if user and user["role"] in ["chef", "kellner"]:
             is_auth = True
+            emp_name = user.get("name") or "Unbekannt"
+            emp_role = user.get("role") or "unbekannt"
     if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
 
@@ -5002,6 +5377,11 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     qty_to_move = min(payload.quantity, source_item["quantity"])
     item_amount = round(qty_to_move * source_item["price"], 2)
 
+    # SECURITY FIX (Audit Issue 3.8): Reject non-positive transfer quantity —
+    # otherwise negative quantities would increment source / decrement target.
+    if qty_to_move <= 0:
+        raise HTTPException(status_code=400, detail="Ungültige Menge für Transfer.")
+
     # Remove qty from source
     source_item["quantity"] -= qty_to_move
     if source_item["quantity"] <= 0:
@@ -5013,13 +5393,15 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     # original_total wird NIE reduziert — auch nicht, wenn Artikel umgebucht werden.
     _ensure_original_total(source_order)
 
-    # If source order has no items left, remove it from list
-    if not source_order.get("items", []):
-        restaurant["orders"].remove(source_order)
-    else:
-        source_order["total"] = round(sum(i["price"] * i["quantity"] for i in source_order["items"]), 2)
-        source_order["total_with_tip"] = round(source_order["total"], 2)
-        update_order_status_by_items(source_order)
+    # SECURITY FIX (Audit Issue 3.6): Do NOT hard-delete source order when
+    # items=[]. Hard-deleting loses original_total, tip_amount, waiter_id,
+    # order id and breaks audit-log references (e.g. "Bestellung #{order_id}"
+    # would point to a non-existent order). Instead, keep the source order
+    # in the orders list with total=0 but original_total>0 (Fix-6 invariant).
+    # This mirrors the admin_transfer behavior for emptied source orders and
+    # preserves the audit trail for the admin report.
+    _recalculate_order_totals(source_order)
+    update_order_status_by_items(source_order)
 
     # Find or create target order
     target_order = next(
@@ -5072,6 +5454,17 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         update_order_status_by_items(new_order)
         restaurant["orders"].append(new_order)
 
+
+    # AUDIT FIX: log the transfer for traceability (Audit Issue 3.x audit-log
+    # extension). Captures who moved what from where to where, including the
+    # moved amount for later reconciliation.
+    _audit_log(
+        restaurant,
+        emp_name,
+        emp_role,
+        f"Transfer {qty_to_move}x {source_item_copy.get('name', 'Artikel')} von {source_order.get('table')} nach {target_table_str}",
+        f"Bestellung #{order_id}, Betrag: {item_amount} €"
+    )
 
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -5352,12 +5745,17 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
     is_auth = (pos_cookie and expected_pos and pos_cookie == expected_pos)
+    # AUDIT FIX: capture employee name/role for audit-log entry.
+    emp_name = "POS-Tablet"
+    emp_role = "pos"
     if not is_auth:
         user = get_current_user(request, slug)
         if not user and request.url.hostname == "testserver":
             user = {"name": "Test-Kellner", "role": "kellner"}
         if user and user["role"] in ["chef", "kellner"]:
             is_auth = True
+            emp_name = user.get("name") or "Unbekannt"
+            emp_role = user.get("role") or "unbekannt"
     if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
 
@@ -5366,6 +5764,11 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
     if order["status"] in ["bezahlt", "storniert"]:
         raise HTTPException(status_code=400, detail="Bestellung ist bereits abgeschlossen.")
+
+    # SECURITY FIX (Audit Issue 3.27): Source==Target guard. Without this,
+    # merging an order into itself would double quantities and crash on
+    # restaurant["orders"].remove(order) (ValueError).
+    source_table_str = str(order.get("table", ""))
 
     target_num, target_zone = parse_active_table_num(payload.target_table)
     tables_list = restaurant.get("tables", [])
@@ -5384,6 +5787,11 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
     else:
         target_table_str = f"Tisch {target_num}"
     possible_tables = [target_table_str, target_num]
+
+    # SECURITY FIX (Audit Issue 3.27): Reject Source==Target early to prevent
+    # quantity doubling and remove()-crash.
+    if source_table_str in possible_tables:
+        raise HTTPException(status_code=400, detail="Quell- und Zieltisch sind identisch.")
 
     target_order = next(
         (o for o in restaurant.get("orders", [])
@@ -5410,18 +5818,54 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
             else:
                 new_item = copy.deepcopy(item)
                 target_order["items"].append(new_item)
-                
-        # Recalculate target_order totals
-        target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
-        target_order["total_with_tip"] = round(target_order["total"], 2)
+
+        # SECURITY FIX (Audit Issue 3.7): Accumulate original_total on target
+        # BEFORE removing the source order. Without this, the admin report
+        # under-counts because source's original_total is lost when source is
+        # deleted. Source original_total is preserved on target.
+        _ensure_original_total(target_order)
+        _ensure_original_total(order)
+        target_order["original_total"] = round(
+            target_order.get("original_total", 0.0)
+            + order.get("original_total", 0.0),
+            2
+        )
+
+        # Merge tip_amount from source to target (Audit Issue 3.10) —
+        # previously only tip_amount was merged, but we keep that behavior.
         target_order["tip_amount"] = round(target_order.get("tip_amount", 0.0) + order.get("tip_amount", 0.0), 2)
+
+        # AUDIT FIX (Audit Issue 3.10): Preserve waiter_id from source if
+        # target has none, so the originating waiter remains attributable.
+        if not target_order.get("waiter_id") and order.get("waiter_id"):
+            target_order["waiter_id"] = order.get("waiter_id")
+
+        # Recalculate target_order totals via central helper
+        _recalculate_order_totals(target_order)
         update_order_status_by_items(target_order)
+        
+        # Capture audit-relevant details before removing source
+        source_order_id = order.get("id")
+        source_table_for_log = source_table_str
+        moved_original_total = order.get("original_total", 0.0)
         
         # Remove the source order since it is merged
         restaurant["orders"].remove(order)
     else:
         # Just update the table name of the order
         order["table"] = target_table_str
+        source_order_id = order.get("id")
+        source_table_for_log = source_table_str
+        moved_original_total = 0.0
+
+    # AUDIT FIX: log the table transfer for traceability.
+    _audit_log(
+        restaurant,
+        emp_name,
+        emp_role,
+        f"Tisch-Umbuchung Bestellung #{source_order_id} von {source_table_for_log} nach {target_table_str}",
+        f"Original-Warenwert verschoben: {moved_original_total} €"
+    )
 
     try:
         save_restaurant_to_db(slug, restaurant, db)
@@ -5556,7 +6000,7 @@ def post_onboarding(
     ]
     
     resp = RedirectResponse(url="/admin", status_code=303)
-    resp.set_cookie(key="session", value=f"{slug}:{chef_name}:chef:{chef_pin}", httponly=True, max_age=31536000)
+    resp.set_cookie(key="session", value=f"{slug}:{chef_name}:chef:{chef_pin}", httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()
@@ -5832,7 +6276,7 @@ def post_login(
         # Check superadmin first
         if email.strip() == "admin@digi-gastro.de" and password.strip() == ADMIN_PASSWORD:
             resp = RedirectResponse(url="/digi-gastro-admin", status_code=303)
-            resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000)
+            resp.set_cookie(key="session_global", value=email.strip(), httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
             # Clear any existing tenant session to prevent conflicts
             resp.delete_cookie(key="session", path="/")
             return resp
@@ -5852,7 +6296,7 @@ def post_login(
                 
             resp = RedirectResponse(url=target_url, status_code=303)
             # Set unified session cookie: slug:name:role:password
-            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000)
+            resp.set_cookie(key="session", value=f"{slug}:Owner:chef:{password.strip()}", httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
             return resp
         else:
             return templates.TemplateResponse(
@@ -5916,7 +6360,7 @@ def post_login(
                     
                 resp = RedirectResponse(url=target_url, status_code=303)
                 # Set unified session cookie: slug:name:role:pin
-                resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True, max_age=31536000)
+                resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
                 return resp
                 
     return templates.TemplateResponse(
@@ -10619,6 +11063,26 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
     if updated:
         merge_duplicate_order_items(order)
         update_order_status_by_items(order)
+        # AUDIT FIX: log the serve action for traceability (Audit Issue 3.x
+        # audit-log extension). Captures who marked which item(s) as delivered
+        # so later disputes about "was the item served?" can be resolved.
+        if payload.item_key:
+            served_item_name = matched_item.get("name", "Artikel") if matched_item else "Artikel"
+            _audit_log(
+                restaurant,
+                user.get("name") or "Unbekannt",
+                user.get("role") or "unbekannt",
+                f"Serviert: 1x {served_item_name} (Bestellung #{payload.order_id})",
+                f"Tisch: {order.get('table')}, item_key: {payload.item_key}"
+            )
+        else:
+            _audit_log(
+                restaurant,
+                user.get("name") or "Unbekannt",
+                user.get("role") or "unbekannt",
+                f"Alle Artikel serviert (Bestellung #{payload.order_id})",
+                f"Tisch: {order.get('table')}"
+            )
         try:
             save_restaurant_to_db(slug, restaurant, db)
             db.commit()
@@ -10781,6 +11245,14 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         if target_order:
             break
     
+    # SECURITY FIX (Audit Issue 3.5): Track actually-transferred amount per
+    # source order so we can add only the truly-moved value to target's
+    # original_total (instead of the full source original_total, which would
+    # massively over-count on partial transfers — e.g. moving 1 of 5 items
+    # would previously add the full 50€ source original_total to target,
+    # even though only 10€ was moved). Also reused for the audit-log entry.
+    transferred_amounts = []
+
     if payload.item_keys:
         # Move ONLY selected items
         if not target_order:
@@ -10807,44 +11279,53 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
             if "orders" not in restaurant:
                 restaurant["orders"] = []
             restaurant["orders"].append(target_order)
-            
+
         for source_order in source_orders:
+            # SECURITY FIX (Issue 3.5): Track the actually-transferred amount
+            # for THIS source order (sum of qty*price over moved items).
+            source_transferred = 0.0
             remaining_items = []
             for item in source_order.get("items", []):
                 item_status = item.get("item_status") or "pending"
                 note_slug = (item.get("note") or "").strip().replace(" ", "_")
-                
+
                 # Check both unique key (with order id) and legacy key
                 unique_key = f"{source_order['id']}_{item.get('product_id')}_{note_slug}_{item_status}"
                 legacy_key = f"{item.get('product_id')}_{note_slug}_{item_status}"
-                
+
                 matched_key = None
                 if unique_key in payload.item_keys:
                     matched_key = unique_key
                 elif legacy_key in payload.item_keys:
                     matched_key = legacy_key
-                
+
                 if matched_key:
                     # Determine quantity to move
                     qty_to_move = item.get("quantity", 0)
                     if payload.items and matched_key in payload.items:
                         qty_to_move = min(payload.items[matched_key], item.get("quantity", 0))
-                    
+
                     if qty_to_move <= 0:
                         remaining_items.append(item)
                         continue
-                        
+
+                    # SECURITY FIX (Issue 3.5): Track the actually-transferred
+                    # amount (qty * price) for this source order.
+                    source_transferred = round(
+                        source_transferred + qty_to_move * item.get("price", 0.0), 2
+                    )
+
                     # Move quantity
                     moved_item = copy.deepcopy(item)
                     moved_item["quantity"] = qty_to_move
-                    
+
                     # Add to target order
                     t_item = next((i for i in target_order.get("items", []) if i.get("product_id") == item.get("product_id") and (i.get("note") or "").strip() == (item.get("note") or "").strip() and (i.get("item_status") or "pending") == item_status), None)
                     if t_item:
                         t_item["quantity"] += qty_to_move
                     else:
                         target_order["items"].append(moved_item)
-                        
+
                     # Keep remaining quantity in source order
                     rem_qty = item.get("quantity", 0) - qty_to_move
                     if rem_qty > 0:
@@ -10852,29 +11333,30 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                         remaining_items.append(item)
                 else:
                     remaining_items.append(item)
-            
+
+            transferred_amounts.append(source_transferred)
+
             source_order["items"] = remaining_items
-            # ── Fix 6c (admin-transfer): original_total auf source behalten ──
-            _ensure_original_total(source_order)
-            source_order["total"] = round(sum(i["price"] * i["quantity"] for i in remaining_items), 2)
-            source_order["total_with_tip"] = round(source_order["total"], 2)
+            # SECURITY FIX (Issue 3.5): Source original_total is NEVER reduced
+            # (Fix-6 invariant: original_total only goes up, never down).
+            # _recalculate_order_totals updates total/total_with_tip from
+            # the remaining items while preserving original_total AND
+            # tip_amount (which was previously lost when items=[]).
+            _recalculate_order_totals(source_order)
             if not remaining_items:
                 source_order["status"] = "storniert"
-                # FRÜHER: source_order["total"] = 0.0 → führte zu 0€-Bons im Report
-                # JETZT: total NICHT auf 0 setzen. original_total bleibt erhalten
-                # und zeigt im Report den Wert der umgebuchten Artikel.
-                # total_with_tip auf gleichem Wert wie total halten
-                source_order["total_with_tip"] = round(source_order.get("total", 0.0), 2)
 
-        # ── Fix 6c (admin-transfer): original_total auf target akkumulieren ──
+        # SECURITY FIX (Issue 3.5): Add ONLY the actually-transferred amount
+        # (sum over per-source source_transferred) to target original_total
+        # — NOT the full source original_total. This prevents the massive
+        # over-counting documented in Issue 3.5.
         _ensure_original_total(target_order)
         target_order["original_total"] = round(
             target_order.get("original_total", 0.0)
-            + sum(source_order.get("original_total", 0.0) for source_order in source_orders),
+            + sum(transferred_amounts),
             2
         )
-        target_order["total"] = round(sum(i["price"] * i["quantity"] for i in target_order["items"]), 2)
-        target_order["total_with_tip"] = round(target_order["total"], 2)
+        _recalculate_order_totals(target_order)
     else:
         # Full table transfer
         # Use zone-inclusive table name for target
@@ -10887,12 +11369,16 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
             if not target_order:
                 source_order["table"] = t_table_display
                 target_order = source_order
+                # No value moved — source IS the target now (just renamed).
+                transferred_amounts.append(0.0)
             else:
                 # ── Fix 6c (admin-transfer): original_total sichern VOR Merge ──
                 _ensure_original_total(source_order)
                 _ensure_original_total(target_order)
                 moved_amount = round(source_order.get("original_total", 0.0), 2)
                 target_order["original_total"] = round(target_order.get("original_total", 0.0) + moved_amount, 2)
+                # Track for audit-log (full transfer: all of source's original_total moved)
+                transferred_amounts.append(moved_amount)
 
                 for s_item in source_order.get("items", []):
                     t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending")), None)
@@ -10920,7 +11406,19 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         # can join/see the active session of the target table.
         # DO NOT copy or overwrite the static 'security_token' (which matches the printed QR code).
         t_db_table["active_session_token"] = s_db_table.get("active_session_token")
-        
+
+    # AUDIT FIX: log the admin transfer for traceability. Uses the actually-
+    # transferred amount (Issue 3.5 fix) so the audit-log matches the real
+    # movement of value, not the buggy full-source-original_total figure.
+    total_transferred = round(sum(transferred_amounts), 2)
+    _audit_log(
+        restaurant,
+        user.get("name") or "Unbekannt",
+        user.get("role") or "unbekannt",
+        f"Admin-Transfer von {payload.source_table} nach {payload.target_table}",
+        f"Verschobener Betrag: {total_transferred} €"
+    )
+
     try:
         save_restaurant_to_db(slug, restaurant, db)
         db.commit()

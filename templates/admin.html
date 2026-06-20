@@ -4908,11 +4908,20 @@
                         el.setAttribute('data-category-name', newFullName);
                         const nameEl = el.querySelector('.category-display-name');
                         if (nameEl) nameEl.textContent = trimmed;
-                        
-                        // Update the edit button's onclick call for future edits
+
+                        // Update the edit button's onclick call for future edits.
+                        // SECURITY FIX (audit 4.1): Verwende addEventListener statt setAttribute('onclick', ...),
+                        // weil newFullName vom Backend html-encodiert kommt (z. B. &#x27; für ')
+                        // und der Attribut-Parser das zurück in ' decodiert, was einen JS-String-Kontext bricht
+                        // und Stored-XSS ermöglichen würde. Übergeben wird der String als Closure-Variable,
+                        // nicht als Code-Interpolation.
                         const editBtn = el.querySelector('button[onclick^="editCategoryInline"]');
                         if (editBtn) {
-                            editBtn.setAttribute('onclick', `editCategoryInline('${newFullName}', '${trimmed}')`);
+                            editBtn.removeAttribute('onclick');
+                            // Closure-Variablen kopieren, damit spätere Iterationen sie nicht überschreiben
+                            const fn = newFullName;
+                            const tr = trimmed;
+                            editBtn.addEventListener('click', () => editCategoryInline(fn, tr));
                         }
                     });
 
@@ -5909,6 +5918,24 @@
                 .replace(/'/g, '&#039;');
         }
 
+        // SECURITY FIX (audit 4.2): Helper zum Escapen von Strings, die in Inline-onclick-Handler
+        // (JS-Code-Kontext innerhalb eines HTML-Attributs) interpoliert werden.
+        // Verhindert Customer→Admin-XSS über item.note / item.name, die in `key` landen
+        // und per `${key}` in onclick-Attribute interpoliert werden.
+        // Backslash, Single-Quote, Double-Quote, < und > werden escaped — damit kann ein
+        // Apostroph aus einer Kunden-Notiz den JS-String nicht mehr brechen und kein
+        // HTML-Tag-Injection über <...> stattfinden.
+        function escapeForJsAttr(s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '\\"')
+                .replace(/</g, '\\u003c')
+                .replace(/>/g, '\\u003e')
+                .replace(/&/g, '\\u0026');
+        }
+
         // ════════════════════════════════════════════════════════════════
         //  HAUPTGRUPPEN (SuperGroups) — JS
         // ════════════════════════════════════════════════════════════════
@@ -6162,22 +6189,31 @@
         let selectedControlSplitItems = {};
 
         // ── QUICK TABLE TRANSFER LOGIC ──
-        function openTransferModal(tableNumber) {
-            document.getElementById('transfer-source-table').value = tableNumber;
-            document.getElementById('transfer-modal-title').textContent = `Tisch ${tableNumber} umbuchen`;
+        function openTransferModal(tableNumber, zone) {
+            // SECURITY FIX (audit 4.7): Source muss Zone enthalten, sonst kann Backend
+            // Drinnen/Draußen nicht unterscheiden. Wir speichern "num:zone" im hidden input.
+            const srcZone = zone || '';
+            document.getElementById('transfer-source-table').value = `${tableNumber}:${srcZone}`;
+            document.getElementById('transfer-modal-title').textContent = `Tisch ${tableNumber}${srcZone ? ' (' + srcZone + ')' : ''} umbuchen`;
             
             const select = document.getElementById('transfer-target-select');
             if (select) {
-                const others = allTables.filter(t => String(t.number) !== String(tableNumber));
+                const others = allTables.filter(t => !(String(t.number) === String(tableNumber) && String(t.zone || '') === String(srcZone)));
                 others.sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'}));
-                select.innerHTML = others.map(t => `<option value="${t.number}">Tisch ${t.number} (${t.zone || 'Allgemein'})</option>`).join('');
+                // SECURITY FIX (audit 4.7): Target-Option value muss Zone enthalten, sonst
+                // kann Backend Drinnen/Draußen nicht unterscheiden.
+                select.innerHTML = others.map(t => `<option value="${t.number}:${t.zone || ''}">Tisch ${t.number} (${t.zone || 'Allgemein'})</option>`).join('');
             }
 
             // Populate items checklists
-            const sourceTable = "Tisch " + tableNumber;
+            const sourceTable = "Tisch " + tableNumber + (srcZone ? ` (${srcZone})` : '');
             // Match table number with or without zone info (e.g., "Tisch 1" or "Tisch 1 (Drinnen)")
             const sourceOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
+                if (srcZone) {
+                    const exactTableStr = `Tisch ${tableNumber} (${srcZone})`;
+                    return tableStr === exactTableStr || tableStr === String(tableNumber);
+                }
                 const regex = new RegExp(`^Tisch\\s+${tableNumber}(\\s*\\(|$)`);
                 return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
             });
@@ -6227,12 +6263,21 @@
         }
 
         async function submitTableTransfer() {
-            const source = document.getElementById('transfer-source-table').value;
+            const sourceRaw = document.getElementById('transfer-source-table').value;
             const select = document.getElementById('transfer-target-select');
             if (!select) return;
-            const target = select.value;
+            const targetRaw = select.value;
             
-            if (!source || !target) return;
+            if (!sourceRaw || !targetRaw) return;
+
+            // SECURITY FIX (audit 4.7): Source und Target sind im Format "num:zone".
+            // Wir bauen daraus die vollqualifizierten Tisch-Strings (z. B. "Tisch 1 (Drinnen)")
+            // damit das Backend Drinnen/Draußen unterscheiden kann. Falls Zone leer ist,
+            // fallback auf reine Nummer wie bisher (Abwärtskompatibilität).
+            const [srcNum, srcZone] = sourceRaw.split(':');
+            const [tgtNum, tgtZone] = targetRaw.split(':');
+            const source = srcZone ? `Tisch ${srcNum} (${srcZone})` : `Tisch ${srcNum}`;
+            const target = tgtZone ? `Tisch ${tgtNum} (${tgtZone})` : `Tisch ${tgtNum}`;
 
             // Gather selected item keys
             const listContainer = document.getElementById('transfer-items-container');
@@ -6471,7 +6516,7 @@
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id})" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
                                             <span class="material-symbols-outlined text-base">check</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
@@ -6566,9 +6611,9 @@
                         return `
                             <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700 dark:text-amber-400">
                                 <span class="font-extrabold flex items-center gap-1.5">
-                                    <span class="animate-bounce">${cIcon}</span> ${cText}
+                                    <span class="animate-bounce">${cIcon}</span> ${escapeHtml(cText)}
                                 </span>
-                                <button onclick="resolveCall(${c.id})" class="bg-amber-600 hover:bg-amber-700 text-white border-none rounded-lg px-2.5 py-1 font-bold text-[10px] cursor-pointer">
+                                <button onclick="resolveCall(${parseInt(c.id, 10)})" class="bg-amber-600 hover:bg-amber-700 text-white border-none rounded-lg px-2.5 py-1 font-bold text-[10px] cursor-pointer">
                                     ✓ Erledigt
                                 </button>
                             </div>
@@ -6645,7 +6690,12 @@
             if (_serveLock) return false;
             _serveLock = true;
             if (_serveLockTimer) clearTimeout(_serveLockTimer);
-            _serveLockTimer = setTimeout(() => { _serveLock = false; _serveLockTimer = null; }, 300);
+            // SECURITY FIX (audit 4.8): Auto-Release von 300 ms auf 5000 ms erhöht.
+            // Bei langsamen Mobilfunk (300–1500 ms Latenz) war der Lock vorher weg,
+            // bevor der Fetch-Response kam → Kellner klickt erneut → 2. serve-Request
+            // feuert, weil _acquireServeLock() jetzt true zurückgibt. 5000 ms sind
+            // Deadlock-Schutz, kein Ersatz für finally _releaseServeLock() im Caller.
+            _serveLockTimer = setTimeout(() => { _serveLock = false; _serveLockTimer = null; }, 5000);
             return true;
         }
         function _releaseServeLock() {
@@ -6656,8 +6706,17 @@
             _serveLock = false;
         }
 
-        async function serveControlItem(itemKey, orderId) {
+        async function serveControlItem(itemKey, orderId, evt) {
             if (!_acquireServeLock()) return;
+            // SECURITY FIX (audit 4.9): Loading-State am geklickten Button — Spinner-Icon + disabled.
+            // Verhindert, dass Kellner im 200–600 ms Fenster erneut klickt, weil optisch nichts passiert.
+            let btn = null;
+            if (evt && evt.currentTarget) {
+                btn = evt.currentTarget;
+                btn.disabled = true;
+                btn.dataset._origHtml = btn.innerHTML;
+                btn.innerHTML = '<span class="material-symbols-outlined text-base animate-spin">progress_activity</span>';
+            }
             try {
                 // Track optimistic serve so poll doesn't overwrite it
                 // Extract short key format from control-modal key (orderId_pid_noteSlug_status_idx)
@@ -6742,6 +6801,14 @@
                 checkLiveTischeUpdates();
             } finally {
                 _releaseServeLock();
+                // Button wiederherstellen — falls er noch im DOM ist (bei Optimistic-Update
+                // verschwindet er durch refreshControlModal, dann ist btn schon detached,
+                // die Zuweisung ist dann No-Op).
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = btn.dataset._origHtml || btn.innerHTML;
+                    delete btn.dataset._origHtml;
+                }
             }
         }
 
@@ -6798,6 +6865,18 @@
         }
 
         let _cancelControlInProgress = false;
+
+        // ── MUTEX STATE FOR MUTATION HANDLERS (audit 4.3 / 4.4 / 4.10 / 4.11) ──
+        // Verhindert Doppelbuchungen durch Doppelklick im 200–600 ms Fenster
+        // zwischen Button-Render und Server-Response. Jeder Flag wird am Anfang
+        // der Funktion geprüft und gesetzt, im finally-Block zurückgesetzt.
+        let _closeTableInProgress = false;
+        let _controlSplitPayInProgress = false;
+        let _bezahlenInProgress = false;
+        let _stornierenInProgress = false;
+        let _cancelItemDirectInProgress = false;
+        let _executeItemActionInProgress = false;
+
         async function cancelControlItem(itemKey, orderId, maxQty, itemName) {
             // Race Condition Schutz
             if (_cancelControlInProgress) return;
@@ -6845,13 +6924,24 @@
         }
 
         async function submitControlSplitPayment() {
+            // SECURITY FIX (audit 4.10): Mutex + Button-Disable, damit Doppelklick nicht
+            // 2× parallele split-pay-Requests feuert (Doppelbuchung von Teilzahlungen).
+            if (_controlSplitPayInProgress) return;
             const groups = {};
             Object.keys(selectedControlSplitItems).forEach(key => {
                 const item = selectedControlSplitItems[key];
                 if (!groups[item.order_id]) groups[item.order_id] = [];
                 groups[item.order_id].push(item);
             });
-            
+
+            const submitBtn = document.getElementById('btn-control-split');
+            _controlSplitPayInProgress = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.dataset._origHtml = submitBtn.innerHTML;
+                submitBtn.innerHTML = '⏳ Verarbeite…';
+                submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
             try {
                 const promises = Object.keys(groups).map(orderId => {
                     const groupedMap = {};
@@ -6902,15 +6992,34 @@
                 }
             } catch (e) {
                 showToast("Verbindungsfehler", "error");
+            } finally {
+                _controlSplitPayInProgress = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtn.dataset._origHtml || submitBtn.innerHTML;
+                    submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    delete submitBtn.dataset._origHtml;
+                }
             }
         }
 
         async function closeTableControl() {
             if (!controlModalActiveTableNum) return;
+            // SECURITY FIX (audit 4.3): Mutex gegen Doppelklick — sonst feuert Doppelklick
+            // 2× Promise.all über alle Tisch-Orders → 2× bezahlen pro Bon → Doppel-Umsatz.
+            if (_closeTableInProgress) return;
             if (!confirm(`Tisch ${controlModalActiveTableNum} komplett abrechnen? Hat der Kunde bezahlt?`)) {
                 return;
             }
-            
+            _closeTableInProgress = true;
+            const closeBtn = document.getElementById('control-close-table');
+            if (closeBtn) {
+                closeBtn.disabled = true;
+                closeBtn.dataset._origHtml = closeBtn.innerHTML;
+                closeBtn.innerHTML = '⏳ Schließe…';
+                closeBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+
             const tableOrders = allOrders.filter(o => {
                 const tableStr = String(o.table || '').trim();
                 if (controlModalActiveTableZone) {
@@ -6922,7 +7031,16 @@
                 }
             });
             
-            if (tableOrders.length === 0) return;
+            if (tableOrders.length === 0) {
+                _closeTableInProgress = false;
+                if (closeBtn) {
+                    closeBtn.disabled = false;
+                    closeBtn.innerHTML = closeBtn.dataset._origHtml || closeBtn.innerHTML;
+                    closeBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    delete closeBtn.dataset._origHtml;
+                }
+                return;
+            }
             
             try {
                 const promises = tableOrders.map(o => {
@@ -6941,6 +7059,14 @@
                 }
             } catch (e) {
                 showToast("Verbindungsfehler", "error");
+            } finally {
+                _closeTableInProgress = false;
+                if (closeBtn) {
+                    closeBtn.disabled = false;
+                    closeBtn.innerHTML = closeBtn.dataset._origHtml || closeBtn.innerHTML;
+                    closeBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    delete closeBtn.dataset._origHtml;
+                }
             }
         }
         
@@ -7728,7 +7854,11 @@
 
                 const payload = {};
                 sorted.forEach(t => {
-                    payload[String(t.number)] = {
+                    // SECURITY FIX (audit 4.6): Key muss Zone enthalten, sonst kollidieren
+                    // "Tisch 1 Drinnen" und "Tisch 1 Draußen" im Backend-Payload.
+                    // Gleiches Format wie saveLayout() (Z. 7720): `${t.number}:${t.zone || ''}`.
+                    const tableKey = t.zone ? `${t.number}:${t.zone}` : String(t.number);
+                    payload[tableKey] = {
                         pos_x: t.pos_x,
                         pos_y: t.pos_y,
                         width: t.width || 120.0,
@@ -8271,12 +8401,18 @@
                 
                 // Display table name - ensure "Tisch" prefix appears exactly once
                 const displayTableName = /^Tisch\s/i.test(String(c.table)) ? String(c.table) : `Tisch ${c.table}`;
+                // SECURITY FIX (audit 4.13): displayTableName und cText escapen, da per innerHTML
+                // gerendert. Defense-in-Depth — cText kommt zwar aus fixer Liste, aber
+                // displayTableName enthält c.table, das theoretisch manipulierbar sein kann.
+                const displayTableNameEsc = escapeHtml(displayTableName);
+                const cTextEsc = escapeHtml(cText);
+                const cIdNum = parseInt(c.id, 10);
                 return `
                     <div class="call-bar">
                         <span style="font-size:11px;font-weight:800;color:#f87171;display:flex;align-items:center;gap:6px;">
-                            <span>${cIcon}</span> ${displayTableName}: <strong>${cText}</strong>
+                            <span>${cIcon}</span> ${displayTableNameEsc}: <strong>${cTextEsc}</strong>
                         </span>
-                        <button onclick="resolveCall(${c.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
+                        <button onclick="resolveCall(${cIdNum})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:900;cursor:pointer;">
                             ✓ Erledigt
                         </button>
                     </div>
@@ -8443,35 +8579,41 @@
                         checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️</span>';
                     }
 
+                    // SECURITY FIX (audit 4.2): key & item.name per escapeForJsAttr escapen, weil sie in
+                    // Inline-onclick-Attributen (JS-Kontext in HTML-Attr) stehen und aus item.note
+                    // (Kunden-Eingabe) stammen können. Ohne Escaping bricht ein Apostroph den JS-String.
+                    const keyJs = escapeForJsAttr(key);
+                    const itemNameJs = escapeForJsAttr(item.name);
+
                     let checkboxHtml = '';
                     if (itemStatus === 'delivered') {
                         const currentInTeil = selectedTeilrechnung[key] || 0;
                         const isChecked = currentInTeil > 0;
-                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${key}', ${item.quantity}) } else { removeFromTeilrechnung('${key}') }" ${isChecked ? 'checked' : ''} class="custom-checkbox" style="margin-right: 8px; width:22px; height:22px; min-width:22px;" title="Zur Teilrechnung hinzufügen">`;
+                        checkboxHtml = `<input type="checkbox" onclick="event.stopPropagation(); if(this.checked) { addToTeilrechnung('${keyJs}', ${item.quantity}) } else { removeFromTeilrechnung('${keyJs}') }" ${isChecked ? 'checked' : ''} class="custom-checkbox" style="margin-right: 8px; width:22px; height:22px; min-width:22px;" title="Zur Teilrechnung hinzufügen">`;
                     }
 
                     let actionBtn = '';
                     if (itemStatus === 'pending') {
-                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'confirmed')" class="btn-action btn-vorbereiten">🍳 Vorbereitung</button>`;
+                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${keyJs}', 'confirmed')" class="btn-action btn-vorbereiten">🍳 Vorbereitung</button>`;
                     } else if (itemStatus === 'confirmed') {
-                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${key}', 'delivered')" class="btn-action btn-fertig">Vorbereitet ✔️</button>`;
+                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${keyJs}', 'delivered')" class="btn-action btn-fertig">Vorbereitet ✔️</button>`;
                     } else if (itemStatus === 'delivered') {
-                        actionBtn = `<button onclick="event.stopPropagation();openItemActionModal('${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
+                        actionBtn = `<button onclick="event.stopPropagation();openItemActionModal('${keyJs}', ${item.quantity}, '${itemNameJs}')" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
                     }
 
                     let rowClick = '';
                     if (itemStatus === 'delivered') {
-                        rowClick = `onclick="openItemActionModal('${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')"`;
+                        rowClick = `onclick="openItemActionModal('${keyJs}', ${item.quantity}, '${itemNameJs}')"`;
                     } else if (itemStatus === 'pending') {
-                        rowClick = `onclick="setItemStatus(${order.id}, '${key}', 'confirmed')"`;
+                        rowClick = `onclick="setItemStatus(${order.id}, '${keyJs}', 'confirmed')"`;
                     } else if (itemStatus === 'confirmed') {
-                        rowClick = `onclick="setItemStatus(${order.id}, '${key}', 'delivered')"`;
+                        rowClick = `onclick="setItemStatus(${order.id}, '${keyJs}', 'delivered')"`;
                     }
 
                     html += `
                         <div class="item-card hover:border-primary/40 transition-colors" ${rowClick} style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};">
                             <div class="item-row">
-                                <button onclick="event.stopPropagation();cancelItemDirect(${order.id}, '${key}', ${item.quantity}, '${item.name.replace(/'/g, "\\'")}')" style="background:none;border:none;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;margin-right:8px;flex-shrink:0;" title="Artikel stornieren">
+                                <button onclick="event.stopPropagation();cancelItemDirect(${order.id}, '${keyJs}', ${item.quantity}, '${itemNameJs}')" style="background:none;border:none;color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;margin-right:8px;flex-shrink:0;" title="Artikel stornieren">
                                     <span class="material-symbols-outlined" style="font-size: 20px;">block</span>
                                 </button>
                                 ${checkboxHtml}
@@ -8533,6 +8675,9 @@
         }
 
         async function cancelItemDirect(orderId, itemKey, maxQty, itemName) {
+            // SECURITY FIX (audit 4.11): Mutex gegen Doppelklick — sonst 2× parallele
+            // cancel-item-POSTs, UI-Inkonsistenz und doppelte Storno-Buchung.
+            if (_cancelItemDirectInProgress) return;
             let qty = 1;
             if (maxQty > 1) {
                 const qtyStr = prompt(`Wie viele ${itemName} stornieren? (Max: ${maxQty})`, maxQty);
@@ -8543,6 +8688,7 @@
                     return;
                 }
             }
+            _cancelItemDirectInProgress = true;
             try {
                 const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
                     method: 'POST',
@@ -8558,6 +8704,8 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _cancelItemDirectInProgress = false;
             }
         }
 
@@ -8614,9 +8762,25 @@
 
         async function executeItemAction(action) {
             if (!activeItemActionKey || !activeOrderId) return;
-            
-            if (action === 'pay') {
-                try {
+            // SECURITY FIX (audit 4.11): Mutex gegen Doppelklick — sonst 2× parallele
+            // pay-item- oder cancel-item-POSTs, Doppelbuchung von Teilzahlungen.
+            // Gilt für 'pay' und 'cancel' (beide Mutations-Actions). 'transfer' nur UI.
+            const isMutation = (action === 'pay' || action === 'cancel');
+            if (isMutation) {
+                if (_executeItemActionInProgress) return;
+                _executeItemActionInProgress = true;
+            }
+            // Alle Action-Buttons im Item-Action-Modal deaktivieren
+            const actionBtns = document.querySelectorAll('#item-action-modal [onclick^="executeItemAction"]');
+            if (isMutation) {
+                actionBtns.forEach(b => {
+                    b.disabled = true;
+                    b.dataset._origHtml = b.innerHTML;
+                    b.classList.add('opacity-60', 'cursor-not-allowed');
+                });
+            }
+            try {
+                if (action === 'pay') {
                     const res = await fetch(`/${slug}/tablet/pay-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -8637,21 +8801,17 @@
                         const err = await res.json().catch(() => ({}));
                         showToast(err.detail || 'Fehler beim Buchen', 'error');
                     }
-                } catch (e) {
-                    showToast('Verbindungsfehler', 'error');
-                }
-            } else if (action === 'transfer') {
-                tableSel_mode = 'single_item';
-                document.getElementById('table-sel-title').textContent = 'Artikel umbuchen';
-                document.getElementById('table-sel-subtitle').textContent = `${activeItemActionQty}x ${activeItemActionName} umbuchen → Welcher Tisch?`;
-                
-                const order = allOrders.find(o => o.id === activeOrderId);
-                renderTableSelGrid(order ? order.table : '');
-                
-                document.getElementById('item-action-modal').classList.add('hidden');
-                document.getElementById('table-sel-overlay').classList.remove('hidden');
-            } else if (action === 'cancel') {
-                try {
+                } else if (action === 'transfer') {
+                    tableSel_mode = 'single_item';
+                    document.getElementById('table-sel-title').textContent = 'Artikel umbuchen';
+                    document.getElementById('table-sel-subtitle').textContent = `${activeItemActionQty}x ${activeItemActionName} umbuchen → Welcher Tisch?`;
+                    
+                    const order = allOrders.find(o => o.id === activeOrderId);
+                    renderTableSelGrid(order ? order.table : '');
+                    
+                    document.getElementById('item-action-modal').classList.add('hidden');
+                    document.getElementById('table-sel-overlay').classList.remove('hidden');
+                } else if (action === 'cancel') {
                     const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -8665,8 +8825,18 @@
                         const err = await res.json().catch(() => ({}));
                         showToast(err.detail || 'Fehler beim Stornieren', 'error');
                     }
-                } catch (e) {
-                    showToast('Verbindungsfehler', 'error');
+                }
+            } catch (e) {
+                showToast('Verbindungsfehler', 'error');
+            } finally {
+                if (isMutation) {
+                    _executeItemActionInProgress = false;
+                    actionBtns.forEach(b => {
+                        b.disabled = false;
+                        b.innerHTML = b.dataset._origHtml || b.innerHTML;
+                        b.classList.remove('opacity-60', 'cursor-not-allowed');
+                        delete b.dataset._origHtml;
+                    });
                 }
             }
         }
@@ -8753,7 +8923,7 @@
                                     <div class="item-price" style="margin-right:.5rem;color:#1f2937;font-weight:700;">
                                         ${item.quantity}× ${item.price.toFixed(2).replace('.', ',')} €
                                     </div>
-                                    <button onclick="removeFromTeilrechnung('${key}')" style="touch-action: manipulation; width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;">
+                                    <button onclick="removeFromTeilrechnung('${escapeForJsAttr(key)}')" style="touch-action: manipulation; width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold;">
                                         －
                                     </button>
                                 </div>
@@ -8931,6 +9101,17 @@
 
         async function stornieren() {
             if (!activeOrderId) return;
+            // SECURITY FIX (audit 4.4): Mutex gegen Doppelklick — sonst 2× parallele
+            // stornieren-POSTs, Backend überschreibt Storniert-Status oder bucht doppelt.
+            if (_stornierenInProgress) return;
+            _stornierenInProgress = true;
+            // Alle Stornieren-Buttons deaktivieren (Popup-Footer + Control-Modal-Footer)
+            const stornoBtns = document.querySelectorAll('[onclick^="stornieren("]');
+            stornoBtns.forEach(b => {
+                b.disabled = true;
+                b.dataset._origHtml = b.innerHTML;
+                b.classList.add('opacity-60', 'cursor-not-allowed');
+            });
             try {
                 const res = await fetch(`/${slug}/tablet/stornieren/${activeOrderId}`, { method: 'POST' });
                 if (res.ok) {
@@ -8960,6 +9141,14 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _stornierenInProgress = false;
+                stornoBtns.forEach(b => {
+                    b.disabled = false;
+                    b.innerHTML = b.dataset._origHtml || b.innerHTML;
+                    b.classList.remove('opacity-60', 'cursor-not-allowed');
+                    delete b.dataset._origHtml;
+                });
             }
         }
 
@@ -8968,7 +9157,19 @@
             if (!activeOrderId) return;
             const order = allOrders.find(o => o.id === activeOrderId);
             if (!order) return;
-            
+            // SECURITY FIX (audit 4.4): Mutex gegen Doppelklick — sonst 2× parallele
+            // bezahlen-POSTs, Backend (Task 1 Issue 1.1) bucht doppelten Umsatz.
+            if (_bezahlenInProgress) return;
+            _bezahlenInProgress = true;
+            const payBtn = document.getElementById('btn-popup-bezahlen');
+            const hadDisabledAttr = payBtn ? payBtn.disabled : false;
+            if (payBtn) {
+                payBtn.disabled = true;
+                payBtn.dataset._origHtml = payBtn.innerHTML;
+                payBtn.innerHTML = '⏳ Verarbeite…';
+                payBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+
             try {
                 const res = await fetch(`/${slug}/tablet/bezahlen/${activeOrderId}`, {
                     method: 'POST'
@@ -8982,6 +9183,16 @@
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
+            } finally {
+                _bezahlenInProgress = false;
+                if (payBtn) {
+                    payBtn.innerHTML = payBtn.dataset._origHtml || payBtn.innerHTML;
+                    payBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    // Nur reaktivieren, falls der Button vorher nicht disabled war
+                    // (z. B. im.Popup-Reset-Zustand mit disabled). Sonst disabled lassen.
+                    if (!hadDisabledAttr) payBtn.disabled = false;
+                    delete payBtn.dataset._origHtml;
+                }
             }
         }
 
@@ -9670,7 +9881,7 @@
                 const dayStr = (ev.days || []).map(d => d.substring(0,2)).join(', ');
                 const prodCount = (ev.products || []).length;
                 const comboCount = (ev.combos || []).length;
-                const modeLabel = ev.mode === 'discount' ? `${ev.discount}% auf alles` : `${prodCount} Produkte`;
+                const modeLabel = ev.mode === 'discount' ? `${escapeHtml(String(ev.discount))}% auf alles` : `${prodCount} Produkte`;
                 const statusColor = isActive ? 'emerald' : 'zinc';
                 const statusBg = isActive ? 'bg-emerald-50 border-emerald-200' : 'bg-zinc-100 border-zinc-200';
                 const statusDot = isActive ? 'bg-emerald-500' : 'bg-zinc-400';
@@ -9680,6 +9891,15 @@
                 const iconBg = isActive ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-gray-200 dark:bg-zinc-700';
                 const iconColor = isActive ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400 dark:text-zinc-500';
 
+                // SECURITY FIX (audit 4.12): Alle nutzerkontrollierten Felder escapen, weil
+                // sie per innerHTML gerendert werden. Verhindert Stored-XSS über Event-Name,
+                // -Beschreibung, -Zeiten, -Tage und -Modus-Label.
+                const evDisplayName = escapeHtml(ev.display_name || ev.name || '');
+                const evStartTime   = escapeHtml(ev.start_time || '18:00');
+                const evEndTime     = escapeHtml(ev.end_time || '20:00');
+                const evDayStr      = escapeHtml(dayStr || 'Keine Tage');
+                const evDescription = ev.description ? escapeHtml(ev.description) : '';
+
                 return `
                 <div class="p-4 rounded-xl border ${cardBg} transition-all hover:shadow-md">
                     <div class="flex items-start gap-3">
@@ -9688,7 +9908,7 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100 truncate">${ev.display_name || ev.name}</span>
+                                <span class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100 truncate">${evDisplayName}</span>
                                 <span class="text-[9px] font-bold ${statusBg} dark:bg-zinc-800 dark:border-zinc-600 px-2 py-0.5 rounded-full border flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span>
                                     <span class="dark:text-zinc-300">${statusText}</span>
@@ -9697,11 +9917,11 @@
                             <div class="flex items-center gap-3 text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
                                 <span class="flex items-center gap-0.5">
                                     <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
-                                    ${ev.start_time || '18:00'} – ${ev.end_time || '20:00'}
+                                    ${evStartTime} – ${evEndTime}
                                 </span>
                                 <span class="flex items-center gap-0.5">
                                     <span class="material-symbols-outlined" style="font-size:12px;">calendar_today</span>
-                                    ${dayStr || 'Keine Tage'}
+                                    ${evDayStr}
                                 </span>
                                 <span class="flex items-center gap-0.5">
                                     <span class="material-symbols-outlined" style="font-size:12px;">lunch_dining</span>
@@ -9722,13 +9942,13 @@
                                     return comboHtml;
                                 })() : ''}
                             </div>
-                            ${ev.description ? `<p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">${ev.description}</p>` : ''}
+                            ${evDescription ? `<p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">${evDescription}</p>` : ''}
                         </div>
                         <div class="flex items-center gap-1 flex-shrink-0">
-                            <button onclick="openEventEditModal(${ev.id})" class="text-zinc-400 dark:text-zinc-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30" title="Bearbeiten">
+                            <button onclick="openEventEditModal(${parseInt(ev.id, 10)})" class="text-zinc-400 dark:text-zinc-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
                             </button>
-                            <button onclick="deleteEvent(${ev.id})" class="text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Löschen">
+                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Löschen">
                                 <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                             </button>
                         </div>

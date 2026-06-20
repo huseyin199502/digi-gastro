@@ -2,7 +2,8 @@ import os
 import json
 import copy
 import contextvars
-from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, ForeignKey
+import sqlalchemy as sa
+from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, ForeignKey, Index
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
@@ -134,6 +135,10 @@ class SuperGroup(Base):
 
 class Category(Base):
     __tablename__ = 'categories'
+    __table_args__ = (
+        Index('idx_category_tenant_pos', 'tenant_slug', 'position'),
+        Index('idx_category_tenant_slug', 'tenant_slug'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
@@ -143,7 +148,11 @@ class Category(Base):
 
 class Product(Base):
     __tablename__ = 'products'
-    
+    __table_args__ = (
+        Index('idx_product_tenant_pos', 'tenant_slug', 'position'),
+        Index('idx_product_tenant_slug', 'tenant_slug'),
+    )
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     name = Column(String, nullable=False)
@@ -168,7 +177,11 @@ class Product(Base):
 
 class Order(Base):
     __tablename__ = 'orders'
-    
+    __table_args__ = (
+        Index('idx_order_tenant_id', 'tenant_slug', 'id'),
+        Index('idx_order_tenant_slug', 'tenant_slug'),
+    )
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     table = Column(String, nullable=False)
@@ -183,9 +196,9 @@ class Order(Base):
 
 class OrderItem(Base):
     __tablename__ = 'order_items'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Integer, ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
+    order_id = Column(Integer, ForeignKey('orders.id', ondelete='CASCADE'), nullable=False, index=True)
     product_id = Column(Integer, nullable=False)
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
@@ -196,7 +209,11 @@ class OrderItem(Base):
 
 class Staff(Base):
     __tablename__ = 'staff'
-    
+    __table_args__ = (
+        Index('idx_staff_tenant_name', 'tenant_slug', 'name'),
+        Index('idx_staff_tenant_slug', 'tenant_slug'),
+    )
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     name = Column(String, nullable=False)
@@ -206,16 +223,20 @@ class Staff(Base):
 
 class ServiceCall(Base):
     __tablename__ = 'service_calls'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False, index=True)
     table = Column(String, nullable=False)
     type = Column(String, nullable=False)
     timestamp = Column(String, nullable=False)
 
 class Table(Base):
     __tablename__ = 'tables'
-    
+    __table_args__ = (
+        Index('idx_table_tenant_number_zone', 'tenant_slug', 'number', 'zone'),
+        Index('idx_table_tenant_slug', 'tenant_slug'),
+    )
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     number = Column(String, nullable=False)
@@ -232,7 +253,11 @@ class Table(Base):
 
 class AuditLog(Base):
     __tablename__ = 'audit_log'
-    
+    __table_args__ = (
+        Index('idx_auditlog_tenant_id', 'tenant_slug', 'id'),
+        Index('idx_auditlog_tenant_slug', 'tenant_slug'),
+    )
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     action = Column(String, nullable=False)
@@ -242,7 +267,11 @@ class AuditLog(Base):
 
 class Event(Base):
     __tablename__ = 'events'
-    
+    __table_args__ = (
+        Index('idx_event_tenant_pos', 'tenant_slug', 'position'),
+        Index('idx_event_tenant_slug', 'tenant_slug'),
+    )
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
     name = Column(String, nullable=False)  # Internal name, e.g. "Ladys Night"
@@ -258,17 +287,17 @@ class Event(Base):
 
 class EventProduct(Base):
     __tablename__ = 'event_products'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False)
+    event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
     product_id = Column(Integer, nullable=False)
     event_price = Column(Float, nullable=True)  # Fixed event price (overrides discount %)
 
 class EventCombo(Base):
     __tablename__ = 'event_combos'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False)
+    event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
     name = Column(String, nullable=False)  # e.g. "Cola + Shisha"
     combo_price = Column(Float, nullable=False)  # e.g. 18.00
     position = Column(Integer, default=0)
@@ -281,7 +310,7 @@ class EventComboItem(Base):
     __tablename__ = 'event_combo_items'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    combo_id = Column(Integer, ForeignKey('event_combos.id', ondelete='CASCADE'), nullable=False)
+    combo_id = Column(Integer, ForeignKey('event_combos.id', ondelete='CASCADE'), nullable=False, index=True)
     product_id = Column(Integer, nullable=False)
 
 
@@ -308,7 +337,6 @@ Base.metadata.create_all(bind=engine)
 
 # ── Dynamic DB Migrations (SQLite & Postgres) ───────────────
 def _migrate_database():
-    import sqlalchemy as sa
     inspector = sa.inspect(engine)
     
     def add_column_if_missing(table_name, column_name, column_definition):
@@ -746,10 +774,74 @@ STANDARD_PRODUCTS = [
 ]
 
 # ── Public migration runner (called by main.py at startup) ──
+def _create_indexes_if_not_exists(session=None):
+    """Idempotent: creates all performance indexes via CREATE INDEX IF NOT EXISTS.
+
+    This is critical for live operations: model-level `index=True` / `__table_args__`
+    only apply to *new* tables created via `Base.metadata.create_all()`. For tables
+    that already exist in production (PostgreSQL 16), we must issue explicit
+    `CREATE INDEX IF NOT EXISTS` statements — otherwise the new indexes would
+    silently never be created. Safe to call multiple times.
+    """
+    indexes = [
+        # ── Category ──
+        "CREATE INDEX IF NOT EXISTS idx_category_tenant_pos ON categories (tenant_slug, position)",
+        "CREATE INDEX IF NOT EXISTS idx_category_tenant_slug ON categories (tenant_slug)",
+        # ── Product ──
+        "CREATE INDEX IF NOT EXISTS idx_product_tenant_pos ON products (tenant_slug, position)",
+        "CREATE INDEX IF NOT EXISTS idx_product_tenant_slug ON products (tenant_slug)",
+        # ── Order ──
+        "CREATE INDEX IF NOT EXISTS idx_order_tenant_id ON orders (tenant_slug, id)",
+        "CREATE INDEX IF NOT EXISTS idx_order_tenant_slug ON orders (tenant_slug)",
+        # ── OrderItem ──
+        "CREATE INDEX IF NOT EXISTS idx_orderitem_order_id ON order_items (order_id)",
+        # ── Staff ──
+        "CREATE INDEX IF NOT EXISTS idx_staff_tenant_name ON staff (tenant_slug, name)",
+        "CREATE INDEX IF NOT EXISTS idx_staff_tenant_slug ON staff (tenant_slug)",
+        # ── ServiceCall ──
+        "CREATE INDEX IF NOT EXISTS idx_servicecall_tenant_slug ON service_calls (tenant_slug)",
+        # ── Table ──
+        "CREATE INDEX IF NOT EXISTS idx_table_tenant_number_zone ON tables (tenant_slug, number, zone)",
+        "CREATE INDEX IF NOT EXISTS idx_table_tenant_slug ON tables (tenant_slug)",
+        # ── AuditLog ──
+        "CREATE INDEX IF NOT EXISTS idx_auditlog_tenant_id ON audit_log (tenant_slug, id)",
+        "CREATE INDEX IF NOT EXISTS idx_auditlog_tenant_slug ON audit_log (tenant_slug)",
+        # ── Event ──
+        "CREATE INDEX IF NOT EXISTS idx_event_tenant_pos ON events (tenant_slug, position)",
+        "CREATE INDEX IF NOT EXISTS idx_event_tenant_slug ON events (tenant_slug)",
+        # ── EventProduct ──
+        "CREATE INDEX IF NOT EXISTS idx_eventproduct_event_id ON event_products (event_id)",
+        # ── EventCombo ──
+        "CREATE INDEX IF NOT EXISTS idx_eventcombo_event_id ON event_combos (event_id)",
+        # ── EventComboItem ──
+        "CREATE INDEX IF NOT EXISTS idx_eventcomboitem_combo_id ON event_combo_items (combo_id)",
+        # ── RevenueAdjustment ──
+        "CREATE INDEX IF NOT EXISTS idx_revenue_adjustment_tenant_slug ON revenue_adjustments (tenant_slug)",
+    ]
+    owns_session = session is None
+    if owns_session:
+        session = SessionLocal()
+    try:
+        for sql in indexes:
+            try:
+                session.execute(sa.text(sql))
+            except Exception as e:
+                # Index creation is best-effort: missing table / already-existing index
+                # must NOT block app startup. Log and continue.
+                print(f"[DB Migration] Index creation failed: {sql}: {e}")
+        session.commit()
+    finally:
+        if owns_session:
+            session.close()
+
+
 def run_migrations():
     """Run all pending database migrations. Called once at app startup."""
     _migrate_database()
     migrate_happy_hour_to_events()
+    # Create all performance indexes (idempotent, safe for live PostgreSQL).
+    _create_indexes_if_not_exists()
+    print("[DB Migration] Performance indexes ensured.")
 
 def get_db():
     db = SessionLocal()

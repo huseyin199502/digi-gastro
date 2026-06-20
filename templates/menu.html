@@ -1036,8 +1036,12 @@
                         <h4 class="text-xs font-black uppercase tracking-wider text-emerald-400">Ausstehend / Zubereitung</h4>
                         <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/20" x-text="tableOrders.pending.length">0</span>
                     </div>
-                    <button x-show="tableOrders.pending.length > 0" @click="serveAllPending()" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/10">
-                        <span class="material-symbols-outlined text-sm font-black">done_all</span>
+                    <button x-show="tableOrders.pending.length > 0" @click="serveAllPending()" :disabled="_serveAllInProgress" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors bg-emerald-500/5 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg x-show="_serveAllInProgress" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span x-show="!_serveAllInProgress" class="material-symbols-outlined text-sm font-black">done_all</span>
                         Alle serviert
                     </button>
                 </div>
@@ -1049,8 +1053,12 @@
                     <template x-for="item in tableOrders.pending" :key="item.key">
                         <div class="flex items-center justify-between p-3 bg-surface-container-high rounded-xl border border-outline-variant/60 text-xs" :class="_cancellingItemKey === item.key ? 'opacity-50 pointer-events-none' : ''">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
-                                <button @click.stop="serveSingleItem(item)" class="w-10 h-10 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20">
-                                    <span class="material-symbols-outlined text-base">check</span>
+                                <button @click.stop="serveSingleItem(item)" :disabled="_serveInProgress || _cancellingItemKey === item.key" class="w-10 h-10 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors border border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span x-show="!_serveInProgress" class="material-symbols-outlined text-base">check</span>
+                                    <svg x-show="_serveInProgress" class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
                                 </button>
                                 <div class="flex-1 min-w-0">
                                     <span class="font-extrabold text-on-surface block truncate text-[13px]" x-text="item.quantity + 'x ' + item.name"></span>
@@ -1126,17 +1134,25 @@
             </div>
             <div class="grid grid-cols-2 gap-3.5">
                 <button @click="submitDrawerPayment(true)" 
-                        :disabled="selectedSplitItems.length === 0"
+                        :disabled="selectedSplitItems.length === 0 || _drawerPaymentInProgress"
                         class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none border"
-                        :class="selectedSplitItems.length > 0 ? 'bg-surface-container-high hover:bg-surface border-outline-variant text-on-surface cursor-pointer shadow-lg shadow-black/10' : 'bg-surface/50 text-on-surface-variant/40 border-outline-variant/40 cursor-not-allowed'">
-                    <span class="material-symbols-outlined text-base font-black">call_split</span>
+                        :class="(selectedSplitItems.length > 0 && !_drawerPaymentInProgress) ? 'bg-surface-container-high hover:bg-surface border-outline-variant text-on-surface cursor-pointer shadow-lg shadow-black/10' : 'bg-surface/50 text-on-surface-variant/40 border-outline-variant/40 cursor-not-allowed'">
+                    <svg x-show="_drawerPaymentInProgress" class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span x-show="!_drawerPaymentInProgress" class="material-symbols-outlined text-base font-black">call_split</span>
                     Teilrechnung
                 </button>
                 <button @click="submitDrawerPayment(false)" 
-                        :disabled="tableOrders.pending.length > 0 || tableOrders.delivered.length === 0"
+                        :disabled="tableOrders.pending.length > 0 || tableOrders.delivered.length === 0 || _drawerPaymentInProgress"
                         class="h-12 rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition-all select-none"
-                        :class="tableOrders.pending.length === 0 && tableOrders.delivered.length > 0 ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
-                    <span class="material-symbols-outlined text-base font-black">payments</span>
+                        :class="(tableOrders.pending.length === 0 && tableOrders.delivered.length > 0 && !_drawerPaymentInProgress) ? 'bg-primary text-black hover:bg-emerald-400 cursor-pointer shadow-lg shadow-primary/10' : 'bg-surface/50 text-on-surface-variant/40 border border-outline-variant/40 cursor-not-allowed'">
+                    <svg x-show="_drawerPaymentInProgress" class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span x-show="!_drawerPaymentInProgress" class="material-symbols-outlined text-base font-black">payments</span>
                     Gesamtrechnung
                 </button>
             </div>
@@ -1420,6 +1436,15 @@
                 _cancelInProgress: false,
                 _cancellingItemKey: null,
                 _recentCancellations: [],
+                // ── Serve-/Pay-UI-State (Mutex) ──
+                // Issue 2.4: Dient der Race-Condition-Abwehr bei Mehrfachklicks auf
+                // Serve-/Pay-Buttons. Backend-Audit Issue 1.3 (/admin/orders/serve ohne
+                // tenant_lock) und Issue 2.1 (bezahlen ohne Current-Status-Check) machen
+                // den Client-Schutz hier zur primären Verteidigungslinie gegen doppelte
+                // Umsatzbuchung.
+                _serveInProgress: false,
+                _serveAllInProgress: false,
+                _drawerPaymentInProgress: false,
                 currentLang: 'de',
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
@@ -2338,7 +2363,20 @@
                     // Resultat: DOPPELTE BESTELLUNG (Kunde hat einmal bestellt, System
                     // verbucht zweimal). Falls ein Produkt im Warenkorb ist, das in
                     // den letzten 60 Sekunden storniert wurde → Warnung mit Bestätigung.
-                    if (this._recentCancellations && this._recentCancellations.length > 0) {
+                    //
+                    // ── Issue 2.1 Fix: 60s-Zeitfilter beim Lesen ──
+                    // Vor dem Lesen Cache auf Einträge < 60s filtern. Ohne diesen Filter
+                    // gäbe es false-positive Warnungen nach 5 min (Kellner gewöhnt sich
+                    // dran → ignoriert echte Warnung irgendwann → Schutz wirktlos).
+                    this._recentCancellations = (this._recentCancellations || []).filter(
+                        r => Date.now() - r.timestamp < 60000
+                    );
+                    // pendingPruneIds wird erst nach *erfolgreichem* fetch in den
+                    // _recentCancellations-Cache zurückgeschrieben (siehe .then()-Pfad
+                    // weiter unten). Issue 2.2 Fix: Cache vor dem fetch NICHT leeren,
+                    // damit bei Netzwerkfehler der Retry erneut warnen kann.
+                    let pendingPruneIds = null;
+                    if (this._recentCancellations.length > 0) {
                         const recentProductIds = this._recentCancellations.map(r => r.product_id);
                         const duplicateItems = this.cart.filter(c => recentProductIds.includes(c.id));
                         if (duplicateItems.length > 0) {
@@ -2349,11 +2387,12 @@
                                 `(Bestätigen Sie nur, wenn der Kunde tatsächlich nochmal bestellen möchte.)`
                             );
                             if (!confirmed) return;
-                            // Nach Bestätigung: diese Stornos aus dem Cache löschen,
-                            // damit nicht bei jedem weiteren Bestellen erneut gewarnt wird.
-                            this._recentCancellations = this._recentCancellations.filter(
-                                r => !duplicateItems.some(d => d.id === r.product_id)
-                            );
+                            // Issue 2.2 Fix: Cache-Einträge erst nach erfolgreichem
+                            // fetch löschen (siehe unten im .then()-Erfolgspfad).
+                            // Vorheriges Löschen führte bei Netzwerkfehlern dazu,
+                            // dass der Cache leer war → beim Retry keine Warnung →
+                            // mögliches Anti-Duplikat-Versagen (Doppelbuchung).
+                            pendingPruneIds = duplicateItems.map(d => d.id);
                         }
                     }
 
@@ -2403,6 +2442,17 @@
                         localStorage.removeItem(`dl_cart_{{ slug }}`);
                         this.cart = [];
                         this.closeCartModal();
+
+                        // Issue 2.2 Fix: Bestätigte Stornos erst JETZT (nach
+                        // erfolgreichem fetch) aus dem _recentCancellations-Cache
+                        // löschen, damit nicht bei jeder weiteren Bestellung erneut
+                        // gewarnt wird. Bei vorherigem Abbruch (Netzwerkfehler)
+                        // bleibt der Cache erhalten → Retry warnt erneut.
+                        if (pendingPruneIds && pendingPruneIds.length > 0) {
+                            this._recentCancellations = (this._recentCancellations || []).filter(
+                                r => !pendingPruneIds.includes(r.product_id)
+                            );
+                        }
 
                         const thankyou = document.getElementById("thankyou-overlay");
                         if (thankyou) {
@@ -2595,6 +2645,13 @@
                 },
 
                 async serveSingleItem(item) {
+                    // ── Issue 2.4 Fix: Mutex gegen Mehrfachklicks ──
+                    // Verhindert doppelte Serve-Requests bei schnellem Doppelklick
+                    // auf den ✓-Button. Backend-Audit Issue 1.3: /admin/orders/serve
+                    // läuft ohne tenant_lock → Client-Schutz ist hier die primäre
+                    // Verteidigungslinie gegen doppelte Status-Setzung.
+                    if (this._serveInProgress) return;
+                    this._serveInProgress = true;
                     try {
                         const res = await fetch('/admin/orders/serve', {
                             method: 'POST',
@@ -2610,12 +2667,21 @@
                         }
                     } catch (e) {
                         showToast("Verbindungsfehler beim Servieren", "error");
+                    } finally {
+                        this._serveInProgress = false;
                     }
                 },
 
                 async serveAllPending() {
+                    // ── Issue 2.4 Fix: Mutex gegen Mehrfachklicks ──
+                    // Verhindert, dass 2 schnelle Klicks auf "Alle serviert"
+                    // 2×N parallele Serve-Requests feuern (Toast "Alle serviert"
+                    // erscheint sonst 2×, Backend-Last-Spike, Race-Conditions
+                    // auf item_status). Siehe auch serveSingleItem.
+                    if (this._serveAllInProgress) return;
                     const orderIds = [...new Set(this.tableOrders.pending.map(i => i.order_id))];
                     if (orderIds.length === 0) return;
+                    this._serveAllInProgress = true;
                     
                     try {
                         const promises = orderIds.map(orderId => 
@@ -2632,9 +2698,17 @@
                             await this.fetchAdminDrawerState();
                         } else {
                             showToast("Fehler beim Servieren der Artikel", "error");
+                            // Auch bei Teilausfall State refreshen, damit der Kellner
+                            // sieht, welche Items tatsächlich serviert wurden — sonst
+                            // könnte er erneut klicken und bereits servierte Items
+                            // erneut als serviert markieren (gleiche Bug-Klasse wie
+                            // Issue 2.5 bei Gesamtrechnung).
+                            await this.fetchAdminDrawerState();
                         }
                     } catch (e) {
                         showToast("Verbindungsfehler", "error");
+                    } finally {
+                        this._serveAllInProgress = false;
                     }
                 },
 
@@ -2796,66 +2870,98 @@
                 },
 
                 async submitDrawerPayment(isSplit) {
-                    if (isSplit) {
-                        const groups = {};
-                        this.selectedSplitItems.forEach(i => {
-                            if (!groups[i.order_id]) groups[i.order_id] = [];
-                            groups[i.order_id].push(i);
-                        });
-                        
-                        try {
-                            const promises = Object.keys(groups).map(orderId => {
-                                const payload = {
-                                    items: groups[orderId].map(i => ({
-                                        product_id: i.product_id,
-                                        quantity: i.selectedQty,
-                                        note: i.note || null
-                                    }))
-                                };
-                                return fetch(`/${slug}/tablet/teilzahlung/${orderId}`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(payload)
-                                });
+                    // ── Issue 2.4 Fix: Mutex gegen Mehrfachklicks ──
+                    // Verhindert doppelte bezahlen-Requests. Backend-Audit Issue 2.1:
+                    // bezahlen ohne Current-Status-Check kann Umsatz doppelt buchen
+                    // → Client-Mutex ist hier die primäre Verteidigungslinie.
+                    // Dasselbe Flag gilt für Teil- und Gesamtrechnung, damit nicht
+                    // beide gleichzeitig feuern können.
+                    if (this._drawerPaymentInProgress) return;
+                    this._drawerPaymentInProgress = true;
+                    try {
+                        if (isSplit) {
+                            const groups = {};
+                            this.selectedSplitItems.forEach(i => {
+                                if (!groups[i.order_id]) groups[i.order_id] = [];
+                                groups[i.order_id].push(i);
                             });
                             
-                            const results = await Promise.all(promises);
-                            if (results.every(r => r.ok)) {
-                                showToast("✔️ Teilzahlung erfolgreich gebucht!", "success");
-                                this.selectedSplitItems = [];
-                                await this.fetchAdminDrawerState();
-                            } else {
-                                showToast("Fehler bei der Teilzahlung", "error");
-                            }
-                        } catch (e) {
-                            showToast("Verbindungsfehler bei Teilzahlung", "error");
-                        }
-                    } else {
-                        const orderIds = [...new Set([
-                            ...this.tableOrders.pending.map(i => i.order_id),
-                            ...this.tableOrders.delivered.map(i => i.order_id)
-                        ])];
-                        
-                        if (orderIds.length === 0) return;
-                        
-                        try {
-                            const promises = orderIds.map(orderId => {
-                                return fetch(`/${slug}/tablet/bezahlen/${orderId}`, {
-                                    method: 'POST'
+                            try {
+                                const promises = Object.keys(groups).map(orderId => {
+                                    const payload = {
+                                        items: groups[orderId].map(i => ({
+                                            product_id: i.product_id,
+                                            quantity: i.selectedQty,
+                                            note: i.note || null
+                                        }))
+                                    };
+                                    return fetch(`/${slug}/tablet/teilzahlung/${orderId}`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(payload)
+                                    });
                                 });
-                            });
-                            
-                            const results = await Promise.all(promises);
-                            if (results.every(r => r.ok)) {
-                                showToast("✔️ Tisch vollständig bezahlt!", "success");
-                                this.selectedSplitItems = [];
+                                
+                                const results = await Promise.all(promises);
+                                if (results.every(r => r.ok)) {
+                                    showToast("✔️ Teilzahlung erfolgreich gebucht!", "success");
+                                    this.selectedSplitItems = [];
+                                    await this.fetchAdminDrawerState();
+                                } else {
+                                    showToast("Fehler bei der Teilzahlung", "error");
+                                    // Issue 2.5 (analog Gesamtrechnung): State
+                                    // refreshen, damit der Kellner sieht, welche
+                                    // Orders tatsächlich bezahlt wurden — sonst
+                                    // klickt er erneut und bucht bereits-bezahlte
+                                    // Orders doppelt.
+                                    await this.fetchAdminDrawerState();
+                                }
+                            } catch (e) {
+                                showToast("Verbindungsfehler bei Teilzahlung", "error");
                                 await this.fetchAdminDrawerState();
-                            } else {
-                                showToast("Fehler beim Abschließen der Rechnung", "error");
                             }
-                        } catch (e) {
-                            showToast("Verbindungsfehler bei Zahlung", "error");
+                        } else {
+                            const orderIds = [...new Set([
+                                ...this.tableOrders.pending.map(i => i.order_id),
+                                ...this.tableOrders.delivered.map(i => i.order_id)
+                            ])];
+                            
+                            if (orderIds.length === 0) return;
+                            
+                            try {
+                                const promises = orderIds.map(orderId => {
+                                    return fetch(`/${slug}/tablet/bezahlen/${orderId}`, {
+                                        method: 'POST'
+                                    });
+                                });
+                                
+                                const results = await Promise.all(promises);
+                                if (results.every(r => r.ok)) {
+                                    showToast("✔️ Tisch vollständig bezahlt!", "success");
+                                    this.selectedSplitItems = [];
+                                    await this.fetchAdminDrawerState();
+                                } else {
+                                    showToast("Fehler beim Abschließen der Rechnung", "error");
+                                    // ── Issue 2.5 Fix: State zwingend refreshen ──
+                                    // Szenario: A+B succeed, C schlägt fehl. Ohne
+                                    // Refetch zeigt UI noch alle 3 Orders als offen
+                                    // → Kellner klickt erneut "Gesamtrechnung" →
+                                    // schickt bezahlen für A, B (bereits bezahlt)
+                                    // UND C. Backend-Audit Issue 2.1: bezahlen ohne
+                                    // Current-Status-Check bucht Umsatz DOPPELT.
+                                    // Refetch sorgt für konsistenten State, so dass
+                                    // der Kellner nur C erneut anklicken muss.
+                                    await this.fetchAdminDrawerState();
+                                }
+                            } catch (e) {
+                                showToast("Verbindungsfehler bei Zahlung", "error");
+                                // Auch bei komplettem Netzwerkfehler State refreshen,
+                                // falls einzelne Requests doch durchgekommen sind.
+                                await this.fetchAdminDrawerState();
+                            }
                         }
+                    } finally {
+                        this._drawerPaymentInProgress = false;
                     }
                 },
 
