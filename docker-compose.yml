@@ -21,6 +21,18 @@ services:
       POSTGRES_USER:     gastro_user
       POSTGRES_PASSWORD: gastro_secret   # change before going to prod!
       TZ:                Europe/Berlin   # Zeitzone für korrekte Uhrzeiten in Logs
+      # ── Performance Tuning für 100+ gleichzeitige Gäste ──
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+    command: >
+      postgres
+      -c max_connections=300
+      -c shared_buffers=256MB
+      -c work_mem=4MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c log_min_duration_statement=1000
+      -c log_connections=off
+      -c log_disconnections=off
     volumes:
       - pgdata:/var/lib/postgresql/data  # named volume → survives restarts
       - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)
@@ -44,6 +56,8 @@ services:
     depends_on:
       db:
         condition: service_healthy     # wait until Postgres is truly ready
+      redis:
+        condition: service_started     # Redis is optional, but start it first if available
     environment:
       # ── Database ──────────────────────────────────────────────
       DATABASE_URL: postgresql://gastro_user:gastro_secret@db:5432/digi_gastro
@@ -55,6 +69,9 @@ services:
       PYTHONUNBUFFERED: "1"
       PORT: "8000"
       TZ: Europe/Berlin                 # Zeitzone für korrekte Uhrzeiten in Logs
+
+      # ── Redis (Cache + Lock + Pub/Sub) ───────────────────────
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - uploads:/app/data              # logos & images survive rebuilds
       - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)
@@ -68,9 +85,28 @@ services:
       retries: 3
       start_period: 15s
 
+  # ── Redis cache + lock + pub/sub ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: digi_gastro_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"           # expose locally only (invisible to public internet)
+    volumes:
+      - redisdata:/data                 # AOF/RDB persistence survives restarts
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
 # ── Named volumes (managed by Docker) ──────────────────────────
 volumes:
   pgdata:
     driver: local          # Postgres data
   uploads:
     driver: local          # Tenant logos & product images
+  redisdata:               # Redis AOF/RDB snapshots
+    driver: local

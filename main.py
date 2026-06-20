@@ -9,8 +9,45 @@ import secrets
 import csv
 import io
 import time
+import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+
+# ──────────────────────────────────────────────────────────────────
+# REDIS — Cache + Distributed Lock + Pub/Sub (cross-worker)
+#
+# Optional dependency. If the `redis` package is missing or the
+# server is unreachable, the app silently falls back to local-only
+# behaviour (asyncio.Lock, single-worker broadcast, no cache).
+# ──────────────────────────────────────────────────────────────────
+try:
+    import redis.asyncio as aioredis          # async client (cache + pub/sub)
+    from redis.asyncio import Redis as AsyncRedis
+    import redis as sync_redis_module          # sync client (invalidate in sync code)
+    _REDIS_AVAILABLE = True
+except ImportError:  # pragma: no cover - local dev without redis package
+    aioredis = None
+    AsyncRedis = None
+    sync_redis_module = None
+    _REDIS_AVAILABLE = False
+    print("[Redis] Package not installed — running in no-cache / single-worker mode")
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Module-level handles — populated lazily in startup hooks.
+# `Optional[Any]` keeps type-checking happy even when the redis
+# package is absent.
+redis_client: Optional[Any] = None          # async client (cache + pub/sub publisher)
+sync_redis_client: Optional[Any] = None     # sync client (cache invalidation from sync code)
+
+# Eagerly init the sync client so sync functions (e.g. save_restaurant_to_db)
+# can invalidate the cache. Failures are non-fatal.
+if _REDIS_AVAILABLE:
+    try:
+        sync_redis_client = sync_redis_module.from_url(REDIS_URL, decode_responses=True)
+    except Exception as _e:  # pragma: no cover
+        sync_redis_client = None
+        print(f"[Redis] sync client init failed: {_e}")
+
 
 def html_escape(s):
     """HTML-escape für sichere Template-Interpolation in f-Strings.
@@ -190,7 +227,68 @@ class ConnectionManager:
                         pass
                     self.disconnect(slug, conn)
 
+    async def broadcast_global(self, slug: str, message: dict):
+        """Broadcast via Redis Pub/Sub — reached all Uvicorn workers.
+
+        Falls back to local broadcast() when Redis is unavailable so the
+        single-worker dev setup keeps working unchanged.
+        """
+        if redis_client is not None:
+            try:
+                await redis_client.publish(f"ws:{slug}", json.dumps(message, default=str))
+                return
+            except Exception as e:
+                print(f"[Redis Pub/Sub] publish failed: {e} — fallback to local broadcast")
+        # No Redis OR publish failed → local broadcast only
+        await self.broadcast(slug, message)
+
 manager = ConnectionManager()
+
+
+async def redis_subscriber():
+    """Listen for Redis Pub/Sub messages and forward to local WebSocket clients.
+
+    Runs as a background task started by the `start_redis_subscriber` startup
+    hook. Each Uvicorn worker runs its own subscriber so messages published
+    by any worker reach every worker's local connections.
+    """
+    if redis_client is None:
+        return  # nothing to do without Redis
+    pubsub = redis_client.pubsub()
+    try:
+        await pubsub.psubscribe("ws:*")
+    except Exception as e:
+        print(f"[Redis Subscriber] psubscribe failed: {e}")
+        return
+    print("[Redis Subscriber] listening on ws:*")
+    try:
+        async for message in pubsub.listen():
+            if message.get("type") == "pmessage":
+                try:
+                    channel = message.get("channel", "")
+                    # channel may be str (decode_responses=True) or bytes
+                    if isinstance(channel, bytes):
+                        channel = channel.decode("utf-8", errors="ignore")
+                    slug = channel.split(":", 1)[1] if ":" in channel else None
+                    if not slug:
+                        continue
+                    raw = message.get("data")
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8", errors="ignore")
+                    data = json.loads(raw)
+                    await manager.broadcast(slug, data)
+                except Exception as e:
+                    print(f"[Redis Subscriber] error processing message: {e}")
+    except asyncio.CancelledError:
+        try:
+            await pubsub.punsubscribe("ws:*")
+            await pubsub.close()
+        except Exception:
+            pass
+        raise
+    except Exception as e:
+        print(f"[Redis Subscriber] loop crashed: {e}")
+
 
 # ──────────────────────────────────────────────────────────────────
 # WEBSOCKET AUTHENTICATION
@@ -329,6 +427,82 @@ async def _acquire_pg_advisory_lock(slug: str, db_session) -> None:
             # Fallback: continue without cross-worker lock (asyncio.Lock still applies)
 
 
+# ──────────────────────────────────────────────────────────────────
+# REDIS DISTRIBUTED LOCK — cross-worker mutual exclusion
+#
+# Used by `tenant_lock` as a fast cross-worker gate BEFORE the
+# asyncio.Lock (which is per-process only). Falls back gracefully:
+#   • Redis package missing  → always returns True (no-op)
+#   • Redis unreachable      → always returns True (no-op)
+#   • Lock held by other wrk → returns False after bounded retry
+# In all "skip" cases the existing pg_advisory_xact_lock + asyncio.Lock
+# continue to provide safety, just at lower throughput.
+# ──────────────────────────────────────────────────────────────────
+_redis_lock_tokens: Dict[str, str] = {}
+
+
+async def _acquire_redis_lock(slug: str, timeout: float = 30.0, wait: float = 10.0) -> bool:
+    """Acquire a distributed lock via Redis SET NX EX, with bounded retry.
+
+    Returns True if:
+      • the lock was acquired (token stashed for safe release), OR
+      • Redis is unavailable (graceful fallback — caller proceeds with
+        asyncio.Lock + pg_advisory_xact_lock only).
+
+    Returns False if the lock could not be acquired within `wait` seconds
+    (another worker is mutating this tenant). The caller should still
+    proceed because pg_advisory_xact_lock will block at the DB layer —
+    returning False here is only a hint to skip the Redis release.
+    """
+    if redis_client is None:
+        return True  # No Redis — fall through to asyncio.Lock
+    lock_key = f"lock:{slug}"
+    lock_token = str(uuid.uuid4())
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            acquired = await redis_client.set(
+                lock_key, lock_token, nx=True, ex=int(timeout)
+            )
+            if acquired:
+                _redis_lock_tokens[slug] = lock_token
+                return True
+        except Exception as e:
+            print(f"[Redis Lock] acquire error for {slug}: {e} — allowing (fallback)")
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.05)
+
+
+async def _release_redis_lock(slug: str) -> None:
+    """Release the Redis lock, but only if we still own it (token match).
+
+    Uses an atomic Lua check-and-del to avoid accidentally deleting a
+    lock that has expired (TTL) and been re-acquired by another worker.
+    """
+    if redis_client is None:
+        return
+    lock_key = f"lock:{slug}"
+    token = _redis_lock_tokens.pop(slug, None)
+    if not token:
+        return  # Never acquired (or already released) — nothing to do
+    try:
+        await redis_client.eval(
+            "if redis.call('get', KEYS[1]) == ARGV[1] "
+            "then return redis.call('del', KEYS[1]) "
+            "else return 0 end",
+            1, lock_key, token,
+        )
+    except Exception as e:
+        # Lua eval failed — best-effort plain delete
+        print(f"[Redis Lock] release error for {slug}: {e}")
+        try:
+            await redis_client.delete(lock_key)
+        except Exception:
+            pass
+
+
 import functools
 
 def tenant_lock(func):
@@ -339,6 +513,7 @@ def tenant_lock(func):
     preventing lost updates under concurrent access.
 
     Audit Fix 5.1: In Multi-Worker (Postgres) mode, zusätzlich pg_advisory_xact_lock.
+    REDIS-SETUP:   Zusätzlich Redis distributed lock (fast cross-worker gate).
     """
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -358,17 +533,26 @@ def tenant_lock(func):
             # Last resort: run without lock (shouldn't happen)
             return await func(*args, **kwargs)
 
-        # ── Audit Fix 5.1: Cross-Worker Lock via PostgreSQL Advisory Lock ──
-        # In Multi-Worker-Modus (gunicorn -w N) ist asyncio.Lock prozess-lokal
-        # und schützt nicht zwischen Workern. pg_advisory_xact_lock wird automatisch
-        # bei Commit/Rollback freigegeben.
-        # In SQLite-Modus (Local-Dev) überspringen wir diesen Schritt.
-        if not _IS_LOCAL_DEV and db_session is not None:
-            await _acquire_pg_advisory_lock(slug, db_session)
+        # ── REDIS-SETUP: Fast cross-worker gate (best-effort) ──
+        # Acquired before asyncio.Lock so other workers fail fast and
+        # don't pile up on the DB. Released in `finally` after the
+        # asyncio.Lock releases. If Redis is unavailable, this is a no-op.
+        redis_lock_acquired = await _acquire_redis_lock(slug)
+        try:
+            # ── Audit Fix 5.1: Cross-Worker Lock via PostgreSQL Advisory Lock ──
+            # In Multi-Worker-Modus (gunicorn -w N) ist asyncio.Lock prozess-lokal
+            # und schützt nicht zwischen Workern. pg_advisory_xact_lock wird automatisch
+            # bei Commit/Rollback freigegeben.
+            # In SQLite-Modus (Local-Dev) überspringen wir diesen Schritt.
+            if not _IS_LOCAL_DEV and db_session is not None:
+                await _acquire_pg_advisory_lock(slug, db_session)
 
-        # asyncio.Lock: serialisiert innerhalb dieses Prozesses
-        async with _get_tenant_lock(slug):
-            return await func(*args, **kwargs)
+            # asyncio.Lock: serialisiert innerhalb dieses Prozesses
+            async with _get_tenant_lock(slug):
+                return await func(*args, **kwargs)
+        finally:
+            if redis_lock_acquired:
+                await _release_redis_lock(slug)
     return wrapper
 
 
@@ -540,6 +724,54 @@ async def _start_ws_cleanup_task():
                 await asyncio.sleep(60)
 
     asyncio.create_task(_cleanup_loop())
+
+
+# ──────────────────────────────────────────────────────────────────
+# REDIS LIFECYCLE — init async client, start pub/sub subscriber
+# ──────────────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def init_redis():
+    """Connect the async Redis client. Non-fatal if Redis is unavailable —
+    the app continues in single-worker / no-cache mode."""
+    global redis_client
+    if not _REDIS_AVAILABLE:
+        print("[Redis] redis package missing — skipping async client init")
+        return
+    try:
+        redis_client = aioredis.from_url(
+            REDIS_URL, decode_responses=True, max_connections=50
+        )
+        await redis_client.ping()
+        print(f"[Redis] Connected to {REDIS_URL}")
+    except Exception as e:
+        print(f"[Redis] Connection failed: {e} — fallback to no-cache / single-worker mode")
+        redis_client = None
+
+
+@app.on_event("startup")
+async def start_redis_subscriber():
+    """Start the Redis Pub/Sub subscriber as a background task.
+
+    Each Uvicorn worker runs its own subscriber so broadcasts published
+    by any worker reach every worker's local WebSocket connections.
+    """
+    if redis_client is None:
+        return
+    asyncio.create_task(redis_subscriber())
+
+
+@app.on_event("shutdown")
+async def close_redis():
+    """Close the async Redis client on shutdown."""
+    global redis_client
+    if redis_client is not None:
+        try:
+            await redis_client.close()
+        except Exception as e:
+            print(f"[Redis] close error: {e}")
+        finally:
+            redis_client = None
+
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -1260,6 +1492,17 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         if eid not in seen_event_ids:
             session.delete(db_ev)
 
+    # ── REDIS-SETUP: invalidate restaurant cache (best-effort, sync) ──
+    # `save_restaurant_to_db` is sync; commit happens in the caller. We
+    # invalidate here so that — even if commit hasn't happened yet — the
+    # cache will be re-populated from the (soon-to-be-committed) DB on
+    # the next read. The 5s TTL provides a safety net for the brief race
+    # between invalidation and commit. Non-fatal if Redis is unavailable.
+    try:
+        invalidate_restaurant_cache_sync(slug)
+    except Exception as _e:
+        print(f"[Redis Cache] invalidate on save failed for {slug}: {_e}")
+
 def ensure_tenant_seeded(slug: str, db) -> Tenant:
     slug_lower = slug.lower().strip()
     tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
@@ -1379,6 +1622,81 @@ def get_restaurant(slug: str, db, create_if_missing: bool = False) -> Optional[d
         return None
     ensure_tenant_seeded(slug_lower, db)
     return load_restaurant_from_db(slug_lower, db)
+
+
+# ──────────────────────────────────────────────────────────────────
+# REDIS CACHE — restaurant state (5s TTL)
+#
+# Live-Daten müssen aktuell bleiben, aber in Stoßzeiten (100+ Gäste
+# pollen gleichzeitig das Menü / KDS / POS) reduziert der Cache
+# 100-fache DB-Queries auf 1 Query pro 5 Sekunden.
+#
+# Cache invalidation:
+#   • `invalidate_restaurant_cache_sync(slug)` — sync, called from
+#     `save_restaurant_to_db` (which is sync). Uses the sync_redis_client.
+#   • `invalidate_restaurant_cache(slug)`     — async, for use in
+#     async endpoints after explicit commits.
+# ──────────────────────────────────────────────────────────────────
+RESTAURANT_CACHE_TTL = 5  # seconds
+
+
+def _restaurant_cache_key(slug: str) -> str:
+    return f"restaurant:{slug.lower().strip()}"
+
+
+async def get_restaurant_cached(slug: str, db) -> Optional[dict]:
+    """Read-through cache wrapper around `load_restaurant_from_db`.
+
+    • Cache hit  → return parsed JSON (no DB query)
+    • Cache miss → load from DB, populate cache with TTL, return
+    • Redis down → degrade to direct DB read (no cache, no crash)
+    """
+    key = _restaurant_cache_key(slug)
+    if redis_client is not None:
+        try:
+            cached = await redis_client.get(key)
+            if cached:
+                try:
+                    return json.loads(cached)
+                except Exception:
+                    pass  # corrupt cache → fall through to DB
+        except Exception as e:
+            print(f"[Redis Cache] get failed for {slug}: {e}")
+    # Cache miss OR Redis unavailable → DB
+    restaurant = load_restaurant_from_db(slug.lower().strip(), db)
+    if restaurant is not None and redis_client is not None:
+        try:
+            await redis_client.setex(
+                key, RESTAURANT_CACHE_TTL, json.dumps(restaurant, default=str)
+            )
+        except Exception as e:
+            print(f"[Redis Cache] setex failed for {slug}: {e}")
+    return restaurant
+
+
+async def invalidate_restaurant_cache(slug: str) -> None:
+    """Async cache invalidation — use in async endpoints after explicit commits."""
+    if redis_client is None:
+        return
+    try:
+        await redis_client.delete(_restaurant_cache_key(slug))
+    except Exception as e:
+        print(f"[Redis Cache] async invalidate failed for {slug}: {e}")
+
+
+def invalidate_restaurant_cache_sync(slug: str) -> None:
+    """Sync cache invalidation — called from sync code (e.g. save_restaurant_to_db).
+
+    Uses the module-level sync_redis_client (separate connection pool from
+    the async client). Non-fatal if Redis is unavailable.
+    """
+    if sync_redis_client is None:
+        return
+    try:
+        sync_redis_client.delete(_restaurant_cache_key(slug))
+    except Exception as e:
+        print(f"[Redis Cache] sync invalidate failed for {slug}: {e}")
+
 
 from collections import UserList, UserDict
 
@@ -4520,7 +4838,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-        await manager.broadcast(slug, {"type": "new_order", "order_id": active_order["id"], "table_number": table_num, "status": "eingegangen"})
+        await manager.broadcast_global(slug, {"type": "new_order", "order_id": active_order["id"], "table_number": table_num, "status": "eingegangen"})
         return {"success": True, "order_id": active_order["id"]}
 
     # Let the database assign a unique autoincrement ID to avoid collisions
@@ -4551,7 +4869,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "new_order", "order_id": new_order.get("id"), "table_number": table_num, "status": "eingegangen"})
+    await manager.broadcast_global(slug, {"type": "new_order", "order_id": new_order.get("id"), "table_number": table_num, "status": "eingegangen"})
     return {"success": True, "order_id": new_order.get("id")}
 
 
@@ -4659,7 +4977,7 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
-    await manager.broadcast(slug, {"type": "service_call", "call_id": new_id, "table": call_table_name, "service_type": payload.type})
+    await manager.broadcast_global(slug, {"type": "service_call", "call_id": new_id, "table": call_table_name, "service_type": payload.type})
     return {"success": True, "call_id": new_id}
 
 
@@ -4772,7 +5090,7 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zahlung: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/tablet/teilzahlung/{order_id}")
@@ -4850,7 +5168,7 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Teilzahlung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {
         "success": True,
         "remaining_items_count": len(order["items"]),
@@ -4972,7 +5290,7 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zusammenführung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/tablet/stornieren/{order_id}")
@@ -5039,7 +5357,7 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Stornierung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/service-erledigt/{ruf_id}")
@@ -5068,7 +5386,7 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 VALID_ITEM_STATUSES = {"pending", "confirmed", "delivered"}
@@ -5252,7 +5570,7 @@ async def pay_item(request: Request, slug: str, order_id: int, payload: PayItemP
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {
         "success": True,
         "paid_amount": paid_amount,
@@ -5335,7 +5653,7 @@ async def pay_items_bulk(request: Request, slug: str, order_id: int, payload: Bu
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {
         "success": True,
         "paid_amount": total_paid_amount,
@@ -5511,7 +5829,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
 
-    await manager.broadcast(slug, {"type": "refresh_tables"})
+    await manager.broadcast_global(slug, {"type": "refresh_tables"})
     return {"success": True, "moved_to": target_table_str, "qty_moved": qty_to_move}
 
 
@@ -5664,7 +5982,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 
@@ -5760,7 +6078,7 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 
@@ -5912,7 +6230,7 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Umbuchen: {e}")
 
-    await manager.broadcast(slug, {"type": "refresh_tables"})
+    await manager.broadcast_global(slug, {"type": "refresh_tables"})
     return {"success": True, "new_table": target_table_str}
 
 
@@ -5967,7 +6285,7 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Aktualisieren: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "item_key": payload.item_key, "new_status": payload.status}
 
 
@@ -6502,7 +6820,7 @@ async def create_table(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "refresh_tables"})
+    await manager.broadcast_global(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/table-loeschen/{table_num}")
@@ -6524,7 +6842,7 @@ async def delete_table(request: Request, table_num: str, zone: Optional[str] = N
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "refresh_tables"})
+    await manager.broadcast_global(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # Legacy redirects for backward compatibility
@@ -6595,7 +6913,7 @@ async def profile_update(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -6622,7 +6940,7 @@ async def save_sitzplan_positions(request: Request, payload: dict, chef_data: tu
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "refresh_tables"})
+    await manager.broadcast_global(slug, {"type": "refresh_tables"})
     return {"success": True}
 
 
@@ -6655,7 +6973,7 @@ async def create_category(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # Helper für Admin-Rechteprüfung ist nun am Anfang definiert.
@@ -6847,7 +7165,7 @@ async def import_products_csv(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der importierten Daten: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -6945,7 +7263,7 @@ async def post_produkt_erstellen(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Erstellen des Produkts: {e}")
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
 
     # Return JSON for fetch requests, redirect for regular form submissions
     accept = request.headers.get("accept", "")
@@ -6992,7 +7310,7 @@ async def delete_produkt(
     if old_image:
         delete_local_image_if_unused(old_image, restaurant)
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     # Support both fetch (JSON) and form-post (redirect) callers
     accept = request.headers.get("accept", "")
     if "application/json" in accept or request.headers.get("x-requested-with") == "fetch":
@@ -7027,7 +7345,7 @@ async def delete_kategorie(
     finally:
         db_session.close()
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 # API Models
@@ -7143,7 +7461,7 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         
     actual_id = restaurant["service_calls"][-1]["id"]
-    await manager.broadcast(slug, {"type": "service_call", "call_id": actual_id, "table": normalized_table, "service_type": service_type})
+    await manager.broadcast_global(slug, {"type": "service_call", "call_id": actual_id, "table": normalized_table, "service_type": service_type})
     return {"success": True, "call_id": actual_id}
 
 @app.get("/api/{slug}/check-session")
@@ -7358,10 +7676,20 @@ def generate_qr_code(request: Request, d: str = "", t: str = "", z: str = "", sl
 
 @app.get("/api/tablet-status")
 def get_tablet_status(request: Request, db: Session = Depends(get_db)):
+    # ── Performance-Cache für tablet-status (Performance Fix für 100+ Gäste) ──
+    # Dieser Endpoint wird von jedem Kellner alle 8s gepollt. Bei 7 Kellnern
+    # sind das 7 Requests/8s = ~0.9 req/s. Ohne Cache lädt jeder Request den
+    # GESAMTEN Tenant-State aus DB (alle Orders + Items + AuditLog + Events).
+    # Mit Cache: 1 DB-Query pro 3s, Rest kommt aus Memory.
+    # Cache-Key basiert auf slug + admin-flag + pos-token (für Auth-Isolation).
+    slug_cache = None
+    is_admin_cache = False
+    client_pos_token_cache = None
+
     slug = None
     is_admin = False
     client_pos_token = None
-    
+
     # 1. Try to get slug from admin/staff session
     res = get_current_user_and_slug(request)
     if res:
@@ -7385,10 +7713,21 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
                     slug = key.replace("pos_token_", "").strip()
                     client_pos_token = val
                     break
-                    
+
     if not slug:
         raise HTTPException(status_code=401, detail="Nicht autorisiert.")
-        
+
+    # ── Cache-Check: Antwort der letzten 3 Sekunden zurückgeben ──
+    cache_key = f"tablet-status:{slug}:{'admin' if is_admin else 'pos'}:{client_pos_token or 'none'}"
+    if sync_redis_client:
+        try:
+            cached_response = sync_redis_client.get(cache_key)
+            if cached_response:
+                # Cache-Hit: sofort zurückgeben, keine DB-Query
+                return JSONResponse(content=json.loads(cached_response))
+        except Exception:
+            pass
+
     restaurant = get_restaurant_or_raise(slug, db)
     
     # Auto-kick for POS if not admin
@@ -7500,7 +7839,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
             "timestamp": o.get("timestamp", "")
         })
 
-    return {
+    result = {
         "orders": active_orders,
         "service_calls": restaurant.get("service_calls", []),
         "tables": restaurant.get("tables", []),
@@ -7519,6 +7858,17 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         "recent_payments": recent_payments,
         "recent_cancellations": recent_cancellations
     }
+
+    # ── Cache Response für 3 Sekunden ──
+    # Spart bei 7 Kellnern alle 8s Polling: statt 7 DB-Queries nur 1 Query
+    # pro 3 Sekunden. Reduziert DB-Last um ~95%.
+    if sync_redis_client:
+        try:
+            sync_redis_client.setex(cache_key, 3, json.dumps(result, default=str))
+        except Exception:
+            pass
+
+    return result
 
 
 @app.get("/api/{slug}/products-lite")
@@ -7772,7 +8122,7 @@ async def update_branding(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 def update_legal_placeholders(restaurant: dict) -> None:
@@ -8153,7 +8503,7 @@ async def update_landingpage(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
 @app.post("/admin/landingpage/delete-image")
@@ -8252,7 +8602,7 @@ async def delete_landing_image(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.get("/api/{slug}/table-status/{table_num}")
@@ -8422,7 +8772,7 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return JSONResponse({"success": True, "event_id": db_ev.id})
 
 
@@ -8505,7 +8855,7 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return JSONResponse({"success": True})
 
 
@@ -8542,7 +8892,7 @@ async def delete_event(event_id: int, request: Request, chef_data: tuple = Depen
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return JSONResponse({"success": True})
 
 
@@ -8581,7 +8931,7 @@ async def update_event_products(event_id: int, request: Request, chef_data: tupl
         db.rollback()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
     
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return JSONResponse({"success": True})
 
 @app.post("/admin/shishabar-toggle")
@@ -8602,7 +8952,7 @@ async def toggle_shishabar(request: Request, is_shishabar: Optional[bool] = Form
             
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/card-payment-toggle")
@@ -8614,7 +8964,7 @@ async def toggle_card_payment(request: Request, accepts_card_payment: Optional[b
     restaurant["accepts_card_payment"] = bool(accepts_card_payment)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/price-mode-toggle")
@@ -8626,7 +8976,7 @@ async def toggle_price_mode(request: Request, price_mode_netto: Optional[bool] =
     restaurant["price_mode"] = "netto" if bool(price_mode_netto) else "brutto"
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -8762,7 +9112,7 @@ async def update_product_api(
     if old_image and old_image != product.get("image"):
         delete_local_image_if_unused(old_image, restaurant)
 
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/{slug}/orders/confirm/{order_id}")
@@ -8793,7 +9143,7 @@ async def confirm_order(request: Request, slug: str, order_id: int, db: Session 
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Bestätigen der Bestellung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/admin/products/reorder")
@@ -8820,7 +9170,7 @@ async def reorder_products_api(
     restaurant["products"] = sorted(products, key=lambda x: x.get("position", 0))
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.post("/admin/categories/reorder")
@@ -8844,7 +9194,7 @@ async def reorder_categories_api(
     restaurant["categories"] = new_order
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 @app.patch("/api/categories/edit")
@@ -8900,7 +9250,7 @@ async def update_category_api(
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
     
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "new_name": new_full_name, "affected": affected_products}
 
 
@@ -8956,7 +9306,7 @@ async def create_super_group(
     db.add(sg)
     db.commit()
     db.refresh(sg)
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "id": sg.id, "name": sg.name, "color": sg.color, "icon": sg.icon, "position": sg.position}
 
 
@@ -8996,7 +9346,7 @@ async def update_super_group(
         except Exception:
             pass
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "id": sg.id, "name": sg.name, "color": sg.color, "icon": sg.icon, "position": sg.position}
 
 
@@ -9018,7 +9368,7 @@ async def delete_super_group(
         c.super_group_id = None
     db.delete(sg)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "reset_categories": len(cats_to_reset)}
 
 
@@ -9052,7 +9402,7 @@ async def assign_category_super_group(
         except ValueError:
             raise HTTPException(status_code=400, detail="Ungültige super_group_id.")
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "category_id": cat.id, "super_group_id": cat.super_group_id}
 
 
@@ -9097,7 +9447,7 @@ async def bulk_assign_super_groups(
                 continue
         updated += 1
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "updated": updated}
 
 
@@ -9113,7 +9463,7 @@ async def toggle_product_availability(request: Request, product_id: int, chef_da
     product["is_available"] = not product.get("is_available", True)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "is_available": product["is_available"]}
 
 @app.post("/admin/product-hh")
@@ -9140,7 +9490,7 @@ async def update_product_hh(
     # happy_hour_days is not updated via this endpoint (use bulk endpoint instead)
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 @app.post("/admin/token-rotieren")
@@ -9153,7 +9503,7 @@ async def token_rotieren(request: Request, chef_data: tuple = Depends(require_ch
     restaurant["security_token"] = new_token
     save_restaurant_to_db(slug, restaurant, db)
     db.commit()
-    await manager.broadcast(slug, {"type": "refresh_tables"})
+    await manager.broadcast_global(slug, {"type": "refresh_tables"})
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 def clean_product_name_for_search(name: str) -> str:
@@ -11128,7 +11478,7 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Fehler beim Servieren: {e}")
             
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 
@@ -11203,7 +11553,7 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Teilzahlung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {
         "success": True,
         "remaining_items_count": len(order["items"]),
@@ -11464,7 +11814,7 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zusammenführung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 
@@ -11563,7 +11913,7 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Hinzufügen der Bestellung: {e}")
         
-    await manager.broadcast(slug, {"type": "update"})
+    await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
 

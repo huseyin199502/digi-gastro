@@ -7154,7 +7154,8 @@
                     clearInterval(pollInterval);
                     pollInterval = null;
                 }
-                pollInterval = setInterval(checkLiveTischeUpdates, 5000);
+                // Performance: Polling 5s → 8s (reduziert Last 38% bei 7 Kellnern)
+                pollInterval = setInterval(checkLiveTischeUpdates, 8000);
                 checkLiveTischeUpdates();
                 // ── WS-RECONNECT CATCH-UP ──
                 // Wenn der WS kurz getrennt war (z.B. 5-30s), konnten wir Broadcasts
