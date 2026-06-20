@@ -5,8 +5,8 @@
 
 // SW_VERSION — bei JEDEM Code-/Asset-Update bumpen, sonst merkt der Browser
 // kein SW-Update (Byte-Equal-Check). Format: YYYY-MM-DD-v<N>.
-// Update 2026-06-20-v2: Font Awesome + Material Symbols Basis-CSS + Hero-Video-Preload gefixt.
-const SW_VERSION = '2026-06-20-v2';
+// Update 2026-06-20-v3: Hero-Video play() robuster gemacht (mehrere Versuche).
+const SW_VERSION = '2026-06-20-v3';
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;

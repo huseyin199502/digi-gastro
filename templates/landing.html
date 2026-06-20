@@ -1262,20 +1262,64 @@
         // ── Hero Video: Sofort abspielen mit poster-Bild als Fallback ──
         // Das Video ist schön und soll auf allen Geräten laufen.
         // poster-Bild zeigt sofort das Logo während das Video lädt (bessere UX).
+        // Robustheit: mehrere Versuche, falls play() Promise rejected
+        // (passiert oft, wenn Video noch nicht genug geladen ist).
         (function() {
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
-            // Auf Desktop: Video sofort abspielen (autoplay Attribut schon gesetzt)
-            // Auf Mobile: Auch abspielen, aber mit niedrigerer Priorität
-            heroVideo.play().catch(() => {
-                // Falls autoplay blockiert wird: nach erstem User-Interaktion versuchen
-                const tryPlay = () => {
-                    heroVideo.play().catch(() => {});
-                    document.removeEventListener('touchstart', tryPlay);
-                    document.removeEventListener('click', tryPlay);
+
+            // Flag, damit wir nicht mehrfach gleichzeitig versuchen
+            let playStarted = false;
+
+            function attemptPlay(reason) {
+                if (playStarted) return;
+                console.log('[Hero Video] attemptPlay:', reason, 'readyState:', heroVideo.readyState);
+                const playPromise = heroVideo.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                    playPromise.then(() => {
+                        playStarted = true;
+                        console.log('[Hero Video] play() success');
+                    }).catch((err) => {
+                        console.warn('[Hero Video] play() failed:', err.name, err.message);
+                        // Nicht auto-retry hier — das übernehmen die Event-Listener unten
+                    });
+                }
+            }
+
+            // 1. Sofort versuchen (autoplay Attribut hilft, aber play() bestätigt)
+            attemptPlay('immediate');
+
+            // 2. Wenn Video soweit ist zum Abspielen (genug gepuffert)
+            heroVideo.addEventListener('canplay', () => attemptPlay('canplay'));
+            heroVideo.addEventListener('canplaythrough', () => attemptPlay('canplaythrough'));
+            heroVideo.addEventListener('loadeddata', () => attemptPlay('loadeddata'));
+
+            // 3. Wenn Video pausiert wurde (z.B. durch Browser-Policy), nach User-Interaktion versuchen
+            heroVideo.addEventListener('pause', () => {
+                if (heroVideo.ended || playStarted) return;
+                // Browser hat autoplay blockiert — auf User-Interaktion warten
+                const tryPlayOnInteraction = () => {
+                    attemptPlay('user-interaction');
+                    document.removeEventListener('touchstart', tryPlayOnInteraction);
+                    document.removeEventListener('click', tryPlayOnInteraction);
+                    document.removeEventListener('scroll', tryPlayOnInteraction);
+                    document.removeEventListener('keydown', tryPlayOnInteraction);
                 };
-                document.addEventListener('touchstart', tryPlay, { once: true });
-                document.addEventListener('click', tryPlay, { once: true });
+                document.addEventListener('touchstart', tryPlayOnInteraction, { once: true, passive: true });
+                document.addEventListener('click', tryPlayOnInteraction, { once: true });
+                document.addEventListener('scroll', tryPlayOnInteraction, { once: true, passive: true });
+                document.addEventListener('keydown', tryPlayOnInteraction, { once: true });
+            });
+
+            // 4. Fallback: nach 2s nochmal versuchen (falls SW-Cache race condition)
+            setTimeout(() => attemptPlay('timeout-2s'), 2000);
+            setTimeout(() => attemptPlay('timeout-5s'), 5000);
+
+            // 5. Bei Sichtbarkeitswechsel (Tab kommt zurück ins Sichtfeld)
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && !playStarted) {
+                    attemptPlay('visibilitychange');
+                }
             });
         })();
 
