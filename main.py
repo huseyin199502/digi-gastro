@@ -492,21 +492,21 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=()"
     # CSP — restriktiv aber funktional:
     # - default-src 'self': nur eigene Ressourcen
-    # - script-src 'self' 'unsafe-inline': Alpine.js/Tailwind brauchen inline
-    # - style-src 'self' 'unsafe-inline' + Google Fonts (falls noch verwendet)
+    # - script-src: Alpine.js via jsdelivr CDN + inline scripts + eval
+    # - style-src: Google Fonts + cdnjs (Font Awesome) + inline styles
     # - img-src 'self' data: blob: https: (Bilder von überall)
     # - media-src 'self' data: blob: https:
     # - connect-src 'self' ws: wss: (WebSocket)
-    # - font-src 'self' https://fonts.gstatic.com data:
+    # - font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:
     # - frame-ancestors 'none': Clickjacking-Schutz
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https:; "
         "media-src 'self' data: blob: https:; "
         "connect-src 'self' ws: wss:; "
-        "font-src 'self' https://fonts.gstatic.com data:; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'"
