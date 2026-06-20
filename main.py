@@ -11489,6 +11489,15 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
     updated = False
     if payload.item_key:
         matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=payload.order_id)
+        # DEBUG LOG: Was passiert beim Serve?
+        print(f"[DEBUG serve] order_id={payload.order_id} item_key={payload.item_key!r}")
+        print(f"[DEBUG serve] matched_item={matched_item!r}")
+        if matched_item:
+            print(f"[DEBUG serve] FOUND! pid={matched_item.get('product_id')} note={matched_item.get('note')!r} status={matched_item.get('item_status','pending')} qty={matched_item.get('quantity')}")
+        else:
+            print(f"[DEBUG serve] NOT FOUND! Items in order:")
+            for i, it in enumerate(order.get("items", [])):
+                print(f"  [{i}] pid={it.get('product_id')} note={it.get('note')!r} status={it.get('item_status','pending')} qty={it.get('quantity')}")
         current_status = matched_item.get("item_status") or "pending" if matched_item else None
         if matched_item and current_status != "delivered":
             if matched_item.get("quantity", 1) > 1:
