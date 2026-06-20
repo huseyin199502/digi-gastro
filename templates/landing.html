@@ -203,10 +203,17 @@
             .hero-video-wrap {
                 aspect-ratio: auto !important;
                 padding: 1.5rem 0;
+                /* Fix: Auf Safari iOS hat das Video beim ersten Page-Load oft
+                   noch keine intrinsische Größe (readyState=0), deshalb wird
+                   height:auto zu 0 → schwarzer Balken statt Video.
+                   Mindesthöhe gibt dem Wrap einen sichtbaren Rahmen, bis das
+                   Video geladen ist. Danach übernimmt das Video die Höhe. */
+                min-height: 280px;
             }
             .hero-video-wrap video {
                 width: 100%;
                 height: auto;
+                min-height: 280px;
                 object-fit: contain !important;
             }
             .hero-section .absolute.inset-0.z-10 {
@@ -566,7 +573,7 @@
                    disableremoteplayback
                    controlslist="nodownload nofullscreen noplaybackrate"
                    class="block w-full h-full"
-                   style="object-fit: fill;"
+                   style="object-fit: fill; background-color: #050507; background-image: url('/static/images/icon-512.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"
                    poster="/static/images/icon-512.png">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
