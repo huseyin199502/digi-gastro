@@ -665,7 +665,7 @@
                             <!-- Category Image -->
                             <div class="relative w-24 sm:w-28 h-full flex-shrink-0 overflow-hidden">
                                 {% if cat_img %}
-                                <img alt="{{ cat }}" class="w-full h-full object-cover" src="{{ cat_img }}" loading="lazy">
+                                <img alt="{{ cat }}" class="w-full h-full object-cover" src="{{ cat_img }}" loading="eager" decoding="sync" fetchpriority="high">
                                 <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--bg-surface)]"></div>
                                 {% else %}
                                 <div class="w-full h-full bg-surface-container-high flex items-center justify-center">
@@ -769,7 +769,10 @@
                 <!-- Products Grid (shown when a category is selected) -->
                 <div x-show="currentCategory !== ''" id="product-grid-container" class="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-3.5 py-2">
                     {% for product in products %}
-                    
+                    {% set is_eager = loop.index <= 8 %}
+                    {% set load_attr = 'eager' if is_eager else 'lazy' %}
+                    {% set fetch_prio = 'high' if is_eager else 'auto' %}
+                    {% set decode_attr = 'sync' if is_eager else 'async' %}
                     {% set is_avail = product.get('is_available', True) %}
                     <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-3 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
                              data-category="{{ product.category }}" 
@@ -779,8 +782,8 @@
                         
                         <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-zinc-900/50 flex items-center justify-center">
                             {% if product.image and not product.image.lower().endswith('.pdf') %}
-                            <img alt="{{ product.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-110 pointer-events-none" src="{{ product.image }}" loading="lazy" decoding="async">
-                            <img alt="{{ product.name }}" class="relative z-10 max-w-full max-h-full object-contain" src="{{ product.image }}" loading="lazy" decoding="async" sizes="(max-width: 640px) 45vw, (max-width: 768px) 30vw, (max-width: 1024px) 22vw, 18vw">
+                            <img alt="{{ product.name }} blur" class="absolute inset-0 w-full h-full object-cover blur-md opacity-40 scale-110 pointer-events-none" src="{{ product.image }}" loading="{{ load_attr }}" decoding="{{ decode_attr }}" fetchpriority="{{ fetch_prio }}">
+                            <img alt="{{ product.name }}" class="relative z-10 max-w-full max-h-full object-contain" src="{{ product.image }}" loading="{{ load_attr }}" decoding="{{ decode_attr }}" fetchpriority="{{ fetch_prio }}" sizes="(max-width: 640px) 45vw, (max-width: 768px) 30vw, (max-width: 1024px) 22vw, 18vw">
                             {% else %}
 
                             <div class="flex flex-col items-center justify-center text-on-surface-variant/20">

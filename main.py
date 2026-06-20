@@ -2454,6 +2454,26 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    /* ── Material Symbols Basis-Klasse selbst definiert (Fallback, falls Google CSS noch nicht geladen) ──
+       Verhindert "Icons nicht einsehbar" — sonst zeigt der Browser nur den Icon-Namen als Text an
+       (z.B. "save" statt des Save-Icons), bis das Google-Font-CSS geladen ist. */
+    .material-symbols-outlined {{
+      font-family: 'Material Symbols Outlined', 'Material Icons', sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'liga';
+      vertical-align: middle;
+    }}
     body {{
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: #09090b;
@@ -3312,6 +3332,24 @@ def get_global_login(request: Request, error: Optional[str] = None):
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    /* ── Material Symbols Basis-Klasse (Fallback, falls Google CSS noch nicht geladen) ── */
+    .material-symbols-outlined {{
+      font-family: 'Material Symbols Outlined', 'Material Icons', sans-serif;
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'liga';
+      vertical-align: middle;
+    }}
     body {{
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: #09090b;
