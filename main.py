@@ -7814,16 +7814,13 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
     if not slug:
         raise HTTPException(status_code=401, detail="Nicht autorisiert.")
 
-    # ── Cache-Check: Antwort der letzten 3 Sekunden zurückgeben ──
+    # ── tablet-status Cache DEAKTIVIERT ──
+    # Der 3s-Cache hat Race Conditions verursacht: Kellner B sah alte Daten
+    # weil der Cache zwischen Commit und Invalidation mit alten Daten gefüllt
+    # wurde. DB-Queries sind schnell genug (<13ms gemessen) — kein Cache nötig.
+    # WebSocket broadcast sorgt dafür, dass alle Kellner SOFORT updaten.
     cache_key = f"tablet-status:{slug}:{'admin' if is_admin else 'pos'}:{client_pos_token or 'none'}"
-    if sync_redis_client:
-        try:
-            cached_response = sync_redis_client.get(cache_key)
-            if cached_response:
-                # Cache-Hit: sofort zurückgeben, keine DB-Query
-                return JSONResponse(content=json.loads(cached_response))
-        except Exception:
-            pass
+    # Cache-Check entfernt — immer frische Daten aus DB
 
     restaurant = get_restaurant_or_raise(slug, db)
     
@@ -7956,14 +7953,8 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         "recent_cancellations": recent_cancellations
     }
 
-    # ── Cache Response für 3 Sekunden ──
-    # Spart bei 7 Kellnern alle 8s Polling: statt 7 DB-Queries nur 1 Query
-    # pro 3 Sekunden. Reduziert DB-Last um ~95%.
-    if sync_redis_client:
-        try:
-            sync_redis_client.setex(cache_key, 3, json.dumps(result, default=str))
-        except Exception:
-            pass
+    # ── Cache DEAKTIVIERT — immer frische Daten aus DB ──
+    # (siehe Kommentar oben bei cache_key)
 
     return result
 
