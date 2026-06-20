@@ -251,43 +251,65 @@ async def redis_subscriber():
     Runs as a background task started by the `start_redis_subscriber` startup
     hook. Each Uvicorn worker runs its own subscriber so messages published
     by any worker reach every worker's local connections.
+
+    ROBUSTNESS: redis-py 5.x beendet `pubsub.listen()` nach 5 Sekunden
+    Inaktivität mit 'Timeout reading from redis:6379'. Das ist KEIN echter
+    Fehler — nur ein Read-Timeout. Wir catchen das und restarten die Loop.
     """
     if redis_client is None:
         return  # nothing to do without Redis
-    pubsub = redis_client.pubsub()
-    try:
-        await pubsub.psubscribe("ws:*")
-    except Exception as e:
-        print(f"[Redis Subscriber] psubscribe failed: {e}")
-        return
-    print("[Redis Subscriber] listening on ws:*")
-    try:
-        async for message in pubsub.listen():
-            if message.get("type") == "pmessage":
-                try:
-                    channel = message.get("channel", "")
-                    # channel may be str (decode_responses=True) or bytes
-                    if isinstance(channel, bytes):
-                        channel = channel.decode("utf-8", errors="ignore")
-                    slug = channel.split(":", 1)[1] if ":" in channel else None
-                    if not slug:
-                        continue
-                    raw = message.get("data")
-                    if isinstance(raw, bytes):
-                        raw = raw.decode("utf-8", errors="ignore")
-                    data = json.loads(raw)
-                    await manager.broadcast(slug, data)
-                except Exception as e:
-                    print(f"[Redis Subscriber] error processing message: {e}")
-    except asyncio.CancelledError:
+
+    retry_delay = 1  # Sekunden zwischen Retry-Versuchen
+    max_retry_delay = 30
+
+    while True:
         try:
-            await pubsub.punsubscribe("ws:*")
-            await pubsub.close()
-        except Exception:
-            pass
-        raise
-    except Exception as e:
-        print(f"[Redis Subscriber] loop crashed: {e}")
+            pubsub = redis_client.pubsub()
+            await pubsub.psubscribe("ws:*")
+            print("[Redis Subscriber] listening on ws:*")
+            retry_delay = 1  # Reset nach erfolgreichem Connect
+
+            async for message in pubsub.listen():
+                if message.get("type") == "pmessage":
+                    try:
+                        channel = message.get("channel", "")
+                        if isinstance(channel, bytes):
+                            channel = channel.decode("utf-8", errors="ignore")
+                        slug = channel.split(":", 1)[1] if ":" in channel else None
+                        if not slug:
+                            continue
+                        raw = message.get("data")
+                        if isinstance(raw, bytes):
+                            raw = raw.decode("utf-8", errors="ignore")
+                        data = json.loads(raw)
+                        await manager.broadcast(slug, data)
+                    except Exception as e:
+                        print(f"[Redis Subscriber] error processing message: {e}")
+
+            # Sollte nie erreicht werden, aber falls doch: weitermachen
+            try:
+                await pubsub.punsubscribe("ws:*")
+                await pubsub.aclose()
+            except Exception:
+                pass
+
+        except asyncio.CancelledError:
+            # Shutdown — sauber beenden
+            try:
+                await pubsub.punsubscribe("ws:*")
+                await pubsub.aclose()
+            except Exception:
+                pass
+            raise
+        except Exception as e:
+            # Timeout oder andere Exception — RESTART
+            print(f"[Redis Subscriber] loop crashed: {e} — restarting in {retry_delay}s")
+            try:
+                await pubsub.aclose()
+            except Exception:
+                pass
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, max_retry_delay)  # Exponential backoff
 
 
 # ──────────────────────────────────────────────────────────────────
