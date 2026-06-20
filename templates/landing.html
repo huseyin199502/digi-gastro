@@ -1288,17 +1288,14 @@
         // Das Video ist schön und soll auf allen Geräten laufen.
         // poster-Bild zeigt sofort das Logo während das Video lädt (bessere UX).
         //
-        // Safari iOS-Spezifika (LEIDER nötig):
-        //  1. <source media> Attribut wird von Safari iOS 17+ nicht zuverlässig
-        //     ausgewertet, besonders in Kombination mit Autoplay. Daher setzen
-        //     wir src direkt via JS.
-        //  2. muted muss als Property (nicht nur Attribut) gesetzt sein
+        // Safari iOS-Spezifika:
+        //  1. <source media> Attribut wird nicht zuverlässig ausgewertet → src per JS
+        //  2. muted + volume=0 müssen als Properties gesetzt sein
         //  3. webkit-playsinline Attribut verhindert iOS-Vollbild-Force
-        //  4. Safari blockt Autoplay beim ERSTEN Besuch einer Domain (MEI=0).
-        //     Sobald der User IRGENDEINE Interaktion macht (scroll/touch/click),
-        //     gilt die "User Activation" und Autoplay wird erlaubt.
-        //  5. WICHTIG: video.load() vor video.play() aufrufen — sonst kann
-        //     Safari das Video nicht starten, weil es noch nicht im Memory ist.
+        //  4. Safari blockt Autoplay beim ERSTEN Besuch → User-Interaktion nötig
+        //  5. WICHTIG: NICHT load() in attemptPlay() aufrufen! Das triggert
+        //     loadstart-Event, das wieder attemptPlay() aufruft → Endlos-Schleife
+        //     mit AbortError "play() interrupted by new load request".
         (function() {
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
@@ -1317,24 +1314,32 @@
             heroVideo.defaultMuted = true;
             try { heroVideo.playsInline = true; } catch(e) {}
             try { heroVideo.setAttribute('webkit-playsinline', 'webkit-playsinline'); } catch(e) {}
-            // Lautstärke auf 0 (Safari-kompatibel)
             try { heroVideo.volume = 0; } catch(e) {}
+
+            // ── EINMALIG load() aufrufen, nachdem src gesetzt wurde ──
+            // Löst loadstart-Event aus, danach hat readyState eine Chance zu wachsen.
+            // WICHTIG: Nicht in attemptPlay() erneut aufrufen!
+            try { heroVideo.load(); } catch(e) { console.warn('[Hero Video] load() exception:', e); }
 
             let playStarted = false;
             let attempts = 0;
             let interactionListenerRegistered = false;
+            let lastPlayAttemptTime = 0;
 
             function attemptPlay(reason) {
                 if (playStarted) return;
                 attempts++;
-                if (attempts > 20) return;
-                console.log('[Hero Video] attemptPlay #' + attempts + ':', reason, 'readyState:', heroVideo.readyState, 'paused:', heroVideo.paused);
+                if (attempts > 30) return;
+
+                // Throttle: max 1 Versuch pro 200ms (verhindert Endlos-Schleife)
+                const now = Date.now();
+                if (now - lastPlayAttemptTime < 200) return;
+                lastPlayAttemptTime = now;
+
+                console.log('[Hero Video] attemptPlay #' + attempts + ':', reason,
+                            'readyState:', heroVideo.readyState, 'paused:', heroVideo.paused);
+
                 try {
-                    // Safari: Wenn readyState < 2 (HAVE_CURRENT_DATA), erst load()
-                    // erzwingen, sonst schlägt play() fehl.
-                    if (heroVideo.readyState < 2) {
-                        heroVideo.load();
-                    }
                     const playPromise = heroVideo.play();
                     if (playPromise && typeof playPromise.then === 'function') {
                         playPromise.then(() => {
@@ -1345,12 +1350,11 @@
                             }
                         }).catch((err) => {
                             console.warn('[Hero Video] play() failed:', err.name, err.message, '(attempt', attempts + ')');
-                            // NotAllowedError = Browser blockt Autoplay, braucht User-Gesture
-                            // AbortError = play() wurde überschrieben, nicht kritisch
                             if (err.name === 'NotAllowedError') {
-                                // Warten auf User-Interaktion (Listener unten)
                                 console.log('[Hero Video] Autoplay blocked — waiting for user interaction');
                             }
+                            // Bei AbortError: nicht sofort retry (würde Endlos-Schleife)
+                            // Die timeout-basierten Versuche unten sind genug.
                         });
                     } else {
                         playStarted = true;
@@ -1363,8 +1367,7 @@
             // 1. Sofort versuchen
             attemptPlay('immediate');
 
-            // 2. Bei Video-Events (jedes deutet darauf hin, dass Video bereit ist)
-            heroVideo.addEventListener('loadstart', () => attemptPlay('loadstart'));
+            // 2. Bei Video-Events (aber NICHT bei loadstart — das triggert Endlos-Schleife!)
             heroVideo.addEventListener('loadedmetadata', () => attemptPlay('loadedmetadata'));
             heroVideo.addEventListener('loadeddata', () => attemptPlay('loadeddata'));
             heroVideo.addEventListener('canplay', () => attemptPlay('canplay'));
@@ -1376,14 +1379,11 @@
             });
 
             // 3. ── Safari iOS: User-Gesture-Listener ──
-            // Safari blockt play() beim ersten Besuch, bis User interagiert.
-            // Wir registrieren GLOBALE Listener, die bei JEDER ersten Interaktion
-            // (egal wohin) das Video starten. Sobald playStarted=true, werden
-            // alle Listener entfernt.
             function onFirstInteraction(e) {
                 if (playStarted) return;
                 console.log('[Hero Video] user interaction:', e.type, '— attempting play');
-                // Sofort versuchen, ohne Timeout (Safari braucht direkt im Event-Handler)
+                // Reset throttle, damit Interaction sofort play() aufrufen kann
+                lastPlayAttemptTime = 0;
                 attemptPlay('interaction-' + e.type);
             }
 
@@ -1399,7 +1399,6 @@
                 window.removeEventListener('scroll', onFirstInteraction, true);
             }
 
-            // Capture-Phase: fängt Events so früh wie möglich
             const interactionOptions = { capture: true, passive: true };
             document.addEventListener('touchstart', onFirstInteraction, interactionOptions);
             document.addEventListener('touchend', onFirstInteraction, interactionOptions);
@@ -1413,24 +1412,25 @@
             interactionListenerRegistered = true;
             console.log('[Hero Video] Interaction listeners registered for Safari iOS autoplay unlock');
 
-            // 4. Zeitbasierte Fallbacks (häufigere Versuche)
-            setTimeout(() => attemptPlay('timeout-500ms'), 500);
+            // 4. Zeitbasierte Fallbacks (mit mehr Abstand, um Endlos-Schleife zu vermeiden)
             setTimeout(() => attemptPlay('timeout-1s'), 1000);
-            setTimeout(() => attemptPlay('timeout-1.5s'), 1500);
             setTimeout(() => attemptPlay('timeout-2s'), 2000);
             setTimeout(() => attemptPlay('timeout-3s'), 3000);
             setTimeout(() => attemptPlay('timeout-5s'), 5000);
+            setTimeout(() => attemptPlay('timeout-8s'), 8000);
 
-            // 5. Bei Page-Visibility (Tab kommt zurück)
+            // 5. Bei Page-Visibility
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && !playStarted) {
+                    lastPlayAttemptTime = 0;
                     setTimeout(() => attemptPlay('visibilitychange'), 100);
                 }
             });
 
-            // 6. Bei Page-Show (Browser-Cache-Rückkehr)
+            // 6. Bei Page-Show (bfcache)
             window.addEventListener('pageshow', (event) => {
                 if (event.persisted && !playStarted) {
+                    lastPlayAttemptTime = 0;
                     setTimeout(() => attemptPlay('pageshow-bfcache'), 200);
                 }
             });
@@ -1439,8 +1439,8 @@
             heroVideo.addEventListener('pause', () => {
                 if (heroVideo.ended || playStarted) return;
                 console.log('[Hero Video] paused by browser — will retry');
-                // Kurzer Delay, dann nochmal versuchen
-                setTimeout(() => attemptPlay('after-pause'), 100);
+                lastPlayAttemptTime = 0;
+                setTimeout(() => attemptPlay('after-pause'), 200);
             });
 
             // 8. Error-Handler
