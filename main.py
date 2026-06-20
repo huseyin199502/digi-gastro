@@ -1526,10 +1526,31 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     # cache will be re-populated from the (soon-to-be-committed) DB on
     # the next read. The 5s TTL provides a safety net for the brief race
     # between invalidation and commit. Non-fatal if Redis is unavailable.
+    # WICHTIG: Wir markieren den Slug auch für post-commit invalidierung,
+    # um die Race Condition zu schließen (siehe after_commit Event unten).
     try:
         invalidate_restaurant_cache_sync(slug)
     except Exception as _e:
         print(f"[Redis Cache] invalidate on save failed for {slug}: {_e}")
+    # Slug für post-commit invalidierung merken
+    session.info['_pending_cache_invalidate'] = slug
+
+
+# ── BUG FIX: Post-Commit Cache Invalidierung ──
+# Nach jedem db.commit() wird der Cache NOCHMAL invalidiert. Das schließt
+# die Race Condition: ein gleichzeitiger Poll könnte den Cache zwischen
+# der pre-commit Invalidierung und dem commit mit ALTEN Daten neu füllen.
+# Die post-commit Invalidierung löscht diesen veralteten Cache-Eintrag.
+from sqlalchemy import event as _sqla_event
+
+@_sqla_event.listens_for(SessionLocal, "after_commit")
+def _invalidate_cache_after_commit(session):
+    slug = session.info.pop('_pending_cache_invalidate', None)
+    if slug:
+        try:
+            invalidate_restaurant_cache_sync(slug)
+        except Exception as _e:
+            print(f"[Redis Cache] post-commit invalidate failed for {slug}: {_e}")
 
 def ensure_tenant_seeded(slug: str, db) -> Tenant:
     slug_lower = slug.lower().strip()
@@ -6345,6 +6366,11 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Aktualisieren: {e}")
+
+    # BUG FIX: Cache NACH commit nochmal invalidieren — verhindert Race Condition
+    # wo ein gleichzeitiger Poll den Cache zwischen Invalidierung und Commit mit
+    # alten Daten neu füllt. Das ist die Ursache für "Item springt zurück".
+    invalidate_restaurant_cache_sync(slug)
 
     await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True, "item_key": payload.item_key, "new_status": payload.status}
@@ -11538,7 +11564,10 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Fehler beim Servieren: {e}")
-            
+
+        # BUG FIX: Cache NACH commit nochmal invalidieren — verhindert Race Condition
+        invalidate_restaurant_cache_sync(slug)
+
     await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
