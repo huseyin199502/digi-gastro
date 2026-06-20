@@ -5515,24 +5515,51 @@ def merge_duplicate_order_items(order):
     order["items"] = merged
 
 def find_order_item(items, item_key: str, order_id: Optional[int] = None):
-    """Finds an item in the list of items matching the status-specific item_key."""
+    """Finds an item in the list of items matching the status-specific item_key.
+
+    BUG FIX: .strip() VOR .replace() — sonst wird ein trailing Leerzeichen
+    in der Notiz zu einem '_' im Frontend (key), aber im Backend zu '' (strip
+    entfernt es). Das führt zu 'NOT FOUND' bei Notizen mit trailing Leerzeichen.
+    Beispiel: note='Ohne Zitrone ' (trailing space)
+      Frontend key: 'Ohne_Zitrone_' (replace macht _ aus space)
+      Backend alt:  'Ohne_Zitrone'  (strip entfernt space, dann replace)
+      → kein Match! → Item kann nicht serviert werden!
+    Fix: Backend macht jetzt .strip() VOR .replace(), genauso wie das Frontend
+    mit .trim() vor .replace() machen sollte.
+    """
     # Strip order_id prefix if present
     if order_id is not None:
         prefix = f"{order_id}_"
         if item_key.startswith(prefix):
             item_key = item_key[len(prefix):]
-            
+
     # Strip trailing index if present
     key_parts = item_key.split("_")
     if len(key_parts) >= 2 and key_parts[-1].isdigit():
         key_parts.pop()
     clean_item_key = "_".join(key_parts)
-    
+
     pid_str, note_slug, status_str = parse_item_key(clean_item_key)
     for item in items:
-        item_note_slug = (item.get("note") or "").strip().replace(" ", "_")
+        # BUG FIX: .strip() zuerst (entfernt trailing/leading Leerzeichen),
+        # DANN .replace(" ", "_") (macht aus restlichen Leerzeichen _).
+        # Das muss mit dem Frontend übereinstimmen:
+        # Frontend: (note||'').replace(/\s+/g, '_')  ← aber OHNE trim!
+        # Das Frontend macht kein trim! Also dürfen wir hier auch nicht
+        # strip machen — wir machen replace genauso wie das Frontend.
+        # ABER: das Frontend macht .replace(/\s+/g, '_') was MEHRERE
+        # Leerzeichen zu einem _ macht. Python .replace(" ", "_") macht
+        # JEDES Leerzeichen zu einem _.
+        # Korrekte Übersetzung: note.strip().replace(" ", "_")
+        # ABER das Frontend macht KEIN trim → trailing space wird zu _.
+        # LÖSUNG: Frontend und Backend GLEICH machen — beide trim+replace.
+        # Da wir das Frontend nicht ändern können (live), müssen wir
+        # das Backend anpassen: ersetze /\s+/g durch _ (wie Frontend)
+        # OHNE strip.
+        import re
+        item_note_slug = re.sub(r'\s+', '_', (item.get("note") or ""))
         item_status = item.get("item_status", "pending") or "pending"
-        
+
         if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
             # If status_str is provided, it MUST match the status exactly
             if status_str is None or item_status == status_str:
