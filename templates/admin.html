@@ -6175,16 +6175,17 @@
         function _trackOptimisticServe(orderId, itemKey) {
             if (!_optimisticServes.has(orderId)) _optimisticServes.set(orderId, new Set());
             _optimisticServes.get(orderId).add(itemKey);
-            // Auto-expire after 8 seconds — schützt den Kellner vor "Zurückspringen"
-            // während das Backend + Cache sich synchronisieren
+            // Auto-expire after 3 Sekunden — kurz genug dass andere Kellner schnell
+            // die richtigen Daten sehen, lang genug dass das Backend den Cache
+            // invalidiert (after_commit) und committed Daten liefert.
             setTimeout(() => {
                 const set = _optimisticServes.get(orderId);
                 if (set) { set.delete(itemKey); if (set.size === 0) _optimisticServes.delete(orderId); }
-            }, 8000);
+            }, 3000);
         }
         function _trackOptimisticServeAll(orderId) {
             _optimisticServes.set(orderId, new Set(['__all__']));
-            setTimeout(() => { _optimisticServes.delete(orderId); }, 8000);
+            setTimeout(() => { _optimisticServes.delete(orderId); }, 3000);
         }
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
