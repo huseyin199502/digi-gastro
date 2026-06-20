@@ -7501,10 +7501,16 @@
                 }
                 
                 if (controlModalActiveTableNum) {
-                    refreshControlModal();
+                    // BUG FIX: Control-Modal NICHT refreshen während optimistic serves aktiv.
+                    // Sonst überschreibt der Poll das "serviert" mit alten Server-Daten.
+                    const hasOptimisticServesAnyOrder = _optimisticServes.size > 0;
+                    if (!hasOptimisticServesAnyOrder) {
+                        refreshControlModal();
+                    }
                 }
                 
                 // Real-time popup update: if the order popup is open, re-render it with fresh data
+                // ABER: nicht überschreiben wenn gerade ein optimistic serve läuft (8s Schutz)
                 if (activeOrderId) {
                     const freshOrder = allOrders.find(o => o.id === activeOrderId);
                     if (freshOrder) {
@@ -7512,7 +7518,12 @@
                             closePopup();
                             showToast('Bestellung wurde bereits abgeschlossen', 'info');
                         } else {
-                            renderPopup(freshOrder);
+                            // BUG FIX: Popup NICHT neu rendern wenn optimistic serves aktiv sind.
+                            // Sonst überschreibt der Poll das "serviert" mit alten Server-Daten.
+                            const hasOptimisticServes = _optimisticServes.has(activeOrderId);
+                            if (!hasOptimisticServes) {
+                                renderPopup(freshOrder);
+                            }
                         }
                     } else {
                         closePopup();

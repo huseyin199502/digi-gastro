@@ -6355,7 +6355,17 @@ async def set_item_status(request: Request, slug: str, order_id: int, payload: I
 
     matched_item = find_order_item(order.get("items", []), payload.item_key, order_id=order_id)
     if not matched_item:
+        # DEBUG LOG: Item nicht gefunden — item_key war falsch
+        print(f"[DEBUG set_item_status] ITEM NOT FOUND! order_id={order_id} item_key={payload.item_key!r} status={payload.status}")
+        print(f"[DEBUG set_item_status] Items in order:")
+        for i, it in enumerate(order.get("items", [])):
+            print(f"  [{i}] pid={it.get('product_id')} note={it.get('note')!r} status={it.get('item_status','pending')} qty={it.get('quantity')}")
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
+
+    # DEBUG LOG: Item gefunden — Status ändern
+    old_status = matched_item.get("item_status", "pending")
+    print(f"[DEBUG set_item_status] FOUND! pid={matched_item.get('product_id')} note={matched_item.get('note')!r} old_status={old_status} → new_status={payload.status}")
+
     matched_item["item_status"] = payload.status
 
     update_order_status_by_items(order)
