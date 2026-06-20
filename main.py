@@ -254,7 +254,8 @@ async def redis_subscriber():
 
     ROBUSTNESS: redis-py 5.x beendet `pubsub.listen()` nach 5 Sekunden
     Inaktivität mit 'Timeout reading from redis:6379'. Das ist KEIN echter
-    Fehler — nur ein Read-Timeout. Wir catchen das und restarten die Loop.
+    Fehler — nur ein Read-Timeout. Wir verwenden stattdessen
+    `get_message(timeout=60)` in einer while-Loop, das ist stabiler.
     """
     if redis_client is None:
         return  # nothing to do without Redis
@@ -269,29 +270,34 @@ async def redis_subscriber():
             print("[Redis Subscriber] listening on ws:*")
             retry_delay = 1  # Reset nach erfolgreichem Connect
 
-            async for message in pubsub.listen():
-                if message.get("type") == "pmessage":
-                    try:
-                        channel = message.get("channel", "")
-                        if isinstance(channel, bytes):
-                            channel = channel.decode("utf-8", errors="ignore")
-                        slug = channel.split(":", 1)[1] if ":" in channel else None
-                        if not slug:
-                            continue
-                        raw = message.get("data")
-                        if isinstance(raw, bytes):
-                            raw = raw.decode("utf-8", errors="ignore")
-                        data = json.loads(raw)
-                        await manager.broadcast(slug, data)
-                    except Exception as e:
-                        print(f"[Redis Subscriber] error processing message: {e}")
-
-            # Sollte nie erreicht werden, aber falls doch: weitermachen
-            try:
-                await pubsub.punsubscribe("ws:*")
-                await pubsub.aclose()
-            except Exception:
-                pass
+            # ── Stabile Message-Loop statt pubsub.listen() ──
+            # pubsub.listen() crashed nach 5s Timeout (redis-py 5.x Bug).
+            # get_message(timeout=60) kehrt nach 60s ohne Message sauber
+            # mit None zurück — kein Crash.
+            while True:
+                message = await pubsub.get_message(
+                    ignore_subscribe_messages=True,
+                    timeout=60.0  # 60s Read-Timeout — kehrt sauber zurück
+                )
+                if message is None:
+                    # Timeout — kein Crash, einfach weitermachen
+                    continue
+                if message.get("type") != "pmessage":
+                    continue
+                try:
+                    channel = message.get("channel", "")
+                    if isinstance(channel, bytes):
+                        channel = channel.decode("utf-8", errors="ignore")
+                    slug = channel.split(":", 1)[1] if ":" in channel else None
+                    if not slug:
+                        continue
+                    raw = message.get("data")
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8", errors="ignore")
+                    data = json.loads(raw)
+                    await manager.broadcast(slug, data)
+                except Exception as e:
+                    print(f"[Redis Subscriber] error processing message: {e}")
 
         except asyncio.CancelledError:
             # Shutdown — sauber beenden
@@ -302,7 +308,7 @@ async def redis_subscriber():
                 pass
             raise
         except Exception as e:
-            # Timeout oder andere Exception — RESTART
+            # Echter Fehler (Redis down etc.) — RESTART mit Backoff
             print(f"[Redis Subscriber] loop crashed: {e} — restarting in {retry_delay}s")
             try:
                 await pubsub.aclose()
