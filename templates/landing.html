@@ -553,8 +553,21 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <header class="hero-section relative w-full overflow-hidden bg-[#050507]">
         <!-- Video — determines hero height naturally, NO cropping -->
+        <!-- iOS-Kompatibilität: webkit-playsinline + playsinline + muted als Property -->
         <div class="hero-video-wrap relative w-full" style="aspect-ratio: 1028/720;">
-            <video autoplay loop muted playsinline preload="auto" class="block w-full h-full" style="object-fit: fill;" id="hero-video" poster="/static/images/icon-512.png" disablepictureinpicture disableremoteplayback controlslist="nodownload nofullscreen noplaybackrate">
+            <video id="hero-video"
+                   autoplay
+                   loop
+                   muted
+                   playsinline
+                   webkit-playsinline
+                   preload="auto"
+                   disablepictureinpicture
+                   disableremoteplayback
+                   controlslist="nodownload nofullscreen noplaybackrate"
+                   class="block w-full h-full"
+                   style="object-fit: fill;"
+                   poster="/static/images/icon-512.png">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
@@ -1262,63 +1275,100 @@
         // ── Hero Video: Sofort abspielen mit poster-Bild als Fallback ──
         // Das Video ist schön und soll auf allen Geräten laufen.
         // poster-Bild zeigt sofort das Logo während das Video lädt (bessere UX).
-        // Robustheit: mehrere Versuche, falls play() Promise rejected
-        // (passiert oft, wenn Video noch nicht genug geladen ist).
+        // Robustheit: mehrere Versuche, falls play() Promise rejected.
+        // iOS-Besonderheiten:
+        //  - muted muss als Property (nicht nur Attribut) gesetzt sein
+        //  - webkit-playsinline Attribut verhindert iOS-Vollbild-Force
+        //  - iOS Low Power Mode blockt Autoplay komplett → auf User-Interaktion warten
+        //  - play() kann auf iOS erst nach 'canplay' erfolgreich sein
         (function() {
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
 
-            // Flag, damit wir nicht mehrfach gleichzeitig versuchen
+            // iOS: muted als Property setzen (Attribut allein reicht nicht immer)
+            heroVideo.muted = true;
+            heroVideo.defaultMuted = true;
+            // iOS: playsinline als Property (zusätzlich zum Attribut)
+            try { heroVideo.playsInline = true; } catch(e) {}
+            try { heroVideo.setAttribute('webkit-playsinline', 'webkit-playsinline'); } catch(e) {}
+
             let playStarted = false;
+            let attempts = 0;
 
             function attemptPlay(reason) {
                 if (playStarted) return;
-                console.log('[Hero Video] attemptPlay:', reason, 'readyState:', heroVideo.readyState);
-                const playPromise = heroVideo.play();
-                if (playPromise && typeof playPromise.then === 'function') {
-                    playPromise.then(() => {
+                attempts++;
+                if (attempts > 10) return; // Endlos-Versuche verhindern
+                console.log('[Hero Video] attemptPlay #' + attempts + ':', reason, 'readyState:', heroVideo.readyState);
+                try {
+                    const playPromise = heroVideo.play();
+                    if (playPromise && typeof playPromise.then === 'function') {
+                        playPromise.then(() => {
+                            playStarted = true;
+                            console.log('[Hero Video] play() success');
+                        }).catch((err) => {
+                            console.warn('[Hero Video] play() failed:', err.name, err.message);
+                            // Bei AbortError: nicht sofort retry (Browser blockt)
+                            // Bei NotAllowedError: User-Interaktion nötig (siehe pause-Listener)
+                        });
+                    } else {
+                        // Ältere Browser ohne Promise — annehmen, dass es klappt
                         playStarted = true;
-                        console.log('[Hero Video] play() success');
-                    }).catch((err) => {
-                        console.warn('[Hero Video] play() failed:', err.name, err.message);
-                        // Nicht auto-retry hier — das übernehmen die Event-Listener unten
-                    });
+                    }
+                } catch (e) {
+                    console.warn('[Hero Video] play() exception:', e);
                 }
             }
 
-            // 1. Sofort versuchen (autoplay Attribut hilft, aber play() bestätigt)
+            // 1. Sofort versuchen
             attemptPlay('immediate');
 
-            // 2. Wenn Video soweit ist zum Abspielen (genug gepuffert)
+            // 2. Bei Video-Events
+            heroVideo.addEventListener('loadedmetadata', () => attemptPlay('loadedmetadata'));
+            heroVideo.addEventListener('loadeddata', () => attemptPlay('loadeddata'));
             heroVideo.addEventListener('canplay', () => attemptPlay('canplay'));
             heroVideo.addEventListener('canplaythrough', () => attemptPlay('canplaythrough'));
-            heroVideo.addEventListener('loadeddata', () => attemptPlay('loadeddata'));
 
-            // 3. Wenn Video pausiert wurde (z.B. durch Browser-Policy), nach User-Interaktion versuchen
+            // 3. iOS: pause-Event = Browser hat auto-paused → auf User-Interaktion warten
+            let interactionListenerAdded = false;
             heroVideo.addEventListener('pause', () => {
-                if (heroVideo.ended || playStarted) return;
-                // Browser hat autoplay blockiert — auf User-Interaktion warten
+                if (heroVideo.ended || playStarted || interactionListenerAdded) return;
+                interactionListenerAdded = true;
+                console.log('[Hero Video] paused by browser — waiting for user interaction');
                 const tryPlayOnInteraction = () => {
+                    if (playStarted) return;
+                    console.log('[Hero Video] user interaction detected — retry play');
                     attemptPlay('user-interaction');
-                    document.removeEventListener('touchstart', tryPlayOnInteraction);
-                    document.removeEventListener('click', tryPlayOnInteraction);
-                    document.removeEventListener('scroll', tryPlayOnInteraction);
-                    document.removeEventListener('keydown', tryPlayOnInteraction);
                 };
+                // Verschiedene Events, die als "User-Interaktion" zählen
                 document.addEventListener('touchstart', tryPlayOnInteraction, { once: true, passive: true });
+                document.addEventListener('touchend', tryPlayOnInteraction, { once: true, passive: true });
                 document.addEventListener('click', tryPlayOnInteraction, { once: true });
                 document.addEventListener('scroll', tryPlayOnInteraction, { once: true, passive: true });
                 document.addEventListener('keydown', tryPlayOnInteraction, { once: true });
+                // Auch visibilitychange (Tab kommt zurück)
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) setTimeout(() => attemptPlay('visibilitychange'), 100);
+                }, { once: true });
             });
 
-            // 4. Fallback: nach 2s nochmal versuchen (falls SW-Cache race condition)
+            // 4. Zeitbasierte Fallbacks
+            setTimeout(() => attemptPlay('timeout-1s'), 1000);
             setTimeout(() => attemptPlay('timeout-2s'), 2000);
             setTimeout(() => attemptPlay('timeout-5s'), 5000);
 
-            // 5. Bei Sichtbarkeitswechsel (Tab kommt zurück ins Sichtfeld)
+            // 5. Bei Page-Visibility (Tab kommt zurück)
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && !playStarted) {
-                    attemptPlay('visibilitychange');
+                    setTimeout(() => attemptPlay('visibilitychange'), 100);
+                }
+            });
+
+            // 6. Bei Page-Show (Browser-Cache-Rückkehr)
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted && !playStarted) {
+                    // Page aus Back-Forward-Cache geladen
+                    setTimeout(() => attemptPlay('pageshow-bfcache'), 200);
                 }
             });
         })();
