@@ -1279,8 +1279,14 @@
         // iOS-Besonderheiten:
         //  - muted muss als Property (nicht nur Attribut) gesetzt sein
         //  - webkit-playsinline Attribut verhindert iOS-Vollbild-Force
-        //  - iOS Low Power Mode blockt Autoplay komplett → auf User-Interaktion warten
+        //  - Safari iOS blockt Autoplay beim ERSTEN Besuch einer Domain
+        //    (Media Engagement Index = 0) → nur User-Gesture hilft
         //  - play() kann auf iOS erst nach 'canplay' erfolgreich sein
+        //
+        // Strategie: Statt Play-Button, registrieren wir EINEN globalen
+        // einmaligen Listener, der bei der allerersten User-Interaktion
+        // (Touch, Scroll, Click — egal was) das Video startet. Das ist die
+        // gleiche Technik wie YouTube-Embeds auf iOS nutzen.
         (function() {
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
@@ -1294,11 +1300,12 @@
 
             let playStarted = false;
             let attempts = 0;
+            let interactionListenerRegistered = false;
 
             function attemptPlay(reason) {
                 if (playStarted) return;
                 attempts++;
-                if (attempts > 10) return; // Endlos-Versuche verhindern
+                if (attempts > 15) return; // Endlos-Versuche verhindern
                 console.log('[Hero Video] attemptPlay #' + attempts + ':', reason, 'readyState:', heroVideo.readyState);
                 try {
                     const playPromise = heroVideo.play();
@@ -1306,13 +1313,16 @@
                         playPromise.then(() => {
                             playStarted = true;
                             console.log('[Hero Video] play() success');
+                            // Erfolgreich — alle Interaction-Listener entfernen
+                            if (interactionListenerRegistered) {
+                                removeInteractionListeners();
+                            }
                         }).catch((err) => {
                             console.warn('[Hero Video] play() failed:', err.name, err.message);
-                            // Bei AbortError: nicht sofort retry (Browser blockt)
-                            // Bei NotAllowedError: User-Interaktion nötig (siehe pause-Listener)
+                            // Bei NotAllowedError: User-Gesture erforderlich
+                            // → interactionListener unten fängt das ab
                         });
                     } else {
-                        // Ältere Browser ohne Promise — annehmen, dass es klappt
                         playStarted = true;
                     }
                 } catch (e) {
@@ -1320,7 +1330,7 @@
                 }
             }
 
-            // 1. Sofort versuchen
+            // 1. Sofort versuchen (klappt auf Desktop + Android Chrome)
             attemptPlay('immediate');
 
             // 2. Bei Video-Events
@@ -1329,32 +1339,45 @@
             heroVideo.addEventListener('canplay', () => attemptPlay('canplay'));
             heroVideo.addEventListener('canplaythrough', () => attemptPlay('canplaythrough'));
 
-            // 3. iOS: pause-Event = Browser hat auto-paused → auf User-Interaktion warten
-            let interactionListenerAdded = false;
-            heroVideo.addEventListener('pause', () => {
-                if (heroVideo.ended || playStarted || interactionListenerAdded) return;
-                interactionListenerAdded = true;
-                console.log('[Hero Video] paused by browser — waiting for user interaction');
-                const tryPlayOnInteraction = () => {
-                    if (playStarted) return;
-                    console.log('[Hero Video] user interaction detected — retry play');
-                    attemptPlay('user-interaction');
-                };
-                // Verschiedene Events, die als "User-Interaktion" zählen
-                document.addEventListener('touchstart', tryPlayOnInteraction, { once: true, passive: true });
-                document.addEventListener('touchend', tryPlayOnInteraction, { once: true, passive: true });
-                document.addEventListener('click', tryPlayOnInteraction, { once: true });
-                document.addEventListener('scroll', tryPlayOnInteraction, { once: true, passive: true });
-                document.addEventListener('keydown', tryPlayOnInteraction, { once: true });
-                // Auch visibilitychange (Tab kommt zurück)
-                document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) setTimeout(() => attemptPlay('visibilitychange'), 100);
-                }, { once: true });
-            });
+            // 3. ── WICHTIG: Safari iOS Autoplay-Blockade umgehen ──
+            // Safari blockt play() beim ersten Besuch komplett, bis der User
+            // irgendwo auf der Seite tippt/scrollt/klickt. Sobald das passiert,
+            // ist der "Media Engagement Index" erhöht und Autoplay klappt.
+            // Wir registrieren einen globalen Listener, der bei der aller-
+            // ersten Interaktion (egal wohin) das Video startet.
+            function onFirstInteraction(e) {
+                if (playStarted) return;
+                console.log('[Hero Video] first user interaction:', e.type, '— attempting play');
+                // Kurz warten, damit der Gesture-Status im Browser aktiv ist
+                setTimeout(() => attemptPlay('first-interaction-' + e.type), 50);
+            }
 
-            // 4. Zeitbasierte Fallbacks
+            function removeInteractionListeners() {
+                document.removeEventListener('touchstart', onFirstInteraction, true);
+                document.removeEventListener('touchend', onFirstInteraction, true);
+                document.removeEventListener('click', onFirstInteraction, true);
+                document.removeEventListener('scroll', onFirstInteraction, true);
+                document.removeEventListener('wheel', onFirstInteraction, true);
+                document.removeEventListener('keydown', onFirstInteraction, true);
+                window.removeEventListener('scroll', onFirstInteraction, true);
+            }
+
+            // Capture-Phase + passive: fängt Events so früh wie möglich ein
+            // OHNE Performance-Probleme zu verursachen
+            document.addEventListener('touchstart', onFirstInteraction, { capture: true, passive: true, once: false });
+            document.addEventListener('touchend', onFirstInteraction, { capture: true, passive: true, once: false });
+            document.addEventListener('click', onFirstInteraction, { capture: true, passive: true, once: false });
+            document.addEventListener('scroll', onFirstInteraction, { capture: true, passive: true, once: false });
+            document.addEventListener('wheel', onFirstInteraction, { capture: true, passive: true, once: false });
+            document.addEventListener('keydown', onFirstInteraction, { capture: true, passive: true, once: false });
+            window.addEventListener('scroll', onFirstInteraction, { capture: true, passive: true, once: false });
+            interactionListenerRegistered = true;
+
+            // 4. Zeitbasierte Fallbacks (für nicht-Safari Browser, die trotzdem zickt)
+            setTimeout(() => attemptPlay('timeout-500ms'), 500);
             setTimeout(() => attemptPlay('timeout-1s'), 1000);
             setTimeout(() => attemptPlay('timeout-2s'), 2000);
+            setTimeout(() => attemptPlay('timeout-3s'), 3000);
             setTimeout(() => attemptPlay('timeout-5s'), 5000);
 
             // 5. Bei Page-Visibility (Tab kommt zurück)
@@ -1367,9 +1390,15 @@
             // 6. Bei Page-Show (Browser-Cache-Rückkehr)
             window.addEventListener('pageshow', (event) => {
                 if (event.persisted && !playStarted) {
-                    // Page aus Back-Forward-Cache geladen
                     setTimeout(() => attemptPlay('pageshow-bfcache'), 200);
                 }
+            });
+
+            // 7. Bei Pause durch Browser (z.B. Low Power Mode)
+            heroVideo.addEventListener('pause', () => {
+                if (heroVideo.ended || playStarted) return;
+                console.log('[Hero Video] paused by browser — will retry on next interaction');
+                // Bereits registrierte Interaction-Listener fangen das ab
             });
         })();
 
