@@ -136,8 +136,12 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <!-- ── Hero-Video preload: Browser lädt Video parallel zu CSS/Fonts ──
          Verhindert "Video startet spät" — sonst würde das Video erst laden,
-         wenn der <video>-Tag gerendert wird (später im HTML). -->
-    <link rel="preload" href="/static/videos/hero-bg.mp4" as="fetch" crossorigin>
+         wenn der <video>-Tag gerendert wird (später im HTML).
+         Mobile (≤768px) bekommt nur die kleine Version (670 KB),
+         Desktop bekommt die große Version (2.8 MB).
+         Spart ~75% Datenvolumen auf Mobile → Video startet 4x schneller. -->
+    <link rel="preload" href="/static/videos/hero-bg-mobile.mp4" as="fetch" crossorigin media="(max-width: 768px)">
+    <link rel="preload" href="/static/videos/hero-bg.mp4" as="fetch" crossorigin media="(min-width: 769px)">
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
     <link rel="preload" href="/static/css/tailwind-built.css?v=3" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=3"></noscript>
@@ -575,6 +579,11 @@
                    class="block w-full h-full"
                    style="object-fit: fill; background-color: #050507; background-image: url('/static/images/icon-512.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"
                    poster="/static/images/icon-512.png">
+                <!-- ── Responsive Video Sources ──
+                     Mobile (≤768px): hero-bg-mobile.mp4 (670 KB, 720px breit)
+                     Desktop (>768px): hero-bg.mp4 (2.8 MB, 1028px breit, Original)
+                     Spart ~75% Datenvolumen auf Mobile → Video startet 4x schneller. -->
+                <source media="(max-width: 768px)" src="/static/videos/hero-bg-mobile.mp4" type="video/mp4">
                 <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
