@@ -9673,8 +9673,54 @@ async def bulk_assign_super_groups(
     return {"success": True, "updated": updated}
 
 
+@app.post("/admin/convert-images")
+async def convert_all_images(request: Request, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Batch-Konvertierung aller Bilder zu WebP.
+    Kann vom Admin-Dashboard ausgelöst werden (kein SSH nötig)."""
+    import os
+    user, slug, restaurant = chef_data
+
+    converted = 0
+    skipped = 0
+    errors = 0
+    saved_bytes = 0
+
+    for root, dirs, files in os.walk(UPLOAD_DIR):
+        for fname in files:
+            if fname.lower().endswith(('.jpg', '.jpeg', '.png')):
+                fpath = os.path.join(root, fname)
+                webp_path = fpath.rsplit('.', 1)[0] + '.webp'
+
+                # Überspringen wenn WebP schon existiert und neuer ist
+                if os.path.exists(webp_path) and os.path.getmtime(webp_path) > os.path.getmtime(fpath):
+                    skipped += 1
+                    continue
+
+                orig_size = os.path.getsize(fpath)
+                result = convert_to_webp(fpath, quality=85, max_width=1200)
+                if result:
+                    webp_size = os.path.getsize(result)
+                    saved_bytes += max(0, orig_size - webp_size)
+                    converted += 1
+                    print(f"[WebP Batch] {fname}: {orig_size//1024}KB → {webp_size//1024}KB (-{(1-webp_size/orig_size)*100:.0f}%)")
+                else:
+                    errors += 1
+
+    # Cache invalidieren damit WebP sofort ausgeliefert wird
+    invalidate_restaurant_cache_sync(slug)
+
+    return JSONResponse({
+        "success": True,
+        "converted": converted,
+        "skipped": skipped,
+        "errors": errors,
+        "saved_mb": round(saved_bytes / 1024 / 1024, 2),
+        "message": f"{converted} Bilder konvertiert, {skipped} übersprungen, {saved_bytes//1024}KB gespart"
+    })
+
+
 @app.post("/admin/product-toggle/{product_id}")
-async def toggle_product_availability(request: Request, product_id: int, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+async def toggle_product_availability_route(request: Request, product_id: int, chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
