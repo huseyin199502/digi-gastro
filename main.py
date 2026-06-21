@@ -11882,8 +11882,10 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         
     restaurant = get_restaurant_or_raise(slug, db)
     
-    s_table_num = str(payload.source_table).replace("Tisch", "").strip()
-    t_table_num = str(payload.target_table).replace("Tisch", "").strip()
+    # FIX: Zone aus Tisch-String extrahieren — "Tisch 1 (Draußen)" → num="1", zone="Draußen"
+    # Vorher: .replace("Tisch", "").strip() → "1 (Draußen)" → Tisch nicht gefunden!
+    s_table_num, s_table_zone_from_str = parse_active_table_num(str(payload.source_table))
+    t_table_num, t_table_zone_from_str = parse_active_table_num(str(payload.target_table))
     
     # Try to find exact zone-inclusive table names first, then fallback to simple names
     source_orders = []
@@ -11891,8 +11893,18 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
     
     # Extract zone info from table database if available
     tables_list = restaurant.get("tables", [])
-    s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)
-    t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
+    # FIX: Zone zuerst aus dem Tisch-String nehmen, dann aus DB
+    s_db_table = None
+    if s_table_zone_from_str:
+        s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num and t.get("zone") == s_table_zone_from_str), None)
+    if not s_db_table:
+        s_db_table = next((t for t in tables_list if str(t.get("number")) == s_table_num), None)
+    
+    t_db_table = None
+    if t_table_zone_from_str:
+        t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num and t.get("zone") == t_table_zone_from_str), None)
+    if not t_db_table:
+        t_db_table = next((t for t in tables_list if str(t.get("number")) == t_table_num), None)
     
     s_zone = s_db_table.get("zone", "") if s_db_table else ""
     t_zone = t_db_table.get("zone", "") if t_db_table else ""
