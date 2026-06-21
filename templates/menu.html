@@ -2466,7 +2466,9 @@
                         }
 
                         // FIX: Kellner/Admin → nach Bestellung zurück zum Sitzplan
-                        if (this.role === 'admin' || this.role === 'waiter') {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const userRole = urlParams.get('role') || '';
+                        if (userRole === 'admin' || userRole === 'waiter') {
                             window.location.href = '/admin/dashboard';
                             return;
                         }
