@@ -6175,15 +6175,17 @@
         function _trackOptimisticServe(orderId, itemKey) {
             if (!_optimisticServes.has(orderId)) _optimisticServes.set(orderId, new Set());
             _optimisticServes.get(orderId).add(itemKey);
-            // Auto-expire after 5 seconds (server should have processed by then)
+            // Auto-expire after 3 Sekunden — kurz genug dass andere Kellner schnell
+            // die richtigen Daten sehen, lang genug dass das Backend den Cache
+            // invalidiert (after_commit) und committed Daten liefert.
             setTimeout(() => {
                 const set = _optimisticServes.get(orderId);
                 if (set) { set.delete(itemKey); if (set.size === 0) _optimisticServes.delete(orderId); }
-            }, 5000);
+            }, 3000);
         }
         function _trackOptimisticServeAll(orderId) {
             _optimisticServes.set(orderId, new Set(['__all__']));
-            setTimeout(() => { _optimisticServes.delete(orderId); }, 5000);
+            setTimeout(() => { _optimisticServes.delete(orderId); }, 3000);
         }
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
@@ -7154,7 +7156,8 @@
                     clearInterval(pollInterval);
                     pollInterval = null;
                 }
-                pollInterval = setInterval(checkLiveTischeUpdates, 5000);
+                // Polling 2s — Kellner sehen neue Bestellungen in 2s
+                pollInterval = setInterval(checkLiveTischeUpdates, 2000);
                 checkLiveTischeUpdates();
                 // ── WS-RECONNECT CATCH-UP ──
                 // Wenn der WS kurz getrennt war (z.B. 5-30s), konnten wir Broadcasts
@@ -7430,43 +7433,28 @@
                             // Server hat den Abschluss noch nicht propagiert — lokalen Final-Status bewahren.
                             return { ...liveOrder, status: o.status };
                         }
-                        // PROTECT optimistic serve updates from being overwritten by stale poll data.
-                        // If we recently served items optimistically but the server hasn't caught up yet,
-                        // preserve the local item_status instead of reverting to old server data.
+                        // ── OPTIMISTIC SERVE PROTECTION (vereinfacht & robust) ──
+                        // Wenn der Kellner vor kurzem etwas serviert hat (innerhalb 5s),
+                        // behalten wir die lokalen item_status — egal was der Server sendet.
+                        // Das verhindert das "Zurückspringen" von Items nach Serve.
+                        // Vorher: kompliziertes Key-Matching mit noteSlug → bugs bei Notes.
+                        // Jetzt: wenn order in _optimisticServes → alle localen delivered-Status behalten.
                         const pendingKeys = _optimisticServes.get(o.id);
                         if (pendingKeys && pendingKeys.size > 0 && liveOrder.items && o.items) {
                             const protectedOrder = { ...liveOrder };
-                            if (pendingKeys.has('__all__')) {
-                                // All items were optimistically served — keep all local statuses
-                                protectedOrder.items = liveOrder.items.map(liveItem => {
-                                    const localItem = o.items.find(i =>
-                                        String(i.product_id) === String(liveItem.product_id) &&
-                                        (i.note || '').trim() === (liveItem.note || '').trim()
-                                    );
-                                    if (localItem && localItem.item_status === 'delivered' && (liveItem.item_status || 'pending') !== 'delivered') {
-                                        return { ...liveItem, item_status: 'delivered' };
-                                    }
-                                    return liveItem;
-                                });
-                            } else {
-                                // Specific items were optimistically served — protect those
-                                protectedOrder.items = liveOrder.items.map(liveItem => {
-                                    const localItem = o.items.find(i =>
-                                        String(i.product_id) === String(liveItem.product_id) &&
-                                        (i.note || '').trim() === (liveItem.note || '').trim()
-                                    );
-                                    if (localItem && localItem.item_status === 'delivered' && (liveItem.item_status || 'pending') !== 'delivered') {
-                                        // Check if this local item matches any pending optimistic key
-                                        const noteSlug = (localItem.note || '').replace(/\s+/g, '_');
-                                        const prevStatus = liveItem.item_status || 'pending';
-                                        const key = `${localItem.product_id}_${noteSlug}_${prevStatus}`;
-                                        if (pendingKeys.has(key)) {
-                                            return { ...liveItem, item_status: 'delivered' };
-                                        }
-                                    }
-                                    return liveItem;
-                                });
-                            }
+                            protectedOrder.items = liveOrder.items.map(liveItem => {
+                                // Suche lokales Item mit gleicher product_id + note
+                                const localItem = o.items.find(i =>
+                                    String(i.product_id) === String(liveItem.product_id) &&
+                                    (i.note || '').trim() === (liveItem.note || '').trim() &&
+                                    (i.item_status || 'pending') === 'delivered'
+                                );
+                                // Wenn lokal als delivered markiert → delivered behalten!
+                                if (localItem && (liveItem.item_status || 'pending') !== 'delivered') {
+                                    return { ...liveItem, item_status: 'delivered' };
+                                }
+                                return liveItem;
+                            });
                             return protectedOrder;
                         }
                         return liveOrder; // Use fresh live data
@@ -7514,10 +7502,16 @@
                 }
                 
                 if (controlModalActiveTableNum) {
-                    refreshControlModal();
+                    // BUG FIX: Control-Modal NICHT refreshen während optimistic serves aktiv.
+                    // Sonst überschreibt der Poll das "serviert" mit alten Server-Daten.
+                    const hasOptimisticServesAnyOrder = _optimisticServes.size > 0;
+                    if (!hasOptimisticServesAnyOrder) {
+                        refreshControlModal();
+                    }
                 }
                 
                 // Real-time popup update: if the order popup is open, re-render it with fresh data
+                // ABER: nicht überschreiben wenn gerade ein optimistic serve läuft (8s Schutz)
                 if (activeOrderId) {
                     const freshOrder = allOrders.find(o => o.id === activeOrderId);
                     if (freshOrder) {
@@ -7525,7 +7519,12 @@
                             closePopup();
                             showToast('Bestellung wurde bereits abgeschlossen', 'info');
                         } else {
-                            renderPopup(freshOrder);
+                            // BUG FIX: Popup NICHT neu rendern wenn optimistic serves aktiv sind.
+                            // Sonst überschreibt der Poll das "serviert" mit alten Server-Daten.
+                            const hasOptimisticServes = _optimisticServes.has(activeOrderId);
+                            if (!hasOptimisticServes) {
+                                renderPopup(freshOrder);
+                            }
                         }
                     } else {
                         closePopup();
@@ -8438,7 +8437,8 @@
         function adminTakeOrder(tableNumber) {
             if (confirm(`Tisch ${tableNumber}: Neue Bestellung aufnehmen?`)) {
                 const zoneParam = controlModalActiveTableZone ? `&z=${encodeURIComponent(controlModalActiveTableZone)}` : '';
-                window.open(`/admin/impersonate/${tableNumber}?role=waiter${zoneParam}`, '_blank');
+                // FIX: Gleiche Seite statt neuem Tab — Kellner bleibt auf dem Tablet
+                window.location.href = `/admin/impersonate/${tableNumber}?role=waiter${zoneParam}`;
             }
         }
 

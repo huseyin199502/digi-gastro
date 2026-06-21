@@ -32,10 +32,10 @@ if _raw_db_url:
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,          # detect stale connections
-        pool_size=20,                # keep 20 connections warm (was 10)
-        max_overflow=40,             # allow up to 60 total under burst (was 20)
-        pool_timeout=10,             # wait 10s before giving up (was 30s — faster fail)
-        pool_recycle=300,            # recycle connections after 5 min (was 30 min)
+        pool_size=50,                # 50 warm connections (was 20) — für 100+ Gäste
+        max_overflow=100,            # allow up to 150 total under burst (was 60)
+        pool_timeout=30,             # wait 30s before giving up (was 10s — mehr Geduld bei Lastspitzen)
+        pool_recycle=300,            # recycle connections after 5 min
         pool_reset_on_return='rollback',  # explicit: rollback pending transactions on return
     )
 else:

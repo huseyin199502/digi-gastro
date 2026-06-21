@@ -321,6 +321,15 @@
         </div>
     </header>
 
+    {% if role == 'admin' or role == 'waiter' %}
+    <!-- Zurück zum Dashboard Button (nur für Kellner/Admin) -->
+    <a href="/admin/dashboard" class="fixed top-20 left-3 z-50 bg-surface/95 backdrop-blur-md border border-outline-variant text-on-surface font-bold text-xs px-4 py-2.5 rounded-full shadow-lg flex items-center gap-1.5 hover:bg-primary/10 transition-colors"
+       style="margin-top: env(safe-area-inset-top);">
+        <span class="material-symbols-outlined text-base">arrow_back</span>
+        <span>Dashboard</span>
+    </a>
+    {% endif %}
+
     <!-- Top Alert Banner for Token/Table missing -->
     {% if token_error %}
     <div class="bg-red-950/40 border-b border-red-500/20 text-red-200 py-3.5 px-4 text-center text-xs backdrop-blur-md flex items-center justify-center space-x-2 relative z-40">
