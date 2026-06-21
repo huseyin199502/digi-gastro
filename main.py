@@ -11973,21 +11973,32 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
         for source_order in source_orders:
             # SECURITY FIX (Issue 3.5): Track the actually-transferred amount
             # for THIS source order (sum of qty*price over moved items).
+            import re as _re_admin_transfer
             source_transferred = 0.0
             remaining_items = []
             for item in source_order.get("items", []):
                 item_status = item.get("item_status") or "pending"
-                note_slug = (item.get("note") or "").strip().replace(" ", "_")
+                # BUG FIX: re.sub statt .strip().replace() — gleicher Fix wie find_order_item
+                # Frontend macht .replace(/\s+/g, '_') ohne trim.
+                note_slug = _re_admin_transfer.sub(r'\s+', '_', (item.get("note") or ""))
+
+                # DEBUG LOG
+                print(f"[DEBUG admin_transfer] item: pid={item.get('product_id')} note={item.get('note')!r} slug={note_slug!r} status={item_status} price={item.get('price')} qty={item.get('quantity')}")
 
                 # Check both unique key (with order id) and legacy key
                 unique_key = f"{source_order['id']}_{item.get('product_id')}_{note_slug}_{item_status}"
                 legacy_key = f"{item.get('product_id')}_{note_slug}_{item_status}"
 
+                print(f"[DEBUG admin_transfer]   unique_key={unique_key!r} legacy_key={legacy_key!r}")
+                print(f"[DEBUG admin_transfer]   payload.item_keys={payload.item_keys}")
+
                 matched_key = None
-                if unique_key in payload.item_keys:
+                if payload.item_keys and unique_key in payload.item_keys:
                     matched_key = unique_key
-                elif legacy_key in payload.item_keys:
+                elif payload.item_keys and legacy_key in payload.item_keys:
                     matched_key = legacy_key
+
+                print(f"[DEBUG admin_transfer]   matched_key={matched_key!r}")
 
                 if matched_key:
                     # Determine quantity to move
