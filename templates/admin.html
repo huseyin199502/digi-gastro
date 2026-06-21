@@ -9246,11 +9246,18 @@
 
         function renderTableSelGrid(currentTableStr) {
             const grid = document.getElementById('table-sel-grid');
+            // FIX: Filter nur nach exaktem Match (mit Zone), nicht nach Nummer allein.
+            // Vorher: String(t.number) !== currentTableStr filterte Tisch 1 (Drinnen)
+            // nicht heraus, aber filterte auch Tisch 1 (Draußen) nicht — das war OK.
+            // ABER: ts !== currentTableStr war immer true bei verschiedenen Zonen,
+            // und tsZone !== currentTableStr war true → Tisch 1 Draußen wurde gezeigt.
+            // Problem war woanders: das Backend konnte "Tisch 1 (Draußen)" nicht parsen.
+            // Das ist jetzt gefixt. Wir vereinfachen den Filter zusätzlich:
             const sortedOthers = allTables
                 .filter(t => {
-                    const ts = 'Tisch ' + t.number;
                     const tsZone = `Tisch ${t.number} (${t.zone || ''})`;
-                    return ts !== currentTableStr && tsZone !== currentTableStr && String(t.number) !== currentTableStr;
+                    // Nur exakt denselben Tisch (mit Zone) ausblenden
+                    return tsZone !== currentTableStr;
                 });
             sortedOthers.sort((a, b) => {
                 return String(a.number).localeCompare(String(b.number), undefined, {numeric: true, sensitivity: 'base'});
