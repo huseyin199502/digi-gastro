@@ -9264,13 +9264,14 @@
             });
             grid.innerHTML = sortedOthers
                 .map(t => {
-                    const ts = 'Tisch ' + t.number;
                     const tsZone = `Tisch ${t.number} (${t.zone || ''})`;
-                    // Match table number with or without zone info
+                    // FIX: 'busy' prüft exakten Tisch-String mit Zone, nicht nur Nummer.
+                    // Vorher: regex ^Tisch\s+1(\s*\(|$) matchte BOTH "Tisch 1 (Drinnen)"
+                    // UND "Tisch 1 (Draußen)" → Tisch 1 Draußen wurde als 'belegt'
+                    // angezeigt obwohl nur Tisch 1 Drinnen belegt war.
                     const busy = allOrders.some(o => {
                         const tableStr = String(o.table || '').trim();
-                        const regex = new RegExp(`^Tisch\\s+${t.number}(\\s*\\(|$)`);
-                        return regex.test(tableStr) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                        return tableStr === tsZone && o.status !== 'bezahlt' && o.status !== 'storniert';
                     });
                     return `<div class="table-sel-tile${busy ? ' busy' : ''}" onclick="doTableSel('${t.number}', '${t.zone || ''}')">
                         <div style="font-size:20px;font-weight:900;color:#fff;">${t.number}</div>
