@@ -5914,6 +5914,8 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         print(f"  [{i}] pid={it.get('product_id')} note={it.get('note')!r} slug={it_slug!r} status={it.get('item_status','pending')}")
     source_item = find_order_item(source_order.get("items", []), payload.item_key, order_id=order_id)
     print(f"[DEBUG transfer] source_item={'FOUND' if source_item else 'NOT FOUND'}")
+    if source_item:
+        print(f"[DEBUG transfer] source_item details: pid={source_item.get('product_id')} name={source_item.get('name')!r} price={source_item.get('price')} qty={source_item.get('quantity')} note={source_item.get('note')!r} status={source_item.get('item_status','pending')}")
 
     if not source_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
