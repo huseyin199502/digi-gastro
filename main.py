@@ -5906,7 +5906,14 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
 
     # Find source item
     pid_str, note_slug, status_str = parse_item_key(payload.item_key)
+    # DEBUG LOG
+    print(f"[DEBUG transfer] order_id={order_id} item_key={payload.item_key!r} pid={pid_str} note_slug={note_slug!r} status={status_str}")
+    for i, it in enumerate(source_order.get("items", [])):
+        import re as _re
+        it_slug = _re.sub(r'\s+', '_', (it.get("note") or ""))
+        print(f"  [{i}] pid={it.get('product_id')} note={it.get('note')!r} slug={it_slug!r} status={it.get('item_status','pending')}")
     source_item = find_order_item(source_order.get("items", []), payload.item_key, order_id=order_id)
+    print(f"[DEBUG transfer] source_item={'FOUND' if source_item else 'NOT FOUND'}")
 
     if not source_item:
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden.")
@@ -5954,10 +5961,11 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
 
     if target_order:
         # Merge into existing order ONLY if same status
+        import re as _re_transfer
         t_item = next(
             (i for i in target_order.get("items", [])
-             if str(i.get("product_id")) == pid_str 
-             and (i.get("note") or "").strip().replace(" ", "_") == note_slug
+             if str(i.get("product_id")) == pid_str
+             and _re_transfer.sub(r'\s+', '_', (i.get("note") or "")) == note_slug
              and (i.get("item_status", "pending") or "pending") == source_status),
             None
         )
