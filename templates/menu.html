@@ -2465,6 +2465,12 @@
                             );
                         }
 
+                        // FIX: Kellner/Admin → nach Bestellung zurück zum Sitzplan
+                        if (this.role === 'admin' || this.role === 'waiter') {
+                            window.location.href = '/admin/dashboard';
+                            return;
+                        }
+
                         const thankyou = document.getElementById("thankyou-overlay");
                         if (thankyou) {
                             thankyou.classList.remove("hidden");

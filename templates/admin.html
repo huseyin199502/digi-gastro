@@ -6535,12 +6535,14 @@
                         const groupItemsHtml = group.items.map(item => {
                             const isPending = (item.item_status || item.status) === 'pending';
                             const itemName = (item.name || '').replace(/'/g, "\\'");
+                            const itemKeyJs = escapeForJsAttr(item.key);
                             if (isPending) {
+                                // PENDING: Zwei Haken ✔️✔️ in Amber — Klick = servieren
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
-                                            <span class="material-symbols-outlined text-base">check</span>
+                                        <button onclick="serveControlItem('${itemKeyJs}', ${item.order_id}, event)" class="w-9 h-9 rounded-full bg-amber-500/15 hover:bg-amber-500/30 text-amber-600 flex items-center justify-center border border-amber-500/30 shrink-0 transition active:scale-95" title="Als serviert markieren">
+                                            <span class="material-symbols-outlined text-lg font-black">done_all</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
                                             <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
@@ -6549,20 +6551,22 @@
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="font-extrabold font-mono text-[11px]" style="color:#374151;">${item.price.toFixed(2).replace('.', ',')} €</span>
-                                        <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
+                                        <button onclick="cancelControlItem('${itemKeyJs}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
                                             <span class="material-symbols-outlined text-sm">close</span>
                                         </button>
                                     </div>
                                 </div>`;
                             } else {
+                                // SERVIERT: Ein Haken ✔️ — Klick = auswählen für Abrechnung (wie Checkbox)
                                 const isChecked = !!selectedControlSplitItems[item.key];
                                 return `
-                                <div class="control-split-item flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
+                                <div class="control-split-item flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm ${isChecked ? 'ring-2 ring-emerald-400/50' : ''}" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <input type="checkbox" ${isChecked ? 'checked' : ''}
-                                               onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
-                                               class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
-                                        <span class="material-symbols-outlined font-black text-base select-none" style="color:#059669;">done_all</span>
+                                        <button onclick="toggleControlSplitCheckbox('${itemKeyJs}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
+                                                class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition active:scale-95 ${isChecked ? 'bg-emerald-500 text-white' : 'bg-gray-200 hover:bg-emerald-500/20 text-gray-500 hover:text-emerald-600'}"
+                                                title="${isChecked ? 'Für Abrechnung ausgewählt' : 'Für Abrechnung auswählen'}">
+                                            <span class="material-symbols-outlined text-lg font-black">check</span>
+                                        </button>
                                         <div class="flex-1 min-w-0">
                                             <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
                                             ${item.note ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#b45309;">✎ ${escHtml(item.note)}</span>` : ''}
@@ -8456,11 +8460,9 @@
         }
 
         function adminTakeOrder(tableNumber) {
-            if (confirm(`Tisch ${tableNumber}: Neue Bestellung aufnehmen?`)) {
-                const zoneParam = controlModalActiveTableZone ? `&z=${encodeURIComponent(controlModalActiveTableZone)}` : '';
-                // FIX: Gleiche Seite statt neuem Tab — Kellner bleibt auf dem Tablet
-                window.location.href = `/admin/impersonate/${tableNumber}?role=waiter${zoneParam}`;
-            }
+            // FIX: Kein Confirm-Dialog — direkt zur Bestell-Seite
+            const zoneParam = controlModalActiveTableZone ? `&z=${encodeURIComponent(controlModalActiveTableZone)}` : '';
+            window.location.href = `/admin/impersonate/${tableNumber}?role=waiter${zoneParam}`;
         }
 
         // ── ORDER POPUP LOGIC ──
