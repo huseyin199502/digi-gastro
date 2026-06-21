@@ -4466,7 +4466,7 @@
                         <span class="material-symbols-outlined text-sm">payments</span> Gesamt bezahlen
                     </button>
                     <button onclick="stornieren()" class="w-full mt-1 text-center text-[10px] font-bold text-red-500 hover:text-red-700 py-1">
-                        ⚠️ Ganzen Bon stornieren (PIN erforderlich)
+                        ⚠️ Ganzen Bon stornieren
                     </button>
                 </div>
             </div>
@@ -4509,7 +4509,7 @@
                     </button>
                     
                     <button onclick="executeItemAction('cancel')" class="w-full text-red-500 hover:text-red-700 font-bold text-xs py-2.5 rounded-xl transition">
-                        🚫 Artikel stornieren (PIN erforderlich)
+                        🚫 Artikel stornieren
                     </button>
                 </div>
             </div>
@@ -8321,7 +8321,6 @@
                 `;
             } else {
                 let inner = '';
-                const eyeHtml = `<a href="/?uid=${slug}&tisch=${currentTable.number}&role=waiter" target="_blank" onclick="event.stopPropagation();" class="absolute right-2 top-2 text-zinc-500 hover:text-zinc-800 text-base z-10 font-sans" style="background:none; border:none; cursor:pointer; text-decoration:none;">👁️</a>`;
 
                 
                 const revenueText = order ? `${order.total.toFixed(2).replace('.', ',')} €` : '';
@@ -8348,7 +8347,7 @@
                     }
 
                     inner = `
-                        ${eyeHtml}
+                        
                         <span class="text-xl sm:text-2xl animate-bounce">${callIcon}</span>
                         <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5" style="color:#92400e;">${callText}</span>
                         <span class="text-xs sm:text-sm font-black" style="color:#78350f;">${currentTable.number}</span>
@@ -8357,7 +8356,7 @@
                 } else if (order) {
                     if (hasPending) {
                         inner = `
-                            ${eyeHtml}
+                            
                             <span class="text-[9px] font-black tracking-wider uppercase text-center text-rose-800 mt-1" style="color:#9f1239;">Bestellung</span>
                             <span class="text-xs sm:text-sm font-black" style="color:#4c0519;">${currentTable.number}</span>
                             <span class="text-[10px] font-extrabold mt-0.5" style="color:#881337;">${revenueText}</span>
@@ -8365,7 +8364,7 @@
                         `;
                     } else {
                         inner = `
-                            ${eyeHtml}
+                            
                             <span class="text-[9px] font-black tracking-wider uppercase text-center mt-1" style="color:#065f46;">Serviert</span>
                             <span class="text-xs sm:text-sm font-black" style="color:#022c22;">${currentTable.number}</span>
                             <span class="text-[10px] font-extrabold mt-0.5" style="color:#064e3b;">${revenueText}</span>
@@ -8455,9 +8454,11 @@
         }
 
         function adminTakeOrder(tableNumber) {
-            // FIX: Kein Confirm-Dialog — direkt zur Bestell-Seite
+            // FIX: Gleiche Route wie das Augen-Symbol — verwendet security_token (permanent)
+            // statt active_session_token (rotiert nach Bezahlen). Zuverlässiger.
+            // Öffnet im gleichen Tab (kein _blank).
             const zoneParam = controlModalActiveTableZone ? `&z=${encodeURIComponent(controlModalActiveTableZone)}` : '';
-            window.location.href = `/admin/impersonate/${tableNumber}?role=waiter${zoneParam}`;
+            window.location.href = `/?uid=${slug}&tisch=${tableNumber}&role=waiter${zoneParam}`;
         }
 
         // ── ORDER POPUP LOGIC ──
