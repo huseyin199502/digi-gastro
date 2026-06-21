@@ -105,6 +105,66 @@ def process_and_optimize_general_image(image_bytes) -> bytes:
         return image_bytes
 
 
+def convert_to_webp(image_path: str, quality: int = 85, max_width: int = 1200) -> Optional[str]:
+    """Konvertiert ein Bild zu WebP mit Komprimierung.
+
+    - quality: 85 ist guter Kompromiss (80=kleiner, 90=hochwertig)
+    - max_width: 1200px ist genug für Mobile + Desktop
+    - Gibt den WebP-Pfad zurück, oder None bei Fehler
+
+    Original wird NICHT gelöscht — WebP wird als Zusatz-Datei gespeichert.
+    Beispiel: /uploads/products/burger.png → /uploads/products/burger.webp
+
+    Wird nach jedem Bild-Upload aufgerufen, damit load_restaurant_from_db
+    via get_webp_path automatisch die WebP-Version ausliefert.
+    """
+    try:
+        from PIL import Image as PILImage
+        img = PILImage.open(image_path)
+        # Resize wenn breiter als max_width
+        if img.width > max_width:
+            ratio = max_width / img.width
+            new_size = (max_width, int(img.height * ratio))
+            img = img.resize(new_size, PILImage.LANCZOS)
+        # P-Mode (Palette) zu RGBA konvertieren um Transparenz zu erhalten.
+        # RGB/RGBA werden beibehalten — WebP unterstützt beide Modis nativ.
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        webp_path = image_path.rsplit('.', 1)[0] + '.webp'
+        img.save(webp_path, 'WEBP', quality=quality, method=6)
+        return webp_path
+    except Exception as e:
+        print(f"[WebP] Conversion failed for {image_path}: {e}")
+        return None
+
+
+def get_webp_path(original_path: str) -> str:
+    """Gibt WebP-Pfad zurück wenn die Datei existiert, sonst Original.
+
+    Wird in load_restaurant_from_db verwendet, um Templates automatisch
+    WebP-Bilder ausliefern zu lassen, ohne Template-Änderungen.
+
+    - Leer/None/kein-String → Original
+    - Externe URLs (nicht /uploads/) → Original
+    - Bereits WebP/Video/SVG/PDF/GIF → Original
+    - Sonst: prüfe ob .webp-Datei existiert → ja: WebP-Pfad, nein: Original
+    """
+    if not original_path or not isinstance(original_path, str):
+        return original_path
+    if not original_path.startswith("/uploads/"):
+        return original_path
+    # Nur Raster-Bilder konvertieren (jpg, jpeg, png) — nicht webp, mp4, svg, pdf, gif
+    lower = original_path.lower()
+    if not (lower.endswith('.jpg') or lower.endswith('.jpeg') or lower.endswith('.png')):
+        return original_path
+    # /uploads/products/burger.png → /uploads/products/burger.webp
+    webp_path = original_path.rsplit('.', 1)[0] + '.webp'
+    # Prüfe ob Datei existiert (relativ zum UPLOAD_DIR)
+    full_webp = os.path.join(UPLOAD_DIR, webp_path.replace('/uploads/', '', 1))
+    if os.path.exists(full_webp):
+        return webp_path
+    return original_path
+
 
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
@@ -735,7 +795,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "name": p.name,
             "price": p.price,
             "description": p.description,
-            "image": p.image,
+            "image": get_webp_path(p.image),
             "vegan": p.vegan,
             "is_vegan": p.is_vegan,
             "is_glutenfree": p.is_glutenfree,
@@ -863,7 +923,22 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "products": [{"product_id": ep.product_id, "event_price": ep.event_price} for ep in ev_products],
             "combos": combos
         })
-    
+
+    # ──────────────────────────────────────────────────────────────
+    # WebP: Bild-Pfade auf .webp umschreiben, wenn eine WebP-Version
+    # existiert (siehe convert_to_webp + get_webp_path). Templates
+    # nutzen weiterhin {{ product.image }} etc. — sie bekommen
+    # automatisch die WebP-Version, wenn vorhanden.
+    # ──────────────────────────────────────────────────────────────
+    _landing_page = json.loads(tenant.landing_page_json or "{}")
+    if isinstance(_landing_page, dict):
+        for _key in ("slideshow_images", "offer_images", "gallery_images"):
+            if isinstance(_landing_page.get(_key), list):
+                _landing_page[_key] = [get_webp_path(_img) for _img in _landing_page[_key]]
+        for _sec in (_landing_page.get("custom_sections") or []):
+            if isinstance(_sec, dict) and _sec.get("image"):
+                _sec["image"] = get_webp_path(_sec["image"])
+
     return {
         "name": tenant.name,
         "email": tenant.email,
@@ -873,7 +948,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "active": tenant.active,
         "is_onboarded": tenant.is_onboarded,
         "is_setup_completed": tenant.is_setup_completed,
-        "logo_path": tenant.logo_path,
+        "logo_path": get_webp_path(tenant.logo_path),
         "has_kitchen": tenant.has_kitchen,
         "is_shishabar": tenant.is_shishabar,
         "impressum_content": tenant.impressum_content,
@@ -900,9 +975,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "instagram": tenant.instagram,
             "facebook": tenant.facebook,
             "tiktok": tenant.tiktok or "",
-            "logo_url": tenant.logo_url
+            "logo_url": get_webp_path(tenant.logo_url)
         },
-        "landing_page": json.loads(tenant.landing_page_json or "{}"),
+        "landing_page": _landing_page,
         "happy_hour": {
             "days": json.loads(tenant.happy_hour_days or "[]"),
             "start": tenant.happy_hour_start,
@@ -6909,6 +6984,11 @@ async def post_produkt_erstellen(
             print(f"[Image Processing] Error processing product image: {e}")
         with open(file_path, "wb") as fh:
             fh.write(content)
+        # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+        try:
+            convert_to_webp(file_path)
+        except Exception as _e:
+            print(f"[WebP] Product image conversion failed: {_e}")
         final_image = f"/uploads/products/{safe_name}"
 
     elif image_url and image_url.strip():
@@ -7750,7 +7830,13 @@ async def update_branding(
         content = logo_file.file.read()
         with open(file_path, "wb") as f:
             f.write(content)
-            
+
+        # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+        try:
+            convert_to_webp(file_path)
+        except Exception as _e:
+            print(f"[WebP] Logo conversion failed: {_e}")
+
         final_logo_url = f"/uploads/logos/{filename}"
         restaurant["logo_path"] = final_logo_url
 
@@ -7923,6 +8009,10 @@ async def update_landingpage(
                 content = process_and_optimize_general_image(content)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
+                try:
+                    convert_to_webp(file_path)
+                except Exception as _e:
+                    print(f"[WebP] Offer image conversion failed: {_e}")
                 existing_offers.append(f"/uploads/landing/{safe_name}")
                 
     # Process new slideshow images (and videos mixed in)
@@ -7943,6 +8033,10 @@ async def update_landingpage(
                 content = process_and_optimize_general_image(content)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
+                try:
+                    convert_to_webp(file_path)
+                except Exception as _e:
+                    print(f"[WebP] Slideshow image conversion failed: {_e}")
                 existing_slideshow.append(f"/uploads/slideshow/{safe_name}")
                 
     # Process new gallery images (and videos mixed in)
@@ -7965,6 +8059,10 @@ async def update_landingpage(
                 content = process_and_optimize_general_image(content)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
+                try:
+                    convert_to_webp(file_path)
+                except Exception as _e:
+                    print(f"[WebP] Gallery image conversion failed: {_e}")
                 existing_gallery.append(f"/uploads/gallery/{safe_name}")
     
     # Process video uploads (max 40 seconds, no crop)
@@ -8094,6 +8192,10 @@ async def update_landingpage(
                         content = process_and_optimize_general_image(content)
                         with open(file_path, "wb") as fh:
                             fh.write(content)
+                        try:
+                            convert_to_webp(file_path)
+                        except Exception as _e:
+                            print(f"[WebP] Custom section image conversion failed: {_e}")
                         custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
                     elif is_valid_video(file.filename):
                         safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.mp4"
@@ -8740,6 +8842,11 @@ async def update_product_api(
             print(f"[Image Processing] Error processing product image: {e}")
         with open(file_path, "wb") as fh:
             fh.write(content)
+        # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+        try:
+            convert_to_webp(file_path)
+        except Exception as _e:
+            print(f"[WebP] Product image conversion failed: {_e}")
         final_image = f"/uploads/products/{safe_name}"
 
     elif image_url is not None:
@@ -9411,7 +9518,13 @@ async def process_generated_image(
         file_path = os.path.join(products_upload_dir, safe_name)
         with open(file_path, "wb") as fh:
             fh.write(processed_bytes)
-            
+
+        # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+        try:
+            convert_to_webp(file_path)
+        except Exception as _e:
+            print(f"[WebP] AI image conversion failed: {_e}")
+
         img_url = f"/uploads/products/{safe_name}"
         return {"success": True, "image_url": img_url}
     except Exception as e:
@@ -10606,6 +10719,12 @@ async def upload_logo(request: Request, file: UploadFile = File(...), chef_data:
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
+
+    # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+    try:
+        convert_to_webp(file_path)
+    except Exception as _e:
+        print(f"[WebP] Logo conversion failed: {_e}")
 
     # Serve via /uploads/ route (persistent volume mount)
     logo_relative_path = f"/uploads/logos/{filename}"

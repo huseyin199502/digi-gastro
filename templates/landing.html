@@ -577,10 +577,8 @@
                    disableremoteplayback
                    controlslist="nodownload nofullscreen noplaybackrate"
                    class="block w-full h-full"
-                   style="object-fit: fill; background-color: #050507; background-image: url('/static/images/icon-512.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"
+                   style="object-fit: cover; background-color: #050507; background-image: url('/static/images/icon-512.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"
                    poster="/static/images/icon-512.png">
-                <!-- Source wird per JavaScript gesetzt (responsive basierend auf viewport width).
-                     Safari iOS hat Bugs mit <source media> Attribut + Autoplay-Kombination. -->
             </video>
         </div>
         <!-- Gradient Overlay — darkens for text readability -->
@@ -1300,13 +1298,34 @@
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
 
-            // ── Responsive Source via JS setzen (Safari-safe) ──
+            // ── Responsive Source: WebM (Chrome/Firefox) → H.265 (Safari) → H.264 Fallback ──
             const isMobile = window.matchMedia('(max-width: 768px)').matches
                           || /iPhone|iPad|iPod|Android.*Mobile/i.test(navigator.userAgent);
-            const videoSrc = isMobile
-                ? '/static/videos/hero-bg-mobile.mp4'   // 670 KB
-                : '/static/videos/hero-bg.mp4';          // 2.8 MB
-            console.log('[Hero Video] Using source:', videoSrc, '(isMobile:', isMobile, ')');
+
+            // Browser-Erkennung: Safari unterstützt kein WebM, aber H.265
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const canPlayWebM = heroVideo.canPlayType('video/webm; codecs="vp9"') !== '';
+            const canPlayH265 = heroVideo.canPlayType('video/mp4; codecs="hvc1"') !== '';
+
+            let videoSrc;
+            if (isMobile) {
+                if (isSafari || (canPlayH265 && !canPlayWebM)) {
+                    videoSrc = '/static/videos/hero-bg-mobile-h265.mp4';  // 491 KB
+                } else if (canPlayWebM) {
+                    videoSrc = '/static/videos/hero-bg-mobile.webm';      // 386 KB
+                } else {
+                    videoSrc = '/static/videos/hero-bg-mobile.mp4';       // 670 KB fallback
+                }
+            } else {
+                if (isSafari || (canPlayH265 && !canPlayWebM)) {
+                    videoSrc = '/static/videos/hero-bg-h265.mp4';  // 939 KB
+                } else if (canPlayWebM) {
+                    videoSrc = '/static/videos/hero-bg.webm';      // 626 KB
+                } else {
+                    videoSrc = '/static/videos/hero-bg.mp4';       // 2.8 MB fallback
+                }
+            }
+            console.log('[Hero Video] Using source:', videoSrc, '(isMobile:', isMobile, 'isSafari:', isSafari, 'webm:', canPlayWebM, 'h265:', canPlayH265, ')');
             heroVideo.src = videoSrc;
 
             // ── iOS-Kompatibilität: Properties setzen ──

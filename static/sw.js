@@ -5,9 +5,8 @@
 
 // SW_VERSION — bei JEDEM Code-/Asset-Update bumpen, sonst merkt der Browser
 // kein SW-Update (Byte-Equal-Check). Format: YYYY-MM-DD-v<N>.
-// Update 2026-06-20-v9: AbortError Endlos-Schleife gefixt — load() nur EINMAL
-// am Anfang, nicht in attemptPlay(). Throttle 200ms zwischen Versuchen.
-const SW_VERSION = '2026-06-20-v9';
+// Update 2026-06-21-v1: WebP+Bilder, Video WebM/H265, Kategorie-Bilder object-contain, object-fit cover.
+const SW_VERSION = '2026-06-21-v1';
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
