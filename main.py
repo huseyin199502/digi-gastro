@@ -7931,13 +7931,20 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
     if not slug:
         raise HTTPException(status_code=401, detail="Nicht autorisiert.")
 
-    # ── tablet-status Cache DEAKTIVIERT ──
-    # Der 3s-Cache hat Race Conditions verursacht: Kellner B sah alte Daten
-    # weil der Cache zwischen Commit und Invalidation mit alten Daten gefüllt
-    # wurde. DB-Queries sind schnell genug (<13ms gemessen) — kein Cache nötig.
-    # WebSocket broadcast sorgt dafür, dass alle Kellner SOFORT updaten.
+    # ── tablet-status Cache REAKTIVIERT (2s TTL + after_commit Invalidation) ──
+    # Der Cache war deaktiviert wegen Race Conditions. Aber jetzt haben wir:
+    # 1. after_commit Event Listener → löscht Cache NACH db.commit()
+    # 2. invalidate_restaurant_cache_sync → löscht tablet-status:* Keys via SCAN
+    # 3. Optimistic UI Protection → Kellner sieht sofort lokalen Status (8s)
+    # Mit 2s TTL ist der Cache kurz genug dass keine veralteten Daten übrig bleiben.
     cache_key = f"tablet-status:{slug}:{'admin' if is_admin else 'pos'}:{client_pos_token or 'none'}"
-    # Cache-Check entfernt — immer frische Daten aus DB
+    if sync_redis_client:
+        try:
+            cached_response = sync_redis_client.get(cache_key)
+            if cached_response:
+                return JSONResponse(content=json.loads(cached_response))
+        except Exception:
+            pass
 
     restaurant = get_restaurant_or_raise(slug, db)
     
@@ -8070,8 +8077,15 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         "recent_cancellations": recent_cancellations
     }
 
-    # ── Cache DEAKTIVIERT — immer frische Daten aus DB ──
-    # (siehe Kommentar oben bei cache_key)
+    # ── Cache Response für 2 Sekunden ──
+    # after_commit Event Listener invalidiert den Cache bei jeder Mutation.
+    # 2s TTL reduziert DB-Last bei 7 Kellnern × 2s Polling = ~3,5 req/s
+    # auf 0,5 req/s (1 Cache-Set pro 2s statt 3,5 DB-Queries pro 2s).
+    if sync_redis_client:
+        try:
+            sync_redis_client.setex(cache_key, 2, json.dumps(result, default=str))
+        except Exception:
+            pass
 
     return result
 

@@ -33,6 +33,17 @@ services:
       -c log_min_duration_statement=1000
       -c log_connections=off
       -c log_disconnections=off
+      -c autovacuum=on
+      -c autovacuum_max_workers=3
+      -c autovacuum_naptime=60s
+      -c autovacuum_vacuum_scale_factor=0.1
+      -c autovacuum_analyze_scale_factor=0.05
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c default_statistics_target=100
+      -c max_wal_size=2GB
+      -c min_wal_size=256MB
     volumes:
       - pgdata:/var/lib/postgresql/data  # named volume → survives restarts
       - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)

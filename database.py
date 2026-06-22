@@ -793,8 +793,15 @@ def _create_indexes_if_not_exists(session=None):
         # ── Order ──
         "CREATE INDEX IF NOT EXISTS idx_order_tenant_id ON orders (tenant_slug, id)",
         "CREATE INDEX IF NOT EXISTS idx_order_tenant_slug ON orders (tenant_slug)",
+        # Phase 3 — Composite-Index für häufige Filter "offene Bestellungen pro Tenant":
+        "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (tenant_slug, status)",
+        # Phase 3 — Index für Tisch-Suche (z.B. "alle Bestellungen an Tisch 5"):
+        # "table" ist reserved keyword in SQL → gequotet.
+        "CREATE INDEX IF NOT EXISTS idx_orders_table ON orders (tenant_slug, \"table\")",
         # ── OrderItem ──
         "CREATE INDEX IF NOT EXISTS idx_orderitem_order_id ON order_items (order_id)",
+        # Phase 3 — Index für Item-Status-Filter (Küchen-View: "alle pending items"):
+        "CREATE INDEX IF NOT EXISTS idx_orderitem_status ON order_items (item_status)",
         # ── Staff ──
         "CREATE INDEX IF NOT EXISTS idx_staff_tenant_name ON staff (tenant_slug, name)",
         "CREATE INDEX IF NOT EXISTS idx_staff_tenant_slug ON staff (tenant_slug)",
