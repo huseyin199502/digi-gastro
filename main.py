@@ -7946,123 +7946,227 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         except Exception:
             pass
 
-    restaurant = get_restaurant_or_raise(slug, db)
-    
+    # ──────────────────────────────────────────────────────────────────────────
+    # PHASE-1 Selective Queries — statt load_restaurant_from_db (welches
+    # ALLE bezahlten Bestellungen, Audit-Logs, Events, Staff etc. lädt),
+    # holen wir nur die für tablet-status benötigten Daten:
+    #   1. Tenant (pos_token, price_mode, active)
+    #   2. Aktive Orders (nicht bezahlt/storniert) + deren Items
+    #   3. Tables
+    #   4. Service Calls
+    #   5. Bezahlte Orders heute + deren Items (für Tagesstatistik)
+    #   6. Zuletzt bezahlte Orders (recent_payments, top 5)
+    #   7. Zuletzt stornierte Orders (recent_cancellations, top 10)
+    # Response-Struktur bleibt EXACT gleich wie bisher — nur der Weg dorthin
+    # ändert sich (weniger DB-Queries, weniger Daten geladen).
+    # ──────────────────────────────────────────────────────────────────────────
+    slug_lower = slug.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Dieses Restaurant existiert nicht.")
+    if not (tenant.active if tenant.active is not None else True):
+        raise TenantSuspendedException(slug_lower)
+
     # Auto-kick for POS if not admin
     if not is_admin:
         is_test = request.url.hostname == "testserver"
         if not is_test:
-            expected_pos = restaurant.get("pos_token")
+            expected_pos = tenant.pos_token
             if expected_pos and client_pos_token != expected_pos:
                 return JSONResponse(status_code=401, content={"error": "Gerät wurde entkoppelt"})
-                
-    active_orders = [o for o in restaurant.get("orders", []) if o["status"] not in ["bezahlt", "storniert"]]
 
-    # Real-time statistics for today ("heute")
-    orders = restaurant.get("orders", [])
+    # 1. Aktive Orders (nicht bezahlt/storniert)
+    db_active_orders = db.query(Order).filter(
+        Order.tenant_slug == slug_lower,
+        Order.status.notin_(["bezahlt", "storniert"])
+    ).order_by(Order.id).all()
+
+    active_order_ids = [o.id for o in db_active_orders]
+    items_by_order = {}
+    if active_order_ids:
+        db_items = db.query(DBOrderItem).filter(
+            DBOrderItem.order_id.in_(active_order_ids)
+        ).order_by(DBOrderItem.id).all()
+        for item in db_items:
+            items_by_order.setdefault(item.order_id, []).append({
+                "product_id": item.product_id,
+                "name": item.name,
+                "price": item.price,
+                "quantity": item.quantity,
+                "category_type": item.category_type,
+                "note": item.note,
+                "item_status": getattr(item, "item_status", "pending") or "pending"
+            })
+
+    active_orders = []
+    for o in db_active_orders:
+        active_orders.append({
+            "id": o.id,
+            "table": o.table,
+            "items": items_by_order.get(o.id, []),
+            "total": o.total,
+            "total_with_tip": o.total_with_tip,
+            "tip_amount": o.tip_amount,
+            "status": o.status,
+            "timestamp": o.timestamp,
+            "mwst_rate": o.mwst_rate,
+            "waiter_id": o.waiter_id,
+            "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None
+        })
+
+    # 2. Tables (klein, kann komplett geladen werden)
+    db_tables = db.query(Table).filter_by(tenant_slug=slug_lower).order_by(Table.id).all()
+    tables = [{
+        "number": t.number,
+        "zone": t.zone,
+        "security_token": t.security_token,
+        "active_session_token": t.active_session_token,
+        "pos_x": getattr(t, "pos_x", 0.0) or 0.0,
+        "pos_y": getattr(t, "pos_y", 0.0) or 0.0,
+        "width": getattr(t, "width", 120.0) or 120.0,
+        "height": getattr(t, "height", 80.0) or 80.0,
+        "shape": getattr(t, "shape", "rect") or "rect",
+        "active": getattr(t, "active", True) if getattr(t, "active", True) is not None else True,
+        "qr_token": getattr(t, "qr_token", None)
+    } for t in db_tables]
+
+    try:
+        import re as _re_natsort
+        def _natural_sort_key(s):
+            return [int(text) if text.isdigit() else text.lower() for text in _re_natsort.split(r'(\d+)', str(s))]
+        tables.sort(key=lambda x: _natural_sort_key(x["number"]))
+    except Exception:
+        pass
+
+    # 3. Service calls (klein)
+    db_calls = db.query(ServiceCall).filter_by(tenant_slug=slug_lower).order_by(ServiceCall.id).all()
+    service_calls = [{
+        "id": c.id,
+        "table": c.table,
+        "type": c.type,
+        "timestamp": c.timestamp
+    } for c in db_calls]
+
+    # 4. Statistiken (Tagesumsatz etc.) — direkte SQL-Query statt Python-Loop.
+    # Filters identisch zur vorherigen Logik: nicht storniert UND timestamp
+    # beginnt mit heutigem Datum (YYYY-MM-DD).
     now = datetime.now()
-    
-    filtered_orders = []
-    for o in orders:
-        if o.get("status") == "storniert":
-            continue
-        ts_str = o.get("timestamp", "")
-        if not ts_str:
-            continue
-        try:
-            dt = datetime.strptime(ts_str[:10], "%Y-%m-%d")
-        except Exception:
-            continue
-            
-        if dt.date() == now.date():
-            filtered_orders.append(o)
-            
+    today = now.strftime("%Y-%m-%d")
+    db_today_orders = db.query(Order).filter(
+        Order.tenant_slug == slug_lower,
+        Order.status != "storniert",
+        Order.timestamp.like(f"{today}%")
+    ).order_by(Order.id).all()
+
+    paid_today_ids = [o.id for o in db_today_orders if o.status == "bezahlt"]
+    paid_today_items_by_order = {}
+    if paid_today_ids:
+        db_paid_items = db.query(DBOrderItem).filter(
+            DBOrderItem.order_id.in_(paid_today_ids)
+        ).all()
+        for item in db_paid_items:
+            paid_today_items_by_order.setdefault(item.order_id, []).append({
+                "price": item.price,
+                "quantity": item.quantity,
+                "category_type": item.category_type or "küche"
+            })
+
     # ── Fix 6e: brutto verwendet original_total, falls vorhanden ──
     # Bei per Einzelartikel-Zahlung (pay-item) abgearbeiteten Bestellungen ist
     # `o["total"]` = 0 (alle Items wurden entfernt), aber `original_total`
     # enthält den ursprünglichen Warenwert. Wir nehmen max(total, original_total),
     # damit der Bruttoumsatz korrekt ist — egal über welchen Weg bezahlt wurde.
     brutto = sum(
-        max(o.get("total", 0.0) or 0.0, o.get("original_total", 0.0) or 0.0)
-        for o in filtered_orders if o.get("status") == "bezahlt"
+        max(o.total or 0.0, getattr(o, "original_total", 0.0) or 0.0)
+        for o in db_today_orders if o.status == "bezahlt"
     )
-    total_tip = sum(o.get("tip_amount", 0.0) for o in filtered_orders if o.get("status") == "bezahlt")
-    total_orders = len([o for o in filtered_orders if o.get("status") == "bezahlt"])
-    
+    total_tip = sum((o.tip_amount or 0.0) for o in db_today_orders if o.status == "bezahlt")
+    total_orders = len([o for o in db_today_orders if o.status == "bezahlt"])
+
     netto_7 = 0.0
     netto_19 = 0.0
     brutto_7 = 0.0
     brutto_19 = 0.0
-    
-    for o in filtered_orders:
-        if o.get("status") != "bezahlt":
+
+    for o in db_today_orders:
+        if o.status != "bezahlt":
             continue
-        for item in o.get("items", []):
-            item_price = item.get("price", 0.0)
-            item_qty = item.get("quantity", 0)
+        for item in paid_today_items_by_order.get(o.id, []):
+            item_price = item["price"] or 0.0
+            item_qty = item["quantity"] or 0
             item_total = item_price * item_qty
-            is_food = item.get("category_type", "küche") == "küche"
+            is_food = (item["category_type"] or "küche") == "küche"
             if is_food:
                 brutto_7 += item_total
                 netto_7 += item_total / 1.07
             else:
                 brutto_19 += item_total
                 netto_19 += item_total / 1.19
-                
+
     avg_basket = 0.0
     if total_orders > 0:
         avg_basket = brutto / total_orders
-        
+
+    # 5. recent_payments — Top 5 zuletzt bezahlte Orders (aller Zeiten).
+    # SQL ORDER BY timestamp DESC, id ASC ersetzt das vorherige Python-side
+    # sorted(paid_orders, key=timestamp, reverse=True)[:5]. Sekundär-Sortierung
+    # nach id ASC repliziert Python's stabiles Sort-Verhalten bei Timestamp-Ties
+    # (gleiche Timestamps → ursprüngliche Reihenfolge = aufsteigende id).
     recent_payments = []
-    paid_orders = [o for o in orders if o.get("status") == "bezahlt"]
-    paid_orders_sorted = sorted(paid_orders, key=lambda x: x.get("timestamp", ""), reverse=True)
-    for o in paid_orders_sorted[:5]:
+    db_paid_recent = db.query(Order).filter(
+        Order.tenant_slug == slug_lower,
+        Order.status == "bezahlt"
+    ).order_by(Order.timestamp.desc(), Order.id.asc()).limit(5).all()
+    for o in db_paid_recent:
         # original_total mitsenden — sonst zeigt das Admin-Dashboard nach
         # Teilzahlung/Storno/Transfer 0€ anstatt den echten Warenwert.
-        _ot = o.get("original_total")
-        _t = o.get("total", 0.0) or 0.0
+        _ot = getattr(o, "original_total", None)
+        _t = o.total or 0.0
         if _ot is None:
             _ot = _t
         # Im Dashboard immer den höheren Wert nehmen (max von total und original_total)
         # → „Nie wieder 0€ im Admin-Report"
         display_total = max(_t, _ot) if _ot else _t
         recent_payments.append({
-            "id": o.get("id"),
-            "table": o.get("table"),
+            "id": o.id,
+            "table": o.table,
             "total": display_total,
             "original_total": _ot,
-            "tip_amount": o.get("tip_amount", 0.0),
-            "timestamp": o.get("timestamp", "")
+            "tip_amount": o.tip_amount or 0.0,
+            "timestamp": o.timestamp or ""
         })
 
-    # ── recent_cancellations: zuletzt stornierte Bons ──
+    # 6. recent_cancellations — Top 10 zuletzt stornierte Orders.
     # WICHTIG: Frontend nutzt diese Liste, um stornierte Bons korrekt als
     # "Storniert" zu markieren. Ohne dieses Feld würde das Frontend beim
     # Verschwinden eines Bons aus active_orders fälschlich "Bezahlt" raten.
     # Siehe Frontend updateLiveTiles() für die Verbrauchslogik.
+    # Sekundär-Sortierung nach id ASC wie bei recent_payments (s.o.).
     recent_cancellations = []
-    cancelled_orders = [o for o in orders if o.get("status") == "storniert"]
-    cancelled_sorted = sorted(cancelled_orders, key=lambda x: x.get("timestamp", ""), reverse=True)
-    for o in cancelled_sorted[:10]:
-        _ot = o.get("original_total")
-        _t = o.get("total", 0.0) or 0.0
+    db_cancelled_recent = db.query(Order).filter(
+        Order.tenant_slug == slug_lower,
+        Order.status == "storniert"
+    ).order_by(Order.timestamp.desc(), Order.id.asc()).limit(10).all()
+    for o in db_cancelled_recent:
+        _ot = getattr(o, "original_total", None)
+        _t = o.total or 0.0
         if _ot is None:
             _ot = _t
         display_total = max(_t, _ot) if _ot else _t
         recent_cancellations.append({
-            "id": o.get("id"),
-            "table": o.get("table"),
+            "id": o.id,
+            "table": o.table,
             "total": display_total,
             "original_total": _ot,
-            "timestamp": o.get("timestamp", "")
+            "timestamp": o.timestamp or ""
         })
 
     result = {
         "orders": active_orders,
-        "service_calls": restaurant.get("service_calls", []),
-        "tables": restaurant.get("tables", []),
+        "service_calls": service_calls,
+        "tables": tables,
         "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "price_mode": restaurant.get("price_mode", "brutto"),
+        "price_mode": getattr(tenant, "price_mode", "brutto") or "brutto",
         "stats": {
             "brutto": round(brutto, 2),
             "netto_7": round(netto_7, 2),
@@ -8095,7 +8199,72 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
     """Lightweight product data endpoint for real-time WebSocket updates.
     Returns only the fields that can change (price, availability, happy hour status)
     without rendering the entire page template. ~2KB vs ~200KB full page."""
-    restaurant = get_restaurant_or_raise(slug, db)
+    # ──────────────────────────────────────────────────────────────────────────
+    # PHASE-1 Selective Queries — statt load_restaurant_from_db (welches
+    # ALLE Orders, Audit-Logs, Staff, Service Calls etc. lädt), holen wir nur
+    # die für products-lite benötigten Daten:
+    #   1. Tenant (price_mode, active)
+    #   2. Categories (für active_categories Filter)
+    #   3. Products (sortiert wie bisher)
+    #   4. Events + EventProducts (Combos werden hier NICHT benötigt —
+    #      products-lite nutzt nur Event-Preise und Discount-Modus)
+    # Response-Struktur bleibt EXACT gleich wie bisher.
+    # ──────────────────────────────────────────────────────────────────────────
+    slug_lower = slug.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Dieses Restaurant existiert nicht.")
+    if not (tenant.active if tenant.active is not None else True):
+        raise TenantSuspendedException(slug_lower)
+
+    # 1. Categories — nur die Namen (für active_categories Filter)
+    db_categories = db.query(Category).filter_by(tenant_slug=slug_lower).order_by(Category.position, Category.id).all()
+    active_categories = [c.name for c in db_categories]
+
+    # 2. Products — nur die Felder, die products-lite wirklich liest
+    # (id, price, category_type, category, is_available). Alle anderen Felder
+    # (image, description, vegan, allergens, …) werden von diesem Endpoint
+    # nicht berührt und bleiben ungeladen.
+    db_products = db.query(Product).filter_by(tenant_slug=slug_lower).order_by(Product.position, Product.id).all()
+    products = [{
+        "id": p.id,
+        "price": p.price,
+        "category_type": p.category_type,
+        "category": p.category,
+        "is_available": p.is_available if p.is_available is not None else True
+    } for p in db_products]
+
+    # 3. Events + EventProducts (Combos werden von products-lite nicht genutzt)
+    from database import Event as DBEvent, EventProduct as DBEventProduct
+    db_events = db.query(DBEvent).filter_by(tenant_slug=slug_lower).order_by(DBEvent.position, DBEvent.id).all()
+    event_ids = [e.id for e in db_events]
+    event_products_by_event = {}
+    if event_ids:
+        db_event_products = db.query(DBEventProduct).filter(
+            DBEventProduct.event_id.in_(event_ids)
+        ).all()
+        for ep in db_event_products:
+            event_products_by_event.setdefault(ep.event_id, []).append({
+                "product_id": ep.product_id,
+                "event_price": ep.event_price
+            })
+
+    events = []
+    for ev in db_events:
+        events.append({
+            "id": ev.id,
+            "name": ev.name,
+            "display_name": ev.display_name,
+            "days": json.loads(ev.days or "[]"),
+            "start_time": ev.start_time or "18:00",
+            "end_time": ev.end_time or "20:00",
+            "mode": ev.mode or "selected",
+            "discount": ev.discount or 0,
+            "is_active": ev.is_active if ev.is_active is not None else True,
+            "products": event_products_by_event.get(ev.id, []),
+        })
+
+    price_mode = getattr(tenant, "price_mode", "brutto") or "brutto"
     
     # Process Events (same logic as menu page)
     berlin_now = get_berlin_now()
@@ -8104,10 +8273,6 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
     days_names = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
     days_abbr = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
-    
-    events = restaurant.get("events", [])
-    active_categories = restaurant.get("categories", [])
-    price_mode = restaurant.get("price_mode", "brutto")
     
     # Determine active events
     for ev in events:
@@ -8123,7 +8288,7 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
     
     # Build lightweight product list
     products_lite = []
-    for p in restaurant.get("products", []):
+    for p in products:
         if p.get("category") not in active_categories:
             continue
         
@@ -8848,7 +9013,19 @@ async def delete_landing_image(
 
 @app.get("/api/{slug}/table-status/{table_num}")
 def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: Session = Depends(get_db)):
-    restaurant = get_restaurant_or_raise(slug, db)
+    # ──────────────────────────────────────────────────────────────────────────
+    # PHASE-1 Selective Queries — statt load_restaurant_from_db laden wir nur
+    # die Orders und Items für diesen EINEN Tisch. Bei 50 Tischen pro Tenant
+    # reduziert das die DB-Last auf ~1/50 der Daten.
+    # Response-Struktur bleibt EXACT gleich: {pending:[], delivered:[], total:0.0}
+    # Cookie/Token-Validation bleibt unverändert.
+    # ──────────────────────────────────────────────────────────────────────────
+    slug_lower = slug.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Dieses Restaurant existiert nicht.")
+    if not (tenant.active if tenant.active is not None else True):
+        raise TenantSuspendedException(slug_lower)
     
     # Parse the requested table_num ONCE, UPFRONT — so raw_num is always available
     # even when no guest cookie is present (e.g. admin "Vorschau" preview mode,
@@ -8877,44 +9054,71 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
     if not is_valid:
         raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Tisch.")
 
-    # Find the table and its zone
-    tables_list = restaurant.get("tables", [])
+    # Find the table and its zone — load only tables with matching number
+    # (typically 1–2 rows: one per zone). Python-side Lookup-Logik bleibt
+    # identisch (Priorität: token+zone → token → zone → erste).
+    db_tables_for_num = db.query(Table).filter(
+        Table.tenant_slug == slug_lower,
+        Table.number == raw_num
+    ).order_by(Table.id).all()
+
     db_table = None
     if c_token:
         if cookie_zone:
             # Security: Only accept active_session_token for customer access
-            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num and t.get("zone") == cookie_zone and t.get("active_session_token") == c_token), None)
+            db_table = next((t for t in db_tables_for_num if t.zone == cookie_zone and t.active_session_token == c_token), None)
         if not db_table:
-            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num and t.get("active_session_token") == c_token), None)
+            db_table = next((t for t in db_tables_for_num if t.active_session_token == c_token), None)
     if not db_table:
         if cookie_zone:
-            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num and t.get("zone") == cookie_zone), None)
+            db_table = next((t for t in db_tables_for_num if t.zone == cookie_zone), None)
         if not db_table:
-            db_table = next((t for t in tables_list if str(t.get("number")) == raw_num), None)
+            db_table = next((t for t in db_tables_for_num), None)
         
-    zone = db_table.get("zone", "") if db_table else ""
+    zone = db_table.zone if db_table else ""
     target_table_name = f"Tisch {raw_num} ({zone})" if zone else f"Tisch {raw_num}"
-    table_orders = []
 
-    
-    for o in restaurant.get("orders", []):
-        if (o.get("table") == target_table_name or str(o.get("table")).strip() == raw_num or str(o.get("table")).strip() == target_table_name.strip()) and o.get("status") not in ["bezahlt", "storniert"]:
-            table_orders.append(o)
+    # Orders für diesen Tisch laden (nur aktive, nicht bezahlt/storniert).
+    # Match-Logik wie bisher: o.table kann target_table_name, raw_num oder
+    # "Tisch {raw_num}" sein (verschiedene Speicher-Formate historisch).
+    # SQL IN ersetzt das Python-side OR-Konstrukt.
+    possible_table_names = [target_table_name, raw_num, f"Tisch {raw_num}"]
+    db_table_orders = db.query(Order).filter(
+        Order.tenant_slug == slug_lower,
+        Order.table.in_(possible_table_names),
+        Order.status.notin_(["bezahlt", "storniert"])
+    ).order_by(Order.id).all()
 
+    # Items für diese Orders (1 Query statt N+1)
+    order_ids = [o.id for o in db_table_orders]
+    items_by_order = {}
+    if order_ids:
+        db_items = db.query(DBOrderItem).filter(
+            DBOrderItem.order_id.in_(order_ids)
+        ).order_by(DBOrderItem.id).all()
+        for item in db_items:
+            items_by_order.setdefault(item.order_id, []).append({
+                "product_id": item.product_id,
+                "name": item.name,
+                "price": item.price,
+                "quantity": item.quantity,
+                "note": item.note,
+                "item_status": getattr(item, "item_status", "pending") or "pending"
+            })
             
     pending = []
     delivered = []
     total = 0.0
     
-    for order in table_orders:
-        total += order.get("total", 0.0)
-        for item in order.get("items", []):
+    for order in db_table_orders:
+        total += order.total or 0.0
+        for item in items_by_order.get(order.id, []):
             status = item.get("item_status", "pending")
             note_slug = (item.get("note") or "").replace(" ", "_")
             for idx in range(item.get("quantity", 1)):
-                key = f"{order['id']}_{item['product_id']}_{note_slug}_{status}_{idx}"
+                key = f"{order.id}_{item['product_id']}_{note_slug}_{status}_{idx}"
                 item_data = {
-                    "order_id": order["id"],
+                    "order_id": order.id,
                     "product_id": item["product_id"],
                     "name": item["name"],
                     "price": item["price"],
