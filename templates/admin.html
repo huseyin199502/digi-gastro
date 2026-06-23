@@ -1343,6 +1343,477 @@
             margin: 0.5rem 1.25rem;
         }
 
+        /* ═══════════════════════════════════════════════════════
+           CMS DASHBOARD (Shopify-Style Übersicht)
+           ═══════════════════════════════════════════════════════ */
+        .cms-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .cms-card {
+            background: #fff;
+            border: 1px solid #e4e4e7;
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .cms-card:hover {
+            border-color: var(--gastro, #009900);
+            box-shadow: 0 8px 24px -8px rgba(0, 153, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        .cms-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 0.25rem;
+        }
+        .cms-card-icon.green { background: #ecfdf5; color: #059669; }
+        .cms-card-icon.blue { background: #eff6ff; color: #2563eb; }
+        .cms-card-icon.amber { background: #fffbeb; color: #d97706; }
+        .cms-card-icon.purple { background: #faf5ff; color: #9333ea; }
+        .cms-card-icon.rose { background: #fff1f2; color: #e11d48; }
+        .cms-card-icon.gray { background: #f4f4f5; color: #52525b; }
+        .cms-card-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #18181b;
+            letter-spacing: -0.01em;
+        }
+        .cms-card-stat {
+            font-size: 1.75rem;
+            font-weight: 900;
+            color: #18181b;
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+        .cms-card-substat {
+            font-size: 0.75rem;
+            color: #71717a;
+            font-weight: 600;
+        }
+        .cms-card-substat .alert { color: #dc2626; font-weight: 800; }
+        .cms-card-substat .ok { color: #059669; font-weight: 800; }
+        .cms-card-action {
+            margin-top: auto;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--gastro, #009900);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #f4f4f5;
+        }
+        .cms-card-action .material-symbols-outlined { font-size: 14px; }
+        .cms-overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .cms-overview-title {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #18181b;
+            letter-spacing: -0.02em;
+        }
+        .cms-overview-subtitle {
+            font-size: 0.8rem;
+            color: #71717a;
+            font-weight: 600;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           PRODUKT-GRID (Card View als Default)
+           ═══════════════════════════════════════════════════════ */
+        .product-grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+        .product-tile {
+            background: #fff;
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+        .product-tile:hover {
+            border-color: var(--gastro, #009900);
+            box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.1);
+        }
+        .product-tile.out-of-stock {
+            opacity: 0.65;
+            background: #fafafa;
+        }
+        .product-tile-img {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #f4f4f5;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .product-tile-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .product-tile-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #dc2626;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .product-tile-name {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #18181b;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .product-tile-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .product-tile-price {
+            font-size: 0.9rem;
+            font-weight: 900;
+            color: #18181b;
+            font-family: ui-monospace, monospace;
+        }
+        .product-tile-cat {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #52525b;
+            background: #f4f4f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100px;
+        }
+        .product-tile-actions {
+            display: flex;
+            gap: 0.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #f4f4f5;
+        }
+        .product-tile-actions button {
+            flex: 1;
+            padding: 0.35rem;
+            border-radius: 6px;
+            border: 1px solid #e4e4e7;
+            background: white;
+            color: #52525b;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .product-tile-actions button:hover { background: #f4f4f5; }
+        .product-tile-actions button.danger:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+
+        /* Filter-Chips statt Dropdowns */
+        .filter-chips {
+            display: flex;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-chip {
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid #e4e4e7;
+            background: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #52525b;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .filter-chip:hover { border-color: #d4d4d8; }
+        .filter-chip.active {
+            background: var(--gastro, #009900);
+            color: white;
+            border-color: var(--gastro, #009900);
+        }
+        .filter-chip .count {
+            font-size: 0.65rem;
+            opacity: 0.8;
+            font-weight: 800;
+        }
+
+        /* View-Toggle (Grid / Tabelle) */
+        .view-toggle {
+            display: inline-flex;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        .view-toggle button {
+            padding: 0.4rem 0.6rem;
+            background: white;
+            border: none;
+            cursor: pointer;
+            color: #71717a;
+            transition: all 0.15s;
+        }
+        .view-toggle button.active {
+            background: #18181b;
+            color: white;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           KATEGORIEN TREE-VIEW
+           ═══════════════════════════════════════════════════════ */
+        .cat-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .cat-tree-group {
+            background: #fafafa;
+            border: 1px solid #e4e4e7;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .cat-tree-group-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 0.875rem;
+            background: white;
+            border-bottom: 1px solid #f4f4f5;
+            cursor: pointer;
+            user-select: none;
+        }
+        .cat-tree-group-header:hover { background: #fafafa; }
+        .cat-tree-color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .cat-tree-group-name {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #18181b;
+            flex: 1;
+        }
+        .cat-tree-group-count {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #52525b;
+            background: #f4f4f5;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        .cat-tree-children {
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+        .cat-tree-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: white;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+        }
+        .cat-tree-item:hover {
+            border-color: var(--gastro, #009900);
+            transform: translateX(2px);
+        }
+        .cat-tree-item-name {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #27272a;
+            flex: 1;
+        }
+        .cat-tree-item-count {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #71717a;
+            background: #f4f4f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .cat-tree-empty {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.7rem;
+            color: #a1a1aa;
+            font-style: italic;
+            text-align: center;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           LANDINGPAGE SPLIT-SCREEN EDITOR
+           ═══════════════════════════════════════════════════════ */
+        .lp-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+        @media (max-width: 1024px) {
+            .lp-split { grid-template-columns: 1fr; }
+        }
+        .lp-editor-pane {
+            background: #fff;
+            border: 1px solid #e4e4e7;
+            border-radius: 16px;
+            padding: 1rem;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+            position: sticky;
+            top: 80px;
+        }
+        .lp-preview-pane {
+            background: #fff;
+            border: 1px solid #e4e4e7;
+            border-radius: 16px;
+            overflow: hidden;
+            position: sticky;
+            top: 80px;
+        }
+        .lp-preview-header {
+            background: #f4f4f5;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e4e4e7;
+        }
+        .lp-preview-device-toggle {
+            display: inline-flex;
+            background: white;
+            border: 1px solid #e4e4e7;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .lp-preview-device-toggle button {
+            padding: 0.25rem 0.5rem;
+            background: white;
+            border: none;
+            cursor: pointer;
+            color: #71717a;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .lp-preview-device-toggle button.active {
+            background: #18181b;
+            color: white;
+        }
+        .lp-preview-iframe {
+            width: 100%;
+            height: calc(100vh - 260px);
+            border: none;
+            background: white;
+            transition: max-width 0.3s ease;
+            margin: 0 auto;
+            display: block;
+        }
+        .lp-preview-iframe.mobile {
+            max-width: 390px;
+            border-left: 1px solid #e4e4e7;
+            border-right: 1px solid #e4e4e7;
+        }
+        .lp-section-templates {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .lp-template-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.75rem 0.5rem;
+            border: 1px dashed #d4d4d8;
+            border-radius: 10px;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #52525b;
+        }
+        .lp-template-btn:hover {
+            border-color: var(--gastro, #009900);
+            color: var(--gastro, #009900);
+            background: #f0fdf4;
+        }
+        .lp-template-btn .material-symbols-outlined { font-size: 22px; }
+
+        /* Live-Badge für aktive Änderungen */
+        .lp-unsaved-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.65rem;
+            font-weight: 800;
+            border-radius: 999px;
+            border: 1px solid #fde68a;
+        }
+        .lp-unsaved-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f59e0b;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
         nav .nav-btn {
             width: 100%;
             display: flex;
@@ -3118,19 +3589,11 @@
         </div>
         
         <nav class="flex-1 py-2 overflow-y-auto">
-            <div class="nav-group-label">Live-Betrieb</div>
-            <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
-                <span class="material-symbols-outlined">table_restaurant</span>
-                <span>Sitzplan</span>
+            <div class="nav-group-label">Inhalte verwalten</div>
+            <button id="tab-btn-cms" onclick="switchAdminTab('cms')" class="nav-btn">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span>Übersicht</span>
             </button>
-            <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
-                <span class="material-symbols-outlined">payments</span>
-                <span>Bestellungen & Reports</span>
-            </button>
-
-            <div class="nav-divider"></div>
-            <div class="nav-group-label">Speisekarte</div>
-
             <button id="tab-btn-produkte" onclick="switchAdminTab('produkte')" class="nav-sub-btn">
                 <span class="material-symbols-outlined" style="font-size:18px;">lunch_dining</span>
                 <span>Produkte</span>
@@ -3143,17 +3606,27 @@
                 <span class="material-symbols-outlined" style="font-size:18px;">celebration</span>
                 <span>Events</span>
             </button>
+            <button id="tab-btn-landingpage" onclick="switchAdminTab('landingpage')" class="nav-sub-btn">
+                <span class="material-symbols-outlined" style="font-size:18px;">campaign</span>
+                <span>Landingpage</span>
+            </button>
+
+            <div class="nav-divider"></div>
+            <div class="nav-group-label">Live-Betrieb</div>
+            <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
+                <span class="material-symbols-outlined">table_restaurant</span>
+                <span>Sitzplan</span>
+            </button>
+            <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
+                <span class="material-symbols-outlined">payments</span>
+                <span>Bestellungen & Reports</span>
+            </button>
 
             <div class="nav-divider"></div>
             <div class="nav-group-label">Verwaltung</div>
-
             <button id="tab-btn-personal" onclick="switchAdminTab('personal')" class="nav-btn">
                 <span class="material-symbols-outlined">group</span>
                 <span>Personal & Account</span>
-            </button>
-            <button id="tab-btn-landingpage" onclick="switchAdminTab('landingpage')" class="nav-btn">
-                <span class="material-symbols-outlined">campaign</span>
-                <span>Landingpage</span>
             </button>
             <button id="tab-btn-einstellungen" onclick="switchAdminTab('einstellungen')" class="nav-btn">
                 <span class="material-symbols-outlined">settings</span>
@@ -3194,8 +3667,126 @@
 
         <div class="content-area">
             
+            <!-- 📊 TAB 0: CMS ÜBERSICHT (Shopify-Style Dashboard) -->
+            <div id="admin-tab-cms" class="admin-tab-content">
+                <div class="cms-overview-header">
+                    <div>
+                        <div class="cms-overview-title">Inhalte verwalten</div>
+                        <div class="cms-overview-subtitle">Speisekarte, Landingpage und Events zentral bearbeiten</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="/{{ slug }}" target="_blank" class="btn-secondary flex items-center gap-1.5 text-xs">
+                            <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Live-Seite ansehen
+                        </a>
+                        <button onclick="openQuickCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs">
+                            <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> Neues Produkt
+                        </button>
+                    </div>
+                </div>
+
+                <div class="cms-overview-grid">
+                    <!-- Produkte Card -->
+                    <div class="cms-card" onclick="switchAdminTab('produkte')">
+                        <div class="cms-card-icon green">
+                            <span class="material-symbols-outlined">lunch_dining</span>
+                        </div>
+                        <div class="cms-card-title">Produkte</div>
+                        <div class="cms-card-stat" id="cms-stat-products">0</div>
+                        <div class="cms-card-substat" id="cms-substat-products">Lade...</div>
+                        <div class="cms-card-action">
+                            Verwalten <span class="material-symbols-outlined">arrow_forward</span>
+                        </div>
+                    </div>
+
+                    <!-- Kategorien Card -->
+                    <div class="cms-card" onclick="switchAdminTab('kategorien')">
+                        <div class="cms-card-icon blue">
+                            <span class="material-symbols-outlined">folder</span>
+                        </div>
+                        <div class="cms-card-title">Kategorien</div>
+                        <div class="cms-card-stat" id="cms-stat-categories">0</div>
+                        <div class="cms-card-substat" id="cms-substat-categories">Lade...</div>
+                        <div class="cms-card-action">
+                            Verwalten <span class="material-symbols-outlined">arrow_forward</span>
+                        </div>
+                    </div>
+
+                    <!-- Events Card -->
+                    <div class="cms-card" onclick="switchAdminTab('happyhour')">
+                        <div class="cms-card-icon amber">
+                            <span class="material-symbols-outlined">celebration</span>
+                        </div>
+                        <div class="cms-card-title">Events</div>
+                        <div class="cms-card-stat" id="cms-stat-events">0</div>
+                        <div class="cms-card-substat" id="cms-substat-events">Lade...</div>
+                        <div class="cms-card-action">
+                            Verwalten <span class="material-symbols-outlined">arrow_forward</span>
+                        </div>
+                    </div>
+
+                    <!-- Landingpage Card -->
+                    <div class="cms-card" onclick="switchAdminTab('landingpage')">
+                        <div class="cms-card-icon purple">
+                            <span class="material-symbols-outlined">campaign</span>
+                        </div>
+                        <div class="cms-card-title">Landingpage</div>
+                        <div class="cms-card-stat" id="cms-stat-landingpage">0</div>
+                        <div class="cms-card-substat" id="cms-substat-landingpage">Lade...</div>
+                        <div class="cms-card-action">
+                            Bearbeiten <span class="material-symbols-outlined">arrow_forward</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">bolt</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Schnellaktionen</h3>
+                        </div>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            <button onclick="openQuickCreateModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-gastro hover:bg-emerald-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-gastro" style="font-size:28px;">add_circle</span>
+                                <span class="text-[11px] font-bold text-zinc-700">Produkt erstellen</span>
+                            </button>
+                            <button onclick="switchAdminTab('kategorien')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-blue-500" style="font-size:28px;">create_new_folder</span>
+                                <span class="text-[11px] font-bold text-zinc-700">Kategorie anlegen</span>
+                            </button>
+                            <button onclick="openEventCreateModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-amber-500" style="font-size:28px;">celebration</span>
+                                <span class="text-[11px] font-bold text-zinc-700">Event erstellen</span>
+                            </button>
+                            <button onclick="switchAdminTab('landingpage')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-purple-500" style="font-size:28px;">campaign</span>
+                                <span class="text-[11px] font-bold text-zinc-700">Landingpage bearbeiten</span>
+                            </button>
+                            <a href="/admin/products/export-csv" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">download</span>
+                                <span class="text-[11px] font-bold text-zinc-700">CSV Export</span>
+                            </a>
+                            <button onclick="openCsvImportModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">upload</span>
+                                <span class="text-[11px] font-bold text-zinc-700">CSV Import</span>
+                            </button>
+                            <a href="/{{ slug }}" target="_blank" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">open_in_new</span>
+                                <span class="text-[11px] font-bold text-zinc-700">Live-Seite</span>
+                            </a>
+                            <button onclick="switchAdminTab('einstellungen')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
+                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">settings</span>
+                                <span class="text-[11px] font-bold text-zinc-700">Einstellungen</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 🛋️ TAB 1: SITZPLAN (live) -->
-            <div id="admin-tab-live" class="admin-tab-content active">
+            <div id="admin-tab-live" class="admin-tab-content">
                 <!-- Service Call Alert Banner Section -->
                 <div id="admin-service-calls-section" class="w-full"></div>
                 
@@ -3391,7 +3982,7 @@
             <!-- 🍽️ TAB: PRODUKTE (produkte) -->
             <div id="admin-tab-produkte" class="admin-tab-content">
                 <!-- Top action bar -->
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                     <div class="flex items-center gap-3">
                         <div class="flex items-center gap-2">
                             <a href="/admin/products/export-csv" class="btn-secondary flex items-center gap-1.5 text-[10px] px-2.5 py-1.5">
@@ -3401,6 +3992,15 @@
                                 <span class="material-symbols-outlined" style="font-size:12px;">upload</span> CSV Import
                             </button>
                         </div>
+                        <!-- View Toggle -->
+                        <div class="view-toggle" id="product-view-toggle">
+                            <button id="view-btn-grid" class="active" onclick="setProductView('grid')" title="Kacheln">
+                                <span class="material-symbols-outlined" style="font-size:14px;">grid_view</span>
+                            </button>
+                            <button id="view-btn-table" onclick="setProductView('table')" title="Tabelle">
+                                <span class="material-symbols-outlined" style="font-size:14px;">view_list</span>
+                            </button>
+                        </div>
                     </div>
                     <button onclick="openQuickCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs">
                         <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>
@@ -3408,38 +4008,103 @@
                     </button>
                 </div>
 
-                <!-- Search & Filter Bar -->
-                <div class="section-card mb-6">
+                <!-- Search + Filter Chips -->
+                <div class="section-card mb-4">
                     <div class="section-card-body">
-                        <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="flex flex-col gap-3">
+                            <!-- Search Row -->
                             <div class="relative flex-1">
                                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" style="font-size:18px;">search</span>
                                 <input type="text" id="product-search" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
                             </div>
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <select id="category-filter" onchange="filterProductsByCategory(this.value)" class="form-field w-auto min-w-0 sm:min-w-[120px] text-xs">
-                                    <option value="all">Alle Kategorien</option>
-                                    {% for cat in restaurant.categories %}
-                                    <option value="{{ cat }}">{{ cat }}</option>
-                                    {% endfor %}
-                                </select>
-                                <select onchange="filterProductsByStatus(this.value)" class="form-field w-auto min-w-0 sm:min-w-[100px] text-xs">
-                                    <option value="all">Alle Status</option>
-                                    <option value="true">Aktiv</option>
-                                    <option value="false">Ausverkauft</option>
-                                </select>
-                                <select onchange="filterProductsByHH(this.value)" class="form-field w-auto min-w-0 sm:min-w-[80px] text-xs">
-                                    <option value="all">Aktion</option>
-                                    <option value="true">Ja</option>
-                                    <option value="false">Nein</option>
-                                </select>
+                            <!-- Filter Chips Row -->
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mr-1">Status:</span>
+                                <button class="filter-chip active" data-filter-type="status" data-filter-value="all" onclick="setProductFilter('status','all', this)">Alle <span class="count" id="count-status-all">0</span></button>
+                                <button class="filter-chip" data-filter-type="status" data-filter-value="true" onclick="setProductFilter('status','true', this)">Aktiv <span class="count" id="count-status-true">0</span></button>
+                                <button class="filter-chip" data-filter-type="status" data-filter-value="false" onclick="setProductFilter('status','false', this)">Ausverkauft <span class="count" id="count-status-false">0</span></button>
+                                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mx-2">Aktion:</span>
+                                <button class="filter-chip active" data-filter-type="hh" data-filter-value="all" onclick="setProductFilter('hh','all', this)">Alle</button>
+                                <button class="filter-chip" data-filter-type="hh" data-filter-value="true" onclick="setProductFilter('hh','true', this)">Mit Aktion</button>
+                                <button class="filter-chip" data-filter-type="hh" data-filter-value="false" onclick="setProductFilter('hh','false', this)">Ohne Aktion</button>
+                            </div>
+                            <!-- Kategorie Chips -->
+                            <div class="flex flex-wrap gap-2 items-center" id="category-chips-row">
+                                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mr-1">Kategorie:</span>
+                                <button class="filter-chip active" data-filter-type="cat" data-filter-value="all" onclick="setProductFilter('cat','all', this)">Alle</button>
+                                {% for cat in restaurant.categories %}
+                                <button class="filter-chip" data-filter-type="cat" data-filter-value="{{ cat }}" onclick="setProductFilter('cat','{{ cat | replace("'", "\\'") }}', this)">{{ cat }}</button>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Product Table (Desktop) -->
-                <div class="section-card">
+                <!-- GRID VIEW (Default) -->
+                <div class="section-card" id="product-grid-container">
+                    <div class="section-card-body">
+                        <div class="product-grid-view" id="product-grid-view">
+                            {% for p in restaurant.products %}
+                            <div class="product-tile {% if not p.is_available %}out-of-stock{% endif %}"
+                                 data-category="{{ p.category }}"
+                                 data-available="{{ 'true' if p.is_available else 'false' }}"
+                                 data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
+                                 data-name="{{ p.name | lower }}"
+                                 data-product-id="{{ p.id }}">
+                                <div class="flex items-start justify-between">
+                                    <input type="checkbox" class="product-checkbox shrink-0 mt-1" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
+                                    <label class="switch ml-auto" style="transform:scale(0.85);">
+                                        <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="product-tile-img">
+                                    {% if p.image and not p.image.lower().endswith('.pdf') %}
+                                        <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy" decoding="async">
+                                    {% else %}
+                                        <span class="material-symbols-outlined text-zinc-400" style="font-size:32px;">fastfood</span>
+                                    {% endif %}
+                                    {% if not p.is_available %}
+                                    <span class="product-tile-badge">AUS</span>
+                                    {% endif %}
+                                </div>
+                                <div class="product-tile-name" title="{{ p.name }}">{{ p.name }}</div>
+                                {% if p.description %}
+                                <div class="text-[10px] text-zinc-400 truncate" title="{{ p.description }}">{{ p.description }}</div>
+                                {% endif %}
+                                <div class="product-tile-meta">
+                                    <span class="product-tile-price">{{ "%.2f"|format(p.price) }} €</span>
+                                    <span class="product-tile-cat" title="{{ p.category }}">{{ p.category }}</span>
+                                </div>
+                                {% if p.happy_hour_price %}
+                                <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200 w-fit">
+                                    <span class="material-symbols-outlined" style="font-size:10px;">schedule</span>
+                                    {{ "%.2f"|format(p.happy_hour_price) }}€
+                                </div>
+                                {% endif %}
+                                <div class="product-tile-actions">
+                                    <button onclick="openEditSlideOver({{ p.id }})" title="Bearbeiten">
+                                        <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                                    </button>
+                                    <button class="danger" onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" title="Löschen">
+                                        <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if not restaurant.products %}
+                        <div class="py-10 text-center">
+                            <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">restaurant_menu</span>
+                            <p class="text-xs text-zinc-400 font-semibold mt-2">Noch keine Produkte angelegt</p>
+                            <p class="text-[10px] text-zinc-300 mt-1">Erstelle dein erstes Produkt mit dem Button oben</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- TABLE VIEW (Optional, mit Drag-Sort) -->
+                <div class="section-card hidden" id="product-table-container">
                     <div class="product-table-view overflow-x-auto">
                         <table class="w-full product-table">
                             <thead>
@@ -3527,80 +4192,49 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- Product Card View (Mobile) -->
-                    <div class="product-card-view product-sortable-list">
-                        {% for p in restaurant.products %}
-                        <div class="product-card"
-                             data-category="{{ p.category }}"
-                             data-available="{{ 'true' if p.is_available else 'false' }}"
-                             data-has-hh="{{ 'true' if p.happy_hour_price else 'false' }}"
-                             data-name="{{ p.name | lower }}"
-                             data-product-id="{{ p.id }}">
-                            <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none shrink-0" style="font-size:18px;" title="Verschieben">drag_indicator</span>
-                            <input type="checkbox" class="product-checkbox shrink-0" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
-                            <div class="product-card-img">
-                                {% if p.image and not p.image.lower().endswith('.pdf') %}
-                                    <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy" decoding="async" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw">
-                                {% else %}
-                                    <span class="material-symbols-outlined text-zinc-400" style="font-size:18px;">fastfood</span>
-                                {% endif %}
-                            </div>
-                            <div class="product-card-body">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-extrabold text-xs text-zinc-800 truncate">{{ p.name }}</span>
-                                    {% if not p.is_available %}
-                                    <span class="text-[8px] font-black text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">AUS</span>
-                                    {% endif %}
-                                    {% if p.happy_hour_price %}
-                                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-black bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
-                                        <span class="material-symbols-outlined" style="font-size:9px;">schedule</span>{{ "%.2f"|format(p.happy_hour_price) }}€
-                                    </span>
-                                    {% endif %}
-                                </div>
-                                {% if p.description %}
-                                <div class="text-[10px] text-zinc-400 truncate mt-0.5">{{ p.description }}</div>
-                                {% endif %}
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="font-mono font-bold text-[11px] text-zinc-700">{{ "%.2f"|format(p.price) }} €</span>
-                                    {% if ' > ' in p.category %}
-                                        {% set parent = p.category.split(' > ')[0] %}
-                                        {% set child = p.category.split(' > ')[1] %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">{{ parent }} ➔ {{ child }}</span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-zinc-100 text-zinc-600 border border-zinc-200">{{ p.category }}</span>
-                                    {% endif %}
-                                    <label class="switch ml-auto" style="transform:scale(0.85);">
-                                        <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="product-card-actions">
-                                <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                                </button>
-                                <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
-                                </button>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    {% if not restaurant.products %}
-                    <div class="py-10 text-center">
-                        <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">restaurant_menu</span>
-                        <p class="text-xs text-zinc-400 font-semibold mt-2">Noch keine Produkte angelegt</p>
-                        <p class="text-[10px] text-zinc-300 mt-1">Erstelle dein erstes Produkt mit dem Button oben</p>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
 
-            <!-- 📂 TAB: KATEGORIEN (kategorien) -->
+            <!-- 📂 TAB: KATEGORIEN (kategorien) — Tree-View Redesign -->
             <div id="admin-tab-kategorien" class="admin-tab-content">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                <!-- Top Action Bar -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <div class="text-lg font-black text-zinc-800">Kategorien & Hauptgruppen</div>
+                        <div class="text-xs text-zinc-500 font-semibold">Strukturiere deine Speisekarte</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openSuperGroupCreateModal()" class="btn-secondary flex items-center gap-1.5 text-xs">
+                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Hauptgruppe
+                        </button>
+                        <button onclick="document.getElementById('new-category-input').focus()" class="btn-primary flex items-center gap-1.5 text-xs">
+                            <span class="material-symbols-outlined" style="font-size:14px;">create_new_folder</span> Neue Kategorie
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tree-View: Hauptgruppen → Kategorien → Produktzahlen -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">account_tree</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Struktur</h3>
+                        </div>
+                        <span class="text-[10px] font-bold text-zinc-400" id="cat-tree-summary">{{ restaurant.categories | length }} Kategorien</span>
+                    </div>
+                    <div class="section-card-body">
+                        <!-- Tree wird per JS gerendert (renderCategoryTree) -->
+                        <div class="cat-tree" id="cat-tree-container">
+                            <div class="text-center py-8 text-zinc-400 text-xs">
+                                <span class="material-symbols-outlined" style="font-size:32px;">account_tree</span>
+                                <p class="mt-2 font-semibold">Lade Struktur...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2-Spalten: Anlegen + Hauptgruppen-Verwaltung -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <!-- Category creation card -->
                     <div class="section-card">
                         <div class="section-card-header">
@@ -3613,47 +4247,14 @@
                             <form action="/admin/kategorie-erstellen" method="POST" class="flex flex-col gap-3">
                                 <div>
                                     <label class="form-label">Name</label>
-                                    <input type="text" name="name" required placeholder="z.B. Softdrinks" class="form-field">
+                                    <input type="text" id="new-category-input" name="name" required placeholder="z.B. Softdrinks" class="form-field">
                                 </div>
                                 <button type="submit" class="btn-primary w-full">Anlegen</button>
                             </form>
                         </div>
                     </div>
 
-                    <!-- Category list with hierarchy -->
-                    <div class="section-card">
-                        <div class="section-card-header">
-                            <div class="flex items-center gap-2">
-                                <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">folder_open</span>
-                                <h3 class="font-extrabold text-sm text-zinc-800">Bestehende Kategorien</h3>
-                            </div>
-                            <span class="text-[10px] font-bold text-zinc-400">{{ restaurant.categories | length }}</span>
-                        </div>
-                        <div class="section-card-body">
-                            <p class="text-[9px] text-zinc-400 mb-3">Ziehen zum Sortieren</p>
-                            <div class="space-y-3 max-h-[500px] overflow-y-auto pr-1 category-sortable-list">
-                                {% for cat in restaurant.categories %}
-                                    <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3" data-category-name="{{ cat }}">
-                                        <div class="flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none" style="font-size:14px;" title="Verschieben">drag_indicator</span>
-                                            <span class="font-extrabold text-xs text-emerald-800 category-display-name">{{ cat }}</span>
-                                            <div class="flex items-center ml-auto gap-1">
-                                                <button onclick="editCategoryInline('{{ cat | replace("'", "\\'") }}', '{{ cat | replace("'", "\\'") }}')" class="text-zinc-400 hover:text-emerald-500 transition-colors p-0.5">
-                                                    <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
-                                                </button>
-                                                <form action="/admin/kategorie-loeschen" method="POST" class="inline flex items-center" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
-                                                    <input type="hidden" name="name" value="{{ cat }}">
-                                                    <button type="submit" class="text-red-400 hover:text-red-600 font-bold flex items-center justify-center p-0.5">✕</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 🆕 HAUPTGRUPPEN VERWALTUNG -->
+                    <!-- Hauptgruppen Verwaltung -->
                     <div class="section-card">
                         <div class="section-card-header">
                             <div class="flex items-center gap-2">
@@ -3661,30 +4262,24 @@
                                 <h3 class="font-extrabold text-sm text-zinc-800">Hauptgruppen</h3>
                             </div>
                             <button onclick="openSuperGroupCreateModal()" class="btn-primary text-[11px] px-3 py-1.5 flex items-center gap-1">
-                                <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Hauptgruppe
+                                <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue
                             </button>
                         </div>
                         <div class="section-card-body space-y-4">
                             <p class="text-[11px] text-zinc-500 leading-relaxed">
                                 Hauptgruppen fassen mehrere Kategorien im Kasse-Popup, Bon-Detail und PDF/Excel-Export zu Überschriften zusammen.
-                                Beispiel: Die Kategorien <em>Whiskey</em>, <em>Cocktails</em>, <em>Softdrinks</em> werden alle der Hauptgruppe <em>Getränke</em> zugeordnet.
-                                Artikel ohne Zuordnung landen automatisch unter <em>Sonstiges</em> (wird nur angezeigt, wenn Artikel vorhanden sind).
+                                Artikel ohne Zuordnung landen automatisch unter <em>Sonstiges</em>.
                             </p>
-
-                            <!-- Hauptgruppen Liste -->
                             <div id="super-groups-list" class="space-y-2">
                                 <!-- Wird von JS gefüllt -->
                             </div>
-
                             <hr class="border-zinc-200 my-2">
-
-                            <!-- Kategorie-Zuweisung (Bulk) -->
                             <div>
                                 <h4 class="font-extrabold text-xs text-zinc-700 mb-2 flex items-center gap-1">
                                     <span class="material-symbols-outlined" style="font-size:14px;">link</span>
                                     Kategorien zu Hauptgruppen zuordnen
                                 </h4>
-                                <p class="text-[10px] text-zinc-500 mb-2">Wähle pro Kategorie die Hauptgruppe aus. Änderungen werden sofort gespeichert.</p>
+                                <p class="text-[10px] text-zinc-500 mb-2">Wähle pro Kategorie die Hauptgruppe. Änderungen werden sofort gespeichert.</p>
                                 <div id="super-groups-assignment" class="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
                                     <!-- Wird von JS gefüllt -->
                                 </div>
@@ -3958,21 +4553,26 @@
 
             <!-- 🌐 TAB: LANDINGPAGE (landingpage) -->
             <div id="admin-tab-landingpage" class="admin-tab-content">
-                <div class="dash-header">
-                    <div class="flex items-center gap-3">
-                        <button onclick="toggleSidebar()" class="hamburger-btn">
-                            <span class="material-symbols-outlined" style="font-size:20px;">menu</span>
-                        </button>
-                        <span id="breadcrumb-current" class="text-sm font-extrabold tracking-tight">Landingpage</span>
+                <!-- Top Action Bar -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <div class="text-lg font-black text-zinc-800">Landingpage Editor</div>
+                        <div class="text-xs text-zinc-500 font-semibold">Bearbeite Inhalte und sieh die Live-Vorschau</div>
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span id="lp-unsaved-indicator" class="lp-unsaved-badge hidden">
+                            <span class="dot"></span> Ungespeichert
+                        </span>
                         <a href="/{{ slug }}" target="_blank" class="btn-secondary flex items-center gap-1.5 text-xs">
-                            <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Live-Vorschau
+                            <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> In neuem Tab
                         </a>
                     </div>
                 </div>
-                <div id="live-notification-bar" class="live-notification-bar"></div>
-                <div class="content-area">
+
+                <!-- Split-Screen: Editor + Live Preview -->
+                <div class="lp-split">
+                    <!-- Editor Pane (links) -->
+                    <div class="lp-editor-pane">
                     <form id="landingpage-form" action="/admin/landingpage" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="return prepareLandingFormSubmit()">
                         <input type="hidden" name="custom_sections_json" id="custom_sections_json">
                         <input type="hidden" name="landing_sections_json" id="landing_sections_json">
@@ -3989,60 +4589,87 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div>
                                         <label class="form-label">Willkommens-Titel</label>
-                                        <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="form-field">
+                                        <input type="text" name="welcome_title" value="{{ restaurant.landing_page.welcome_title if restaurant.landing_page else '' }}" placeholder="z.B. Willkommen bei {{ restaurant.name }}" class="form-field" oninput="markLandingUnsaved(); updateLandingPreview();">
                                     </div>
                                     <div>
                                         <label class="form-label">Willkommens-Untertitel</label>
-                                        <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genie&szlig;e deinen Aufenthalt" class="form-field">
+                                        <input type="text" name="welcome_subtitle" value="{{ restaurant.landing_page.welcome_subtitle if restaurant.landing_page else '' }}" placeholder="z.B. Genie&szlig;e deinen Aufenthalt" class="form-field" oninput="markLandingUnsaved(); updateLandingPreview();">
                                     </div>
                                 </div>
                                 <div>
                                     <label class="form-label">Google Bewertung Link</label>
-                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="form-field">
+                                    <input type="text" name="google_rating_url" value="{{ restaurant.landing_page.google_rating_url if restaurant.landing_page else '' }}" placeholder="https://g.page/r/..." class="form-field" oninput="markLandingUnsaved();">
                                 </div>
                             </div>
                         </div>
 
-                        <!-- SEKTION 2: Eigene Sektionen -->
+                        <!-- SEKTION 2: Eigene Sektionen mit Templates -->
                         <div class="section-card mb-4">
                             <div class="section-card-header">
                                 <div class="flex items-center gap-2">
                                     <span class="material-symbols-outlined text-blue-600" style="font-size:18px;">dashboard_customize</span>
                                     <h3 class="font-extrabold text-sm text-zinc-800">Eigene Sektionen</h3>
                                 </div>
-                                <button type="button" onclick="addLandingSection()" class="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Sektion
-                                </button>
+                                <span class="text-[10px] font-bold text-zinc-400" id="lp-sections-count">0 Sektionen</span>
                             </div>
                             <div class="section-card-body">
-                                <p class="text-[10px] text-blue-500 mb-3">Hier kannst du beliebig viele Sektionen hinzuf&uuml;gen (z.B. &Uuml;ber uns, &Ouml;ffnungszeiten, Flyer-Bilder). Bilder werden full-width untereinander angezeigt.</p>
-                                <div class="bg-blue-50 dark:bg-zinc-800 rounded-lg p-2 mb-3 text-[9px] text-blue-700 dark:text-blue-300 font-bold leading-relaxed">
-                                    <strong>Markdown-Formatierung m&ouml;glich:</strong><br>
-                                    <code>**fett**</code> = <strong>fett</strong> &nbsp;|&nbsp;
-                                    <code>*kursiv*</code> = <em>kursiv</em><br>
-                                    <code>## &Uuml;berschrift</code> = gro&szlig;e goldene &Uuml;berschrift<br>
-                                    <code>{gold}Text{/gold}</code> = <span style="color:#C9A84C;font-weight:700;">goldener Text</span><br>
-                                    <code>{white}Text{/white}</code> = <span style="color:#000;background:#fff;padding:0 2px;">wei&szlig;er Text</span><br>
-                                    <code>{red}Text{/red}</code> = <span style="color:#ef4444;font-weight:700;">roter Text</span><br>
-                                    <code>{green}Text{/green}</code> = <span style="color:#22c55e;font-weight:700;">gr&uuml;ner Text</span><br>
-                                    <code>---</code> = Trennlinie &nbsp;|&nbsp;
-                                    <code>- Eintrag</code> = Listenpunkt
+                                <!-- Section Templates (Quick Add) -->
+                                <div class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Vorlage hinzufügen:</div>
+                                <div class="lp-section-templates">
+                                    <button type="button" onclick="addLandingSectionTemplate('about')" class="lp-template-btn">
+                                        <span class="material-symbols-outlined">info</span>
+                                        Über uns
+                                    </button>
+                                    <button type="button" onclick="addLandingSectionTemplate('hours')" class="lp-template-btn">
+                                        <span class="material-symbols-outlined">schedule</span>
+                                        Öffnungszeiten
+                                    </button>
+                                    <button type="button" onclick="addLandingSectionTemplate('gallery')" class="lp-template-btn">
+                                        <span class="material-symbols-outlined">photo_library</span>
+                                        Galerie
+                                    </button>
+                                    <button type="button" onclick="addLandingSectionTemplate('event')" class="lp-template-btn">
+                                        <span class="material-symbols-outlined">celebration</span>
+                                        Event/Angebot
+                                    </button>
+                                    <button type="button" onclick="addLandingSectionTemplate('contact')" class="lp-template-btn">
+                                        <span class="material-symbols-outlined">contact_phone</span>
+                                        Kontakt
+                                    </button>
+                                    <button type="button" onclick="addLandingSectionTemplate('custom')" class="lp-template-btn">
+                                        <span class="material-symbols-outlined">add</span>
+                                        Freie Sektion
+                                    </button>
                                 </div>
+
+                                <details class="mb-3">
+                                    <summary class="cursor-pointer text-[10px] font-bold text-blue-600 hover:text-blue-700">Markdown-Formatierung anzeigen</summary>
+                                    <div class="bg-blue-50 dark:bg-zinc-800 rounded-lg p-2 mt-2 text-[9px] text-blue-700 dark:text-blue-300 font-bold leading-relaxed">
+                                        <code>**fett**</code> = <strong>fett</strong> &nbsp;|&nbsp;
+                                        <code>*kursiv*</code> = <em>kursiv</em><br>
+                                        <code>## Überschrift</code> = große goldene Überschrift<br>
+                                        <code>{gold}Text{/gold}</code> = <span style="color:#C9A84C;font-weight:700;">goldener Text</span><br>
+                                        <code>{red}Text{/red}</code> = <span style="color:#ef4444;font-weight:700;">roter Text</span><br>
+                                        <code>---</code> = Trennlinie &nbsp;|&nbsp;
+                                        <code>- Eintrag</code> = Listenpunkt
+                                    </div>
+                                </details>
+
                                 <div id="landing-sections-container" class="space-y-2">
                                     {% if restaurant.landing_page %}
                                     <div class="landing-section-item bg-white p-3 rounded-xl border border-gray-200 space-y-2" data-section-type="about">
                                         <div class="flex items-center gap-2">
                                             <span class="material-symbols-outlined text-emerald-500 text-sm">info</span>
-                                            <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Uuml;ber uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Uuml;ber uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                                         </div>
-                                        <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field">{{ restaurant.landing_page.what_we_offer }}</textarea>
+                                        <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field" oninput="markLandingUnsaved();">{{ restaurant.landing_page.what_we_offer }}</textarea>
                                     </div>
                                     <div class="landing-section-item bg-white p-3 rounded-xl border border-gray-200 space-y-2" data-section-type="hours">
                                         <div class="flex items-center gap-2">
                                             <span class="material-symbols-outlined text-blue-500 text-sm">schedule</span>
-                                            <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Ouml;ffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                            <input type="text" name="section_title_hours" value="{{ restaurant.landing_page.title_hours if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Ouml;ffnungszeiten" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                                         </div>
-                                        <textarea name="section_content_hours" rows="2" placeholder="&Ouml;ffnungszeiten..." class="form-field">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
+                                        <textarea name="section_content_hours" rows="2" placeholder="&Ouml;ffnungszeiten..." class="form-field" oninput="markLandingUnsaved();">{{ restaurant.landing_page.oeffnungszeiten }}</textarea>
                                     </div>
                                     {% if restaurant.landing_page.custom_sections %}
                                     {% for cs in restaurant.landing_page.custom_sections %}
@@ -4051,13 +4678,13 @@
                                             <div class="flex items-center gap-2">
                                                 <span class="material-symbols-outlined text-zinc-400 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
                                                 <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
-                                                <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                                                <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                                             </div>
                                             <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
                                                 <span class="material-symbols-outlined text-sm">delete</span>
                                             </button>
                                         </div>
-                                        <textarea name="section_content_custom_{{ loop.index }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field">{{ cs.content if cs.content else '' }}</textarea>
+                                        <textarea name="section_content_custom_{{ loop.index }}" rows="2" placeholder="Inhalt der Sektion..." class="form-field" oninput="markLandingUnsaved();">{{ cs.content if cs.content else '' }}</textarea>
                                         <div class="space-y-1.5">
                                             <label class="form-label">Foto/Video f&uuml;r diese Sektion (optional)</label>
                                             <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
@@ -4093,7 +4720,7 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div>
                                         <label class="form-label">Titel: Was wir bieten</label>
-                                        <input type="text" name="title_what_we_offer" value="{{ restaurant.landing_page.title_what_we_offer if restaurant.landing_page else '' }}" placeholder="Standard: Was wir bieten" class="form-field">
+                                        <input type="text" name="title_what_we_offer" value="{{ restaurant.landing_page.title_what_we_offer if restaurant.landing_page else '' }}" placeholder="Standard: Was wir bieten" class="form-field" oninput="markLandingUnsaved();">
                                     </div>
                                     <div class="text-[9px] text-amber-600 font-bold self-end">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
                                 </div>
@@ -4216,12 +4843,32 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2 text-sm py-3">
+                        <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2 text-sm py-3 sticky bottom-0 bg-white/95 backdrop-blur border-t border-zinc-200 -mx-4 px-4 py-3">
                             <span class="material-symbols-outlined" style="font-size:18px;">save</span>
                             Landingpage speichern
                         </button>
                     </form>
-                </div>
+                    </div><!-- /.lp-editor-pane -->
+
+                    <!-- Preview Pane (rechts) -->
+                    <div class="lp-preview-pane">
+                        <div class="lp-preview-header">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">preview</span>
+                                <span class="text-xs font-bold text-zinc-700">Live-Vorschau</span>
+                            </div>
+                            <div class="lp-preview-device-toggle">
+                                <button id="lp-preview-desktop" class="active" onclick="setLpPreviewDevice('desktop', this)" title="Desktop">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">desktop_windows</span>
+                                </button>
+                                <button id="lp-preview-mobile" onclick="setLpPreviewDevice('mobile', this)" title="Mobile">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">smartphone</span>
+                                </button>
+                            </div>
+                        </div>
+                        <iframe id="lp-preview-iframe" class="lp-preview-iframe" src="/{{ slug }}" title="Landingpage Vorschau"></iframe>
+                    </div>
+                </div><!-- /.lp-split -->
             </div>
 
             <!-- ⚙️ TAB: EINSTELLUNGEN (einstellungen) -->
@@ -5001,8 +5648,8 @@
         function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
             // Validate tabId — only allow known tabs
-            const validTabs = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
-            if (!validTabs.includes(tabId)) tabId = 'live';
+            const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
+            if (!validTabs.includes(tabId)) tabId = 'cms';
 
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('aside nav button.nav-btn, aside nav button.nav-sub-btn').forEach(btn => {
@@ -5014,6 +5661,7 @@
             
             // Dynamically update Topbar Breadcrumbs
             const tabNames = {
+                'cms': 'Inhalte',
                 'live': 'Sitzplan',
                 'finanzen': 'Bestellungen & Reports',
                 'produkte': 'Produkte',
@@ -5033,6 +5681,9 @@
                 history.replaceState(null, '', '#' + tabId);
             }
 
+            if (tabId === 'cms') {
+                updateCmsOverviewStats();
+            }
             if (tabId === 'live') {
                 renderSitzplanTiles();
                 renderServiceCallsAlerts();
@@ -5042,12 +5693,16 @@
             }
             if (tabId === 'kategorien') {
                 loadSuperGroups();
+                renderCategoryTree();
+            }
+            if (tabId === 'landingpage') {
+                initLandingpagePreview();
             }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
             const hashTab = window.location.hash.replace('#', '');
-            const activeTab = hashTab || localStorage.getItem('dl_admin_active_tab') || 'live';
+            const activeTab = hashTab || localStorage.getItem('dl_admin_active_tab') || 'cms';
             switchAdminTab(activeTab, false);
             // Tisch-Filter + Sort-Icons initialisieren
             populateTableFilter();
@@ -5061,6 +5716,70 @@
             const hashTab = window.location.hash.replace('#', '');
             if (hashTab) switchAdminTab(hashTab, false);
         });
+
+        // ═══════════════════════════════════════════════════════
+        // CMS OVERVIEW STATS (live berechnet aus allProducts/allCategories/allEvents)
+        // ═══════════════════════════════════════════════════════
+        function updateCmsOverviewStats() {
+            try {
+                // Produkte
+                const totalProducts = (allProducts || []).length;
+                const outOfStock = (allProducts || []).filter(p => !p.is_available).length;
+                const withHH = (allProducts || []).filter(p => p.happy_hour_price).length;
+                document.getElementById('cms-stat-products').textContent = totalProducts;
+                const pSub = document.getElementById('cms-substat-products');
+                if (outOfStock > 0) {
+                    pSub.innerHTML = '<span class="alert">' + outOfStock + ' ausverkauft</span> · ' + withHH + ' mit Aktion';
+                } else {
+                    pSub.innerHTML = '<span class="ok">Alle aktiv</span> · ' + withHH + ' mit Aktion';
+                }
+
+                // Kategorien
+                const totalCats = (allCategories || []).length;
+                document.getElementById('cms-stat-categories').textContent = totalCats;
+                const cSub = document.getElementById('cms-substat-categories');
+                const superGroupsCount = (window._superGroups || []).length;
+                if (superGroupsCount > 0) {
+                    cSub.textContent = 'In ' + superGroupsCount + ' Hauptgruppen';
+                } else {
+                    cSub.textContent = 'Keine Hauptgruppen zugewiesen';
+                }
+
+                // Events
+                const events = (allEvents || []);
+                const activeEvents = events.filter(e => e.is_active !== false);
+                document.getElementById('cms-stat-events').textContent = events.length;
+                const eSub = document.getElementById('cms-substat-events');
+                if (activeEvents.length > 0) {
+                    eSub.innerHTML = '<span class="ok">' + activeEvents.length + ' aktiv</span>';
+                } else if (events.length > 0) {
+                    eSub.textContent = events.length + ' (alle pausiert)';
+                } else {
+                    eSub.textContent = 'Noch keine Events';
+                }
+
+                // Landingpage Sektionen
+                const lp = {{ (restaurant.landing_page or {}) | tojson | safe }};
+                let sectionCount = 0;
+                if (lp.welcome_title || lp.welcome_subtitle) sectionCount++;
+                if (lp.title_about || lp.what_we_offer) sectionCount++;
+                if (lp.title_hours || lp.oeffnungszeiten) sectionCount++;
+                if (lp.custom_sections && lp.custom_sections.length) sectionCount += lp.custom_sections.length;
+                if (lp.title_what_we_offer || (lp.offer_images && lp.offer_images.length)) sectionCount++;
+                if (lp.slideshow_enabled || (lp.slideshow_images && lp.slideshow_images.length)) sectionCount++;
+                if (lp.title_gallery || (lp.gallery_images && lp.gallery_images.length)) sectionCount++;
+                if (lp.title_videos || (lp.gallery_videos && lp.gallery_videos.length)) sectionCount++;
+                document.getElementById('cms-stat-landingpage').textContent = sectionCount;
+                const lSub = document.getElementById('cms-substat-landingpage');
+                if (lp.welcome_title) {
+                    lSub.textContent = 'Haupttitel: "' + lp.welcome_title.substring(0, 30) + (lp.welcome_title.length > 30 ? '…' : '') + '"';
+                } else {
+                    lSub.textContent = 'Noch kein Willkommenstext';
+                }
+            } catch (err) {
+                console.warn('CMS stats error:', err);
+            }
+        }
 
         // ── CONFIG SUB-TAB SWITCHING ──
         function switchConfigTab(tabId) {
@@ -6008,8 +6727,147 @@
                 _superGroupCategories = data.categories || [];
                 renderSuperGroupsList();
                 renderSuperGroupsAssignment();
+                renderCategoryTree();  // Tree nach SuperGroups laden
             } catch (e) {
                 console.error('loadSuperGroups error:', e);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // CATEGORY TREE-VIEW (Hauptgruppe → Kategorie → Produktzahl)
+        // ═══════════════════════════════════════════════════════
+        function renderCategoryTree() {
+            const container = document.getElementById('cat-tree-container');
+            if (!container) return;
+
+            const cats = allCategories || [];
+            const products = allProducts || [];
+            const sgCats = _superGroupCategories || [];
+            const sgs = _superGroups || [];
+
+            // Product count per category
+            const countByCat = {};
+            products.forEach(p => {
+                const c = p.category || '(ohne)';
+                countByCat[c] = (countByCat[c] || 0) + 1;
+            });
+
+            // Group categories by super_group_id
+            const catsBySg = {};
+            const orphanCats = [];
+            cats.forEach(catName => {
+                const sgCat = sgCats.find(c => c.name === catName);
+                if (sgCat && sgCat.super_group_id) {
+                    const sgId = sgCat.super_group_id;
+                    if (!catsBySg[sgId]) catsBySg[sgId] = [];
+                    catsBySg[sgId].push(catName);
+                } else {
+                    orphanCats.push(catName);
+                }
+            });
+
+            let html = '';
+
+            // Sort super groups by position
+            const sortedSgs = [...sgs].sort((a, b) => (a.position || 0) - (b.position || 0));
+            sortedSgs.forEach(sg => {
+                const groupCats = catsBySg[sg.id] || [];
+                const totalProducts = groupCats.reduce((sum, c) => sum + (countByCat[c] || 0), 0);
+                const textColor = getContrastTextColor(sg.color);
+                const iconHtml = sg.icon ? `<span class="material-symbols-outlined" style="font-size:14px;">${escapeHtml(sg.icon)}</span>` : '<span class="material-symbols-outlined" style="font-size:14px;">folder</span>';
+
+                html += `
+                    <div class="cat-tree-group">
+                        <div class="cat-tree-group-header" onclick="this.parentElement.querySelector('.cat-tree-children').classList.toggle('hidden')">
+                            <div class="cat-tree-color-dot" style="background:${escapeHtml(sg.color)};"></div>
+                            ${iconHtml}
+                            <span class="cat-tree-group-name">${escapeHtml(sg.name)}</span>
+                            <span class="cat-tree-group-count">${groupCats.length} Kat · ${totalProducts} Prod</span>
+                            <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">expand_more</span>
+                        </div>
+                        <div class="cat-tree-children">
+                `;
+                if (groupCats.length === 0) {
+                    html += '<div class="cat-tree-empty">Keine Kategorien zugeordnet</div>';
+                } else {
+                    groupCats.forEach(catName => {
+                        const pCount = countByCat[catName] || 0;
+                        html += `
+                            <div class="cat-tree-item">
+                                <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">folder_open</span>
+                                <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
+                                <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
+                                <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-400 hover:text-emerald-500 p-0.5" title="Bearbeiten">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
+                                </button>
+                                <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \\'${catName.replace(/'/g, "\\'")}\\' löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                    <input type="hidden" name="name" value="${escapeHtml(catName)}">
+                                    <button type="submit" class="text-red-400 hover:text-red-600 p-0.5" title="Löschen">
+                                        <span class="material-symbols-outlined" style="font-size:12px;">delete</span>
+                                    </button>
+                                </form>
+                            </div>
+                        `;
+                    });
+                }
+                html += '</div></div>';
+            });
+
+            // Orphan categories (without super group)
+            if (orphanCats.length > 0) {
+                const orphanTotal = orphanCats.reduce((sum, c) => sum + (countByCat[c] || 0), 0);
+                html += `
+                    <div class="cat-tree-group">
+                        <div class="cat-tree-group-header" onclick="this.parentElement.querySelector('.cat-tree-children').classList.toggle('hidden')">
+                            <div class="cat-tree-color-dot" style="background:#9ca3af;"></div>
+                            <span class="material-symbols-outlined" style="font-size:14px;color:#6b7280;">folder_special</span>
+                            <span class="cat-tree-group-name">Ohne Hauptgruppe (Sonstiges)</span>
+                            <span class="cat-tree-group-count">${orphanCats.length} Kat · ${orphanTotal} Prod</span>
+                            <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">expand_more</span>
+                        </div>
+                        <div class="cat-tree-children">
+                `;
+                orphanCats.forEach(catName => {
+                    const pCount = countByCat[catName] || 0;
+                    html += `
+                        <div class="cat-tree-item">
+                            <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">folder_open</span>
+                            <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
+                            <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
+                            <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-400 hover:text-emerald-500 p-0.5" title="Bearbeiten">
+                                <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
+                            </button>
+                            <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                <input type="hidden" name="name" value="${escapeHtml(catName)}">
+                                <button type="submit" class="text-red-400 hover:text-red-600 p-0.5" title="Löschen">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">delete</span>
+                                </button>
+                            </form>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+
+            // Empty state
+            if (cats.length === 0) {
+                html = `
+                    <div class="text-center py-10 text-zinc-400">
+                        <span class="material-symbols-outlined" style="font-size:48px;">folder_off</span>
+                        <p class="text-sm font-bold mt-2">Noch keine Kategorien</p>
+                        <p class="text-xs mt-1">Lege links deine erste Kategorie an</p>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+
+            // Update summary
+            const summary = document.getElementById('cat-tree-summary');
+            if (summary) {
+                const totalCats = cats.length;
+                const totalSgs = sgs.length;
+                summary.textContent = totalCats + ' Kategorien · ' + totalSgs + ' Hauptgruppen';
             }
         }
 
@@ -9682,13 +10540,101 @@
 
         // Product filter functions (works on both table rows and mobile cards)
         function filterProducts(searchTerm) {
-            const items = document.querySelectorAll('.product-row, .product-card');
+            const items = document.querySelectorAll('.product-row, .product-tile, .product-card');
             const term = searchTerm.toLowerCase();
             items.forEach(item => {
                 const name = item.dataset.name;
                 item.style.display = name.includes(term) ? '' : 'none';
             });
         }
+
+        // ═══════════════════════════════════════════════════════
+        // NEUE PRODUKT-FILTER (Chip-basiert, kombiniert mit Search)
+        // ═══════════════════════════════════════════════════════
+        let _productFilterState = { status: 'all', hh: 'all', cat: 'all', search: '' };
+
+        function setProductFilter(type, value, btn) {
+            _productFilterState[type] = value;
+            // Active state on chips
+            document.querySelectorAll('.filter-chip[data-filter-type="' + type + '"]').forEach(c => c.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            applyProductFilters();
+        }
+
+        function applyProductFilters() {
+            const items = document.querySelectorAll('.product-row, .product-tile');
+            const term = (_productFilterState.search || '').toLowerCase();
+            items.forEach(item => {
+                let visible = true;
+                // Status filter
+                if (_productFilterState.status !== 'all' && item.dataset.available !== _productFilterState.status) visible = false;
+                // HH filter
+                if (_productFilterState.hh !== 'all' && item.dataset.hasHh !== _productFilterState.hh) visible = false;
+                // Category filter
+                if (_productFilterState.cat !== 'all' && item.dataset.category !== _productFilterState.cat) visible = false;
+                // Search
+                if (term && !(item.dataset.name || '').includes(term)) visible = false;
+                item.style.display = visible ? '' : 'none';
+            });
+            // Update count
+            const visibleCount = Array.from(items).filter(i => i.style.display !== 'none').length;
+            const totalEl = document.getElementById('product-filter-result-count');
+            if (totalEl) totalEl.textContent = visibleCount;
+        }
+
+        // Override the old search input to also update state
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('product-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    _productFilterState.search = this.value;
+                    applyProductFilters();
+                });
+            }
+            // Init filter chip counts
+            updateProductFilterCounts();
+        });
+
+        function updateProductFilterCounts() {
+            try {
+                const products = allProducts || [];
+                const totalAll = products.length;
+                const totalActive = products.filter(p => p.is_available).length;
+                const totalInactive = products.filter(p => !p.is_available).length;
+                const cAll = document.getElementById('count-status-all');
+                const cActive = document.getElementById('count-status-true');
+                const cInactive = document.getElementById('count-status-false');
+                if (cAll) cAll.textContent = totalAll;
+                if (cActive) cActive.textContent = totalActive;
+                if (cInactive) cInactive.textContent = totalInactive;
+            } catch (err) { /* ignore */ }
+        }
+
+        // View toggle (Grid / Table)
+        function setProductView(view) {
+            const grid = document.getElementById('product-grid-container');
+            const table = document.getElementById('product-table-container');
+            const gridBtn = document.getElementById('view-btn-grid');
+            const tableBtn = document.getElementById('view-btn-table');
+            if (view === 'grid') {
+                grid.classList.remove('hidden');
+                table.classList.add('hidden');
+                gridBtn.classList.add('active');
+                tableBtn.classList.remove('active');
+            } else {
+                grid.classList.add('hidden');
+                table.classList.remove('hidden');
+                gridBtn.classList.remove('active');
+                tableBtn.classList.add('active');
+            }
+            localStorage.setItem('dl_product_view', view);
+        }
+
+        // Restore last view preference
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedView = localStorage.getItem('dl_product_view') || 'grid';
+            setProductView(savedView);
+        });
 
         function filterProductsByCategory(category) {
             const items = document.querySelectorAll('.product-row, .product-card');
@@ -10623,6 +11569,74 @@
 
         // ── Landing Page Dynamic Sections ──
         let landingSectionCounter = Date.now();
+        let _lpPreviewRefreshTimer = null;
+        let _lpUnsaved = false;
+
+        function markLandingUnsaved() {
+            _lpUnsaved = true;
+            const ind = document.getElementById('lp-unsaved-indicator');
+            if (ind) ind.classList.remove('hidden');
+            // Update section count
+            const count = document.querySelectorAll('.landing-section-item').length;
+            const countEl = document.getElementById('lp-sections-count');
+            if (countEl) countEl.textContent = count + ' Sektion' + (count === 1 ? '' : 'en');
+        }
+
+        function unmarkLandingUnsaved() {
+            _lpUnsaved = false;
+            const ind = document.getElementById('lp-unsaved-indicator');
+            if (ind) ind.classList.add('hidden');
+        }
+
+        // Update preview iframe (debounced)
+        function updateLandingPreview() {
+            if (_lpPreviewRefreshTimer) clearTimeout(_lpPreviewRefreshTimer);
+            _lpPreviewRefreshTimer = setTimeout(() => {
+                const iframe = document.getElementById('lp-preview-iframe');
+                if (iframe) {
+                    // Just reload — changes are visible only after save, but reload keeps preview fresh
+                    // We don't auto-reload to avoid losing unsaved state; user can manually refresh
+                }
+            }, 800);
+        }
+
+        function initLandingpagePreview() {
+            // Init section count
+            const count = document.querySelectorAll('.landing-section-item').length;
+            const countEl = document.getElementById('lp-sections-count');
+            if (countEl) countEl.textContent = count + ' Sektion' + (count === 1 ? '' : 'en');
+        }
+
+        function setLpPreviewDevice(device, btn) {
+            const iframe = document.getElementById('lp-preview-iframe');
+            const desktopBtn = document.getElementById('lp-preview-desktop');
+            const mobileBtn = document.getElementById('lp-preview-mobile');
+            if (!iframe) return;
+            if (device === 'mobile') {
+                iframe.classList.add('mobile');
+                desktopBtn.classList.remove('active');
+                mobileBtn.classList.add('active');
+            } else {
+                iframe.classList.remove('mobile');
+                desktopBtn.classList.add('active');
+                mobileBtn.classList.remove('active');
+            }
+        }
+
+        // Section template presets
+        const LP_TEMPLATES = {
+            about: { title: 'Über uns', content: 'Erzähle deinen Gästen etwas über dein Restaurant.\n\n**Besonderheiten:**\n- Frische Zutaten\n- Familärer Service\n- Gemütliche Atmosphäre' },
+            hours: { title: 'Öffnungszeiten', content: '**Mo - Do:** 17:00 - 23:00\n**Fr - Sa:** 11:00 - 01:00\n**So:** 12:00 - 22:00' },
+            gallery: { title: 'Galerie', content: 'Eindrücke aus unserem Restaurant.' },
+            event: { title: 'Aktuelles Event', content: '## Dieses Wochenende\n\n{gold}Ladys Night{/gold}\n\nFreitag ab 20 Uhr — Cocktails 2für1' },
+            contact: { title: 'Kontakt & Anfahrt', content: '**Adresse:** Musterstraße 1, 12345 Stadt\n**Telefon:** 030 / 123 456 78\n\nParkplätze direkt vor der Tür vorhanden.' },
+            custom: { title: '', content: '' }
+        };
+
+        function addLandingSectionTemplate(templateKey) {
+            const tpl = LP_TEMPLATES[templateKey] || LP_TEMPLATES.custom;
+            addLandingSection(tpl.title, tpl.content);
+        }
 
         function addLandingSection(title, content) {
             const container = document.getElementById('landing-sections-container');
@@ -10635,19 +11649,20 @@
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-zinc-400 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
                         <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
-                        <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1">
+                        <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                     </div>
                     <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
                         <span class="material-symbols-outlined text-sm">delete</span>
                     </button>
                 </div>
-                <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion (optional)..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro">${content || ''}</textarea>
+                <textarea name="section_content_${id}" rows="2" placeholder="Inhalt der Sektion (optional)..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:ring-gastro focus:border-gastro" oninput="markLandingUnsaved();">${content || ''}</textarea>
                 <div class="space-y-1.5">
                     <label class="form-label">Foto/Video für diese Sektion (optional)</label>
                     <input type="file" name="custom_section_images" accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
                 </div>
             `;
             container.appendChild(sectionDiv);
+            markLandingUnsaved();
             sectionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -10657,6 +11672,7 @@
                 const title = section.querySelector('input[type="text"]')?.value || 'diese Sektion';
                 if (confirm(`Sektion "${title}" wirklich löschen?`)) {
                     section.remove();
+                    markLandingUnsaved();
                 }
             }
         }
@@ -10698,6 +11714,7 @@
             }));
             document.getElementById('custom_sections_json').value = JSON.stringify(customSections);
 
+            unmarkLandingUnsaved();
             return true;
         }
 
