@@ -1700,24 +1700,43 @@
         }
         @media (max-width: 1024px) {
             .lp-split { grid-template-columns: 1fr; }
+            /* Auf Mobile: Preview unter Editor, beide normaler Flow */
+            .lp-editor-pane, .lp-preview-pane {
+                position: static !important;
+                max-height: none !important;
+            }
+            .lp-preview-iframe {
+                height: 60vh;
+            }
         }
         .lp-editor-pane {
             background: #fff;
             border: 1px solid #e4e4e7;
             border-radius: 16px;
             padding: 1rem;
-            max-height: calc(100vh - 200px);
+            /* Höhe begrenzen, damit Editor-Fenster intern scrollt statt die ganze Seite.
+               Dash-header ist sticky top:0 (~57px hoch), deshalb top: 72px für etwas Luft. */
+            max-height: calc(100vh - 100px);
             overflow-y: auto;
             position: sticky;
-            top: 80px;
+            top: 72px;
+            /* Sanftes Scrollen, Custom-Scrollbar */
+            scroll-behavior: smooth;
         }
+        .lp-editor-pane::-webkit-scrollbar { width: 8px; }
+        .lp-editor-pane::-webkit-scrollbar-track { background: transparent; }
+        .lp-editor-pane::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
+        .lp-editor-pane::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
         .lp-preview-pane {
             background: #fff;
             border: 1px solid #e4e4e7;
             border-radius: 16px;
             overflow: hidden;
             position: sticky;
-            top: 80px;
+            top: 72px;
+            max-height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
         }
         .lp-preview-header {
             background: #f4f4f5;
@@ -1726,6 +1745,7 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #e4e4e7;
+            flex-shrink: 0;
         }
         .lp-preview-device-toggle {
             display: inline-flex;
@@ -1747,9 +1767,16 @@
             background: #18181b;
             color: white;
         }
+        .lp-preview-iframe-wrap {
+            flex: 1;
+            overflow: auto;
+            background: #f4f4f5;
+            min-height: 400px;
+        }
         .lp-preview-iframe {
             width: 100%;
-            height: calc(100vh - 260px);
+            height: 100%;
+            min-height: 600px;
             border: none;
             background: white;
             transition: max-width 0.3s ease;
@@ -1812,6 +1839,22 @@
         @keyframes pulse-dot {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.4; }
+        }
+
+        /* Submit-Button im Editor-Pane: sticky am Boden, sauber abgetrennt */
+        .lp-submit-bar {
+            position: sticky;
+            bottom: -1rem;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, #fff 70%, rgba(255,255,255,0));
+            padding: 1rem 0 0.5rem;
+            margin-top: 1rem;
+            z-index: 5;
+        }
+        .lp-submit-bar button {
+            width: 100%;
+            box-shadow: 0 -4px 12px -4px rgba(0,0,0,0.08);
         }
 
         nav .nav-btn {
@@ -3589,9 +3632,20 @@
         </div>
         
         <nav class="flex-1 py-2 overflow-y-auto">
+            <div class="nav-group-label">Live-Betrieb</div>
+            <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
+                <span class="material-symbols-outlined">table_restaurant</span>
+                <span>Sitzplan</span>
+            </button>
+            <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
+                <span class="material-symbols-outlined">payments</span>
+                <span>Bestellungen & Reports</span>
+            </button>
+
+            <div class="nav-divider"></div>
             <div class="nav-group-label">Inhalte verwalten</div>
-            <button id="tab-btn-cms" onclick="switchAdminTab('cms')" class="nav-btn">
-                <span class="material-symbols-outlined">dashboard</span>
+            <button id="tab-btn-cms" onclick="switchAdminTab('cms')" class="nav-sub-btn">
+                <span class="material-symbols-outlined" style="font-size:18px;">dashboard</span>
                 <span>Übersicht</span>
             </button>
             <button id="tab-btn-produkte" onclick="switchAdminTab('produkte')" class="nav-sub-btn">
@@ -3609,17 +3663,6 @@
             <button id="tab-btn-landingpage" onclick="switchAdminTab('landingpage')" class="nav-sub-btn">
                 <span class="material-symbols-outlined" style="font-size:18px;">campaign</span>
                 <span>Landingpage</span>
-            </button>
-
-            <div class="nav-divider"></div>
-            <div class="nav-group-label">Live-Betrieb</div>
-            <button id="tab-btn-live" onclick="switchAdminTab('live')" class="nav-btn">
-                <span class="material-symbols-outlined">table_restaurant</span>
-                <span>Sitzplan</span>
-            </button>
-            <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
-                <span class="material-symbols-outlined">payments</span>
-                <span>Bestellungen & Reports</span>
             </button>
 
             <div class="nav-divider"></div>
@@ -3656,7 +3699,7 @@
                 <span id="breadcrumb-current" class="text-sm font-extrabold text-zinc-800 tracking-tight">Sitzplan</span>
             </div>
             <div class="flex items-center gap-3">
-                <span class="live-badge">
+                <span class="live-badge" id="dash-live-badge">
                     <span class="dot"></span> Live-Betrieb
                 </span>
             </div>
@@ -4052,6 +4095,7 @@
                                  data-name="{{ p.name | lower }}"
                                  data-product-id="{{ p.id }}">
                                 <div class="flex items-start justify-between">
+                                    <span class="material-symbols-outlined text-gray-400 drag-handle cursor-grab active:cursor-grabbing select-none shrink-0 mt-1" style="font-size:16px;" title="Zum Sortieren ziehen">drag_indicator</span>
                                     <input type="checkbox" class="product-checkbox shrink-0 mt-1" data-product-id="{{ p.id }}" onchange="updateBulkActionBar()">
                                     <label class="switch ml-auto" style="transform:scale(0.85);">
                                         <input type="checkbox" onchange="toggleProductAvailability({{ p.id }}, this.checked)" {% if p.is_available %}checked{% endif %}>
@@ -4334,16 +4378,25 @@
 
             <!-- 🎉 TAB: EVENTS (replaces Aktionen) -->
             <div id="admin-tab-happyhour" class="admin-tab-content">
+                <!-- Top Action Bar -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <div class="text-lg font-black text-zinc-800">Events & Aktionen</div>
+                        <div class="text-xs text-zinc-500 font-semibold">Zeitlich begrenzte Angebote und Specials</div>
+                    </div>
+                    <button onclick="openEventCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs">
+                        <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> Neues Event
+                    </button>
+                </div>
+
                 <!-- Event List -->
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">celebration</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Events</h3>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Aktive Events</h3>
                         </div>
-                        <button onclick="openEventCreateModal()" class="btn-primary text-[11px] px-3 py-1.5 flex items-center gap-1">
-                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neues Event
-                        </button>
+                        <span class="text-[10px] font-bold text-zinc-400" id="events-count-badge">0 Events</span>
                     </div>
                     <div class="section-card-body">
                         <p class="text-[11px] text-zinc-500 leading-relaxed mb-4">
@@ -4843,10 +4896,12 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2 text-sm py-3 sticky bottom-0 bg-white/95 backdrop-blur border-t border-zinc-200 -mx-4 px-4 py-3">
-                            <span class="material-symbols-outlined" style="font-size:18px;">save</span>
-                            Landingpage speichern
-                        </button>
+                        <div class="lp-submit-bar">
+                            <button type="submit" class="btn-primary flex items-center justify-center gap-2 text-sm py-3">
+                                <span class="material-symbols-outlined" style="font-size:18px;">save</span>
+                                Landingpage speichern
+                            </button>
+                        </div>
                     </form>
                     </div><!-- /.lp-editor-pane -->
 
@@ -4866,7 +4921,9 @@
                                 </button>
                             </div>
                         </div>
-                        <iframe id="lp-preview-iframe" class="lp-preview-iframe" src="/{{ slug }}" title="Landingpage Vorschau"></iframe>
+                        <div class="lp-preview-iframe-wrap">
+                            <iframe id="lp-preview-iframe" class="lp-preview-iframe" src="/{{ slug }}" title="Landingpage Vorschau"></iframe>
+                        </div>
                     </div>
                 </div><!-- /.lp-split -->
             </div>
@@ -5649,7 +5706,7 @@
             closeSidebar();
             // Validate tabId — only allow known tabs
             const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
-            if (!validTabs.includes(tabId)) tabId = 'cms';
+            if (!validTabs.includes(tabId)) tabId = 'live';
 
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('aside nav button.nav-btn, aside nav button.nav-sub-btn').forEach(btn => {
@@ -5691,6 +5748,10 @@
             if (tabId === 'finanzen') {
                 renderOrdersTable();
             }
+            if (tabId === 'produkte') {
+                initProductSortable();
+                updateProductFilterCounts();
+            }
             if (tabId === 'kategorien') {
                 loadSuperGroups();
                 renderCategoryTree();
@@ -5698,11 +5759,21 @@
             if (tabId === 'landingpage') {
                 initLandingpagePreview();
             }
+
+            // Live-Badge nur auf operativen Tabs anzeigen
+            const liveBadge = document.getElementById('dash-live-badge');
+            if (liveBadge) {
+                if (tabId === 'live' || tabId === 'finanzen') {
+                    liveBadge.style.display = '';
+                } else {
+                    liveBadge.style.display = 'none';
+                }
+            }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
             const hashTab = window.location.hash.replace('#', '');
-            const activeTab = hashTab || localStorage.getItem('dl_admin_active_tab') || 'cms';
+            const activeTab = hashTab || localStorage.getItem('dl_admin_active_tab') || 'live';
             switchAdminTab(activeTab, false);
             // Tisch-Filter + Sort-Icons initialisieren
             populateTableFilter();
@@ -10357,6 +10428,28 @@
                     }
                 });
             });
+            // Auch das neue Grid mit Drag-Sortierbarkeit ausstatten
+            const gridView = document.getElementById('product-grid-view');
+            if (gridView && !gridView._sortable) {
+                gridView._sortable = new Sortable(gridView, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function(evt) {
+                        const productIds = Array.from(gridView.children).map(item => item.getAttribute('data-product-id'));
+                        fetch('/admin/products/reorder', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ product_ids: productIds })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) showToast("Reihenfolge gespeichert", "success");
+                            else showToast("Fehler beim Speichern", "error");
+                        })
+                        .catch(err => showToast("Verbindungsfehler", "error"));
+                    }
+                });
+            }
         }
 
         async function refreshProductsUI() {
@@ -10840,6 +10933,13 @@
             const container = document.getElementById('events-list');
             const emptyState = document.getElementById('events-empty');
             if (!container) return;
+
+            // Update count badge
+            const badge = document.getElementById('events-count-badge');
+            if (badge) {
+                const activeCount = allEvents.filter(e => e.is_active !== false).length;
+                badge.textContent = allEvents.length + ' Event' + (allEvents.length === 1 ? '' : 's') + ' · ' + activeCount + ' aktiv';
+            }
 
             if (allEvents.length === 0) {
                 container.innerHTML = '';
