@@ -1851,6 +1851,7 @@
                         'shisha': (p) => {
                             const name = (p.name || '').toLowerCase();
                             if (name.includes('kohle') || name.includes('head') || name.includes('kopf') || name.includes('zubehör')) return 2;
+                            if (p.category_type === 'bar') return 1;
                             return 0;
                         },
                         'küche': (p) => {
@@ -1862,7 +1863,9 @@
                         },
                         'bar': (p) => {
                             const cat = (p.category || '').toLowerCase();
-                            if (cat.includes('snack') || cat.includes('klein')) return 1;
+                            const name = (p.name || '').toLowerCase();
+                            if (cat.includes('snack') || cat.includes('klein') || name.includes('snack')) return 1;
+                            if (p.category_type === 'shisha') return 1;
                             return 0;
                         }
                     };
@@ -1880,6 +1883,19 @@
                             suggestionScores[product.id] = score;
                         }
                     });
+
+                    // Layer 2b: Fallback — wenn immer noch keine Suggestions, schlage
+                    // Produkte aus ANDEREN category_types vor (generisches Cross-Selling)
+                    if (Object.keys(suggestionScores).length === 0) {
+                        window._productsData.forEach(product => {
+                            if (!product.is_available) return;
+                            if (cartProductIds.has(product.id)) return;
+                            const pCatType = product.category_type || 'küche';
+                            if (!cartCategoryTypes.has(pCatType)) {
+                                suggestionScores[product.id] = 1;
+                            }
+                        });
+                    }
 
                     // Layer 3: Data-Driven Co-Occurrence ("Kunden die X kauften, kauften auch Y")
                     // Analysiert alle bezahlten Bestellungen — Score basiert auf Häufigkeit

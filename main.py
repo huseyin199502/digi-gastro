@@ -9961,7 +9961,7 @@ async def list_super_groups(chef_data: tuple = Depends(require_chef_user_flat), 
 # ════════════════════════════════════════════════════════════════════
 
 def compute_upsell_cooccurrences(restaurant: dict) -> dict:
-    """Analysiert alle bezahlten Bestellungen eines Tenants und berechnet
+    """Analysiert alle Bestellungen eines Tenants (bezahlt + confirmed) und berechnet
     eine Co-Occurrence-Matrix: für jedes Produkt A, welche Produkte B
     wurden am häufigsten zusammen mit A in derselben Bestellung gekauft?
 
@@ -9969,10 +9969,10 @@ def compute_upsell_cooccurrences(restaurant: dict) -> dict:
     Sortiert nach Häufigkeit (absteigend), max 5 pro Produkt.
     """
     orders = restaurant.get("orders", [])
-    # Sammle alle bezahlten Bestellungen mit ihren Produkt-IDs
+    # Sammle alle Bestellungen außer storniert (bezahlt + confirmed + aktiv)
     order_product_sets = []
     for o in orders:
-        if o.get("status") != "bezahlt":
+        if o.get("status") in ("storniert", "storniert"):
             continue
         items = o.get("items", [])
         if not items or len(items) < 2:
