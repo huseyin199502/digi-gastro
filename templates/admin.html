@@ -1708,6 +1708,13 @@
             .lp-preview-iframe {
                 height: 60vh;
             }
+            /* Submit-Bar auf Mobile nicht sticky — sonst schwebt sie oben
+               und verdeckt den Editor-Inhalt (UI-Bug auf Mobile) */
+            .lp-submit-bar {
+                position: static !important;
+                bottom: auto !important;
+                margin-top: 1rem;
+            }
         }
         .lp-editor-pane {
             background: #fff;
@@ -4148,7 +4155,7 @@
                 </div>
 
                 <!-- TABLE VIEW (Optional, mit Drag-Sort) -->
-                <div class="section-card hidden" id="product-table-container">
+                <div class="section-card" id="product-table-container" style="display:none;">
                     <div class="product-table-view overflow-x-auto">
                         <table class="w-full product-table">
                             <thead>
@@ -10703,24 +10710,29 @@
             } catch (err) { /* ignore */ }
         }
 
-        // View toggle (Grid / Table)
+        // View toggle (Grid / Table) — verwendet style.display statt .hidden-Klasse,
+        // weil .hidden (Tailwind) durch andere CSS-Regeln überschrieben werden kann.
         function setProductView(view) {
             const grid = document.getElementById('product-grid-container');
             const table = document.getElementById('product-table-container');
             const gridBtn = document.getElementById('view-btn-grid');
             const tableBtn = document.getElementById('view-btn-table');
             if (view === 'grid') {
-                grid.classList.remove('hidden');
-                table.classList.add('hidden');
-                gridBtn.classList.add('active');
-                tableBtn.classList.remove('active');
+                if (grid) grid.style.display = '';
+                if (table) table.style.display = 'none';
+                if (gridBtn) gridBtn.classList.add('active');
+                if (tableBtn) tableBtn.classList.remove('active');
             } else {
-                grid.classList.add('hidden');
-                table.classList.remove('hidden');
-                gridBtn.classList.remove('active');
-                tableBtn.classList.add('active');
+                if (grid) grid.style.display = 'none';
+                if (table) table.style.display = '';
+                if (gridBtn) gridBtn.classList.remove('active');
+                if (tableBtn) tableBtn.classList.add('active');
             }
-            localStorage.setItem('dl_product_view', view);
+            try { localStorage.setItem('dl_product_view', view); } catch(e) {}
+            // Re-init Sortable, falls es noch nicht initialisiert war
+            if (typeof initProductSortable === 'function') {
+                setTimeout(initProductSortable, 50);
+            }
         }
 
         // Restore last view preference
