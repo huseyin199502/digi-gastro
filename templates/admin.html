@@ -455,7 +455,7 @@
         html.light #event-modal .text-zinc-100 {
             color: #1f2937 !important;
         }
-        html.light #event-modal .text-zinc-400,
+        html.light #event-modal .text-zinc-500,
         html.light #event-modal .text-zinc-500,
         html.light #event-modal .text-zinc-600 {
             color: #4b5563 !important;
@@ -480,7 +480,7 @@
         html.light #event-modal .border-teal-300 {
             border-color: #99f6e4 !important;
         }
-        html.light #event-modal .text-emerald-600,
+        html.light #event-modal .text-emerald-700,
         html.light #event-modal .text-emerald-700 {
             color: #059669 !important;
         }
@@ -586,7 +586,7 @@
         html.dark .text-emerald-700,
         html.dark .text-amber-800,
         html.dark .text-amber-700,
-        html.dark .text-amber-600,
+        html.dark .text-amber-700,
         html.dark .text-purple-800,
         html.dark .text-purple-700,
         html.dark .text-purple-600,
@@ -605,7 +605,7 @@
         html.dark .text-gray-500,
         html.dark .text-gray-400,
         html.dark .text-zinc-500,
-        html.dark .text-zinc-400,
+        html.dark .text-zinc-500,
         html.dark .text-slate-500,
         html.dark .text-slate-400,
         html.dark .text-neutral-500,
@@ -748,7 +748,7 @@
         html.dark .seating-canvas .bg-white .text-zinc-800 {
             color: var(--gastro-text-main) !important;
         }
-        html.dark .seating-canvas .bg-white .text-zinc-400 {
+        html.dark .seating-canvas .bg-white .text-zinc-500 {
             color: var(--gastro-text-muted) !important;
         }
 
@@ -1176,14 +1176,16 @@
             transform: translateY(0);
         }
 
-        .toast-success { background-color: #10b981; }
-        .toast-error { background-color: #ef4444; }
+        .toast-success { background-color: #047857; } /* WCAG AA: white auf #047857 = 5.14:1 (vorher #10b981 = 2.54:1) */
+        .toast-error { background-color: #dc2626; }   /* WCAG AA: white auf #dc2626 = 4.97:1 (vorher #ef4444 = 3.76:1) */
 
         @media (max-width: 640px) {
             .overlay-backdrop {
                 align-items: flex-end;
                 padding: 0;
                 overflow: hidden;
+                /* iOS Safe-Area: verhindert dass Modal unter Home-Indicator verschwindet */
+                padding-bottom: env(safe-area-inset-bottom, 0);
             }
             .popup-card {
                 max-width: 100% !important;
@@ -1195,6 +1197,7 @@
                 max-height: 90vh !important;
                 display: flex;
                 flex-direction: column;
+                padding-bottom: env(safe-area-inset-bottom, 0);
             }
             .popup-body {
                 max-height: 55vh !important;
@@ -1203,14 +1206,20 @@
             }
             .popup-header { 
                 padding: 0.75rem 1rem;
+                padding-top: max(0.75rem, env(safe-area-inset-top, 0));
                 position: sticky;
                 top: 0;
                 z-index: 10;
                 flex-shrink: 0;
             }
+            .popup-header button {
+                min-width: 44px;
+                min-height: 44px;
+            }
             .popup-body { padding: 1rem; }
             .popup-footer { 
                 padding: 0.75rem 1rem;
+                padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0));
                 flex-shrink: 0;
             }
         }
@@ -1334,7 +1343,7 @@
             text-transform: uppercase;
             letter-spacing: 0.1em;
             color: var(--gastro-text-muted);
-            opacity: 0.6;
+            /* opacity entfernt — WCAG AA: Section-Label muss mind. 4.5:1 Kontrast haben */
         }
 
         .nav-divider {
@@ -1353,8 +1362,8 @@
             margin-bottom: 1.5rem;
         }
         .cms-card {
-            background: #fff;
-            border: 1px solid #e4e4e7;
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
             border-radius: 16px;
             padding: 1.25rem;
             display: flex;
@@ -1389,13 +1398,13 @@
         .cms-card-title {
             font-size: 0.95rem;
             font-weight: 800;
-            color: #18181b;
+            color: var(--gastro-text-main, #18181b);
             letter-spacing: -0.01em;
         }
         .cms-card-stat {
             font-size: 1.75rem;
             font-weight: 900;
-            color: #18181b;
+            color: var(--gastro-text-main, #18181b);
             line-height: 1;
             letter-spacing: -0.03em;
         }
@@ -1429,7 +1438,7 @@
         .cms-overview-title {
             font-size: 1.5rem;
             font-weight: 900;
-            color: #18181b;
+            color: var(--gastro-text-main, #18181b);
             letter-spacing: -0.02em;
         }
         .cms-overview-subtitle {
@@ -1447,8 +1456,8 @@
             gap: 0.75rem;
         }
         .product-tile {
-            background: #fff;
-            border: 1px solid #e4e4e7;
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
             border-radius: 12px;
             padding: 0.75rem;
             display: flex;
@@ -1463,12 +1472,12 @@
         }
         .product-tile.out-of-stock {
             opacity: 0.65;
-            background: #fafafa;
+            background: var(--gastro-bg-muted, #fafafa);
         }
         .product-tile-img {
             width: 100%;
             aspect-ratio: 4/3;
-            background: #f4f4f5;
+            background: var(--gastro-bg-muted, #f4f4f5);
             border-radius: 8px;
             overflow: hidden;
             display: flex;
@@ -1496,7 +1505,7 @@
         .product-tile-name {
             font-size: 0.85rem;
             font-weight: 800;
-            color: #18181b;
+            color: var(--gastro-text-main, #18181b);
             line-height: 1.2;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1511,7 +1520,7 @@
         .product-tile-price {
             font-size: 0.9rem;
             font-weight: 900;
-            color: #18181b;
+            color: var(--gastro-text-main, #18181b);
             font-family: ui-monospace, monospace;
         }
         .product-tile-cat {
@@ -1536,9 +1545,9 @@
             flex: 1;
             padding: 0.35rem;
             border-radius: 6px;
-            border: 1px solid #e4e4e7;
-            background: white;
-            color: #52525b;
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            background: var(--gastro-card-bg, white);
+            color: var(--gastro-text-muted, #52525b);
             cursor: pointer;
             transition: all 0.15s ease;
             display: flex;
@@ -1556,13 +1565,13 @@
             align-items: center;
         }
         .filter-chip {
-            padding: 0.35rem 0.75rem;
+            padding: 0.5rem 0.875rem; /* Touch-Target ≥44px height */
             border-radius: 999px;
-            border: 1px solid #e4e4e7;
-            background: white;
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            background: var(--gastro-card-bg, white);
             font-size: 0.7rem;
             font-weight: 700;
-            color: #52525b;
+            color: var(--gastro-text-muted, #52525b);
             cursor: pointer;
             transition: all 0.15s ease;
             display: inline-flex;
@@ -1590,11 +1599,11 @@
             background: white;
         }
         .view-toggle button {
-            padding: 0.4rem 0.6rem;
-            background: white;
+            padding: 0.6rem 0.75rem; /* Touch-Target ≥44px */
+            background: var(--gastro-card-bg, white);
             border: none;
             cursor: pointer;
-            color: #71717a;
+            color: var(--gastro-text-muted, #71717a);
             transition: all 0.15s;
         }
         .view-toggle button.active {
@@ -1611,8 +1620,8 @@
             gap: 0.5rem;
         }
         .cat-tree-group {
-            background: #fafafa;
-            border: 1px solid #e4e4e7;
+            background: var(--gastro-bg-muted, #fafafa);
+            border: 1px solid var(--gastro-border, #e4e4e7);
             border-radius: 12px;
             overflow: hidden;
         }
@@ -1620,9 +1629,9 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.625rem 0.875rem;
-            background: white;
-            border-bottom: 1px solid #f4f4f5;
+            padding: 0.75rem 0.875rem; /* Touch-Target ≥44px */
+            background: var(--gastro-card-bg, white);
+            border-bottom: 1px solid var(--gastro-border, #f4f4f5);
             cursor: pointer;
             user-select: none;
         }
@@ -1657,9 +1666,9 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            background: white;
-            border: 1px solid #e4e4e7;
+            padding: 0.625rem 0.75rem; /* Touch-Target ≥40px (nearly 44) */
+            background: var(--gastro-card-bg, white);
+            border: 1px solid var(--gastro-border, #e4e4e7);
             border-radius: 8px;
             transition: all 0.15s ease;
         }
@@ -1735,8 +1744,8 @@
             }
         }
         .lp-editor-pane {
-            background: #fff;
-            border: 1px solid #e4e4e7;
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
             border-radius: 16px;
             padding: 1rem;
             max-height: calc(100vh - 100px);
@@ -1750,8 +1759,8 @@
         .lp-editor-pane::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
         .lp-editor-pane::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
         .lp-preview-pane {
-            background: #fff;
-            border: 1px solid #e4e4e7;
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
             border-radius: 16px;
             overflow: hidden;
             position: sticky;
@@ -1761,7 +1770,7 @@
             flex-direction: column;
         }
         .lp-preview-header {
-            background: #f4f4f5;
+            background: var(--gastro-bg-muted, #f4f4f5);
             padding: 0.5rem 0.75rem;
             display: flex;
             justify-content: space-between;
@@ -1792,7 +1801,7 @@
         .lp-preview-iframe-wrap {
             flex: 1;
             overflow: auto;
-            background: #f4f4f5;
+            background: var(--gastro-bg-muted, #f4f4f5);
             min-height: 400px;
         }
         .lp-preview-iframe {
@@ -1821,15 +1830,15 @@
             flex-direction: column;
             align-items: center;
             gap: 0.25rem;
-            padding: 0.75rem 0.5rem;
-            border: 1px dashed #d4d4d8;
+            padding: 0.875rem 0.5rem; /* Touch-Target ≥44px */
+            border: 1px dashed var(--gastro-border, #d4d4d8);
             border-radius: 10px;
-            background: #fafafa;
+            background: var(--gastro-bg-muted, #fafafa);
             cursor: pointer;
             transition: all 0.15s ease;
             font-size: 0.7rem;
             font-weight: 700;
-            color: #52525b;
+            color: var(--gastro-text-muted, #52525b);
         }
         .lp-template-btn:hover {
             border-color: var(--gastro, #009900);
@@ -1876,7 +1885,49 @@
         }
         .lp-submit-bar button {
             width: 100%;
+            min-height: 48px; /* Touch-Target ≥44px */
             box-shadow: 0 -4px 12px -4px rgba(0,0,0,0.08);
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           HAUPTGRUPPEN-BADGE-LEISTE für Tisch-Kacheln (Sitzplan)
+           Farbcodierte Segmente unten an jeder Tisch-Kachel.
+           Shisha = lila, Getränke = blau, Snacks = orange (Hauptgruppen-Farben)
+           ═══════════════════════════════════════════════════════ */
+        .tile-sg-bar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 5px;
+            display: flex;
+            overflow: hidden;
+            border-bottom-left-radius: inherit;
+            border-bottom-right-radius: inherit;
+            box-shadow: 0 -1px 2px rgba(0,0,0,0.05);
+            z-index: 5;
+            pointer-events: none; /* Klicks gehen an die Tisch-Kachel durch */
+        }
+        .tile-sg-segment {
+            height: 100%;
+            min-width: 4px; /* Mindestbreite damit auch 1 Artikel sichtbar ist */
+            transition: width 0.2s ease;
+        }
+        /* Auf Mobile die Leiste etwas dicker für bessere Sichtbarkeit */
+        @media (max-width: 640px) {
+            .tile-sg-bar { height: 7px; }
+        }
+        /* In der runden Tisch-Form die Leiste ebenfalls rund */
+        .sitzplan-table.round .tile-sg-bar {
+            border-radius: 0 0 50% 50% / 0 0 30% 30%;
+        }
+        /* Hover: Leiste wird etwas dicker für bessere Erkennung */
+        .sitzplan-table:hover .tile-sg-bar {
+            height: 7px;
+            transition: height 0.15s ease;
+        }
+        @media (max-width: 640px) {
+            .sitzplan-table:hover .tile-sg-bar { height: 9px; }
         }
 
         nav .nav-btn {
@@ -2127,13 +2178,15 @@
 
         .breadcrumb-sep {
             color: var(--gastro-text-muted);
-            opacity: 0.4;
             margin: 0 0.25rem;
+            /* opacity: 0.4 entfernt — WCAG AA: Breadcrumb muss lesbar bleiben */
         }
 
         .hamburger-btn {
             display: none;
             padding: 0.5rem;
+            min-width: 44px; /* Touch-Target */
+            min-height: 44px; /* Touch-Target */
             border-radius: 0.75rem;
             border: 1px solid var(--gastro-border);
             background: var(--gastro-card-bg);
@@ -2413,10 +2466,14 @@
             font-weight: 700;
             font-size: 0.75rem;
             padding: 0.625rem 1rem;
+            min-height: 44px; /* WCAG 2.5.5: Touch-Target ≥44px (Apple HIG) */
             border-radius: 0.75rem;
             transition: all 0.2s;
             border: none;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.3);
         }
         .btn-primary:hover {
@@ -2431,10 +2488,14 @@
             font-weight: 700;
             font-size: 0.75rem;
             padding: 0.625rem 1rem;
+            min-height: 44px; /* WCAG 2.5.5: Touch-Target ≥44px */
             border-radius: 0.75rem;
             transition: all 0.2s;
             border: none;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .btn-secondary:hover {
             background: #374151;
@@ -3708,7 +3769,7 @@
                     <span class="material-symbols-outlined" style="font-size:20px;">menu</span>
                 </button>
                 <div class="hidden lg:flex items-center gap-2">
-                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Dashboard</span>
+                    <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dashboard</span>
                     <span class="breadcrumb-sep">/</span>
                 </div>
                 <span id="breadcrumb-current" class="text-sm font-extrabold text-zinc-800 tracking-tight">Sitzplan</span>
@@ -3807,35 +3868,35 @@
                     <div class="section-card-body">
                         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                             <button onclick="openQuickCreateModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-gastro hover:bg-emerald-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-gastro" style="font-size:28px;">add_circle</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-gastro" style="font-size:28px;">add_circle</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Produkt erstellen</span>
                             </button>
                             <button onclick="switchAdminTab('kategorien')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-blue-500" style="font-size:28px;">create_new_folder</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-blue-500" style="font-size:28px;">create_new_folder</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Kategorie anlegen</span>
                             </button>
                             <button onclick="openEventCreateModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-amber-500" style="font-size:28px;">celebration</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-amber-500" style="font-size:28px;">celebration</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Event erstellen</span>
                             </button>
                             <button onclick="switchAdminTab('landingpage')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-purple-500" style="font-size:28px;">campaign</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-purple-600" style="font-size:28px;">campaign</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Landingpage bearbeiten</span>
                             </button>
                             <a href="/admin/products/export-csv" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">download</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-zinc-700" style="font-size:28px;">download</span>
                                 <span class="text-[11px] font-bold text-zinc-700">CSV Export</span>
                             </a>
                             <button onclick="openCsvImportModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">upload</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-zinc-700" style="font-size:28px;">upload</span>
                                 <span class="text-[11px] font-bold text-zinc-700">CSV Import</span>
                             </button>
                             <a href="/{{ slug }}" target="_blank" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">open_in_new</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-zinc-700" style="font-size:28px;">open_in_new</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Live-Seite</span>
                             </a>
                             <button onclick="switchAdminTab('einstellungen')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-zinc-400 hover:bg-zinc-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-400 group-hover:text-zinc-700" style="font-size:28px;">settings</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-zinc-700" style="font-size:28px;">settings</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Einstellungen</span>
                             </button>
                         </div>
@@ -3860,7 +3921,7 @@
                     </div>
                     
                     <div class="flex flex-wrap items-center gap-3">
-                        <div id="edit-instructions" class="hidden text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl">
+                        <div id="edit-instructions" class="hidden text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl">
                             💡 Doppelklick auf Tisch zum Ändern der Form. Drag zum Bewegen. Eckgriff zum Skalieren.
                         </div>
                         <button id="btn-sort-tables" onclick="autoSortTablesGridAndSave()" class="px-4 py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition flex items-center gap-1.5 shadow">
@@ -3892,10 +3953,10 @@
                 <div class="reports-day-card mb-6">
                     <div class="reports-day-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-emerald-600" style="font-size:18px;">today</span>
+                            <span class="material-symbols-outlined text-emerald-700" style="font-size:18px;">today</span>
                             <span class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Tagesumsatz</span>
                         </div>
-                        <span class="text-[10px] text-zinc-400 font-medium" id="kpi-day-date"></span>
+                        <span class="text-[10px] text-zinc-500 font-medium" id="kpi-day-date"></span>
                     </div>
                     <div class="reports-day-card-value" id="kpi-day-total">
                         {% if restaurant.price_mode == 'netto' %}
@@ -3906,7 +3967,7 @@
                     </div>
                     <div class="reports-day-card-sub">
                         <span id="kpi-day-bons">{{ stats.orders_count }} Bons</span>
-                        <span class="text-zinc-300">·</span>
+                        <span class="text-zinc-400">·</span>
                         <span>Ø <span id="kpi-day-avg">{{ "%.2f"|format(stats.avg_basket) }} €</span> pro Bon</span>
                     </div>
                 </div>
@@ -3928,7 +3989,7 @@
                                 <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Von</label>
                                 <input type="date" id="report-date-from" class="reports-date-input">
                             </div>
-                            <div class="text-zinc-400 text-sm font-bold hidden sm:block pb-2">–</div>
+                            <div class="text-zinc-500 text-sm font-bold hidden sm:block pb-2">–</div>
                             <div class="flex-1">
                                 <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Bis</label>
                                 <input type="date" id="report-date-to" class="reports-date-input">
@@ -4028,9 +4089,9 @@
                     </div>
                     <!-- Empty state -->
                     <div id="orders-empty-state" class="hidden py-10 text-center">
-                        <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">receipt_long</span>
-                        <p class="text-xs text-zinc-400 font-semibold mt-2">Keine Bestellungen gefunden</p>
-                        <p class="text-[10px] text-zinc-300 mt-1">Versuche andere Filter oder Suchbegriffe</p>
+                        <span class="material-symbols-outlined text-zinc-400" style="font-size:40px;">receipt_long</span>
+                        <p class="text-xs text-zinc-500 font-semibold mt-2">Keine Bestellungen gefunden</p>
+                        <p class="text-[10px] text-zinc-400 mt-1">Versuche andere Filter oder Suchbegriffe</p>
                     </div>
                     <!-- Pagination -->
                     <div id="orders-pagination" class="orders-pagination"></div>
@@ -4072,23 +4133,23 @@
                         <div class="flex flex-col gap-3">
                             <!-- Search Row -->
                             <div class="relative flex-1">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" style="font-size:18px;">search</span>
+                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" style="font-size:18px;">search</span>
                                 <input type="text" id="product-search" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
                             </div>
                             <!-- Filter Chips Row -->
                             <div class="flex flex-wrap gap-2 items-center">
-                                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mr-1">Status:</span>
+                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mr-1">Status:</span>
                                 <button class="filter-chip active" data-filter-type="status" data-filter-value="all" onclick="setProductFilter('status','all', this)">Alle <span class="count" id="count-status-all">0</span></button>
                                 <button class="filter-chip" data-filter-type="status" data-filter-value="true" onclick="setProductFilter('status','true', this)">Aktiv <span class="count" id="count-status-true">0</span></button>
                                 <button class="filter-chip" data-filter-type="status" data-filter-value="false" onclick="setProductFilter('status','false', this)">Ausverkauft <span class="count" id="count-status-false">0</span></button>
-                                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mx-2">Aktion:</span>
+                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mx-2">Aktion:</span>
                                 <button class="filter-chip active" data-filter-type="hh" data-filter-value="all" onclick="setProductFilter('hh','all', this)">Alle</button>
                                 <button class="filter-chip" data-filter-type="hh" data-filter-value="true" onclick="setProductFilter('hh','true', this)">Mit Aktion</button>
                                 <button class="filter-chip" data-filter-type="hh" data-filter-value="false" onclick="setProductFilter('hh','false', this)">Ohne Aktion</button>
                             </div>
                             <!-- Kategorie Chips -->
                             <div class="flex flex-wrap gap-2 items-center" id="category-chips-row">
-                                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mr-1">Kategorie:</span>
+                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mr-1">Kategorie:</span>
                                 <button class="filter-chip active" data-filter-type="cat" data-filter-value="all" onclick="setProductFilter('cat','all', this)">Alle</button>
                                 {% for cat in restaurant.categories %}
                                 <button class="filter-chip" data-filter-type="cat" data-filter-value="{{ cat }}" onclick="setProductFilter('cat','{{ cat | replace("'", "\\'") }}', this)">{{ cat }}</button>
@@ -4121,7 +4182,7 @@
                                     {% if p.image and not p.image.lower().endswith('.pdf') %}
                                         <img src="{{ p.image }}" alt="{{ p.name }}" loading="lazy" decoding="async">
                                     {% else %}
-                                        <span class="material-symbols-outlined text-zinc-400" style="font-size:32px;">fastfood</span>
+                                        <span class="material-symbols-outlined text-zinc-500" style="font-size:32px;">fastfood</span>
                                     {% endif %}
                                     {% if not p.is_available %}
                                     <span class="product-tile-badge">AUS</span>
@@ -4129,14 +4190,14 @@
                                 </div>
                                 <div class="product-tile-name" title="{{ p.name }}">{{ p.name }}</div>
                                 {% if p.description %}
-                                <div class="text-[10px] text-zinc-400 truncate" title="{{ p.description }}">{{ p.description }}</div>
+                                <div class="text-[10px] text-zinc-500 truncate" title="{{ p.description }}">{{ p.description }}</div>
                                 {% endif %}
                                 <div class="product-tile-meta">
                                     <span class="product-tile-price">{{ "%.2f"|format(p.price) }} €</span>
                                     <span class="product-tile-cat" title="{{ p.category }}">{{ p.category }}</span>
                                 </div>
                                 {% if p.happy_hour_price %}
-                                <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200 w-fit">
+                                <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-700 border border-amber-200 w-fit">
                                     <span class="material-symbols-outlined" style="font-size:10px;">schedule</span>
                                     {{ "%.2f"|format(p.happy_hour_price) }}€
                                 </div>
@@ -4154,9 +4215,9 @@
                         </div>
                         {% if not restaurant.products %}
                         <div class="py-10 text-center">
-                            <span class="material-symbols-outlined text-zinc-300" style="font-size:40px;">restaurant_menu</span>
-                            <p class="text-xs text-zinc-400 font-semibold mt-2">Noch keine Produkte angelegt</p>
-                            <p class="text-[10px] text-zinc-300 mt-1">Erstelle dein erstes Produkt mit dem Button oben</p>
+                            <span class="material-symbols-outlined text-zinc-400" style="font-size:40px;">restaurant_menu</span>
+                            <p class="text-xs text-zinc-500 font-semibold mt-2">Noch keine Produkte angelegt</p>
+                            <p class="text-[10px] text-zinc-400 mt-1">Erstelle dein erstes Produkt mit dem Button oben</p>
                         </div>
                         {% endif %}
                     </div>
@@ -4196,14 +4257,14 @@
                                             {% if p.image and not p.image.lower().endswith('.pdf') %}
                                                 <img src="{{ p.image }}" alt="{{ p.name }}" class="relative z-10 max-w-full max-h-full object-contain" loading="lazy" decoding="async" style="width:32px;height:32px;">
                                             {% else %}
-                                                <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">fastfood</span>
+                                                <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">fastfood</span>
                                             {% endif %}
                                         </div>
                                     </td>
                                     <td>
                                         <div class="font-extrabold text-xs text-zinc-800">{{ p.name }}</div>
                                         {% if p.description %}
-                                        <div class="text-[10px] text-zinc-400 truncate max-w-[200px] sm:max-w-xs">{{ p.description }}</div>
+                                        <div class="text-[10px] text-zinc-500 truncate max-w-[200px] sm:max-w-xs">{{ p.description }}</div>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -4228,12 +4289,12 @@
                                     </td>
                                     <td>
                                         {% if p.happy_hour_price %}
-                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200">
+                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-700 border border-amber-200">
                                             <span class="material-symbols-outlined" style="font-size:10px;">schedule</span>
                                             {{ "%.2f"|format(p.happy_hour_price) }}€
                                         </span>
                                         {% else %}
-                                        <span class="text-zinc-300">—</span>
+                                        <span class="text-zinc-400">—</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -4279,12 +4340,12 @@
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">account_tree</span>
                             <h3 class="font-extrabold text-sm text-zinc-800">Struktur</h3>
                         </div>
-                        <span class="text-[10px] font-bold text-zinc-400" id="cat-tree-summary">{{ restaurant.categories | length }} Kategorien</span>
+                        <span class="text-[10px] font-bold text-zinc-500" id="cat-tree-summary">{{ restaurant.categories | length }} Kategorien</span>
                     </div>
                     <div class="section-card-body">
                         <!-- Tree wird per JS gerendert (renderCategoryTree) -->
                         <div class="cat-tree" id="cat-tree-container">
-                            <div class="text-center py-8 text-zinc-400 text-xs">
+                            <div class="text-center py-8 text-zinc-500 text-xs">
                                 <span class="material-symbols-outlined" style="font-size:32px;">account_tree</span>
                                 <p class="mt-2 font-semibold">Lade Struktur...</p>
                             </div>
@@ -4370,12 +4431,12 @@
                                 <input type="color" id="super-group-color" value="#6366f1" class="w-12 h-10 rounded-lg border border-zinc-200 cursor-pointer">
                                 <input type="text" id="super-group-color-text" value="#6366f1" class="form-field flex-1 font-mono text-xs uppercase" maxlength="7">
                             </div>
-                            <p class="text-[9px] text-zinc-400 mt-1">Textfarbe wird automatisch an Hintergrund angepasst (weiß/schwarz)</p>
+                            <p class="text-[9px] text-zinc-500 mt-1">Textfarbe wird automatisch an Hintergrund angepasst (weiß/schwarz)</p>
                         </div>
                         <div>
                             <label class="form-label">Icon (optional)</label>
                             <input type="text" id="super-group-icon" placeholder="z.B. local_bar, restaurant, whatshot" class="form-field">
-                            <p class="text-[9px] text-zinc-400 mt-1">
+                            <p class="text-[9px] text-zinc-500 mt-1">
                                 Material Symbol Name — siehe <a href="https://fonts.google.com/icons" target="_blank" class="text-indigo-500 underline">fonts.google.com/icons</a>
                             </p>
                         </div>
@@ -4411,7 +4472,7 @@
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">celebration</span>
                             <h3 class="font-extrabold text-sm text-zinc-800">Aktive Events</h3>
                         </div>
-                        <span class="text-[10px] font-bold text-zinc-400" id="events-count-badge">0 Events</span>
+                        <span class="text-[10px] font-bold text-zinc-500" id="events-count-badge">0 Events</span>
                     </div>
                     <div class="section-card-body">
                         <p class="text-[11px] text-zinc-500 leading-relaxed mb-4">
@@ -4421,9 +4482,9 @@
                             <!-- Populated by JS -->
                         </div>
                         <div id="events-empty" class="text-center py-8 hidden">
-                            <span class="material-symbols-outlined text-4xl text-zinc-300 mb-2">celebration</span>
-                            <p class="text-xs text-zinc-400 font-bold">Noch keine Events erstellt</p>
-                            <p class="text-[10px] text-zinc-400">Klicke auf "Neues Event" um dein erstes Event anzulegen</p>
+                            <span class="material-symbols-outlined text-4xl text-zinc-400 mb-2">celebration</span>
+                            <p class="text-xs text-zinc-500 font-bold">Noch keine Events erstellt</p>
+                            <p class="text-[10px] text-zinc-500">Klicke auf "Neues Event" um dein erstes Event anzulegen</p>
                         </div>
                     </div>
                 </div>
@@ -4435,7 +4496,7 @@
                 <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
                     <div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 px-6 py-4 flex items-center justify-between">
                         <h3 id="event-modal-title" class="font-extrabold text-base text-zinc-800 dark:text-zinc-100">Neues Event</h3>
-                        <button onclick="closeEventModal()" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
+                        <button onclick="closeEventModal()" class="text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
                             <span class="material-symbols-outlined">close</span>
                         </button>
                     </div>
@@ -4446,14 +4507,14 @@
                         <div>
                             <label class="form-label mb-1">Event-Name (intern)</label>
                             <input type="text" id="event-name" placeholder="z.B. Ladys Night" class="form-field">
-                            <p class="text-[9px] text-zinc-400 mt-1">Wird nur im Admin-Bereich angezeigt</p>
+                            <p class="text-[9px] text-zinc-500 mt-1">Wird nur im Admin-Bereich angezeigt</p>
                         </div>
 
                         <!-- Display Name for Guests -->
                         <div>
                             <label class="form-label mb-1">Anzeigename für Gäste</label>
                             <input type="text" id="event-display-name" placeholder="z.B. Ladys Night, Hookah Night, Lunch Deal" class="form-field">
-                            <p class="text-[9px] text-zinc-400 mt-1">Dieser Name wird deinen Gästen im Menü als Badge angezeigt</p>
+                            <p class="text-[9px] text-zinc-500 mt-1">Dieser Name wird deinen Gästen im Menü als Badge angezeigt</p>
                         </div>
 
                         <!-- Description -->
@@ -4505,7 +4566,7 @@
                             </label>
                             <div>
                                 <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200">Event aktiv</span>
-                                <p class="text-[9px] text-zinc-400">Nur aktive Events werden Gästen angezeigt</p>
+                                <p class="text-[9px] text-zinc-500">Nur aktive Events werden Gästen angezeigt</p>
                             </div>
                         </div>
 
@@ -4513,9 +4574,9 @@
                         <div>
                             <div class="flex items-center justify-between mb-3">
                                 <label class="form-label mb-0">Event-Produkte</label>
-                                <span id="event-product-count" class="text-[10px] font-bold text-amber-600 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">0 ausgewählt</span>
+                                <span id="event-product-count" class="text-[10px] font-bold text-amber-700 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">0 ausgewählt</span>
                             </div>
-                            <p class="text-[10px] text-zinc-400 mb-3">Wähle Produkte und setze den Eventpreis. Der Originalpreis wird durchgestrichen angezeigt.</p>
+                            <p class="text-[10px] text-zinc-500 mb-3">Wähle Produkte und setze den Eventpreis. Der Originalpreis wird durchgestrichen angezeigt.</p>
                             <div class="space-y-2 max-h-[400px] overflow-y-auto pr-1" id="event-products-list">
                                 <!-- Populated by JS -->
                             </div>
@@ -4532,7 +4593,7 @@
                                     <span class="material-symbols-outlined" style="font-size:12px;">add</span> Neue Kombi
                                 </button>
                             </div>
-                            <p class="text-[10px] text-zinc-400 mb-3">Erstelle Kombipreise (z.B. Cola + Shisha = 18€). Wähle einzelne Produkte oder ganze Kategorien.</p>
+                            <p class="text-[10px] text-zinc-500 mb-3">Erstelle Kombipreise (z.B. Cola + Shisha = 18€). Wähle einzelne Produkte oder ganze Kategorien.</p>
                             <div class="space-y-3" id="event-combos-list">
                                 <!-- Populated by JS -->
                             </div>
@@ -4579,7 +4640,7 @@
                                 <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">badge</span>
                                 <h3 class="font-extrabold text-sm text-zinc-800">Service-Personal</h3>
                             </div>
-                            <span class="text-[10px] font-bold text-zinc-400">{{ restaurant.staff | length }} Mitarbeiter</span>
+                            <span class="text-[10px] font-bold text-zinc-500">{{ restaurant.staff | length }} Mitarbeiter</span>
                         </div>
                         <div class="section-card-body space-y-4">
                             <form action="/admin/staff" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
@@ -4604,7 +4665,7 @@
                                             <div class="staff-avatar">{{ member.name[:2].upper() }}</div>
                                             <div>
                                                 <span class="font-bold text-xs text-zinc-800">{{ member.name }}</span>
-                                                <span class="text-[10px] text-zinc-400 font-mono ml-2">PIN: {{ member.pin }}</span>
+                                                <span class="text-[10px] text-zinc-500 font-mono ml-2">PIN: {{ member.pin }}</span>
                                             </div>
                                         </div>
                                         <form action="/admin/staff-loeschen/{{ member.pin }}" method="POST" class="inline" onsubmit="return confirm('Mitarbeiter löschen?')">
@@ -4649,7 +4710,7 @@
                         <div class="section-card mb-4">
                             <div class="section-card-header">
                                 <div class="flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-emerald-600" style="font-size:18px;">waving_hand</span>
+                                    <span class="material-symbols-outlined text-emerald-700" style="font-size:18px;">waving_hand</span>
                                     <h3 class="font-extrabold text-sm text-zinc-800">Willkommens-Bereich</h3>
                                 </div>
                             </div>
@@ -4675,10 +4736,10 @@
                         <div class="section-card mb-4">
                             <div class="section-card-header">
                                 <div class="flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-blue-600" style="font-size:18px;">dashboard_customize</span>
+                                    <span class="material-symbols-outlined text-blue-700" style="font-size:18px;">dashboard_customize</span>
                                     <h3 class="font-extrabold text-sm text-zinc-800">Eigene Sektionen</h3>
                                 </div>
-                                <span class="text-[10px] font-bold text-zinc-400" id="lp-sections-count">0 Sektionen</span>
+                                <span class="text-[10px] font-bold text-zinc-500" id="lp-sections-count">0 Sektionen</span>
                             </div>
                             <div class="section-card-body">
                                 <!-- Section Templates (Quick Add) -->
@@ -4711,7 +4772,7 @@
                                 </div>
 
                                 <details class="mb-3">
-                                    <summary class="cursor-pointer text-[10px] font-bold text-blue-600 hover:text-blue-700">Markdown-Formatierung anzeigen</summary>
+                                    <summary class="cursor-pointer text-[10px] font-bold text-blue-700 hover:text-blue-700">Markdown-Formatierung anzeigen</summary>
                                     <div class="bg-blue-50 dark:bg-zinc-800 rounded-lg p-2 mt-2 text-[9px] text-blue-700 dark:text-blue-300 font-bold leading-relaxed">
                                         <code>**fett**</code> = <strong>fett</strong> &nbsp;|&nbsp;
                                         <code>*kursiv*</code> = <em>kursiv</em><br>
@@ -4744,8 +4805,8 @@
                                     <div class="landing-section-item bg-white p-3 rounded-xl border border-purple-100 space-y-2" data-section-type="custom">
                                         <div class="flex items-center justify-between">
                                             <div class="flex items-center gap-2">
-                                                <span class="material-symbols-outlined text-zinc-400 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
-                                                <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
+                                                <span class="material-symbols-outlined text-zinc-500 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
+                                                <span class="material-symbols-outlined text-purple-600 text-sm">extension</span>
                                                 <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                                             </div>
                                             <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
@@ -4780,7 +4841,7 @@
                         <div class="section-card mb-4">
                             <div class="section-card-header">
                                 <div class="flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-amber-600" style="font-size:18px;">star</span>
+                                    <span class="material-symbols-outlined text-amber-700" style="font-size:18px;">star</span>
                                     <h3 class="font-extrabold text-sm text-zinc-800">Was wir bieten / Highlights</h3>
                                 </div>
                             </div>
@@ -4790,7 +4851,7 @@
                                         <label class="form-label">Titel: Was wir bieten</label>
                                         <input type="text" name="title_what_we_offer" value="{{ restaurant.landing_page.title_what_we_offer if restaurant.landing_page else '' }}" placeholder="Standard: Was wir bieten" class="form-field" oninput="markLandingUnsaved();">
                                     </div>
-                                    <div class="text-[9px] text-amber-600 font-bold self-end">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
+                                    <div class="text-[9px] text-amber-700 font-bold self-end">Bilder & Videos m&ouml;glich | Videos max. 40s</div>
                                 </div>
                                 <input type="file" name="offer_images" multiple accept="image/*,video/mp4,video/webm,video/quicktime,video/*" class="form-field">
                                 {% if restaurant.landing_page and restaurant.landing_page.offer_images %}
@@ -4833,7 +4894,7 @@
                                 <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-100">
                                     <div>
                                         <div class="font-bold text-xs text-zinc-700">Diashow aktivieren</div>
-                                        <div class="text-[9px] text-zinc-400">L&auml;uft im Hintergrund der Landingpage</div>
+                                        <div class="text-[9px] text-zinc-500">L&auml;uft im Hintergrund der Landingpage</div>
                                     </div>
                                     <label class="switch">
                                         <input type="checkbox" name="slideshow_enabled" value="true" {% if restaurant.landing_page and restaurant.landing_page.slideshow_enabled %}checked{% endif %}>
@@ -4968,7 +5029,7 @@
                             {% if restaurant.branding and restaurant.branding.logo_url %}
                             <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
                                 <img src="{{ restaurant.branding.logo_url }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg border border-gray-200" decoding="async">
-                                <span class="text-[10px] text-zinc-400 font-bold">Aktuelles Logo</span>
+                                <span class="text-[10px] text-zinc-500 font-bold">Aktuelles Logo</span>
                             </div>
                             {% endif %}
                             <div>
@@ -5027,7 +5088,7 @@
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
                             <div>
                                 <h4 class="font-bold text-xs text-zinc-800">Shisha-Bar Modus</h4>
-                                <p class="text-[10px] text-zinc-400 mt-0.5">Aktiviert Kohle/Shisha-Rufoptionen im G&auml;stemen&uuml;</p>
+                                <p class="text-[10px] text-zinc-500 mt-0.5">Aktiviert Kohle/Shisha-Rufoptionen im G&auml;stemen&uuml;</p>
                             </div>
                             <form action="/admin/shishabar-toggle" method="POST" class="inline flex items-center">
                                 <label class="switch">
@@ -5039,7 +5100,7 @@
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
                             <div>
                                 <h4 class="font-bold text-xs text-zinc-800">Kartenzahlung akzeptieren</h4>
-                                <p class="text-[10px] text-zinc-400 mt-0.5">Aktiviert/Deaktiviert die Option zur Kartenzahlung im G&auml;stemen&uuml;</p>
+                                <p class="text-[10px] text-zinc-500 mt-0.5">Aktiviert/Deaktiviert die Option zur Kartenzahlung im G&auml;stemen&uuml;</p>
                             </div>
                             <form action="/admin/card-payment-toggle" method="POST" class="inline flex items-center">
                                 <label class="switch">
@@ -5083,7 +5144,7 @@
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">qr_code</span>
                             <h3 class="font-extrabold text-sm text-zinc-800">QR & Tische</h3>
                         </div>
-                        <span class="material-symbols-outlined accordion-arrow text-zinc-400" style="font-size:20px;">expand_more</span>
+                        <span class="material-symbols-outlined accordion-arrow text-zinc-500" style="font-size:20px;">expand_more</span>
                     </div>
                     <div class="accordion-body">
                         <div class="section-card-body">
@@ -5184,10 +5245,10 @@
                 <!-- General actions block -->
                 <div id="control-general-actions">
                     <div class="flex gap-2">
-                        <button id="btn-serve-all-cockpit" onclick="serveAllControlPending()" class="flex-1 py-2.5 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
+                        <button id="btn-serve-all-cockpit" onclick="serveAllControlPending()" class="flex-1 py-2.5 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
                             <span class="material-symbols-outlined text-sm">done_all</span> Alle servieren
                         </button>
-                        <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="flex-1 py-2.5 border border-gray-200 hover:bg-gray-50 text-zinc-700 dark:text-zinc-300 dark:border-zinc-600 dark:hover:bg-zinc-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
+                        <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="flex-1 py-2.5 border border-gray-200 hover:bg-gray-50 text-zinc-700 dark:text-zinc-400 dark:border-zinc-600 dark:hover:bg-zinc-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
                             <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung
                         </button>
                     </div>
@@ -5218,7 +5279,7 @@
             <div class="popup-body space-y-4">
                 <!-- Quantity Selector -->
                 <div id="item-action-qty-container" class="flex flex-col items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl p-3">
-                    <span class="text-[10px] font-bold text-zinc-400 uppercase">Teilmenge auswählen</span>
+                    <span class="text-[10px] font-bold text-zinc-500 uppercase">Teilmenge auswählen</span>
                     <div class="flex items-center gap-4">
                         <button onclick="changeItemActionQty(-1)" style="touch-action: manipulation;" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">-</button>
                         <span id="item-action-qty-text" class="font-black text-lg min-w-[30px] text-center">1</span>
@@ -5337,7 +5398,7 @@
                     </label>
                 </div>
                 
-                <p class="text-[10px] text-zinc-400">
+                <p class="text-[10px] text-zinc-500">
                     <strong>Hinweis:</strong> Die CSV-Datei sollte Spalten wie <code>name</code>, <code>price</code>, <code>category</code>, <code>category_type</code> und <code>description</code> enthalten. Wenn "Überschreiben" nicht ausgewählt ist, werden neue Produkte hinzugefügt und bestehende aktualisiert.
                 </p>
                 
@@ -5356,9 +5417,9 @@
         <div class="flex items-center justify-between p-4 border-b border-zinc-200">
             <div>
                 <h2 class="font-extrabold text-sm text-zinc-800">Produkt bearbeiten</h2>
-                <p class="text-[10px] text-zinc-400 mt-0.5" id="edit-slide-over-subtitle">Produkt-Details &auml;ndern</p>
+                <p class="text-[10px] text-zinc-500 mt-0.5" id="edit-slide-over-subtitle">Produkt-Details &auml;ndern</p>
             </div>
-            <button onclick="closeEditSlideOver()" class="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 transition">
+            <button onclick="closeEditSlideOver()" class="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition">
                 <span class="material-symbols-outlined" style="font-size:18px;">close</span>
             </button>
         </div>
@@ -5449,7 +5510,7 @@
                 </div>
                 <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-3">
                     <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-amber-600" style="font-size:16px;">schedule</span>
+                        <span class="material-symbols-outlined text-amber-700" style="font-size:16px;">schedule</span>
                         Aktionspreis
                     </h4>
                     <div>
@@ -6348,11 +6409,11 @@
                     const oStatus = (o.status || '').toLowerCase();
                     let statusHtml = '';
                     if (oStatus === 'bezahlt') {
-                        statusHtml = '<span class="bg-emerald-500/10 text-emerald-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Bezahlt</span>';
+                        statusHtml = '<span class="bg-emerald-500/10 text-emerald-700 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Bezahlt</span>';
                     } else if (oStatus === 'storniert') {
                         statusHtml = '<span class="bg-rose-500/10 text-rose-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Storniert</span>';
                     } else {
-                        statusHtml = '<span class="bg-amber-500/10 text-amber-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide animate-pulse">Aktiv</span>';
+                        statusHtml = '<span class="bg-amber-500/10 text-amber-700 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide animate-pulse">Aktiv</span>';
                     }
                     
                     const total = typeof o.total === 'number' ? o.total.toFixed(2).replace('.', ',') : '0,00';
@@ -6367,7 +6428,7 @@
                     } else if (originalTotal !== null && originalTotal > o.total && o.total > 0) {
                         // Teilzahlung: zeige Restbetrag + (ursprünglich)
                         totalHtml = `<span class="text-zinc-900 font-mono">${total} €</span>` +
-                                    `<div class="text-[9px] text-zinc-400 font-mono">orig: ${originalTotal.toFixed(2).replace('.', ',')} €</div>`;
+                                    `<div class="text-[9px] text-zinc-500 font-mono">orig: ${originalTotal.toFixed(2).replace('.', ',')} €</div>`;
                     } else {
                         totalHtml = `<span class="text-zinc-900 font-mono">${total} €</span>`;
                     }
@@ -6583,7 +6644,7 @@
             const items = order.items || [];
             let itemsHtml = '';
             if (items.length === 0) {
-                itemsHtml = '<div class="text-xs text-zinc-400 italic py-3 text-center">Keine Artikel mehr auf diesem Bon — alle Artikel wurden einzeln bezahlt, storniert oder auf einen anderen Tisch umbucht.</div>';
+                itemsHtml = '<div class="text-xs text-zinc-500 italic py-3 text-center">Keine Artikel mehr auf diesem Bon — alle Artikel wurden einzeln bezahlt, storniert oder auf einen anderen Tisch umbucht.</div>';
             } else {
                 // Nutze die gleiche Gruppierungslogik wie das Kasse-Popup
                 const groups = groupItemsBySuperGroup(items);
@@ -6879,7 +6940,7 @@
                             ${iconHtml}
                             <span class="cat-tree-group-name">${escapeHtml(sg.name)}</span>
                             <span class="cat-tree-group-count">${groupCats.length} Kat · ${totalProducts} Prod</span>
-                            <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">expand_more</span>
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">expand_more</span>
                         </div>
                         <div class="cat-tree-children">
                 `;
@@ -6890,10 +6951,10 @@
                         const pCount = countByCat[catName] || 0;
                         html += `
                             <div class="cat-tree-item">
-                                <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">folder_open</span>
+                                <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">folder_open</span>
                                 <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
                                 <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
-                                <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-400 hover:text-emerald-500 p-0.5" title="Bearbeiten">
+                                <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-500 p-0.5" title="Bearbeiten">
                                     <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                                 </button>
                                 <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \\'${catName.replace(/'/g, "\\'")}\\' löschen? Alle Produkte darin verlieren ihre Kategorie!')">
@@ -6919,7 +6980,7 @@
                             <span class="material-symbols-outlined" style="font-size:14px;color:#6b7280;">folder_special</span>
                             <span class="cat-tree-group-name">Ohne Hauptgruppe (Sonstiges)</span>
                             <span class="cat-tree-group-count">${orphanCats.length} Kat · ${orphanTotal} Prod</span>
-                            <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">expand_more</span>
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">expand_more</span>
                         </div>
                         <div class="cat-tree-children">
                 `;
@@ -6927,10 +6988,10 @@
                     const pCount = countByCat[catName] || 0;
                     html += `
                         <div class="cat-tree-item">
-                            <span class="material-symbols-outlined text-zinc-400" style="font-size:14px;">folder_open</span>
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">folder_open</span>
                             <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
                             <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
-                            <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-400 hover:text-emerald-500 p-0.5" title="Bearbeiten">
+                            <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-500 p-0.5" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                             </button>
                             <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
@@ -6948,7 +7009,7 @@
             // Empty state
             if (cats.length === 0) {
                 html = `
-                    <div class="text-center py-10 text-zinc-400">
+                    <div class="text-center py-10 text-zinc-500">
                         <span class="material-symbols-outlined" style="font-size:48px;">folder_off</span>
                         <p class="text-sm font-bold mt-2">Noch keine Kategorien</p>
                         <p class="text-xs mt-1">Lege links deine erste Kategorie an</p>
@@ -6971,7 +7032,7 @@
             const container = document.getElementById('super-groups-list');
             if (!container) return;
             if (!_superGroups.length) {
-                container.innerHTML = '<p class="text-[10px] text-zinc-400 italic text-center py-3">Noch keine Hauptgruppen angelegt.</p>';
+                container.innerHTML = '<p class="text-[10px] text-zinc-500 italic text-center py-3">Noch keine Hauptgruppen angelegt.</p>';
                 return;
             }
             const sorted = [..._superGroups].sort((a, b) => (a.position || 0) - (b.position || 0));
@@ -6986,7 +7047,7 @@
                             <div class="font-bold text-xs text-zinc-800 truncate">${escapeHtml(sg.name)}</div>
                             <div class="text-[9px] text-zinc-500">${catCount} Kategorie(n) zugeordnet</div>
                         </div>
-                        <button onclick="openSuperGroupEditModal(${sg.id})" class="text-zinc-400 hover:text-emerald-500 p-1" title="Bearbeiten">
+                        <button onclick="openSuperGroupEditModal(${sg.id})" class="text-zinc-500 hover:text-emerald-500 p-1" title="Bearbeiten">
                             <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                         </button>
                         <button onclick="deleteSuperGroup(${sg.id}, '${sg.name.replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-600 p-1" title="Löschen">
@@ -7001,7 +7062,7 @@
             const container = document.getElementById('super-groups-assignment');
             if (!container) return;
             if (!_superGroupCategories.length) {
-                container.innerHTML = '<p class="text-[10px] text-zinc-400 italic text-center py-3">Keine Kategorien vorhanden.</p>';
+                container.innerHTML = '<p class="text-[10px] text-zinc-500 italic text-center py-3">Keine Kategorien vorhanden.</p>';
                 return;
             }
             container.innerHTML = _superGroupCategories.map(cat => {
@@ -7207,7 +7268,7 @@
                             const noteSlug = (item.note || '').replace(/\s+/g, '_');
                             const key = `${item.product_id}_${noteSlug}_${status}`;
                             const statusLabel = status === 'pending' ? 'Ausstehend' : status === 'confirmed' ? 'Zubereitung' : 'Serviert';
-                            const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-200 border border-zinc-600';
+                            const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-700 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-200 border border-zinc-600';
                             
                             itemsHtml += `
                                 <label class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/80 cursor-pointer border border-zinc-800/50 transition-colors">
@@ -7452,7 +7513,7 @@
             
             if (!hasActiveOrder) {
                 ordersContainer.innerHTML = `
-                    <div class="text-center py-8 text-zinc-400 dark:text-zinc-500">
+                    <div class="text-center py-8 text-zinc-500 dark:text-zinc-500">
                         <span class="material-symbols-outlined text-4xl mb-2 block">receipt_long</span>
                         <p class="text-sm font-bold">Keine offenen Bestellungen</p>
                     </div>`;
@@ -7493,7 +7554,7 @@
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
                                             <span class="material-symbols-outlined text-base">check</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
@@ -7535,7 +7596,7 @@
                     <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-700">
                         <div class="flex items-center gap-2">
                             <div class="w-1.5 h-6 rounded-full ${bonAccent}"></div>
-                            <span class="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Bon #${od.id}</span>
+                            <span class="text-[10px] font-black text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Bon #${od.id}</span>
                             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-${statusColor}-100 dark:bg-${statusColor}-900/30 text-${statusColor}-700 dark:text-${statusColor}-400 border border-${statusColor}-200 dark:border-${statusColor}-800/30">${statusLabel}</span>
                         </div>
                         <span class="font-black text-sm text-zinc-800 dark:text-zinc-200 font-mono">${od.total.toFixed(2).replace('.', ',')} €</span>
@@ -8887,7 +8948,10 @@
             if (isEditMode) {
                 root.classList.add('edit-mode');
                 root.classList.remove('view-mode-grouped');
-                root.style.height = '620px';
+                // Responsive height statt fixiert 620px (Mobile-tauglich)
+                const isMobile = window.matchMedia('(max-width: 640px)').matches;
+                const isTablet = window.matchMedia('(max-width: 1024px)').matches;
+                root.style.height = isMobile ? '60vh' : (isTablet ? '520px' : '620px');
             } else {
                 root.classList.remove('edit-mode');
                 root.classList.add('view-mode-grouped');
@@ -8928,9 +8992,9 @@
                     if (totalActive === 0) {
                         html = `
                             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center">
-                                <span class="material-symbols-outlined text-zinc-300" style="font-size:48px;">check_circle</span>
+                                <span class="material-symbols-outlined text-zinc-400" style="font-size:48px;">check_circle</span>
                                 <p class="text-sm font-bold text-zinc-700 mt-2">Keine aktiven Tische</p>
-                                <p class="text-xs text-zinc-400 mt-1">Alle Tische sind frei — neue Bestellungen erscheinen hier automatisch.</p>
+                                <p class="text-xs text-zinc-500 mt-1">Alle Tische sind frei — neue Bestellungen erscheinen hier automatisch.</p>
                             </div>
                         `;
                     } else {
@@ -8939,7 +9003,7 @@
                                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-rose-100 mb-4">
                                     <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
                                         <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                        Drinnen – Aktiv <span class="text-xs text-zinc-400 font-normal">(${activeDrinnen.length} ${activeDrinnen.length === 1 ? 'Tisch' : 'Tische'})</span>
+                                        Drinnen – Aktiv <span class="text-xs text-zinc-500 font-normal">(${activeDrinnen.length} ${activeDrinnen.length === 1 ? 'Tisch' : 'Tische'})</span>
                                     </h3>
                                     <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                                         ${activeDrinnen.map(t => renderTileHtml(t)).join('')}
@@ -8953,7 +9017,7 @@
                                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-rose-100">
                                     <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
                                         <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                        Draußen – Aktiv <span class="text-xs text-zinc-400 font-normal">(${activeDraussen.length} ${activeDraussen.length === 1 ? 'Tisch' : 'Tische'})</span>
+                                        Draußen – Aktiv <span class="text-xs text-zinc-500 font-normal">(${activeDraussen.length} ${activeDraussen.length === 1 ? 'Tisch' : 'Tische'})</span>
                                     </h3>
                                     <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                                         ${activeDraussen.map(t => renderTileHtml(t)).join('')}
@@ -8993,13 +9057,13 @@
                     html += `
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-4">
                             <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Drinnen <span class="text-xs text-zinc-400 font-normal">(${drinnenTables.length} Tische)</span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Drinnen <span class="text-xs text-zinc-500 font-normal">(${drinnenTables.length} Tische)</span>
                             </h3>
                             ${drinnenTables.length ? `
                                 <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                                     ${drinnenTables.map(t => renderTileHtml(t)).join('')}
                                 </div>
-                            ` : `<p class="text-xs text-zinc-400">Keine Tische konfiguriert</p>`}
+                            ` : `<p class="text-xs text-zinc-500">Keine Tische konfiguriert</p>`}
                         </div>
                     `;
                 }
@@ -9008,13 +9072,13 @@
                     html += `
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                             <h3 class="text-sm font-extrabold text-zinc-800 mb-4 flex items-center gap-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Draußen <span class="text-xs text-zinc-400 font-normal">(${draussenTables.length} Tische)</span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Draußen <span class="text-xs text-zinc-500 font-normal">(${draussenTables.length} Tische)</span>
                             </h3>
                             ${draussenTables.length ? `
                                 <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                                     ${draussenTables.map(t => renderTileHtml(t)).join('')}
                                 </div>
-                            ` : `<p class="text-xs text-zinc-400">Keine Tische konfiguriert</p>`}
+                            ` : `<p class="text-xs text-zinc-500">Keine Tische konfiguriert</p>`}
                         </div>
                     `;
                 }
@@ -9214,16 +9278,21 @@
             const ts = 'Tisch ' + currentTable.number;
             const tsZone = `Tisch ${currentTable.number} (${currentTable.zone || ''})`;
             // Match orders with zone-specific name first, then plain name (legacy)
-            const order = allOrders.find(o => {
+            // FIX: .filter() statt .find() — unterstützt mehrere Bestellungen pro Tisch
+            const orders = allOrders.filter(o => {
                 const t = String(o.table || '');
                 if (currentTable.zone) {
-                    // With zone: match "Tisch 1 (Drinnen)" or plain "Tisch 1" (legacy)
                     return (t === tsZone || t === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert';
                 }
-                // No zone: match plain "Tisch 1"
                 return (t === ts || t === String(currentTable.number)) && o.status !== 'bezahlt' && o.status !== 'storniert';
             });
+            // Für Rückwärtskompatibilität: order = erste gefundene Bestellung
+            const order = orders.length > 0 ? orders[0] : null;
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
+            // Sammle alle Items aller aktiven Bestellungen für Hauptgruppen-Badge
+            const allItems = orders.flatMap(o => o.items || []);
+            // Berechne Hauptgruppen-Farben für alle Items
+            const superGroupBadges = getSuperGroupBadgesForItems(allItems);
             
             // Search for active service calls (Ruf) for this table - MUST match zone!
             const tNumStr = String(currentTable.number);
@@ -9268,7 +9337,7 @@
                                 class="absolute top-1 right-1 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center font-bold text-[10px] z-20 shadow-sm delete-table-btn"
                                 title="Tisch löschen">✕</button>
                         <span class="edit-table-badge">Tisch ${currentTable.number}</span>
-                        <span class="text-xs font-bold text-zinc-400 select-none">${currentTable.zone || ''}</span>
+                        <span class="text-xs font-bold text-zinc-500 select-none">${currentTable.zone || ''}</span>
                         <button class="edit-table-shape-btn" onclick="toggleShape('${currentTable.number}', '${currentTable.zone || ''}')">Form</button>
                         <div class="resize-handle se" id="resize-handle-${currentTable.number}-${zoneClean}"></div>
                     </div>
@@ -9326,7 +9395,7 @@
                     }
                 } else {
                     inner = `
-                        <span class="text-xl sm:text-2xl font-black text-zinc-400">${currentTable.number}</span>
+                        <span class="text-xl sm:text-2xl font-black text-zinc-500">${currentTable.number}</span>
                         <span class="text-[9px] font-black tracking-wider uppercase text-center mt-0.5 text-zinc-500">Frei</span>
                     `;
                 }
@@ -9337,10 +9406,90 @@
                          class="sitzplan-table ${shapeClass} ${statusClass}"
                          style="left: ${currentTable.pos_x || 0}%; top: ${currentTable.pos_y || 0}%; width: ${currentTable.width || 120}px; height: ${currentTable.height || 80}px;">
                         ${inner}
+                        ${superGroupBadges.length > 0 ? renderSuperGroupBadgeBar(superGroupBadges) : ''}
                     </div>
                 `;
             }
             return html;
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // HAUPTGRUPPEN-BADGE-LEISTE für Tisch-Kacheln
+        // Zeigt farbcodierte Segmente pro Hauptgruppe (Shisha/Getränk/Snacks)
+        // damit Kellner sofort sieht was bestellt wurde.
+        // ═══════════════════════════════════════════════════════
+
+        /**
+         * Berechnet die Hauptgruppen für eine Liste von OrderItems.
+         * Nutzt die globale _superGroups und _superGroupCategories Variable,
+         * die via loadSuperGroups() geladen werden.
+         *
+         * @param {Array} items - Array von OrderItem-Objekten
+         * @returns {Array} - Array von {id, name, color, icon, count} Objekten
+         */
+        function getSuperGroupBadgesForItems(items) {
+            if (!items || items.length === 0) return [];
+            if (!_superGroups || !_superGroupCategories) return [];
+
+            const sgCounts = {}; // {superGroupId: count}
+
+            items.forEach(item => {
+                // Item → Product → Category → SuperGroup
+                const productId = item.product_id || item.id;
+                const product = (allProducts || []).find(p => p.id === productId);
+                if (!product) return;
+                const categoryName = product.category;
+                if (!categoryName) return;
+
+                const sgCat = _superGroupCategories.find(c => c.name === categoryName);
+                const sgId = sgCat && sgCat.super_group_id ? sgCat.super_group_id : null;
+
+                // "Sonstiges" Bucket für Items ohne Hauptgruppe
+                const bucketId = sgId || 'sonstiges';
+                sgCounts[bucketId] = (sgCounts[bucketId] || 0) + 1;
+            });
+
+            // In Array umwandeln + SuperGroup-Infos anreichern
+            return Object.entries(sgCounts).map(([id, count]) => {
+                if (id === 'sonstiges') {
+                    return {
+                        id: 'sonstiges',
+                        name: 'Sonstiges',
+                        color: '#9ca3af',  // gray-400
+                        icon: 'restaurant',
+                        count: count
+                    };
+                }
+                const sg = _superGroups.find(s => s.id === parseInt(id));
+                return {
+                    id: id,
+                    name: sg ? sg.name : 'Unbekannt',
+                    color: sg ? sg.color : '#9ca3af',
+                    icon: sg && sg.icon ? sg.icon : 'category',
+                    count: count
+                };
+            }).sort((a, b) => b.count - a.count); // häufigste zuerst
+        }
+
+        /**
+         * Rendert die Badge-Leiste für die Tisch-Kachel.
+         * Auf Desktop: 4px hohe Leiste am unteren Rand mit proportionalen Segmenten.
+         * Auf Mobile: 6px hohe Leiste (besser sichtbar).
+         * Verhindert Überlappung durch absolute Positionierung am Boden.
+         */
+        function renderSuperGroupBadgeBar(badges) {
+            const total = badges.reduce((sum, b) => sum + b.count, 0);
+            if (total === 0) return '';
+
+            const segments = badges.map(b => {
+                const widthPercent = (b.count / total * 100).toFixed(1);
+                const title = `${b.name}: ${b.count} Artikel`;
+                return `<div class="tile-sg-segment"
+                             style="width: ${widthPercent}%; background: ${escapeHtml(b.color)};"
+                             title="${escapeHtml(title)}"></div>`;
+            }).join('');
+
+            return `<div class="tile-sg-bar" data-total="${total}">${segments}</div>`;
         }
 
         function renderServiceCallsAlerts() {
@@ -11014,10 +11163,10 @@
                                 <span class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100 truncate">${evDisplayName}</span>
                                 <span class="text-[9px] font-bold ${statusBg} dark:bg-zinc-800 dark:border-zinc-600 px-2 py-0.5 rounded-full border flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span>
-                                    <span class="dark:text-zinc-300">${statusText}</span>
+                                    <span class="dark:text-zinc-400">${statusText}</span>
                                 </span>
                             </div>
-                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 dark:text-zinc-500 font-medium">
                                 <span class="flex items-center gap-0.5">
                                     <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
                                     ${evStartTime} – ${evEndTime}
@@ -11045,13 +11194,13 @@
                                     return comboHtml;
                                 })() : ''}
                             </div>
-                            ${evDescription ? `<p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">${evDescription}</p>` : ''}
+                            ${evDescription ? `<p class="text-[10px] text-zinc-500 dark:text-zinc-500 mt-1">${evDescription}</p>` : ''}
                         </div>
                         <div class="flex items-center gap-1 flex-shrink-0">
-                            <button onclick="openEventEditModal(${parseInt(ev.id, 10)})" class="text-zinc-400 dark:text-zinc-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30" title="Bearbeiten">
+                            <button onclick="openEventEditModal(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
                             </button>
-                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Löschen">
+                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Löschen">
                                 <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                             </button>
                         </div>
@@ -11138,8 +11287,8 @@
             container.innerHTML = ALL_DAYS.map(day => {
                 const isSelected = selectedDays.includes(day);
                 return `
-                <label class="flex items-center gap-1.5 ${isSelected ? 'bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300' : 'bg-gray-50 border-gray-200 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-300'} px-3 py-2 rounded-xl text-xs font-bold cursor-pointer select-none transition-colors hover:border-purple-400 dark:hover:border-purple-500">
-                    <input type="checkbox" class="event-day-check rounded text-purple-500 focus:ring-0" value="${day}" ${isSelected ? 'checked' : ''}>
+                <label class="flex items-center gap-1.5 ${isSelected ? 'bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-700 dark:text-purple-300' : 'bg-gray-50 border-gray-200 dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-400'} px-3 py-2 rounded-xl text-xs font-bold cursor-pointer select-none transition-colors hover:border-purple-400 dark:hover:border-purple-500">
+                    <input type="checkbox" class="event-day-check rounded text-purple-600 focus:ring-0" value="${day}" ${isSelected ? 'checked' : ''}>
                     <span>${day.substring(0,2)}</span>
                 </label>`;
             }).join('');
@@ -11161,16 +11310,16 @@
                 <div class="p-2.5 rounded-xl border ${isSelected ? 'border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-900/20' : 'border-gray-100 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800/60'} transition-colors" id="ep-row-${p.id}">
                     <div class="flex items-center gap-2">
                         <label class="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
-                            <input type="checkbox" class="ep-toggle rounded text-purple-500 focus:ring-purple-400 shrink-0" data-product-id="${p.id}" ${isSelected ? 'checked' : ''} onchange="toggleEventProductRow(${p.id}, this.checked)">
+                            <input type="checkbox" class="ep-toggle rounded text-purple-600 focus:ring-purple-400 shrink-0" data-product-id="${p.id}" ${isSelected ? 'checked' : ''} onchange="toggleEventProductRow(${p.id}, this.checked)">
                             <div class="min-w-0">
                                 <div class="font-bold text-[11px] text-zinc-800 dark:text-zinc-100 truncate">${p.name}</div>
-                                <div class="text-[9px] text-zinc-500 dark:text-zinc-400 font-mono">${parseFloat(p.price).toFixed(2)} €</div>
+                                <div class="text-[9px] text-zinc-500 dark:text-zinc-500 font-mono">${parseFloat(p.price).toFixed(2)} €</div>
                             </div>
                         </label>
                         <div class="ep-price-fields ${isSelected ? '' : 'hidden'}" id="ep-fields-${p.id}">
                             <div class="flex items-center gap-1">
                                 <input type="number" step="0.01" min="0" placeholder="Eventpreis" value="${eventPrice}" class="w-20 bg-white dark:bg-zinc-800 border border-purple-200 dark:border-purple-700 rounded-lg px-2 py-1 text-[10px] font-mono focus:ring-purple-400 focus:border-purple-400" id="ep-price-${p.id}">
-                                <span class="text-[9px] text-zinc-400 dark:text-zinc-500">€</span>
+                                <span class="text-[9px] text-zinc-500 dark:text-zinc-500">€</span>
                             </div>
                         </div>
                     </div>
@@ -11449,7 +11598,7 @@
             const categories = [...new Set(products.filter(p => p.is_available !== false).map(p => p.category))].filter(Boolean).sort();
 
             if (eventCombosData.length === 0) {
-                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-400">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
+                container.innerHTML = '<div class="text-center py-4 text-[10px] text-zinc-500">Keine Kombi-Angebote. Klicke "Neue Kombi" um eins zu erstellen.</div>';
                 updateComboCount();
                 return;
             }
@@ -11490,17 +11639,17 @@
                         <input type="number" step="0.01" min="0" placeholder="18.00" value="${combo.combo_price || ''}"
                                class="w-24 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-mono font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
                                onchange="updateComboField(${combo._tempId}, 'combo_price', this.value)">
-                        <span class="text-[10px] text-zinc-600 dark:text-zinc-300 font-bold">€</span>
+                        <span class="text-[10px] text-zinc-600 dark:text-zinc-400 font-bold">€</span>
                         ${savings > 0 ? `<span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-800/50 px-1.5 py-0.5 rounded-full">Spare ${savings.toFixed(2).replace('.', ',')} €</span>` : ''}
                     </div>
 
                     <!-- Per-combo time/day restrictions -->
                     <div class="border-t border-teal-300/60 dark:border-teal-600/50 pt-2.5 space-y-2">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="material-symbols-outlined text-zinc-500 dark:text-zinc-300" style="font-size:14px;">schedule</span>
+                            <span class="material-symbols-outlined text-zinc-500 dark:text-zinc-400" style="font-size:14px;">schedule</span>
                             <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200">Eigene Zeiten & Tage (optional)</label>
                         </div>
-                        <p class="text-[9px] text-zinc-500 dark:text-zinc-300 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events.</p>
+                        <p class="text-[9px] text-zinc-500 dark:text-zinc-400 -mt-1 mb-1">Leer = gelten die Zeiten/Tage des Events.</p>
 
                         <div class="flex flex-wrap gap-1.5">
                             ${ALL_DAYS.map(day => {
@@ -11517,13 +11666,13 @@
 
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Von</label>
+                                <label class="text-[9px] text-zinc-600 dark:text-zinc-400 font-bold block mb-0.5">Von</label>
                                 <input type="time" value="${combo.start_time || ''}"
                                        class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
                                        onchange="updateComboField(${combo._tempId}, 'start_time', this.value)">
                             </div>
                             <div>
-                                <label class="text-[9px] text-zinc-600 dark:text-zinc-300 font-bold block mb-0.5">Bis</label>
+                                <label class="text-[9px] text-zinc-600 dark:text-zinc-400 font-bold block mb-0.5">Bis</label>
                                 <input type="time" value="${combo.end_time || ''}"
                                        class="w-full bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[10px] font-mono text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
                                        onchange="updateComboField(${combo._tempId}, 'end_time', this.value)">
@@ -11569,7 +11718,7 @@
                                            ${isSelected ? 'checked' : ''}
                                            onchange="toggleComboItem(${combo._tempId}, ${p.id}, this.checked)">
                                     <span class="font-bold text-zinc-800 dark:text-white">${p.name}</span>
-                                    <span class="text-zinc-500 dark:text-zinc-300 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
+                                    <span class="text-zinc-500 dark:text-zinc-400 font-mono ml-auto">${parseFloat(p.price).toFixed(2)} €</span>
                                 </label>`;
                             }).join('')}
                         </div>
@@ -11777,8 +11926,8 @@
             sectionDiv.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-zinc-400 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
-                        <span class="material-symbols-outlined text-purple-500 text-sm">extension</span>
+                        <span class="material-symbols-outlined text-zinc-500 text-sm cursor-grab lp-drag-handle" title="Zum Sortieren ziehen">drag_indicator</span>
+                        <span class="material-symbols-outlined text-purple-600 text-sm">extension</span>
                         <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                     </div>
                     <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
@@ -12021,12 +12170,34 @@
         <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
     </div>
-    <!-- PWA Service Worker Registrierung -->
+    <!-- PWA Service Worker Registrierung + Update-Flow -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((reg) => console.log('[PWA] SW registriert:', reg.scope))
+                    .then((reg) => {
+                        // Update-Flow: Bei neuer SW-Version → SKIP_WAITING + reload
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            if (!newWorker) return;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Neue SW installiert → Toast anzeigen + automatisch aktivieren
+                                    if (typeof showToast === 'function') {
+                                        showToast('Neue Version verfügbar — wird geladen...', 'success');
+                                    }
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                            });
+                        });
+                        // Wenn Controller sich ändert (neue SW aktiv) → Seite reloaden
+                        let refreshing = false;
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            if (refreshing) return;
+                            refreshing = true;
+                            window.location.reload();
+                        });
+                    })
                     .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
             });
         }

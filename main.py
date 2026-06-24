@@ -874,7 +874,9 @@ async def google_verification():
 @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
 @app.get("/apple-touch-icon-120x120.png", include_in_schema=False)
 async def apple_touch_icon():
-    return FileResponse("static/images/digigastrologo.jpeg")
+    # PWA-Fix: Korrekte PNG-Datei liefern (vorher JPEG, das iOS als niedrigqualitativ
+    # darstellte). Die apple-touch-icon.png ist 180x180 mit transparentem Hintergrund.
+    return FileResponse("static/images/apple-touch-icon.png", media_type="image/png")
 
 # ════════════════════════════════════════════════════════════════════
 # SEO: robots.txt + sitemap.xml

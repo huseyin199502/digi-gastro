@@ -147,14 +147,16 @@ self.addEventListener('fetch', (event) => {
         return; // Browser handles request normally
     }
 
-    // ── Strategie 0: Bild-Cache-First für /uploads/ und /static/images/ ──
+    // ── Strategie 0: Bild-Cache-First NUR für /static/images/ ──
     // Bilder ändern sich selten (WebP-Conversion ist one-shot) → 30 Tage TTL,
     // separater IMAGE_CACHE (isoliert vom STATIC_CACHE, einfach zu invalidieren).
-    // Match: Pfad startet mit /uploads/ oder /static/images/ UND entweder
-    // request.destination === 'image' (Browser kennt Typ) ODER URL endet auf
-    // Bild-Extension (Fallback für <picture>, CSS-bg, etc.).
-    if ((url.pathname.startsWith('/uploads/') ||
-         url.pathname.startsWith('/static/images/')) &&
+    //
+    // WICHTIG: /uploads/ wird BEWUSST NICHT gecacht! Backend-Middleware
+    // (main.py:717 no_cache_uploads_middleware) setzt Cache-Control: no-store
+    // für /uploads/ — Kunden-Uploads (Logos, Produktfotos) dürfen nicht
+    // offline-verfügbar sein (Schutz vor Cache-Klau).
+    // Nur /static/images/ (Plattform-Icons, digi-gastro-Logos) bekommt 30d Cache.
+    if (url.pathname.startsWith('/static/images/') &&
         (request.destination === 'image' || IMAGE_URL_PATTERN.test(url.pathname))) {
         event.respondWith(imageCacheFirst(request));
         return;
