@@ -26,8 +26,8 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=3" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=3"></noscript>
+    <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://js.puter.com/v2/"></script>
 
@@ -381,11 +381,10 @@
             margin-top: 8px;
         }
 
-        /* Serviert-Checkmarks im Control Modal — Item-Rows haben IMMER hellen
-           Pastell-Hintergrund (lightenColor(group.color, 92)), egal ob Light- oder
-           Dark-Mode.
-           WICHTIG (User-Feedback): Haken soll DUNKELGRÜN sein, nicht weiß!
-           !important setzt sich gegen Cache/Custom-Checkbox durch. */
+        /* Serviert-Checkmarks im Control Modal — INLINE-STYLES statt CSS-Klassen!
+           Siehe renderPopupItems() — Haken werden mit inline style="..." gerendert
+           damit sie Cache-resistent sind und nicht von custom-checkbox überschrieben
+           werden können. Diese CSS-Klasse bleibt als Fallback. */
         .checkmark-served {
             display: inline-flex !important;
             align-items: center !important;
@@ -9868,9 +9867,10 @@
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {
-                        checkmarks = '<span class="checkmark-served" style="font-size:13px;margin-right:6px;" title="Vorbereitet (2x Haken)">✔✔</span>';
+                        // INLINE-Style statt CSS-Klasse — Cache-resistent, kann nicht überschrieben werden
+                        checkmarks = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 4px;border-radius:999px;background:#ffffff;color:#047857;font-weight:900;line-height:1;box-shadow:0 0 0 2px #047857, 0 1px 4px rgba(4,120,87,0.4);vertical-align:middle;font-size:13px;margin-right:6px;" title="Vorbereitet (2x Haken)">✔✔</span>';
                     } else if (itemStatus === 'delivered') {
-                        checkmarks = '<span class="checkmark-served" style="font-size:15px;margin-right:6px;" title="Serviert">✔</span>';
+                        checkmarks = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 4px;border-radius:999px;background:#ffffff;color:#047857;font-weight:900;line-height:1;box-shadow:0 0 0 2px #047857, 0 1px 4px rgba(4,120,87,0.4);vertical-align:middle;font-size:15px;margin-right:6px;" title="Serviert">✔</span>';
                     }
 
                     // SECURITY FIX (audit 4.2): key & item.name per escapeForJsAttr escapen, weil sie in
