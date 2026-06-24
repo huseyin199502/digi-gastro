@@ -392,32 +392,32 @@
         }
         .btn-vorbereiten {
             background: rgba(251, 191, 36, 0.12);
-            color: #fbbf24;
-            border-color: rgba(251, 191, 36, 0.25);
+            color: #b45309;  /* vorher #fbbf24 (1.6:1) → #b45309 (5.4:1) WCAG AA */
+            border-color: rgba(180, 83, 9, 0.3);
         }
         .btn-vorbereiten:hover {
             background: rgba(251, 191, 36, 0.22);
         }
         .btn-fertig {
             background: rgba(16, 185, 129, 0.12);
-            color: #10b981;
-            border-color: rgba(16, 185, 129, 0.25);
+            color: #047857;  /* vorher #10b981 (2.54:1) → #047857 (5.14:1) WCAG AA */
+            border-color: rgba(4, 120, 87, 0.3);
         }
         .btn-fertig:hover {
             background: rgba(16, 185, 129, 0.22);
         }
         .btn-pay-item {
             background: rgba(99, 102, 241, 0.12);
-            color: #818cf8;
-            border-color: rgba(99, 102, 241, 0.25);
+            color: #4338ca;  /* vorher #818cf8 (3.5:1) → #4338ca (7.2:1) WCAG AAA */
+            border-color: rgba(67, 56, 202, 0.3);
         }
         .btn-pay-item:hover {
             background: rgba(99, 102, 241, 0.22);
         }
         .btn-storno-item {
             background: rgba(239, 68, 68, 0.12);
-            color: #f87171;
-            border-color: rgba(239, 68, 68, 0.25);
+            color: #b91c1c;  /* vorher #f87171 (3.3:1) → #b91c1c (5.9:1) WCAG AA */
+            border-color: rgba(185, 28, 28, 0.3);
         }
         .btn-storno-item:hover {
             background: rgba(239, 68, 68, 0.22);
@@ -2700,7 +2700,7 @@
             cursor: default;
         }
         .notif-item.item-served {
-            opacity: 0.4;
+            opacity: 0.7; /* vorher 0.4 — zu transparent, serviert-Status unlesbar */
             text-decoration: line-through;
         }
         .notif-item .item-qty {
@@ -2719,27 +2719,32 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
+            width: 44px;   /* vorher 32px — Touch-Target ≥44px + Haken besser sichtbar */
+            height: 44px;  /* vorher 32px */
+            border-radius: 6px;
             background: var(--gastro-primary);
             color: white;
             border: none;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 18px;  /* vorher 12px — Haken-Icon größer */
             font-weight: 900;
             transition: all 0.15s;
             flex-shrink: 0;
             padding: 0;
             line-height: 1;
+            box-shadow: 0 1px 3px rgba(0, 153, 0, 0.3); /* mehr Tiefe, besser erkennbar */
         }
         .notif-item .btn-serve-item:hover {
-            transform: scale(1.15);
-            box-shadow: 0 2px 6px rgba(0, 153, 0, 0.3);
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 153, 0, 0.45);
         }
+        /* Serviert-Status: Button behält grüne Farbe mit Häkchen-Icon,
+           statt grau zu werden. Hintergrund wird leicht dunkler + Check-Icon. */
         .notif-item.item-served .btn-serve-item {
-            background: #9ca3af;
+            background: var(--gastro-primary-hover, #007a00); /* dunkleres Grün = "erledigt" */
             pointer-events: none;
+            opacity: 1; /* opacity vom parent aufheben — Button bleibt voll sichtbar */
+            box-shadow: 0 0 0 2px var(--gastro-card-bg), 0 0 0 4px var(--gastro-primary); /* grüner Ring = serviert */
         }
 
         .notif-actions {
@@ -9696,9 +9701,9 @@
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {
-                        checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️✔️</span>';
+                        checkmarks = '<span style="color:#047857;font-weight:900;margin-right:4px;font-size:14px;" title="Vorbereitet (2x Haken)">✔✔</span>';
                     } else if (itemStatus === 'delivered') {
-                        checkmarks = '<span style="color:#10b981;font-weight:900;margin-right:4px;">✔️</span>';
+                        checkmarks = '<span style="color:#047857;font-weight:900;margin-right:4px;font-size:16px;" title="Serviert">✔</span>';
                     }
 
                     // SECURITY FIX (audit 4.2): key & item.name per escapeForJsAttr escapen, weil sie in
