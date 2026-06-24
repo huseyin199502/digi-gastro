@@ -4450,13 +4450,16 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             # Check if table exists (with optional zone matching)
             tables_list = restaurant.get("tables", [])
             db_table = None
-            
-            # Try to match both table number and zone
+
+            # Try to match both table number and zone (case-insensitive)
             if query_zone:
-                db_table = next((t for t in tables_list if str(t.get("number")) == str(query_table).strip() and t.get("zone") == query_zone), None)
-            
+                query_zone_lower = query_zone.strip().lower()
+                db_table = next((t for t in tables_list if str(t.get("number")) == str(query_table).strip() and str(t.get("zone", "")).strip().lower() == query_zone_lower), None)
+
             # If zone didn't match or wasn't provided, just match by table number
-            if not db_table:
+            # WICHTIG: Wenn query_zone gesetzt war aber nicht gematcht hat, breche ab
+            # statt den ersten Tisch mit der Nummer zu nehmen (falsche Zone!)
+            if not db_table and not query_zone:
                 db_table = next((t for t in tables_list if str(t.get("number")) == str(query_table).strip()), None)
             
             if not db_table:
