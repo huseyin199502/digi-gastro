@@ -1894,6 +1894,32 @@
            Farbcodierte Segmente unten an jeder Tisch-Kachel.
            Shisha = lila, Getränke = blau, Snacks = orange (Hauptgruppen-Farben)
            ═══════════════════════════════════════════════════════ */
+        .seating-legend {
+            border: 1px solid var(--gastro-border, #e4e4e7);
+        }
+        .seating-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            background: var(--gastro-bg-muted, #f4f4f5);
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--gastro-text-main, #18181b);
+        }
+        .seating-legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+        }
+        .seating-legend-item .material-symbols-outlined {
+            font-size: 14px;
+            color: var(--gastro-text-muted, #71717a);
+        }
+
         .tile-sg-bar {
             position: absolute;
             left: 0;
@@ -3940,6 +3966,18 @@
                         <button id="btn-save-layout" onclick="saveLayout()" class="px-4 py-2 bg-gastro text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition hidden shadow">
                             Layout speichern
                         </button>
+                    </div>
+                </div>
+
+                <!-- Legende: Hauptgruppen-Farben für Kellner (nur in Ansicht, nicht im Edit-Mode) -->
+                <div id="seating-legend" class="seating-legend bg-white dark:bg-zinc-800 rounded-2xl shadow-sm p-3 mb-3 hidden">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">palette</span>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Farb-Codierung Bestellungen</span>
+                        <span class="text-[9px] text-zinc-400 font-semibold ml-auto" id="seating-legend-hint">Leiste pro Tisch = offene (noch nicht servierte) Artikel</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2" id="seating-legend-items">
+                        <!-- Wird von renderSeatingLegend() gefüllt -->
                     </div>
                 </div>
 
@@ -8950,6 +8988,17 @@
             // Wird bei jedem Render aufgerufen, damit Add/Remove/Edit sofort sichtbar ist.
             updateSeatingTabCounts();
 
+            // Legende für Hauptgruppen-Farben nur im Ansichts-Modus anzeigen (nicht im Edit-Mode)
+            const legend = document.getElementById('seating-legend');
+            if (legend) {
+                if (isEditMode) {
+                    legend.classList.add('hidden');
+                } else {
+                    legend.classList.remove('hidden');
+                    renderSeatingLegend();
+                }
+            }
+
             if (isEditMode) {
                 root.classList.add('edit-mode');
                 root.classList.remove('view-mode-grouped');
@@ -9296,8 +9345,17 @@
             const hasPending = order && (order.items || []).some(item => (item.item_status || 'pending') === 'pending');
             // Sammle alle Items aller aktiven Bestellungen für Hauptgruppen-Badge
             const allItems = orders.flatMap(o => o.items || []);
-            // Berechne Hauptgruppen-Farben für alle Items
-            const superGroupBadges = getSuperGroupBadgesForItems(allItems);
+            // WICHTIG: Für die Badge-Leiste nur Items zeigen die noch NICHT serviert sind.
+            // Status 'pending' = neu bestellt, 'confirmed' = in Zubereitung,
+            // 'delivered' = serviert (soll nicht mehr in der Leiste auftauchen).
+            // Dadurch bleibt die Leiste übersichtlich bei Nachbestellungen: nur die
+            // offenen Artikel werden farblich markiert, servierte fallen heraus.
+            const openItems = allItems.filter(item => {
+                const status = (item.item_status || 'pending').toLowerCase();
+                return status === 'pending' || status === 'confirmed';
+            });
+            // Berechne Hauptgruppen-Farben NUR für offene Items
+            const superGroupBadges = getSuperGroupBadgesForItems(openItems);
             
             // Search for active service calls (Ruf) for this table - MUST match zone!
             const tNumStr = String(currentTable.number);
@@ -9423,6 +9481,44 @@
         // Zeigt farbcodierte Segmente pro Hauptgruppe (Shisha/Getränk/Snacks)
         // damit Kellner sofort sieht was bestellt wurde.
         // ═══════════════════════════════════════════════════════
+
+        /**
+         * Rendert die Legende für die Hauptgruppen-Farben über dem Sitzplan.
+         * Zeigt alle angelegten Hauptgruppen mit ihrer Farbe + Icon + Name.
+         * Wird in renderSitzplanTiles() aufgerufen.
+         */
+        function renderSeatingLegend() {
+            const container = document.getElementById('seating-legend-items');
+            if (!container) return;
+
+            const groups = _superGroups || [];
+            if (groups.length === 0) {
+                container.innerHTML = '<span class="text-[10px] text-zinc-500 italic">Keine Hauptgruppen angelegt — Farb-Codierung inaktiv. Lege Hauptgruppen unter "Kategorien" an.</span>';
+                return;
+            }
+
+            // Sortiert nach Position
+            const sorted = [...groups].sort((a, b) => (a.position || 0) - (b.position || 0));
+
+            container.innerHTML = sorted.map(sg => {
+                const color = sg.color || '#9ca3af';
+                const icon = sg.icon ? escapeHtml(sg.icon) : 'category';
+                const name = escapeHtml(sg.name);
+                return `
+                    <div class="seating-legend-item" title="${name}: Artikel dieser Hauptgruppe in Bestellung">
+                        <span class="seating-legend-color" style="background:${color};"></span>
+                        <span class="material-symbols-outlined">${icon}</span>
+                        <span>${name}</span>
+                    </div>
+                `;
+            }).join('') + `
+                <div class="seating-legend-item" title="Artikel ohne Hauptgruppen-Zuordnung">
+                    <span class="seating-legend-color" style="background:#9ca3af;"></span>
+                    <span class="material-symbols-outlined">category</span>
+                    <span>Sonstiges</span>
+                </div>
+            `;
+        }
 
         /**
          * Berechnet die Hauptgruppen für eine Liste von OrderItems.
