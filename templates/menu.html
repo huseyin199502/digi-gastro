@@ -296,9 +296,14 @@
     <!-- Top Navigation Bar / Header -->
     <header class="grid grid-cols-3 items-center px-4 sm:px-6 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
             style="height: calc(5rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
-        <div class="flex justify-start">
+        <div class="flex justify-start items-center gap-2 sm:gap-3">
             {% if restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="header-logo h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
+                {% if restaurant.branding.logo_url_2 %}
+                <!-- Zweites Logo (für Tenants mit 2 Läden, z.B. "Deer Lounge" + "Deer Shawarma") -->
+                <span class="text-zinc-600 text-xl font-black">|</span>
+                <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
+                {% endif %}
             {% else %}
                 <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-xl sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
             {% endif %}
@@ -358,7 +363,13 @@
         <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper" id="landing-page-wrapper">
             <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-                    <img alt="{{ restaurant.name }} Logo" class="header-logo h-32 sm:h-40 mx-auto object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
+                <div class="flex justify-center items-center gap-4 sm:gap-6 flex-wrap">
+                    <img alt="{{ restaurant.name }} Logo" class="header-logo h-32 sm:h-40 object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
+                    {% if restaurant.branding.logo_url_2 %}
+                    <!-- Zweites Logo prominent neben dem Haupt-Logo -->
+                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-32 sm:h-40 object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
+                    {% endif %}
+                </div>
                 {% endif %}
                 <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight font-display drop-shadow-md animate-pulse" style="color:#ffffff !important;" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
                 <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>

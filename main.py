@@ -1237,7 +1237,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "instagram": tenant.instagram,
             "facebook": tenant.facebook,
             "tiktok": tenant.tiktok or "",
-            "logo_url": get_webp_path(tenant.logo_url)
+            "logo_url": get_webp_path(tenant.logo_url),
+            "logo_url_2": get_webp_path(getattr(tenant, 'logo_url_2', '') or '')
         },
         "landing_page": _landing_page,
         "happy_hour": {
@@ -1310,6 +1311,9 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.facebook = branding.get("facebook", "")
     tenant.tiktok = branding.get("tiktok", "")
     tenant.logo_url = branding.get("logo_url", "")
+    # Zweites Logo persistieren (für Tenants mit 2 Läden)
+    if hasattr(tenant, 'logo_url_2'):
+        tenant.logo_url_2 = branding.get("logo_url_2", "")
     
     tenant.landing_page_json = json.dumps(unwrap_live_data(r.get("landing_page", {})))
     
@@ -8455,7 +8459,9 @@ def delete_staff(request: Request, pin_code: str, chef_data: tuple = Depends(req
 async def update_branding(
     request: Request,
     logo_file: Optional[UploadFile] = File(None),
+    logo_file_2: Optional[UploadFile] = File(None),
     logo_url: Optional[str] = Form(None),
+    logo_url_2: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
     plz: Optional[str] = Form(None),
     ort: Optional[str] = Form(None),
@@ -8469,20 +8475,21 @@ async def update_branding(
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
-        
+
     final_logo_url = logo_url.strip() if logo_url else restaurant.get("branding", {}).get("logo_url", "")
-    
+    final_logo_url_2 = logo_url_2.strip() if logo_url_2 else restaurant.get("branding", {}).get("logo_url_2", "")
+
     # Process logo file upload if present
     if logo_file and logo_file.filename:
         import time
         logos_dir = os.path.join(UPLOAD_DIR, "logos")
         os.makedirs(logos_dir, exist_ok=True)
-        
+
         # Generate clean secure unique name
         filename = f"{slug}_logo_{int(time.time())}_{logo_file.filename}"
         filename = "".join(c for c in filename if c.isalnum() or c in "._-")
         file_path = os.path.join(logos_dir, filename)
-        
+
         content = logo_file.file.read()
         with open(file_path, "wb") as f:
             f.write(content)
@@ -8496,8 +8503,31 @@ async def update_branding(
         final_logo_url = f"/uploads/logos/{filename}"
         restaurant["logo_path"] = final_logo_url
 
+    # Process SECOND logo file upload if present (für Tenants mit 2 Läden)
+    if logo_file_2 and logo_file_2.filename:
+        import time
+        logos_dir = os.path.join(UPLOAD_DIR, "logos")
+        os.makedirs(logos_dir, exist_ok=True)
+
+        filename2 = f"{slug}_logo2_{int(time.time())}_{logo_file_2.filename}"
+        filename2 = "".join(c for c in filename2 if c.isalnum() or c in "._-")
+        file_path2 = os.path.join(logos_dir, filename2)
+
+        content2 = logo_file_2.file.read()
+        with open(file_path2, "wb") as f:
+            f.write(content2)
+
+        # WebP-Version auch für das zweite Logo
+        try:
+            convert_to_webp(file_path2)
+        except Exception as _e:
+            print(f"[WebP] Logo2 conversion failed: {_e}")
+
+        final_logo_url_2 = f"/uploads/logos/{filename2}"
+
     restaurant["branding"] = {
         "logo_url": final_logo_url,
+        "logo_url_2": final_logo_url_2,
         "address": address.strip() if address else "",
         "plz": plz.strip() if plz else "",
         "ort": ort.strip() if ort else "",

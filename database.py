@@ -100,6 +100,7 @@ class Tenant(Base):
     facebook = Column(String, default="")
     tiktok = Column(String, default="")
     logo_url = Column(Text, default="")
+    logo_url_2 = Column(Text, default="")  # Zweites Logo für Tenants mit 2 Läden
     logo_path = Column(String, nullable=True)
     
     # Landing page configurations (JSON object)
@@ -368,6 +369,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'happy_hour_mode', "VARCHAR DEFAULT 'discount'")
     add_column_if_missing('tenants', 'happy_hour_display_name', "VARCHAR DEFAULT 'Aktion'")
     add_column_if_missing('tenants', 'price_mode', "VARCHAR DEFAULT 'brutto'")
+    add_column_if_missing('tenants', 'logo_url_2', "TEXT DEFAULT ''")  # Zweites Logo (für Tenants mit 2 Läden)
 
     # ── Bug-Fix: Existierende NULL-Werte in price_mode auf 'brutto' setzen.
     # Früher konnten NULL-Werte entstehen (kein server_default, save-Pfad nicht
