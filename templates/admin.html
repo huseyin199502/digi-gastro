@@ -375,6 +375,19 @@
             margin-top: 8px;
         }
 
+        /* Serviert-Checkmarks im Control Modal — müssen auf dunklem Hintergrund
+           (Control-Modal Item-Rows) genauso sichtbar sein wie auf hellem.
+           Inline color:#047857 war auf dunklem BG kaum sichtbar (Kontrast ~2:1). */
+        .checkmark-served {
+            color: #047857;  /* Light-Mode: dunkles Grün auf weiß = 5.14:1 (AA) */
+            text-shadow: 0 0 1px currentColor;  /* leichter Glow für bessere Sichtbarkeit */
+        }
+        html.dark .checkmark-served,
+        .dark .checkmark-served {
+            color: #34d399;  /* Dark-Mode: helles Grün auf dunklem BG = 9.5:1 (AAA) */
+            text-shadow: 0 0 2px rgba(52, 211, 153, 0.4);  /* grüner Glow für bessere Erkennung */
+        }
+
         /* ── Action Buttons in Order Popup ── */
         .btn-action {
             display: inline-flex;
@@ -1901,23 +1914,33 @@
             display: inline-flex;
             align-items: center;
             gap: 0.375rem;
-            padding: 0.25rem 0.625rem;
+            padding: 0.3rem 0.7rem;
             background: var(--gastro-bg-muted, #f4f4f5);
             border-radius: 999px;
-            font-size: 0.7rem;
+            font-size: 0.75rem;  /* vorher 0.7rem — etwas größer für bessere Lesbarkeit */
             font-weight: 700;
             color: var(--gastro-text-main, #18181b);
         }
+        html.dark .seating-legend-item {
+            background: rgba(255, 255, 255, 0.08);
+            color: #f4f4f5;  /* helles Grau-Weiß für max. Kontrast auf dunklem BG */
+        }
         .seating-legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
+            width: 16px;  /* vorher 14px — etwas größer */
+            height: 16px;
+            border-radius: 4px;
             flex-shrink: 0;
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+        }
+        html.dark .seating-legend-color {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
         }
         .seating-legend-item .material-symbols-outlined {
-            font-size: 14px;
+            font-size: 16px;
             color: var(--gastro-text-muted, #71717a);
+        }
+        html.dark .seating-legend-item .material-symbols-outlined {
+            color: #d4d4d8;  /* hellere Icon-Farbe in Dark-Mode */
         }
 
         .tile-sg-bar {
@@ -3975,9 +3998,9 @@
                 <!-- Legende: Hauptgruppen-Farben für Kellner (nur in Ansicht, nicht im Edit-Mode) -->
                 <div id="seating-legend" class="seating-legend bg-white dark:bg-zinc-800 rounded-2xl shadow-sm p-3 mb-3 hidden">
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">palette</span>
-                        <span class="text-[10px] font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Farb-Codierung Bestellungen</span>
-                        <span class="text-[9px] text-zinc-400 font-semibold ml-auto" id="seating-legend-hint">Leiste pro Tisch = offene (noch nicht servierte) Artikel</span>
+                        <span class="material-symbols-outlined text-zinc-700 dark:text-zinc-200" style="font-size:14px;">palette</span>
+                        <span class="text-[11px] font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-100">Farb-Codierung Bestellungen</span>
+                        <span class="text-[10px] text-zinc-600 dark:text-zinc-300 font-semibold ml-auto" id="seating-legend-hint">Leiste pro Tisch = offene (noch nicht servierte) Artikel</span>
                     </div>
                     <div class="flex flex-wrap gap-2" id="seating-legend-items">
                         <!-- Wird von renderSeatingLegend() gefüllt -->
@@ -9820,9 +9843,9 @@
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {
-                        checkmarks = '<span style="color:#047857;font-weight:900;margin-right:4px;font-size:14px;" title="Vorbereitet (2x Haken)">✔✔</span>';
+                        checkmarks = '<span class="checkmark-served" style="font-weight:900;margin-right:6px;font-size:15px;" title="Vorbereitet (2x Haken)">✔✔</span>';
                     } else if (itemStatus === 'delivered') {
-                        checkmarks = '<span style="color:#047857;font-weight:900;margin-right:4px;font-size:16px;" title="Serviert">✔</span>';
+                        checkmarks = '<span class="checkmark-served" style="font-weight:900;margin-right:6px;font-size:17px;" title="Serviert">✔</span>';
                     }
 
                     // SECURITY FIX (audit 4.2): key & item.name per escapeForJsAttr escapen, weil sie in
