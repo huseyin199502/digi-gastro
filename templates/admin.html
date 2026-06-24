@@ -3337,6 +3337,7 @@
             width: 100%;
             max-width: 560px;
             height: 100vh;
+            height: 100dvh; /* dynamic viewport height — Mobile-browser-safe */
             z-index: 60;
             transform: translateX(100%);
             transition: transform 0.3s cubic-bezier(0.25, 1, 0.35, 1);
@@ -3351,9 +3352,31 @@
         .edit-slide-over.open {
             transform: translateX(0);
         }
+        /* Mobile: Full-width + safe-area */
         @media (max-width: 640px) {
             .edit-slide-over {
                 max-width: 100%;
+                padding-top: env(safe-area-inset-top, 0);
+            }
+        }
+        /* Form-Bereich muss scrollen können — Header + Tabs sind fixed */
+        .edit-slide-over form#edit-product-form {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            min-height: 0; /* Critical: allows flex item to shrink below content size */
+        }
+        /* Mobile: Sticky Submit-Button am Boden des Slide-Over */
+        @media (max-width: 640px) {
+            .edit-slide-over form#edit-product-form > button[type="submit"] {
+                position: sticky;
+                bottom: 0;
+                background: var(--gastro-card-bg);
+                padding: 12px 0;
+                margin-top: 12px;
+                z-index: 5;
+                border-top: 1px solid var(--gastro-border);
             }
         }
         .edit-slide-overlay {
@@ -5657,7 +5680,7 @@
             <button class="slide-tab-btn" onclick="switchSlideTab('preise', this)">Preise & HH</button>
         </div>
 
-        <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="p-4 space-y-4">
             <input type="hidden" id="edit-product-id">
             <input type="hidden" id="edit-product-type">
 
