@@ -458,6 +458,19 @@
         .btn-fertig:hover {
             background: rgba(16, 185, 129, 0.22);
         }
+        /* Haken-Icon im Servieren-Button — dunkelgrün + fett für max. Sichtbarkeit.
+           Vorher: ✔️ wurde als buntes Emoji gerendert (mit Variation Selector),
+           das auf hellem Pastell-Hintergrund kaum erkennbar war.
+           Jetzt: solid Unicode ✔ in dunkelgrün, größer und fetter. */
+        .btn-check-icon {
+            color: #047857;
+            font-weight: 900;
+            font-size: 16px;
+            line-height: 1;
+            display: inline-block;
+            margin-right: 2px;
+            text-shadow: 0 0 1px rgba(4, 120, 87, 0.3);
+        }
         .btn-pay-item {
             background: rgba(99, 102, 241, 0.12);
             color: #4338ca;  /* vorher #818cf8 (3.5:1) → #4338ca (7.2:1) WCAG AAA */
@@ -9900,7 +9913,7 @@
                     if (itemStatus === 'pending') {
                         actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${keyJs}', 'confirmed')" class="btn-action btn-vorbereiten">🍳 Vorbereitung</button>`;
                     } else if (itemStatus === 'confirmed') {
-                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${keyJs}', 'delivered')" class="btn-action btn-fertig">Vorbereitet ✔️</button>`;
+                        actionBtn = `<button onclick="event.stopPropagation();setItemStatus(${order.id}, '${keyJs}', 'delivered')" class="btn-action btn-fertig"><span class="btn-check-icon">✔</span> Servieren</button>`;
                     } else if (itemStatus === 'delivered') {
                         actionBtn = `<button onclick="event.stopPropagation();openItemActionModal('${keyJs}', ${item.quantity}, '${itemNameJs}')" class="btn-action btn-pay-item">💳 Teilzahlung</button>`;
                     }
