@@ -1390,13 +1390,13 @@
                 toast.classList.remove("translate-y-[-20px]", "opacity-0");
             }, 10);
             
-            // Auto remove
+            // Auto remove (2.5s sichtbar + 0.3s Ausblend = 2.8s gesamt)
             setTimeout(() => {
                 toast.classList.add("translate-y-[-20px]", "opacity-0");
                 setTimeout(() => {
                     toast.remove();
                 }, 300);
-            }, 4000);
+            }, 2500);
         }
 
         function getTableFromUrl() {
