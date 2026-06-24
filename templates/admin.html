@@ -388,12 +388,43 @@
             height: 22px;
             padding: 0 4px;
             border-radius: 999px;
-            background: #047857;       /* dunkles Grün als Badge-Hintergrund */
-            color: #ffffff;             /* weißer Haken auf dunkelgrün = 5.14:1 AA */
+            background: #047857;
+            color: #ffffff;
             font-weight: 900;
             line-height: 1;
             box-shadow: 0 1px 3px rgba(4, 120, 87, 0.4);
             vertical-align: middle;
+        }
+
+        /* Logo-Upload Karten — Theme-aware via explizitem CSS (nicht Tailwind dark:)
+           weil tailwind-built.css nicht alle dark: Varianten enthält. */
+        .logo-preview-card {
+            background: #f9fafb;       /* gray-50 Light */
+            border-color: #f3f4f6;     /* gray-100 Light */
+        }
+        .logo-preview-2 {
+            background: #eff6ff;       /* blue-50 Light */
+            border-color: #dbeafe;     /* blue-100 Light */
+        }
+        .logo-upload-card {
+            background: #fffbeb;       /* amber-50 Light */
+            border-color: #fef3c7;     /* amber-100 Light */
+        }
+        /* Dark-Mode Overrides — html.dark Klasse wird via restaurant.theme gesetzt */
+        html.dark .logo-preview-card {
+            background: #1f2937;       /* zinc-800 Dark */
+            border-color: #374151;     /* zinc-700 Dark */
+            color: #e4e4e7;            /* zinc-200 Dark */
+        }
+        html.dark .logo-preview-2 {
+            background: rgba(30, 58, 138, 0.3);  /* blue-950 mit 30% Opazität */
+            border-color: #1e3a8a;                /* blue-900 Dark */
+            color: #93c5fd;                       /* blue-300 Dark */
+        }
+        html.dark .logo-upload-card {
+            background: rgba(120, 53, 15, 0.3);  /* amber-950 mit 30% Opazität */
+            border-color: #78350f;                /* amber-900 Dark */
+            color: #fcd34d;                       /* amber-300 Dark */
         }
 
         /* ── Action Buttons in Order Popup ── */
@@ -5102,31 +5133,31 @@
                         <form action="/admin/branding" method="POST" enctype="multipart/form-data" class="space-y-4">
                             <!-- Logo 1 (Haupt-Logo) -->
                             {% if restaurant.branding and restaurant.branding.logo_url %}
-                            <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-700">
-                                <img src="{{ restaurant.branding.logo_url }}" alt="Logo 1" class="h-12 w-12 object-contain rounded-lg border border-gray-200 dark:border-zinc-600 bg-white p-1" decoding="async">
+                            <div class="logo-preview-card logo-preview-1 flex items-center gap-3 p-3 rounded-xl border">
+                                <img src="{{ restaurant.branding.logo_url }}" alt="Logo 1" class="h-12 w-12 object-contain rounded-lg border bg-white p-1" decoding="async">
                                 <div class="flex-1">
-                                    <span class="text-[10px] text-zinc-700 dark:text-zinc-200 font-bold block">Aktuelles Haupt-Logo</span>
-                                    <span class="text-[9px] text-zinc-500 dark:text-zinc-400">Wird im Header + Landingpage gezeigt</span>
+                                    <span class="text-[10px] font-bold block">Aktuelles Haupt-Logo</span>
+                                    <span class="text-[9px] opacity-70">Wird im Header + Landingpage gezeigt</span>
                                 </div>
                             </div>
                             {% endif %}
                             <div>
-                                <label class="form-label">Haupt-Logo hochladen <span class="text-[9px] text-zinc-500 dark:text-zinc-400 font-normal">(PNG, JPG, WebP — wird automatisch zu WebP konvertiert)</span></label>
+                                <label class="form-label">Haupt-Logo hochladen <span class="text-[9px] opacity-60 font-normal">(PNG, JPG, WebP — wird automatisch zu WebP konvertiert)</span></label>
                                 <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif" class="form-field">
                             </div>
 
                             <!-- Logo 2 (Zusatz-Laden) -->
                             {% if restaurant.branding and restaurant.branding.logo_url_2 %}
-                            <div class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900">
-                                <img src="{{ restaurant.branding.logo_url_2 }}" alt="Logo 2" class="h-12 w-12 object-contain rounded-lg border border-blue-200 dark:border-blue-800 bg-white p-1" decoding="async">
+                            <div class="logo-preview-card logo-preview-2 flex items-center gap-3 p-3 rounded-xl border">
+                                <img src="{{ restaurant.branding.logo_url_2 }}" alt="Logo 2" class="h-12 w-12 object-contain rounded-lg border bg-white p-1" decoding="async">
                                 <div class="flex-1">
-                                    <span class="text-[10px] text-blue-700 dark:text-blue-300 font-bold block">Aktuelles zweites Logo</span>
-                                    <span class="text-[9px] text-blue-500 dark:text-blue-400">Wird auf der Landingpage neben dem Haupt-Logo gezeigt</span>
+                                    <span class="text-[10px] font-bold block">Aktuelles zweites Logo</span>
+                                    <span class="text-[9px] opacity-70">Wird auf der Landingpage neben dem Haupt-Logo gezeigt</span>
                                 </div>
                             </div>
                             {% endif %}
-                            <div class="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-100 dark:border-amber-900">
-                                <label class="form-label">Zweites Logo hochladen <span class="text-[9px] text-amber-700 dark:text-amber-400 font-normal">(optional, falls du 2 Läden hast)</span></label>
+                            <div class="logo-upload-card p-3 rounded-xl border">
+                                <label class="form-label">Zweites Logo hochladen <span class="text-[9px] opacity-60 font-normal">(optional, falls du 2 Läden hast)</span></label>
                                 <input type="file" name="logo_file_2" accept="image/png,image/jpeg,image/webp,image/gif" class="form-field">
                             </div>
                             <div>
