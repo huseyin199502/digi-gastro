@@ -1712,9 +1712,21 @@
                 top: auto !important;
                 margin-bottom: 1rem;
             }
+            /* Preview-Pane auf Mobile: normales Block-Layout statt flex-column.
+               Verhindert dass der iframe-wrap verschwindet oder Header abgeschnitten wird. */
+            .lp-preview-pane {
+                display: block !important;
+            }
+            .lp-preview-iframe-wrap {
+                display: block;
+                overflow: visible;
+                min-height: 0;
+                flex: none;
+            }
             .lp-preview-iframe {
                 height: 60vh;
                 min-height: 400px;
+                width: 100%;
             }
             .lp-submit-bar {
                 position: static !important;
@@ -4908,24 +4920,34 @@
                     </form>
                     </div><!-- /.lp-editor-pane -->
 
-                    <!-- Preview Pane (rechts) -->
+                    <!-- Preview Pane (rechts / auf Mobile unten) -->
                     <div class="lp-preview-pane">
                         <div class="lp-preview-header">
                             <div class="flex items-center gap-2">
                                 <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">preview</span>
                                 <span class="text-xs font-bold text-zinc-700">Live-Vorschau</span>
                             </div>
-                            <div class="lp-preview-device-toggle">
-                                <button id="lp-preview-desktop" class="active" onclick="setLpPreviewDevice('desktop', this)" title="Desktop">
-                                    <span class="material-symbols-outlined" style="font-size:12px;">desktop_windows</span>
-                                </button>
-                                <button id="lp-preview-mobile" onclick="setLpPreviewDevice('mobile', this)" title="Mobile">
-                                    <span class="material-symbols-outlined" style="font-size:12px;">smartphone</span>
-                                </button>
+                            <div class="flex items-center gap-2">
+                                <a href="/{{ slug }}" target="_blank" class="hidden lg:inline-flex btn-secondary text-[10px] px-2 py-1 items-center gap-1">
+                                    <span class="material-symbols-outlined" style="font-size:11px;">open_in_new</span> Neuem Tab
+                                </a>
+                                <div class="lp-preview-device-toggle">
+                                    <button id="lp-preview-desktop" class="active" onclick="setLpPreviewDevice('desktop', this)" title="Desktop">
+                                        <span class="material-symbols-outlined" style="font-size:12px;">desktop_windows</span>
+                                    </button>
+                                    <button id="lp-preview-mobile" onclick="setLpPreviewDevice('mobile', this)" title="Mobile">
+                                        <span class="material-symbols-outlined" style="font-size:12px;">smartphone</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="lp-preview-iframe-wrap">
-                            <iframe id="lp-preview-iframe" class="lp-preview-iframe" src="/{{ slug }}" title="Landingpage Vorschau"></iframe>
+                            <iframe id="lp-preview-iframe" class="lp-preview-iframe" src="/{{ slug }}" title="Landingpage Vorschau" loading="lazy" referrerpolicy="same-origin"></iframe>
+                        </div>
+                        <!-- Mobile-Hinweis: was ist dieses Feld? -->
+                        <div class="lp-preview-mobile-hint lg:hidden" style="padding: 0.5rem 0.75rem; background: #fef3c7; border-top: 1px solid #fde68a; font-size: 0.7rem; color: #92400e; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">info</span>
+                            <span>Dies ist die Live-Vorschau deiner Landingpage. Tippe auf <a href="/{{ slug }}" target="_blank" style="color: #92400e; text-decoration: underline; font-weight: 800;">Vollbild öffnen</a> für bessere Ansicht.</span>
                         </div>
                     </div>
                 </div><!-- /.lp-split -->
