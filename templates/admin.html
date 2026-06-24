@@ -377,22 +377,22 @@
 
         /* Serviert-Checkmarks im Control Modal — Item-Rows haben IMMER hellen
            Pastell-Hintergrund (lightenColor(group.color, 92)), egal ob Light- oder
-           Dark-Mode. Deshalb: IMMER dunkles Grün für max. Kontrast auf hellem BG.
-           Badge-Style mit weißem Hintergrund-Kreis damit der Haken aus jedem
-           Pastell-Hintergrund (blau/lila/orange) heraussticht. */
+           Dark-Mode.
+           WICHTIG (User-Feedback): Haken soll DUNKELGRÜN sein, nicht weiß!
+           Deshalb: heller Kreis-Hintergrund + dunkelgrüner Haken = max. Kontrast. */
         .checkmark-served {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 22px;
-            height: 22px;
+            min-width: 24px;
+            height: 24px;
             padding: 0 4px;
             border-radius: 999px;
-            background: #047857;
-            color: #ffffff;
+            background: #ffffff;          /* weißer Kreis-Hintergrund */
+            color: #047857;                /* DUNKELGRÜNER Haken = 5.14:1 AA */
             font-weight: 900;
             line-height: 1;
-            box-shadow: 0 1px 3px rgba(4, 120, 87, 0.4);
+            box-shadow: 0 0 0 2px #047857; /* dunkelgrüner Ring außen = klar erkennbar */
             vertical-align: middle;
         }
 
@@ -2801,7 +2801,7 @@
             cursor: default;
         }
         .notif-item.item-served {
-            opacity: 0.7; /* vorher 0.4 — zu transparent, serviert-Status unlesbar */
+            opacity: 0.7;
             text-decoration: line-through;
         }
         .notif-item .item-qty {
@@ -2816,37 +2816,8 @@
             white-space: nowrap;
             color: var(--gastro-text-main);
         }
-        .notif-item .btn-serve-item {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 44px;   /* vorher 32px — Touch-Target ≥44px + Haken besser sichtbar */
-            height: 44px;  /* vorher 32px */
-            border-radius: 6px;
-            background: var(--gastro-primary);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 18px;  /* vorher 12px — Haken-Icon größer */
-            font-weight: 900;
-            transition: all 0.15s;
-            flex-shrink: 0;
-            padding: 0;
-            line-height: 1;
-            box-shadow: 0 1px 3px rgba(0, 153, 0, 0.3); /* mehr Tiefe, besser erkennbar */
-        }
-        .notif-item .btn-serve-item:hover {
-            transform: scale(1.1);
-            box-shadow: 0 2px 8px rgba(0, 153, 0, 0.45);
-        }
-        /* Serviert-Status: Button behält grüne Farbe mit Häkchen-Icon,
-           statt grau zu werden. Hintergrund wird leicht dunkler + Check-Icon. */
-        .notif-item.item-served .btn-serve-item {
-            background: var(--gastro-primary-hover, #007a00); /* dunkleres Grün = "erledigt" */
-            pointer-events: none;
-            opacity: 1; /* opacity vom parent aufheben — Button bleibt voll sichtbar */
-            box-shadow: 0 0 0 2px var(--gastro-card-bg), 0 0 0 4px var(--gastro-primary); /* grüner Ring = serviert */
-        }
+        /* HINWEIS: .btn-serve-item wurde als toter Code entfernt (niemals im HTML/JS
+           verwendet — Serve-Buttons werden via .btn-fertig + .btn-check-icon gerendert). */
 
         .notif-actions {
             display: flex;
@@ -5383,7 +5354,7 @@
                 <div id="control-general-actions">
                     <div class="flex gap-2">
                         <button id="btn-serve-all-cockpit" onclick="serveAllControlPending()" class="flex-1 py-2.5 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
-                            <span class="material-symbols-outlined text-sm">done_all</span> Alle servieren
+                            <span class="btn-check-icon" style="font-size:14px;">✔</span> Alle servieren
                         </button>
                         <button onclick="adminTakeOrder(controlModalActiveTableNum)" class="flex-1 py-2.5 border border-gray-200 hover:bg-gray-50 text-zinc-700 dark:text-zinc-400 dark:border-zinc-600 dark:hover:bg-zinc-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition">
                             <span class="material-symbols-outlined text-sm">edit_note</span> Neue Bestellung
