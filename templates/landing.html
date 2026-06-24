@@ -492,6 +492,284 @@
                 color: #000 !important;
             }
         }
+
+        /* ════════════════════════════════════════════════════════════════════
+           PREMIUM REDESIGN 2026 — Modern Glow + Glassmorphism + Bento
+           ════════════════════════════════════════════════════════════════════ */
+
+        /* ── Animated Background Gradient (deep + premium) ── */
+        @keyframes bg-shift {
+            0%, 100% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+        }
+        body {
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(201, 168, 76, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+                #050507;
+            background-size: 100% 100%, 100% 100%, 100% 100%;
+        }
+
+        /* ── Premium Hero Text Glow ── */
+        .hero-glow-text {
+            text-shadow: 0 0 40px rgba(201, 168, 76, 0.15);
+        }
+
+        /* ── Stat Numbers mit Glow-Animation ── */
+        @keyframes stat-glow {
+            0%, 100% { text-shadow: 0 0 20px rgba(201, 168, 76, 0.2); }
+            50% { text-shadow: 0 0 30px rgba(201, 168, 76, 0.5); }
+        }
+        .stat-glow {
+            animation: stat-glow 3s ease-in-out infinite;
+        }
+
+        /* ── Premium Glass Card V2 mit Border-Glow ── */
+        .glass-card-v2 {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(24, 24, 27, 0.7) 0%, rgba(17, 19, 26, 0.6) 100%);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(201, 168, 76, 0.08);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card-v2::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(201, 168, 76, 0.3), transparent 30%, transparent 70%, rgba(201, 168, 76, 0.15));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        .glass-card-v2:hover::before { opacity: 1; }
+        .glass-card-v2:hover {
+            transform: translateY(-4px);
+            box-shadow:
+                0 20px 40px -15px rgba(0, 0, 0, 0.7),
+                0 0 30px -5px rgba(201, 168, 76, 0.15);
+        }
+        .glass-card-v2 .card-icon {
+            background: linear-gradient(135deg, rgba(201, 168, 76, 0.15) 0%, rgba(201, 168, 76, 0.05) 100%);
+            border: 1px solid rgba(201, 168, 76, 0.2);
+            color: #EFD04D;
+        }
+
+        /* ── Premium Button Glow ── */
+        .btn-gold-v2 {
+            position: relative;
+            background: linear-gradient(135deg, #EFD04D 0%, #C9A84C 50%, #A8872E 100%);
+            color: #050507;
+            box-shadow:
+                0 4px 20px 0 rgba(201, 168, 76, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+        .btn-gold-v2::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        .btn-gold-v2:hover {
+            box-shadow:
+                0 8px 32px 0 rgba(201, 168, 76, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            filter: brightness(1.05);
+        }
+        .btn-gold-v2:hover::before { transform: translateX(100%); }
+        .btn-gold-v2:active { transform: scale(0.97); }
+
+        /* ── Premium Glass Outline Button ── */
+        .btn-glass-v2 {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f3f4f6;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-glass-v2:hover {
+            background: rgba(201, 168, 76, 0.08);
+            border-color: rgba(201, 168, 76, 0.3);
+            box-shadow: 0 0 20px -5px rgba(201, 168, 76, 0.2);
+        }
+
+        /* ── Premium Section Headings ── */
+        .premium-heading {
+            background: linear-gradient(135deg, #ffffff 0%, #e4e4e7 50%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+        }
+        .premium-heading-gold {
+            background: linear-gradient(135deg, #EFD04D 0%, #C9A84C 50%, #A8872E 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ── Premium Stat Bar ── */
+        .premium-stat {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .premium-stat::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(201, 168, 76, 0.05), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 12px;
+        }
+        .premium-stat:hover::before { opacity: 1; }
+        .premium-stat:hover { transform: scale(1.05); }
+
+        /* ── Premium CTA Glow Background ── */
+        .cta-glow-bg {
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-glow-bg::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(201, 168, 76, 0.15) 0%, transparent 60%);
+            border-radius: 50%;
+            filter: blur(40px);
+            animation: cta-pulse 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes cta-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+        }
+
+        /* ── Premium FAQ Accordion ── */
+        .faq-item-v2 {
+            background: linear-gradient(135deg, rgba(24, 24, 27, 0.6) 0%, rgba(17, 19, 26, 0.5) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(201, 168, 76, 0.08);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .faq-item-v2:hover {
+            border-color: rgba(201, 168, 76, 0.2);
+            box-shadow: 0 4px 20px -10px rgba(201, 168, 76, 0.15);
+        }
+        .faq-item-v2.active {
+            border-color: rgba(201, 168, 76, 0.3);
+            box-shadow: 0 8px 30px -10px rgba(201, 168, 76, 0.2);
+        }
+
+        /* ── Mobile Premium Optimizations ── */
+        @media (max-width: 768px) {
+            /* Größere Touch-Targets */
+            .btn-gold-v2, .btn-glass-v2 {
+                min-height: 52px !important;
+                padding: 14px 24px !important;
+                font-size: 15px !important;
+            }
+            /* Stats: kleinere Zahlen aber mehr Glow */
+            .premium-stat {
+                padding: 1rem 0.5rem;
+            }
+            /* Cards: weniger Padding auf Mobile */
+            .glass-card-v2 {
+                padding: 1.25rem !important;
+            }
+            /* Headings: kleinere aber fettere Schrift */
+            .premium-heading {
+                font-size: 1.875rem !important;
+                line-height: 1.15 !important;
+            }
+            /* CTA Glow kleiner auf Mobile */
+            .cta-glow-bg::before {
+                width: 350px;
+                height: 350px;
+            }
+        }
+
+        /* ── Sticky Mobile CTA Bar ── */
+        .mobile-sticky-cta {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(5, 5, 7, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(201, 168, 76, 0.2);
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0));
+            z-index: 40;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .mobile-sticky-cta {
+                display: block;
+            }
+            body {
+                padding-bottom: 80px;
+            }
+        }
+        .mobile-sticky-cta a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 15px;
+            text-decoration: none;
+            background: linear-gradient(135deg, #EFD04D 0%, #C9A84C 50%, #A8872E 100%);
+            color: #050507;
+            box-shadow: 0 4px 16px rgba(201, 168, 76, 0.4);
+        }
+
+        /* ── Premium Hero Badge mit Shimmer ── */
+        @keyframes badge-shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .premium-badge {
+            background: linear-gradient(90deg,
+                rgba(201, 168, 76, 0.1) 0%,
+                rgba(201, 168, 76, 0.25) 50%,
+                rgba(201, 168, 76, 0.1) 100%);
+            background-size: 200% 100%;
+            animation: badge-shimmer 3s linear infinite;
+            border: 1px solid rgba(201, 168, 76, 0.3);
+            color: #EFD04D;
+        }
+
+        /* ── Premium Scroll Indicator ── */
+        @keyframes scroll-bounce {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(8px); opacity: 1; }
+        }
+        .scroll-indicator-v2 {
+            animation: scroll-bounce 2s ease-in-out infinite;
+        }
     </style>
 
 </head>
@@ -591,21 +869,21 @@
                     
                     <!-- Hero Text (Left) -->
                     <div class="lg:col-span-6 text-left space-y-5 lg:pr-6">
-                        <div class="inline-flex items-center gap-2 bg-gold-500/10 border border-gold-500/20 text-gold-400 px-3.5 py-1.5 rounded-full text-xs font-bold font-display tracking-wide uppercase">
+                        <div class="inline-flex items-center gap-2 premium-badge px-3.5 py-1.5 rounded-full text-xs font-bold font-display tracking-wide uppercase">
                             <span class="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse"></span>
                             Gastronomie OS 2.0
                         </div>
-                        <h1 class="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white leading-[1.08] font-display">
-                            Das Betriebssystem für <span class="text-gradient-gold">moderne Gastronomie</span>.
+                        <h1 class="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white leading-[1.08] font-display hero-glow-text">
+                            Das Betriebssystem für <span class="premium-heading-gold">moderne Gastronomie</span>.
                         </h1>
                         <p class="text-sm sm:text-lg text-zinc-300 leading-relaxed font-medium max-w-xl">
                             Egal ob Burger-Laden oder Shishabar — digi-gastro passt sich per Mausklick an deine Location an. Steigere deinen Umsatz um bis zu <span class="text-gold-400 font-bold">25%</span> durch digitales Bestellen, smartes Upselling und GoBD-sichere Buchhaltung.
                         </p>
                         <div class="pt-3 flex flex-col sm:flex-row gap-3">
-                            <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold text-sm px-7 py-3.5 rounded-xl flex items-center justify-center gap-2 btn-shimmer relative font-bold">
+                            <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold-v2 text-sm px-7 py-3.5 rounded-xl flex items-center justify-center gap-2 relative font-bold">
                                 <i class="fa-brands fa-whatsapp"></i> Vertrieb kontaktieren
                             </a>
-                            <a href="#demo" class="btn-glass text-sm px-7 py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold">
+                            <a href="#demo" class="btn-glass-v2 text-sm px-7 py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold">
                                 <i class="fa-solid fa-circle-play text-gold-400"></i> Simulator ansehen
                             </a>
                         </div>
@@ -708,10 +986,11 @@
                 </div>
             </div>
         </div>
+        </div>
 
         <!-- Scroll Indicator -->
-        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 animate-bounce">
-            <a href="#stats" class="text-gold-500/50 hover:text-gold-400 transition-colors">
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 scroll-indicator-v2">
+            <a href="#stats" class="text-gold-500/60 hover:text-gold-400 transition-colors">
                 <i class="fa-solid fa-chevron-down text-lg"></i>
             </a>
         </div>
@@ -720,23 +999,23 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- STATS BAR -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <section id="stats" class="relative z-10 border-y border-zinc-800/40 bg-zinc-950/60 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div class="reveal">
-                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">25%</div>
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">Mehr Umsatz</div>
+    <section id="stats" class="relative z-10 border-y border-gold-500/10 bg-zinc-950/60 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
+            <div class="reveal premium-stat">
+                <div class="text-4xl sm:text-5xl font-black font-display premium-heading-gold stat-glow">25%</div>
+                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-3">Mehr Umsatz</div>
             </div>
-            <div class="reveal">
-                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">0</div>
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">App-Download nötig</div>
+            <div class="reveal premium-stat">
+                <div class="text-4xl sm:text-5xl font-black font-display premium-heading-gold stat-glow">0</div>
+                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-3">App-Download nötig</div>
             </div>
-            <div class="reveal">
-                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">100%</div>
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">GoBD-konform</div>
+            <div class="reveal premium-stat">
+                <div class="text-4xl sm:text-5xl font-black font-display premium-heading-gold stat-glow">100%</div>
+                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-3">GoBD-konform</div>
             </div>
-            <div class="reveal">
-                <div class="text-3xl sm:text-4xl font-black font-display text-gradient-gold">24/7</div>
-                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-2">Echtzeit-Betrieb</div>
+            <div class="reveal premium-stat">
+                <div class="text-4xl sm:text-5xl font-black font-display premium-heading-gold stat-glow">24/7</div>
+                <div class="text-xs font-bold text-zinc-400 uppercase tracking-wider mt-3">Echtzeit-Betrieb</div>
             </div>
         </div>
     </section>
@@ -747,14 +1026,14 @@
     <section id="features" class="py-16 md:py-28 relative z-10">
         <div class="max-w-7xl mx-auto px-6">
             <div class="text-center max-w-3xl mx-auto mb-16">
-                <h2 class="text-3xl sm:text-5xl font-black text-white font-display tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Das All-in-One Gastro-Betriebssystem</h2>
+                <h2 class="text-3xl sm:text-5xl font-black font-display tracking-tight premium-heading">Das All-in-One Gastro-Betriebssystem</h2>
                 <p class="text-zinc-400 mt-4 text-sm sm:text-base font-medium">Alles, was deine Gastronomie für mehr Profitabilität, glücklichere Mitarbeiter und fehlerfreie Abläufe benötigt.</p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 <!-- BENTO CARD 1: Shisha-Modus -->
-                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-fire text-xl"></i>
@@ -768,7 +1047,7 @@
                 </div>
 
                 <!-- BENTO CARD 2: KDS -->
-                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-desktop text-xl"></i>
@@ -782,7 +1061,7 @@
                 </div>
 
                 <!-- BENTO CARD 3: Rechnungs-Splitting -->
-                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-arrows-split-up-and-left text-xl"></i>
@@ -796,7 +1075,7 @@
                 </div>
 
                 <!-- BENTO CARD 4: GoBD -->
-                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-shield-halved text-xl"></i>
@@ -810,7 +1089,7 @@
                 </div>
 
                 <!-- BENTO CARD 5: Google-Review-Booster -->
-                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-star text-xl"></i>
@@ -824,7 +1103,7 @@
                 </div>
 
                 <!-- BENTO CARD 6: Upselling & Happy-Hour -->
-                <div class="glass-card p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-clock text-xl"></i>
@@ -848,42 +1127,42 @@
         <div class="gold-divider mb-16"></div>
         <div class="max-w-4xl mx-auto px-6">
             <div class="text-center mb-16">
-                <h2 class="text-3xl sm:text-4xl font-black text-white font-display tracking-tight">Häufig gestellte Fragen</h2>
+                <h2 class="text-3xl sm:text-4xl font-black font-display tracking-tight premium-heading">Häufig gestellte Fragen</h2>
                 <p class="text-zinc-400 mt-4 text-sm font-medium">Alles Wissenswerte über das intelligenteste Betriebssystem der modernen Gastronomie.</p>
             </div>
 
             <div class="space-y-4">
-                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
-                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(1)">
+                <div class="faq-item-v2 rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-gold-500/5 transition-colors font-bold text-white" onclick="toggleFaq(1)">
                         <span>Ist digi-gastro hardwareunabhängig?</span>
                         <i id="faq-icon-1" class="fa-solid fa-chevron-down text-gold-500 transition-transform"></i>
                     </button>
                     <div id="faq-content-1" class="accordion-content">
-                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-gold-500/10 pt-4">
                             Ja! digi-gastro läuft auf jedem gängigen Tablet, Smartphone oder Computer — ganz ohne teure Spezialhardware oder proprietäre Kassensysteme. Egal ob iOS, Android oder Windows.
                         </div>
                     </div>
                 </div>
 
-                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
-                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(2)">
+                <div class="faq-item-v2 rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-gold-500/5 transition-colors font-bold text-white" onclick="toggleFaq(2)">
                         <span>Wie funktioniert die automatische Filterung im Shisha-Modus?</span>
                         <i id="faq-icon-2" class="fa-solid fa-chevron-down text-gold-500 transition-transform"></i>
                     </button>
                     <div id="faq-content-2" class="accordion-content">
-                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-gold-500/10 pt-4">
                             Bestellungen für Shishas und Kohle-Anfragen werden automatisch an den Shisha-Monitor geleitet, während Speisen in der Küche landen. Keine Zettelwirtschaft mehr! Du aktivierst den Shisha-Modus einfach mit einem einzigen Klick in den Profileinstellungen deines Restaurants.
                         </div>
                     </div>
                 </div>
 
-                <div class="glass-card border border-zinc-800/80 rounded-xl overflow-hidden">
-                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-zinc-900/40 transition-colors font-bold text-white" onclick="toggleFaq(3)">
+                <div class="faq-item-v2 rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-5 text-left flex justify-between items-center hover:bg-gold-500/5 transition-colors font-bold text-white" onclick="toggleFaq(3)">
                         <span>Gibt es einen Schutz vor Spaßbestellern (Troll-Schutz)?</span>
                         <i id="faq-icon-3" class="fa-solid fa-chevron-down text-gold-500 transition-transform"></i>
                     </button>
                     <div id="faq-content-3" class="accordion-content">
-                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-zinc-800/30 pt-4">
+                        <div class="px-6 pb-5 text-zinc-400 text-sm leading-relaxed font-medium border-t border-gold-500/10 pt-4">
                             Ja, absolut! Jeder Tisch verfügt über einen rotierenden Sicherheits-Token. Gäste scannen einfach den QR-Code am Tisch, um den Code automatisch zu übernehmen. Ohne gültigen Code blockiert das System Bestellversuche sofort, so dass unberechtigte Bestellungen von außerhalb unmöglich sind.
                         </div>
                     </div>
@@ -895,12 +1174,12 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- CTA SECTION -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <section class="py-20 md:py-28 relative z-10">
+    <section class="py-20 md:py-28 relative z-10 cta-glow-bg">
         <div class="gold-divider mb-16"></div>
-        <div class="max-w-4xl mx-auto px-6 text-center reveal">
-            <h2 class="text-3xl sm:text-5xl font-black text-white font-display tracking-tight mb-6">Bereit für das <span class="text-gradient-gold">Gastro-OS</span> der Zukunft?</h2>
+        <div class="max-w-4xl mx-auto px-6 text-center reveal relative z-10">
+            <h2 class="text-3xl sm:text-5xl font-black font-display tracking-tight mb-6 premium-heading">Bereit für das <span class="premium-heading-gold">Gastro-OS</span> der Zukunft?</h2>
             <p class="text-zinc-400 text-base sm:text-lg font-medium mb-10 max-w-2xl mx-auto">Starte jetzt und erlebe, wie digi-gastro deinen Betrieb transformiert. Keine Hardware-Kosten, kein App-Download für Gäste, keine Verträge.</p>
-            <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold text-sm sm:text-base px-10 py-4 rounded-xl inline-flex items-center gap-2 btn-shimmer relative font-bold">
+            <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener" class="btn-gold-v2 text-sm sm:text-base px-10 py-4 rounded-xl inline-flex items-center gap-2 relative font-bold">
                 <i class="fa-solid fa-rocket"></i> Jetzt Demo anfragen
             </a>
         </div>
@@ -1556,5 +1835,15 @@
             });
         }
     </script>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- MOBILE STICKY CTA BAR — immer erreichbar auf Mobile -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="mobile-sticky-cta">
+        <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20habe%20Interesse%20an%20digi-gastro.de" target="_blank" rel="noopener">
+            <i class="fa-brands fa-whatsapp"></i>
+            <span>Jetzt Demo anfragen</span>
+        </a>
+    </div>
 </body>
 </html>
