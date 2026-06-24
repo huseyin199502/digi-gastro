@@ -7671,7 +7671,7 @@
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-6 h-6 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-6 h-6 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center border border-emerald-500 shrink-0 transition" title="Als serviert markieren">
                                             <span class="material-symbols-outlined text-sm" style="color:#ffffff;">check</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
@@ -7681,8 +7681,8 @@
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="font-extrabold font-mono text-[11px]" style="color:#374151;">${item.price.toFixed(2).replace('.', ',')} €</span>
-                                        <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center border border-rose-500/20 shrink-0 transition" title="Stornieren">
-                                            <span class="material-symbols-outlined text-sm">close</span>
+                                        <button onclick="cancelControlItem('${item.key}', ${item.order_id}, ${item.quantity}, '${itemName}')" class="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 flex items-center justify-center border border-rose-500 shrink-0 transition" title="Stornieren">
+                                            <span class="material-symbols-outlined text-sm" style="color:#ffffff;">close</span>
                                         </button>
                                     </div>
                                 </div>`;
