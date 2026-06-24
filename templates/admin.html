@@ -1705,7 +1705,7 @@
             cursor: pointer;
             user-select: none;
         }
-        .cat-tree-group-header:hover { background: #fafafa; }
+        .cat-tree-group-header:hover { background: var(--gastro-bg-muted, #fafafa); }
         .cat-tree-color-dot {
             width: 12px;
             height: 12px;
@@ -1715,16 +1715,33 @@
         .cat-tree-group-name {
             font-size: 0.85rem;
             font-weight: 800;
-            color: #18181b;
+            color: var(--gastro-text-main, #18181b);
             flex: 1;
         }
         .cat-tree-group-count {
             font-size: 0.7rem;
             font-weight: 700;
-            color: #52525b;
-            background: #f4f4f5;
+            color: var(--gastro-text-muted, #52525b);
+            background: var(--gastro-bg-muted, #f4f4f5);
             padding: 2px 8px;
             border-radius: 999px;
+        }
+        /* Dark-Mode Overrides für cat-tree-group — selbes Pattern wie cat-tree-item */
+        html.dark .cat-tree-group-header {
+            background: #1f2937;
+            border-bottom-color: #374151;
+        }
+        html.dark .cat-tree-group-header:hover { background: #374151; }
+        html.dark .cat-tree-group-name {
+            color: #f4f4f5;
+        }
+        html.dark .cat-tree-group-count {
+            color: #d4d4d8;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        html.dark .cat-tree-group {
+            background: #18181b;
+            border-color: #374151;
         }
         .cat-tree-children {
             padding: 0.5rem;
@@ -1749,21 +1766,36 @@
         .cat-tree-item-name {
             font-size: 0.8rem;
             font-weight: 700;
-            color: #27272a;
+            color: var(--gastro-text-main, #27272a);
             flex: 1;
         }
         .cat-tree-item-count {
             font-size: 0.7rem;
             font-weight: 700;
-            color: #71717a;
-            background: #f4f4f5;
+            color: var(--gastro-text-muted, #71717a);
+            background: var(--gastro-bg-muted, #f4f4f5);
             padding: 2px 6px;
             border-radius: 4px;
+        }
+        /* Dark-Mode Overrides für cat-tree — hardcoded Farben durch CSS-Variablen ersetzt,
+           aber zur Sicherheit explizite html.dark Regeln für max. Kontrast. */
+        html.dark .cat-tree-item {
+            background: #1f2937;        /* zinc-800 */
+            border-color: #374151;       /* zinc-700 */
+        }
+        html.dark .cat-tree-item-name {
+            color: #f4f4f5;              /* zinc-100 = sehr hell = max. Kontrast auf dunklem BG */
+        }
+        html.dark .cat-tree-item-count {
+            color: #d4d4d8;              /* zinc-300 */
+            background: rgba(255, 255, 255, 0.1);
+        }
+        html.dark .cat-tree-empty {
+            color: #a1a1aa;
         }
         .cat-tree-empty {
             padding: 0.5rem 0.75rem;
             font-size: 0.7rem;
-            color: #a1a1aa;
             font-style: italic;
             text-align: center;
         }
