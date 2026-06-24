@@ -299,7 +299,13 @@
     <header class="grid grid-cols-3 items-center px-4 sm:px-6 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
             style="height: calc(5rem + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1.5rem, env(safe-area-inset-right, 0px)); -webkit-padding-top: env(safe-area-inset-top, 0px);">
         <div class="flex justify-start items-center gap-2 sm:gap-3">
-            {% if restaurant.branding and restaurant.branding.logo_url %}
+            {% if role == 'admin' or role == 'waiter' %}
+            <!-- Dashboard-Button IM Header — erbt safe-area-inset-top vom Header padding -->
+            <a href="/admin/dashboard" class="bg-primary text-black font-bold text-[11px] px-3 py-2 rounded-full shadow-lg flex items-center gap-1 hover:opacity-90 transition-opacity shrink-0">
+                <span class="material-symbols-outlined" style="font-size:14px;">arrow_back</span>
+                <span>Dashboard</span>
+            </a>
+            {% elif restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="header-logo h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
             {% else %}
                 <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-xl sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
@@ -324,13 +330,7 @@
     </header>
 
     {% if role == 'admin' or role == 'waiter' %}
-    <!-- Zurück zum Dashboard Button (nur für Kellner/Admin) -->
-    <!-- Position: unten rechts statt oben — verdeckt keinen anderen Button -->
-    <a href="/admin/dashboard" class="fixed bottom-3 right-3 z-50 bg-primary text-black font-bold text-xs px-4 py-2.5 rounded-full shadow-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity"
-       style="margin-bottom: env(safe-area-inset-bottom);">
-        <span class="material-symbols-outlined text-base">arrow_back</span>
-        <span>Dashboard</span>
-    </a>
+    <!-- Dashboard-Button ist jetzt IM Header (links, ersetzt Logo für Kellner) — kein fixed Overlay mehr -->
     {% endif %}
 
     <!-- Top Alert Banner for Token/Table missing -->
