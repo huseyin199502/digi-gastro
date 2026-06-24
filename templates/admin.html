@@ -5745,6 +5745,20 @@
                     </div>
                     <div class="text-[9px] text-purple-600 font-bold">Weitere Einstellungen (Tage, Uhrzeiten) auf dem Events-Tab</div>
                 </div>
+                <!-- UPSPELLING: Verwandte Produkte als "Passende Extras" im Warenkorb -->
+                <div class="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900 space-y-3">
+                    <h4 class="font-extrabold text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400" style="font-size:16px;">auto_awesome</span>
+                        Upselling — Passende Extras
+                    </h4>
+                    <p class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold leading-relaxed">
+                        Wähle Produkte die Gästen im Warenkorb als "Passende Extras" vorgeschlagen werden,
+                        wenn sie dieses Produkt bestellen. (z.B. Shisha → Moloko, Burger → Pommes)
+                    </p>
+                    <div id="upsell-product-list" class="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
+                        <!-- Wird von renderUpsellCheckboxes() gefüllt -->
+                    </div>
+                </div>
             </div>
 
             <button type="submit" class="btn-primary w-full mt-4">
@@ -10973,6 +10987,7 @@
         function openEditSlideOver(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
             let productType = 'küche';
             let hhPrice = '';
+            let relatedIds = [];
             if (id !== undefined && id !== null && name === undefined) {
                 const p = allProducts.find(prod => String(prod.id) === String(id));
                 if (p) {
@@ -10988,6 +11003,7 @@
                     isGlutenfree = p.is_glutenfree || false;
                     productType = p.category_type || 'küche';
                     hhPrice = p.happy_hour_price || '';
+                    relatedIds = p.related_product_ids || [];
                 }
             } else if (typeof id === 'object' && id !== null) {
                 const p = id;
@@ -11003,6 +11019,7 @@
                 isGlutenfree = p.is_glutenfree || false;
                 productType = p.category_type || 'küche';
                 hhPrice = p.happy_hour_price || '';
+                relatedIds = p.related_product_ids || [];
             }
             document.getElementById('edit-product-id').value = id;
             document.getElementById('edit-product-type').value = productType;
@@ -11017,6 +11034,9 @@
             document.getElementById('edit-product-is-vegan').checked = isVegan || false;
             document.getElementById('edit-product-is-glutenfree').checked = isGlutenfree || false;
             document.getElementById('edit-product-hh-price').value = hhPrice || '';
+
+            // Upselling: Verwandte Produkte Checkboxes rendern
+            renderUpsellCheckboxes(id, relatedIds);
 
             // Update preview image
             const previewImg = document.getElementById('edit-product-preview-img');
@@ -11041,6 +11061,39 @@
             document.getElementById('edit-slide-over').classList.remove('open');
             document.getElementById('edit-slide-overlay').classList.remove('open');
             document.body.style.overflow = '';
+        }
+
+        // UPSPELLING: Rendert Checkbox-Liste aller Produkte (außer dem aktuellen)
+        // für die "Passende Extras" Verknüpfung im Produkt-Editor.
+        function renderUpsellCheckboxes(currentProductId, selectedIds) {
+            const container = document.getElementById('upsell-product-list');
+            if (!container) return;
+            selectedIds = selectedIds || [];
+
+            // Alle Produkte außer dem aktuellen, sortiert nach Name
+            const otherProducts = (allProducts || [])
+                .filter(p => String(p.id) !== String(currentProductId))
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+            if (otherProducts.length === 0) {
+                container.innerHTML = '<p class="text-[10px] text-zinc-500 italic">Keine weiteren Produkte vorhanden.</p>';
+                return;
+            }
+
+            container.innerHTML = otherProducts.map(p => {
+                const isChecked = selectedIds.includes(p.id);
+                const priceStr = (p.price || 0).toFixed(2).replace('.', ',') + ' €';
+                const catLabel = p.category || '';
+                return `
+                    <label class="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 cursor-pointer hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors">
+                        <input type="checkbox" class="upsell-product-checkbox rounded text-gastro focus:ring-0" value="${p.id}" ${isChecked ? 'checked' : ''}>
+                        <div class="flex-1 min-w-0">
+                            <span class="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 block truncate">${escapeHtml(p.name)}</span>
+                            <span class="text-[9px] text-zinc-500 dark:text-zinc-400">${escapeHtml(catLabel)} · ${priceStr}</span>
+                        </div>
+                    </label>
+                `;
+            }).join('');
         }
 
         function closeEditProductModal() {
@@ -12075,6 +12128,11 @@
             if (hhPriceField && hhPriceField.value) {
                 formData.append('happy_hour_price', hhPriceField.value);
             }
+
+            // Upselling: Verwandte Produkte sammeln und als JSON-Array senden
+            const upsellCheckboxes = document.querySelectorAll('.upsell-product-checkbox:checked');
+            const relatedIds = Array.from(upsellCheckboxes).map(cb => parseInt(cb.value));
+            formData.append('related_product_ids', JSON.stringify(relatedIds));
 
             fetch(`/api/products/${id}`, {
                 method: 'PUT',
