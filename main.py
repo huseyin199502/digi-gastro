@@ -2576,16 +2576,28 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
     if uid:
         tisch = request.query_params.get("tisch") or request.query_params.get("table") or ""
         role = request.query_params.get("role") or ""
+        zone = request.query_params.get("z") or request.query_params.get("zone") or ""
         restaurant = get_restaurant(uid, db)
         if restaurant:
             tables_list = restaurant.get("tables", [])
-            db_table = next((t for t in tables_list if str(t.get("number")) == str(tisch).strip()), None)
+            # WICHTIG: Zone berücksichtigen! Case-insensitive Vergleich.
+            # Ohne Zone-Check wird der erste Tisch mit der Nummer genommen
+            # (z.B. Tisch 13 Innen statt Tisch 13 Draußen).
+            db_table = None
+            if zone:
+                zone_lower = zone.strip().lower()
+                db_table = next((t for t in tables_list if str(t.get("number")) == str(tisch).strip() and str(t.get("zone", "")).strip().lower() == zone_lower), None)
+            if not db_table and not zone:
+                db_table = next((t for t in tables_list if str(t.get("number")) == str(tisch).strip()), None)
+            
             table_token = ""
             if db_table:
                 table_token = db_table.get("security_token") or restaurant.get("security_token") or ""
             else:
                 table_token = restaurant.get("security_token") or ""
             
+            # Redirect mit Zone-Parameter (wichtig für korrekte Tisch-Zuordnung)
+            import urllib.parse as _urlparse_root
             url = f"/{uid}"
             if tisch:
                 url += f"?tisch={tisch}"
@@ -2593,6 +2605,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                     url += f"&token={table_token}"
                 if role:
                     url += f"&role={role}"
+                if zone:
+                    url += f"&z={_urlparse_root.quote(zone)}"
             return RedirectResponse(url=url, status_code=303)
 
     if os.getenv("PYTEST_CURRENT_TEST"):
@@ -6625,11 +6639,12 @@ def admin_impersonate(request: Request, table_number: str, z: Optional[str] = No
     table_num = str(table_number).strip()
     tables_list = restaurant.get("tables", [])
     
-    # Try to match both table number and zone
+    # Try to match both table number and zone (case-insensitive)
     db_table = None
     if z:
-        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and t.get("zone") == z), None)
-    if not db_table:
+        z_lower = z.strip().lower()
+        db_table = next((t for t in tables_list if str(t.get("number")) == table_num and str(t.get("zone", "")).strip().lower() == z_lower), None)
+    if not db_table and not z:
         db_table = next((t for t in tables_list if str(t.get("number")) == table_num), None)
     
     if not db_table:
