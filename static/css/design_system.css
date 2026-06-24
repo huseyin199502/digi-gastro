@@ -1,6 +1,17 @@
 /* digi-gastro Global Premium Design System */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
+/* Safe-Area Spacer — zuverlässigster Fix für PWA Notch/Status-Bar
+   Wird als erstes Element im <body> eingefügt, pusht alles unter die Statusleiste */
+.safe-area-top-spacer {
+    width: 100%;
+    height: env(safe-area-inset-top, 0px);
+    background: rgba(11, 12, 16, 0.95);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 60;
+}
+
 :root {
   /* Premium Dark Theme Color Palette */
   --bg-obsidian: #050507;

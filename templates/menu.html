@@ -22,7 +22,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=17">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=18">
     <style>
         /* Alpine.js x-cloak: hide elements until Alpine initializes */
         [x-cloak] { display: none !important; }
@@ -294,8 +294,10 @@
     {% else %}
 
     <!-- Top Navigation Bar / Header -->
+    <!-- safe-area-inset-top im padding-top + height = Header-Hintergrund geht bis unter Statusleiste,
+         Content wird durch padding-top nach unten geschoben. Sticky top-0 hält Header beim Scrollen. -->
     <header class="grid grid-cols-3 items-center px-4 sm:px-6 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
-            style="height: calc(5rem + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));">
+            style="height: calc(5rem + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1.5rem, env(safe-area-inset-right, 0px)); -webkit-padding-top: env(safe-area-inset-top, 0px);">
         <div class="flex justify-start items-center gap-2 sm:gap-3">
             {% if restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="header-logo h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
