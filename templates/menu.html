@@ -299,11 +299,6 @@
         <div class="flex justify-start items-center gap-2 sm:gap-3">
             {% if restaurant.branding and restaurant.branding.logo_url %}
                 <img alt="{{ restaurant.name }} Logo" class="header-logo h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
-                {% if restaurant.branding.logo_url_2 %}
-                <!-- Zweites Logo (für Tenants mit 2 Läden, z.B. "Deer Lounge" + "Deer Shawarma") -->
-                <span class="text-zinc-600 text-xl font-black">|</span>
-                <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-10 sm:h-12 w-auto max-w-[120px] sm:max-w-[160px] object-contain rounded-lg" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
-                {% endif %}
             {% else %}
                 <span class="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent text-xl sm:text-2xl font-black tracking-tight font-display">{{ restaurant.name }}</span>
             {% endif %}

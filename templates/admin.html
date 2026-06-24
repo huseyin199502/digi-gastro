@@ -3750,12 +3750,9 @@
         </div>
         
         <div class="profile-card">
-            <div class="avatar {% if restaurant.branding and restaurant.branding.logo_url %}bg-white p-1{% endif %} overflow-hidden flex items-center justify-center gap-1">
+            <div class="avatar {% if restaurant.branding and restaurant.branding.logo_url %}bg-white p-1{% endif %} overflow-hidden flex items-center justify-center">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                     <img src="{{ restaurant.branding.logo_url }}" alt="{{ restaurant.name }}" class="w-full h-full object-contain rounded-[12px]" decoding="async" fetchpriority="high">
-                    {% if restaurant.branding.logo_url_2 %}
-                    <img src="{{ restaurant.branding.logo_url_2 }}" alt="{{ restaurant.name }} Logo 2" class="w-full h-full object-contain rounded-[12px]" decoding="async">
-                    {% endif %}
                 {% else %}
                     {{ restaurant.name[:2].upper() if restaurant.name else 'DG' }}
                 {% endif %}
