@@ -2824,6 +2824,38 @@
         /* HINWEIS: .btn-serve-item wurde als toter Code entfernt (niemals im HTML/JS
            verwendet — Serve-Buttons werden via .btn-fertig + .btn-check-icon gerendert). */
 
+        /* Serve-Button im Control Modal (refreshControlModal → isPending Branch).
+           Das ist der klickbare Haken-Button Links neben jedem Artikel.
+           Vorher: bg-emerald-500/10 (hellgrün 10%) + material-symbols-outlined 'check'
+           → Material-Icon wurde als weißes Symbol gerendert das auf dem hellgrünen
+           Hintergrund kaum sichtbar war (User-Feedback: 'Haken ist immer noch weis').
+           Jetzt: dunkelgrüner Hintergrund + großer weißer Haken = klar erkennbar. */
+        .serve-item-btn {
+            width: 36px !important;
+            height: 36px !important;
+            border-radius: 999px !important;
+            background: #047857 !important;          /* dunkelgrüner Kreis */
+            border: 2px solid #ffffff !important;     /* weißer Rand für max. Sichtbarkeit */
+            box-shadow: 0 0 0 1px #047857, 0 2px 6px rgba(4, 120, 87, 0.4) !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            transition: all 0.15s ease !important;
+        }
+        .serve-item-btn:hover {
+            background: #065f46 !important;          /* noch dunkler bei hover */
+            transform: scale(1.1) !important;
+            box-shadow: 0 0 0 1px #047857, 0 4px 10px rgba(4, 120, 87, 0.6) !important;
+        }
+        /* Der Haken selbst im Serve-Button — weiß auf dunkelgrün = 5.14:1 AA */
+        .serve-check-icon {
+            color: #ffffff !important;
+            font-size: 20px !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            display: inline-block !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+
         .notif-actions {
             display: flex;
             align-items: center;
@@ -7667,8 +7699,8 @@
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
-                                            <span class="material-symbols-outlined text-base">check</span>
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="serve-item-btn flex items-center justify-center shrink-0 transition" title="Als serviert markieren">
+                                            <span class="serve-check-icon">✔</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
                                             <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
