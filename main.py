@@ -9746,6 +9746,23 @@ async def update_product_api(
     except Exception:
         product["related_product_ids"] = []
 
+    # Allergene parsen und speichern (EU 1169/2011)
+    allergens_raw = ""
+    if "application/json" in content_type:
+        allergens_raw = body.get("allergens", "")
+    else:
+        allergens_raw = form.get("allergens", "")
+    try:
+        if isinstance(allergens_raw, list):
+            product["allergens"] = [str(a) for a in allergens_raw]
+        elif isinstance(allergens_raw, str) and allergens_raw.strip():
+            parsed_allergens = json.loads(allergens_raw)
+            product["allergens"] = [str(a) for a in parsed_allergens] if isinstance(parsed_allergens, list) else []
+        else:
+            product["allergens"] = []
+    except Exception:
+        product["allergens"] = []
+
     # Image handling: file upload wins over URL
     final_image = product.get("image", "")
     if image_file and hasattr(image_file, "filename") and image_file.filename:

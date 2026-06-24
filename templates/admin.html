@@ -5697,6 +5697,17 @@
                         <textarea id="edit-product-description-en" rows="3" class="form-field resize-none"></textarea>
                     </div>
                 </div>
+                <!-- Allergene (EU 1169/2011 — 14 Hauptallergene) -->
+                <div class="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900 space-y-2">
+                    <label class="form-label flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-amber-600 dark:text-amber-400" style="font-size:16px;">warning</span>
+                        Allergene (EU-Pflicht)
+                    </label>
+                    <p class="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">Wähle alle enthaltenen Allergene an. Werden als Badge unter der Produktbeschreibung im Gästemenü angezeigt.</p>
+                    <div id="allergen-checkboxes" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                        <!-- 14 EU-Hauptallergene als Checkboxes -->
+                    </div>
+                </div>
             </div>
 
             <!-- Tab 2: Bilder -->
@@ -10988,6 +10999,7 @@
             let productType = 'küche';
             let hhPrice = '';
             let relatedIds = [];
+            let allergenList = [];
             if (id !== undefined && id !== null && name === undefined) {
                 const p = allProducts.find(prod => String(prod.id) === String(id));
                 if (p) {
@@ -11004,6 +11016,7 @@
                     productType = p.category_type || 'küche';
                     hhPrice = p.happy_hour_price || '';
                     relatedIds = p.related_product_ids || [];
+                    allergenList = p.allergens || [];
                 }
             } else if (typeof id === 'object' && id !== null) {
                 const p = id;
@@ -11020,6 +11033,7 @@
                 productType = p.category_type || 'küche';
                 hhPrice = p.happy_hour_price || '';
                 relatedIds = p.related_product_ids || [];
+                allergenList = p.allergens || [];
             }
             document.getElementById('edit-product-id').value = id;
             document.getElementById('edit-product-type').value = productType;
@@ -11037,6 +11051,9 @@
 
             // Upselling: Verwandte Produkte Checkboxes rendern
             renderUpsellCheckboxes(id, relatedIds);
+
+            // Allergene: Checkboxes rendern + aktive setzen
+            renderAllergenCheckboxes(allergenList);
 
             // Update preview image
             const previewImg = document.getElementById('edit-product-preview-img');
@@ -11061,6 +11078,29 @@
             document.getElementById('edit-slide-over').classList.remove('open');
             document.getElementById('edit-slide-overlay').classList.remove('open');
             document.body.style.overflow = '';
+        }
+
+        // 14 EU-Hauptallergene (Verordnung 1169/2011)
+        const EU_ALLERGENS = [
+            'Gluten', 'Krebstiere', 'Eier', 'Fisch', 'Erdnüsse',
+            'Soja', 'Milch', 'Schalenfrüchte', 'Sellerie', 'Senf',
+            'Sesam', 'Sulfite', 'Lupinen', 'Weichtiere'
+        ];
+
+        // Rendert die 14 EU-Allergene als Checkboxes im Produkt-Editor
+        function renderAllergenCheckboxes(selectedAllergens) {
+            const container = document.getElementById('allergen-checkboxes');
+            if (!container) return;
+            selectedAllergens = selectedAllergens || [];
+            container.innerHTML = EU_ALLERGENS.map(allergen => {
+                const isChecked = selectedAllergens.includes(allergen);
+                return `
+                    <label class="flex items-center gap-1.5 p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 cursor-pointer hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
+                        <input type="checkbox" class="allergen-checkbox rounded text-amber-500 focus:ring-0" value="${allergen}" ${isChecked ? 'checked' : ''}>
+                        <span class="text-[10px] font-bold text-zinc-700 dark:text-zinc-300">${allergen}</span>
+                    </label>
+                `;
+            }).join('');
         }
 
         // UPSPELLING: Rendert Checkbox-Liste aller Produkte (außer dem aktuellen)
@@ -12133,6 +12173,11 @@
             const upsellCheckboxes = document.querySelectorAll('.upsell-product-checkbox:checked');
             const relatedIds = Array.from(upsellCheckboxes).map(cb => parseInt(cb.value));
             formData.append('related_product_ids', JSON.stringify(relatedIds));
+
+            // Allergene: Ausgewählte Allergene sammeln und als JSON-Array senden
+            const allergenCheckboxes = document.querySelectorAll('.allergen-checkbox:checked');
+            const allergens = Array.from(allergenCheckboxes).map(cb => cb.value);
+            formData.append('allergens', JSON.stringify(allergens));
 
             fetch(`/api/products/${id}`, {
                 method: 'PUT',

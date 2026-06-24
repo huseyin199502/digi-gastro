@@ -828,6 +828,13 @@
                             <div>
                                 <h3 class="text-sm md:text-base font-black text-on-surface leading-tight font-display tracking-tight mb-1" x-text="currentLang === 'en' ? '{{ (product.name_en or product.name) | replace("'", "\\'") }}' : '{{ product.name | replace("'", "\\'") }}'">{{ product.name }}</h3>
                                 <p class="text-xs text-on-surface-variant line-clamp-2 leading-relaxed mb-2" x-text="currentLang === 'en' ? '{{ (product.description_en or product.description or '') | replace("'", "\\'") }}' : '{{ (product.description or '') | replace("'", "\\'") }}'">{{ product.description }}</p>
+                                {% if product.allergens and product.allergens|length > 0 %}
+                                <div class="flex flex-wrap gap-1 mb-2">
+                                    {% for allergen in product.allergens %}
+                                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/20" title="{{ allergen }}">{{ allergen }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             
                             <div class="flex justify-between items-center mt-auto pt-1">
