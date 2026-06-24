@@ -1699,17 +1699,23 @@
             align-items: start;
         }
         @media (max-width: 1024px) {
-            .lp-split { grid-template-columns: 1fr; }
-            /* Auf Mobile: Preview unter Editor, beide normaler Flow */
+            /* Mobile: Komplettes Reset, normales Block-Layout.
+               Editor und Preview stapeln sich sauber untereinander. */
+            .lp-split {
+                display: block !important;
+                grid-template-columns: none !important;
+            }
             .lp-editor-pane, .lp-preview-pane {
                 position: static !important;
                 max-height: none !important;
+                overflow: visible !important;
+                top: auto !important;
+                margin-bottom: 1rem;
             }
             .lp-preview-iframe {
                 height: 60vh;
+                min-height: 400px;
             }
-            /* Submit-Bar auf Mobile nicht sticky — sonst schwebt sie oben
-               und verdeckt den Editor-Inhalt (UI-Bug auf Mobile) */
             .lp-submit-bar {
                 position: static !important;
                 bottom: auto !important;
@@ -1721,13 +1727,10 @@
             border: 1px solid #e4e4e7;
             border-radius: 16px;
             padding: 1rem;
-            /* Höhe begrenzen, damit Editor-Fenster intern scrollt statt die ganze Seite.
-               Dash-header ist sticky top:0 (~57px hoch), deshalb top: 72px für etwas Luft. */
             max-height: calc(100vh - 100px);
             overflow-y: auto;
             position: sticky;
             top: 72px;
-            /* Sanftes Scrollen, Custom-Scrollbar */
             scroll-behavior: smooth;
         }
         .lp-editor-pane::-webkit-scrollbar { width: 8px; }
@@ -3276,19 +3279,12 @@
             flex-shrink: 0;
         }
 
-        /* Desktop: table view, Mobile: card view */
-        @media (min-width: 641px) {
-            .product-card-view { display: none !important; }
-            .product-table-view { display: block; }
-        }
-        @media (max-width: 640px) {
-            .product-card-view { display: block; }
-            .product-table-view { display: none !important; }
-            .product-table thead th:nth-child(n+4),
-            .product-table tbody td:nth-child(n+4) {
-                /* hide columns beyond name on very small screens */
-            }
-        }
+        /* HINWEIS: Alte automatische Desktop/Mobile-Umschaltung zwischen
+           .product-card-view und .product-table-view wurde ENTFERNT.
+           Stattdessen steuert der User über den View-Toggle (Grid/Tabelle)
+           selbst, welche Ansicht sichtbar ist — unabhängig von der Bildschirmgröße.
+           Die .product-table-view ist jetzt immer sichtbar, wenn ihr Container
+           (#product-table-container) sichtbar ist. */
 
         /* Bulk action bar mobile */
         @media (max-width: 640px) {
