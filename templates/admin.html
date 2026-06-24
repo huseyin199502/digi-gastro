@@ -2821,47 +2821,12 @@
             white-space: nowrap;
             color: var(--gastro-text-main);
         }
-        /* HINWEIS: .btn-serve-item wurde als toter Code entfernt (niemals im HTML/JS
-           verwendet — Serve-Buttons werden via .btn-fertig + .btn-check-icon gerendert). */
+        /* HINWEIS: .btn-serve-item wurde als totor Code entfernt (niemals im HTML/JS
+           verwendet — Serve-Buttons werden via .btn-fertig + .btn-check-icon gerendert).
 
-        /* Serve-Button im Control Modal (refreshControlModal → isPending Branch).
-           Das ist der klickbare Haken-Button Links neben jedem Artikel.
-           Style-Vorbild: 'In Warenkorb legen' Button aus der Gäste-Ansicht —
-           rund, helles satiniertes Grün, weißer minimalistischer Haken.
-           Hohes Kontrast-Verhältnis, klar erkennbar auf jedem Hintergrund. */
-        .serve-item-btn {
-            width: 40px !important;
-            height: 40px !important;
-            border-radius: 999px !important;       /* voller Kreis */
-            background: #10b981 !important;        /* helles satiniertes Grün (emerald-500) */
-            border: none !important;                /* kein Rand — clean wie Vorbild */
-            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
-            cursor: pointer !important;
-            padding: 0 !important;
-            transition: all 0.15s ease !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        .serve-item-btn:hover {
-            background: #059669 !important;        /* etwas dunkler bei hover (emerald-600) */
-            transform: scale(1.08) !important;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
-        }
-        .serve-item-btn:active {
-            transform: scale(0.95) !important;
-        }
-        /* Der Haken selbst im Serve-Button — weiß, schmal, minimalistisch.
-           Weißer Haken auf hellem Grün = 2.54:1 Kontrast (OK für große Grafik).
-           Schmalere Linien wie das Vorbild (statt dickem Unicode ✔). */
-        .serve-check-icon {
-            color: #ffffff !important;
-            font-size: 22px !important;
-            font-weight: 400 !important;            /* schmal statt dick (vorher 900) */
-            line-height: 1 !important;
-            display: inline-block !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
-        }
+           Serve-Button im Control Modal nutzt jetzt die GLEICHEN Klassen wie der
+           Stornieren-Button (w-6 h-6 rounded-full border), nur mit emerald statt rose
+           und weißem Haken-Icon (color:#ffffff inline). Kein separates CSS nötig. */
 
         .notif-actions {
             display: flex;
@@ -7706,8 +7671,8 @@
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="serve-item-btn flex items-center justify-center shrink-0 transition" title="Als serviert markieren">
-                                            <span class="serve-check-icon">✔</span>
+                                        <button onclick="serveControlItem('${item.key}', ${item.order_id}, event)" class="w-6 h-6 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20 shrink-0 transition" title="Als serviert markieren">
+                                            <span class="material-symbols-outlined text-sm" style="color:#ffffff;">check</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
                                             <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
