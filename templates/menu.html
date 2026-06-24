@@ -1814,20 +1814,21 @@
                 // ── UPSPELLING: Berechnet "Passende Extras" basierend auf Warenkorb ──
                 // Layer 1: related_product_ids (manuelle Verknüpfungen vom Admin) — Score +3
                 // Layer 2: Auto-Rules basierend auf category_type (z.B. Shisha → Kohle) — Score +1-2
-                // Layer 3: Data-Driven Co-Occurrence aus bezahlten Bestellungen — Score +1-5
-                //          "Kunden die X kauften, kauften auch Y"
-                // Filter: Produkte die schon im Warenkorb sind werden ausgeblendet
+                // Layer 3: Data-Driven Co-Occurrence aus Bestellungen — Score +1-5
+                // WICHTIG: Cart-Items nutzen 'id' als Property (nicht 'product_id')!
+                // Filter: Produkte die schon im Warenkorb sind werden ausgeblendet (keine Überlappung)
                 // Limit: Top 3 Vorschläge
                 get upsellSuggestions() {
                     if (!this.cart || this.cart.length === 0) return [];
                     if (!window._productsData || window._productsData.length === 0) return [];
 
-                    const cartProductIds = new Set(this.cart.map(i => i.product_id));
+                    // Cart-Items haben 'id' als Property (siehe addToCart: cart.push({ id, ... }))
+                    const cartProductIds = new Set(this.cart.map(i => i.id || i.product_id));
                     const suggestionScores = {}; // {product_id: score}
 
                     // Layer 1: Manual related products
                     this.cart.forEach(cartItem => {
-                        const productId = cartItem.product_id;
+                        const productId = cartItem.id || cartItem.product_id;
                         const product = window._productsData.find(p => p.id === productId);
                         if (!product) return;
                         const relatedIds = product.related_product_ids || [];
@@ -1841,7 +1842,8 @@
                     // Layer 2: Auto-rules based on category_type
                     const cartCategoryTypes = new Set();
                     this.cart.forEach(cartItem => {
-                        const product = window._productsData.find(p => p.id === cartItem.product_id);
+                        const productId = cartItem.id || cartItem.product_id;
+                        const product = window._productsData.find(p => p.id === productId);
                         if (product) {
                             cartCategoryTypes.add(product.category_type || 'küche');
                         }
@@ -1851,7 +1853,6 @@
                         'shisha': (p) => {
                             const name = (p.name || '').toLowerCase();
                             if (name.includes('kohle') || name.includes('head') || name.includes('kopf') || name.includes('zubehör')) return 2;
-                            if (p.category_type === 'bar') return 1;
                             return 0;
                         },
                         'küche': (p) => {
@@ -1863,9 +1864,7 @@
                         },
                         'bar': (p) => {
                             const cat = (p.category || '').toLowerCase();
-                            const name = (p.name || '').toLowerCase();
-                            if (cat.includes('snack') || cat.includes('klein') || name.includes('snack')) return 1;
-                            if (p.category_type === 'shisha') return 1;
+                            if (cat.includes('snack') || cat.includes('klein')) return 1;
                             return 0;
                         }
                     };
@@ -1884,31 +1883,16 @@
                         }
                     });
 
-                    // Layer 2b: Fallback — wenn immer noch keine Suggestions, schlage
-                    // Produkte aus ANDEREN category_types vor (generisches Cross-Selling)
-                    if (Object.keys(suggestionScores).length === 0) {
-                        window._productsData.forEach(product => {
-                            if (!product.is_available) return;
-                            if (cartProductIds.has(product.id)) return;
-                            const pCatType = product.category_type || 'küche';
-                            if (!cartCategoryTypes.has(pCatType)) {
-                                suggestionScores[product.id] = 1;
-                            }
-                        });
-                    }
-
                     // Layer 3: Data-Driven Co-Occurrence ("Kunden die X kauften, kauften auch Y")
-                    // Analysiert alle bezahlten Bestellungen — Score basiert auf Häufigkeit
                     if (window._upsellCooccurrences) {
                         this.cart.forEach(cartItem => {
-                            const productId = cartItem.product_id;
+                            const productId = cartItem.id || cartItem.product_id;
                             const partners = window._upsellCooccurrences[productId];
                             if (!partners) return;
                             partners.forEach(partner => {
                                 const pid = partner.id;
                                 const count = partner.count;
                                 if (!cartProductIds.has(pid)) {
-                                    // Score = Anzahl der Co-Occurrences (min 1, max 5)
                                     const dataScore = Math.min(count, 5);
                                     suggestionScores[pid] = (suggestionScores[pid] || 0) + dataScore;
                                 }
