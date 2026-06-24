@@ -4738,7 +4738,10 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "events": events,
             "price_mode": restaurant.get("price_mode", "brutto"),
             "now_time": now_time,
-            "now_possible_days": possible_days
+            "now_possible_days": possible_days,
+            # Upselling: Co-Occurrence Matrix aus bezahlten Bestellungen
+            # "Kunden die X kauften, kauften auch Y" — Layer 3 Data-Driven
+            "upsell_cooccurrences": compute_upsell_cooccurrences(restaurant)
         }
     )
     
@@ -9949,6 +9952,61 @@ async def list_super_groups(chef_data: tuple = Depends(require_chef_user_flat), 
     db_cats = db.query(Category).filter_by(tenant_slug=slug).all()
     cat_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None)} for c in db_cats]
     return {"super_groups": super_groups, "categories": cat_data}
+
+
+# ════════════════════════════════════════════════════════════════════
+# UPSPELLING: MARKET BASKET ANALYSIS
+# Analysiert alle bezahlten Bestellungen und findet Produkte die häufig
+# zusammen gekauft werden ("Kunden die X kauften, kauften auch Y").
+# ════════════════════════════════════════════════════════════════════
+
+def compute_upsell_cooccurrences(restaurant: dict) -> dict:
+    """Analysiert alle bezahlten Bestellungen eines Tenants und berechnet
+    eine Co-Occurrence-Matrix: für jedes Produkt A, welche Produkte B
+    wurden am häufigsten zusammen mit A in derselben Bestellung gekauft?
+
+    Returns: {product_id_a: [{id: product_id_b, count: N}, ...], ...}
+    Sortiert nach Häufigkeit (absteigend), max 5 pro Produkt.
+    """
+    orders = restaurant.get("orders", [])
+    # Sammle alle bezahlten Bestellungen mit ihren Produkt-IDs
+    order_product_sets = []
+    for o in orders:
+        if o.get("status") != "bezahlt":
+            continue
+        items = o.get("items", [])
+        if not items or len(items) < 2:
+            continue  # Single-item orders have no co-occurrence
+        pids = set()
+        for item in items:
+            pid = item.get("product_id")
+            if pid:
+                pids.add(int(pid))
+        if len(pids) >= 2:
+            order_product_sets.append(pids)
+
+    if not order_product_sets:
+        return {}
+
+    # Co-Occurrence Matrix: {pid_a: {pid_b: count, ...}, ...}
+    cooc = {}
+    for pids in order_product_sets:
+        pid_list = list(pids)
+        for i in range(len(pid_list)):
+            for j in range(len(pid_list)):
+                if i != j:
+                    a, b = pid_list[i], pid_list[j]
+                    if a not in cooc:
+                        cooc[a] = {}
+                    cooc[a][b] = cooc[a].get(b, 0) + 1
+
+    # Konvertiere zu sortierten Listen, max 5 pro Produkt
+    result = {}
+    for pid_a, partners in cooc.items():
+        sorted_partners = sorted(partners.items(), key=lambda x: x[1], reverse=True)[:5]
+        result[pid_a] = [{"id": pid_b, "count": count} for pid_b, count in sorted_partners]
+
+    return result
 
 
 @app.post("/api/super-groups")
