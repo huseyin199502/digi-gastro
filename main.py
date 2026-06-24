@@ -1071,7 +1071,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "happy_hour_days": json.loads(p.happy_hour_days) if p.happy_hour_days else None,
             "name_en": p.name_en,
             "description_en": p.description_en,
-            "position": getattr(p, "position", 0) or 0
+            "position": getattr(p, "position", 0) or 0,
+            # Upselling: Liste von product IDs die als "Passende Extras" vorgeschlagen werden
+            "related_product_ids": json.loads(getattr(p, "related_product_ids", "[]") or "[]")
         })
         
     db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id).all()
@@ -1238,7 +1240,12 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "facebook": tenant.facebook,
             "tiktok": tenant.tiktok or "",
             "logo_url": get_webp_path(tenant.logo_url),
-            "logo_url_2": get_webp_path(getattr(tenant, 'logo_url_2', '') or '')
+            "logo_url_2": get_webp_path(getattr(tenant, 'logo_url_2', '') or ''),
+            "pos_system": getattr(tenant, 'pos_system', 'none') or 'none',
+            "pos_api_url": getattr(tenant, 'pos_api_url', '') or '',
+            "pos_api_key": getattr(tenant, 'pos_api_key', '') or '',
+            "pos_active": bool(getattr(tenant, 'pos_active', False)),
+            "pos_location_id": getattr(tenant, 'pos_location_id', '') or ''
         },
         "landing_page": _landing_page,
         "happy_hour": {
@@ -1314,6 +1321,15 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     # Zweites Logo persistieren (für Tenants mit 2 Läden)
     if hasattr(tenant, 'logo_url_2'):
         tenant.logo_url_2 = branding.get("logo_url_2", "")
+    # POS / Kassensystem-Integration persistieren
+    if hasattr(tenant, 'pos_system'):
+        tenant.pos_system = branding.get("pos_system", "none") or "none"
+        tenant.pos_api_url = branding.get("pos_api_url", "") or ""
+        tenant.pos_api_key = branding.get("pos_api_key", "") or ""
+        tenant.pos_active = bool(branding.get("pos_active", False))
+        tenant.pos_location_id = branding.get("pos_location_id", "") or ""
+        if hasattr(tenant, 'pos_api_secret'):
+            tenant.pos_api_secret = branding.get("pos_api_secret", "") or ""
     
     tenant.landing_page_json = json.dumps(unwrap_live_data(r.get("landing_page", {})))
     
@@ -1393,6 +1409,9 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         db_p.name_en = p.get("name_en")
         db_p.description_en = p.get("description_en")
         db_p.position = p.get("position", 0)
+        # Upselling: related_product_ids als JSON-String speichern
+        if hasattr(db_p, "related_product_ids"):
+            db_p.related_product_ids = json.dumps(unwrap_live_data(p.get("related_product_ids", [])))
 
         
         if db_p.id is None:
@@ -5253,6 +5272,13 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der Zahlung: {e}")
 
+    # ── POS Webhook: bezahlte Bestellung an Kassensystem senden (falls aktiv) ──
+    # Background Task: blockiert nicht den Response, Fehler werden geloggt
+    try:
+        await send_order_to_pos(slug, order, restaurant)
+    except Exception as _e:
+        print(f"[POS Webhook] Fehler im Hintergrund: {_e}")
+
     await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
@@ -7398,6 +7424,7 @@ async def post_produkt_erstellen(
     image_file: Optional[UploadFile] = File(None),
     is_vegan: Optional[bool] = Form(False),
     is_glutenfree: Optional[bool] = Form(False),
+    related_product_ids: Optional[str] = Form(""),  # JSON-Array als String: "[1,2,3]"
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
@@ -7471,7 +7498,9 @@ async def post_produkt_erstellen(
         "start_time": None,
         "end_time": None,
         "name_en": name_en.strip() if name_en else "",
-        "description_en": description_en.strip() if description_en else ""
+        "description_en": description_en.strip() if description_en else "",
+        # Upselling: verwandte Produkte (JSON-Array von product IDs)
+        "related_product_ids": json.loads(related_product_ids) if related_product_ids else []
     }
 
     restaurant["products"].append(new_product)
@@ -8547,6 +8576,148 @@ async def update_branding(
     await manager.broadcast_global(slug, {"type": "update"})
     return RedirectResponse(url="/admin/dashboard?tab=config", status_code=303)
 
+
+# ════════════════════════════════════════════════════════════════════
+# POS / KASSASYSTEM INTEGRATION
+# Webhook-basiert, universal für Lightspeed/SumUp/Tillhub/Custom API
+# ════════════════════════════════════════════════════════════════════
+
+@app.post("/admin/pos-config")
+async def update_pos_config(
+    request: Request,
+    pos_system: str = Form("none"),
+    pos_api_url: str = Form(""),
+    pos_api_key: str = Form(""),
+    pos_api_secret: str = Form(""),
+    pos_location_id: str = Form(""),
+    pos_active: bool = Form(False),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Speichert POS/Kassensystem-Konfiguration. Funktional:
+    - pos_system: none|lightspeed|sumup|tillhub|custom
+    - pos_api_url: Webhook-URL wohin Bestelldaten gesendet werden
+    - pos_api_key: Bearer-Token für Authorization-Header
+    - pos_active: Wenn true, werden Bestellungen beim Bezahlen an POS gesendet
+    """
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+
+    # POS-Konfiguration in branding-Dict schreiben
+    if "branding" not in restaurant:
+        restaurant["branding"] = {}
+    restaurant["branding"]["pos_system"] = pos_system
+    restaurant["branding"]["pos_api_url"] = pos_api_url.strip()
+    restaurant["branding"]["pos_api_key"] = pos_api_key.strip()
+    restaurant["branding"]["pos_api_secret"] = pos_api_secret.strip()
+    restaurant["branding"]["pos_location_id"] = pos_location_id.strip()
+    restaurant["branding"]["pos_active"] = bool(pos_active)
+
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern der POS-Konfiguration: {e}")
+    return RedirectResponse(url="/admin/dashboard?tab=einstellungen", status_code=303)
+
+
+@app.post("/api/pos/test-connection")
+async def test_pos_connection(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Testet die POS-Verbindung indem ein Test-Ping an die konfigurierte URL gesendet wird."""
+    user, slug, restaurant = chef_data
+    branding = restaurant.get("branding", {})
+    pos_system = branding.get("pos_system", "none")
+    pos_api_url = branding.get("pos_api_url", "")
+    pos_api_key = branding.get("pos_api_key", "")
+
+    if pos_system == "none":
+        return {"success": False, "message": "Kein Kassensystem ausgewählt."}
+    if not pos_api_url:
+        return {"success": False, "message": "Keine API-URL konfiguriert."}
+
+    import httpx
+    try:
+        headers = {"Content-Type": "application/json"}
+        if pos_api_key:
+            headers["Authorization"] = f"Bearer {pos_api_key}"
+        test_payload = {
+            "event": "test_connection",
+            "tenant": slug,
+            "timestamp": datetime.now().isoformat(),
+            "message": "digi-gastro POS Connection Test"
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(pos_api_url, json=test_payload, headers=headers)
+        if resp.status_code < 400:
+            return {
+                "success": True,
+                "message": f"Verbindung erfolgreich! (HTTP {resp.status_code}) — Test-Ping gesendet an {pos_system}.",
+                "status_code": resp.status_code
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"POS antwortet mit Fehler {resp.status_code}. URL/API-Key prüfen.",
+                "status_code": resp.status_code
+            }
+    except httpx.TimeoutException:
+        return {"success": False, "message": "Timeout: POS antwortet nicht innerhalb 10s."}
+    except httpx.ConnectError:
+        return {"success": False, "message": "Verbindung fehlgeschlagen: URL nicht erreichbar."}
+    except Exception as e:
+        return {"success": False, "message": f"Fehler: {str(e)}"}
+
+
+async def send_order_to_pos(slug: str, order: dict, restaurant: dict):
+    """Sendet eine bezahlte Bestellung an das konfigurierte POS-System via Webhook.
+    Wird beim Bezahlen aufgerufen. Standardisiertes JSON wird gesendet."""
+    branding = restaurant.get("branding", {})
+    if not branding.get("pos_active", False):
+        return  # POS nicht aktiv → nichts senden
+    pos_api_url = branding.get("pos_api_url", "")
+    pos_api_key = branding.get("pos_api_key", "")
+    if not pos_api_url:
+        return  # Keine URL konfiguriert
+
+    import httpx
+    payload = {
+        "event": "order_paid",
+        "tenant": slug,
+        "order_id": order.get("id"),
+        "table": order.get("table", ""),
+        "total": float(order.get("total", 0) or 0),
+        "tip": float(order.get("tip_amount", 0) or 0),
+        "items": [
+            {
+                "name": item.get("name", ""),
+                "quantity": item.get("quantity", 1),
+                "price": float(item.get("price", 0) or 0),
+                "category": item.get("category_type", "küche")
+            }
+            for item in (order.get("items") or [])
+        ],
+        "timestamp": order.get("timestamp", datetime.now().isoformat()),
+        "waiter": order.get("waiter_id", ""),
+        "pos_location_id": branding.get("pos_location_id", "")
+    }
+    headers = {"Content-Type": "application/json"}
+    if pos_api_key:
+        headers["Authorization"] = f"Bearer {pos_api_key}"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(pos_api_url, json=payload, headers=headers)
+            print(f"[POS Webhook] Order {order.get('id')} sent to {pos_api_url} → HTTP {resp.status_code}")
+    except Exception as e:
+        # Log-Fehler, aber Order nicht blockieren — Payment ist bereits durch
+        print(f"[POS Webhook] Fehler beim Senden an POS: {e}")
+
+
 def update_legal_placeholders(restaurant: dict) -> None:
     branding = restaurant.get("branding", {})
     addr = branding.get("address", "")
@@ -9492,6 +9663,7 @@ async def update_product_api(
     is_vegan = False
     is_glutenfree = False
     happy_hour_price = None
+    related_product_ids_raw = ""
 
     if "application/json" in content_type:
         try:
@@ -9509,6 +9681,8 @@ async def update_product_api(
         is_glutenfree = body.get("is_glutenfree") in [True, "true"]
         hh_val = body.get("happy_hour_price")
         happy_hour_price = float(hh_val) if hh_val not in [None, "", "None"] else None
+        # Upselling: related_product_ids als Liste
+        related_product_ids_raw = body.get("related_product_ids", "")
     else:
         # Parse multipart/form-data or form-urlencoded
         form = await request.form()
@@ -9524,6 +9698,7 @@ async def update_product_api(
         is_glutenfree = form.get("is_glutenfree") in [True, "true"]
         hh_val = form.get("happy_hour_price")
         happy_hour_price = float(hh_val) if hh_val not in [None, "", "None"] else None
+        related_product_ids_raw = form.get("related_product_ids", "")
 
     product["name"] = str(name).strip()
     # Validate price
@@ -9552,6 +9727,21 @@ async def update_product_api(
     elif any(keyword in cat_lower for keyword in ["shisha", "wasserpfeife", "pfeife", "head", "kohle"]):
         category_type = "shisha"
     product["category_type"] = category_type
+
+    # Upselling: related_product_ids parsen und speichern
+    try:
+        if isinstance(related_product_ids_raw, list):
+            product["related_product_ids"] = [int(pid) for pid in related_product_ids_raw if str(pid).isdigit()]
+        elif isinstance(related_product_ids_raw, str) and related_product_ids_raw.strip():
+            parsed = json.loads(related_product_ids_raw)
+            if isinstance(parsed, list):
+                product["related_product_ids"] = [int(pid) for pid in parsed if str(pid).isdigit()]
+            else:
+                product["related_product_ids"] = []
+        else:
+            product["related_product_ids"] = []
+    except Exception:
+        product["related_product_ids"] = []
 
     # Image handling: file upload wins over URL
     final_image = product.get("image", "")

@@ -5284,7 +5284,84 @@
                     </div>
                 </div>
 
-                <!-- Section 3: Landingpage → verschoben in eigenen Tab (admin-tab-landingpage) -->
+                <!-- Section 3: Kassensystem verbinden (POS Integration) -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">point_of_sale</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Kassensystem verbinden</h3>
+                        </div>
+                        <span class="text-[10px] font-bold {% if restaurant.branding and restaurant.branding.pos_active %}text-emerald-600{% else %}text-zinc-400{% endif %}" id="pos-status-badge">
+                            {% if restaurant.branding and restaurant.branding.pos_active %}● Aktiv{% else %}○ Inaktiv{% endif %}
+                        </span>
+                    </div>
+                    <div class="section-card-body">
+                        <form id="pos-config-form" action="/admin/pos-config" method="POST" class="space-y-4">
+                            <p class="text-[11px] text-zinc-500 leading-relaxed">
+                                Verbinde dein bestehendes Kassensystem mit digi-gastro. Beim Bezahlen wird die Bestellung automatisch als Webhook an dein Kassensystem gesendet (Standardisiertes JSON mit allen Artikeln, Preisen, Tisch, Trinkgeld).
+                            </p>
+
+                            <!-- Kassensystem Dropdown -->
+                            <div>
+                                <label class="form-label">Kassensystem</label>
+                                <select name="pos_system" id="pos-system-select" class="form-field" onchange="updatePosFields()">
+                                    <option value="none" {% if not restaurant.branding or restaurant.branding.pos_system == 'none' %}selected{% endif %}>Keins (deaktiviert)</option>
+                                    <option value="lightspeed" {% if restaurant.branding and restaurant.branding.pos_system == 'lightspeed' %}selected{% endif %}>Lightspeed Restaurant</option>
+                                    <option value="sumup" {% if restaurant.branding and restaurant.branding.pos_system == 'sumup' %}selected{% endif %}>SumUp</option>
+                                    <option value="tillhub" {% if restaurant.branding and restaurant.branding.pos_system == 'tillhub' %}selected{% endif %}>Tillhub</option>
+                                    <option value="custom" {% if restaurant.branding and restaurant.branding.pos_system == 'custom' %}selected{% endif %}>Custom API (Webhook)</option>
+                                </select>
+                            </div>
+
+                            <!-- Dynamische Felder (nur sichtbar wenn POS != none) -->
+                            <div id="pos-fields" class="space-y-4" style="{% if not restaurant.branding or restaurant.branding.pos_system == 'none' %}display:none{% endif %}">
+                                <div>
+                                    <label class="form-label">API-URL (Webhook-Endpoint)</label>
+                                    <input type="url" name="pos_api_url" id="pos-api-url" value="{{ restaurant.branding.pos_api_url if restaurant.branding else '' }}" placeholder="https://api.lightspeedapp.com/v1/..." class="form-field">
+                                    <p class="text-[9px] text-zinc-400 mt-1" id="pos-url-hint">Beim Bezahlen wird ein POST-Request mit JSON-Bestelldaten an diese URL gesendet.</p>
+                                </div>
+                                <div>
+                                    <label class="form-label">API-Key (Bearer-Token)</label>
+                                    <input type="password" name="pos_api_key" id="pos-api-key" value="{{ restaurant.branding.pos_api_key if restaurant.branding else '' }}" placeholder="Secret API Key" class="form-field">
+                                    <p class="text-[9px] text-zinc-400 mt-1">Wird als <code>Authorization: Bearer ...</code> Header gesendet.</p>
+                                </div>
+                                <div id="pos-secret-field" class="{% if not restaurant.branding or restaurant.branding.pos_system not in ['lightspeed', 'tillhub'] %}hidden{% endif %}">
+                                    <label class="form-label">API-Secret (optional)</label>
+                                    <input type="password" name="pos_api_secret" value="{{ restaurant.branding.pos_api_secret if restaurant.branding else '' }}" placeholder="Client Secret (nur für OAuth)" class="form-field">
+                                </div>
+                                <div id="pos-location-field" class="{% if not restaurant.branding or restaurant.branding.pos_system not in ['lightspeed', 'tillhub'] %}hidden{% endif %}">
+                                    <label class="form-label">Location-ID / Outlet-ID</label>
+                                    <input type="text" name="pos_location_id" value="{{ restaurant.branding.pos_location_id if restaurant.branding else '' }}" placeholder="z.B. loc_abc123" class="form-field">
+                                </div>
+
+                                <!-- Verbindung testen -->
+                                <button type="button" onclick="testPosConnection()" id="pos-test-btn" class="btn-secondary w-full flex items-center justify-center gap-1.5 text-xs">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">wifi_find</span>
+                                    Verbindung testen
+                                </button>
+                                <div id="pos-test-result" class="hidden p-3 rounded-xl text-xs font-bold"></div>
+
+                                <!-- Aktivieren Toggle -->
+                                <div class="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900">
+                                    <div>
+                                        <h4 class="font-bold text-xs text-emerald-800 dark:text-emerald-300">Kassensystem aktivieren</h4>
+                                        <p class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">Beim Bezahlen wird Bestellung automatisch an POS gesendet</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" name="pos_active" value="true" id="pos-active-toggle" {% if restaurant.branding and restaurant.branding.pos_active %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary w-full" id="pos-save-btn" style="{% if not restaurant.branding or restaurant.branding.pos_system == 'none' %}display:none{% endif %}">
+                                Kassensystem-Einstellungen speichern
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Section 3b: Landingpage → verschoben in eigenen Tab (admin-tab-landingpage) -->
 
                 <!-- Section 4: QR & Tische (collapsible) -->
                 <div class="section-card mb-4">
@@ -12370,7 +12447,80 @@
                 }
             }
         }
-    
+
+        // ═══════════════════════════════════════════════════════
+        // POS / KASSASYSTEM INTEGRATION
+        // ═══════════════════════════════════════════════════════
+
+        function updatePosFields() {
+            const select = document.getElementById('pos-system-select');
+            const fields = document.getElementById('pos-fields');
+            const saveBtn = document.getElementById('pos-save-btn');
+            const secretField = document.getElementById('pos-secret-field');
+            const locationField = document.getElementById('pos-location-field');
+            const urlHint = document.getElementById('pos-url-hint');
+            const urlInput = document.getElementById('pos-api-url');
+            if (!select) return;
+
+            const system = select.value;
+            if (system === 'none') {
+                if (fields) fields.style.display = 'none';
+                if (saveBtn) saveBtn.style.display = 'none';
+                return;
+            }
+            if (fields) fields.style.display = '';
+            if (saveBtn) saveBtn.style.display = '';
+
+            // System-spezifische Hinweise und Default-URLs
+            const hints = {
+                lightspeed: 'Lightspeed Restaurant API: https://api.lightspeedapp.com/api/v1/ — Webhook-Endpoint eingeben',
+                sumup: 'SumUp API: https://api.sumup.com — Webhook-Endpoint eingeben',
+                tillhub: 'Tillhub API: https://api.tillhub.com/v1/ — Webhook-Endpoint eingeben',
+                custom: 'Beliebige URL die JSON-POST akzeptiert (Webhook-Endpoint deines Kassensystems)'
+            };
+            if (urlHint) urlHint.textContent = hints[system] || '';
+
+            // Secret + Location nur für Lightspeed/Tillhub
+            const needsSecret = ['lightspeed', 'tillhub'].includes(system);
+            if (secretField) secretField.classList.toggle('hidden', !needsSecret);
+            if (locationField) locationField.classList.toggle('hidden', !needsSecret);
+        }
+
+        async function testPosConnection() {
+            const btn = document.getElementById('pos-test-btn');
+            const result = document.getElementById('pos-test-result');
+            if (!btn || !result) return;
+
+            // Erst speichern, dann testen
+            const form = document.getElementById('pos-config-form');
+            if (form) {
+                const formData = new FormData(form);
+                btn.disabled = true;
+                btn.innerHTML = '<span class="material-symbols-outlined animate-spin" style="font-size:14px;">sync</span> Speichere & teste...';
+                try {
+                    // 1. Save config
+                    const saveResp = await fetch('/admin/pos-config', { method: 'POST', body: formData, redirect: 'manual' });
+                    // 2. Test connection
+                    const testResp = await fetch('/api/pos/test-connection', { method: 'POST', credentials: 'same-origin' });
+                    const data = await testResp.json();
+                    result.classList.remove('hidden');
+                    if (data.success) {
+                        result.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900';
+                        result.innerHTML = '✓ ' + (data.message || 'Verbindung erfolgreich!');
+                    } else {
+                        result.className = 'p-3 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900';
+                        result.innerHTML = '✗ ' + (data.message || 'Verbindung fehlgeschlagen.');
+                    }
+                } catch (err) {
+                    result.classList.remove('hidden');
+                    result.className = 'p-3 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900';
+                    result.innerHTML = '✗ Fehler: ' + err.message;
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">wifi_find</span> Verbindung testen';
+                }
+            }
+        }
     </script>
 
     <!-- Loading Overlay -->

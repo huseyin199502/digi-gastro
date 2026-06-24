@@ -978,6 +978,35 @@
                 </template>
             </div>
 
+            <!-- UPSPELLING: Passende Extras (Kunden sehen was sie noch bestellen könnten) -->
+            <div id="upsell-section" x-show="cart.length > 0 && upsellSuggestions.length > 0" x-cloak
+                 class="mb-6 p-4 rounded-2xl border border-primary/30 bg-primary/5">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+                    <span class="text-sm font-black text-primary" data-translate="upsell_title">Passende Extras</span>
+                </div>
+                <div class="space-y-2">
+                    <template x-for="suggestion in upsellSuggestions" :key="suggestion.id">
+                        <div class="flex items-center justify-between bg-background/40 border border-outline-variant/60 rounded-xl p-3">
+                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                                <template x-if="suggestion.image">
+                                    <img :src="suggestion.image" :alt="suggestion.name" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                                </template>
+                                <div class="min-w-0">
+                                    <div class="font-bold text-on-surface text-xs truncate" x-text="suggestion.name"></div>
+                                    <div class="text-primary font-bold text-xs" x-text="suggestion.price.toFixed(2) + ' €'"></div>
+                                </div>
+                            </div>
+                            <button @click="addUpsellItem(suggestion)"
+                                class="w-9 h-9 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-lg shrink-0 active:scale-95 transition-transform"
+                                style="touch-action: manipulation;">
+                                +
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <!-- Total display -->
             <div class="space-y-1 mb-6 text-sm shrink-0 border-t border-outline-variant/60 pt-4 font-display">
                 <div class="flex justify-between text-lg font-black text-white">
@@ -1566,6 +1595,10 @@
                     window.confirmPaymentRequest = () => this.confirmPaymentRequest();
                     window.showReviewPopup = (url) => this.showReviewPopup(url);
 
+                    // ── UPSPELLING: Produkte mit related_product_ids für Client-seitige Berechnung laden ──
+                    // Wird im upsellSuggestions Getter verwendet um "Passende Extras" zu berechnen
+                    window._productsData = {{ products | tojson }};
+
                     // Sync currentView to hash + localStorage on init
                     this.$watch('currentView', (val) => {
                         history.replaceState(null, '', '#' + val);
@@ -1773,6 +1806,96 @@
 
                 get cartCount() {
                     return this.cart.reduce((acc, i) => acc + i.quantity, 0);
+                },
+
+                // ── UPSPELLING: Berechnet "Passende Extras" basierend auf Warenkorb ──
+                // Layer 1: related_product_ids (manuelle Verknüpfungen vom Admin)
+                // Layer 2: Auto-Rules basierend auf category_type (z.B. Shisha → Kohle)
+                // Filter: Produkte die schon im Warenkorb sind werden ausgeblendet
+                // Limit: Top 3 Vorschläge
+                get upsellSuggestions() {
+                    if (!this.cart || this.cart.length === 0) return [];
+                    if (!window._productsData || window._productsData.length === 0) return [];
+
+                    const cartProductIds = new Set(this.cart.map(i => i.product_id));
+                    const suggestionScores = {}; // {product_id: score}
+
+                    // Layer 1: Manual related products
+                    this.cart.forEach(cartItem => {
+                        const productId = cartItem.product_id;
+                        const product = window._productsData.find(p => p.id === productId);
+                        if (!product) return;
+                        const relatedIds = product.related_product_ids || [];
+                        relatedIds.forEach(rid => {
+                            if (!cartProductIds.has(rid)) {
+                                suggestionScores[rid] = (suggestionScores[rid] || 0) + 3;
+                            }
+                        });
+                    });
+
+                    // Layer 2: Auto-rules based on category_type
+                    // Sammle category_types im Warenkorb
+                    const cartCategoryTypes = new Set();
+                    this.cart.forEach(cartItem => {
+                        const product = window._productsData.find(p => p.id === cartItem.product_id);
+                        if (product) {
+                            cartCategoryTypes.add(product.category_type || 'küche');
+                        }
+                    });
+
+                    // Auto-Rules: Was passt zu was?
+                    // shisha → schlage "Kohle" / "Kopf" Produkte vor
+                    // burger/pizza → schlage "Pommes" / Beilagen vor
+                    // Getränke alkoholfrei → schlage Snacks vor
+                    const autoRules = {
+                        'shisha': (p) => {
+                            const name = (p.name || '').toLowerCase();
+                            if (name.includes('kohle') || name.includes('head') || name.includes('kopf') || name.includes('zubehör')) return 2;
+                            return 0;
+                        },
+                        'küche': (p) => {
+                            const name = (p.name || '').toLowerCase();
+                            const cat = (p.category || '').toLowerCase();
+                            if (name.includes('pommes') || name.includes('fries') || name.includes('beilage') || cat.includes('beilage')) return 2;
+                            if (p.category_type === 'bar') return 1; // Getränk zu Essen
+                            return 0;
+                        },
+                        'bar': (p) => {
+                            // Zu Getränken: Snacks vorschlagen
+                            const cat = (p.category || '').toLowerCase();
+                            if (cat.includes('snack') || cat.includes('klein')) return 1;
+                            return 0;
+                        }
+                    };
+
+                    window._productsData.forEach(product => {
+                        if (!product.is_available) return;
+                        if (cartProductIds.has(product.id)) return;
+                        let score = suggestionScores[product.id] || 0;
+                        // Auto-Rules für jeden category_type im Warenkorb
+                        cartCategoryTypes.forEach(ct => {
+                            if (autoRules[ct]) {
+                                score += autoRules[ct](product) || 0;
+                            }
+                        });
+                        if (score > 0) {
+                            suggestionScores[product.id] = score;
+                        }
+                    });
+
+                    // Sortiere nach Score (absteigend), nehme top 3
+                    return Object.entries(suggestionScores)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3)
+                        .map(([pid]) => window._productsData.find(p => p.id === parseInt(pid)))
+                        .filter(p => p); // Filter out undefined
+                },
+
+                // Upsell-Item zum Warenkorb hinzufügen
+                addUpsellItem(product) {
+                    if (!product) return;
+                    this.addToCart(product);
+                    showToast('"' + product.name + '" hinzugefügt!', 'success');
                 },
 
                 setLanguage(lang) {
