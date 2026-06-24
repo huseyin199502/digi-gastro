@@ -978,32 +978,46 @@
                 </template>
             </div>
 
-            <!-- UPSPELLING: Passende Extras (Kunden sehen was sie noch bestellen könnten) -->
-            <div id="upsell-section" x-show="cart.length > 0 && upsellSuggestions.length > 0" x-cloak
-                 class="mb-6 p-4 rounded-2xl border border-primary/30 bg-primary/5">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="material-symbols-outlined text-primary text-lg">auto_awesome</span>
-                    <span class="text-sm font-black text-primary" data-translate="upsell_title">Passende Extras</span>
-                </div>
-                <div class="space-y-2">
-                    <template x-for="suggestion in upsellSuggestions" :key="suggestion.id">
-                        <div class="flex items-center justify-between bg-background/40 border border-outline-variant/60 rounded-xl p-3">
-                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                                <template x-if="suggestion.image">
-                                    <img :src="suggestion.image" :alt="suggestion.name" class="w-10 h-10 rounded-lg object-cover shrink-0">
-                                </template>
-                                <div class="min-w-0">
-                                    <div class="font-bold text-on-surface text-xs truncate" x-text="suggestion.name"></div>
-                                    <div class="text-primary font-bold text-xs" x-text="suggestion.price.toFixed(2) + ' €'"></div>
-                                </div>
-                            </div>
-                            <button @click="addUpsellItem(suggestion)"
-                                class="w-9 h-9 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-lg shrink-0 active:scale-95 transition-transform"
-                                style="touch-action: manipulation;">
-                                +
-                            </button>
+            <!-- UPSPELLING: Passende Extras (kompakt + einklappbar — Best Practice Uber Eats/DoorDash) -->
+            <div x-data="{ upsellCollapsed: false }" x-show="cart.length > 0 && upsellSuggestions.length > 0" x-cloak class="mb-4">
+                <!-- Aktive Sektion (sichtbar wenn nicht eingeklappt) -->
+                <div x-show="!upsellCollapsed"
+                     x-transition:leave="transition ease-in duration-200"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                     class="rounded-xl border border-primary/20 bg-primary/5 overflow-hidden">
+                    <!-- Header (klickbar zum Einklappen) -->
+                    <div class="flex items-center justify-between px-3 py-2 cursor-pointer" @click="upsellCollapsed = true">
+                        <div class="flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-primary" style="font-size:14px;">auto_awesome</span>
+                            <span class="text-[11px] font-bold text-primary">Passende Extras</span>
                         </div>
-                    </template>
+                        <span class="material-symbols-outlined text-primary/50" style="font-size:14px;">close</span>
+                    </div>
+                    <!-- Kompakte Vorschlags-Liste (max 2, kein Bild, nur Name+Preis+Button) -->
+                    <div class="px-2 pb-2 space-y-1">
+                        <template x-for="suggestion in upsellSuggestions.slice(0, 2)" :key="suggestion.id">
+                            <div class="flex items-center justify-between bg-background/40 rounded-lg px-2 py-1.5">
+                                <div class="min-w-0 flex-1 pr-2">
+                                    <div class="font-bold text-on-surface text-[11px] truncate" x-text="suggestion.name"></div>
+                                    <div class="text-primary font-bold text-[10px]" x-text="suggestion.price.toFixed(2) + ' €'"></div>
+                                </div>
+                                <button @click="addUpsellItem(suggestion)"
+                                    class="w-7 h-7 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-sm shrink-0 active:scale-90 transition-transform"
+                                    style="touch-action: manipulation;">
+                                    +
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <!-- "Ausgeblendete Extras" Wieder-Einklappen Button -->
+                <div x-show="upsellCollapsed" x-cloak class="flex items-center justify-center">
+                    <button @click="upsellCollapsed = false"
+                        class="text-[10px] font-bold text-primary/70 hover:text-primary flex items-center gap-1 py-1 px-3 rounded-full border border-primary/20 bg-primary/5">
+                        <span class="material-symbols-outlined" style="font-size:12px;">add</span>
+                        Passende Extras anzeigen
+                    </button>
                 </div>
             </div>
 
