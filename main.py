@@ -8316,7 +8316,8 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
         "price": p.price,
         "category_type": p.category_type,
         "category": p.category,
-        "is_available": p.is_available if p.is_available is not None else True
+        "is_available": p.is_available if p.is_available is not None else True,
+        "happy_hour_price": p.happy_hour_price  # Fallback-Preis wenn kein Event aktiv
     } for p in db_products]
 
     # 3. Events + EventProducts (Combos werden von products-lite nicht genutzt)
@@ -8415,6 +8416,17 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
                     display_price = round(display_price / mwst_factor, 2)
                 active_event = {"name": ev["name"], "display_name": ev.get("display_name", "")}
                 break
+        
+        # Fallback: Legacy happy_hour_price (wenn kein Event aktiv)
+        if not is_hh_active and p.get("happy_hour_price"):
+            hh_price = p["happy_hour_price"]
+            if price_mode == "netto":
+                cat_type = p.get("category_type", "küche").lower()
+                mwst_factor = 1.19 if cat_type == "bar" else 1.07
+                hh_price = round(hh_price / mwst_factor, 2)
+            is_hh_active = True
+            display_price = hh_price
+            active_event = {"name": "Aktionspreis", "display_name": "Aktionspreis"}
         
         products_lite.append({
             "id": p.get("id"),
