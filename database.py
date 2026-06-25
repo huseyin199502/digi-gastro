@@ -604,23 +604,11 @@ def migrate_happy_hour_to_events():
         tenants = session.query(Tenant).all()
         for t in tenants:
             if t.slug in tenants_with_events:
-                # Already have events (possibly from previous migration) – clear old HH data
-                # to prevent future ghost events if admin deletes all events
-                hh_products = session.query(Product).filter(
-                    Product.tenant_slug == t.slug,
-                    Product.happy_hour_price != None
-                ).all()
-                if hh_products:
-                    for p in hh_products:
-                        p.happy_hour_price = None
-                        p.happy_hour_days = None
-                        p.start_time = None
-                        p.end_time = None
-                    # Clear tenant-level HH config too
-                    t.happy_hour_days = "[]"
-                    t.happy_hour_discount = 0
-                    print(f"[DB Migration] Cleared stale Happy Hour data for tenant '{t.slug}' ({len(hh_products)} products)")
-                continue  # Already migrated
+                # Already have events — DO NOT clear happy_hour_price anymore!
+                # The HH price is a legitimate feature (Tab "Preise & HH" im Admin)
+                # and should NOT be deleted when events exist.
+                # Old migration code was deleting HH prices on every server restart.
+                continue  # Already migrated — skip without deleting HH prices
 
             hh_days = json.loads(t.happy_hour_days or "[]")
             hh_start = t.happy_hour_start or "18:00"
