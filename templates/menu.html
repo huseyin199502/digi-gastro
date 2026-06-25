@@ -812,7 +812,6 @@
                                 {% if product.is_hh_active %}
                                 <span data-hh-badge-id="{{ product.id }}" class="bg-[#7c3aed] text-white text-[11px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-0.5 shadow-md">
                                     <span class="material-symbols-outlined text-xs font-black">celebration</span>
-                                    <span>{{ (product.active_event.display_name if product.active_event else 'Event')[:15] }}{% if product.active_event and product.active_event.days %} {% for d in product.active_event.days %}{{ d[:2] }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}</span>
                                 </span>
                                 {% else %}
                                 <span data-hh-badge-id="{{ product.id }}" class="hidden"></span>
