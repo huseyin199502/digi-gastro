@@ -2342,6 +2342,22 @@ def get_current_user_and_slug(request: Request) -> Optional[tuple]:
         pass
     return None
 
+
+def is_event_active_now(ev_start: str, ev_end: str, now_time: str) -> bool:
+    """Prüft ob die aktuelle Zeit im Event-Zeitfenster liegt.
+    Behandelt Mitternachts-Überschreitung (z.B. 16:00-01:10).
+    ev_start/ev_end/now_time im Format 'HH:MM'."""
+    s = ev_start.zfill(5)
+    e = ev_end.zfill(5)
+    n = now_time.zfill(5)
+    if s <= e:
+        # Normal: z.B. 16:00-20:00
+        return s <= n <= e
+    else:
+        # Mitternachts-Überschreitung: z.B. 16:00-01:10
+        # Aktiv wenn: now >= start ODER now <= end
+        return n >= s or n <= e
+
 def parse_active_table_num(active_table_num: str):
     clean_num = str(active_table_num).strip()
     clean_zone = ""
@@ -4640,7 +4656,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         ev_start = ev.get("start_time", "18:00")
         ev_end = ev.get("end_time", "20:00")
         is_today = any(day in ev_days for day in possible_days)
-        is_active_now = is_today and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
+        is_active_now = is_today and is_event_active_now(ev_start, ev_end, now_time)
         ev["_is_currently_active"] = is_active_now
         if is_active_now:
             any_event_active = True
@@ -4880,7 +4896,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         ev_days = ev.get("days", [])
         ev_start = ev.get("start_time", "18:00")
         ev_end = ev.get("end_time", "20:00")
-        ev["_is_currently_active"] = any(day in ev_days for day in possible_days) and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
+        ev["_is_currently_active"] = any(day in ev_days for day in possible_days) and is_event_active_now(ev_start, ev_end, now_time)
 
     # Build combo lookup: combo_id -> {combo_price, product_ids}
     combo_lookup = {}
@@ -8287,7 +8303,7 @@ def debug_events(slug: str, request: Request, db: Session = Depends(get_db)):
         ev_end = str(ev.get("end_time", "20:00")).zfill(5)
         is_active = ev.get("is_active", True)
         is_today = any(day in ev_days for day in possible_days)
-        is_active_now = is_today and ev_start <= now_time <= ev_end
+        is_active_now = is_today and is_event_active_now(ev_start, ev_end, now_time)
         result["events"].append({
             "name": ev.get("name"),
             "is_active": is_active,
@@ -8407,7 +8423,7 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
         ev_start = ev.get("start_time", "18:00")
         ev_end = ev.get("end_time", "20:00")
         is_today = any(day in ev_days for day in possible_days)
-        is_active_now = is_today and ev_start.zfill(5) <= now_time <= ev_end.zfill(5)
+        is_active_now = is_today and is_event_active_now(ev_start, ev_end, now_time)
         ev["_is_currently_active"] = is_active_now
     
     # Build lightweight product list
