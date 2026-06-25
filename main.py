@@ -8261,6 +8261,62 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
     return result
 
 
+@app.get("/api/{slug}/debug-events")
+def debug_events(slug: str, request: Request, db: Session = Depends(get_db)):
+    """Debug-Endpoint: zeigt alle Events + EventProducts + ob sie aktuell aktiv sind.
+    Hilft bei der Diagnose warum Event-Preise nicht angezeigt werden."""
+    restaurant = get_restaurant_or_raise(slug, db)
+    from main import get_berlin_now
+    berlin_now = get_berlin_now()
+    now_time = berlin_now.strftime("%H:%M")
+    weekday_idx = berlin_now.weekday()
+    days_names = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"]
+    days_abbr = ["Mo","Di","Mi","Do","Fr","Sa","So"]
+    possible_days = [days_abbr[weekday_idx], days_names[weekday_idx]]
+
+    events = restaurant.get("events", [])
+    result = {
+        "server_time": now_time,
+        "weekday": days_names[weekday_idx],
+        "possible_days": possible_days,
+        "events": []
+    }
+    for ev in events:
+        ev_days = ev.get("days", [])
+        ev_start = str(ev.get("start_time", "18:00")).zfill(5)
+        ev_end = str(ev.get("end_time", "20:00")).zfill(5)
+        is_active = ev.get("is_active", True)
+        is_today = any(day in ev_days for day in possible_days)
+        is_active_now = is_today and ev_start <= now_time <= ev_end
+        result["events"].append({
+            "name": ev.get("name"),
+            "is_active": is_active,
+            "is_today": is_today,
+            "is_active_now": is_active_now,
+            "days": ev_days,
+            "start_time": ev_start,
+            "end_time": ev_end,
+            "mode": ev.get("mode"),
+            "discount": ev.get("discount"),
+            "products": ev.get("products", []),
+            "combos_count": len(ev.get("combos", []))
+        })
+
+    # Also show all products with their prices
+    result["products"] = []
+    for p in restaurant.get("products", []):
+        result["products"].append({
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "price": p.get("price"),
+            "happy_hour_price": p.get("happy_hour_price"),
+            "category": p.get("category"),
+            "is_available": p.get("is_available")
+        })
+
+    return result
+
+
 @app.get("/api/{slug}/products-lite")
 def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)):
     """Lightweight product data endpoint for real-time WebSocket updates.
