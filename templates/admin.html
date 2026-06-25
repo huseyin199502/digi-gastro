@@ -5773,17 +5773,7 @@
                         <span>Glutenfrei</span>
                     </label>
                 </div>
-                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-3">
-                    <h4 class="font-extrabold text-xs text-amber-800 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-amber-700" style="font-size:16px;">schedule</span>
-                        Aktionspreis
-                    </h4>
-                    <div>
-                        <label class="form-label">Aktionspreis (&euro;)</label>
-                        <input type="number" step="0.01" min="0" id="edit-product-hh-price" placeholder="Leer = kein Aktionspreis" class="form-field font-mono">
-                    </div>
-                    <div class="text-[9px] text-purple-600 font-bold">Weitere Einstellungen (Tage, Uhrzeiten) auf dem Events-Tab</div>
-                </div>
+                <!-- Aktionspreis entfernt — Event-Preise werden über den Events-Tab verwaltet -->
                 <!-- UPSPELLING: Verwandte Produkte als "Passende Extras" im Warenkorb -->
                 <div class="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900 space-y-3">
                     <h4 class="font-extrabold text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
@@ -11025,7 +11015,6 @@
 
         function openEditSlideOver(id, name, price, description, category, nameEn = '', descriptionEn = '', imageUrl = '', isVegan = false, isGlutenfree = false) {
             let productType = 'küche';
-            let hhPrice = '';
             let relatedIds = [];
             let allergenList = [];
             if (id !== undefined && id !== null && name === undefined) {
@@ -11042,7 +11031,6 @@
                     isVegan = p.is_vegan || p.vegan || false;
                     isGlutenfree = p.is_glutenfree || false;
                     productType = p.category_type || 'küche';
-                    hhPrice = p.happy_hour_price || '';
                     relatedIds = p.related_product_ids || [];
                     allergenList = p.allergens || [];
                 }
@@ -11059,7 +11047,6 @@
                 isVegan = p.is_vegan || p.vegan || false;
                 isGlutenfree = p.is_glutenfree || false;
                 productType = p.category_type || 'küche';
-                hhPrice = p.happy_hour_price || '';
                 relatedIds = p.related_product_ids || [];
                 allergenList = p.allergens || [];
             }
@@ -11075,7 +11062,6 @@
             document.getElementById('edit-product-image-file').value = '';
             document.getElementById('edit-product-is-vegan').checked = isVegan || false;
             document.getElementById('edit-product-is-glutenfree').checked = isGlutenfree || false;
-            document.getElementById('edit-product-hh-price').value = hhPrice || '';
 
             // Upselling: Verwandte Produkte Checkboxes rendern
             renderUpsellCheckboxes(id, relatedIds);
@@ -12191,12 +12177,8 @@
             formData.append('is_glutenfree', document.getElementById('edit-product-is-glutenfree').checked ? 'true' : 'false');
             formData.append('category_type', document.getElementById('edit-product-type').value);
             
-            // Aktionspreis from slide-over Tab 3
-            const hhPriceField = document.getElementById('edit-product-hh-price');
-            if (hhPriceField && hhPriceField.value) {
-                formData.append('happy_hour_price', hhPriceField.value);
-            }
-
+            // Aktionspreis entfernt — Event-Preise über Events-Tab verwalten
+            
             // Upselling: Verwandte Produkte sammeln und als JSON-Array senden
             const upsellCheckboxes = document.querySelectorAll('.upsell-product-checkbox:checked');
             const relatedIds = Array.from(upsellCheckboxes).map(cb => parseInt(cb.value));

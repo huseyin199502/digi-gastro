@@ -4701,19 +4701,6 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
                 event_price_applied = True
                 break  # First matching event wins
         
-        # Fallback: Legacy happy_hour_price (Tab "Preise & HH" im Admin)
-        # Wird angewendet wenn KEIN Event aktiv ist aber das Produkt hat einen
-        # happy_hour_price gesetzt. Das ist unabhängig von Tageszeit/Wochentag.
-        if not event_price_applied and prod.get("happy_hour_price"):
-            hh_price = prod["happy_hour_price"]
-            if price_mode == "netto":
-                cat_type = prod.get("category_type", "küche").lower()
-                mwst_factor = 1.19 if cat_type == "bar" else 1.07
-                hh_price = round(hh_price / mwst_factor, 2)
-            prod["is_hh_active"] = True
-            prod["display_price"] = hh_price
-            prod["active_event"] = {"name": "Aktionspreis", "display_name": "Aktionspreis", "days": []}
-            
         processed_products.append(prod)
         
     # Clean up temporary _is_currently_active flag
@@ -4955,11 +4942,6 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                 item.price = round(prod["price"] * discount_factor, 2)
                 is_event_price_applied = True
                 break
-    
-    # Fallback: Legacy happy_hour_price (wird angewendet wenn kein Event aktiv)
-        if not is_event_price_applied and prod.get("happy_hour_price"):
-            item.price = prod["happy_hour_price"]
-            is_event_price_applied = True
     
     # Validate and apply combo prices
     # Find items that are marked as combo items in the payload
@@ -8416,17 +8398,6 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
                     display_price = round(display_price / mwst_factor, 2)
                 active_event = {"name": ev["name"], "display_name": ev.get("display_name", "")}
                 break
-        
-        # Fallback: Legacy happy_hour_price (wenn kein Event aktiv)
-        if not is_hh_active and p.get("happy_hour_price"):
-            hh_price = p["happy_hour_price"]
-            if price_mode == "netto":
-                cat_type = p.get("category_type", "küche").lower()
-                mwst_factor = 1.19 if cat_type == "bar" else 1.07
-                hh_price = round(hh_price / mwst_factor, 2)
-            is_hh_active = True
-            display_price = hh_price
-            active_event = {"name": "Aktionspreis", "display_name": "Aktionspreis"}
         
         products_lite.append({
             "id": p.get("id"),
