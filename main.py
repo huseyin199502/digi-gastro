@@ -4439,7 +4439,15 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     master_token = restaurant.get("security_token")
 
     # ── Admin preview bypass ──
-    is_preview = (request.query_params.get("preview") == "true")
+    # SICHERHEITS-FIX: preview=true darf NUR für eingeloggte Chefs funktionieren!
+    # Vorher: is_preview = (request.query_params.get("preview") == "true")
+    # → JEDER konnte ?preview=true an die URL hängen und ohne QR-Code bestellen!
+    # Jetzt: preview=true funktioniert nur mit gültigem Chef-Session-Cookie.
+    is_preview = False
+    if request.query_params.get("preview") == "true":
+        current_user = get_current_user(request, slug)
+        if current_user and current_user.get("role") == "chef":
+            is_preview = True
     if not is_preview:
         current_user = get_current_user(request, slug)
         if current_user and current_user.get("role") == "chef":
