@@ -955,6 +955,7 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+            touch-action: pan-y; /* Nur vertikales Scrollen — verhindert Swipe-Back/Forward */
         }
 
         /* Tab Content Switching */
@@ -4649,10 +4650,10 @@
             </div>
 
             <!-- Event Create/Edit Modal -->
-            <div id="event-modal" class="fixed inset-0 z-50 hidden modal-overscroll">
+            <div id="event-modal" class="fixed inset-0 z-50 modal-overscroll" style="display: none;">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventModal()"></div>
-                <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-zinc-900 shadow-2xl flex flex-col"
-                     style="max-width: 100%; height: 100dvh;">
+                <div class="absolute inset-0 flex flex-col bg-white dark:bg-zinc-900 shadow-2xl"
+                     style="max-width: 560px; margin-left: auto;">
                     <!-- Fixed Header — immer sichtbar, scrollt nicht -->
                     <div class="flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 shrink-0"
                          style="padding-top: max(1rem, env(safe-area-inset-top, 0px));">
@@ -11627,7 +11628,7 @@
             comboTempIdCounter = 0;
             renderCombosList();
 
-            document.getElementById('event-modal').classList.remove('hidden');
+            document.getElementById('event-modal').style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
 
@@ -11668,12 +11669,12 @@
             }));
             renderCombosList();
 
-            document.getElementById('event-modal').classList.remove('hidden');
+            document.getElementById('event-modal').style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
 
         function closeEventModal() {
-            document.getElementById('event-modal').classList.add('hidden');
+            document.getElementById('event-modal').style.display = 'none';
             document.body.style.overflow = '';
         }
 
@@ -12474,7 +12475,10 @@
             }).catch(() => { alert('Link:\n' + fullUrl); });
         }
 
-        // Tab swipe navigation on mobile/tablet viewports
+        // Tab swipe navigation — DEAKTIVIERT auf Mobile (verursacht versehentliches Tab-Wechseln)
+        // beim Verschieben von Elementen (z.B. Produkt-Liste horizontal schieben).
+        // Tabs werden stattdessen über die Sidebar-Navigation gewechselt.
+        /*
         let touchStartX = 0;
         let touchStartY = 0;
         let touchEndX = 0;
@@ -12493,11 +12497,8 @@
         }
 
         document.addEventListener('touchstart', e => {
-            // Ignore if any modal/overlay is open
             if (isModalOpen()) return;
-            // Ignore if touching form fields
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
-            // Ignore if touch starts inside interactive or scrollable panels to prevent conflicts
             if (e.target.closest('.seating-canvas') || 
                 e.target.closest('#table-creator-panel') || 
                 e.target.closest('.popup-card') || 
@@ -12513,10 +12514,7 @@
 
         document.addEventListener('touchend', e => {
             if (!touchStartX) return;
-
-            // Ignore if any modal/overlay is open
             if (isModalOpen()) return;
-            // Ignore if touching form fields
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
             if (e.target.closest('.seating-canvas') || 
                 e.target.closest('#table-creator-panel') || 
@@ -12539,22 +12537,18 @@
             const diffX = touchEndX - touchStartX;
             const diffY = touchEndY - touchStartY;
             
-            // Requires a minimum horizontal swipe length of 80px, and horizontal shift must be greater than vertical
             if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
                 const currentTab = localStorage.getItem('dl_admin_active_tab') || 'live';
                 const currentIndex = tabsSequence.indexOf(currentTab);
                 
                 if (diffX < 0) {
-                    // Swiped left -> Switch to next tab
                     if (currentIndex < tabsSequence.length - 1) {
                         switchAdminTab(tabsSequence[currentIndex + 1]);
                     }
                 } else {
-                    // Swiped right -> Switch to previous tab, or open sidebar if on first tab
                     if (currentIndex > 0) {
                         switchAdminTab(tabsSequence[currentIndex - 1]);
                     } else {
-                        // Open sidebar drawer on first tab (live) when swiping right
                         const aside = document.querySelector('aside');
                         const isOpen = aside.classList.contains('open') || (window.innerWidth >= 1024 && !aside.classList.contains('closed'));
                         if (!isOpen) {
@@ -12564,6 +12558,7 @@
                 }
             }
         }
+        */
 
         // ═══════════════════════════════════════════════════════
         // POS / KASSASYSTEM INTEGRATION
