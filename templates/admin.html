@@ -4651,14 +4651,15 @@
             <!-- Event Create/Edit Modal -->
             <div id="event-modal" class="fixed inset-0 z-50 hidden modal-overscroll">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventModal()"></div>
-                <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
-                    <div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 px-6 py-4 flex items-center justify-between">
+                <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto"
+                     style="max-width: 100%; padding-bottom: env(safe-area-inset-bottom, 0);">
+                    <div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 px-4 sm:px-6 py-4 flex items-center justify-between">
                         <h3 id="event-modal-title" class="font-extrabold text-base text-zinc-800 dark:text-zinc-100">Neues Event</h3>
-                        <button onclick="closeEventModal()" class="text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
-                            <span class="material-symbols-outlined">close</span>
+                        <button onclick="closeEventModal()" class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors shrink-0">
+                            <span class="material-symbols-outlined" style="font-size:22px;">close</span>
                         </button>
                     </div>
-                    <div class="p-6 space-y-5">
+                    <div class="p-4 sm:p-6 space-y-5">
                         <input type="hidden" id="event-edit-id" value="">
 
                         <!-- Event Name -->
@@ -4720,7 +4721,7 @@
                         <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl">
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="event-is-active" checked class="sr-only peer">
-                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                <div class="w-12 h-7 bg-gray-300 dark:bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
                             </label>
                             <div>
                                 <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200">Event aktiv</span>
