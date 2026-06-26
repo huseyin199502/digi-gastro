@@ -4653,9 +4653,9 @@
             <div id="event-modal" class="fixed inset-0 z-50 modal-overscroll" style="display: none;">
                 <!-- Backdrop -->
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventModal()"></div>
-                <!-- Panel: fixed + flex-col = Header IMMER oben, Content scrollt -->
-                <div class="fixed inset-0 sm:absolute sm:inset-y-0 sm:right-0 sm:left-auto flex flex-col bg-white dark:bg-zinc-900 shadow-2xl"
-                     style="width: 100%; max-width: 560px; margin-left: auto;">
+                <!-- Panel: bottom-anchored with 100dvh = sichbar Bereich (schließt iOS Safari URL-Bar aus) -->
+                <div class="fixed right-0 bottom-0 flex flex-col bg-white dark:bg-zinc-900 shadow-2xl"
+                     style="width: 100%; max-width: 560px; height: 100dvh; top: auto;">
                     <!-- Header: fixiert, NICHT scrollbar -->
                     <div class="flex items-center justify-between px-4 sm:px-6 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 shrink-0 z-10"
                          style="padding-top: max(1rem, env(safe-area-inset-top, 0px)); min-height: 56px;">
