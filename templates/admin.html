@@ -4649,21 +4649,23 @@
                 </div>
             </div>
 
-            <!-- Event Create/Edit Modal -->
+            <!-- Event Create/Edit Modal — Bottom-Sheet auf Mobile, Slide-Over auf Desktop -->
             <div id="event-modal" class="fixed inset-0 z-50 modal-overscroll" style="display: none;">
+                <!-- Backdrop -->
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventModal()"></div>
-                <div class="absolute inset-0 flex flex-col bg-white dark:bg-zinc-900 shadow-2xl"
-                     style="max-width: 560px; margin-left: auto;">
-                    <!-- Fixed Header — immer sichtbar, scrollt nicht -->
-                    <div class="flex items-center justify-between px-4 sm:px-6 pt-4 pb-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 shrink-0"
-                         style="padding-top: max(1rem, env(safe-area-inset-top, 0px));">
+                <!-- Panel: fixed + flex-col = Header IMMER oben, Content scrollt -->
+                <div class="fixed inset-0 sm:absolute sm:inset-y-0 sm:right-0 sm:left-auto flex flex-col bg-white dark:bg-zinc-900 shadow-2xl"
+                     style="width: 100%; max-width: 560px; margin-left: auto;">
+                    <!-- Header: fixiert, NICHT scrollbar -->
+                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 shrink-0 z-10"
+                         style="padding-top: max(1rem, env(safe-area-inset-top, 0px)); min-height: 56px;">
                         <h3 id="event-modal-title" class="font-extrabold text-base text-zinc-800 dark:text-zinc-100">Neues Event</h3>
                         <button onclick="closeEventModal()" class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors shrink-0">
-                            <span class="material-symbols-outlined" style="font-size:22px;">close</span>
+                            <span class="material-symbols-outlined" style="font-size:24px;">close</span>
                         </button>
                     </div>
-                    <!-- Scrollbarer Content -->
-                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; min-height: 0; padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));">
+                    <!-- Content: scrollt -->
+                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5" style="min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));">
                         <input type="hidden" id="event-edit-id" value="">
 
                         <!-- Event Name -->
