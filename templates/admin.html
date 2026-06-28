@@ -3617,9 +3617,14 @@
             flex-direction: column;
             overflow: hidden;
             overscroll-behavior: contain;
+            /* WICHTIG: Wenn Slide-Over geschlossen ist (translateX(100%)), darf es
+               keine Touch-Events abfangen — sonst blockiert es Scroll auf Tablet/Desktop.
+               Auf iOS Safari specially, fixed elements off-screen können Touch blocken. */
+            pointer-events: none;
         }
         .edit-slide-over.open {
             transform: translateX(0);
+            pointer-events: auto;
         }
         /* Mobile: Full-width + safe-area */
         @media (max-width: 640px) {
@@ -11473,13 +11478,16 @@
             // Open slide-over
             document.getElementById('edit-slide-over').classList.add('open');
             document.getElementById('edit-slide-overlay').classList.add('open');
-            document.body.style.overflow = 'hidden';
+            // Kein body overflow:hidden mehr — iOS Safari hat damit einen bekannten Bug,
+            // bei dem nach dem Schließen des Modals der Scroll auf der Seite blockiert bleibt.
+            // Das Slide-Over ist position:fixed und überdeckt die Seite ohnehin komplett,
+            // body-scroll-lock ist also unnötig.
         }
 
         function closeEditSlideOver() {
             document.getElementById('edit-slide-over').classList.remove('open');
             document.getElementById('edit-slide-overlay').classList.remove('open');
-            document.body.style.overflow = '';
+            // Body overflow nicht mehr anfassen (siehe Kommentar oben)
         }
 
         // 14 EU-Hauptallergene (Verordnung 1169/2011)
