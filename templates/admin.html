@@ -1639,6 +1639,103 @@
         .product-tile-actions button:hover { background: #f4f4f5; }
         .product-tile-actions button.danger:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
 
+        /* ─── Mobile: 2-Spalten Grid + kompaktere Karten ───
+           Default-Grid (200px min) zeigt auf Mobile nur 1 Spalte → zu viel Scroll.
+           Mobile: 2 Spalten, kompaktere Karten, weniger Padding. */
+        @media (max-width: 640px) {
+            .product-grid-view {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.5rem !important;
+            }
+            .product-tile {
+                padding: 0.5rem !important;
+                gap: 0.375rem !important;
+                border-radius: 10px !important;
+            }
+            .product-tile-img {
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 6px !important;
+            }
+            .product-tile-name {
+                font-size: 0.75rem !important;
+                line-height: 1.15 !important;
+                /* Erlaubt 2 Zeilen auf Mobile, damit nichts abgeschnitten wird */
+                white-space: normal !important;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                min-height: 1.7em;
+            }
+            .product-tile-price {
+                font-size: 0.8rem !important;
+            }
+            .product-tile-cat {
+                font-size: 0.55rem !important;
+                max-width: 60px !important;
+                padding: 1px 4px !important;
+            }
+            .product-tile-actions {
+                padding-top: 0.375rem !important;
+                gap: 0.25rem !important;
+            }
+            .product-tile-actions button {
+                padding: 0.375rem !important;
+                min-height: 36px !important;
+            }
+            .product-tile-actions button .material-symbols-outlined {
+                font-size: 16px !important;
+            }
+            /* Switch auf Mobile etwas kleiner, damit er in der schmalen Karte Platz hat */
+            .product-tile .switch {
+                transform: scale(0.75) !important;
+            }
+        }
+
+        /* ─── Load-More Pagination Bar ─── */
+        .product-load-more-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.5rem 0 0.5rem;
+            margin-top: 1rem;
+            border-top: 1px solid var(--gastro-border, #e4e4e7);
+        }
+        .product-load-more-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 48px;
+            padding: 0 1.5rem;
+            background: var(--gastro-primary, #16a34a);
+            color: white;
+            border: 0;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .product-load-more-btn:hover {
+            background: #15803d;
+        }
+        html.dark .product-load-more-btn {
+            background: #22c55e;
+            color: #0a0a0a;
+        }
+        html.dark .product-load-more-btn:hover {
+            background: #16a34a;
+            color: white;
+        }
+        .product-load-more-info {
+            font-size: 0.7rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+        html.dark .product-load-more-info { color: #9ca3af; }
+
         /* Filter-Chips statt Dropdowns */
         .filter-chips {
             display: flex;
@@ -4488,6 +4585,11 @@
                 <!-- GRID VIEW (Default) -->
                 <div class="section-card" id="product-grid-container">
                     <div class="section-card-body">
+                        <!-- Result count above grid for orientation -->
+                        <div class="flex items-center justify-between mb-3 text-[10px] font-bold text-zinc-500">
+                            <span><span id="product-filter-result-count">{{ restaurant.products|length }}</span> Produkte sichtbar</span>
+                            <span id="product-page-info" class="hidden sm:inline"></span>
+                        </div>
                         <div class="product-grid-view" id="product-grid-view">
                             {% for p in restaurant.products %}
                             <div class="product-tile {% if not p.is_available %}out-of-stock{% endif %}"
@@ -4546,6 +4648,15 @@
                             <p class="text-[10px] text-zinc-400 mt-1">Erstelle dein erstes Produkt mit dem Button oben</p>
                         </div>
                         {% endif %}
+
+                        <!-- Load-More Pagination Bar (25 Produkte pro Seite) -->
+                        <div id="product-load-more-bar" class="product-load-more-bar" style="display:none;">
+                            <button type="button" class="product-load-more-btn" onclick="loadMoreProducts()">
+                                <span class="material-symbols-outlined" style="font-size:18px;">expand_more</span>
+                                Mehr Produkte laden
+                            </button>
+                            <span class="product-load-more-info" id="product-load-more-info"></span>
+                        </div>
                     </div>
                 </div>
 
@@ -11484,6 +11595,10 @@
         // NEUE PRODUKT-FILTER (Chip-basiert, kombiniert mit Search)
         // ═══════════════════════════════════════════════════════
         let _productFilterState = { status: 'all', hh: 'all', cat: 'all', search: '' };
+        // Pagination: 25 Produkte initial, "Load More" für nächste 25
+        const PRODUCTS_PER_PAGE = 25;
+        let _productVisibleCount = 0;
+        let _productShownCount = 0;
 
         function setProductFilter(type, value, btn) {
             _productFilterState[type] = value;
@@ -11494,8 +11609,9 @@
         }
 
         function applyProductFilters() {
-            const items = document.querySelectorAll('.product-row, .product-tile');
+            const items = document.querySelectorAll('#product-grid-view .product-tile, #product-table-container .product-row');
             const term = (_productFilterState.search || '').toLowerCase();
+            // Phase 1: Sichtbarkeit bestimmen (display none/'' setzen)
             items.forEach(item => {
                 let visible = true;
                 // Status filter
@@ -11506,12 +11622,72 @@
                 if (_productFilterState.cat !== 'all' && item.dataset.category !== _productFilterState.cat) visible = false;
                 // Search
                 if (term && !(item.dataset.name || '').includes(term)) visible = false;
-                item.style.display = visible ? '' : 'none';
+                // Merke Sichtbarkeit in data-visible, aber setze display noch nicht
+                item.dataset.matchesFilter = visible ? 'true' : 'false';
             });
+            // Phase 2: Pagination anwenden — nur die ersten N sichtbar machen
+            applyProductPagination();
             // Update count
-            const visibleCount = Array.from(items).filter(i => i.style.display !== 'none').length;
+            const visibleCount = Array.from(items).filter(i => i.dataset.matchesFilter === 'true').length;
+            _productVisibleCount = visibleCount;
             const totalEl = document.getElementById('product-filter-result-count');
             if (totalEl) totalEl.textContent = visibleCount;
+        }
+
+        // ── Pagination: zeigt nur die ersten _productShownCount sichtbaren Items ──
+        function applyProductPagination() {
+            const items = document.querySelectorAll('#product-grid-view .product-tile');
+            let shownSoFar = 0;
+            items.forEach(item => {
+                if (item.dataset.matchesFilter !== 'true') {
+                    item.style.display = 'none';
+                    return;
+                }
+                if (shownSoFar < _productShownCount) {
+                    item.style.display = '';
+                    shownSoFar++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            // Load-More Bar aktualisieren
+            updateLoadMoreBar();
+        }
+
+        function updateLoadMoreBar() {
+            const bar = document.getElementById('product-load-more-bar');
+            const info = document.getElementById('product-load-more-info');
+            if (!bar) return;
+            if (_productVisibleCount > _productShownCount) {
+                bar.style.display = 'flex';
+                const remaining = _productVisibleCount - _productShownCount;
+                if (info) {
+                    info.textContent = `${_productShownCount} von ${_productVisibleCount} Produkten · ${remaining} weitere verfügbar`;
+                }
+            } else {
+                bar.style.display = 'none';
+            }
+            // Page-Info (Desktop)
+            const pageInfo = document.getElementById('product-page-info');
+            if (pageInfo) {
+                if (_productVisibleCount > PRODUCTS_PER_PAGE) {
+                    pageInfo.textContent = `· ${_productShownCount}/${_productVisibleCount}`;
+                    pageInfo.classList.remove('hidden');
+                } else {
+                    pageInfo.textContent = '';
+                    pageInfo.classList.add('hidden');
+                }
+            }
+        }
+
+        function loadMoreProducts() {
+            _productShownCount = Math.min(_productShownCount + PRODUCTS_PER_PAGE, _productVisibleCount);
+            applyProductPagination();
+            // Sanft zum neuen Bereich scrollen
+            const bar = document.getElementById('product-load-more-bar');
+            if (bar) {
+                setTimeout(() => bar.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+            }
         }
 
         // Override the old search input to also update state
@@ -11520,12 +11696,33 @@
             if (searchInput) {
                 searchInput.addEventListener('input', function() {
                     _productFilterState.search = this.value;
+                    // Bei Search: Pagination zurücksetzen, damit alle Treffer sichtbar sind
+                    _productShownCount = PRODUCTS_PER_PAGE;
                     applyProductFilters();
                 });
             }
             // Init filter chip counts
             updateProductFilterCounts();
+            // Initiale Pagination: zeige erste 25 Produkte
+            _productShownCount = PRODUCTS_PER_PAGE;
+            // Verzögert, damit die Tiles gerendert sind
+            setTimeout(() => {
+                const items = document.querySelectorAll('#product-grid-view .product-tile');
+                items.forEach(item => item.dataset.matchesFilter = 'true');
+                _productVisibleCount = items.length;
+                applyProductPagination();
+                // Result-Count zurücksetzen
+                const totalEl = document.getElementById('product-filter-result-count');
+                if (totalEl) totalEl.textContent = items.length;
+            }, 100);
         });
+
+        // Wenn Filter geändert wird, Pagination zurücksetzen
+        const _origSetProductFilter = setProductFilter;
+        setProductFilter = function(type, value, btn) {
+            _productShownCount = PRODUCTS_PER_PAGE;
+            _origSetProductFilter(type, value, btn);
+        };
 
         function updateProductFilterCounts() {
             try {
