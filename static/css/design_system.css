@@ -341,9 +341,12 @@ html:not(.dark) select {
   color: #000000 !important;
 }
 
-/* Disable double-tap zoom globally to ensure rapid, responsive clicks on all pages */
+/* Disable double-tap zoom globally to ensure rapid, responsive clicks on all pages.
+   Auf `*` statt auf body+interactive begrenzt — verhindert Pinch-Zoom nicht vollständig,
+   aber double-tap zoom wird zuverlässig unterdrückt. Pinch-Zoom bleibt möglich (WCAG 1.4.4). */
 *, *::before, *::after {
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Light theme overrides */

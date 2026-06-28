@@ -137,21 +137,22 @@
     <!-- ── Hero-Video preload: Browser lädt Video parallel zu CSS/Fonts ──
          Verhindert "Video startet spät" — sonst würde das Video erst laden,
          wenn der <video>-Tag gerendert wird (später im HTML).
-         Mobile (≤768px) bekommt nur die kleine Version (670 KB),
-         Desktop bekommt die große Version (2.8 MB).
-         Spart ~75% Datenvolumen auf Mobile → Video startet 4x schneller. -->
-    <link rel="preload" href="/static/videos/hero-bg-mobile.mp4" as="fetch" crossorigin media="(max-width: 768px)">
-    <link rel="preload" href="/static/videos/hero-bg.mp4" as="fetch" crossorigin media="(min-width: 769px)">
+         Mobile (≤768px) bekommt nur die kleine Version,
+         Desktop bekommt die große Version.
+         Spart ~75% Datenvolumen auf Mobile → Video startet 4x schneller.
+         WICHTIG: Preload wird per JS dynamisch gesetzt (siehe hero-video Init),
+         nachdem die optimale Quelle ermittelt wurde — verhindert dass Chrome-User
+         unnötig H.264 (670KB) UND WebM (386KB) laden. -->
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=3" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=3"></noscript>
+    <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
     <!-- Outfit + Inter Fonts — synchron laden, sonst FOUT (Flash of Unstyled Text) -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Material Symbols Outlined — synchron laden, sonst Icons als Text sichtbar -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <!-- Font Awesome 6 — für fa-solid Icons (FAQ, Features, Mobile Menu) — vorher nicht eingebunden! -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="/static/css/design_system.css?v=17">
+    <link rel="stylesheet" href="/static/css/design_system.css?v=18">
 
     <style>
         /* iOS Overscroll-Bounce Prevention */
@@ -1607,6 +1608,17 @@
             console.log('[Hero Video] Using source:', videoSrc, '(isMobile:', isMobile, 'isSafari:', isSafari, 'webm:', canPlayWebM, 'h265:', canPlayH265, ')');
             heroVideo.src = videoSrc;
 
+            // Dynamischer Preload-Link: nur die tatsächlich verwendete Quelle preloaden
+            // (verhindert dass Chrome-User unnötig H.264 + WebM doppelt laden)
+            try {
+                const preloadLink = document.createElement('link');
+                preloadLink.rel = 'preload';
+                preloadLink.as = 'fetch';
+                preloadLink.href = videoSrc;
+                preloadLink.crossOrigin = 'anonymous';
+                document.head.appendChild(preloadLink);
+            } catch (e) {}
+
             // ── iOS-Kompatibilität: Properties setzen ──
             heroVideo.muted = true;
             heroVideo.defaultMuted = true;
@@ -1830,8 +1842,29 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((reg) => console.log('[PWA] SW registriert:', reg.scope))
+                    .then((registration) => {
+                        console.log('[PWA] SW registriert:', registration.scope);
+                        // Update-Flow: neue SW erkennen → SKIP_WAITING → controllerchange → reload
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        newWorker.postMessage('SKIP_WAITING');
+                                    }
+                                });
+                            }
+                        });
+                    })
                     .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
+
+                // Controller-Wechsel: Seite neu laden (verhindert Cache-Mismatch)
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
+                });
             });
         }
     </script>

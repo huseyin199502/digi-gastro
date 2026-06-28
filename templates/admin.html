@@ -2,7 +2,7 @@
 <html lang="de" class="{{ restaurant.theme or 'dark' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Digi-Gastro | Admin Dashboard</title>
 
     <!-- PWA Meta Tags -->
@@ -21,6 +21,9 @@
     <!-- Google Fonts & Material Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://js.puter.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -986,6 +989,13 @@
             display: none;
             flex-direction: column;
             flex: 1;
+            /* KRITISCH für iOS Safari Touch-Scroll:
+               - min-height:0 erlaubt Flex-Child zu schrumpfen unter Inhaltshöhe
+               - overflow:hidden verhindert dass Inhalt aus content-area herausragt
+               Ohne diese beiden wächst der Tab auf Inhaltshöhe (z.B. 1806px) und
+               bricht das Touch-Scrolling auf iOS Safari. */
+            min-height: 0;
+            overflow: hidden;
         }
 
         .admin-tab-content.active {
@@ -1980,7 +1990,7 @@
             max-height: calc(100vh - 100px);
             overflow-y: auto;
             position: sticky;
-            top: 72px;
+            top: calc(72px + env(safe-area-inset-top, 0px));
             scroll-behavior: smooth;
         }
         .lp-editor-pane::-webkit-scrollbar { width: 8px; }
@@ -2890,7 +2900,10 @@
         /* ===== LIVE NOTIFICATION BAR ===== */
         .live-notification-bar {
             position: sticky;
-            top: 52px;
+            /* Safe-Area berücksichtigen: Header hat padding-top: calc(0.875rem + env(safe-area-inset-top))
+               und ist sticky top:0. Die Notification-Bar muss unter dem Header bleiben,
+               inkl. Notch-Höhe auf iPhone. */
+            top: calc(52px + env(safe-area-inset-top, 0px));
             z-index: 39;
             background: transparent;
             padding: 0;
@@ -3221,7 +3234,8 @@
             flex-wrap: wrap;
         }
         .orders-filter-btn {
-            padding: 0.5rem 0.75rem;
+            padding: 0.5rem 0.875rem;
+            min-height: 44px;
             border-radius: 0.5rem;
             font-size: 0.75rem;
             font-weight: 700;
@@ -3278,9 +3292,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 36px;
-            height: 36px;
-            padding: 0 0.375rem;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0 0.625rem;
             border-radius: 0.5rem;
             font-size: 0.75rem;
             font-weight: 700;
@@ -3349,8 +3363,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
-            height: 28px;
+            width: 44px;
+            height: 44px;
             border-radius: 0.4rem;
             background: var(--gastro-bg-gray);
             color: var(--gastro-text-muted);
@@ -3553,68 +3567,70 @@
             .dash-table-wrap-mobile {
                 display: none;
             }
-            @media (max-width: 768px) {
-                .dash-table-desktop {
-                    display: none !important;
-                }
-                .dash-table-wrap-mobile {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.75rem;
-                }
-                .dash-card {
-                    background: var(--gastro-card-bg, #ffffff);
-                    border: 1px solid var(--gastro-border, #e5e7eb);
-                    border-radius: 0.75rem;
-                    padding: 0.875rem 1rem;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-                }
-                .dash-card-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 0.25rem 0;
-                    gap: 0.5rem;
-                }
-                .dash-card-row + .dash-card-row {
-                    border-top: 1px solid rgba(0,0,0,0.05);
-                }
-                .dash-card-label {
-                    font-size: 0.65rem;
-                    font-weight: 700;
-                    color: #6b7280;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-                .dash-card-value {
-                    font-size: 0.85rem;
-                    font-weight: 700;
-                    color: var(--gastro-text-main, #1f2937);
-                    text-align: right;
-                }
-                .dash-card-actions {
-                    display: flex;
-                    gap: 0.5rem;
-                    margin-top: 0.5rem;
-                    padding-top: 0.5rem;
-                    border-top: 1px solid rgba(0,0,0,0.05);
-                }
-                .dash-card-actions button {
-                    flex: 1;
-                    min-height: 44px;
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    border-radius: 0.5rem;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.25rem;
-                }
+        }  /* schließt @media (max-width: 640px) */
+
+        /* ─── Finanzen Card-View bei ≤768px (iPad Portrait, Mobile) ───
+           MUSS auf Root-Ebene stehen, NICHT in @media (max-width:640px) verschachtelt!
+           Sonst greift sie nur wenn BEIDE Queries matchen (≤640px UND ≤768px) = ≤640px.
+           Mit dieser separaten Root-Query greift sie auch bei 641-768px (iPad Portrait). */
+        @media (max-width: 768px) {
+            .dash-table-desktop {
+                display: none !important;
             }
-        }  /* ← WICHTIG: schließt @media (max-width: 640px) von oben — sonst
-              gilt der gesamte Slide-Over CSS-Block nur noch auf Mobile ≤640px,
-              und auf Tablets/Desktop ist das Slide-Over kaputt (position:static,
-              kein X-Button klickbar). Bug gefixt 28.06. */
+            .dash-table-wrap-mobile {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .dash-card {
+                background: var(--gastro-card-bg, #ffffff);
+                border: 1px solid var(--gastro-border, #e5e7eb);
+                border-radius: 0.75rem;
+                padding: 0.875rem 1rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .dash-card-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.25rem 0;
+                gap: 0.5rem;
+            }
+            .dash-card-row + .dash-card-row {
+                border-top: 1px solid rgba(0,0,0,0.05);
+            }
+            .dash-card-label {
+                font-size: 0.65rem;
+                font-weight: 700;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .dash-card-value {
+                font-size: 0.85rem;
+                font-weight: 700;
+                color: var(--gastro-text-main, #1f2937);
+                text-align: right;
+            }
+            .dash-card-actions {
+                display: flex;
+                gap: 0.5rem;
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid rgba(0,0,0,0.05);
+            }
+            .dash-card-actions button {
+                flex: 1;
+                min-height: 44px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                border-radius: 0.5rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.25rem;
+            }
+        }
 
         /* ===== SLIDE-OVER PANEL ===== */
         .edit-slide-over {
@@ -4115,7 +4131,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex" style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0);">
+<body class="bg-gray-100 min-h-[100dvh] flex" style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0);">
 
     <!-- SIDEBAR BACKDROP FOR MOBILE -->
     <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeSidebar()"></div>
@@ -5859,9 +5875,9 @@
                 <div id="item-action-qty-container" class="flex flex-col items-center gap-2 bg-gray-50 border border-gray-100 rounded-2xl p-3">
                     <span class="text-[10px] font-bold text-zinc-500 uppercase">Teilmenge auswählen</span>
                     <div class="flex items-center gap-4">
-                        <button onclick="changeItemActionQty(-1)" style="touch-action: manipulation;" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">-</button>
+                        <button onclick="changeItemActionQty(-1)" style="touch-action: manipulation;" class="w-11 h-11 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">-</button>
                         <span id="item-action-qty-text" class="font-black text-lg min-w-[30px] text-center">1</span>
-                        <button onclick="changeItemActionQty(1)" style="touch-action: manipulation;" class="w-9 h-9 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">+</button>
+                        <button onclick="changeItemActionQty(1)" style="touch-action: manipulation;" class="w-11 h-11 rounded-full bg-white border border-gray-200 text-zinc-700 font-bold flex items-center justify-center shadow-sm">+</button>
                     </div>
                 </div>
 

@@ -9,7 +9,7 @@
 // wegen Byte-Equal-Check). Bei gleichem Tag v2, v3, ... sonst neues Datum ab v1.
 // Update 2026-06-22-v1: Phase 2 — IMAGE_CACHE (Cache-First für /uploads/ und
 // /static/images/, 30 Tage TTL), Auto-Versionierung, Static-Cache-Kommentare.
-const SW_VERSION = '2026-06-28-v6'; // bumped: Tablet-Scroll Fix #3 — Layout-Hierarchie html/body/main/content-area sauber gebounded
+const SW_VERSION = '2026-06-29-v1'; // bumped: Komplett-Audit Fixes — PWA Offline, Performance, WCAG, Touch-Targets, Sticky Offsets
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const IMAGE_CACHE = `${CACHE_NAME}-images`;  // separater Cache für Bilder (Cache-First + 30d TTL)
@@ -36,8 +36,8 @@ const IMAGE_URL_PATTERN = /\.(?:png|jpe?g|webp|gif|svg|avif|ico)$/i;
 const STATIC_ASSETS = [
     '/manifest.json',
     // ── /static/css/ (Cache-First bei jedem Request via fetch-handler) ──
-    '/static/css/design_system.css?v=17',
-    '/static/css/tailwind-built.css?v=3',
+    '/static/css/design_system.css?v=18',
+    '/static/css/tailwind-built.css?v=4',
     '/static/css/sitzplan.css',
     '/apple-touch-icon.png',
 ];
@@ -49,6 +49,7 @@ const IMAGE_ASSETS = [
     '/static/images/digigastrologo.jpeg',
     '/static/images/icon-192.png',
     '/static/images/icon-512.png',
+    '/static/images/icon-maskable-512.png',  // für Android-Home-Screen-Installation
     '/static/images/favicon-32.png',
     '/static/images/favicon-16.png',
 ];
@@ -57,15 +58,82 @@ const IMAGE_ASSETS = [
 // Phase 2: /uploads/ ENTFERNT — Bilder aus /uploads/ sind jetzt Cache-First
 // via IMAGE_CACHE (30 Tage TTL). Siehe imageCacheFirst() und Fetch-Handler.
 // /uploads/ enthält nur Kunden-Uploads (Logos, Produktbilder), alles Bilder.
+//
+// Phase 3 (28.06.2026): /impressum, /datenschutz, / (Landing) sind jetzt
+// CACHEBAR (selektiv in networkFirst via CACHEABLE_HTML_PATTERNS).
+// Admin, Login, Tenant-Slugs bleiben uncached — sie sind personalisiert/dynamisch.
 const NEVER_CACHE_PATTERNS = [
     /\/api\//,              // API-Calls
-    /\/admin\//,            // Admin-Dashboard (dynamisch)
+    /\/admin\//,            // Admin-Dashboard (dynamisch, personalisiert)
     /\/ws\//,               // WebSocket
-    /\/deer-lounge\//,      // Tenant-Slugs
-    /\/digi-gastro-admin/,  // Platform-Admin
+    /\/digi-gastro-admin/,  // Platform-Admin (personalisiert)
     /\/login/,              // Login-Seite (authed-context)
-    /^\/$/,                 // Root-Landingpage (dynamisch, personalisiert)
 ];
+
+// HTML-Seiten die SELEKTIV gecacht werden dürfen (für Offline-Modus).
+// Diese Seiten sind öffentlich und nicht personalisiert — sie können sicher
+// für Offline-Verfügbarkeit gecacht werden.
+// WICHTIG: Tenant-Slugs (/{slug}) sind personalisiert (Tisch-Session) → NICHT cachen!
+const CACHEABLE_HTML_PATTERNS = [
+    /^\/$/,                 // Root-Landingpage (öffentlich)
+    /\/impressum/,          // Impressum (statisch)
+    /\/datenschutz/,        // Datenschutz (statisch)
+    /\/offline\.html$/,     // Offline-Fallback-Seite
+];
+
+// Branding-konsistente Offline-HTML (statt generischer 503-Response).
+// Wird angezeigt wenn weder Network noch Cache eine HTML-Response liefern.
+const OFFLINE_HTML = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Offline — digi-gastro</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d0d11; color: #fff;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 2rem; padding-top: max(2rem, env(safe-area-inset-top, 0));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom, 0));
+  }
+  .container { text-align: center; max-width: 400px; }
+  .logo {
+    font-size: 1.5rem; font-weight: 800; color: #C9A84C;
+    letter-spacing: 0.05em; margin-bottom: 1.5rem;
+  }
+  .icon {
+    font-size: 4rem; margin-bottom: 1rem; opacity: 0.6;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.75rem; font-weight: 700; }
+  p { font-size: 0.95rem; line-height: 1.6; color: #a1a1aa; margin-bottom: 1.5rem; }
+  .retry-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.75rem 1.5rem; min-height: 44px;
+    background: #C9A84C; color: #0d0d11;
+    border: 0; border-radius: 0.5rem;
+    font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+    transition: background 0.2s;
+  }
+  .retry-btn:hover { background: #b8973f; }
+  .retry-btn:active { transform: scale(0.98); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">digi-gastro</div>
+  <div class="icon">📶</div>
+  <h1>Du bist offline</h1>
+  <p>Keine Internetverbindung verfügbar. Bitte überprüfe deine WLAN- oder Mobilfunkverbindung und versuche es erneut.</p>
+  <button class="retry-btn" onclick="location.reload()">
+    ↻ Erneut versuchen
+  </button>
+</div>
+</body>
+</html>`;
 
 // ────────────────────────────────────────────────────────────────────
 // INSTALL: Pre-cache statische Assets + Bild-Assets (parallel)
@@ -274,24 +342,39 @@ async function cacheFirst(request) {
 // weiterhin cache-first (siehe cacheFirst()).
 // ────────────────────────────────────────────────────────────────────
 async function networkFirst(request) {
+    const url = new URL(request.url);
+    const isCacheable = CACHEABLE_HTML_PATTERNS.some(p => p.test(url.pathname));
+
+    // Timeout: 3 Sekunden warten, dann Cache/Offline probieren.
+    // Verhindert endloses Warten bei schlechtem Netz (Funkloch in Gastro).
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SW-Network-Timeout')), 3000)
+    );
+
     try {
-        const response = await fetch(request);
-        // HTML-Navigationen bewusst NICHT cachen (Issue 6.21 + 6.22).
-        // Statische Assets werden bereits in cacheFirst() behandelt.
+        const response = await Promise.race([fetch(request), timeoutPromise]);
+
+        // Selektives HTML-Caching: NUR öffentliche, nicht-personalisierte Seiten cachen.
+        // Admin, Login, Tenant-Slugs werden bewusst NICHT gecacht (personalisiert).
+        if (isCacheable && response && response.ok && response.status === 200) {
+            try {
+                const cache = await caches.open(RUNTIME_CACHE);
+                cache.put(request, response.clone());
+            } catch (cacheErr) {
+                console.warn('[SW] Cache-put fehlgeschlagen:', cacheErr.message);
+            }
+        }
         return response;
     } catch (err) {
-        // Offline: versuche Cache (sollte bei HTML nichts finden — by design)
+        // Offline oder Timeout: versuche Cache
         const cached = await caches.match(request);
         if (cached) return cached;
 
-        // Letzter Ausweg: 503-Offline-Response
-        return new Response(
-            `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem;text-align:center;">
-            <h2>Offline</h2>
-            <p>Du bist offline. Bitte überprüfe deine Internetverbindung.</p>
-            </body></html>`,
-            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-        );
+        // Letzter Ausweg: Branding-konsistente Offline-Seite
+        return new Response(OFFLINE_HTML, {
+            status: 503,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
     }
 }
 

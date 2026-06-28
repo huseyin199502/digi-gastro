@@ -13,12 +13,18 @@
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+    <!-- Performance: preconnect für externe CDNs (verhindert DNS+TLS-Latenz beim ersten Request) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
     <!-- Tailwind and FontAwesome / Material Symbols -->
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=3" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=3"></noscript>
+    <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -242,7 +248,7 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body x-data="menuState()" class="flex flex-col min-h-screen bg-background no-image-save {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}"
+<body x-data="menuState()" class="flex flex-col min-h-[100dvh] bg-background no-image-save {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}"
       oncontextmenu="return false;"
       ondragstart="return false;"
       oncopy="return false;"
@@ -571,7 +577,7 @@
             <div id="tab-speisekarte">
 
                 <!-- BACK BUTTON when inside a category -->
-                <div x-show="currentCategory !== ''" x-cloak id="back-to-categories-bar" class="sticky top-20 z-40 bg-[var(--bg-obsidian)] pb-2 pt-0" style="margin-top:0 !important; padding-top:0 !important;">
+                <div x-show="currentCategory !== ''" x-cloak id="back-to-categories-bar" class="sticky z-40 bg-[var(--bg-obsidian)] pb-2 pt-0" style="top: calc(5rem + env(safe-area-inset-top, 0px)); margin-top:0 !important; padding-top:0 !important;">
                     <button @click="backToCategories()" class="flex items-center gap-1.5 text-primary font-bold text-sm hover:opacity-80 active:scale-95 transition-all">
                         <span class="material-symbols-outlined text-xl">arrow_back</span>
                         <span x-text="currentCategory" class="uppercase tracking-wider font-display"></span>
@@ -3458,6 +3464,15 @@
                     .catch((err) => {
                         console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err);
                     });
+
+                // SW-Controller-Wechsel: Seite neu laden, damit neues HTML + neuer SW zusammenarbeiten
+                // (Verhindert Cache-Mismatch zwischen altem HTML und neuem SW)
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
+                });
             });
         }
 
