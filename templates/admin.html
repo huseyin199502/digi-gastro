@@ -172,6 +172,11 @@
             height: 28px;
             flex-shrink: 0;
             cursor: pointer;
+            /* Touch-Target vergrößern (Apple HIG: min. 44×44px).
+               Padding ist transparent, deshalb kein Layout-Bruch. */
+            padding: 8px;
+            margin: -8px;
+            box-sizing: content-box;
         }
         .switch input {
             opacity: 0;
@@ -1304,7 +1309,8 @@
             display: flex;
             align-items: center;
             gap: 0.4rem;
-            padding: 0.55rem 1rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px;
             border-radius: 0.75rem;
             font-size: 0.75rem;
             font-weight: 700;
@@ -1618,7 +1624,8 @@
         }
         .product-tile-actions button {
             flex: 1;
-            padding: 0.35rem;
+            padding: 0.5rem;
+            min-height: 44px;
             border-radius: 6px;
             border: 1px solid var(--gastro-border, #e4e4e7);
             background: var(--gastro-card-bg, white);
@@ -2538,7 +2545,8 @@
             display: inline-flex;
             align-items: center;
             gap: 0.375rem;
-            padding: 0.5rem 0.875rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px;
             border-radius: 0.625rem;
             font-size: 0.7rem;
             font-weight: 700;
@@ -2592,6 +2600,97 @@
         }
         html.dark .form-field:focus {
             box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+        }
+
+        /* ─── Custom File Upload Button (ersetzt hässliches native "Choose File") ───
+           Trick: input[type=file] wird visuell versteckt, ein Custom-Button mit Label
+           überlagert es. Klick auf Button → öffnet nativen File-Dialog.
+           Touch-Ziel: 44px hoch, ganz breit — mobil perfekt bedienbar. */
+        .file-upload-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 44px;
+        }
+        .file-upload-wrap input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+        .file-upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px;
+            background: var(--gastro-bg-gray, #f3f4f6);
+            border: 1px solid var(--gastro-border, #d1d5db);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--gastro-text-main, #374151);
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            pointer-events: none;
+        }
+        .file-upload-wrap:hover .file-upload-btn {
+            background: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        html.dark .file-upload-wrap:hover .file-upload-btn {
+            background: #3f3f46;
+            border-color: #71717a;
+        }
+        .file-upload-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+        .file-upload-name {
+            font-size: 0.7rem;
+            color: #6b7280;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        html.dark .file-upload-name { color: #9ca3af; }
+
+        /* Wenn input[type=file] nicht von .file-upload-wrap umschlossen ist,
+           fallback: native file-inputs direkt stylen (weniger schön aber größer) */
+        input[type="file"]:not(.file-upload-wrap input[type="file"]) {
+            min-height: 44px;
+            font-size: 0.7rem;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+        input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button {
+            min-height: 36px;
+            padding: 0 0.875rem;
+            margin-right: 0.625rem;
+            border: 0;
+            border-radius: 0.375rem;
+            background: var(--gastro-primary, #16a34a);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button:hover {
+            background: #15803d;
+        }
+        html.dark input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button {
+            background: #22c55e;
+            color: #0a0a0a;
+        }
+        html.dark input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button:hover {
+            background: #16a34a;
+            color: white;
         }
 
         .form-label {
@@ -3333,7 +3432,70 @@
             .orders-pagination-btns {
                 justify-content: center;
             }
-        }
+            /* ─── Mobile Card-View für Finanzen-Tabelle ───
+               Verhindert horizontalen Scroll: Tabelle wird zu Karten.
+               Jede Tabellenzeile → eine Karte mit Label: Value Paaren. */
+            .dash-table-wrap-mobile {
+                display: none;
+            }
+            @media (max-width: 768px) {
+                .dash-table-desktop {
+                    display: none !important;
+                }
+                .dash-table-wrap-mobile {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                }
+                .dash-card {
+                    background: var(--gastro-card-bg, #ffffff);
+                    border: 1px solid var(--gastro-border, #e5e7eb);
+                    border-radius: 0.75rem;
+                    padding: 0.875rem 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                }
+                .dash-card-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.25rem 0;
+                    gap: 0.5rem;
+                }
+                .dash-card-row + .dash-card-row {
+                    border-top: 1px solid rgba(0,0,0,0.05);
+                }
+                .dash-card-label {
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    color: #6b7280;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                .dash-card-value {
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                    color: var(--gastro-text-main, #1f2937);
+                    text-align: right;
+                }
+                .dash-card-actions {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-top: 0.5rem;
+                    padding-top: 0.5rem;
+                    border-top: 1px solid rgba(0,0,0,0.05);
+                }
+                .dash-card-actions button {
+                    flex: 1;
+                    min-height: 44px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    border-radius: 0.5rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.25rem;
+                }
+            }
 
         /* ===== SLIDE-OVER PANEL ===== */
         .edit-slide-over {
@@ -4228,7 +4390,8 @@
 
                 <!-- Orders Table (dynamic) -->
                 <div class="section-card">
-                    <div class="overflow-x-auto">
+                    <!-- Desktop Table (hidden on mobile) -->
+                    <div class="overflow-x-auto dash-table-desktop">
                         <table class="dash-table" id="orders-table">
                             <thead>
                                 <tr>
@@ -4245,6 +4408,10 @@
                                 <!-- Rendered by JS -->
                             </tbody>
                         </table>
+                    </div>
+                    <!-- Mobile Card-View (hidden on desktop, no horizontal scroll) -->
+                    <div class="dash-table-wrap-mobile" id="orders-cards-mobile">
+                        <!-- Rendered by JS -->
                     </div>
                     <!-- Empty state -->
                     <div id="orders-empty-state" class="hidden py-10 text-center">
@@ -4458,10 +4625,10 @@
                                     </td>
                                     <td>
                                         <div class="flex items-center gap-1">
-                                            <button onclick="openEditSlideOver({{ p.id }})" class="p-1.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition" title="Bearbeiten">
+                                            <button onclick="openEditSlideOver({{ p.id }})" class="p-2.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center" title="Bearbeiten">
                                                 <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                                             </button>
-                                            <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-1.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition" title="Löschen">
+                                            <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-2.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center" title="Löschen">
                                                 <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
                                             </button>
                                         </div>
@@ -4834,7 +5001,9 @@
                                             </div>
                                         </div>
                                         <form action="/admin/staff-loeschen/{{ member.pin }}" method="POST" class="inline" onsubmit="return confirm('Mitarbeiter löschen?')">
-                                            <button type="submit" class="text-red-400 hover:text-red-600 font-bold text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition">Entfernen</button>
+                                            <button type="submit" class="inline-flex items-center gap-1 text-red-600 hover:text-white hover:bg-red-500 font-bold text-xs px-3 py-2 rounded-lg border border-red-200 hover:border-red-500 transition min-h-[44px]">
+                                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Entfernen
+                                            </button>
                                         </form>
                                     </div>
                                     {% endfor %}
@@ -4989,7 +5158,9 @@
                                                 {% else %}
                                                 <img src="{{ cs.image }}" class="w-16 h-16 rounded-lg object-cover" alt="Sektions-Bild">
                                                 {% endif %}
-                                                <button type="button" onclick="deleteLandingImage('{{ cs.image }}', 'custom', this)" class="text-red-400 hover:text-red-600 text-[10px] font-bold" title="Bild l&ouml;schen">Entfernen</button>
+                                                <button type="button" onclick="deleteLandingImage('{{ cs.image }}', 'custom', this)" class="inline-flex items-center gap-1 text-red-600 hover:text-white hover:bg-red-500 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-red-200 hover:border-red-500 transition min-h-[44px]" title="Bild l&ouml;schen">
+                                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span> Entfernen
+                                                </button>
                                                 <input type="hidden" name="section_image_existing_custom_{{ loop.index }}" value="{{ cs.image }}">
                                             </div>
                                             {% endif %}
@@ -5203,7 +5374,11 @@
                             {% endif %}
                             <div>
                                 <label class="form-label">Haupt-Logo hochladen <span class="text-[9px] opacity-60 font-normal">(PNG, JPG, WebP — wird automatisch zu WebP konvertiert)</span></label>
-                                <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif" class="form-field">
+                                <div class="file-upload-wrap">
+                                    <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/gif">
+                                    <span class="file-upload-btn"><span class="material-symbols-outlined">upload</span> Logo auswählen</span>
+                                    <span class="file-upload-name" data-default="Kein Logo gewählt">Kein Logo gewählt</span>
+                                </div>
                             </div>
 
                             <!-- Logo 2 (Zusatz-Laden) -->
@@ -5218,7 +5393,11 @@
                             {% endif %}
                             <div class="logo-upload-card p-3 rounded-xl border">
                                 <label class="form-label">Zweites Logo hochladen <span class="text-[9px] opacity-60 font-normal">(optional, falls du 2 Läden hast)</span></label>
-                                <input type="file" name="logo_file_2" accept="image/png,image/jpeg,image/webp,image/gif" class="form-field">
+                                <div class="file-upload-wrap">
+                                    <input type="file" name="logo_file_2" accept="image/png,image/jpeg,image/webp,image/gif">
+                                    <span class="file-upload-btn"><span class="material-symbols-outlined">upload</span> 2. Logo auswählen</span>
+                                    <span class="file-upload-name" data-default="Kein Logo gewählt">Kein Logo gewählt</span>
+                                </div>
                             </div>
                             <div>
                                 <label class="form-label">Adresse (Straße & Hausnummer)</label>
@@ -5680,7 +5859,7 @@
                 <h2 class="font-extrabold text-sm text-zinc-800">Produkt bearbeiten</h2>
                 <p class="text-[10px] text-zinc-500 mt-0.5" id="edit-slide-over-subtitle">Produkt-Details &auml;ndern</p>
             </div>
-            <button onclick="closeEditSlideOver()" class="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition">
+            <button onclick="closeEditSlideOver()" class="w-11 h-11 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition shrink-0">
                 <span class="material-symbols-outlined" style="font-size:18px;">close</span>
             </button>
         </div>
@@ -5758,7 +5937,11 @@
                 </div>
                 <div>
                     <label class="form-label">Produktbild hochladen</label>
-                    <input type="file" id="edit-product-image-file" accept="image/*" class="form-field">
+                    <div class="file-upload-wrap">
+                        <input type="file" id="edit-product-image-file" accept="image/*">
+                        <span class="file-upload-btn"><span class="material-symbols-outlined">upload</span> Bild auswählen</span>
+                        <span class="file-upload-name" data-default="Kein Bild gewählt">Kein Bild gewählt</span>
+                    </div>
                 </div>
                 <div id="edit-product-image-preview" class="hidden">
                     <label class="form-label">Vorschau</label>
@@ -6142,6 +6325,31 @@
             updateSortIcons();
             // Hauptgruppen immer laden — wird für Kasse-Popup & Bon-Detail-Modal gebraucht
             loadSuperGroups();
+            
+            // ── Custom File-Upload: Dateiname anzeigen, wenn eine Datei ausgewählt wird ──
+            // Globales Event-Delegation — funktioniert für alle file-inputs in .file-upload-wrap
+            document.body.addEventListener('change', (e) => {
+                if (e.target.matches('input[type="file"]')) {
+                    const wrap = e.target.closest('.file-upload-wrap');
+                    if (!wrap) return;
+                    const nameEl = wrap.querySelector('.file-upload-name');
+                    if (!nameEl) return;
+                    if (e.target.files && e.target.files.length > 0) {
+                        const file = e.target.files[0];
+                        // Dateiname kürzen, wenn zu lang
+                        const maxLen = 28;
+                        let displayName = file.name;
+                        if (displayName.length > maxLen) {
+                            displayName = displayName.slice(0, maxLen - 3) + '...';
+                        }
+                        nameEl.textContent = displayName;
+                        nameEl.style.color = '#16a34a';
+                    } else {
+                        nameEl.textContent = nameEl.dataset.default || 'Keine Datei gewählt';
+                        nameEl.style.color = '';
+                    }
+                }
+            });
         });
 
         // Handle browser back/forward
@@ -6650,6 +6858,7 @@
 
         function renderOrdersTable() {
             const tbody = document.getElementById('orders-tbody');
+            const mobileCards = document.getElementById('orders-cards-mobile');
             const emptyState = document.getElementById('orders-empty-state');
             const paginationEl = document.getElementById('orders-pagination');
             const countBadge = document.getElementById('orders-count-badge');
@@ -6677,6 +6886,7 @@
             // Render table rows
             if (pageItems.length === 0) {
                 tbody.innerHTML = '';
+                if (mobileCards) mobileCards.innerHTML = '';
                 if (emptyState) emptyState.classList.remove('hidden');
             } else {
                 if (emptyState) emptyState.classList.add('hidden');
@@ -6723,6 +6933,62 @@
                         <td><span class="material-symbols-outlined bon-detail-chevron">chevron_right</span></td>
                     </tr>`;
                 }).join('');
+                
+                // ── Mobile Card-View rendern (parallel zur Tabelle, gleiche Daten) ──
+                // Verhindert horizontalen Scroll auf iPhone — jede Bestellung = eine Karte.
+                if (mobileCards) {
+                    mobileCards.innerHTML = pageItems.map(o => {
+                        const oStatus = (o.status || '').toLowerCase();
+                        let statusHtml = '';
+                        if (oStatus === 'bezahlt') {
+                            statusHtml = '<span class="bg-emerald-500/10 text-emerald-700 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Bezahlt</span>';
+                        } else if (oStatus === 'storniert') {
+                            statusHtml = '<span class="bg-rose-500/10 text-rose-600 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide">Storniert</span>';
+                        } else {
+                            statusHtml = '<span class="bg-amber-500/10 text-amber-700 font-extrabold px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wide animate-pulse">Aktiv</span>';
+                        }
+                        const total = typeof o.total === 'number' ? o.total.toFixed(2).replace('.', ',') : '0,00';
+                        const originalTotal = typeof o.original_total === 'number' ? o.original_total : null;
+                        let totalMobile = `${total} €`;
+                        if (originalTotal !== null && originalTotal > o.total) {
+                            totalMobile = `${total} € <span class="text-[9px] text-zinc-400 line-through">${originalTotal.toFixed(2).replace('.', ',')} €</span>`;
+                        }
+                        const mwst = o.mwst_rate || 19;
+                        const mwstRow = (PRICE_MODE === 'netto') ? '' : `
+                            <div class="dash-card-row">
+                                <span class="dash-card-label">MwSt</span>
+                                <span class="dash-card-value">${mwst}%</span>
+                            </div>`;
+                        return `<div class="dash-card" onclick="openBonDetail(${o.id})">
+                            <div class="dash-card-row">
+                                <span class="dash-card-label">Bon</span>
+                                <span class="dash-card-value">#${o.id}</span>
+                            </div>
+                            <div class="dash-card-row">
+                                <span class="dash-card-label">Tisch</span>
+                                <span class="dash-card-value">${String(o.table || '')}</span>
+                            </div>
+                            <div class="dash-card-row">
+                                <span class="dash-card-label">Zeit</span>
+                                <span class="dash-card-value" style="font-size:0.75rem;">${o.timestamp || ''}</span>
+                            </div>
+                            <div class="dash-card-row">
+                                <span class="dash-card-label">Gesamt</span>
+                                <span class="dash-card-value">${totalMobile}</span>
+                            </div>
+                            ${mwstRow}
+                            <div class="dash-card-row">
+                                <span class="dash-card-label">Status</span>
+                                <span>${statusHtml}</span>
+                            </div>
+                            <div class="dash-card-actions">
+                                <button onclick="event.stopPropagation(); openBonDetail(${o.id})" class="bg-zinc-100 text-zinc-800">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">receipt_long</span> Details
+                                </button>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
             }
             
             // Render pagination
@@ -11558,14 +11824,14 @@
                             <span class="material-symbols-outlined ${iconColor}" style="font-size:20px;">celebration</span>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100 truncate">${evDisplayName}</span>
+                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                <span class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100 break-words">${evDisplayName}</span>
                                 <span class="text-[9px] font-bold ${statusBg} dark:bg-zinc-800 dark:border-zinc-600 px-2 py-0.5 rounded-full border flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span>
                                     <span class="dark:text-zinc-400">${statusText}</span>
                                 </span>
                             </div>
-                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 dark:text-zinc-500 font-medium">
+                            <div class="flex items-center gap-3 text-[10px] text-zinc-500 dark:text-zinc-500 font-medium flex-wrap">
                                 <span class="flex items-center gap-0.5">
                                     <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
                                     ${evStartTime} – ${evEndTime}
@@ -11593,14 +11859,14 @@
                                     return comboHtml;
                                 })() : ''}
                             </div>
-                            ${evDescription ? `<p class="text-[10px] text-zinc-500 dark:text-zinc-500 mt-1">${evDescription}</p>` : ''}
+                            ${evDescription ? `<p class="text-[10px] text-zinc-500 dark:text-zinc-500 mt-1 break-words">${evDescription}</p>` : ''}
                         </div>
                         <div class="flex items-center gap-1 flex-shrink-0">
-                            <button onclick="openEventEditModal(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors p-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30" title="Bearbeiten">
-                                <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+                            <button onclick="openEventEditModal(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors p-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Bearbeiten">
+                                <span class="material-symbols-outlined" style="font-size:18px;">edit</span>
                             </button>
-                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Löschen">
-                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Löschen">
+                                <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
                             </button>
                         </div>
                     </div>
