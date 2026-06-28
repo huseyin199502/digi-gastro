@@ -36,6 +36,11 @@
         /* iOS Overscroll-Bounce Prevention */
         html {
             overscroll-behavior: none;
+            /* WICHTIG: html+body müssen height:100% haben, sonst wächst body auf
+               Inhaltshöhe und auf Android Chrome kann man nicht scrollen, weil
+               body (nicht html) der Scroll-Container wird und dann clientHeight ==
+               scrollHeight ist. */
+            height: 100%;
         }
         .modal-overscroll {
             overscroll-behavior: contain;
@@ -587,6 +592,12 @@
             background-color: var(--gastro-bg-gray) !important;
             color: var(--gastro-text-main) !important;
             overflow-x: hidden;
+            /* height:100% damit body nicht auf Inhaltshöhe wächst — sonst wird
+               body auf Android Chrome zum Scroll-Container mit clientH==scrollH
+               und Touch-Scroll funktioniert nicht. */
+            height: 100%;
+            /* overflow:hidden verhindert dass body scrollt — main übernimmt das */
+            overflow-y: hidden;
         }
 
         /* Dark theme dashboard overrides for Tailwind classes */
@@ -946,15 +957,22 @@
 
         main {
             margin-left: 280px;
+            /* height:100dvh statt nur min-height:100vh — sonst wächst main auf
+               Inhaltshöhe und .content-area kann nicht scrollen. */
+            height: 100dvh;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden; /* main selbst scrollt nicht — .content-area übernimmt */
         }
 
         .content-area {
             padding: 1.5rem;
             padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0));
             flex: 1;
+            /* min-height:0 KRITISCH für Flex-Children — ohne das wächst .content-area
+               auf Inhaltshöhe und overflow-y:auto greift nicht. */
+            min-height: 0;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
