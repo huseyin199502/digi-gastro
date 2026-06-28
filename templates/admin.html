@@ -3593,6 +3593,10 @@
                     gap: 0.25rem;
                 }
             }
+        }  /* ← WICHTIG: schließt @media (max-width: 640px) von oben — sonst
+              gilt der gesamte Slide-Over CSS-Block nur noch auf Mobile ≤640px,
+              und auf Tablets/Desktop ist das Slide-Over kaputt (position:static,
+              kein X-Button klickbar). Bug gefixt 28.06. */
 
         /* ===== SLIDE-OVER PANEL ===== */
         .edit-slide-over {
