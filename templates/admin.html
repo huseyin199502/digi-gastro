@@ -995,57 +995,45 @@
             overflow: hidden; /* main selbst scrollt nicht — .content-area übernimmt */
         }
 
+        /* ── EINZIGER SCROLL-CONTAINER: .content-area ──
+           WICHTIG: Verschachtelte Scroll-Container (content-area + tab beide mit
+           overflow:auto) brechen auf iOS Safari und Android Chrome Touch-Scroll!
+           Touch-Events bubblen nicht sauber zwischen verschachtelten Scroll-
+           Containern → "Snap-Back" beim Erreichen des Bodens.
+
+           Architektur:
+           - main: overflow:hidden (bounding box, 100dvh)
+           - .content-area: overflow-y:auto (DER Scroll-Container)
+           - .admin-tab-content: overflow:visible, display:block (wächst natürlich)
+             Der Tab selbst scrollt NICHT — sein Inhalt wird von .content-area gescrollt. */
         .content-area {
             padding: 1.5rem;
-            padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0));
+            /* Safe-Area + Extra-Room für Home-Indicator + Rubber-Band:
+               Ohne ausreichendes padding-bottom federt iOS Safari am Boden
+               zurück und die letzten Items sind hinter dem Home-Indicator. */
+            padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
             flex: 1;
             /* min-height:0 KRITISCH für Flex-Children — ohne das wächst .content-area
                auf Inhaltshöhe und overflow-y:auto greift nicht. */
             min-height: 0;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
-            touch-action: pan-y; /* Nur vertikales Scrollen — verhindert Swipe-Back/Forward */
-        }
-
-        /* Tab Content Switching */
-        .admin-tab-content {
-            display: none;
-            /* KEIN display:flex mehr! Mit flex+flex-direction:column wurden die
-               Children durch flex-shrink:1 gequetscht (statt dass der Tab scrollt).
-               Mit display:block wachsen die Children natürlich und der Tab scrollt. */
-            flex: 1;
-            /* KRITISCH für iOS Safari + Android Chrome Touch-Scroll:
-               - min-height:0 erlaubt Flex-Child zu schrumpfen unter Inhaltshöhe
-               - overflow-y:auto macht den TAB SELBST zum Scroll-Container
-               - -webkit-overflow-scrolling:touch für iOS Safari Momentum-Scroll
-               - overscroll-behavior:contain verhindert Scroll-Chaining zum Parent
-               - padding-bottom für Home-Indicator (iPhone) + Rubber-Band-Room
-                 Ohne dieses padding federt iOS Safari am Boden zurück und die
-                 letzten Items (z.B. Tisch 16-17, 'Mehr anzeigen' Button) sind
-                 hinter dem Home-Indicator versteckt.
-               Vorher war overflow:hidden was den Inhalt clippte statt scrollbar
-               zu machen → contentArea.scrollHeight == clientHeight → kein Scroll! */
-            min-height: 0;
+            display: block; /* block statt flex — Children wachsen natürlich */
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
             touch-action: pan-y;
-            /* Safe-Area + Extra-Room: 2rem + home-indicator + rubber-band-room */
-            padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        /* Tab Content: KEIN eigener Scroll-Container mehr!
+           Der Tab wächst natürlich mit seinem Inhalt, .content-area scrollt alles. */
+        .admin-tab-content {
+            display: none;
+            /* block statt flex — Children wachsen natürlich */
+            /* overflow:visible — Tab clippt nichts, .content-area scrollt */
         }
 
         .admin-tab-content.active {
-            display: block;  /* block statt flex — Children wachsen natürlich */
-        }
-
-        /* Children des Tab-Content dürfen NICHT schrumpfen — sonst werden sie
-           geclippt statt dass der Tab scrollt. */
-        .admin-tab-content > * {
-            flex-shrink: 0;
+            display: block;
         }
 
         /* Seating Plan Canvas */
