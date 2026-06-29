@@ -987,7 +987,9 @@
         /* Tab Content Switching */
         .admin-tab-content {
             display: none;
-            flex-direction: column;
+            /* KEIN display:flex mehr! Mit flex+flex-direction:column wurden die
+               Children durch flex-shrink:1 gequetscht (statt dass der Tab scrollt).
+               Mit display:block wachsen die Children natürlich und der Tab scrollt. */
             flex: 1;
             /* KRITISCH für iOS Safari + Android Chrome Touch-Scroll:
                - min-height:0 erlaubt Flex-Child zu schrumpfen unter Inhaltshöhe
@@ -1005,7 +1007,13 @@
         }
 
         .admin-tab-content.active {
-            display: flex;
+            display: block;  /* block statt flex — Children wachsen natürlich */
+        }
+
+        /* Children des Tab-Content dürfen NICHT schrumpfen — sonst werden sie
+           geclippt statt dass der Tab scrollt. */
+        .admin-tab-content > * {
+            flex-shrink: 0;
         }
 
         /* Seating Plan Canvas */
