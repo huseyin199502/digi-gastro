@@ -9,7 +9,7 @@
 // wegen Byte-Equal-Check). Bei gleichem Tag v2, v3, ... sonst neues Datum ab v1.
 // Update 2026-06-22-v1: Phase 2 — IMAGE_CACHE (Cache-First für /uploads/ und
 // /static/images/, 30 Tage TTL), Auto-Versionierung, Static-Cache-Kommentare.
-const SW_VERSION = '2026-06-29-v11'; // bumped: Body display:flex + overflow-x:hidden entfernt (machte body zum Scroll-Container statt html)
+const SW_VERSION = '2026-06-29-v12'; // bumped: Landingpage Redesign — NFC Hero, Bento-Grid 8 Features, 6 FAQ, 14-Tage-Gratis CTA
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const IMAGE_CACHE = `${CACHE_NAME}-images`;  // separater Cache für Bilder (Cache-First + 30d TTL)
