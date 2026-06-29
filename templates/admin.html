@@ -60,7 +60,9 @@
            Sticky Header bleibt oben. Funktioniert auf iOS Safari 26 + Android Chrome. */
         html {
             overscroll-behavior: none;
-            /* KEIN height:100% — sonst wird html zum Scroll-Container und iOS 26 bricht */
+            /* overflow-x:hidden auf html (nicht body!) — sonst wird body zum
+               Scroll-Container und iOS 26 Bug #297779 tritt wieder auf. */
+            overflow-x: hidden;
         }
         .modal-overscroll {
             overscroll-behavior: contain;
@@ -611,13 +613,11 @@
             font-family: 'Inter', sans-serif;
             background-color: var(--gastro-bg-gray) !important;
             color: var(--gastro-text-main) !important;
-            overflow-x: hidden;
-            /* KEIN height:100%, KEIN overflow-y:hidden — body scrollt natürlich.
-               Löst WebKit Bug #297779 (iOS 26 Snap-Back bei verschachtelten
-               overflow:hidden + 100dvh). */
+            /* KEIN overflow-x:hidden hier (auf html gesetzt), KEIN height, KEIN display:flex.
+               Body ist ein normales Block-Element das mit Inhalt wächst.
+               HTML (documentElement) ist der natürliche Scroll-Container.
+               Löst WebKit Bug #297779 (iOS 26 Snap-Back). */
             min-height: 100svh;
-            /* 100svh (small viewport) ist stabiler als 100dvh auf iOS 26 —
-               entspricht der kleinsten Viewport-Höhe (URL-Bar ausgeklappt). */
         }
 
         /* Dark theme dashboard overrides for Tailwind classes */
@@ -4155,7 +4155,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-[100dvh] flex" style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0);">
+<body class="bg-gray-100" style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0);">
 
     <!-- SIDEBAR BACKDROP FOR MOBILE -->
     <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeSidebar()"></div>
