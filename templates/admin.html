@@ -989,13 +989,19 @@
             display: none;
             flex-direction: column;
             flex: 1;
-            /* KRITISCH für iOS Safari Touch-Scroll:
+            /* KRITISCH für iOS Safari + Android Chrome Touch-Scroll:
                - min-height:0 erlaubt Flex-Child zu schrumpfen unter Inhaltshöhe
-               - overflow:hidden verhindert dass Inhalt aus content-area herausragt
-               Ohne diese beiden wächst der Tab auf Inhaltshöhe (z.B. 1806px) und
-               bricht das Touch-Scrolling auf iOS Safari. */
+               - overflow-y:auto macht den TAB SELBST zum Scroll-Container
+               - -webkit-overflow-scrolling:touch für iOS Safari Momentum-Scroll
+               - overscroll-behavior:contain verhindert Scroll-Chaining zum Parent
+               Vorher war overflow:hidden was den Inhalt clippte statt scrollbar
+               zu machen → contentArea.scrollHeight == clientHeight → kein Scroll! */
             min-height: 0;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
         }
 
         .admin-tab-content.active {
