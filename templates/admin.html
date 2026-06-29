@@ -4074,6 +4074,8 @@
         @media (max-width: 1023px) {
             .content-area {
                 padding: 1rem;
+                /* padding-bottom mit Safe-Area für Home-Indicator + Rubber-Band-Room */
+                padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
             }
             .dash-header {
                 padding: 0.75rem 1rem;
@@ -4085,6 +4087,7 @@
         @media (max-width: 640px) {
             .content-area {
                 padding: 0.75rem;
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
             }
             .dash-header {
                 padding: 0.625rem 0.75rem;
@@ -4128,6 +4131,7 @@
         @media (max-width: 480px) {
             .content-area {
                 padding: 0.5rem;
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
             }
             /* Hide breadcrumbs on very small screens (saves space) */
             .breadcrumb-sep,
@@ -4148,6 +4152,7 @@
             }
             .content-area {
                 padding: 0.5rem;
+                padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
             }
         }
 
