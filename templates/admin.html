@@ -1022,6 +1022,10 @@
                - overflow-y:auto macht den TAB SELBST zum Scroll-Container
                - -webkit-overflow-scrolling:touch für iOS Safari Momentum-Scroll
                - overscroll-behavior:contain verhindert Scroll-Chaining zum Parent
+               - padding-bottom für Home-Indicator (iPhone) + Rubber-Band-Room
+                 Ohne dieses padding federt iOS Safari am Boden zurück und die
+                 letzten Items (z.B. Tisch 16-17, 'Mehr anzeigen' Button) sind
+                 hinter dem Home-Indicator versteckt.
                Vorher war overflow:hidden was den Inhalt clippte statt scrollbar
                zu machen → contentArea.scrollHeight == clientHeight → kein Scroll! */
             min-height: 0;
@@ -1030,6 +1034,8 @@
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
             touch-action: pan-y;
+            /* Safe-Area + Extra-Room: 2rem + home-indicator + rubber-band-room */
+            padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
         }
 
         .admin-tab-content.active {
