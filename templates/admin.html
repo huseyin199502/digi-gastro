@@ -44,14 +44,23 @@
             navigation: auto;
         }
 
-        /* iOS Overscroll-Bounce Prevention */
+        /* ── LÖSUNG A: Body als natürlicher Scroll-Container ──
+           WebKit Bug #297779 in iOS 26: Verschachtelte overflow:hidden + 100dvh
+           führt zu Viewport-Drift beim URL-Bar-Shrink → Snap-Back am Boden.
+
+           Architektur (wie Twitter/Instagram):
+           - html: KEINE height:100%, KEIN overflow:hidden → nur overscroll-behavior:none
+           - body: KEINE height:100%, KEIN overflow:hidden → scrollt natürlich
+           - main: KEINE height:100dvh, KEIN overflow:hidden → wächst mit Inhalt
+           - header: position:sticky, top:0 → bleibt oben via Sticky
+           - .content-area: KEIN overflow-y:auto → nur padding, display:block
+
+           Vorteil: Keine künstlichen Scroll-Container, keine overflow:hidden
+           Barrieren. Body scrollt natürlich wie eine normale Webseite.
+           Sticky Header bleibt oben. Funktioniert auf iOS Safari 26 + Android Chrome. */
         html {
             overscroll-behavior: none;
-            /* WICHTIG: html+body müssen height:100% haben, sonst wächst body auf
-               Inhaltshöhe und auf Android Chrome kann man nicht scrollen, weil
-               body (nicht html) der Scroll-Container wird und dann clientHeight ==
-               scrollHeight ist. */
-            height: 100%;
+            /* KEIN height:100% — sonst wird html zum Scroll-Container und iOS 26 bricht */
         }
         .modal-overscroll {
             overscroll-behavior: contain;
@@ -603,12 +612,12 @@
             background-color: var(--gastro-bg-gray) !important;
             color: var(--gastro-text-main) !important;
             overflow-x: hidden;
-            /* height:100% damit body nicht auf Inhaltshöhe wächst — sonst wird
-               body auf Android Chrome zum Scroll-Container mit clientH==scrollH
-               und Touch-Scroll funktioniert nicht. */
-            height: 100%;
-            /* overflow:hidden verhindert dass body scrollt — main übernimmt das */
-            overflow-y: hidden;
+            /* KEIN height:100%, KEIN overflow-y:hidden — body scrollt natürlich.
+               Löst WebKit Bug #297779 (iOS 26 Snap-Back bei verschachtelten
+               overflow:hidden + 100dvh). */
+            min-height: 100svh;
+            /* 100svh (small viewport) ist stabiler als 100dvh auf iOS 26 —
+               entspricht der kleinsten Viewport-Höhe (URL-Bar ausgeklappt). */
         }
 
         /* Dark theme dashboard overrides for Tailwind classes */
@@ -986,50 +995,27 @@
 
         main {
             margin-left: 280px;
-            /* height:100dvh statt nur min-height:100vh — sonst wächst main auf
-               Inhaltshöhe und .content-area kann nicht scrollen. */
-            height: 100dvh;
-            min-height: 100vh;
+            /* KEIN height:100dvh, KEIN overflow:hidden — main wächst mit Inhalt.
+               Body scrollt natürlich. Sticky Header bleibt oben via position:sticky. */
+            min-height: 100svh;
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* main selbst scrollt nicht — .content-area übernimmt */
         }
 
-        /* ── EINZIGER SCROLL-CONTAINER: .content-area ──
-           WICHTIG: Verschachtelte Scroll-Container (content-area + tab beide mit
-           overflow:auto) brechen auf iOS Safari und Android Chrome Touch-Scroll!
-           Touch-Events bubblen nicht sauber zwischen verschachtelten Scroll-
-           Containern → "Snap-Back" beim Erreichen des Bodens.
-
-           Architektur:
-           - main: overflow:hidden (bounding box, 100dvh)
-           - .content-area: overflow-y:auto (DER Scroll-Container)
-           - .admin-tab-content: overflow:visible, display:block (wächst natürlich)
-             Der Tab selbst scrollt NICHT — sein Inhalt wird von .content-area gescrollt. */
+        /* ── .content-area: KEIN Scroll-Container mehr! ──
+           Body scrollt natürlich. .content-area ist nur noch ein Container
+           mit padding. Kein overflow-y:auto, kein flex:1, kein min-height:0.
+           Das umgeht WebKit Bug #297779 vollständig. */
         .content-area {
             padding: 1.5rem;
-            /* Safe-Area + Extra-Room für Home-Indicator + Rubber-Band:
-               Ohne ausreichendes padding-bottom federt iOS Safari am Boden
-               zurück und die letzten Items sind hinter dem Home-Indicator. */
+            /* Safe-Area + Extra-Room für Home-Indicator + Rubber-Band-Room */
             padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
-            flex: 1;
-            /* min-height:0 KRITISCH für Flex-Children — ohne das wächst .content-area
-               auf Inhaltshöhe und overflow-y:auto greift nicht. */
-            min-height: 0;
-            display: block; /* block statt flex — Children wachsen natürlich */
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
-            touch-action: pan-y;
+            display: block;
         }
 
-        /* Tab Content: KEIN eigener Scroll-Container mehr!
-           Der Tab wächst natürlich mit seinem Inhalt, .content-area scrollt alles. */
+        /* Tab Content: wächst natürlich mit Inhalt */
         .admin-tab-content {
             display: none;
-            /* block statt flex — Children wachsen natürlich */
-            /* overflow:visible — Tab clippt nichts, .content-area scrollt */
         }
 
         .admin-tab-content.active {
@@ -4074,7 +4060,6 @@
         @media (max-width: 1023px) {
             .content-area {
                 padding: 1rem;
-                /* padding-bottom mit Safe-Area für Home-Indicator + Rubber-Band-Room */
                 padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
             }
             .dash-header {
