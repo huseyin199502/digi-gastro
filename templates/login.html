@@ -37,6 +37,13 @@
     <link rel="stylesheet" href="/static/css/design_system.css?v=18">
 
     <style>
+        /* ── Cross-Document View Transitions (MPA) ──
+           Aktiviert flüssige Seitenwechsel ohne SPA-Rewrite.
+           Support: Chrome 126+, Safari 18.2+, ~85% Coverage. */
+        @view-transition {
+            navigation: auto;
+        }
+
         /* Login page uses emerald as primary (was set via CDN tailwind.config before).
            Override CSS variables here to keep login visual identity after CDN removal. */
         :root {

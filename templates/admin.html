@@ -36,6 +36,14 @@
 
     <!-- Custom Style System -->
     <style>
+        /* ── Cross-Document View Transitions (MPA) ──
+           Aktiviert flüssige Seitenwechsel ohne SPA-Rewrite.
+           Support: Chrome 126+, Safari 18.2+, ~85% Coverage.
+           Progressive Enhancement — Browser ohne Support ignorieren es. */
+        @view-transition {
+            navigation: auto;
+        }
+
         /* iOS Overscroll-Bounce Prevention */
         html {
             overscroll-behavior: none;

@@ -32,7 +32,14 @@
     <style>
         /* Alpine.js x-cloak: hide elements until Alpine initializes */
         [x-cloak] { display: none !important; }
-        
+
+        /* ── Cross-Document View Transitions (MPA) ──
+           Aktiviert flüssige Seitenwechsel ohne SPA-Rewrite.
+           Support: Chrome 126+, Safari 18.2+, ~85% Coverage. */
+        @view-transition {
+            navigation: auto;
+        }
+
         html, body {
             touch-action: manipulation;
         }
@@ -40,6 +47,26 @@
         html {
             overscroll-behavior: none;
         }
+
+        /* ── iOS 26 Safari Fixed/Sticky-Bug Workaround ──
+           Auf iOS 26 wandern position:fixed Elemente (Bottom-Nav, Cart-Bar)
+           vertikal wenn die URL-Bar beim Scrollen schrumpft.
+           Fix: html+body auf 100dvh setzen, body wird Scroll-Container.
+           Dadurch kann die URL-Bar nicht animieren und Fixed-Elemente bleiben stabil.
+           Side-Effect: window.scrollTo funktioniert nicht mehr → document.scrollingElement verwenden.
+           Siehe: https://stackoverflow.com/q/79753701 */
+        @media (max-width: 1024px) {
+            html {
+                height: 100dvh;
+                overflow: hidden;
+            }
+            body {
+                height: 100dvh;
+                overscroll-behavior: contain;
+                overflow-y: auto;
+            }
+        }
+
         /* All modal overlays must contain scroll — prevents iOS rubber-band from breaking fixed positioning */
         .modal-overscroll {
             overscroll-behavior: contain;
@@ -2026,7 +2053,7 @@
                 filterCategory(category, isUserAction = true) {
                     // Save current scroll position before navigating into category (only on user click)
                     if (isUserAction) {
-                        this._savedCategoryScrollPos = window.scrollY;
+                        this._savedCategoryScrollPos = (document.scrollingElement || document.documentElement).scrollTop;
                     }
 
                     this.currentCategory = category;
@@ -2058,7 +2085,7 @@
                     if (isUserAction) {
                         this.$nextTick(() => {
                             setTimeout(() => {
-                                window.scrollTo({ top: 0, behavior: 'instant' });
+                                (document.scrollingElement || document.documentElement).scrollTo({ top: 0, behavior: 'instant' });
                             }, 10);
                         });
                     }
@@ -2075,7 +2102,7 @@
                     // Restore scroll position AFTER Alpine.js has updated the DOM
                     this.$nextTick(() => {
                         setTimeout(() => {
-                            window.scrollTo({ top: savedPos, behavior: 'instant' });
+                            (document.scrollingElement || document.documentElement).scrollTo({ top: savedPos, behavior: 'instant' });
                         }, 10);
                     });
                 },
