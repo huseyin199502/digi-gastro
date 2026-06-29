@@ -64,6 +64,14 @@
                 height: 100dvh;
                 overscroll-behavior: contain;
                 overflow-y: auto;
+                /* display:block statt flex — mit flex+flex-direction:column werden
+                   die Children durch flex-shrink:1 gequetscht statt dass body scrollt.
+                   Block-Layout lässt Children natürlich wachsen → body scrollt. */
+                display: block !important;
+            }
+            /* Children dürfen nicht schrumpfen — sonst werden sie geclippt */
+            body > * {
+                flex-shrink: 0;
             }
         }
 
