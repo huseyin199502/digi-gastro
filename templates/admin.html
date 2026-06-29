@@ -863,6 +863,24 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            /* KRITISCH: Wenn Sidebar geschlossen ist (off-screen via translateX),
+               darf sie keine Touch-Events abfangen — sonst blockiert sie den
+               Scroll im Hauptinhalt auf iOS Safari. pointer-events:none wenn
+               geschlossen, auto wenn .open oder nicht-closed. */
+            pointer-events: none;
+        }
+        /* Sidebar darf Events empfangen wenn:
+           - Desktop (≥1024px) und nicht .closed
+           - Mobile/Tablet und .open */
+        @media (min-width: 1024px) {
+            aside:not(.closed) {
+                pointer-events: auto;
+            }
+        }
+        @media (max-width: 1023px) {
+            aside.open {
+                pointer-events: auto;
+            }
         }
         aside nav {
             overflow-y: auto;
