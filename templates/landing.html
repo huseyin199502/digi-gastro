@@ -1219,11 +1219,11 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail-Adresse</label>
-                    <input type="email" name="email" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
+                    <input type="email" name="email" autocomplete="email" inputmode="email" enterkeyhint="next" required placeholder="chef@deinrestaurant.de" value="{{ email or '' }}" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>
-                    <input type="password" name="password" required placeholder="••••••••" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
+                    <input type="password" name="password" autocomplete="current-password" enterkeyhint="go" required placeholder="••••••••" class="w-full bg-zinc-900/60 border border-zinc-800/40 rounded-xl px-4 py-3 text-base text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500/20 focus:outline-none transition-all placeholder:text-zinc-600">
                 </div>
                 <button type="submit" class="btn-gold py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all">
                     Einloggen
