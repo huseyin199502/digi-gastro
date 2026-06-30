@@ -1029,7 +1029,6 @@ def run_migrations():
     """Run all pending database migrations. Called once at app startup."""
     _migrate_database()
     migrate_happy_hour_to_events()
-    # Create all performance indexes (idempotent, safe for live PostgreSQL).
     _create_indexes_if_not_exists()
     print("[DB Migration] Performance indexes ensured.")
     # Multi-Tenant: Backfill tenant_slug on child tables
@@ -1037,8 +1036,11 @@ def run_migrations():
         migrate_tenant_slug_backfill()
     except Exception as e:
         print(f"[Multi-Tenant] Backfill übersprungen: {e}")
-    # RLS + Partitionierung (nur PostgreSQL)
-    _setup_rls_and_partitioning()
+    # RLS (Row-Level Security) — nur PostgreSQL, komplett in try/except
+    try:
+        _setup_rls_and_partitioning()
+    except Exception as e:
+        print(f"[RLS] Setup komplett übersprungen: {e}")
 
 def get_db():
     db = SessionLocal()

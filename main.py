@@ -219,9 +219,6 @@ try:
     from slowapi.errors import RateLimitExceeded
     
     def _tenant_key_func(request: Request):
-        """Rate-Limit-Key = tenant_slug + IP. 
-        Schützt vor Noisy-Neighbor: ein Tenant kann nicht alle anderen verlangsamen."""
-        # Extract slug from path or cookie
         slug = "global"
         path = request.url.path
         if path.startswith("/"):
@@ -230,14 +227,14 @@ try:
                 slug = parts[0]
         return f"{slug}:{get_remote_address(request)}"
     
-    limiter = Limiter(key_func=_tenant_key_func, storage_uri="redis://redis:6379/1")
+    limiter = Limiter(key_func=_tenant_key_func, storage_uri=os.getenv("REDIS_URL", "redis://redis:6379/0").replace("/0", "/1"))
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     print("[Rate Limiting] slowapi aktiviert (Redis-backed, per-Tenant)")
 except ImportError:
-    print("[Rate Limiting] slowapi nicht installiert — Rate-Limiting deaktiviert")
+    print("[Rate Limiting] slowapi nicht installiert — deaktiviert (safe fallback)")
 except Exception as e:
-    print(f"[Rate Limiting] slowapi Setup fehlgeschlagen: {e}")
+    print(f"[Rate Limiting] slowapi Setup fehlgeschlagen: {e} — deaktiviert (safe fallback)")
 
 # Setup Jinja2 Templates
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
