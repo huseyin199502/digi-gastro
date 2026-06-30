@@ -210,6 +210,32 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="digi-gastro High-End Gastronomy OS")
 
+# ── Rate Limiting per Tenant (Noisy-Neighbor-Schutz) ──
+# slowapi: Verhindert dass ein einzelner Tenant alle Ressourcen verbraucht.
+# Key = Tenant-Slug + IP → Limit gilt pro Tenant, nicht global.
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    
+    def _tenant_key_func(request: Request):
+        slug = "global"
+        path = request.url.path
+        if path.startswith("/"):
+            parts = path.strip("/").split("/")
+            if parts and parts[0] and not parts[0].startswith("api") and not parts[0].startswith("admin"):
+                slug = parts[0]
+        return f"{slug}:{get_remote_address(request)}"
+    
+    limiter = Limiter(key_func=_tenant_key_func, storage_uri=os.getenv("REDIS_URL", "redis://redis:6379/0").replace("/0", "/1"))
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    print("[Rate Limiting] slowapi aktiviert (Redis-backed, per-Tenant)")
+except ImportError:
+    print("[Rate Limiting] slowapi nicht installiert — deaktiviert (safe fallback)")
+except Exception as e:
+    print(f"[Rate Limiting] slowapi Setup fehlgeschlagen: {e} — deaktiviert (safe fallback)")
+
 # Setup Jinja2 Templates
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -1237,6 +1263,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "logo_path": get_webp_path(tenant.logo_path),
         "has_kitchen": tenant.has_kitchen,
         "is_shishabar": tenant.is_shishabar,
+        "orders_enabled": tenant.orders_enabled if tenant.orders_enabled is not None else True,
         "impressum_content": tenant.impressum_content,
         "datenschutz_content": tenant.datenschutz_content,
         "security_token": tenant.security_token,
@@ -1298,6 +1325,67 @@ def unwrap_live_data(val):
         return {k: unwrap_live_data(v) for k, v in val.items()}
     return val
 
+def append_order_to_db(slug: str, order_data: dict, session):
+    """Performance-Optimiert: Fügt eine neue Bestellung direkt per INSERT hinzu,
+    OHNE das gesamte Restaurant laden/speichern zu müssen.
+    
+    VORHER (save_restaurant_to_db): Lädt ALLE Bestellungen, Produkte, Events etc.
+    aus der DB → modifiziert den Dict → schreibt ALLES zurück. Bei 10k+ Bestellungen
+    dauert das mehrere Sekunden pro Bestellung.
+    
+    JETZT (append_order_to_db): Ein einzelner INSERT für die Order + BATCH INSERT
+    für OrderItems. O(1) statt O(n) — skaliert auf 1M+ Bestellungen.
+    
+    Wird nur für NEUE Bestellungen verwendet. Updates (serve, cancel, pay) nutzen
+    weiterhin save_restaurant_to_db bis sie schrittweise refactored werden."""
+    from database import Order as DBOrder, OrderItem as DBOrderItem
+    
+    # Create the order record
+    db_order = DBOrder(
+        tenant_slug=slug,
+        table=order_data.get("table", ""),
+        total=order_data.get("total", 0.0),
+        original_total=order_data.get("original_total", order_data.get("total", 0.0)),
+        total_with_tip=order_data.get("total_with_tip", 0.0),
+        tip_amount=order_data.get("tip_amount", 0.0),
+        status=order_data.get("status", "eingang"),
+        timestamp=order_data.get("timestamp", ""),
+        mwst_rate=order_data.get("mwst_rate", 19),
+        waiter_id=order_data.get("waiter_id"),
+    )
+    session.add(db_order)
+    session.flush()  # Get the auto-generated ID without committing
+    
+    order_id = db_order.id
+    order_data["id"] = order_id  # Update the dict so caller has the ID
+    
+    # Batch insert order items
+    for item in order_data.get("items", []):
+        db_item = DBOrderItem(
+            order_id=order_id,
+            tenant_slug=slug,  # Multi-Tenant: tenant_slug auf child table
+            product_id=item.get("product_id", 0),
+            name=item.get("name", ""),
+            price=item.get("price", 0.0),
+            quantity=item.get("quantity", 1),
+            category_type=item.get("category_type", "küche"),
+            note=item.get("note"),
+            item_status=item.get("item_status", "pending"),
+        )
+        session.add(db_item)
+    
+    return order_id
+
+
+def update_order_status_in_db(order_id: int, status: str, session):
+    """Performance-Optimiert: Aktualisiert nur den Status einer Bestellung,
+    OHNE das gesamte Restaurant zu laden/speichern.
+    
+    Für Serve/Pay/Cancel-Operationen die nur den Status ändern."""
+    from database import Order as DBOrder
+    session.query(DBOrder).filter_by(id=order_id).update({"status": status})
+
+
 def save_restaurant_to_db(slug: str, r: dict, session):
     tenant = session.query(Tenant).filter_by(slug=slug).first()
     if not tenant:
@@ -1315,6 +1403,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.logo_path = r.get("logo_path", None)
     tenant.has_kitchen = r.get("has_kitchen", False)
     tenant.is_shishabar = r.get("is_shishabar", False)
+    tenant.orders_enabled = r.get("orders_enabled", True)
     tenant.impressum_content = r.get("impressum_content", "")
     tenant.datenschutz_content = r.get("datenschutz_content", "")
     tenant.security_token = r.get("security_token", "")
@@ -2844,6 +2933,10 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         status_dot = "bg-emerald-500" if is_active else "bg-red-500"
         toggle_label = "Deaktivieren" if is_active else "Aktivieren"
         toggle_class = "btn-toggle-off" if is_active else "btn-toggle-on"
+        orders_on = t.orders_enabled if t.orders_enabled is not None else True
+        orders_label = "Bestellungen stoppen" if orders_on else "Bestellungen aktivieren"
+        orders_class = "btn-toggle-off" if orders_on else "btn-toggle-on"
+        orders_icon = "shopping_cart" if orders_on else "remove_shopping_cart"
         
         tenant_cards += f"""
         <div class="tenant-card {status_class}">
@@ -2936,12 +3029,19 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
                 <span>Passwort Reset</span>
               </button>
             </form>
-            <form method="POST" action="/digi-gastro-admin/tenant-toggle/{t.slug}" class="inline">
+            <form method="POST" action="/digi-gastro-admin/tenant-toggle/{html_escape(t.slug)}" class="inline">
               <button type="submit" class="tenant-btn {toggle_class}" title="{toggle_label}">
                 <span class="material-symbols-outlined" style="font-size:14px;">{'power_settings_new' if is_active else 'play_arrow'}</span>
                 <span>{toggle_label}</span>
               </button>
             </form>
+            <form method="POST" action="/digi-gastro-admin/tenant-orders-toggle/{html_escape(t.slug)}" class="inline">
+              <button type="submit" class="tenant-btn {orders_class}" title="{orders_label}">
+                <span class="material-symbols-outlined" style="font-size:14px;">{orders_icon}</span>
+                <span>{orders_label}</span>
+              </button>
+            </form>
+            {'<form method="POST" action="/digi-gastro-admin/tenant-complete-setup/' + html_escape(t.slug) + '" class="inline"><button type="submit" class="tenant-btn btn-toggle-on" title="Setup abschließen"><span class="material-symbols-outlined" style="font-size:14px;">check_circle</span><span>Setup abschließen</span></button></form>' if not t.is_setup_completed else ''}
             <a href="/{t.slug}/admin" target="_blank" class="tenant-btn btn-open" title="Restaurant Dashboard öffnen">
               <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span>
             </a>
@@ -4186,7 +4286,43 @@ def post_tenant_toggle(request: Request, slug_key: str, db: Session = Depends(ge
 
 
 # ════════════════════════════════════════════════════════════════════
-# SUPER-ADMIN GOTTMODUS: Tenant-Umsatz manipulieren
+# SUPER-ADMIN: Bestellungen aktivieren/deaktivieren pro Tenant
+# ════════════════════════════════════════════════════════════════════
+# orders_enabled = True  → Gäste können bestellen (Standard)
+# orders_enabled = False → Gäste sehen nur die Speisekarte, kein Bestell-Button
+# Der Schieberegler wird im Super-Admin Dashboard pro Tenant angezeigt.
+# ════════════════════════════════════════════════════════════════════
+@app.post("/digi-gastro-admin/tenant-orders-toggle/{slug_key}")
+def post_tenant_orders_toggle(request: Request, slug_key: str, db: Session = Depends(get_db)):
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        tenant.orders_enabled = not tenant.orders_enabled
+        db.commit()
+
+    return RedirectResponse(url="/digi-gastro-admin", status_code=303)
+
+
+# ════════════════════════════════════════════════════════════════════
+# SUPER-ADMIN: Tenant Setup abschließen (für Tenants die direkt ins Dashboard sollen)
+# ════════════════════════════════════════════════════════════════════
+@app.post("/digi-gastro-admin/tenant-complete-setup/{slug_key}")
+def post_tenant_complete_setup(request: Request, slug_key: str, db: Session = Depends(get_db)):
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        tenant.is_setup_completed = True
+        db.commit()
+
+    return RedirectResponse(url="/digi-gastro-admin", status_code=303)
 # ════════════════════════════════════════════════════════════════════
 # Erlaubt admin@digi-gastro.de den Tagesumsatz eines Tenants manuell
 # anzupassen (positiv = hinzufügen, negativ = abziehen).
@@ -4815,6 +4951,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "reset_session": reset_session,
             "tisch_name": tisch_name,
             "role": role,
+            "orders_enabled": restaurant.get("orders_enabled", True),
             "hh_active_global": any_event_active,
             "active_events": active_events_info,
             "today_combo_events": today_events_info,
@@ -4855,6 +4992,10 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
 @tenant_lock
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
+    
+    # Super-Admin Toggle: orders_enabled = False → Bestellungen blockiert
+    if not restaurant.get("orders_enabled", True):
+        raise HTTPException(status_code=403, detail="Bestellungen derzeit nicht verfügbar.")
     
     # ── FIX 5: Serverseitige Validierung gegen leere Bestellungen ──
     # Verhindert, dass durch schnelles Mehrfachklicken (Debounce-Race) oder
@@ -5132,7 +5273,9 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     
     restaurant["orders"].append(new_order)
     try:
-        save_restaurant_to_db(slug, restaurant, db)
+        # PERFORMANCE: append_order_to_db statt save_restaurant_to_db
+        # Nur 1 INSERT + N Item-INSERTs statt Full-Load-Save (O(1) statt O(n))
+        append_order_to_db(slug, new_order, db)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -12369,19 +12512,34 @@ class ServePayload(BaseModel):
     order_id: int
     item_key: Optional[str] = None
 
-# In-memory dedup cache: prevents double-processing of the same serve request within 5 seconds
+# In-memory dedup cache: Fallback für Single-Worker. Bei Multi-Worker wird Redis verwendet.
 _serve_dedup_cache: Dict[str, float] = {}
 _SERVE_DEDUP_TTL = 5.0  # seconds — matches frontend serve lock duration
 
 def _check_serve_dedup(order_id: int, item_key: Optional[str]) -> bool:
-    """Return True if this request is a duplicate (should be skipped)."""
+    """Return True if this request is a duplicate (should be skipped).
+    
+    Multi-Worker-safe: Verwendet Redis SET NX EX wenn verfügbar (cross-worker).
+    Fallback: In-Memory Dict für Single-Worker oder Redis-Ausfall."""
     key = f"{order_id}:{item_key or 'all'}"
+    redis_key = f"serve_dedup:{key}"
+    
+    # Try Redis first (cross-worker safe)
+    if redis_client is not None:
+        try:
+            result = redis_client.set(redis_key, "1", nx=True, ex=int(_SERVE_DEDUP_TTL))
+            if result is None:
+                # Key already exists = duplicate
+                return True
+            return False  # Not a duplicate, we acquired the lock
+        except Exception:
+            pass  # Redis error → fallback to in-memory
+    
+    # In-Memory fallback (single-worker only)
     now = time.time()
-    # Clean up old entries
     expired = [k for k, t in _serve_dedup_cache.items() if now - t > _SERVE_DEDUP_TTL * 2]
     for k in expired:
         del _serve_dedup_cache[k]
-    # Check if recent
     if key in _serve_dedup_cache and now - _serve_dedup_cache[key] < _SERVE_DEDUP_TTL:
         return True  # duplicate
     _serve_dedup_cache[key] = now
@@ -12877,9 +13035,12 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
     user, slug = res
     if user["role"] not in ["chef", "kellner"]:
         raise HTTPException(status_code=403, detail="Kein Zugriff.")
-        
-    restaurant = get_restaurant_or_raise(slug, db)
     
+    restaurant = get_restaurant_or_raise(slug, db)
+    # Super-Admin Toggle: orders_enabled = False → Auch Kellner kann nicht bestellen
+    if not restaurant.get("orders_enabled", True):
+        raise HTTPException(status_code=403, detail="Bestellungen derzeit nicht verfügbar.")
+        
     # 1. Find product
     product = next((p for p in restaurant.get("products", []) if p["id"] == payload.product_id), None)
     if not product:

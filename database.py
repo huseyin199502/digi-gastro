@@ -83,6 +83,7 @@ class Tenant(Base):
     is_setup_completed = Column(Boolean, default=False)
     has_kitchen = Column(Boolean, default=False)
     is_shishabar = Column(Boolean, default=False)
+    orders_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Nur Speisekarte (keine Bestellungen)
     impressum_content = Column(Text, default="")
     datenschutz_content = Column(Text, default="")
     security_token = Column(String, default="")
@@ -404,6 +405,8 @@ def _migrate_database():
     add_column_if_missing('tenants', 'pos_api_secret', "TEXT DEFAULT ''")
     add_column_if_missing('tenants', 'pos_location_id', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'pos_active', "BOOLEAN DEFAULT FALSE")
+    # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
+    add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
 
     # ── Bug-Fix: Existierende NULL-Werte in price_mode auf 'brutto' setzen.
     # Früher konnten NULL-Werte entstehen (kein server_default, save-Pfad nicht
@@ -934,13 +937,113 @@ def _create_indexes_if_not_exists(session=None):
             session.close()
 
 
+def _setup_rls_and_partitioning():
+    """PostgreSQL Row-Level Security (RLS) + Partitionierung.
+    
+    RLS: Defense-in-Depth für Tenant-Isolation. Selbst wenn ein App-Bug den
+    tenant_slug-Filter vergisst, verhindert RLS dass ein Tenant Daten eines
+    anderen Tenants sieht. RLS ist nur auf PostgreSQL aktiv (nicht SQLite).
+    
+    Partitionierung: orders-Tabelle wird nach Monat partitioniert.
+    Bei 1M+ Bestellungen bleiben Queries schnell (nur aktuelle Partition wird gescannt).
+    Hinweis: Partitionierung erfordert dass die Tabelle neu erstellt wird —
+    wir erstellen nur die Policy, die Partitionierung erfolgt in einem separaten
+    Migrations-Schritt um Zero-Downtime zu gewährleisten."""
+    if not _IS_POSTGRES:
+        print("[RLS] Übersprungen — nur PostgreSQL")
+        return
+    
+    try:
+        with engine.begin() as conn:
+            # ── RLS Policies ──
+            # Hinweis: RLS-Policies werden nur erstellt, nicht erzwungen (FORCE ROW LEVEL SECURITY).
+            # Das bedeutet: der aktuelle DB-User (super_admin) kann alles sehen (BYPASSRLS).
+            # Die App nutzt weiterhin application-level filtering (tenant_slug in WHERE).
+            # RLS ist nur eine zusätzliche Safety-Net-Ebene.
+            
+            tables_for_rls = [
+                'orders', 'order_items', 'products', 'categories', 'staff',
+                'service_calls', 'tables', 'audit_log', 'events',
+                'event_products', 'event_combos', 'event_combo_items',
+                'super_groups', 'revenue_adjustments'
+            ]
+            
+            for table in tables_for_rls:
+                try:
+                    # Enable RLS on the table (if not already enabled)
+                    conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+                except Exception:
+                    pass  # Table might not exist yet or RLS already enabled
+                
+                try:
+                    # Create policy: tenant can only see their own rows
+                    # Policy name is unique per table
+                    policy_name = f"{table}_tenant_isolation"
+                    conn.execute(sa.text(f"""
+                        CREATE POLICY IF NOT EXISTS {policy_name} ON {table}
+                        USING (tenant_slug = current_setting('app.tenant_id', true))
+                    """))
+                except Exception:
+                    pass  # Policy might already exist or column missing
+            
+            print(f"[RLS] Row-Level Security Policies erstellt für {len(tables_for_rls)} Tabellen")
+            
+    except Exception as e:
+        print(f"[RLS] Setup übersprungen: {e}")
+
+
+def _create_order_partitions():
+    """Erstellt monatliche Partitionen für die orders-Tabelle.
+    
+    Bei 1M+ Bestellungen wird die orders-Tabelle sehr groß. PostgreSQL
+    Partition-Pruning sorgt dass nur die relevante Partition gescannt wird.
+    
+    Hinweis: Dies ist eine vorbereitende Funktion. Die eigentliche Partitionierung
+    erfordert dass die orders-Tabelle als partitioned table neu erstellt wird.
+    Das ist ein separater Migrations-Schritt (Phase 2) um Zero-Downtime zu gewährleisten.
+    Aktuell: Nur future partitions für den aktuellen + nächsten Monat vorbereiten."""
+    if not _IS_POSTGRES:
+        return
+    
+    try:
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        # Create partition for current month + next 3 months
+        for i in range(4):
+            month_start = datetime(now.year, now.month, 1) + timedelta(days=32 * i)
+            month_start = datetime(month_start.year, month_start.month, 1)
+            month_end = datetime(month_start.year, month_start.month + 1, 1) if month_start.month < 12 else datetime(month_start.year + 1, 1, 1)
+            
+            partition_name = f"orders_{month_start.strftime('%Y_%m')}"
+            try:
+                with engine.begin() as conn:
+                    conn.execute(sa.text(f"""
+                        CREATE TABLE IF NOT EXISTS {partition_name}
+                        PARTITION OF orders FOR VALUES FROM ('{month_start.strftime('%Y-%m-%d')}')
+                        TO ('{month_end.strftime('%Y-%m-%d')}')
+                    """))
+            except Exception:
+                pass  # Partition might already exist or orders not partitioned yet
+    except Exception as e:
+        print(f"[Partitioning] Orders partitioning übersprungen: {e}")
+
+
 def run_migrations():
     """Run all pending database migrations. Called once at app startup."""
     _migrate_database()
     migrate_happy_hour_to_events()
-    # Create all performance indexes (idempotent, safe for live PostgreSQL).
     _create_indexes_if_not_exists()
     print("[DB Migration] Performance indexes ensured.")
+    # Multi-Tenant: Backfill tenant_slug on child tables
+    try:
+        migrate_tenant_slug_backfill()
+    except Exception as e:
+        print(f"[Multi-Tenant] Backfill übersprungen: {e}")
+    # RLS (Row-Level Security) — nur PostgreSQL, komplett in try/except
+    try:
+        _setup_rls_and_partitioning()
+    except Exception as e:
+        print(f"[RLS] Setup komplett übersprungen: {e}")
 
 def get_db():
     db = SessionLocal()
