@@ -5137,6 +5137,13 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    
+    # Bon-Druck: Küchenbon bei neuer Bestellung (falls POS aktiv)
+    try:
+        await send_bon_to_printer(slug, new_order, restaurant, bon_type="kitchen")
+    except Exception:
+        pass
+    
     await manager.broadcast_global(slug, {"type": "new_order", "order_id": new_order.get("id"), "table_number": table_num, "status": "eingegangen"})
     return {"success": True, "order_id": new_order.get("id")}
 
@@ -5355,8 +5362,10 @@ async def pay_order(request: Request, slug: str, order_id: int, waiter_id: Optio
     # Background Task: blockiert nicht den Response, Fehler werden geloggt
     try:
         await send_order_to_pos(slug, order, restaurant)
+        # Bon-Druck: Kassenbon (receipt) beim Bezahlen
+        await send_bon_to_printer(slug, order, restaurant, bon_type="receipt")
     except Exception as _e:
-        print(f"[POS Webhook] Fehler im Hintergrund: {_e}")
+        print(f"[POS/Bon] Fehler im Hintergrund: {_e}")
 
     await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
@@ -8847,6 +8856,62 @@ async def send_order_to_pos(slug: str, order: dict, restaurant: dict):
     except Exception as e:
         # Log-Fehler, aber Order nicht blockieren — Payment ist bereits durch
         print(f"[POS Webhook] Fehler beim Senden an POS: {e}")
+
+
+async def send_bon_to_printer(slug: str, order: dict, restaurant: dict, bon_type: str = "kitchen"):
+    """Sendet einen Bon an den POS/Küchen-Drucker via Webhook.
+    
+    bon_type: 'kitchen' = Küchenbon (für die Küche), 'receipt' = Kundenbon (Kassenbon)
+    
+    Wird aufgerufen bei:
+    - Neue Bestellung (kitchen) → Küchenbon für die Küche
+    - Bezahlen (receipt) → Kassenbon für den Kunden
+    
+    Der POS-Webhook empfängt das Bon-Format und druckt es auf dem
+    konfigurierten Drucker (z.B. Star, Epson, Seiko Thermal Printer)."""
+    branding = restaurant.get("branding", {})
+    if not branding.get("pos_active", False):
+        return  # POS nicht aktiv → nichts senden
+    pos_api_url = branding.get("pos_api_url", "")
+    pos_api_key = branding.get("pos_api_key", "")
+    if not pos_api_url:
+        return
+
+    import httpx
+    payload = {
+        "event": f"bon_{bon_type}",
+        "tenant": slug,
+        "order_id": order.get("id"),
+        "table": order.get("table", ""),
+        "timestamp": order.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        "waiter": order.get("waiter_id", ""),
+        "items": [
+            {
+                "name": item.get("name", ""),
+                "quantity": item.get("quantity", 1),
+                "price": float(item.get("price", 0) or 0) if bon_type == "receipt" else 0,
+                "category": item.get("category_type", "küche"),
+                "note": item.get("note", ""),
+                "status": item.get("item_status", "pending")
+            }
+            for item in (order.get("items") or [])
+            # Kitchen bon: nur Items die in die Küche gehen (nicht Bar/Getränke wenn separate Bar)
+            if bon_type == "receipt" or item.get("category_type", "küche") == "küche"
+        ],
+        "total": float(order.get("total", 0) or 0) if bon_type == "receipt" else 0,
+        "mwst_rate": order.get("mwst_rate", 19),
+        "pos_location_id": branding.get("pos_location_id", "")
+    }
+    
+    headers = {"Content-Type": "application/json"}
+    if pos_api_key:
+        headers["Authorization"] = f"Bearer {pos_api_key}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(pos_api_url, json=payload, headers=headers)
+            print(f"[Bon Print] {bon_type} bon for order {order.get('id')} sent → HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"[Bon Print] Fehler beim Senden des {bon_type}-Bons: {e}")
 
 
 def update_legal_placeholders(restaurant: dict) -> None:
