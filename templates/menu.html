@@ -3566,6 +3566,34 @@
             });
         })();
 
+        // ── PWA VISIBILITY CHANGE: Sofortiger WS-Reconnect bei App-Wiederöffnung ──
+        // KRITISCH für Gäste-PWA: Wenn die App in den Hintergrund geht, suspendiert
+        // iOS das JavaScript. WebSocket trennt sich. Beim Wiederöffnen feuert
+        // visibilitychange — ohne diesen Handler bleibt der WS 5s+ tot.
+        // Gäste sehen dann keine Live-Updates (Bestellstatus, Service-Rufe).
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) return;
+            // App kam in Vordergrund — SOFORT reconnecten
+            const alpine = document.querySelector('[x-data]');
+            if (alpine && alpine._x_dataStack) {
+                const comp = alpine._x_dataStack[0];
+                if (comp.guestWs && comp.guestWs.readyState === WebSocket.OPEN) return;
+                if (comp.guestWsHeartbeatInterval) clearInterval(comp.guestWsHeartbeatInterval);
+                if (comp.initGuestWebSocket) comp.initGuestWebSocket();
+                if (comp.fetchGuestTableStatus) comp.fetchGuestTableStatus();
+            }
+        });
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                const alpine = document.querySelector('[x-data]');
+                if (alpine && alpine._x_dataStack) {
+                    const comp = alpine._x_dataStack[0];
+                    if (comp.initGuestWebSocket) comp.initGuestWebSocket();
+                    if (comp.fetchGuestTableStatus) comp.fetchGuestTableStatus();
+                }
+            }
+        });
+
     </script>
     <!-- Beautiful fullscreen Image Lightbox modal -->
     <div id="lightbox" class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md hidden items-center justify-center transition-all duration-300 opacity-0 pointer-events-none modal-overscroll" @click="closeLightbox()">

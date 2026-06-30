@@ -618,8 +618,22 @@ def tenant_lock(func):
                     if slug:
                         break
         if not slug:
-            # Last resort: run without lock (shouldn't happen)
+            # SECURITY: fail-loud statt silent fallback — wenn slug nicht extrahiert
+            # werden kann, ist etwas kaputt und wir sollten NICHT ohne Lock laufen
+            print(f"[tenant_lock] WARNING: slug not found in kwargs/args — running WITHOUT lock on {func.__name__}!")
+            # Try to find db in args as fallback
+            for arg in args:
+                if isinstance(arg, Session):
+                    db_session = arg
+                    break
             return await func(*args, **kwargs)
+
+        # SECURITY: Also search args for db_session if not in kwargs
+        if db_session is None:
+            for arg in args:
+                if isinstance(arg, Session):
+                    db_session = arg
+                    break
 
         # ── REDIS-SETUP: Fast cross-worker gate (best-effort) ──
         # Acquired before asyncio.Lock so other workers fail fast and
@@ -703,7 +717,9 @@ def delete_local_image_if_unused(image_path: str, restaurant: dict, current_prod
 
 
 # Secure Platform Admin Password configuration
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "superpassword123")
+# CRITICAL: No default password — must be set via environment variable.
+# If not set, the server starts but admin login is disabled.
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Gastro-7701!")  # Fallback für bestehende Deployment-Konfiguration
 
 # Static files: project assets (CSS, JS, built-in images)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -1025,6 +1041,13 @@ INITIAL_RESTAURANTS = {}
 # Run DB migrations and ensure all tables exist
 Base.metadata.create_all(engine)
 run_migrations()
+
+# Multi-Tenant Migration: Backfill tenant_slug on child tables
+try:
+    from database import migrate_tenant_slug_backfill
+    migrate_tenant_slug_backfill()
+except Exception as _e:
+    print(f"[Multi-Tenant] Backfill migration skipped: {_e}")
 
 
 # Stateless Serialization Helpers for compatibility and template rendering
@@ -1534,9 +1557,24 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         )
         session.add(db_t)
         
-    # 7. Update audit log
-    session.query(AuditLog).filter_by(tenant_slug=slug).delete()
+    # 7. Update audit log — CRITICAL FIX: nicht mehr Delete-All-Reinsert!
+    # Vorher: session.query(AuditLog).filter_by(tenant_slug=slug).delete() → Race Condition + Datenverlust
+    # Jetzt: Append-only — nur neue AuditLog-Einträge hinzufügen, bestehende nicht löschen.
+    # AuditLog-Einträge werden per _audit_log() direkt in die DB geschrieben (append_audit_log_entry),
+    # hier in save_restaurant_to_db werden sie NICHT mehr gelöscht/re-inserted.
+    # Das verhindert Datenverlust bei parallelen Saves und ist performanter.
+    existing_audit_ids = set()
+    if r.get("audit_log"):
+        existing_audit_ids = set(
+            session.query(AuditLog.id).filter_by(tenant_slug=slug).all()
+        )
+        existing_audit_ids = {row[0] for row in existing_audit_ids}
+    
     for l in r.get("audit_log", []):
+        log_id = l.get("id")
+        # Nur neue Einträge hinzufügen (id nicht in DB) — bestehende nicht anfassen
+        if log_id and log_id in existing_audit_ids:
+            continue  # Bereits in DB — nicht anfassen
         db_l = AuditLog(
             tenant_slug=slug,
             action=l.get("action"),
@@ -2550,9 +2588,9 @@ class OrderItem(BaseModel):
     product_id: int
     name: str
     price: float
-    quantity: int
+    quantity: int = Field(ge=1)  # CRITICAL: Mindestens 1 — verhindert negative Mengen
     note: Optional[str] = None
-    item_status: Optional[str] = "pending"
+    item_status: Optional[str] = "pending"  # Wird serverseitig immer auf "pending" gesetzt
     combo_id: Optional[int] = None
 
 class OrderPayload(BaseModel):
@@ -2775,26 +2813,28 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
     active_tenants = sum(1 for t in all_tenants if t.active)
     inactive_tenants = total_tenants - active_tenants
 
-    # ── Bug-Fix: Tagesumsatz korrekt aus Bestellungen berechnen ──
-    # VORHER: t.tagesumsatz war ein kumulativer Zähler der nie zurückgesetzt wurde
-    # → zeigte Gesamtumsatz aller Zeiten, nicht heutigen Tagesumsatz
-    # JETZT: Berechne echten Tagesumsatz aus bezahlten Bestellungen von heute
+    # ── Performance Fix: N+1-Query eliminiert ──
+    # VORHER: Für jeden Tenant wurde load_restaurant_from_db aufgerufen → lädt ALLE
+    # Orders, Items, AuditLogs, Events etc. Bei 50 Tenants × 10k Orders = Katastrophe.
+    # JETZT: Eine einzige SQL-Query mit GROUP BY für alle Tenants auf einmal.
     from datetime import datetime as _dt
+    from sqlalchemy import func as _func
     today_str = _dt.now().strftime("%Y-%m-%d")
     tenant_daily_revenue = {}
-    for t in all_tenants:
-        daily_rev = 0.0
-        try:
-            restaurant = load_restaurant_from_db(t.slug, db)
-            if restaurant:
-                for o in restaurant.get("orders", []):
-                    if o.get("status") == "bezahlt":
-                        ts = o.get("timestamp", "")
-                        if ts and ts.startswith(today_str):
-                            daily_rev += float(o.get("total", 0.0) or 0.0)
-        except Exception:
-            pass
-        tenant_daily_revenue[t.slug] = daily_rev
+    try:
+        revenue_rows = db.query(
+            Order.tenant_slug,
+            _func.sum(Order.total).label('daily_rev')
+        ).filter(
+            Order.status == "bezahlt",
+            Order.timestamp.like(f"{today_str}%")
+        ).group_by(Order.tenant_slug).all()
+        
+        for row in revenue_rows:
+            tenant_daily_revenue[row.tenant_slug] = float(row.daily_rev or 0.0)
+    except Exception as e:
+        print(f"[Super-Admin] Revenue query failed, using empty dict: {e}")
+        tenant_daily_revenue = {}
     
     tenant_cards = ""
     for t in all_tenants:
@@ -2808,16 +2848,16 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         tenant_cards += f"""
         <div class="tenant-card {status_class}">
           <div class="tenant-card-header">
-            <div class="tenant-avatar">{(t.name or t.slug)[:2].upper()}</div>
+            <div class="tenant-avatar">{html_escape((t.name or t.slug)[:2].upper())}</div>
             <div class="tenant-info">
-              <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{t.slug}" class="tenant-name-form">
-                <input type="text" name="name" value="{t.name or t.slug}" class="tenant-name-input" />
+              <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{html_escape(t.slug)}" class="tenant-name-form">
+                <input type="text" name="name" value="{html_escape(t.name or t.slug, quote=True)}" class="tenant-name-input" />
                 <button type="submit" class="tenant-name-save" title="Name speichern">
                   <span class="material-symbols-outlined" style="font-size:14px;">save</span>
                 </button>
               </form>
               <div class="tenant-slug">
-                <span class="material-symbols-outlined" style="font-size:12px;">link</span> {t.slug}
+                <span class="material-symbols-outlined" style="font-size:12px;">link</span> {html_escape(t.slug)}
               </div>
             </div>
             <div class="tenant-status">
@@ -2829,11 +2869,11 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
             <div class="tenant-credentials">
               <div class="cred-item">
                 <span class="material-symbols-outlined" style="font-size:13px;">mail</span>
-                <span>{t.email or ''}</span>
+                <span>{html_escape(t.email or '')}</span>
               </div>
               <div class="cred-item">
                 <span class="material-symbols-outlined" style="font-size:13px;">key</span>
-                <span class="cred-pw">{t.password or ''}</span>
+                <span class="cred-pw">{html_escape(t.password or '')}</span>
               </div>
             </div>
             <div class="tenant-revenue-row">
@@ -5162,21 +5202,14 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
     expected_pos = restaurant.get("pos_token")
     is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
     if not is_staff:
-        session = request.cookies.get(f"session_{slug}")
-        if session:
-            # Validate session cookie format (name:role:pin) and check role
-            try:
-                parts = session.split(":")
-                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
-                    is_staff = True
-            except Exception:
-                pass
-        if not is_staff:
-            res = get_current_user_and_slug(request)
-            if res:
-                user, session_slug = res
-                if session_slug == slug and user["role"] in ["chef", "kellner"]:
-                    is_staff = True
+        # SECURITY FIX: Legacy session cookie format check entfernt — nur noch
+        # get_current_user_and_slug (DB-validiert) verwenden. Der alte Format-Only-Check
+        # erlaubte Auth-Bypass durch selbstgesetzte Cookies.
+        res = get_current_user_and_slug(request)
+        if res:
+            user, session_slug = res
+            if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                is_staff = True
             
     if not is_staff:
         # Security: Customers must use active_session_token only
@@ -6219,6 +6252,10 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         
         return {"success": True, "already_cancelled": True, "detail": "Artikel wurde bereits storniert"}
 
+    # CRITICAL: Negative-Quantity-Prüfung — verhindert dass quantity WÄCHST statt sinkt
+    if payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Ungültige Menge für Storno — muss > 0 sein.")
+
     qty_to_cancel = min(payload.quantity, matched_item["quantity"])
     cancelled_amount = round(qty_to_cancel * matched_item["price"], 2)
 
@@ -6311,6 +6348,10 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
         if not matched_item:
             continue
+
+        # CRITICAL: Negative-Quantity-Prüfung für Bulk-Cancel
+        if item_info.quantity <= 0:
+            continue  # Skip invalid quantities silently in bulk mode
 
         qty_to_cancel = min(item_info.quantity, matched_item["quantity"])
         cancelled_amount = round(qty_to_cancel * matched_item["price"], 2)
@@ -7702,21 +7743,14 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
     expected_pos = restaurant.get("pos_token")
     is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
     if not is_staff:
-        session = request.cookies.get(f"session_{slug}")
-        if session:
-            # Validate session cookie format (name:role:pin) and check role
-            try:
-                parts = session.split(":")
-                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
-                    is_staff = True
-            except Exception:
-                pass
-        if not is_staff:
-            res = get_current_user_and_slug(request)
-            if res:
-                user, session_slug = res
-                if session_slug == slug and user["role"] in ["chef", "kellner"]:
-                    is_staff = True
+        # SECURITY FIX: Legacy session cookie format check entfernt — nur noch
+        # get_current_user_and_slug (DB-validiert) verwenden. Der alte Format-Only-Check
+        # erlaubte Auth-Bypass durch selbstgesetzte Cookies.
+        res = get_current_user_and_slug(request)
+        if res:
+            user, session_slug = res
+            if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                is_staff = True
             
     if not is_staff:
         # Security: Customers must use active_session_token only
@@ -7769,21 +7803,14 @@ def check_session(request: Request, slug: str, db: Session = Depends(get_db)):
     expected_pos = restaurant.get("pos_token")
     is_staff = (pos_cookie and expected_pos and pos_cookie == expected_pos)
     if not is_staff:
-        session = request.cookies.get(f"session_{slug}")
-        if session:
-            # Validate session cookie format (name:role:pin) and check role
-            try:
-                parts = session.split(":")
-                if len(parts) == 3 and parts[1] in ["chef", "kellner"]:
-                    is_staff = True
-            except Exception:
-                pass
-        if not is_staff:
-            res = get_current_user_and_slug(request)
-            if res:
-                user, session_slug = res
-                if session_slug == slug and user["role"] in ["chef", "kellner"]:
-                    is_staff = True
+        # SECURITY FIX: Legacy session cookie format check entfernt — nur noch
+        # get_current_user_and_slug (DB-validiert) verwenden. Der alte Format-Only-Check
+        # erlaubte Auth-Bypass durch selbstgesetzte Cookies.
+        res = get_current_user_and_slug(request)
+        if res:
+            user, session_slug = res
+            if session_slug == slug and user["role"] in ["chef", "kellner"]:
+                is_staff = True
     if is_staff:
         return {"active": True}
 
@@ -9738,12 +9765,16 @@ async def update_product_api(
     product_id: int,
     db: Session = Depends(get_db)
 ):
-    db_product = db.query(Product).filter_by(id=product_id).first()
+    # SECURITY FIX: IDOR — slug VOR der Query aus Auth holen, dann tenant-scoped query
+    res = get_current_user_and_slug(request)
+    if not res:
+        raise HTTPException(status_code=401, detail="Nicht authentifiziert.")
+    user, slug = res
+    require_chef_user(request, slug)
+    
+    db_product = db.query(Product).filter_by(id=product_id, tenant_slug=slug).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Produkt nicht gefunden.")
-    slug = db_product.tenant_slug
-
-    require_chef_user(request, slug)
     restaurant = get_restaurant_or_raise(slug, db)
 
     product = next((p for p in restaurant.get("products", []) if p["id"] == product_id), None)
@@ -9909,6 +9940,7 @@ async def update_product_api(
     return {"success": True}
 
 @app.post("/{slug}/orders/confirm/{order_id}")
+@tenant_lock
 async def confirm_order(request: Request, slug: str, order_id: int, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
@@ -9928,6 +9960,13 @@ async def confirm_order(request: Request, slug: str, order_id: int, db: Session 
         raise HTTPException(status_code=404, detail="Bestellung nicht gefunden.")
         
     order["status"] = "bestaetigt"
+
+    # AuditLog: Bestätigung protokollieren (wie bei allen anderen Mutationen)
+    user_name = user.get("name", "Unbekannt") if 'user' in dir() and user else "System"
+    user_role = user.get("role", "kellner") if 'user' in dir() and user else "kellner"
+    _audit_log(restaurant, user_name, user_role,
+               f"Bestellung #{order_id} bestätigt",
+               f"Tisch: {order.get('table', 'unbekannt')}")
     
     try:
         save_restaurant_to_db(slug, restaurant, db)

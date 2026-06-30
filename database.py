@@ -207,9 +207,13 @@ class Order(Base):
 
 class OrderItem(Base):
     __tablename__ = 'order_items'
+    __table_args__ = (
+        Index('idx_orderitem_tenant', 'tenant_slug'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey('orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=True, index=True)  # Backfilled from parent order
     product_id = Column(Integer, nullable=False)
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
@@ -298,30 +302,41 @@ class Event(Base):
 
 class EventProduct(Base):
     __tablename__ = 'event_products'
+    __table_args__ = (
+        Index('idx_eventproduct_tenant', 'tenant_slug'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=True, index=True)  # Backfilled from parent event
     product_id = Column(Integer, nullable=False)
-    event_price = Column(Float, nullable=True)  # Fixed event price (overrides discount %)
+    event_price = Column(Float, nullable=True)
 
 class EventCombo(Base):
     __tablename__ = 'event_combos'
+    __table_args__ = (
+        Index('idx_eventcombo_tenant', 'tenant_slug'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     event_id = Column(Integer, ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
-    name = Column(String, nullable=False)  # e.g. "Cola + Shisha"
-    combo_price = Column(Float, nullable=False)  # e.g. 18.00
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=True, index=True)  # Backfilled from parent event
+    name = Column(String, nullable=False)
+    combo_price = Column(Float, nullable=False)
     position = Column(Integer, default=0)
-    # Per-combo time/day restrictions (optional – if empty, inherits event's settings)
-    days = Column(Text, default=None)  # JSON array of German day names, e.g. ["Donnerstag"] – null = inherit from event
-    start_time = Column(String, default=None)  # e.g. "18:00" – null = inherit from event
-    end_time = Column(String, default=None)  # e.g. "20:00" – null = inherit from event
+    days = Column(Text, default=None)
+    start_time = Column(String, default=None)
+    end_time = Column(String, default=None)
 
 class EventComboItem(Base):
     __tablename__ = 'event_combo_items'
+    __table_args__ = (
+        Index('idx_eventcomboitem_tenant', 'tenant_slug'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     combo_id = Column(Integer, ForeignKey('event_combos.id', ondelete='CASCADE'), nullable=False, index=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=True, index=True)  # Backfilled from parent combo
     product_id = Column(Integer, nullable=False)
 
 
@@ -435,6 +450,13 @@ def _migrate_database():
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
     add_column_if_missing('order_items', 'note', "TEXT")
+    # Multi-Tenant: tenant_slug auf order_items für Tenant-Isolation
+    add_column_if_missing('order_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
+
+    # Multi-Tenant: tenant_slug auf event child tables für Tenant-Isolation
+    add_column_if_missing('event_products', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
+    add_column_if_missing('event_combos', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
+    add_column_if_missing('event_combo_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
 
     # Migrate 'orders' table — original_total sichert den echten Warenwert gegen 0€-Bug bei Teilzahlung/Storno/Transfer
     add_column_if_missing('orders', 'original_total', "FLOAT DEFAULT 0.0")
@@ -583,6 +605,67 @@ def _migrate_database():
                 """))
         except Exception as e2:
             print(f"[DB Migration] super_groups table creation skipped (may already exist): {e2}")
+
+
+def migrate_tenant_slug_backfill():
+    """Multi-Tenant Migration: Backfill tenant_slug on child tables from parent tables.
+    order_items.tenant_slug ← orders.tenant_slug
+    event_products.tenant_slug ← events.tenant_slug
+    event_combos.tenant_slug ← events.tenant_slug
+    event_combo_items.tenant_slug ← event_combos.tenant_slug (via event_combos → events)
+    Runs once on startup, only updates rows where tenant_slug IS NULL."""
+    try:
+        with engine.begin() as conn:
+            # Backfill order_items from orders
+            try:
+                result = conn.execute(sa.text("""
+                    UPDATE order_items SET tenant_slug = o.tenant_slug
+                    FROM orders o WHERE order_items.order_id = o.id
+                    AND order_items.tenant_slug IS NULL
+                """))
+                if result.rowcount > 0:
+                    print(f"[Multi-Tenant] Backfilled {result.rowcount} order_items.tenant_slug")
+            except Exception as e:
+                print(f"[Multi-Tenant] order_items backfill: {e}")
+
+            # Backfill event_products from events
+            try:
+                result = conn.execute(sa.text("""
+                    UPDATE event_products SET tenant_slug = e.tenant_slug
+                    FROM events e WHERE event_products.event_id = e.id
+                    AND event_products.tenant_slug IS NULL
+                """))
+                if result.rowcount > 0:
+                    print(f"[Multi-Tenant] Backfilled {result.rowcount} event_products.tenant_slug")
+            except Exception as e:
+                print(f"[Multi-Tenant] event_products backfill: {e}")
+
+            # Backfill event_combos from events
+            try:
+                result = conn.execute(sa.text("""
+                    UPDATE event_combos SET tenant_slug = e.tenant_slug
+                    FROM events e WHERE event_combos.event_id = e.id
+                    AND event_combos.tenant_slug IS NULL
+                """))
+                if result.rowcount > 0:
+                    print(f"[Multi-Tenant] Backfilled {result.rowcount} event_combos.tenant_slug")
+            except Exception as e:
+                print(f"[Multi-Tenant] event_combos backfill: {e}")
+
+            # Backfill event_combo_items from event_combos
+            try:
+                result = conn.execute(sa.text("""
+                    UPDATE event_combo_items SET tenant_slug = ec.tenant_slug
+                    FROM event_combos ec WHERE event_combo_items.combo_id = ec.id
+                    AND event_combo_items.tenant_slug IS NULL
+                """))
+                if result.rowcount > 0:
+                    print(f"[Multi-Tenant] Backfilled {result.rowcount} event_combo_items.tenant_slug")
+            except Exception as e:
+                print(f"[Multi-Tenant] event_combo_items backfill: {e}")
+
+    except Exception as e:
+        print(f"[Multi-Tenant] Backfill migration failed: {e}")
 
 
 def migrate_happy_hour_to_events():
