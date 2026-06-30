@@ -1,5 +1,6 @@
 # ──────────────────────────────────────────────────────────────────
 # digi-gastro – Production Docker Stack (Coolify-compatible)
+# 4 Services: db, pgbouncer, web (4 workers), redis
 # ──────────────────────────────────────────────────────────────────
 
 services:
@@ -16,7 +17,7 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     command: >
       postgres
-      -c max_connections=400
+      -c max_connections=200
       -c shared_buffers=256MB
       -c work_mem=4MB
       -c effective_cache_size=512MB
@@ -48,6 +49,27 @@ services:
       retries: 5
       start_period: 10s
 
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: digi_gastro_pgbouncer
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: gastro_user
+      DB_PASSWORD: gastro_secret
+      DB_NAME: digi_gastro
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "50"
+      MIN_POOL_SIZE: "10"
+      RESERVE_POOL_SIZE: "5"
+      RESERVE_POOL_TIMEOUT: "3"
+      SERVER_IDLE_TIMEOUT: "300"
+      AUTH_TYPE: trust
+    ports:
+      - "127.0.0.1:6432:5432"
+
   web:
     build:
       context: .
@@ -60,7 +82,7 @@ services:
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://gastro_user:gastro_secret@db:5432/digi_gastro
+      DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
       UPLOAD_DIR: /app/data/uploads
       PYTHONUNBUFFERED: "1"
       PORT: "8000"
