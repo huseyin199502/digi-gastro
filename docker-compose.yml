@@ -1,31 +1,24 @@
 # ──────────────────────────────────────────────────────────────────
-# digi-gastro – Local Docker Stack
-#
-# Usage:
-#   docker compose up --build        # first run / after code changes
-#   docker compose up -d             # start in background
-#   docker compose logs -f web       # stream app logs
-#   docker compose down              # stop & remove containers
-#   docker compose down -v           # stop + wipe all volumes (fresh start)
+# digi-gastro – Production Docker Stack (Coolify-compatible)
+# Skaliert für 100+ Tenants / 5000+ Gäste
 # ──────────────────────────────────────────────────────────────────
 
 services:
 
   # ── PostgreSQL database ────────────────────────────────────────
   db:
-    image: postgres:16-alpine          # small, stable, production-grade
+    image: postgres:16-alpine
     container_name: digi_gastro_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       digi_gastro
-      POSTGRES_USER:     gastro_user
-      POSTGRES_PASSWORD: gastro_secret   # change before going to prod!
-      TZ:                Europe/Berlin   # Zeitzone für korrekte Uhrzeiten in Logs
-      # ── Performance Tuning für 100+ gleichzeitige Gäste ──
+      POSTGRES_DB: digi_gastro
+      POSTGRES_USER: gastro_user
+      POSTGRES_PASSWORD: gastro_secret
+      TZ: Europe/Berlin
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     command: >
       postgres
-      -c max_connections=300
+      -c max_connections=200
       -c shared_buffers=256MB
       -c work_mem=4MB
       -c effective_cache_size=512MB
@@ -45,11 +38,11 @@ services:
       -c max_wal_size=2GB
       -c min_wal_size=256MB
     volumes:
-      - pgdata:/var/lib/postgresql/data  # named volume → survives restarts
-      - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)
-      - /etc/localtime:/etc/localtime:ro  # Host-Localtime (Hetzner DE)
+      - pgdata:/var/lib/postgresql/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     ports:
-      - "127.0.0.1:5432:5432"                      # expose locally only (invisible to public internet)
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U gastro_user -d digi_gastro"]
       interval: 10s
@@ -57,7 +50,33 @@ services:
       retries: 5
       start_period: 10s
 
-  # ── FastAPI application ────────────────────────────────────────
+  # ── PgBouncer: Connection Pooling ──────────────────────────────
+  # Multiplexed 1000 Client-Conns auf 50 DB-Conns (Transaction-Pooling)
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: digi_gastro_pgbouncer
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: gastro_user
+      DB_PASSWORD: gastro_secret
+      DB_NAME: digi_gastro
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      SERVER_IDLE_TIMEOUT: 300
+      AUTH_TYPE: trust
+    ports:
+      - "127.0.0.1:6432:5432"
+
+  # ── FastAPI application (4 Workers) ────────────────────────────
   web:
     build:
       context: .
@@ -66,46 +85,66 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy     # wait until Postgres is truly ready
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
       redis:
-        condition: service_started     # Redis is optional, but start it first if available
+        condition: service_started
     environment:
-      # ── Database ──────────────────────────────────────────────
-      DATABASE_URL: postgresql://gastro_user:gastro_secret@db:5432/digi_gastro
-
-      # ── Persistent upload directory (mounted as volume below) ─
+      DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
       UPLOAD_DIR: /app/data/uploads
-
-      # ── App tuning ────────────────────────────────────────────
       PYTHONUNBUFFERED: "1"
       PORT: "8000"
-      TZ: Europe/Berlin                 # Zeitzone für korrekte Uhrzeiten in Logs
-
-      # ── Redis (Cache + Lock + Pub/Sub) ───────────────────────
+      WORKERS: "4"
+      TZ: Europe/Berlin
       REDIS_URL: redis://redis:6379/0
     volumes:
-      - uploads:/app/data              # logos & images survive rebuilds
-      - /etc/timezone:/etc/timezone:ro    # Host-Zeitzone (Hetzner DE)
-      - /etc/localtime:/etc/localtime:ro  # Host-Localtime (Hetzner DE)
+      - uploads:/app/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     ports:
-      - "8090:8000"                    # → http://localhost:8000
+      - "8090:8000"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
 
-  # ── Redis cache + lock + pub/sub ──────────────────────────────
+  # ── Arq Background Worker ──────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digi_gastro_worker
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
+      REDIS_URL: redis://redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      TZ: Europe/Berlin
+    volumes:
+      - uploads:/app/data:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    command: ["arq", "worker.WorkerSettings"]
+
+  # ── Redis cache + lock + pub/sub + queue ───────────────────────
   redis:
     image: redis:7-alpine
     container_name: digi_gastro_redis
     restart: unless-stopped
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1
     ports:
-      - "127.0.0.1:6379:6379"           # expose locally only (invisible to public internet)
+      - "127.0.0.1:6379:6379"
     volumes:
-      - redisdata:/data                 # AOF/RDB persistence survives restarts
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -113,11 +152,10 @@ services:
       retries: 5
       start_period: 5s
 
-# ── Named volumes (managed by Docker) ──────────────────────────
 volumes:
   pgdata:
-    driver: local          # Postgres data
+    driver: local
   uploads:
-    driver: local          # Tenant logos & product images
-  redisdata:               # Redis AOF/RDB snapshots
+    driver: local
+  redisdata:
     driver: local
