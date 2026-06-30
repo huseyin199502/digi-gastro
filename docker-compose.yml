@@ -1,8 +1,3 @@
-# ──────────────────────────────────────────────────────────────────
-# digi-gastro – Production Docker Stack (Coolify-compatible)
-# 4 Services: db, pgbouncer, web (4 workers), redis
-# ──────────────────────────────────────────────────────────────────
-
 services:
 
   db:
@@ -66,7 +61,7 @@ services:
       RESERVE_POOL_SIZE: "5"
       RESERVE_POOL_TIMEOUT: "3"
       SERVER_IDLE_TIMEOUT: "300"
-      AUTH_TYPE: trust
+      AUTH_TYPE: plain
     ports:
       - "127.0.0.1:6432:5432"
 
