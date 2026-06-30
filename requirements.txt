@@ -16,3 +16,5 @@ reportlab
 openpyxl
 redis>=5.0.0
 
+slowapi
+arq

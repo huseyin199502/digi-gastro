@@ -210,6 +210,35 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="digi-gastro High-End Gastronomy OS")
 
+# ── Rate Limiting per Tenant (Noisy-Neighbor-Schutz) ──
+# slowapi: Verhindert dass ein einzelner Tenant alle Ressourcen verbraucht.
+# Key = Tenant-Slug + IP → Limit gilt pro Tenant, nicht global.
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    
+    def _tenant_key_func(request: Request):
+        """Rate-Limit-Key = tenant_slug + IP. 
+        Schützt vor Noisy-Neighbor: ein Tenant kann nicht alle anderen verlangsamen."""
+        # Extract slug from path or cookie
+        slug = "global"
+        path = request.url.path
+        if path.startswith("/"):
+            parts = path.strip("/").split("/")
+            if parts and parts[0] and not parts[0].startswith("api") and not parts[0].startswith("admin"):
+                slug = parts[0]
+        return f"{slug}:{get_remote_address(request)}"
+    
+    limiter = Limiter(key_func=_tenant_key_func, storage_uri="redis://redis:6379/1")
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    print("[Rate Limiting] slowapi aktiviert (Redis-backed, per-Tenant)")
+except ImportError:
+    print("[Rate Limiting] slowapi nicht installiert — Rate-Limiting deaktiviert")
+except Exception as e:
+    print(f"[Rate Limiting] slowapi Setup fehlgeschlagen: {e}")
+
 # Setup Jinja2 Templates
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -1297,6 +1326,67 @@ def unwrap_live_data(val):
     elif isinstance(val, dict):
         return {k: unwrap_live_data(v) for k, v in val.items()}
     return val
+
+def append_order_to_db(slug: str, order_data: dict, session):
+    """Performance-Optimiert: Fügt eine neue Bestellung direkt per INSERT hinzu,
+    OHNE das gesamte Restaurant laden/speichern zu müssen.
+    
+    VORHER (save_restaurant_to_db): Lädt ALLE Bestellungen, Produkte, Events etc.
+    aus der DB → modifiziert den Dict → schreibt ALLES zurück. Bei 10k+ Bestellungen
+    dauert das mehrere Sekunden pro Bestellung.
+    
+    JETZT (append_order_to_db): Ein einzelner INSERT für die Order + BATCH INSERT
+    für OrderItems. O(1) statt O(n) — skaliert auf 1M+ Bestellungen.
+    
+    Wird nur für NEUE Bestellungen verwendet. Updates (serve, cancel, pay) nutzen
+    weiterhin save_restaurant_to_db bis sie schrittweise refactored werden."""
+    from database import Order as DBOrder, OrderItem as DBOrderItem
+    
+    # Create the order record
+    db_order = DBOrder(
+        tenant_slug=slug,
+        table=order_data.get("table", ""),
+        total=order_data.get("total", 0.0),
+        original_total=order_data.get("original_total", order_data.get("total", 0.0)),
+        total_with_tip=order_data.get("total_with_tip", 0.0),
+        tip_amount=order_data.get("tip_amount", 0.0),
+        status=order_data.get("status", "eingang"),
+        timestamp=order_data.get("timestamp", ""),
+        mwst_rate=order_data.get("mwst_rate", 19),
+        waiter_id=order_data.get("waiter_id"),
+    )
+    session.add(db_order)
+    session.flush()  # Get the auto-generated ID without committing
+    
+    order_id = db_order.id
+    order_data["id"] = order_id  # Update the dict so caller has the ID
+    
+    # Batch insert order items
+    for item in order_data.get("items", []):
+        db_item = DBOrderItem(
+            order_id=order_id,
+            tenant_slug=slug,  # Multi-Tenant: tenant_slug auf child table
+            product_id=item.get("product_id", 0),
+            name=item.get("name", ""),
+            price=item.get("price", 0.0),
+            quantity=item.get("quantity", 1),
+            category_type=item.get("category_type", "küche"),
+            note=item.get("note"),
+            item_status=item.get("item_status", "pending"),
+        )
+        session.add(db_item)
+    
+    return order_id
+
+
+def update_order_status_in_db(order_id: int, status: str, session):
+    """Performance-Optimiert: Aktualisiert nur den Status einer Bestellung,
+    OHNE das gesamte Restaurant zu laden/speichern.
+    
+    Für Serve/Pay/Cancel-Operationen die nur den Status ändern."""
+    from database import Order as DBOrder
+    session.query(DBOrder).filter_by(id=order_id).update({"status": status})
+
 
 def save_restaurant_to_db(slug: str, r: dict, session):
     tenant = session.query(Tenant).filter_by(slug=slug).first()
@@ -5132,7 +5222,9 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     
     restaurant["orders"].append(new_order)
     try:
-        save_restaurant_to_db(slug, restaurant, db)
+        # PERFORMANCE: append_order_to_db statt save_restaurant_to_db
+        # Nur 1 INSERT + N Item-INSERTs statt Full-Load-Save (O(1) statt O(n))
+        append_order_to_db(slug, new_order, db)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -12304,19 +12396,34 @@ class ServePayload(BaseModel):
     order_id: int
     item_key: Optional[str] = None
 
-# In-memory dedup cache: prevents double-processing of the same serve request within 5 seconds
+# In-memory dedup cache: Fallback für Single-Worker. Bei Multi-Worker wird Redis verwendet.
 _serve_dedup_cache: Dict[str, float] = {}
 _SERVE_DEDUP_TTL = 5.0  # seconds — matches frontend serve lock duration
 
 def _check_serve_dedup(order_id: int, item_key: Optional[str]) -> bool:
-    """Return True if this request is a duplicate (should be skipped)."""
+    """Return True if this request is a duplicate (should be skipped).
+    
+    Multi-Worker-safe: Verwendet Redis SET NX EX wenn verfügbar (cross-worker).
+    Fallback: In-Memory Dict für Single-Worker oder Redis-Ausfall."""
     key = f"{order_id}:{item_key or 'all'}"
+    redis_key = f"serve_dedup:{key}"
+    
+    # Try Redis first (cross-worker safe)
+    if redis_client is not None:
+        try:
+            result = redis_client.set(redis_key, "1", nx=True, ex=int(_SERVE_DEDUP_TTL))
+            if result is None:
+                # Key already exists = duplicate
+                return True
+            return False  # Not a duplicate, we acquired the lock
+        except Exception:
+            pass  # Redis error → fallback to in-memory
+    
+    # In-Memory fallback (single-worker only)
     now = time.time()
-    # Clean up old entries
     expired = [k for k, t in _serve_dedup_cache.items() if now - t > _SERVE_DEDUP_TTL * 2]
     for k in expired:
         del _serve_dedup_cache[k]
-    # Check if recent
     if key in _serve_dedup_cache and now - _serve_dedup_cache[key] < _SERVE_DEDUP_TTL:
         return True  # duplicate
     _serve_dedup_cache[key] = now
