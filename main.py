@@ -3041,6 +3041,7 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
                 <span>{orders_label}</span>
               </button>
             </form>
+            {'<form method="POST" action="/digi-gastro-admin/tenant-complete-setup/' + html_escape(t.slug) + '" class="inline"><button type="submit" class="tenant-btn btn-toggle-on" title="Setup abschließen"><span class="material-symbols-outlined" style="font-size:14px;">check_circle</span><span>Setup abschließen</span></button></form>' if not t.is_setup_completed else ''}
             <a href="/{t.slug}/admin" target="_blank" class="tenant-btn btn-open" title="Restaurant Dashboard öffnen">
               <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span>
             </a>
@@ -4307,7 +4308,21 @@ def post_tenant_orders_toggle(request: Request, slug_key: str, db: Session = Dep
 
 
 # ════════════════════════════════════════════════════════════════════
-# SUPER-ADMIN GOTTMODUS: Tenant-Umsatz manipulieren
+# SUPER-ADMIN: Tenant Setup abschließen (für Tenants die direkt ins Dashboard sollen)
+# ════════════════════════════════════════════════════════════════════
+@app.post("/digi-gastro-admin/tenant-complete-setup/{slug_key}")
+def post_tenant_complete_setup(request: Request, slug_key: str, db: Session = Depends(get_db)):
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        tenant.is_setup_completed = True
+        db.commit()
+
+    return RedirectResponse(url="/digi-gastro-admin", status_code=303)
 # ════════════════════════════════════════════════════════════════════
 # Erlaubt admin@digi-gastro.de den Tagesumsatz eines Tenants manuell
 # anzupassen (positiv = hinzufügen, negativ = abziehen).
