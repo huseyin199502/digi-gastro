@@ -9056,6 +9056,48 @@
             startFallbackPolling();
         }
 
+        // ── PWA VISIBILITY CHANGE: Sofortiger Reconnect bei App-Wiederöffnung ──
+        // KRITISCH für iOS Safari PWA: Wenn die App in den Hintergrund geht (Bildschirm
+        // aus, App gewechselt), suspendiert iOS das JavaScript. WebSocket trennt sich,
+        // setInterval/setTimeout stoppen. Beim Wiederöffnen feuert visibilitychange.
+        //
+        // Ohne diesen Handler: WS bleibt zu, Exponential-Backoff braucht 5-30s zum
+        // Reconnect. In dieser Zeit kommen Bestellungen an die der Kellner nicht sieht.
+        //
+        // Mit diesem Handler: Sofortiger WS-Reconnect + State-Hole + Sound-Nachspiel
+        // für verpasste Bestellungen. Kellner sieht alles in <1s nach App-Öffnung.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('[PWA] Page hidden — JS will be suspended');
+                return;
+            }
+            console.log('[PWA] Page became visible — reconnecting WebSocket immediately');
+            wsRetryCount = 0;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                connectWebSocket();
+            }
+            checkLiveTischeUpdates();
+            if (initialDone) {
+                catchUpMissedAlerts();
+            }
+        });
+
+        // ── PAGESHOW: bfcache Handler ──
+        // Browser Back/Forward Cache: WS ist tot nach bfcache-Wiederherstellung
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                console.log('[PWA] Page restored from bfcache — reconnecting WebSocket');
+                wsRetryCount = 0;
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    connectWebSocket();
+                }
+                checkLiveTischeUpdates();
+                if (initialDone) {
+                    catchUpMissedAlerts();
+                }
+            }
+        });
+
         function checkLiveTischeUpdates() {
             return fetch(`/api/tablet-status`)
                 .then(res => {
