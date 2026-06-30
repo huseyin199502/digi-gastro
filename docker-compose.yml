@@ -1,11 +1,9 @@
 # ──────────────────────────────────────────────────────────────────
 # digi-gastro – Production Docker Stack (Coolify-compatible)
-# Skaliert für 100+ Tenants / 5000+ Gäste
 # ──────────────────────────────────────────────────────────────────
 
 services:
 
-  # ── PostgreSQL database ────────────────────────────────────────
   db:
     image: postgres:16-alpine
     container_name: digi_gastro_db
@@ -18,7 +16,7 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     command: >
       postgres
-      -c max_connections=200
+      -c max_connections=400
       -c shared_buffers=256MB
       -c work_mem=4MB
       -c effective_cache_size=512MB
@@ -50,33 +48,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # ── PgBouncer: Connection Pooling ──────────────────────────────
-  # Multiplexed 1000 Client-Conns auf 50 DB-Conns (Transaction-Pooling)
-  pgbouncer:
-    image: edoburu/pgbouncer:latest
-    container_name: digi_gastro_pgbouncer
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: gastro_user
-      DB_PASSWORD: gastro_secret
-      DB_NAME: digi_gastro
-      POOL_MODE: transaction
-      MAX_CLIENT_CONN: 1000
-      DEFAULT_POOL_SIZE: 50
-      MIN_POOL_SIZE: 10
-      RESERVE_POOL_SIZE: 5
-      RESERVE_POOL_TIMEOUT: 3
-      SERVER_IDLE_TIMEOUT: 300
-      AUTH_TYPE: trust
-    ports:
-      - "127.0.0.1:6432:5432"
-
-  # ── FastAPI application (4 Workers) ────────────────────────────
   web:
     build:
       context: .
@@ -86,12 +57,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      pgbouncer:
-        condition: service_started
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
+      DATABASE_URL: postgresql://gastro_user:gastro_secret@db:5432/digi_gastro
       UPLOAD_DIR: /app/data/uploads
       PYTHONUNBUFFERED: "1"
       PORT: "8000"
@@ -111,31 +80,6 @@ services:
       retries: 3
       start_period: 30s
 
-  # ── Arq Background Worker ──────────────────────────────────────
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: digi_gastro_worker
-    restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_started
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
-      REDIS_URL: redis://redis:6379/0
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      TZ: Europe/Berlin
-    volumes:
-      - uploads:/app/data:ro
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    command: ["arq", "worker.WorkerSettings"]
-
-  # ── Redis cache + lock + pub/sub + queue ───────────────────────
   redis:
     image: redis:7-alpine
     container_name: digi_gastro_redis
