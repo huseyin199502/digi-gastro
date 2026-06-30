@@ -1263,6 +1263,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "logo_path": get_webp_path(tenant.logo_path),
         "has_kitchen": tenant.has_kitchen,
         "is_shishabar": tenant.is_shishabar,
+        "orders_enabled": tenant.orders_enabled if tenant.orders_enabled is not None else True,
         "impressum_content": tenant.impressum_content,
         "datenschutz_content": tenant.datenschutz_content,
         "security_token": tenant.security_token,
@@ -1402,6 +1403,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.logo_path = r.get("logo_path", None)
     tenant.has_kitchen = r.get("has_kitchen", False)
     tenant.is_shishabar = r.get("is_shishabar", False)
+    tenant.orders_enabled = r.get("orders_enabled", True)
     tenant.impressum_content = r.get("impressum_content", "")
     tenant.datenschutz_content = r.get("datenschutz_content", "")
     tenant.security_token = r.get("security_token", "")
@@ -2931,6 +2933,10 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         status_dot = "bg-emerald-500" if is_active else "bg-red-500"
         toggle_label = "Deaktivieren" if is_active else "Aktivieren"
         toggle_class = "btn-toggle-off" if is_active else "btn-toggle-on"
+        orders_on = t.orders_enabled if t.orders_enabled is not None else True
+        orders_label = "Bestellungen stoppen" if orders_on else "Bestellungen aktivieren"
+        orders_class = "btn-toggle-off" if orders_on else "btn-toggle-on"
+        orders_icon = "shopping_cart" if orders_on else "remove_shopping_cart"
         
         tenant_cards += f"""
         <div class="tenant-card {status_class}">
@@ -3023,10 +3029,16 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
                 <span>Passwort Reset</span>
               </button>
             </form>
-            <form method="POST" action="/digi-gastro-admin/tenant-toggle/{t.slug}" class="inline">
+            <form method="POST" action="/digi-gastro-admin/tenant-toggle/{html_escape(t.slug)}" class="inline">
               <button type="submit" class="tenant-btn {toggle_class}" title="{toggle_label}">
                 <span class="material-symbols-outlined" style="font-size:14px;">{'power_settings_new' if is_active else 'play_arrow'}</span>
                 <span>{toggle_label}</span>
+              </button>
+            </form>
+            <form method="POST" action="/digi-gastro-admin/tenant-orders-toggle/{html_escape(t.slug)}" class="inline">
+              <button type="submit" class="tenant-btn {orders_class}" title="{orders_label}">
+                <span class="material-symbols-outlined" style="font-size:14px;">{orders_icon}</span>
+                <span>{orders_label}</span>
               </button>
             </form>
             <a href="/{t.slug}/admin" target="_blank" class="tenant-btn btn-open" title="Restaurant Dashboard öffnen">
@@ -4273,6 +4285,28 @@ def post_tenant_toggle(request: Request, slug_key: str, db: Session = Depends(ge
 
 
 # ════════════════════════════════════════════════════════════════════
+# SUPER-ADMIN: Bestellungen aktivieren/deaktivieren pro Tenant
+# ════════════════════════════════════════════════════════════════════
+# orders_enabled = True  → Gäste können bestellen (Standard)
+# orders_enabled = False → Gäste sehen nur die Speisekarte, kein Bestell-Button
+# Der Schieberegler wird im Super-Admin Dashboard pro Tenant angezeigt.
+# ════════════════════════════════════════════════════════════════════
+@app.post("/digi-gastro-admin/tenant-orders-toggle/{slug_key}")
+def post_tenant_orders_toggle(request: Request, slug_key: str, db: Session = Depends(get_db)):
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        tenant.orders_enabled = not tenant.orders_enabled
+        db.commit()
+
+    return RedirectResponse(url="/digi-gastro-admin", status_code=303)
+
+
+# ════════════════════════════════════════════════════════════════════
 # SUPER-ADMIN GOTTMODUS: Tenant-Umsatz manipulieren
 # ════════════════════════════════════════════════════════════════════
 # Erlaubt admin@digi-gastro.de den Tagesumsatz eines Tenants manuell
@@ -4902,6 +4936,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "reset_session": reset_session,
             "tisch_name": tisch_name,
             "role": role,
+            "orders_enabled": restaurant.get("orders_enabled", True),
             "hh_active_global": any_event_active,
             "active_events": active_events_info,
             "today_combo_events": today_events_info,
@@ -4942,6 +4977,10 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
 @tenant_lock
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
+    
+    # Super-Admin Toggle: orders_enabled = False → Bestellungen blockiert
+    if not restaurant.get("orders_enabled", True):
+        raise HTTPException(status_code=403, detail="Bestellungen derzeit nicht verfügbar.")
     
     # ── FIX 5: Serverseitige Validierung gegen leere Bestellungen ──
     # Verhindert, dass durch schnelles Mehrfachklicken (Debounce-Race) oder
@@ -12916,9 +12955,12 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
     user, slug = res
     if user["role"] not in ["chef", "kellner"]:
         raise HTTPException(status_code=403, detail="Kein Zugriff.")
-        
-    restaurant = get_restaurant_or_raise(slug, db)
     
+    restaurant = get_restaurant_or_raise(slug, db)
+    # Super-Admin Toggle: orders_enabled = False → Auch Kellner kann nicht bestellen
+    if not restaurant.get("orders_enabled", True):
+        raise HTTPException(status_code=403, detail="Bestellungen derzeit nicht verfügbar.")
+        
     # 1. Find product
     product = next((p for p in restaurant.get("products", []) if p["id"] == payload.product_id), None)
     if not product:

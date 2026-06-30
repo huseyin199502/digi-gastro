@@ -83,6 +83,7 @@ class Tenant(Base):
     is_setup_completed = Column(Boolean, default=False)
     has_kitchen = Column(Boolean, default=False)
     is_shishabar = Column(Boolean, default=False)
+    orders_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Nur Speisekarte (keine Bestellungen)
     impressum_content = Column(Text, default="")
     datenschutz_content = Column(Text, default="")
     security_token = Column(String, default="")
@@ -404,6 +405,8 @@ def _migrate_database():
     add_column_if_missing('tenants', 'pos_api_secret', "TEXT DEFAULT ''")
     add_column_if_missing('tenants', 'pos_location_id', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'pos_active', "BOOLEAN DEFAULT FALSE")
+    # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
+    add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
 
     # ── Bug-Fix: Existierende NULL-Werte in price_mode auf 'brutto' setzen.
     # Früher konnten NULL-Werte entstehen (kein server_default, save-Pfad nicht

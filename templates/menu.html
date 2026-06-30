@@ -889,10 +889,12 @@
                                     {% endif %}
                                 </div>
                                 
-                                {% if is_avail %}
+                                {% if is_avail and orders_enabled %}
                                 <button onclick="addToCart({{ product.id }}, '{{ product.name | replace("'", "\\'") }}', '{{ (product.name_en or product.name) | replace("'", "\\'") }}', {{ product.display_price }}, '{{ product.category_type }}', this)" class="w-11 h-11 rounded-full bg-primary text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/10">
                                     <span class="material-symbols-outlined font-black text-lg">add</span>
                                 </button>
+                                {% elif is_avail and not orders_enabled %}
+                                <!-- orders_enabled=False: Bestell-Button ausgeblendet, kein Hinweis -->
                                 {% else %}
                                 <button disabled class="w-11 h-11 rounded-full bg-surface-container-high text-on-surface-variant/20 flex items-center justify-center cursor-not-allowed">
                                     <span class="material-symbols-outlined text-lg">block</span>
@@ -922,7 +924,7 @@
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
     <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
-    <div id="cart-floating-bar" x-show="role !== 'admin'" class="fixed bottom-[3.5rem] sm:bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300"
+    <div id="cart-floating-bar" x-show="role !== 'admin' && orders_enabled" class="fixed bottom-[3.5rem] sm:bottom-[3.5rem] left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40 bg-surface/90 backdrop-blur-xl border border-outline-variant shadow-2xl rounded-2xl p-2 flex items-center justify-between transition-all duration-300"
          style="bottom: calc(3.5rem + env(safe-area-inset-bottom));">
         <!-- Left Side: Thumb-Zone Service & Payment Callers -->
         <div class="flex items-center gap-2">
@@ -1614,6 +1616,7 @@
                 currentPaymentSubtotal: 0,
                 translations: translations,
                 role: new URLSearchParams(window.location.search).get('role') || '',
+                orders_enabled: {{ orders_enabled | tojson if orders_enabled is defined else 'true' }},
                 tableOrders: { pending: [], delivered: [], total: 0.0 },
                 selectedSplitItems: [],
                 isDrawerOpen: true,
