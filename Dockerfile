@@ -52,4 +52,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 2"]
+# Multi-Worker: WORKERS env var (default 4 für 100+ Tenants / 5000+ Gäste)
+# Vorher: --workers 2 (hartcodiert)
+# Jetzt: --workers ${WORKERS:-4} (konfigurierbar via docker-compose env)
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS:-4}"]
