@@ -206,7 +206,7 @@ def get_webp_path(original_path: str) -> str:
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="digi-gastro High-End Gastronomy OS")
 
@@ -2851,7 +2851,7 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
             <div class="tenant-avatar">{html_escape((t.name or t.slug)[:2].upper())}</div>
             <div class="tenant-info">
               <form method="POST" action="/digi-gastro-admin/tenant-edit-name/{html_escape(t.slug)}" class="tenant-name-form">
-                <input type="text" name="name" value="{html_escape(t.name or t.slug, quote=True)}" class="tenant-name-input" />
+                <input type="text" name="name" value="{html_escape(t.name or t.slug)}" class="tenant-name-input" />
                 <button type="submit" class="tenant-name-save" title="Name speichern">
                   <span class="material-symbols-outlined" style="font-size:14px;">save</span>
                 </button>
