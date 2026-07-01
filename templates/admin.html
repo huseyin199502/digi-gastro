@@ -5661,7 +5661,7 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="form-label">Verantwortlicher / Inhaber (Name)</label>
-                                    <input type="text" name="owner_name" value="{{ restaurant.owner_name if restaurant.owner_name else '' }}" placeholder="z.B. Ahmet Yilmaz" class="form-field">
+                                    <input type="text" name="owner_name" value="{{ restaurant.owner_name if restaurant.owner_name else '' }}" placeholder="z.B. Max Mustermann" class="form-field">
                                 </div>
                                 <div>
                                     <label class="form-label">Straße &amp; Hausnummer</label>
@@ -5679,14 +5679,9 @@
                                 </div>
                             </div>
 
-                            <div class="flex gap-2 items-center">
-                                <button type="submit" class="btn-primary flex-1 flex items-center justify-center gap-1.5">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">save</span> Speichern
-                                </button>
-                                <a href="/{{ restaurant.slug }}" target="_blank" class="btn-secondary px-4 flex items-center gap-1.5 text-xs">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Zur Speisekarte
-                                </a>
-                            </div>
+                            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined" style="font-size:14px;">save</span> Speichern
+                            </button>
                         </form>
                     </div>
                 </div>
