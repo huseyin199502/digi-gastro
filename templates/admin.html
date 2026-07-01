@@ -11911,6 +11911,17 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         async function quickCreateProduct(createAndNext = false) {
             const form = document.getElementById('quick-create-form');
             const formData = new FormData(form);
+            // Client-seitige Vorab-Validierung: Name + Preis Pflicht
+            const name = (formData.get('name') || '').toString().trim();
+            const preis = (formData.get('preis') || '').toString().trim();
+            if (!name) {
+                showToast('Bitte Produkt-Name eingeben', 'error');
+                return;
+            }
+            if (!preis) {
+                showToast('Bitte Preis eingeben (z.B. 3.50 oder 3,50)', 'error');
+                return;
+            }
             try {
                 const response = await fetch('/admin/produkt-erstellen', {
                     method: 'POST',
@@ -11926,7 +11937,13 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     }
                     refreshProductsUI();
                 } else {
-                    showToast('Fehler beim Erstellen des Produkts', 'error');
+                    // Freundliche Fehlermeldung aus Backend detail extrahieren
+                    let detail = 'Fehler beim Erstellen des Produkts';
+                    try {
+                        const err = await response.json();
+                        if (err.detail) detail = err.detail;
+                    } catch (_) {}
+                    showToast(detail, 'error');
                 }
             } catch (err) {
                 showToast('Verbindungsfehler', 'error');

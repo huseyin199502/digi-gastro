@@ -7856,8 +7856,8 @@ async def import_products_csv(
 async def post_produkt_erstellen(
     request: Request,
     name: str = Form(...),
-    preis: float = Form(...),
-    kategorie: str = Form(...),
+    preis: Optional[str] = Form(""),  # str statt float — wir parsen selbst (komma→punkt)
+    kategorie: Optional[str] = Form(""),  # Optional statt required (Tenant kann leer-Kategorien haben)
     category_type: Optional[str] = Form(""),
     description: Optional[str] = Form(""),
     name_en: Optional[str] = Form(""),
@@ -7872,13 +7872,38 @@ async def post_produkt_erstellen(
 ):
     user, slug, restaurant = chef_data
 
-    # Validate price
-    if preis < 0 or preis > 99999:
+    # ── Robuste Preis-Validierung — akzeptiert "3.50" und "3,50" ──
+    # Vorher: Pydantic float = Form(...) gab 422 bei Komma-Eingabe (deutsche Tastatur)
+    # Jetzt: Selbst parsen mit freundlicher Fehlermeldung.
+    preis_clean = (preis or "").strip()
+    if not preis_clean:
+        raise HTTPException(status_code=400, detail="Bitte gib einen Preis ein.")
+    # Komma → Punkt (deutsche Eingabe)
+    preis_clean = preis_clean.replace(",", ".")
+    # Falls mehrere Punkte (z.B. "3.500.00") → ungültig
+    try:
+        preis_val = float(preis_clean)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"Ungültiger Preis '{preis}'. Bitte im Format 3.50 oder 3,50 eingeben.")
+
+    # Validate price range
+    if preis_val < 0 or preis_val > 99999:
         raise HTTPException(status_code=400, detail="Ungültiger Preis. Der Preis muss zwischen 0 und 99.999 € liegen.")
 
-    cat_name = kategorie.strip()
-    if cat_name and cat_name not in restaurant["categories"]:
-        restaurant["categories"].append(cat_name)
+    preis = preis_val  # ab hier ist preis ein float
+
+    # ── Kategorie-Fallback: falls leer oder nicht in Restaurant-Kategorien ──
+    # Vorher: kategorie: str = Form(...) gab 422 wenn Tenant keine Kategorien hatte
+    # (leeres <select> schickt keinen Wert) oder wenn User Kategorie-Feld leerte.
+    cat_name = (kategorie or "").strip()
+    if not cat_name:
+        # Auto-Fallback: erst Kategorie aus Restaurant-Kategorien, sonst "Sonstiges"
+        if restaurant.get("categories"):
+            cat_name = restaurant["categories"][0]
+        else:
+            cat_name = "Sonstiges"
+    if cat_name not in restaurant.get("categories", []):
+        restaurant.setdefault("categories", []).append(cat_name)
 
     # Generate ID
     new_id = 1
