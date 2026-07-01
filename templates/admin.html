@@ -7551,8 +7551,18 @@
                 </tr>
             `).join('');
 
-            const mwst = bon.total * (bon.mwst_rate || 19) / 100;
-            const net = bon.total - mwst;
+            const mwstRate = (bon.mwst_rate || 19) / 100;
+            // Bei brutto: MwSt ist im Preis enthalten → mwst = total - (total / (1+rate))
+            // Bei netto: Keine MwSt im Preis → nicht anzeigen
+            const isBrutto = (typeof PRICE_MODE !== 'undefined' && PRICE_MODE !== 'netto');
+            let mwstHtml = '';
+            if (isBrutto) {
+                const mwst = bon.total - (bon.total / (1 + mwstRate));
+                const net = bon.total - mwst;
+                mwstHtml = `
+<div class="mwst">Netto: ${net.toFixed(2).replace('.', ',')} &euro;</div>
+<div class="mwst">MwSt (${bon.mwst_rate || 19}%): ${mwst.toFixed(2).replace('.', ',')} &euro;</div>`;
+            }
 
             const html = `<!DOCTYPE html>
 <html>
@@ -7588,8 +7598,7 @@ td { font-size: 11px; padding: 1px 0; }
 <div class="divider"></div>
 <table>${itemsHtml}</table>
 <div class="divider"></div>
-<div class="mwst">Netto: ${net.toFixed(2).replace('.', ',')} &euro;</div>
-<div class="mwst">MwSt (${bon.mwst_rate || 19}%): ${mwst.toFixed(2).replace('.', ',')} &euro;</div>
+${mwstHtml}
 <div class="total"><span>Gesamt:</span><span>${bon.total.toFixed(2).replace('.', ',')} &euro;</span></div>
 ${bon.tip_amount > 0 ? '<div class="total"><span>Trinkgeld:</span><span>' + bon.tip_amount.toFixed(2).replace('.', ',') + ' &euro;</span></div>' : ''}
 ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:center;font-weight:bold;">BEZAHLT</div>' : ''}
