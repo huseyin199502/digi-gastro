@@ -643,6 +643,21 @@ def tenant_lock(func):
                     slug = arg.path_params.get("slug")
                     if slug:
                         break
+        if not slug and request_obj is not None:
+            # ── Cookie-Fallback für /admin/* Endpoints ohne {slug} im Pfad ──
+            # Z.B. /admin/orders/serve, /admin/orders/split-pay — diese Endpoints
+            # holen sich den Slug aus dem Auth-Context via get_current_user_and_slug().
+            # Hier extrahieren wir ihn analog aus dem Session-Cookie, damit der
+            # tenant_lock-Decorator die Sperre korrekt pro Tenant setzen kann.
+            # Cookie-Format: "slug:cookie_name:cookie_role:cookie_pin"
+            session_cookie = request_obj.cookies.get("session")
+            if session_cookie:
+                try:
+                    parts = session_cookie.split(":", 3)
+                    if len(parts) == 4:
+                        slug = parts[0].lower().strip()
+                except Exception:
+                    pass
         if not slug:
             # SECURITY: fail-loud statt silent fallback — wenn slug nicht extrahiert
             # werden kann, ist etwas kaputt und wir sollten NICHT ohne Lock laufen
