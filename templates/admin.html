@@ -8742,6 +8742,38 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         let _cancelItemDirectInProgress = false;
         let _executeItemActionInProgress = false;
 
+        // ── Hilfsfunktion: Optimistic Cancel für lokales allOrders ──
+        // Spiegelt die serveControlItem-Logik wider — findet das Item per
+        // composite key und dekrementiert/entfernt es. Wird VOR dem fetch
+        // ausgeführt, damit der Kellner sofortiges Feedback sieht.
+        function _applyOptimisticCancel(orderId, itemKey, qty) {
+            allOrders.forEach(o => {
+                if (o.id !== orderId || !o.items) return;
+                const parts = itemKey.split('_');
+                if (parts.length >= 4 && parts[parts.length - 1].match(/^\d+$/)) parts.pop();
+                if (parts.length >= 2 && parts[0] === String(orderId)) parts.shift();
+                const cleanKey = parts.join('_');
+                const matchedItem = o.items.find(i => {
+                    const noteSlug = (i.note || '').replace(/\s+/g, '_');
+                    const status = i.item_status || 'pending';
+                    return `${i.product_id}_${noteSlug}_${status}` === cleanKey;
+                });
+                if (!matchedItem) return;
+                matchedItem.quantity = Math.max(0, matchedItem.quantity - qty);
+                if (matchedItem.quantity <= 0) {
+                    o.items = o.items.filter(i => i !== matchedItem);
+                }
+                // Order-Total neu berechnen (damit UI-Summen stimmen)
+                o.total = (o.items || []).reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
+                o.total = Math.round(o.total * 100) / 100;
+                if (o.total_with_tip !== undefined) o.total_with_tip = o.total;
+                // Wenn keine Items mehr: Status auf 'storniert' setzen (UI schließt Popup)
+                if (!o.items || o.items.length === 0) {
+                    o.status = 'storniert';
+                }
+            });
+        }
+
         async function cancelControlItem(itemKey, orderId, maxQty, itemName) {
             // Race Condition Schutz
             if (_cancelControlInProgress) return;
@@ -8759,33 +8791,33 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 }
             }
 
-            try {
-                const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ item_key: itemKey, quantity: qty })
-                });
-                if (res.ok) {
-                    showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
-                    await checkLiveTischeUpdates();
-                    if (controlModalActiveTableNum) refreshControlModal();
-                } else if (res.status === 404 || res.status === 400) {
-                    showToast(`✅ ${itemName} wurde bereits storniert`, 'success');
-                    // Item sofort aus DOM entfernen — nicht auf Server-Refresh warten
-                    const itemEl = document.querySelector(`[data-item-key="${itemKey}"]`) ||
-                                   document.querySelector(`[onclick*="${itemKey}"]`)?.closest('.control-item, .item-card, tr, div');
-                    if (itemEl) itemEl.remove();
-                    await checkLiveTischeUpdates();
-                    if (controlModalActiveTableNum) refreshControlModal();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    showToast(err.detail || 'Fehler beim Stornieren', 'error');
+            // ── Optimistic Update: SOFORT ausführen (vor fetch) ──
+            // Gleiche Pattern wie serveControlItem — Kellner sieht sofortiges
+            // Feedback, fetch läuft im Hintergrund. Vorher: await fetch +
+            // await checkLiveTischeUpdates + refreshControlModal = 2-4 s blockiert.
+            _applyOptimisticCancel(orderId, itemKey, qty);
+            showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
+            if (controlModalActiveTableNum) refreshControlModal();
+
+            // ── Lock SOFORT freigeben (nach optimistic update) ──
+            _cancelControlInProgress = false;
+
+            // ── Fetch im Hintergrund (fire-and-forget) ──
+            // Fehler werden nur geloggt — bei Diskrepanz sync via checkLiveTischeUpdates.
+            fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ item_key: itemKey, quantity: qty })
+            }).then(res => {
+                if (!res.ok && res.status !== 404 && res.status !== 400) {
+                    // Nur bei echten Fehlern (nicht 404/400 = idempotent) resyncen.
+                    console.warn('[Cancel] Server error for order', orderId);
+                    checkLiveTischeUpdates();
                 }
-            } catch (e) {
-                showToast('Verbindungsfehler', 'error');
-            } finally {
-                _cancelControlInProgress = false;
-            }
+            }).catch(err => {
+                console.warn('[Cancel] Network error:', err);
+                checkLiveTischeUpdates();
+            });
         }
 
         async function submitControlSplitPayment() {
@@ -10740,24 +10772,40 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 }
             }
             _cancelItemDirectInProgress = true;
-            try {
-                const res = await fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ item_key: itemKey, quantity: qty })
-                });
-                if (res.ok) {
-                    showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
-                    checkLiveTischeUpdates();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    showToast(err.detail || 'Fehler beim Stornieren', 'error');
-                }
-            } catch (e) {
-                showToast('Verbindungsfehler', 'error');
-            } finally {
-                _cancelItemDirectInProgress = false;
+
+            // ── Optimistic Update: SOFORT ausführen (vor fetch) ──
+            // Gleiche Pattern wie cancelControlItem — Kellner sieht sofortiges
+            // Feedback, fetch läuft im Hintergrund. Vorher: await fetch +
+            // checkLiveTischeUpdates = 2-4 s blockiert.
+            _applyOptimisticCancel(orderId, itemKey, qty);
+            showToast(`✅ ${qty}x ${itemName} storniert`, 'success');
+
+            // Order-Popup neu rendern oder schließen, falls leer
+            const updatedOrder = allOrders.find(o => o.id === orderId);
+            if (updatedOrder && updatedOrder.items && updatedOrder.items.length > 0
+                && updatedOrder.status !== 'storniert' && updatedOrder.status !== 'bezahlt') {
+                renderPopup(updatedOrder);
+            } else {
+                closePopup();
             }
+
+            // ── Lock SOFORT freigeben (nach optimistic update) ──
+            _cancelItemDirectInProgress = false;
+
+            // ── Fetch im Hintergrund (fire-and-forget) ──
+            fetch(`/${slug}/tablet/cancel-item/${orderId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ item_key: itemKey, quantity: qty })
+            }).then(res => {
+                if (!res.ok && res.status !== 404 && res.status !== 400) {
+                    console.warn('[Cancel-Direct] Server error for order', orderId);
+                    checkLiveTischeUpdates();
+                }
+            }).catch(err => {
+                console.warn('[Cancel-Direct] Network error:', err);
+                checkLiveTischeUpdates();
+            });
         }
 
         // ── ITEM ACTION MODAL LOGIC ──
@@ -10863,19 +10911,49 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     document.getElementById('item-action-modal').classList.add('hidden');
                     document.getElementById('table-sel-overlay').classList.remove('hidden');
                 } else if (action === 'cancel') {
-                    const res = await fetch(`/${slug}/tablet/cancel-item/${activeOrderId}`, {
+                    // ── Werte VOR dem Clear erfassen (für fire-and-forget fetch) ──
+                    const _cancelOrderId = activeOrderId;
+                    const _cancelKey = activeItemActionKey;
+                    const _cancelQty = activeItemActionQty;
+                    const _cancelName = activeItemActionName;
+
+                    // ── Optimistic Update: SOFORT ausführen (vor fetch) ──
+                    // Gleiche Pattern wie cancelControlItem/cancelItemDirect.
+                    // Vorher: await fetch = 1-3 s blockiert.
+                    _applyOptimisticCancel(_cancelOrderId, _cancelKey, _cancelQty);
+                    showToast(`✅ ${_cancelQty}x ${_cancelName} storniert`, 'success');
+
+                    // Modal-State + Parent-Popup schließen
+                    document.getElementById('item-action-modal').classList.add('hidden');
+                    activeItemActionKey = null;
+                    activeItemActionMaxQty = 1;
+                    activeItemActionQty = 1;
+                    activeItemActionName = '';
+
+                    const updatedOrder = allOrders.find(o => o.id === _cancelOrderId);
+                    if (updatedOrder && updatedOrder.items && updatedOrder.items.length > 0
+                        && updatedOrder.status !== 'storniert' && updatedOrder.status !== 'bezahlt') {
+                        renderPopup(updatedOrder);
+                        const popup = document.getElementById('order-popup');
+                        if (popup) popup.classList.remove('hidden');
+                    } else {
+                        closePopup();
+                    }
+
+                    // ── Fetch im Hintergrund (fire-and-forget) ──
+                    fetch(`/${slug}/tablet/cancel-item/${_cancelOrderId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ item_key: activeItemActionKey, quantity: activeItemActionQty })
-                    });
-                    if (res.ok) {
-                        showToast(`✅ ${activeItemActionQty}x ${activeItemActionName} storniert`, 'success');
-                        closeItemActionModal();
+                        body: JSON.stringify({ item_key: _cancelKey, quantity: _cancelQty })
+                    }).then(res => {
+                        if (!res.ok && res.status !== 404 && res.status !== 400) {
+                            console.warn('[Cancel-Action] Server error for order', _cancelOrderId);
+                            checkLiveTischeUpdates();
+                        }
+                    }).catch(err => {
+                        console.warn('[Cancel-Action] Network error:', err);
                         checkLiveTischeUpdates();
-                    } else {
-                        const err = await res.json().catch(() => ({}));
-                        showToast(err.detail || 'Fehler beim Stornieren', 'error');
-                    }
+                    });
                 }
             } catch (e) {
                 showToast('Verbindungsfehler', 'error');
@@ -11082,34 +11160,45 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             const keys = Object.keys(selectedTeilrechnung);
             if (!keys.length) return;
 
-            try {
-                const bulkItems = keys.map(key => ({
-                    item_key: key,
-                    quantity: selectedTeilrechnung[key]
-                }));
-                const res = await fetch(`/${slug}/tablet/cancel-items-bulk/${activeOrderId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: bulkItems })
-                });
-                if (res.ok) {
-                    showToast('Artikel storniert', 'success');
-                    selectedTeilrechnung = {};
-                    // Re-render popup or close if order is now empty
-                    const updatedOrder = allOrders.find(o => o.id === activeOrderId);
-                    if (updatedOrder && updatedOrder.items && updatedOrder.items.length > 0) {
-                        renderPopup(updatedOrder);
-                    } else {
-                        closePopup();
-                    }
-                    checkLiveTischeUpdates();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    showToast(err.detail || 'Stornierung fehlgeschlagen', 'error');
-                }
-            } catch (e) {
-                showToast('Fehler bei Stornierung', 'error');
+            // ── Werte VOR dem Clear erfassen (für fire-and-forget fetch) ──
+            const teilOrderId = activeOrderId;
+            const bulkItems = keys.map(key => ({
+                item_key: key,
+                quantity: selectedTeilrechnung[key]
+            }));
+            const totalCanceledQty = bulkItems.reduce((s, i) => s + i.quantity, 0);
+
+            // ── Optimistic Update: SOFORT ausführen (vor fetch) ──
+            // Gleiche Pattern wie cancelControlItem — Kellner sieht sofortiges
+            // Feedback, fetch läuft im Hintergrund. Vorher: await fetch +
+            // checkLiveTischeUpdates = 2-4 s blockiert.
+            bulkItems.forEach(bi => _applyOptimisticCancel(teilOrderId, bi.item_key, bi.quantity));
+            showToast(`✅ ${totalCanceledQty}x Artikel storniert`, 'success');
+
+            // Auswahl leeren + UI aktualisieren
+            selectedTeilrechnung = {};
+            const updatedOrder = allOrders.find(o => o.id === teilOrderId);
+            if (updatedOrder && updatedOrder.items && updatedOrder.items.length > 0
+                && updatedOrder.status !== 'storniert' && updatedOrder.status !== 'bezahlt') {
+                renderPopup(updatedOrder);
+            } else {
+                closePopup();
             }
+
+            // ── Fetch im Hintergrund (fire-and-forget) ──
+            fetch(`/${slug}/tablet/cancel-items-bulk/${teilOrderId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: bulkItems })
+            }).then(res => {
+                if (!res.ok && res.status !== 404 && res.status !== 400) {
+                    console.warn('[Cancel-Teil] Server error for order', teilOrderId);
+                    checkLiveTischeUpdates();
+                }
+            }).catch(err => {
+                console.warn('[Cancel-Teil] Network error:', err);
+                checkLiveTischeUpdates();
+            });
         }
 
         // ── WHOLE ORDER ACTIONS ──
