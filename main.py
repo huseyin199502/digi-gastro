@@ -1295,10 +1295,14 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "products": products,
         "orders": orders,
         "staff": staff,
+        "owner_name": getattr(tenant, "owner_name", "") or "",
+        "owner_street": getattr(tenant, "owner_street", "") or "",
         "branding": {
             "address": tenant.address,
             "plz": tenant.plz,
             "ort": tenant.ort,
+            "owner_name": getattr(tenant, "owner_name", "") or "",
+            "owner_street": getattr(tenant, "owner_street", "") or "",
             "indigo": tenant.indigo,
             "instagram": tenant.instagram,
             "facebook": tenant.facebook,
@@ -1439,6 +1443,14 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     tenant.address = branding.get("address", "")
     tenant.plz = branding.get("plz", "")
     tenant.ort = branding.get("ort", "")
+    # Verantwortlicher / Inhaber (für Impressum § 5 TMG)
+    # Branding oder Top-Level (beide unterstützt für Backwards-Compat)
+    _owner_name = r.get("owner_name") or branding.get("owner_name", "")
+    _owner_street = r.get("owner_street") or branding.get("owner_street", "")
+    if hasattr(tenant, 'owner_name'):
+        tenant.owner_name = _owner_name or ""
+    if hasattr(tenant, 'owner_street'):
+        tenant.owner_street = _owner_street or ""
     tenant.indigo = branding.get("indigo", "")
     tenant.instagram = branding.get("instagram", "")
     tenant.facebook = branding.get("facebook", "")
@@ -7485,6 +7497,78 @@ async def profile_update(
             categories.append(cat)
             
     restaurant["categories"] = categories
+
+    try:
+        save_restaurant_to_db(slug, restaurant, db)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    await manager.broadcast_global(slug, {"type": "update"})
+    return RedirectResponse(url="/admin/dashboard", status_code=303)
+
+
+@app.post("/admin/legal-update")
+async def legal_update(
+    request: Request,
+    owner_name: Optional[str] = Form(""),
+    owner_street: Optional[str] = Form(""),
+    impressum_content: Optional[str] = Form(""),
+    datenschutz_content: Optional[str] = Form(""),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Speichert Inhaber-Name, Straße, Impressum & Datenschutz.
+    § 5 TMG: Verantwortlicher + Anschrift Pflicht für Impressum."""
+    user, slug, restaurant = chef_data
+    if not restaurant.get("is_setup_completed", False):
+        return RedirectResponse(url="/admin/setup", status_code=303)
+
+    # Inhaber-Daten auf Top-Level und Branding-Objekt halten (beide Stellen
+    # werden vom Frontend gelesen, so bleibt es robust bei Refactoring).
+    restaurant["owner_name"] = (owner_name or "").strip()
+    restaurant["owner_street"] = (owner_street or "").strip()
+    if "branding" not in restaurant:
+        restaurant["branding"] = {}
+    restaurant["branding"]["owner_name"] = restaurant["owner_name"]
+    restaurant["branding"]["owner_street"] = restaurant["owner_street"]
+
+    # Impressum & Datenschutz — falls leer, Auto-Generierung mit Inhaber-Daten
+    if impressum_content and impressum_content.strip():
+        restaurant["impressum_content"] = impressum_content.strip()
+    else:
+        # Auto-Generate: § 5 TMG konform mit Name + Straße + Adresse
+        _name = restaurant["owner_name"] or user.get("name", "Chef")
+        _street = restaurant["owner_street"] or restaurant.get("branding", {}).get("address", "")
+        _plz_ort = ""
+        b = restaurant.get("branding", {})
+        if b.get("plz") or b.get("ort"):
+            _plz_ort = f"{b.get('plz', '')} {b.get('ort', '')}".strip()
+        addr_line = _street
+        if _plz_ort:
+            addr_line = f"{_street}, {_plz_ort}" if _street else _plz_ort
+        restaurant["impressum_content"] = (
+            f"Impressum\n\n"
+            f"Angaben gemäß § 5 TMG:\n\n"
+            f"{restaurant.get('name', '')}\n"
+            f"Verantwortlich: {_name}\n"
+            f"{addr_line}\n\n"
+            f"Kontakt:\n"
+            f"E-Mail: {restaurant.get('email', '')}\n"
+        )
+
+    if datenschutz_content and datenschutz_content.strip():
+        restaurant["datenschutz_content"] = datenschutz_content.strip()
+    else:
+        restaurant["datenschutz_content"] = (
+            "Datenschutzerklärung\n\n"
+            "Wir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. "
+            "Personenbezogene Daten werden auf dieser digitalen Speisekarte "
+            "nur im technisch notwendigen Umfang (Tischzuordnung und "
+            "Bestellübermittlung) erhoben und verarbeitet.\n\n"
+            "Verantwortlich im Sinne der DSGVO: "
+            f"{restaurant.get('owner_name', '') or user.get('name', 'Chef')}"
+        )
 
     try:
         save_restaurant_to_db(slug, restaurant, db)

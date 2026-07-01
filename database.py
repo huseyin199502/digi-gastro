@@ -96,6 +96,10 @@ class Tenant(Base):
     address = Column(String, default="")
     plz = Column(String, default="")
     ort = Column(String, default="")
+    # Verantwortlicher / Inhaber (für Impressum § 5 TMG)
+    # Wird auf /impressum ausgegeben. Wenn leer, Fallback auf Chef-Name.
+    owner_name = Column(String, default="")
+    owner_street = Column(String, default="")  # Straße des Verantwortlichen (kann abweichen von Laden-Adresse)
     indigo = Column(String, default="")
     instagram = Column(String, default="")
     facebook = Column(String, default="")
@@ -407,6 +411,9 @@ def _migrate_database():
     add_column_if_missing('tenants', 'pos_active', "BOOLEAN DEFAULT FALSE")
     # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
     add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
+    # § 5 TMG: Verantwortlicher / Inhaber für Impressum
+    add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")
 
     # ── Bug-Fix: Existierende NULL-Werte in price_mode auf 'brutto' setzen.
     # Früher konnten NULL-Werte entstehen (kein server_default, save-Pfad nicht
