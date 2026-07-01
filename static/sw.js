@@ -9,7 +9,7 @@
 // wegen Byte-Equal-Check). Bei gleichem Tag v2, v3, ... sonst neues Datum ab v1.
 // Update 2026-06-22-v1: Phase 2 — IMAGE_CACHE (Cache-First für /uploads/ und
 // /static/images/, 30 Tage TTL), Auto-Versionierung, Static-Cache-Kommentare.
-const SW_VERSION = '2026-06-30-v8'; // bumped: Preis-Anzeige Fix — eingegebener Preis = angezeigter Preis
+const SW_VERSION = '2026-06-30-v9'; // bumped: Preis-Logik — DB=netto, brutto=+MwSt, netto=1:1
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const IMAGE_CACHE = `${CACHE_NAME}-images`;  // separater Cache für Bilder (Cache-First + 30d TTL)

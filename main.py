@@ -4848,16 +4848,22 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             
         prod = copy.deepcopy(p)
         prod["is_hh_active"] = False
-        prod["display_price"] = prod["price"]
-        prod["active_event"] = None  # Track which event applies
+        prod["active_event"] = None
         
-        # ── Price Mode: KEINE Konvertierung mehr ──
-        # Der eingegebene Preis ist IMMER der angezeigte Preis — egal ob netto oder brutto.
-        # Die price_mode Einstellung beeinflusst NUR die MwSt-Berechnung in Reports,
-        # NICHT den angezeigten Preis für den Kunden.
-        # VORHER: netto → Preis wurde durch 1.19 geteilt (3,50€ → 2,94€) — FALSCH!
-        # JETZT: Preis bleibt immer wie eingegeben (3,50€ = 3,50€ für den Kunden)
+        # ── Price Mode Logik ──
+        # Der eingegebene Preis in der DB ist IMMER netto.
+        # price_mode = 'netto'  → Kunde sieht den eingegebenen Preis (netto)
+        # price_mode = 'brutto' → Kunde sieht Preis + MwSt (brutto) — 19% für Bar, 7% für Küche
         price_mode = restaurant.get("price_mode", "brutto")
+        cat_type = prod.get("category_type", "küche").lower()
+        mwst_rate = 0.19 if cat_type == "bar" else 0.07
+        
+        if price_mode == "brutto":
+            # Netto → Brutto: MwSt draufrechnen
+            prod["display_price"] = round(prod["price"] * (1 + mwst_rate), 2)
+        else:
+            # Netto: Preis 1:1 anzeigen
+            prod["display_price"] = prod["price"]
         
         # Check each event to see if this product qualifies
         event_price_applied = False
@@ -4873,19 +4879,26 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             if event_product and event_product.get("event_price"):
                 prod["is_hh_active"] = True
                 event_price_val = event_product["event_price"]
-                # Event-Preis wird 1:1 angezeigt — keine netto/brutto Konvertierung
+                # Event-Preis ist auch netto → bei brutto konvertieren
+                if price_mode == "brutto":
+                    event_price_val = round(event_price_val * (1 + mwst_rate), 2)
                 prod["display_price"] = event_price_val
                 prod["active_event"] = {"name": ev["name"], "display_name": ev["display_name"], "days": ev["days"]}
                 event_price_applied = True
-                break  # First matching event wins
+                break
             elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
-                # Global discount for products not specifically in the event
+                # Global discount: netto Preis * Discount, dann bei brutto +MwSt
                 discount_factor = (100 - ev["discount"]) / 100.0
                 prod["is_hh_active"] = True
-                prod["display_price"] = round(prod["price"] * discount_factor, 2)
+                discounted = prod["price"] * discount_factor
+                if price_mode == "brutto":
+                    discounted = round(discounted * (1 + mwst_rate), 2)
+                else:
+                    discounted = round(discounted, 2)
+                prod["display_price"] = discounted
                 prod["active_event"] = {"name": ev["name"], "display_name": ev["display_name"], "days": ev["days"]}
                 event_price_applied = True
-                break  # First matching event wins
+                break
         
         processed_products.append(prod)
         
@@ -5112,11 +5125,16 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         if not prod:
             raise HTTPException(status_code=400, detail=f"Unbekanntes Produkt: {item.product_id}")
         # SECURITY: Always use the server-side price from DB, never trust client-submitted price
-        item.price = prod["price"]
-        # SECURITY FIX (Audit Issue 3.2): Use DB-authoritative name to prevent
-        # Stored-XSS via client-supplied name and audit-trail/report pollution.
-        # The client-supplied name was previously persisted verbatim, allowing
-        # e.g. `<img src=x onerror=alert(1)>` as item name.
+        # Der Preis in der DB ist netto → bei brutto muss MwSt draufgerechnet werden
+        price_mode = restaurant.get("price_mode", "brutto")
+        cat_type = prod.get("category_type", "küche").lower()
+        mwst_rate = 0.19 if cat_type == "bar" else 0.07
+        
+        if price_mode == "brutto":
+            item.price = round(prod["price"] * (1 + mwst_rate), 2)
+        else:
+            item.price = prod["price"]
+        
         item.name = prod["name"]
         is_event_price_applied = False
         # Check each active event for this product
@@ -5125,12 +5143,20 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                 continue
             event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
             if event_product and event_product.get("event_price"):
-                item.price = event_product["event_price"]
+                # Event-Preis ist netto → bei brutto konvertieren
+                ep_val = event_product["event_price"]
+                if price_mode == "brutto":
+                    ep_val = round(ep_val * (1 + mwst_rate), 2)
+                item.price = ep_val
                 is_event_price_applied = True
                 break
             elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
                 discount_factor = (100 - ev["discount"]) / 100.0
-                item.price = round(prod["price"] * discount_factor, 2)
+                discounted = prod["price"] * discount_factor
+                if price_mode == "brutto":
+                    item.price = round(discounted * (1 + mwst_rate), 2)
+                else:
+                    item.price = round(discounted, 2)
                 is_event_price_applied = True
                 break
     
