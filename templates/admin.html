@@ -6139,7 +6139,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Produkt-Name (DE)</label>
-                        <input type="text" id="edit-product-name" required class="form-field">
+                        <input type="text" id="edit-product-name" class="form-field">
                     </div>
                     <div>
                         <label class="form-label">Name (EN)</label>
@@ -6149,7 +6149,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Preis (&euro;)</label>
-                        <input type="number" step="0.01" id="edit-product-price" required class="form-field font-mono">
+                        <input type="number" step="0.01" id="edit-product-price" class="form-field font-mono">
                     </div>
                     <div>
                         <label class="form-label">Kategorie</label>
@@ -12998,7 +12998,36 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         function submitEditProduct(event) {
             event.preventDefault();
             const id = document.getElementById('edit-product-id').value;
-            
+
+            // ── Client-seitige Validierung (statt HTML required) ──
+            // Bug-Fix: HTML required auf versteckten Tabs blockt den Submit
+            // unsichtbar (Browser kann required in display:none nicht prüfen).
+            // Jetzt: explizite Prüfung + Toast-Meldung.
+            const nameVal = (document.getElementById('edit-product-name').value || '').trim();
+            const priceVal = (document.getElementById('edit-product-price').value || '').trim();
+            if (!nameVal) {
+                showToast('Bitte Produkt-Name eingeben', 'error');
+                // Zum Details-Tab wechseln, damit User das Feld sieht
+                switchSlideTab('details', document.querySelector('.slide-tab-btn'));
+                document.getElementById('edit-product-name').focus();
+                return;
+            }
+            if (!priceVal) {
+                showToast('Bitte Preis eingeben (z.B. 3.50)', 'error');
+                switchSlideTab('details', document.querySelector('.slide-tab-btn'));
+                document.getElementById('edit-product-price').focus();
+                return;
+            }
+
+            // Submit-Button visuelles Feedback (Loading-State)
+            const submitBtn = document.querySelector('#edit-product-form button[type="submit"]');
+            const origHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '⏳ Speichern...';
+                submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+
             const formData = new FormData();
             formData.append('name', document.getElementById('edit-product-name').value);
             formData.append('price', parseFloat(document.getElementById('edit-product-price').value));
@@ -13007,7 +13036,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             formData.append('name_en', document.getElementById('edit-product-name-en').value);
             formData.append('description_en', document.getElementById('edit-product-description-en').value);
             formData.append('image_url', document.getElementById('edit-product-image-url').value);
-            
+
             const fileInput = document.getElementById('edit-product-image-file');
             if (fileInput.files.length > 0) {
                 formData.append('image_file', fileInput.files[0]);
@@ -13015,9 +13044,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             formData.append('is_vegan', document.getElementById('edit-product-is-vegan').checked ? 'true' : 'false');
             formData.append('is_glutenfree', document.getElementById('edit-product-is-glutenfree').checked ? 'true' : 'false');
             formData.append('category_type', document.getElementById('edit-product-type').value);
-            
+
             // Aktionspreis entfernt — Event-Preise über Events-Tab verwalten
-            
+
             // Upselling: Verwandte Produkte sammeln und als JSON-Array senden
             const upsellCheckboxes = document.querySelectorAll('.upsell-product-checkbox:checked');
             const relatedIds = Array.from(upsellCheckboxes).map(cb => parseInt(cb.value));
@@ -13038,12 +13067,24 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     showToast('Produkt erfolgreich gespeichert!', 'success');
                     refreshProductsUI();
                 } else {
-                    alert("Fehler beim Aktualisieren des Produkts.");
+                    // Freundliche Fehlermeldung aus Backend
+                    res.json().then(err => {
+                        const detail = err.detail || err.error || 'Fehler beim Aktualisieren';
+                        showToast(detail, 'error');
+                    }).catch(() => showToast('Fehler beim Aktualisieren des Produkts', 'error'));
                 }
             })
             .catch(err => {
                 console.error("Edit-Fehler:", err);
-                alert("Verbindungsfehler bei der Übertragung.");
+                showToast('Verbindungsfehler bei der Übertragung', 'error');
+            })
+            .finally(() => {
+                // Button-Reset (falls Modal nicht geschlossen wurde wegen Fehler)
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = origHtml;
+                    submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                }
             });
         }
         
