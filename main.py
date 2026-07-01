@@ -7144,11 +7144,22 @@ def post_login(
         slug = tenant.slug
         restaurant = get_restaurant_or_raise(slug, db)
         pin_str = str(pin).strip()
+        staff_name_str = staff_name.strip()
+        
+        # Debug: log staff lookup
+        staff_list = restaurant.get("staff", [])
+        print(f"[Kellner-Login] Looking for name='{staff_name_str}' pin='{pin_str}' in {len(staff_list)} staff")
+        for s in staff_list:
+            print(f"  Staff: name='{s.get('name')}' pin='{s.get('pin')}' pin_code='{s.get('pin_code')}' role='{s.get('role')}'")
         
         # Finde den Mitarbeiter mit passendem Namen UND PIN
-        employee = next((s for s in restaurant.get("staff", []) 
-                        if s.get("name") == staff_name.strip() 
-                        and str(s.get("pin_code", s.get("pin"))) == pin_str), None)
+        employee = None
+        for s in staff_list:
+            s_name = str(s.get("name", "")).strip()
+            s_pin = str(s.get("pin_code") or s.get("pin") or "").strip()
+            if s_name == staff_name_str and s_pin == pin_str:
+                employee = s
+                break
         
         if employee:
             role = employee.get("role", "kellner")
