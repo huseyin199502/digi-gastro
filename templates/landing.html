@@ -863,8 +863,15 @@
                    disableremoteplayback
                    controlslist="nodownload nofullscreen noplaybackrate"
                    class="block w-full h-full"
-                   style="object-fit: cover; background-color: #050507; background-image: url('/static/images/icon-512.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"
-                   poster="/static/images/icon-512.png">
+                   style="object-fit: cover; background-color: #050507;">
+                <!-- Sources direkt im HTML — Browser wählt automatisch das richtige Format.
+                     Kein Poster-Bild — sonst sieht man ein statisches Bild statt Video. -->
+                <source src="/static/videos/hero-bg-mobile.webm" type="video/webm" media="(max-width: 768px)">
+                <source src="/static/videos/hero-bg-mobile-h265.mp4" type="video/mp4; codecs=hvc1" media="(max-width: 768px)">
+                <source src="/static/videos/hero-bg-mobile.mp4" type="video/mp4" media="(max-width: 768px)">
+                <source src="/static/videos/hero-bg.webm" type="video/webm">
+                <source src="/static/videos/hero-bg-h265.mp4" type="video/mp4; codecs=hvc1">
+                <source src="/static/videos/hero-bg.mp4" type="video/mp4">
             </video>
         </div>
         <!-- Gradient Overlay — darkens for text readability -->
@@ -1675,200 +1682,57 @@
         // Case 3: Fallback — kill nach max 3s egal was passiert
         setTimeout(killPreloader, 3000);
 
-        // ── Hero Video: Sofort abspielen mit poster-Bild als Fallback ──
-        // Das Video ist schön und soll auf allen Geräten laufen.
-        // poster-Bild zeigt sofort das Logo während das Video lädt (bessere UX).
-        //
-        // Safari iOS-Spezifika:
-        //  1. <source media> Attribut wird nicht zuverlässig ausgewertet → src per JS
-        //  2. muted + volume=0 müssen als Properties gesetzt sein
-        //  3. webkit-playsinline Attribut verhindert iOS-Vollbild-Force
-        //  4. Safari blockt Autoplay beim ERSTEN Besuch → User-Interaktion nötig
-        //  5. WICHTIG: NICHT load() in attemptPlay() aufrufen! Das triggert
-        //     loadstart-Event, das wieder attemptPlay() aufruft → Endlos-Schleife
-        //     mit AbortError "play() interrupted by new load request".
+        // ── Hero Video: Sources direkt im HTML als <source> Tags — JS nur für play() ──
         (function() {
             const heroVideo = document.getElementById('hero-video');
             if (!heroVideo) return;
 
-            // ── Responsive Source: WebM (Chrome/Firefox) → H.265 (Safari) → H.264 Fallback ──
-            const isMobile = window.matchMedia('(max-width: 768px)').matches
-                          || /iPhone|iPad|iPod|Android.*Mobile/i.test(navigator.userAgent);
-
-            // Browser-Erkennung: Safari unterstützt kein WebM, aber H.265
-            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-            const canPlayWebM = heroVideo.canPlayType('video/webm; codecs="vp9"') !== '';
-            const canPlayH265 = heroVideo.canPlayType('video/mp4; codecs="hvc1"') !== '';
-
-            let videoSrc;
-            if (isMobile) {
-                if (isSafari || (canPlayH265 && !canPlayWebM)) {
-                    videoSrc = '/static/videos/hero-bg-mobile-h265.mp4';  // 491 KB
-                } else if (canPlayWebM) {
-                    videoSrc = '/static/videos/hero-bg-mobile.webm';      // 386 KB
-                } else {
-                    videoSrc = '/static/videos/hero-bg-mobile.mp4';       // 670 KB fallback
-                }
-            } else {
-                if (isSafari || (canPlayH265 && !canPlayWebM)) {
-                    videoSrc = '/static/videos/hero-bg-h265.mp4';  // 939 KB
-                } else if (canPlayWebM) {
-                    videoSrc = '/static/videos/hero-bg.webm';      // 626 KB
-                } else {
-                    videoSrc = '/static/videos/hero-bg.mp4';       // 2.8 MB fallback
-                }
-            }
-            console.log('[Hero Video] Using source:', videoSrc, '(isMobile:', isMobile, 'isSafari:', isSafari, 'webm:', canPlayWebM, 'h265:', canPlayH265, ')');
-            heroVideo.src = videoSrc;
-
-            // Dynamischer Preload-Link: nur die tatsächlich verwendete Quelle preloaden
-            // (verhindert dass Chrome-User unnötig H.264 + WebM doppelt laden)
-            try {
-                const preloadLink = document.createElement('link');
-                preloadLink.rel = 'preload';
-                preloadLink.as = 'fetch';
-                preloadLink.href = videoSrc;
-                preloadLink.crossOrigin = 'anonymous';
-                document.head.appendChild(preloadLink);
-            } catch (e) {}
-
-            // ── iOS-Kompatibilität: Properties setzen ──
             heroVideo.muted = true;
             heroVideo.defaultMuted = true;
             try { heroVideo.playsInline = true; } catch(e) {}
             try { heroVideo.setAttribute('webkit-playsinline', 'webkit-playsinline'); } catch(e) {}
-            try { heroVideo.volume = 0; } catch(e) {}
-
-            // ── EINMALIG load() aufrufen, nachdem src gesetzt wurde ──
-            // Löst loadstart-Event aus, danach hat readyState eine Chance zu wachsen.
-            // WICHTIG: Nicht in attemptPlay() erneut aufrufen!
-            try { heroVideo.load(); } catch(e) { console.warn('[Hero Video] load() exception:', e); }
 
             let playStarted = false;
-            let attempts = 0;
-            let interactionListenerRegistered = false;
-            let lastPlayAttemptTime = 0;
 
             function attemptPlay(reason) {
                 if (playStarted) return;
-                attempts++;
-                if (attempts > 30) return;
-
-                // Throttle: max 1 Versuch pro 200ms (verhindert Endlos-Schleife)
-                const now = Date.now();
-                if (now - lastPlayAttemptTime < 200) return;
-                lastPlayAttemptTime = now;
-
-                console.log('[Hero Video] attemptPlay #' + attempts + ':', reason,
-                            'readyState:', heroVideo.readyState, 'paused:', heroVideo.paused);
-
+                console.log('[Hero Video] attemptPlay:', reason, 'readyState:', heroVideo.readyState);
                 try {
-                    const playPromise = heroVideo.play();
-                    if (playPromise && typeof playPromise.then === 'function') {
-                        playPromise.then(() => {
-                            playStarted = true;
-                            console.log('[Hero Video] play() SUCCESS at attempt', attempts);
-                            if (interactionListenerRegistered) {
-                                removeInteractionListeners();
-                            }
-                        }).catch((err) => {
-                            console.warn('[Hero Video] play() failed:', err.name, err.message, '(attempt', attempts + ')');
-                            if (err.name === 'NotAllowedError') {
-                                console.log('[Hero Video] Autoplay blocked — waiting for user interaction');
-                            }
-                            // Bei AbortError: nicht sofort retry (würde Endlos-Schleife)
-                            // Die timeout-basierten Versuche unten sind genug.
-                        });
-                    } else {
-                        playStarted = true;
-                    }
-                } catch (e) {
-                    console.warn('[Hero Video] play() exception:', e);
-                }
+                    const p = heroVideo.play();
+                    if (p && typeof p.then === 'function') {
+                        p.then(() => { playStarted = true; console.log('[Hero Video] SUCCESS:', reason); removeListeners(); })
+                         .catch(() => {});
+                    } else { playStarted = true; }
+                } catch(e) {}
             }
 
-            // 1. Sofort versuchen
+            function onInteraction(e) { if (!playStarted) attemptPlay('interaction'); }
+            function removeListeners() {
+                ['touchstart','touchend','click','scroll','wheel','keydown','pointerdown'].forEach(ev => 
+                    document.removeEventListener(ev, onInteraction, true));
+                window.removeEventListener('scroll', onInteraction, true);
+            }
+
             attemptPlay('immediate');
-
-            // 2. Bei Video-Events (aber NICHT bei loadstart — das triggert Endlos-Schleife!)
             heroVideo.addEventListener('loadedmetadata', () => attemptPlay('loadedmetadata'));
-            heroVideo.addEventListener('loadeddata', () => attemptPlay('loadeddata'));
             heroVideo.addEventListener('canplay', () => attemptPlay('canplay'));
-            heroVideo.addEventListener('canplaythrough', () => attemptPlay('canplaythrough'));
-            heroVideo.addEventListener('playing', () => {
-                playStarted = true;
-                console.log('[Hero Video] playing event fired — video is running');
-                if (interactionListenerRegistered) removeInteractionListeners();
-            });
+            heroVideo.addEventListener('playing', () => { playStarted = true; removeListeners(); });
 
-            // 3. ── Safari iOS: User-Gesture-Listener ──
-            function onFirstInteraction(e) {
-                if (playStarted) return;
-                console.log('[Hero Video] user interaction:', e.type, '— attempting play');
-                // Reset throttle, damit Interaction sofort play() aufrufen kann
-                lastPlayAttemptTime = 0;
-                attemptPlay('interaction-' + e.type);
-            }
+            const opts = { capture: true, passive: true };
+            ['touchstart','touchend','click','scroll','wheel','keydown','pointerdown'].forEach(ev => 
+                document.addEventListener(ev, onInteraction, opts));
+            window.addEventListener('scroll', onInteraction, opts);
 
-            function removeInteractionListeners() {
-                document.removeEventListener('touchstart', onFirstInteraction, true);
-                document.removeEventListener('touchend', onFirstInteraction, true);
-                document.removeEventListener('click', onFirstInteraction, true);
-                document.removeEventListener('scroll', onFirstInteraction, true);
-                document.removeEventListener('wheel', onFirstInteraction, true);
-                document.removeEventListener('keydown', onFirstInteraction, true);
-                document.removeEventListener('pointerdown', onFirstInteraction, true);
-                document.removeEventListener('pointermove', onFirstInteraction, true);
-                window.removeEventListener('scroll', onFirstInteraction, true);
-            }
+            setTimeout(() => attemptPlay('1s'), 1000);
+            setTimeout(() => attemptPlay('3s'), 3000);
+            setTimeout(() => attemptPlay('5s'), 5000);
 
-            const interactionOptions = { capture: true, passive: true };
-            document.addEventListener('touchstart', onFirstInteraction, interactionOptions);
-            document.addEventListener('touchend', onFirstInteraction, interactionOptions);
-            document.addEventListener('click', onFirstInteraction, interactionOptions);
-            document.addEventListener('scroll', onFirstInteraction, interactionOptions);
-            document.addEventListener('wheel', onFirstInteraction, interactionOptions);
-            document.addEventListener('keydown', onFirstInteraction, interactionOptions);
-            document.addEventListener('pointerdown', onFirstInteraction, interactionOptions);
-            document.addEventListener('pointermove', onFirstInteraction, interactionOptions);
-            window.addEventListener('scroll', onFirstInteraction, interactionOptions);
-            interactionListenerRegistered = true;
-            console.log('[Hero Video] Interaction listeners registered for Safari iOS autoplay unlock');
-
-            // 4. Zeitbasierte Fallbacks (mit mehr Abstand, um Endlos-Schleife zu vermeiden)
-            setTimeout(() => attemptPlay('timeout-1s'), 1000);
-            setTimeout(() => attemptPlay('timeout-2s'), 2000);
-            setTimeout(() => attemptPlay('timeout-3s'), 3000);
-            setTimeout(() => attemptPlay('timeout-5s'), 5000);
-            setTimeout(() => attemptPlay('timeout-8s'), 8000);
-
-            // 5. Bei Page-Visibility
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && !playStarted) {
-                    lastPlayAttemptTime = 0;
-                    setTimeout(() => attemptPlay('visibilitychange'), 100);
-                }
+                if (!document.hidden && !playStarted) setTimeout(() => attemptPlay('visible'), 100);
             });
 
-            // 6. Bei Page-Show (bfcache)
-            window.addEventListener('pageshow', (event) => {
-                if (event.persisted && !playStarted) {
-                    lastPlayAttemptTime = 0;
-                    setTimeout(() => attemptPlay('pageshow-bfcache'), 200);
-                }
-            });
-
-            // 7. Bei Pause durch Browser
-            heroVideo.addEventListener('pause', () => {
-                if (heroVideo.ended || playStarted) return;
-                console.log('[Hero Video] paused by browser — will retry');
-                lastPlayAttemptTime = 0;
-                setTimeout(() => attemptPlay('after-pause'), 200);
-            });
-
-            // 8. Error-Handler
-            heroVideo.addEventListener('error', (e) => {
-                console.error('[Hero Video] ERROR event:', e, 'error code:', heroVideo.error ? heroVideo.error.code : 'none');
+            heroVideo.addEventListener('error', () => {
+                console.error('[Hero Video] ERROR:', heroVideo.error ? heroVideo.error.code : 'unknown');
             });
         })();
 
