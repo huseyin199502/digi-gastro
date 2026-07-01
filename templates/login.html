@@ -4,11 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ restaurant_name }} - Admin Login</title>
-
-    <!-- SEO: Login-Seite darf nicht indexiert werden (Defense-in-Depth zur robots.txt) -->
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-
-    <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="digi-gastro Login">
@@ -19,12 +15,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
-
-    <!-- Tailwind CSS -->
-    <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
     <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
-    <!-- Preconnect + non-blocking Google Fonts (async pattern, kein Render-Block) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -33,90 +25,43 @@
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
     </noscript>
-    <!-- Premium Design System -->
     <link rel="stylesheet" href="/static/css/design_system.css?v=18">
-
     <style>
-        /* ── Cross-Document View Transitions (MPA) ──
-           Aktiviert flüssige Seitenwechsel ohne SPA-Rewrite.
-           Support: Chrome 126+, Safari 18.2+, ~85% Coverage. */
-        @view-transition {
-            navigation: auto;
-        }
-
-        /* Login page uses emerald as primary (was set via CDN tailwind.config before).
-           Override CSS variables here to keep login visual identity after CDN removal. */
-        :root {
-            --color-primary: #10b981;
-            --color-primary-rgb: 16 185 129;
-        }
-        /* iOS Overscroll-Bounce Prevention */
-        html {
-            overscroll-behavior: none;
-        }
-        body {
-            background-color: var(--bg-obsidian);
-            color: #f3f4f6;
-            font-family: var(--font-sans);
-        }
-
-        /* ── Mobile (≤640px): prevent iOS auto-zoom on input focus ── */
+        @view-transition { navigation: auto; }
+        :root { --color-primary: #10b981; --color-primary-rgb: 16 185 129; }
+        html { overscroll-behavior: none; }
+        body { background-color: var(--bg-obsidian); color: #f3f4f6; font-family: var(--font-sans); }
         @media (max-width: 640px) {
-            input[type="text"],
-            input[type="email"],
-            input[type="tel"],
-            input[type="number"],
-            input[type="password"],
-            input[type="search"],
-            input[type="url"],
-            textarea,
-            select {
+            input[type="text"], input[type="email"], input[type="tel"], input[type="number"],
+            input[type="password"], input[type="search"], input[type="url"], textarea, select {
                 font-size: 16px !important;
             }
         }
-
-        /* ── Small phone (≤480px): lighter blur for performance ── */
-        @media (max-width: 480px) {
-            .glass-panel {
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-            }
-            .shadow-2xl {
-                box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5) !important;
-            }
-        }
-
-        /* ── Reduced motion ── */
-        @media (prefers-reduced-motion: reduce) {
-            .hover-lift {
-                transition: none !important;
-            }
-        }
+        /* Staff PIN field — animated reveal */
+        #staff-section { overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 0; opacity: 0; }
+        #staff-section.visible { max-height: 400px; opacity: 1; }
+        /* Mode toggle */
+        .mode-toggle { display: flex; gap: 0; margin-bottom: 1.5rem; border-radius: 0.75rem; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .mode-btn { flex: 1; padding: 0.75rem; text-align: center; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; background: transparent; color: #71717a; border: none; min-height: 44px; }
+        .mode-btn.active { background: rgba(16, 185, 129, 0.15); color: #10b981; }
     </style>
-    <!-- Font Awesome via CDN entfernt — auf login.html wurden keine fa-* Icons verwendet (nur Material Symbols).
-         Spart 1 render-blocking Request + behebt Privacy/Availability-Risiko (Cloudflare-CDN). -->
 </head>
 <body class="flex items-center justify-center min-h-[100dvh] p-4 relative overflow-y-auto no-image-save"
-      oncontextmenu="return false;"
-      ondragstart="return false;"
-      oncopy="return false;"
-      oncut="return false;"
+      oncontextmenu="return false;" ondragstart="return false;" oncopy="return false;" oncut="return false;"
       style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: max(1rem, env(safe-area-inset-bottom)); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right));">
     
-    <!-- Visual background enhancements -->
     <div class="fixed inset-0 grid-bg opacity-30 pointer-events-none z-0"></div>
     <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[350px] radial-glow pointer-events-none z-0"></div>
     
     <div class="w-full max-w-md glass-panel rounded-2xl p-6 sm:p-8 shadow-2xl relative z-10 overflow-hidden">
-        <!-- Ambient corner glow -->
         <div class="absolute -right-20 -top-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl"></div>
         
-        <div class="text-center mb-8">
+        <div class="text-center mb-6">
             <div class="inline-flex p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 mb-4 shadow-lg shadow-emerald-500/5 hover-lift">
-                <img alt="digi-gastro logo" class="header-logo h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" decoding="async" fetchpriority="high" onerror="this.src='https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300'">
+                <img alt="digi-gastro logo" class="header-logo h-10 w-10 object-cover rounded-lg" src="/static/images/digigastrologo.jpeg" decoding="async" fetchpriority="high">
             </div>
-            <h2 class="text-2xl font-black text-white tracking-tight font-display bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Admin Login</h2>
-            <p class="text-xs text-zinc-400 mt-2 font-medium tracking-wide uppercase">{{ restaurant_name }} Management Panel</p>
+            <h2 class="text-2xl font-black text-white tracking-tight font-display bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Login</h2>
+            <p class="text-xs text-zinc-400 mt-2 font-medium tracking-wide uppercase">{{ restaurant_name }} Management</p>
         </div>
 
         {% if error %}
@@ -126,30 +71,65 @@
         </div>
         {% endif %}
 
-        <!-- PWA Standalone Notice (auto-shown via JS when running as installed app) -->
-        <div id="pwa-login-notice" class="hidden mb-5 bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3.5 text-emerald-200 text-xs flex items-start gap-2.5">
-            <span class="material-symbols-outlined text-emerald-400 text-sm mt-0.5">info</span>
-            <span class="leading-relaxed"><strong class="text-emerald-100">App-Modus erkannt.</strong> Die installierte App verwaltet ihren eigenen Login-Speicher. Bitte einmalig anmelden — danach bleibst du dauerhaft eingeloggt.</span>
+        <!-- Mode Toggle: Chef vs Kellner -->
+        <div class="mode-toggle">
+            <button type="button" class="mode-btn active" id="mode-chef" onclick="switchMode('chef')">
+                <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">admin_panel_settings</span>
+                Chef
+            </button>
+            <button type="button" class="mode-btn" id="mode-staff" onclick="switchMode('staff')">
+                <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">badge</span>
+                Kellner
+            </button>
         </div>
 
-        <form action="/admin/login" method="POST" class="space-y-5">
+        <!-- CHEF LOGIN (E-Mail + Passwort) -->
+        <form action="/admin/login" method="POST" class="space-y-5" id="chef-form">
             {% if redirect %}
             <input type="hidden" name="redirect" value="{{ redirect }}">
             {% endif %}
             <div>
-                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2" for="email">E-Mail Adresse</label>
-                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" id="email" name="email" type="email" autocomplete="email" inputmode="email" enterkeyhint="next" placeholder="demo@digi-gastro.de" required value="{{ email if email else '' }}">
+                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">E-Mail Adresse</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" name="email" type="email" autocomplete="email" inputmode="email" enterkeyhint="next" placeholder="demo@digi-gastro.de" required value="{{ email if email else '' }}">
             </div>
-
             <div>
-                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2" for="password">Passwort</label>
-                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" id="password" name="password" type="password" autocomplete="current-password" enterkeyhint="go" placeholder="••••••••" required>
+                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Passwort</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" name="password" type="password" autocomplete="current-password" enterkeyhint="go" placeholder="••••••••" required>
             </div>
-
             <button class="btn-premium btn-premium-primary py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-2 transition-all" type="submit">
                 <span class="material-symbols-outlined text-[18px]">login</span>
                 Einloggen
             </button>
+        </form>
+
+        <!-- KELLNER LOGIN (E-Mail → Mitarbeiter wählen + PIN) -->
+        <form action="/admin/login" method="POST" class="space-y-5 hidden" id="staff-form">
+            <input type="hidden" name="staff_login" value="1">
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Restaurant E-Mail</label>
+                <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base transition-all" id="staff-email" name="email" type="email" autocomplete="email" inputmode="email" enterkeyhint="next" placeholder="restaurant@email.de" required value="{{ email if email else '' }}">
+                <button type="button" onclick="loadStaff()" class="mt-2 w-full text-xs font-bold text-emerald-400 hover:text-emerald-300 transition py-2 min-h-[44px]">
+                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">search</span>
+                    Mitarbeiter laden
+                </button>
+            </div>
+            
+            <div id="staff-section">
+                <div>
+                    <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Mitarbeiter</label>
+                    <select id="staff-select" name="staff_name" class="w-full input-premium text-base" disabled>
+                        <option value="">— Erst Restaurant E-Mail eingeben —</option>
+                    </select>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">4-stellige PIN</label>
+                    <input class="w-full input-premium focus:border-primary placeholder:text-zinc-600 text-base text-center font-mono text-2xl tracking-[0.5em] transition-all" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" enterkeyhint="go" placeholder="••••" required disabled>
+                </div>
+                <button class="btn-premium btn-premium-primary py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full text-sm mt-5 transition-all" type="submit">
+                    <span class="material-symbols-outlined text-[18px]">login</span>
+                    Einloggen
+                </button>
+            </div>
         </form>
 
         <div class="mt-6 pt-5 border-t border-zinc-800/60 text-center">
@@ -160,18 +140,60 @@
     </div>
 
     <script>
-        // PWA Standalone Detection — show notice if user opened login page from installed app.
-        (function () {
-            const isStandalone =
-                window.matchMedia('(display-mode: standalone)').matches ||
-                window.navigator.standalone === true ||
-                new URLSearchParams(window.location.search).has('pwa');
-            if (!isStandalone) return;
-            const notice = document.getElementById('pwa-login-notice');
-            if (notice) notice.classList.remove('hidden');
-        })();
+        function switchMode(mode) {
+            const chefBtn = document.getElementById('mode-chef');
+            const staffBtn = document.getElementById('mode-staff');
+            const chefForm = document.getElementById('chef-form');
+            const staffForm = document.getElementById('staff-form');
+            
+            if (mode === 'chef') {
+                chefBtn.classList.add('active');
+                staffBtn.classList.remove('active');
+                chefForm.classList.remove('hidden');
+                staffForm.classList.add('hidden');
+            } else {
+                staffBtn.classList.add('active');
+                chefBtn.classList.remove('active');
+                staffForm.classList.remove('hidden');
+                chefForm.classList.add('hidden');
+            }
+        }
+
+        async function loadStaff() {
+            const email = document.getElementById('staff-email').value.trim();
+            if (!email) { alert('Bitte Restaurant E-Mail eingeben'); return; }
+            
+            const select = document.getElementById('staff-select');
+            const section = document.getElementById('staff-section');
+            const pinInput = document.querySelector('#staff-form input[name=pin]');
+            
+            select.innerHTML = '<option value="">Lade Mitarbeiter...</option>';
+            select.disabled = true;
+            
+            try {
+                const resp = await fetch('/api/staff-by-email?email=' + encodeURIComponent(email));
+                if (!resp.ok) {
+                    select.innerHTML = '<option value="">— Restaurant nicht gefunden —</option>';
+                    section.classList.remove('visible');
+                    return;
+                }
+                const data = await resp.json();
+                if (!data.staff || data.staff.length === 0) {
+                    select.innerHTML = '<option value="">— Keine Mitarbeiter angelegt —</option>';
+                    section.classList.remove('visible');
+                    return;
+                }
+                select.innerHTML = '<option value="">— Mitarbeiter wählen —</option>' +
+                    data.staff.map(s => `<option value="${s.name}">${s.name} (${s.role})</option>`).join('');
+                select.disabled = false;
+                pinInput.disabled = false;
+                section.classList.add('visible');
+            } catch (e) {
+                select.innerHTML = '<option value="">— Fehler beim Laden —</option>';
+                section.classList.remove('visible');
+            }
+        }
     </script>
-    <!-- PWA Service Worker Registrierung -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -190,7 +212,6 @@
                         });
                     })
                     .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
-
                 let refreshing = false;
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     if (refreshing) return;

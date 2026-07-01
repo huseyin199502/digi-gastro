@@ -7073,6 +7073,26 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
         }
     )
 
+@app.get("/api/staff-by-email")
+def get_staff_by_email(email: str, db: Session = Depends(get_db)):
+    """Gibt alle Mitarbeiter eines Tenants zurück (für Kellner-Login Dropdown).
+    Sucht anhand der Restaurant-E-Mail den Tenant und liefert die Staff-Liste."""
+    if not email or not email.strip():
+        return {"staff": [], "error": "Keine E-Mail angegeben"}
+    tenant = db.query(Tenant).filter_by(email=email.strip()).first()
+    if not tenant:
+        return {"staff": [], "error": "Restaurant nicht gefunden"}
+    restaurant = load_restaurant_from_db(tenant.slug, db)
+    if not restaurant:
+        return {"staff": [], "error": "Restaurant nicht gefunden"}
+    staff = restaurant.get("staff", [])
+    return {
+        "tenant": tenant.slug,
+        "restaurant_name": restaurant.get("name", tenant.slug),
+        "staff": [{"name": s.get("name", ""), "role": s.get("role", "kellner")} for s in staff]
+    }
+
+
 @app.get("/admin/login", response_class=HTMLResponse)
 def get_login(request: Request, redirect: Optional[str] = None, db: Session = Depends(get_db)):
     res = get_current_user_and_slug(request)
@@ -7107,8 +7127,44 @@ def post_login(
     email: Optional[str] = Form(None),
     password: Optional[str] = Form(None),
     pin: Optional[str] = Form(None),
+    staff_login: Optional[str] = Form(None),
+    staff_name: Optional[str] = Form(None),
     redirect: Optional[str] = None
 , db: Session = Depends(get_db)):
+    
+    # ── KELLNER LOGIN: E-Mail + Mitarbeiter-Name + PIN ──
+    if staff_login and email and pin and staff_name:
+        tenant = db.query(Tenant).filter_by(email=email.strip()).first()
+        if not tenant:
+            return templates.TemplateResponse(request, "login.html", {
+                "request": request, "restaurant_name": "digi-gastro", "slug": "",
+                "email": email or "", "error": "Restaurant nicht gefunden.", "redirect": redirect
+            })
+        slug = tenant.slug
+        restaurant = get_restaurant_or_raise(slug, db)
+        pin_str = str(pin).strip()
+        
+        # Finde den Mitarbeiter mit passendem Namen UND PIN
+        employee = next((s for s in restaurant.get("staff", []) 
+                        if s.get("name") == staff_name.strip() 
+                        and str(s.get("pin_code", s.get("pin"))) == pin_str), None)
+        
+        if employee:
+            role = employee.get("role", "kellner")
+            name = employee.get("name", "Kellner")
+            target_url = "/admin/dashboard"
+            
+            resp = RedirectResponse(url=target_url, status_code=303)
+            resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", 
+                          httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
+            return resp
+        else:
+            return templates.TemplateResponse(request, "login.html", {
+                "request": request, "restaurant_name": "digi-gastro", "slug": "",
+                "email": email or "", "error": "Ungültige PIN oder Mitarbeiter nicht gefunden.", "redirect": redirect
+            })
+    
+    # ── CHEF LOGIN: E-Mail + Passwort ──
     if not (email and password) and not pin:
         return templates.TemplateResponse(
             request,
