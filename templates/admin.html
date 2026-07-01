@@ -4226,7 +4226,12 @@
                 <span>Einstellungen</span>
             </button>
             {% else %}
-            {# Kellner: Nur Sitzplan + Produkte #}
+            {# Kellner: Sitzplan + Bestellungen (für Bon-Druck) + Produkte #}
+            <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <span>Bons & Drucken</span>
+            </button>
+
             <div class="nav-divider"></div>
             <div class="nav-group-label">Inhalte</div>
             <button id="tab-btn-produkte" onclick="switchAdminTab('produkte')" class="nav-sub-btn">
@@ -6465,9 +6470,9 @@
             if (!validTabs.includes(tabId)) tabId = 'live';
 
             // Rollen-basierte Zugriffskontrolle:
-            // Kellner dürfen nur 'live' (Sitzplan) und 'produkte' sehen
+            // Kellner dürfen 'live' (Sitzplan), 'finanzen' (Bons & Drucken) und 'produkte' sehen
             const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
-            if (currentUserRole !== 'chef' && !['live', 'produkte'].includes(tabId)) {
+            if (currentUserRole !== 'chef' && !['live', 'finanzen', 'produkte'].includes(tabId)) {
                 tabId = 'live'; // Kellner wird immer auf Sitzplan umgeleitet
             }
 

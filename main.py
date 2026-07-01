@@ -8731,7 +8731,7 @@ def get_table_unpaid_sum(request: Request, slug: str, table_num: str, db: Sessio
 
 
 @app.post("/admin/staff")
-def add_staff(request: Request, staff_name: str = Form(...), role: str = Form(...), pin: str = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+def add_staff(request: Request, name: str = Form(...), role: str = Form(...), pin: str = Form(...), chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -8739,7 +8739,7 @@ def add_staff(request: Request, staff_name: str = Form(...), role: str = Form(..
     pin_str = str(pin).strip()
     
     restaurant["staff"].append({
-        "name": staff_name,
+        "name": name,
         "role": role,
         "pin": pin_str,
         "pin_code": pin_str
