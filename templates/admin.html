@@ -5643,60 +5643,48 @@
                     </div>
                 </div>
 
-                <!-- Section 1b: Impressum & Datenschutz (§ 5 TMG) -->
+                <!-- Section 1b: Kontaktdaten für Impressum (§ 5 TMG) -->
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">gavel</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Impressum &amp; Datenschutz</h3>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Kontaktdaten für Impressum</h3>
                         </div>
-                        <span class="text-[10px] font-bold text-amber-700">§ 5 TMG · DSGVO</span>
+                        <span class="text-[10px] font-bold text-amber-700">§ 5 TMG</span>
                     </div>
                     <div class="section-card-body">
                         <form action="/admin/legal-update" method="POST" class="space-y-4">
                             <p class="text-[11px] text-zinc-500 leading-relaxed bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-3">
-                                <strong class="text-amber-800 dark:text-amber-300">Pflichtfeld für Impressum:</strong>
-                                Angaben gemäß § 5 TMG verlangen einen Verantwortlichen (Name) + Anschrift.
-                                Diese Daten erscheinen automatisch auf <code>/impressum</code>. Felder leer lassen = Auto-Ausfüllung aus Restaurantprofil.
+                                Diese Kontaktdaten erscheinen automatisch im Impressum & Datenschutz, das Gäste unten in deiner Speisekarte sehen (Impressum-Button im Footer).
                             </p>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="form-label">Verantwortlicher / Inhaber (Name)</label>
                                     <input type="text" name="owner_name" value="{{ restaurant.owner_name if restaurant.owner_name else '' }}" placeholder="z.B. Ahmet Yilmaz" class="form-field">
-                                    <p class="text-[9px] text-zinc-400 mt-1">Erscheint als „Verantwortlich" im Impressum</p>
                                 </div>
                                 <div>
-                                    <label class="form-label">Straße &amp; Hausnummer (Verantwortlicher)</label>
+                                    <label class="form-label">Straße &amp; Hausnummer</label>
                                     <input type="text" name="owner_street" value="{{ restaurant.owner_street if restaurant.owner_street else '' }}" placeholder="z.B. Musterstraße 12" class="form-field">
-                                    <p class="text-[9px] text-zinc-400 mt-1">Falls abweichend von der Laden-Adresse</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="form-label">E-Mail</label>
+                                    <input type="email" name="owner_email" value="{{ restaurant.owner_email if restaurant.owner_email else '' }}" placeholder="z.B. kontakt@mein-restaurant.de" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Telefonnummer</label>
+                                    <input type="tel" name="owner_phone" value="{{ restaurant.owner_phone if restaurant.owner_phone else '' }}" placeholder="z.B. +49 89 1234567" class="form-field">
                                 </div>
                             </div>
 
-                            <details class="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                                <summary class="cursor-pointer p-3 bg-gray-50 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition">
-                                    📝 Eigene Impressum-Texte (erweitert)
-                                </summary>
-                                <div class="p-3 space-y-3">
-                                    <div>
-                                        <label class="form-label">Impressum-Text (manuell)</label>
-                                        <textarea name="impressum_content" rows="6" class="form-field font-mono text-[11px]" placeholder="Leer lassen = Auto-Generierung aus Inhaber + Adresse gemäß § 5 TMG">{{ restaurant.impressum_content if restaurant.impressum_content else '' }}</textarea>
-                                        <p class="text-[9px] text-zinc-400 mt-1">Wenn ausgefüllt, wird dieser Text 1:1 auf /impressum angezeigt.</p>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Datenschutzerklärung (manuell)</label>
-                                        <textarea name="datenschutz_content" rows="6" class="form-field font-mono text-[11px]" placeholder="Leer lassen = Auto-Generierung mit Verantwortlichem">{{ restaurant.datenschutz_content if restaurant.datenschutz_content else '' }}</textarea>
-                                        <p class="text-[9px] text-zinc-400 mt-1">Wenn ausgefüllt, wird dieser Text 1:1 auf /datenschutz angezeigt.</p>
-                                    </div>
-                                </div>
-                            </details>
-
                             <div class="flex gap-2 items-center">
                                 <button type="submit" class="btn-primary flex-1 flex items-center justify-center gap-1.5">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">save</span> Impressum &amp; Datenschutz speichern
+                                    <span class="material-symbols-outlined" style="font-size:14px;">save</span> Speichern
                                 </button>
-                                <a href="/impressum" target="_blank" class="btn-secondary px-4 flex items-center gap-1.5 text-xs">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Vorschau
+                                <a href="/{{ restaurant.slug }}" target="_blank" class="btn-secondary px-4 flex items-center gap-1.5 text-xs">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Zur Speisekarte
                                 </a>
                             </div>
                         </form>

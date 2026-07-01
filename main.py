@@ -1297,12 +1297,16 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "staff": staff,
         "owner_name": getattr(tenant, "owner_name", "") or "",
         "owner_street": getattr(tenant, "owner_street", "") or "",
+        "owner_email": getattr(tenant, "owner_email", "") or "",
+        "owner_phone": getattr(tenant, "owner_phone", "") or "",
         "branding": {
             "address": tenant.address,
             "plz": tenant.plz,
             "ort": tenant.ort,
             "owner_name": getattr(tenant, "owner_name", "") or "",
             "owner_street": getattr(tenant, "owner_street", "") or "",
+            "owner_email": getattr(tenant, "owner_email", "") or "",
+            "owner_phone": getattr(tenant, "owner_phone", "") or "",
             "indigo": tenant.indigo,
             "instagram": tenant.instagram,
             "facebook": tenant.facebook,
@@ -1447,10 +1451,16 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     # Branding oder Top-Level (beide unterstützt für Backwards-Compat)
     _owner_name = r.get("owner_name") or branding.get("owner_name", "")
     _owner_street = r.get("owner_street") or branding.get("owner_street", "")
+    _owner_email = r.get("owner_email") or branding.get("owner_email", "")
+    _owner_phone = r.get("owner_phone") or branding.get("owner_phone", "")
     if hasattr(tenant, 'owner_name'):
         tenant.owner_name = _owner_name or ""
     if hasattr(tenant, 'owner_street'):
         tenant.owner_street = _owner_street or ""
+    if hasattr(tenant, 'owner_email'):
+        tenant.owner_email = _owner_email or ""
+    if hasattr(tenant, 'owner_phone'):
+        tenant.owner_phone = _owner_phone or ""
     tenant.indigo = branding.get("indigo", "")
     tenant.instagram = branding.get("instagram", "")
     tenant.facebook = branding.get("facebook", "")
@@ -7513,13 +7523,15 @@ async def legal_update(
     request: Request,
     owner_name: Optional[str] = Form(""),
     owner_street: Optional[str] = Form(""),
-    impressum_content: Optional[str] = Form(""),
-    datenschutz_content: Optional[str] = Form(""),
+    owner_email: Optional[str] = Form(""),
+    owner_phone: Optional[str] = Form(""),
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db)
 ):
-    """Speichert Inhaber-Name, Straße, Impressum & Datenschutz.
-    § 5 TMG: Verantwortlicher + Anschrift Pflicht für Impressum."""
+    """Speichert Kontaktdaten des Verantwortlichen für das Tenant-Impressum.
+    § 5 TMG: Name + Anschrift Pflicht, Kontakt (Email/Telefon) empfohlen.
+    Das eigentliche Impressum wird aus diesen Daten auto-generiert und
+    im Speisekarten-Footer (menu.html) angezeigt."""
     user, slug, restaurant = chef_data
     if not restaurant.get("is_setup_completed", False):
         return RedirectResponse(url="/admin/setup", status_code=303)
@@ -7528,47 +7540,55 @@ async def legal_update(
     # werden vom Frontend gelesen, so bleibt es robust bei Refactoring).
     restaurant["owner_name"] = (owner_name or "").strip()
     restaurant["owner_street"] = (owner_street or "").strip()
+    restaurant["owner_email"] = (owner_email or "").strip()
+    restaurant["owner_phone"] = (owner_phone or "").strip()
     if "branding" not in restaurant:
         restaurant["branding"] = {}
     restaurant["branding"]["owner_name"] = restaurant["owner_name"]
     restaurant["branding"]["owner_street"] = restaurant["owner_street"]
+    restaurant["branding"]["owner_email"] = restaurant["owner_email"]
+    restaurant["branding"]["owner_phone"] = restaurant["owner_phone"]
 
-    # Impressum & Datenschutz — falls leer, Auto-Generierung mit Inhaber-Daten
-    if impressum_content and impressum_content.strip():
-        restaurant["impressum_content"] = impressum_content.strip()
-    else:
-        # Auto-Generate: § 5 TMG konform mit Name + Straße + Adresse
-        _name = restaurant["owner_name"] or user.get("name", "Chef")
-        _street = restaurant["owner_street"] or restaurant.get("branding", {}).get("address", "")
-        _plz_ort = ""
-        b = restaurant.get("branding", {})
-        if b.get("plz") or b.get("ort"):
-            _plz_ort = f"{b.get('plz', '')} {b.get('ort', '')}".strip()
-        addr_line = _street
-        if _plz_ort:
-            addr_line = f"{_street}, {_plz_ort}" if _street else _plz_ort
-        restaurant["impressum_content"] = (
-            f"Impressum\n\n"
-            f"Angaben gemäß § 5 TMG:\n\n"
-            f"{restaurant.get('name', '')}\n"
-            f"Verantwortlich: {_name}\n"
-            f"{addr_line}\n\n"
-            f"Kontakt:\n"
-            f"E-Mail: {restaurant.get('email', '')}\n"
-        )
+    # Auto-Generiere § 5 TMG-konformes Impressum aus den Kontaktdaten.
+    # Überschreibt vorheriges (ggf. veraltetes) impressum_content, damit
+    # Gäste im Speisekarten-Footer immer die aktuellen Daten sehen.
+    _name = restaurant["owner_name"] or user.get("name", "Chef")
+    _street = restaurant["owner_street"] or restaurant.get("branding", {}).get("address", "")
+    _plz_ort = ""
+    b = restaurant.get("branding", {})
+    if b.get("plz") or b.get("ort"):
+        _plz_ort = f"{b.get('plz', '')} {b.get('ort', '')}".strip()
+    addr_line = _street
+    if _plz_ort:
+        addr_line = f"{_street}, {_plz_ort}" if _street else _plz_ort
 
-    if datenschutz_content and datenschutz_content.strip():
-        restaurant["datenschutz_content"] = datenschutz_content.strip()
-    else:
-        restaurant["datenschutz_content"] = (
-            "Datenschutzerklärung\n\n"
-            "Wir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. "
-            "Personenbezogene Daten werden auf dieser digitalen Speisekarte "
-            "nur im technisch notwendigen Umfang (Tischzuordnung und "
-            "Bestellübermittlung) erhoben und verarbeitet.\n\n"
-            "Verantwortlich im Sinne der DSGVO: "
-            f"{restaurant.get('owner_name', '') or user.get('name', 'Chef')}"
-        )
+    contact_lines = []
+    if restaurant["owner_email"]:
+        contact_lines.append(f"E-Mail: {restaurant['owner_email']}")
+    if restaurant["owner_phone"]:
+        contact_lines.append(f"Telefon: {restaurant['owner_phone']}")
+    if not restaurant["owner_email"] and restaurant.get("email"):
+        contact_lines.append(f"E-Mail: {restaurant.get('email')}")
+
+    restaurant["impressum_content"] = (
+        f"Impressum\n\n"
+        f"Angaben gemäß § 5 TMG:\n\n"
+        f"{restaurant.get('name', '')}\n"
+        f"Verantwortlich: {_name}\n"
+        f"{addr_line}\n"
+        + ("\nKontakt:\n" + "\n".join(contact_lines) + "\n" if contact_lines else "\n")
+    )
+
+    # Datenschutzerklärung — Auto-Generierung mit Verantwortlichem
+    restaurant["datenschutz_content"] = (
+        "Datenschutzerklärung\n\n"
+        "Wir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. "
+        "Personenbezogene Daten werden auf dieser digitalen Speisekarte "
+        "nur im technisch notwendigen Umfang (Tischzuordnung und "
+        "Bestellübermittlung) erhoben und verarbeitet.\n\n"
+        "Verantwortlich im Sinne der DSGVO: "
+        f"{restaurant.get('owner_name', '') or user.get('name', 'Chef')}"
+    )
 
     try:
         save_restaurant_to_db(slug, restaurant, db)

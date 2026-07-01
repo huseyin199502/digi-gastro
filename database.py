@@ -100,6 +100,8 @@ class Tenant(Base):
     # Wird auf /impressum ausgegeben. Wenn leer, Fallback auf Chef-Name.
     owner_name = Column(String, default="")
     owner_street = Column(String, default="")  # Straße des Verantwortlichen (kann abweichen von Laden-Adresse)
+    owner_email = Column(String, default="")   # Kontakt-Email für Impressum
+    owner_phone = Column(String, default="")   # Telefonnummer für Impressum
     indigo = Column(String, default="")
     instagram = Column(String, default="")
     facebook = Column(String, default="")
@@ -414,6 +416,8 @@ def _migrate_database():
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tenants', 'owner_email', "VARCHAR DEFAULT ''")
+    add_column_if_missing('tenants', 'owner_phone', "VARCHAR DEFAULT ''")
 
     # ── Bug-Fix: Existierende NULL-Werte in price_mode auf 'brutto' setzen.
     # Früher konnten NULL-Werte entstehen (kein server_default, save-Pfad nicht
