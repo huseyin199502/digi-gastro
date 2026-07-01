@@ -4851,14 +4851,13 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         prod["display_price"] = prod["price"]
         prod["active_event"] = None  # Track which event applies
         
-        # ── Price Mode: Netto conversion ──
-        # DB always stores brutto prices. If tenant price_mode == "netto", convert.
+        # ── Price Mode: KEINE Konvertierung mehr ──
+        # Der eingegebene Preis ist IMMER der angezeigte Preis — egal ob netto oder brutto.
+        # Die price_mode Einstellung beeinflusst NUR die MwSt-Berechnung in Reports,
+        # NICHT den angezeigten Preis für den Kunden.
+        # VORHER: netto → Preis wurde durch 1.19 geteilt (3,50€ → 2,94€) — FALSCH!
+        # JETZT: Preis bleibt immer wie eingegeben (3,50€ = 3,50€ für den Kunden)
         price_mode = restaurant.get("price_mode", "brutto")
-        if price_mode == "netto":
-            cat_type = prod.get("category_type", "küche").lower()
-            mwst_factor = 1.19 if cat_type == "bar" else 1.07
-            prod["price"] = round(prod["price"] / mwst_factor, 2)
-            prod["display_price"] = prod["price"]
         
         # Check each event to see if this product qualifies
         event_price_applied = False
@@ -4874,11 +4873,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             if event_product and event_product.get("event_price"):
                 prod["is_hh_active"] = True
                 event_price_val = event_product["event_price"]
-                # Convert event price to netto if tenant price_mode == netto
-                if price_mode == "netto":
-                    cat_type = prod.get("category_type", "küche").lower()
-                    mwst_factor = 1.19 if cat_type == "bar" else 1.07
-                    event_price_val = round(event_price_val / mwst_factor, 2)
+                # Event-Preis wird 1:1 angezeigt — keine netto/brutto Konvertierung
                 prod["display_price"] = event_price_val
                 prod["active_event"] = {"name": ev["name"], "display_name": ev["display_name"], "days": ev["days"]}
                 event_price_applied = True
