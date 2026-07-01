@@ -4186,6 +4186,7 @@
                 <span class="material-symbols-outlined">table_restaurant</span>
                 <span>Sitzplan</span>
             </button>
+            {% if current_user.role == 'chef' %}
             <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
                 <span class="material-symbols-outlined">payments</span>
                 <span>Bestellungen & Reports</span>
@@ -4224,6 +4225,15 @@
                 <span class="material-symbols-outlined">settings</span>
                 <span>Einstellungen</span>
             </button>
+            {% else %}
+            {# Kellner: Nur Sitzplan + Produkte #}
+            <div class="nav-divider"></div>
+            <div class="nav-group-label">Inhalte</div>
+            <button id="tab-btn-produkte" onclick="switchAdminTab('produkte')" class="nav-sub-btn">
+                <span class="material-symbols-outlined" style="font-size:18px;">lunch_dining</span>
+                <span>Produkte</span>
+            </button>
+            {% endif %}
         </nav>
         
         <div class="sidebar-logout">
@@ -5162,7 +5172,6 @@
                                     <label class="form-label">Rolle</label>
                                     <select name="role" required class="form-field">
                                         <option value="kellner">Kellner</option>
-                                        <option value="zubereiter">Zubereiter (Küche)</option>
                                         <option value="chef">Chef (Admin)</option>
                                     </select>
                                 </div>
@@ -5184,8 +5193,6 @@
                                                 <span class="font-bold text-xs text-zinc-800">{{ member.name }}</span>
                                                 {% if member.role == 'chef' %}
                                                 <span class="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-2 uppercase">Chef</span>
-                                                {% elif member.role == 'zubereiter' %}
-                                                <span class="text-[9px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full ml-2 uppercase">Zubereiter</span>
                                                 {% else %}
                                                 <span class="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full ml-2 uppercase">Kellner</span>
                                                 {% endif %}
@@ -5955,8 +5962,20 @@
             <div class="popup-body" id="bon-detail-body">
                 <!-- Wird von openBonDetail() gefüllt -->
             </div>
+            <!-- Bon-Druck Footer -->
+            <div class="popup-footer" style="display:flex;gap:0.5rem;padding:0.75rem 1.5rem;border-top:1px solid #e5e7eb;background:#f9fafb;">
+                <button onclick="printBonReceipt()" class="flex-1 min-h-[44px] bg-zinc-800 text-white font-bold text-xs rounded-lg hover:bg-zinc-700 transition flex items-center justify-center gap-1.5">
+                    <span class="material-symbols-outlined" style="font-size:16px;">print</span> Bon drucken
+                </button>
+                <button onclick="closeBonDetailModal()" class="min-h-[44px] px-4 bg-gray-100 text-zinc-700 font-bold text-xs rounded-lg hover:bg-gray-200 transition">
+                    Schließen
+                </button>
+            </div>
         </div>
     </div>
+
+    <!-- Hidden print iframe for receipt printing -->
+    <iframe id="print-frame" style="display:none;"></iframe>
 
     <!-- ══════════════════════════════════════════════════════
          TABLE SELECTOR OVERLAY / MODAL (#table-sel-overlay)
@@ -6444,6 +6463,13 @@
             // Validate tabId — only allow known tabs
             const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
             if (!validTabs.includes(tabId)) tabId = 'live';
+
+            // Rollen-basierte Zugriffskontrolle:
+            // Kellner dürfen nur 'live' (Sitzplan) und 'produkte' sehen
+            const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
+            if (currentUserRole !== 'chef' && !['live', 'produkte'].includes(tabId)) {
+                tabId = 'live'; // Kellner wird immer auf Sitzplan umgeleitet
+            }
 
             document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('aside nav button.nav-btn, aside nav button.nav-sub-btn').forEach(btn => {
@@ -7355,6 +7381,7 @@
         function openBonDetail(orderId) {
             const order = allOrders.find(o => o.id === orderId);
             if (!order) return;
+            _currentBonData = order; // Für Bon-Druck speichern
             const modal = document.getElementById('bon-detail-modal');
             const titleEl = document.getElementById('bon-detail-title');
             const bodyEl = document.getElementById('bon-detail-body');
@@ -7497,6 +7524,80 @@
             const modal = document.getElementById('bon-detail-modal');
             if (modal) modal.classList.add('hidden');
             document.body.style.overflow = '';
+        }
+
+        // ── Bon-Druck: Druckt den aktuellen Bon über den Browser-Druckdialog ──
+        // Funktioniert mit jedem Thermal-Drucker (Star, Epson, Seiko) der als
+        // Systemdrucker eingerichtet ist. Öffnet ein verstecktes iframe mit
+        // 80mm-Bon-Layout und druckt dieses.
+        let _currentBonData = null;
+        function printBonReceipt() {
+            if (!_currentBonData) return;
+            const bon = _currentBonData;
+            const frame = document.getElementById('print-frame');
+            if (!frame) return;
+
+            // 80mm Thermal-Printer optimiertes Layout
+            const itemsHtml = (bon.items || []).map(item => `
+                <tr>
+                    <td style="width:30px;text-align:right;vertical-align:top;">${item.quantity}x</td>
+                    <td style="padding-left:4px;">${item.name}${item.note ? '<br><i style="font-size:10px;color:#666;">&nbsp;&nbsp;${item.note}</i>' : ''}</td>
+                    <td style="text-align:right;vertical-align:top;white-space:nowrap;">${(item.price * item.quantity).toFixed(2).replace('.', ',')} &euro;</td>
+                </tr>
+            `).join('');
+
+            const mwst = bon.total * (bon.mwst_rate || 19) / 100;
+            const net = bon.total - mwst;
+
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@page { size: 80mm auto; margin: 2mm; }
+body { font-family: 'Courier New', monospace; font-size: 12px; width: 76mm; margin: 0; padding: 0; }
+.header { text-align: center; margin-bottom: 6px; }
+.header h2 { font-size: 14px; margin: 0; }
+.header p { font-size: 10px; margin: 2px 0; color: #666; }
+.info { font-size: 10px; margin-bottom: 6px; color: #444; }
+.info div { display: flex; justify-content: space-between; }
+table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+td { font-size: 11px; padding: 1px 0; }
+.divider { border-top: 1px dashed #999; margin: 4px 0; }
+.total { font-size: 14px; font-weight: bold; margin: 4px 0; display: flex; justify-content: space-between; }
+.mwst { font-size: 10px; color: #666; margin: 2px 0; }
+.footer { text-align: center; font-size: 10px; margin-top: 8px; color: #666; }
+</style>
+</head>
+<body>
+<div class="header">
+<h2>{{ restaurant.name }}</h2>
+<p>{{ restaurant.branding.address if restaurant.branding else '' }}</p>
+</div>
+<div class="info">
+<div><span>Bon #:</span><span>${bon.id}</span></div>
+<div><span>Tisch:</span><span>${bon.table}</span></div>
+<div><span>Datum:</span><span>${bon.timestamp}</span></div>
+<div><span>Kellner:</span><span>${bon.waiter_id || '-'}</span></div>
+</div>
+<div class="divider"></div>
+<table>${itemsHtml}</table>
+<div class="divider"></div>
+<div class="mwst">Netto: ${net.toFixed(2).replace('.', ',')} &euro;</div>
+<div class="mwst">MwSt (${bon.mwst_rate || 19}%): ${mwst.toFixed(2).replace('.', ',')} &euro;</div>
+<div class="total"><span>Gesamt:</span><span>${bon.total.toFixed(2).replace('.', ',')} &euro;</span></div>
+${bon.tip_amount > 0 ? '<div class="total"><span>Trinkgeld:</span><span>' + bon.tip_amount.toFixed(2).replace('.', ',') + ' &euro;</span></div>' : ''}
+${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:center;font-weight:bold;">BEZAHLT</div>' : ''}
+<div class="footer">Vielen Dank für Ihren Besuch!</div>
+</body>
+</html>`;
+
+            frame.contentDocument.open();
+            frame.contentDocument.write(html);
+            frame.contentDocument.close();
+            setTimeout(() => {
+                frame.contentWindow.print();
+            }, 200);
         }
 
         // Schließen bei Klick auf Backdrop
