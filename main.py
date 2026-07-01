@@ -6930,7 +6930,8 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
     if not res:
         return RedirectResponse(url="/admin/login")
     user, slug = res
-    if user["role"] != "chef":
+    # Chef und Kellner dürfen ins Dashboard (Kellner sieht eingeschränkte Sidebar via Jinja2)
+    if user["role"] not in ("chef", "kellner"):
         return RedirectResponse(url="/admin/login")
         
     restaurant = get_restaurant_or_raise(slug, db)
@@ -7103,7 +7104,7 @@ def get_login(request: Request, redirect: Optional[str] = None, db: Session = De
         if role == "chef":
             return RedirectResponse(url="/admin/dashboard")
         elif role == "kellner":
-            return RedirectResponse(url=f"/{slug}/tablet")
+            return RedirectResponse(url="/admin/dashboard")
         elif role == "zubereiter":
             return RedirectResponse(url=f"/{slug}/kitchen")
             
