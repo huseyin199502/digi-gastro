@@ -7930,18 +7930,45 @@ async def post_produkt_erstellen(
         safe_name = f"{slug}-product-{new_id}.png"
         file_path = os.path.join(products_upload_dir, safe_name)
         content = await image_file.read()
+        # ── PIL-Verarbeitung (BG-Remove + Crop) — optional, falls rembg/PIL fehlt ──
+        # Bug-Fix: Früher wurde content überschrieben = wenn PIL crasht, war content leer
+        # → PNG wurde nie geschrieben → WebP-Konvertierung scheiterte → 404 im Frontend.
+        # Jetzt: Original-Bytes als Fallback behalten, PIL-Output nur wenn erfolgreich.
+        processed_content = None
         try:
-            content = process_and_crop_product_image(content)
+            processed_content = process_and_crop_product_image(content)
+            if not processed_content or len(processed_content) < 100:
+                # Leerer/minimal Output = Processing fehlgeschlagen
+                print(f"[Image Processing] Empty output for product {new_id}, using original bytes")
+                processed_content = None
         except Exception as e:
             print(f"[Image Processing] Error processing product image: {e}")
-        with open(file_path, "wb") as fh:
-            fh.write(content)
-        # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+            processed_content = None
+        # Fallback: Original-Bytes wenn Processing scheiterte
+        write_content = processed_content if processed_content else content
         try:
-            convert_to_webp(file_path)
-        except Exception as _e:
-            print(f"[WebP] Product image conversion failed: {_e}")
-        final_image = f"/uploads/products/{safe_name}"
+            with open(file_path, "wb") as fh:
+                fh.write(write_content)
+        except Exception as write_err:
+            print(f"[Image Write] Failed to write PNG for product {new_id}: {write_err}")
+            # Letzter Fallback: Unsplash-Platzhalter
+            final_image = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400"
+        else:
+            # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+            webp_ok = False
+            try:
+                webp_result = convert_to_webp(file_path)
+                if webp_result and os.path.exists(webp_result):
+                    webp_ok = True
+                else:
+                    print(f"[WebP] Conversion returned no path for product {new_id}")
+            except Exception as _e:
+                print(f"[WebP] Product image conversion failed: {_e}")
+            # Pfad setzen — get_webp_path entscheidet später, ob .webp oder .png
+            # WICHTIG: Pfad bleibt .png — load_restaurant_from_db macht via get_webp_path
+            # automatisch .webp wenn Datei existiert. Falls WebP scheitert, wird .png
+            # ausgeliefert (was definitiv existiert).
+            final_image = f"/uploads/products/{safe_name}"
 
     elif image_url and image_url.strip():
         final_image = image_url.strip()
@@ -10338,18 +10365,34 @@ async def update_product_api(
         safe_name = f"{slug}-product-{product_id}.png"
         file_path = os.path.join(products_upload_dir, safe_name)
         content = await image_file.read()
+        # ── Robustes Image-Processing (gleicher Fix wie produkt-erstellen) ──
+        # PIL/rembg-Output nur verwenden wenn erfolgreich, sonst Original-Bytes.
+        processed_content = None
         try:
-            content = process_and_crop_product_image(content)
+            processed_content = process_and_crop_product_image(content)
+            if not processed_content or len(processed_content) < 100:
+                print(f"[Image Processing] Empty output for product {product_id}, using original bytes")
+                processed_content = None
         except Exception as e:
             print(f"[Image Processing] Error processing product image: {e}")
-        with open(file_path, "wb") as fh:
-            fh.write(content)
-        # WebP-Version erzeugen — wird via get_webp_path automatisch ausgeliefert
+            processed_content = None
+        write_content = processed_content if processed_content else content
         try:
-            convert_to_webp(file_path)
-        except Exception as _e:
-            print(f"[WebP] Product image conversion failed: {_e}")
-        final_image = f"/uploads/products/{safe_name}"
+            with open(file_path, "wb") as fh:
+                fh.write(write_content)
+        except Exception as write_err:
+            print(f"[Image Write] Failed to write PNG for product {product_id}: {write_err}")
+            # Behalte altes Bild als Fallback statt 404
+            final_image = product.get("image", "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400")
+        else:
+            # WebP-Version erzeugen
+            try:
+                webp_result = convert_to_webp(file_path)
+                if not webp_result or not os.path.exists(webp_result):
+                    print(f"[WebP] Conversion returned no path for product {product_id}")
+            except Exception as _e:
+                print(f"[WebP] Product image conversion failed: {_e}")
+            final_image = f"/uploads/products/{safe_name}"
 
     elif image_url is not None:
         if str(image_url).strip():
