@@ -40,7 +40,7 @@ RUN mkdir -p /app/data/uploads/logos /app/static/images
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=60s --timeout=15s --start-period=60s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS:-2} --timeout 120"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 2"]
