@@ -9,7 +9,7 @@
 // wegen Byte-Equal-Check). Bei gleichem Tag v2, v3, ... sonst neues Datum ab v1.
 // Update 2026-06-22-v1: Phase 2 — IMAGE_CACHE (Cache-First für /uploads/ und
 // /static/images/, 30 Tage TTL), Auto-Versionierung, Static-Cache-Kommentare.
-const SW_VERSION = '2026-07-01-v9'; // bumped: Produkt-Bearbeiten Submit-Fix — required-Attribut entfernt, explizite Validierung + Loading-State
+const SW_VERSION = '2026-07-02-v1'; // REVERT: Zurück zum funktionierenden Stand vor Loyalty — alle Caches löschen
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const IMAGE_CACHE = `${CACHE_NAME}-images`;  // separater Cache für Bilder (Cache-First + 30d TTL)
@@ -172,26 +172,31 @@ self.addEventListener('install', (event) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// ACTIVATE: Alte Caches löschen, neue übernehmen
+// ACTIVATE: ALLE Caches löschen (aggressiv), neue übernehmen
 // ────────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activate — cleanup alte caches für Version:', SW_VERSION);
+    console.log('[SW] Activate — AGGRESSIVE CACHE-CLEAR für Version:', SW_VERSION);
     event.waitUntil(
         caches.keys()
             .then((keys) => {
+                // LÖSCHE ALLE Caches (auch eigene) — komplett frischer Start
                 return Promise.all(
-                    keys
-                        .filter((key) => !key.startsWith(CACHE_NAME))
-                        .map((key) => {
-                            console.log('[SW] Lösche alten Cache:', key);
-                            return caches.delete(key);
-                        })
+                    keys.map((key) => {
+                        console.log('[SW] Lösche Cache:', key);
+                        return caches.delete(key);
+                    })
                 );
             })
-            // clients.claim() aktiviert den neuen SW sofort für alle offenen Tabs
-            // (zusammen mit skipWaiting() in install). Verhindert, dass Nutzer
-            // alte HTML/JS-Version mit neuem SW-Cache mismatch haben.
             .then(() => self.clients.claim())
+            .then(() => {
+                // Alle offenen Tabs neu laden
+                return self.clients.matchAll({ type: 'window' });
+            })
+            .then((clients) => {
+                clients.forEach((client) => {
+                    client.navigate(client.url);
+                });
+            })
     );
 });
 
