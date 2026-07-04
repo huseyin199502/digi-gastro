@@ -1157,7 +1157,11 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "related_product_ids": json.loads(getattr(p, "related_product_ids", "[]") or "[]")
         })
         
-    db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id).all()
+    # PERFORMANCE FIX: Nur die letzten 200 Orders laden (statt alle)
+    # Bei deer-lounge: 575K+ Items → 82MB RAM → Worker OOM Crash
+    # Mit 200 Orders: ~200KB RAM → stabil
+    db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id.desc()).limit(200).all()
+    db_orders.reverse()  # Wieder aufsteigend sortieren für UI
     orders = []
     for o in db_orders:
         db_items = session.query(DBOrderItem).filter_by(order_id=o.id).order_by(DBOrderItem.id).all() if hasattr(o, "id") else []
@@ -1589,8 +1593,13 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         if pid not in seen_product_ids:
             session.delete(db_p)
             
-    # 3. Update orders
-    existing_orders = {o.id: o for o in session.query(Order).filter_by(tenant_slug=slug).all()}
+    # 3. Update orders — nur Orders laden die im r["orders"] enthalten sind
+    # PERFORMANCE: Statt alle Orders zu laden, nur die IDs die aktualisiert werden
+    order_ids_in_payload = [o.get("id") for o in r.get("orders", []) if o.get("id")]
+    if order_ids_in_payload:
+        existing_orders = {o.id: o for o in session.query(Order).filter(Order.tenant_slug == slug, Order.id.in_(order_ids_in_payload)).all()}
+    else:
+        existing_orders = {}
     seen_order_ids = set()
     for o in r.get("orders", []):
         o_id = o.get("id")
