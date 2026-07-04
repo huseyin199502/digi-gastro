@@ -1090,6 +1090,24 @@ try:
 except Exception as _e:
     print(f"[Multi-Tenant] Backfill migration skipped: {_e}")
 
+# ── CLEANUP: Loyalty/Announcement DB-Reste löschen ──
+# Der Revert hat den Loyalty-Code entfernt, aber die DB hat noch:
+# 1. Events mit mode='announcement' (alter Code kennt das nicht → Crashes)
+# 2. Loyalty-Tabellen (ungenutzt, aber harmlos)
+# 3. events.banner_color Spalte (ungenutzt, harmlos)
+# Wir löschen nur die announcement-Events — die anderen Sachen stören nicht.
+try:
+    from sqlalchemy import text as sa_text
+    with engine.connect() as conn:
+        # Announcement-Events löschen
+        result = conn.execute(sa_text("DELETE FROM events WHERE mode = 'announcement'"))
+        deleted = result.rowcount
+        if deleted > 0:
+            conn.commit()
+            print(f"[CLEANUP] {deleted} announcement-Events gelöscht (Revert Cleanup)")
+except Exception as _e:
+    print(f"[CLEANUP] Announcement-Event Cleanup skipped: {_e}")
+
 
 # Stateless Serialization Helpers for compatibility and template rendering
 def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
