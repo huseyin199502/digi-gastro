@@ -13535,13 +13535,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 }
                             });
                         });
-                        // Wenn Controller sich ändert (neue SW aktiv) → Seite reloaden
-                        let refreshing = false;
-                        navigator.serviceWorker.addEventListener('controllerchange', () => {
-                            if (refreshing) return;
-                            refreshing = true;
-                            window.location.reload();
-                        });
+                        // KEIN controllerchange auto-reload — verursacht endlose Reload-Schleife
                     })
                     .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
             });
