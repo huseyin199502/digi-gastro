@@ -9,7 +9,7 @@
 // wegen Byte-Equal-Check). Bei gleichem Tag v2, v3, ... sonst neues Datum ab v1.
 // Update 2026-06-22-v1: Phase 2 — IMAGE_CACHE (Cache-First für /uploads/ und
 // /static/images/, 30 Tage TTL), Auto-Versionierung, Static-Cache-Kommentare.
-const SW_VERSION = '2026-07-02-v2'; // DB Cleanup: announcement-Events gelöscht + SW Cache komplett geleert
+const SW_VERSION = '2026-07-02-v3'; // EMERGENCY: SW fetch-Handler komplett deaktiviert — KEIN Caching mehr, keine Offline-Seite
 const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const IMAGE_CACHE = `${CACHE_NAME}-images`;  // separater Cache für Bilder (Cache-First + 30d TTL)
@@ -201,56 +201,13 @@ self.addEventListener('activate', (event) => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-// FETCH: Strategie basierend auf URL-Pattern
+// FETCH: DEAKTIVIERT — alle Requests direkt vom Server (NO CACHING)
+// Der SW intercepted KEINE Requests mehr. Das verhindert alle
+// Offline/Cache-Probleme. Browser macht normale HTTP-Requests.
 // ────────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
-    const { request } = event;
-
-    // Nur GET-Requests behandeln
-    if (request.method !== 'GET') return;
-
-    const url = new URL(request.url);
-
-    // Skip cross-origin requests (CDN, Google Fonts, etc.)
-    if (url.origin !== self.location.origin) return;
-
-    // Skip nicht-cachebare Pfade (API, Admin, WebSocket, etc.)
-    // /uploads/ ist bewusst NICHT mehr hier — siehe imageCacheFirst().
-    if (NEVER_CACHE_PATTERNS.some((pattern) => pattern.test(url.pathname))) {
-        return; // Browser handles request normally
-    }
-
-    // ── Strategie 0: Bild-Cache-First NUR für /static/images/ ──
-    // Bilder ändern sich selten (WebP-Conversion ist one-shot) → 30 Tage TTL,
-    // separater IMAGE_CACHE (isoliert vom STATIC_CACHE, einfach zu invalidieren).
-    //
-    // WICHTIG: /uploads/ wird BEWUSST NICHT gecacht! Backend-Middleware
-    // (main.py:717 no_cache_uploads_middleware) setzt Cache-Control: no-store
-    // für /uploads/ — Kunden-Uploads (Logos, Produktfotos) dürfen nicht
-    // offline-verfügbar sein (Schutz vor Cache-Klau).
-    // Nur /static/images/ (Plattform-Icons, digi-gastro-Logos) bekommt 30d Cache.
-    if (url.pathname.startsWith('/static/images/') &&
-        (request.destination === 'image' || IMAGE_URL_PATTERN.test(url.pathname))) {
-        event.respondWith(imageCacheFirst(request));
-        return;
-    }
-
-    // ── Strategie 1: Cache-First für statische Assets ──
-    // /static/* (css, js, verbleibende images) und manifest.json und apple-touch-icon.png
-    if (url.pathname.startsWith('/static/') ||
-        url.pathname === '/manifest.json' ||
-        url.pathname === '/apple-touch-icon.png') {
-        event.respondWith(cacheFirst(request));
-        return;
-    }
-
-    // ── Strategie 2: Network-First für HTML-Seiten ──
-    // /, /landing, /login, tenant-slug-Seiten
-    if (request.mode === 'navigate' ||
-        request.headers.get('accept')?.includes('text/html')) {
-        event.respondWith(networkFirst(request));
-        return;
-    }
+    // NICHTS tun — Browser macht normalen Request ohne SW-Interception
+    return;
 });
 
 // ────────────────────────────────────────────────────────────────────
