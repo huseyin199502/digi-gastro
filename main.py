@@ -7120,7 +7120,9 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             "stats": stats,
             "period": period,
             "current_user": user,
-            "orders_json": json.dumps(restaurant.get("orders", [])),
+            # PERFORMANCE FIX: Nur die letzten 50 Orders ins Dashboard laden
+            # (vorher: ALLE Orders → 82MB bei deer-lounge → Seite nie laden)
+            "orders_json": json.dumps(sorted(restaurant.get("orders", []), key=lambda o: o.get("id", 0), reverse=True)[:50]),
             "tables_json": json.dumps(restaurant.get("tables", [])),
             "products_json": json.dumps(restaurant.get("products", [])),
             "categories_json": json.dumps(restaurant.get("categories", [])),
