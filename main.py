@@ -1104,16 +1104,10 @@ try:
 except Exception as _e:
     print(f"[Multi-Tenant] Backfill migration skipped: {_e}")
 
-# CLEANUP: Alte announcement-Events löschen (falls vorhanden)
-try:
-    from sqlalchemy import text as sa_text
-    with engine.connect() as conn:
-        result = conn.execute(sa_text("DELETE FROM events WHERE mode = 'announcement'"))
-        if result.rowcount > 0:
-            conn.commit()
-            print(f"[CLEANUP] {result.rowcount} announcement-Events gelöscht")
-except Exception as _e:
-    print(f"[CLEANUP] skipped: {_e}")
+# CLEANUP: DEAKTIVIERT — löscht keine announcement-Events mehr!
+# Der Code war früher nötig als der alte Code mode='announcement' nicht kannte.
+# Jetzt kennt der Code es wieder → Cleanup nicht mehr nötig.
+# result = conn.execute(sa_text("DELETE FROM events WHERE mode = 'announcement'"))
 
 
 # Stateless Serialization Helpers for compatibility and template rendering
