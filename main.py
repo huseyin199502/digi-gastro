@@ -6164,6 +6164,7 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
 @app.post("/{slug}/service-erledigt/{ruf_id}")
 @tenant_lock
 async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session = Depends(get_db)):
+    # Auth-Check zuerst (braucht restaurant dict für pos_token)
     restaurant = get_restaurant_or_raise(slug, db)
     pos_cookie = request.cookies.get(f"pos_token_{slug}")
     expected_pos = restaurant.get("pos_token")
@@ -6176,17 +6177,29 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
             is_auth = True
     if not is_auth:
         raise HTTPException(status_code=403, detail="Keine Berechtigung.")
-        
-    calls = restaurant.get("service_calls", [])
-    restaurant["service_calls"] = [c for c in calls if c["id"] != ruf_id]
-    
+
+    # ── CRITICAL FIX: Direkter DB-DELETE statt Read-Modify-Write ──
+    # Vorher: load_restaurant (LIMIT 100 Calls) → filter lokal → save_restaurant_to_db
+    #         → save macht "Append/Update-Only" (KEIN Delete wegen früherem Regression-Fix)
+    #         → Service-Call #285 bleibt in DB → Kellner muss 2-3× klicken!
+    # Nachher: Direktes DELETE FROM service_calls WHERE id=? AND tenant_slug=?
+    #          O(1), atomar, unabhängig vom Cache. Funktioniert IMMER.
+    slug_lower = slug.lower().strip()
     try:
-        save_restaurant_to_db(slug, restaurant, db)
+        deleted = db.query(ServiceCall).filter(
+            ServiceCall.tenant_slug == slug_lower,
+            ServiceCall.id == ruf_id
+        ).delete(synchronize_session=False)
         db.commit()
+        if deleted == 0:
+            # Call war vielleicht schon gelöscht (Kellner hat 2× geklickt) — kein Fehler, idempotent
+            print(f"[service-erledigt] Call {ruf_id} für {slug_lower} bereits gelöscht (idempotent)")
+        # Cache invalidieren — damit tablet-status beim nächsten Poll frische Daten liefert
+        invalidate_restaurant_cache_sync(slug_lower)
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
-        
+        raise HTTPException(status_code=500, detail=f"Fehler beim Löschen des Service-Rufs: {e}")
+
     await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
 
