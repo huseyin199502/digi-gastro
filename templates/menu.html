@@ -1885,7 +1885,16 @@
                     }
                     
                     // Start with category list view (currentCategory = '')
-                    // No auto-selection - show categories first
+                    // ABER: letzte Kategorie aus localStorage wiederherstellen falls vorhanden
+                    try {
+                        const lastCat = localStorage.getItem('dl_last_category_{{ slug }}');
+                        if (lastCat) {
+                            // Verzögert ausführen damit DOM bereit ist
+                            setTimeout(() => {
+                                this.filterCategory(lastCat, false);
+                            }, 300);
+                        }
+                    } catch(e) {}
 
                     const isReadonly = {% if is_readonly %}true{% else %}false{% endif %};
                     if (!isReadonly) {
@@ -2260,6 +2269,15 @@
                     }
 
                     this.currentCategory = category;
+
+                    // Kategorie in localStorage speichern — beim Zurückkehren wiederherstellen
+                    try {
+                        if (category) {
+                            localStorage.setItem('dl_last_category_{{ slug }}', category);
+                        } else {
+                            localStorage.removeItem('dl_last_category_{{ slug }}');
+                        }
+                    } catch(e) {}
 
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
