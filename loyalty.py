@@ -22,6 +22,8 @@ DSGVO: Kunden sind anonym (nur Pass-Serial als ID, keine PIIs).
 Opt-out jederzeit möglich (push_opt_out Flag).
 """
 
+from __future__ import annotations
+
 import os
 import json
 import uuid
@@ -31,6 +33,27 @@ import zipfile
 import io
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
+
+
+# ═══ Lazy-Import der DB-Models ═══
+# Verhindert NameError zur Laufzeit (LoyaltyCustomer etc.)
+def _load_db_models():
+    import database as _db
+    globals()['LoyaltyCard'] = _db.LoyaltyCard
+    globals()['LoyaltyCustomer'] = _db.LoyaltyCustomer
+    globals()['LoyaltyStamp'] = _db.LoyaltyStamp
+    globals()['LoyaltyCampaign'] = _db.LoyaltyCampaign
+    globals()['LoyaltyPushLog'] = _db.LoyaltyPushLog
+    globals()['TenantGeofence'] = _db.TenantGeofence
+
+try:
+    _load_db_models()
+except (ImportError, AttributeError):
+    pass
+
+def _ensure_db_models():
+    if 'LoyaltyCard' not in globals():
+        _load_db_models()
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -469,6 +492,8 @@ def award_stamp_for_order(
 
     Returns: Dict mit Stempel-Ergebnis (für Notification/Log)
     """
+    _ensure_db_models()
+
     now = _now_iso()
 
     # Kunde laden
@@ -546,6 +571,8 @@ def run_inactivity_cron(db_session) -> Dict[str, Any]:
 
     Returns: Statistik über gesendete Pushs.
     """
+    _ensure_db_models()
+
     berlin_now = _berlin_now()
     today_weekday_short = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"][berlin_now.weekday()]
     today_weekday_long = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"][berlin_now.weekday()]
@@ -685,6 +712,8 @@ def get_or_create_customer(
     """Findet oder erstellt einen Customer.
     Pass-Serial wird als UUID generiert.
     Returns (customer, created)."""
+    _ensure_db_models()
+
     # Versuche einen existierenden Customer via Session-Cookie zu finden
     # (in API-Endpoints: Customer-ID aus Cookie lesen, hier: Platzhalter)
     # Für neue Kunden: neue UUID + neuen Customer anlegen
@@ -710,6 +739,8 @@ def get_or_create_customer(
 
 def get_customer_analytics(db_session, tenant_slug: str) -> Dict[str, Any]:
     """Aggregierte Analytics für Tenant Loyalty Dashboard."""
+    _ensure_db_models()
+
     cards = db_session.query(LoyaltyCard).filter_by(tenant_slug=tenant_slug).all()
     customers = db_session.query(LoyaltyCustomer).filter_by(tenant_slug=tenant_slug).all()
     stamps = db_session.query(LoyaltyStamp).filter_by(tenant_slug=tenant_slug).all()
