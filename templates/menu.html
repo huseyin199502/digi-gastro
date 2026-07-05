@@ -414,7 +414,7 @@
         
         <!-- ================= LANDING VIEW ================= -->
         <div x-show="currentView === 'landing'" class="space-y-0 animate-fade-in py-2 sm:py-3 landing-page-wrapper" id="landing-page-wrapper">
-            <div class="p-4 sm:p-6 text-center space-y-0 relative overflow-hidden">
+            <div class="px-4 sm:px-6 pt-4 sm:pt-6 pb-1 text-center space-y-0 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
                 <!-- Hauptlogo — groß, zentriert -->
                 <div class="flex justify-center items-center logo-hero-row">
@@ -471,8 +471,8 @@
                    Wenn Tenant 2 Logos hat, wird das zweite Logo NACH den Buttons
                    angezeigt. Layout: Hauptlogo → Willkommen → Buttons → 2. Logo #}
                 {% if restaurant.branding and restaurant.branding.logo_url_2 %}
-                <div class="flex justify-center items-center mt-4">
-                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-32 sm:h-40 lg:h-48 w-auto max-w-[240px] sm:max-w-[300px] object-contain rounded-2xl relative z-10" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
+                <div class="flex justify-center items-center" style="margin-top: 2px;">
+                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-36 sm:h-48 lg:h-56 w-auto max-w-[280px] sm:max-w-[360px] object-contain relative z-10" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high" style="margin: 0;">
                 </div>
                 {% endif %}
             </div>
