@@ -2266,6 +2266,10 @@
                     // Save current scroll position before navigating into category (only on user click)
                     if (isUserAction) {
                         this._savedCategoryScrollPos = (document.scrollingElement || document.documentElement).scrollTop;
+                        // Auch in localStorage für Seitenwechsel
+                        try {
+                            localStorage.setItem('dl_category_scroll_{{ slug }}', String(this._savedCategoryScrollPos));
+                        } catch(e) {}
                     }
 
                     this.currentCategory = category;
@@ -2313,18 +2317,28 @@
                 },
 
                 backToCategories() {
-                    const savedPos = this._savedCategoryScrollPos || 0;
+                    // Scroll-Position aus Memory oder localStorage holen
+                    let savedPos = this._savedCategoryScrollPos || 0;
+                    try {
+                        const lsPos = localStorage.getItem('dl_category_scroll_{{ slug }}');
+                        if (lsPos) savedPos = parseInt(lsPos) || 0;
+                    } catch(e) {}
+
                     this.currentCategory = '';
+                    // localStorage Eintrag löschen (zurück zur Übersicht)
+                    try { localStorage.removeItem('dl_last_category_{{ slug }}'); } catch(e) {}
+
                     // Hide all products when back to category list
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
                         item.style.display = 'none';
                     });
                     // Restore scroll position AFTER Alpine.js has updated the DOM
+                    // Längere Verzögerung (50ms statt 10ms) damit DOM wirklich fertig ist
                     this.$nextTick(() => {
                         setTimeout(() => {
                             (document.scrollingElement || document.documentElement).scrollTo({ top: savedPos, behavior: 'instant' });
-                        }, 10);
+                        }, 50);
                     });
                 },
 
