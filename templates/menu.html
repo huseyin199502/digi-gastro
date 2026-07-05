@@ -507,8 +507,10 @@
             </div>
             
             {% if hh_active_global and active_events %}
-            <!-- Aktion Active Card on Landing Page -->
-            {% set first_event = active_events[0] %}
+            {% set first_non_announcement_event = active_events | selectattr('mode', 'ne', 'announcement') | list %}
+            {% if first_non_announcement_event %}
+            {% set first_event = first_non_announcement_event[0] %}
+            <!-- Aktion Active Card on Landing Page (nur für discount/selected, NICHT für announcement) -->
             <div class="border border-amber-500/50 bg-amber-500/20 backdrop-blur-md rounded-3xl p-6 space-y-4 col-span-full relative z-10 overflow-hidden shadow-lg shadow-amber-500/10 animate-pulse">
                 <div class="absolute -right-10 -top-10 w-32 h-32 bg-amber-500/30 rounded-full blur-2xl"></div>
                 <div class="flex items-center gap-4">
@@ -525,6 +527,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endif %}
 
             <!-- Galerie (Bilder & Videos) -->
