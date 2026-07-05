@@ -19,3 +19,5 @@ redis>=5.0.0
 slowapi
 arq
 brotli
+orjson>=3.9.0
+sentry-sdk[fastapi]>=1.40.0

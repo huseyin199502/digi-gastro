@@ -563,11 +563,17 @@ def award_stamp_for_order(
 # INAKTIVITÄTS-CRON
 # ════════════════════════════════════════════════════════════════════
 
-def run_inactivity_cron(db_session) -> Dict[str, Any]:
+def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
     """Cron-Job: Sucht alle Kunden mit last_visit > inactivity_days und
     sendet Push via Pass-Update.
 
     Wird von Arq-Worker oder als Background-Task ausgeführt (z.B. 1×/Stunde).
+
+    Args:
+        db_session: SQLAlchemy Session
+        tenant_slug: Wenn gesetzt, werden NUR Kampagnen für diesen Tenant
+                     verarbeitet (Multi-Tenant-Isolation). None = alle Tenants
+                     (nur für globalen System-Cron, nicht für Tenant-Endpunkte).
 
     Returns: Statistik über gesendete Pushs.
     """
@@ -578,10 +584,13 @@ def run_inactivity_cron(db_session) -> Dict[str, Any]:
     today_weekday_long = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"][berlin_now.weekday()]
     now_time = berlin_now.strftime("%H:%M")
 
-    # Aktive Inaktivitäts-Kampagnen
-    campaigns = db_session.query(LoyaltyCampaign).filter_by(
+    # Aktive Inaktivitäts-Kampagnen — optional nach Tenant gefiltert
+    campaigns_query = db_session.query(LoyaltyCampaign).filter_by(
         campaign_type="inactivity", is_active=True
-    ).all()
+    )
+    if tenant_slug is not None:
+        campaigns_query = campaigns_query.filter(LoyaltyCampaign.tenant_slug == tenant_slug.lower().strip())
+    campaigns = campaigns_query.all()
 
     stats = {"campaigns_checked": 0, "pushs_sent": 0, "pushs_skipped_optout": 0, "pushs_skipped_cooldown": 0}
 
@@ -738,34 +747,54 @@ def get_or_create_customer(
 
 
 def get_customer_analytics(db_session, tenant_slug: str) -> Dict[str, Any]:
-    """Aggregierte Analytics für Tenant Loyalty Dashboard."""
+    """Aggregierte Analytics für Tenant Loyalty Dashboard.
+
+    CRITICAL FIX C7: Statt alle Stamps/PushLogs/Cards/Customers in Python zu
+    laden (unbounded → 100k+ Rows bei großen Tenants), verwenden wir SQL
+    COUNT() und SUM() Aggregation. Das reduziert RAM-Verbrauch von MB auf KB.
+    """
     _ensure_db_models()
+    from sqlalchemy import func
 
-    cards = db_session.query(LoyaltyCard).filter_by(tenant_slug=tenant_slug).all()
-    customers = db_session.query(LoyaltyCustomer).filter_by(tenant_slug=tenant_slug).all()
-    stamps = db_session.query(LoyaltyStamp).filter_by(tenant_slug=tenant_slug).all()
-    pushs = db_session.query(LoyaltyPushLog).filter_by(tenant_slug=tenant_slug).all()
+    # Aggregation statt Python-Loop — nur 1 Zahl pro Query statt 100k Rows
+    total_cards = db_session.query(func.count(LoyaltyCard.id)).filter_by(tenant_slug=tenant_slug).scalar() or 0
+    active_cards = db_session.query(func.count(LoyaltyCard.id)).filter_by(
+        tenant_slug=tenant_slug, is_active=True
+    ).scalar() or 0
 
-    # Aktive Kunden (last_visit < 30 Tage)
+    total_customers = db_session.query(func.count(LoyaltyCustomer.id)).filter_by(tenant_slug=tenant_slug).scalar() or 0
     cutoff_30d = (_berlin_now() - timedelta(days=30)).isoformat()
-    active_customers = [c for c in customers if c.last_visit_at and c.last_visit_at > cutoff_30d]
+    active_customers_30d = db_session.query(func.count(LoyaltyCustomer.id)).filter(
+        LoyaltyCustomer.tenant_slug == tenant_slug,
+        LoyaltyCustomer.last_visit_at.isnot(None),
+        LoyaltyCustomer.last_visit_at > cutoff_30d,
+    ).scalar() or 0
 
-    # Rewards eingelöst (Lifetime)
-    rewards_redeemed = sum(c.rewards_redeemed for c in customers)
+    rewards_redeemed = db_session.query(func.coalesce(func.sum(LoyaltyCustomer.rewards_redeemed), 0)).filter_by(
+        tenant_slug=tenant_slug
+    ).scalar() or 0
 
-    # Push-Statistiken (letzte 30 Tage)
-    cutoff_30d_push = (_berlin_now() - timedelta(days=30)).isoformat()
-    recent_pushs = [p for p in pushs if p.sent_at > cutoff_30d_push]
-    pushs_sent = len([p for p in recent_pushs if p.status == "sent"])
-    pushs_failed = len([p for p in recent_pushs if p.status == "failed"])
+    total_stamps = db_session.query(func.count(LoyaltyStamp.id)).filter_by(tenant_slug=tenant_slug).scalar() or 0
+
+    pushs_sent_30d = db_session.query(func.count(LoyaltyPushLog.id)).filter(
+        LoyaltyPushLog.tenant_slug == tenant_slug,
+        LoyaltyPushLog.status == "sent",
+        LoyaltyPushLog.sent_at > cutoff_30d,
+    ).scalar() or 0
+
+    pushs_failed_30d = db_session.query(func.count(LoyaltyPushLog.id)).filter(
+        LoyaltyPushLog.tenant_slug == tenant_slug,
+        LoyaltyPushLog.status == "failed",
+        LoyaltyPushLog.sent_at > cutoff_30d,
+    ).scalar() or 0
 
     return {
-        "total_cards": len(cards),
-        "active_cards": len([c for c in cards if c.is_active]),
-        "total_customers": len(customers),
-        "active_customers_30d": len(active_customers),
-        "total_stamps": len(stamps),
+        "total_cards": total_cards,
+        "active_cards": active_cards,
+        "total_customers": total_customers,
+        "active_customers_30d": active_customers_30d,
+        "total_stamps": total_stamps,
         "rewards_redeemed": rewards_redeemed,
-        "pushs_sent_30d": pushs_sent,
-        "pushs_failed_30d": pushs_failed,
+        "pushs_sent_30d": pushs_sent_30d,
+        "pushs_failed_30d": pushs_failed_30d,
     }

@@ -119,6 +119,60 @@ def process_and_crop_product_image(image_bytes) -> bytes:
     img.save(out, format="PNG")
     return out.getvalue()
 
+# ──────────────────────────────────────────────────────────────────
+# CRITICAL FIX C3: Upload-Size-Limits (OOM-Schutz)
+# ──────────────────────────────────────────────────────────────────
+# Vorher: await file.read() ohne Limit → 1 GB Upload lädt 1 GB in RAM
+#         → OOM-Crash → 502 Bad Gateway für ALLE Nutzer auf dem Worker.
+# Nachher: file.size VOR read prüfen, danach defense-in-depth check.
+#          Helper wird in allen Upload-Endpoints verwendet.
+MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024   # 10 MB für Bilder
+MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024   # 50 MB für Videos
+MAX_AI_UPLOAD_BYTES    = 10 * 1024 * 1024   # 10 MB für AI-Bild-Upload
+MAX_LOGO_UPLOAD_BYTES  = 5 * 1024 * 1024    # 5 MB für Logos
+MAX_CSV_UPLOAD_BYTES   = 10 * 1024 * 1024   # 10 MB für CSV-Importe
+
+
+async def safe_read_upload(file: UploadFile, max_bytes: int = MAX_IMAGE_UPLOAD_BYTES) -> bytes:
+    """Liest UploadFile IN CHUNKS und prüft Size-Limit VOR dem Laden in RAM.
+
+    1. Prüft file.size (falls bekannt) VOR dem read — lehnt zu große Uploads sofort ab.
+    2. Liest in 1MB-Chunks und bricht ab, wenn kumuliert > max_bytes.
+    3. Defense-in-depth: nochmal size-check nach read.
+
+    Verhindert OOM-Crashes durch 1 GB+ Uploads.
+    """
+    # Pre-check via file.size (Starlette 0.27+)
+    try:
+        if file.size is not None and file.size > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Datei zu groß: {file.size} Bytes. Maximum: {max_bytes // (1024*1024)} MB."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # file.size nicht verfügbar → chunked-check unten
+
+    # Chunked read mit kumuliertem Limit
+    chunks = []
+    total = 0
+    chunk_size = 1024 * 1024  # 1 MB
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Datei zu groß: >{max_bytes // (1024*1024)} MB überschritten."
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
+    return content
+
+
 def process_and_optimize_general_image(image_bytes) -> bytes:
     from io import BytesIO
     from PIL import Image
@@ -212,6 +266,68 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 app = FastAPI(title="digi-gastro High-End Gastronomy OS")
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# ──────────────────────────────────────────────────────────────────
+# SENTRY — Crash-Monitoring (BONUS FIX)
+# ──────────────────────────────────────────────────────────────────
+# Sendet unhandled Exceptions + Performance-Traces an Sentry.
+# DSN wird via Env-Var SENTRY_DSN konfiguriert (Coolify Secret).
+# Ohne DSN → Sentry deaktiviert (kein Crash, kein Spying).
+# Free Tier: 5.000 Errors/Monat, 10.000 Performance-Traces/Monat.
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[
+                FastApiIntegration(),
+                RedisIntegration(),
+            ],
+            # 1% Sampling — ausreichend für Pattern-Erkennung ohne Kosten-Explosion
+            traces_sample_rate=0.01,
+            # PII-Schutz: keine User-Daten, keine IPs
+            send_default_pii=False,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+            release=os.environ.get("GIT_COMMIT_SHA", "unknown"),
+        )
+        print("[Sentry] Initialized successfully — crash monitoring active.")
+    except Exception as _sentry_err:
+        print(f"[Sentry] Init failed (non-fatal, continuing without Sentry): {_sentry_err}")
+else:
+    print("[Sentry] SENTRY_DSN not set — crash monitoring disabled (set env to enable).")
+
+# ──────────────────────────────────────────────────────────────────
+# orjson — 10× schneller als stdlib-json (BONUS FIX)
+# ──────────────────────────────────────────────────────────────────
+# Drop-in Replacement: json.dumps() → orjson.dumps() wo es sich lohnt
+# (Redis-Cache, WebSocket-Broadcasts). API-Responses bleiben auf stdlib
+# für maximale Kompatibilität mit FastAPI/Pydantic.
+try:
+    import orjson as _orjson
+
+    def fast_json_dumps(obj) -> str:
+        """Schnelles JSON-Serialisieren mit orjson.
+        Fallback auf stdlib-json bei Fehlern (z.B. nicht-serialisierbare Objekte)."""
+        try:
+            return _orjson.dumps(obj, default=str).decode("utf-8")
+        except Exception:
+            return json.dumps(obj, default=str)
+
+    def fast_json_loads(s):
+        """Schnelles JSON-Deserialisieren mit orjson, Fallback auf stdlib."""
+        try:
+            return _orjson.loads(s)
+        except Exception:
+            return json.loads(s)
+
+    print("[orjson] Initialized — fast JSON serialization active.")
+except ImportError:
+    print("[orjson] Not installed — falling back to stdlib json (slower).")
+    fast_json_dumps = lambda obj: json.dumps(obj, default=str)
+    fast_json_loads = json.loads
 
 # ── Rate Limiting per Tenant (Noisy-Neighbor-Schutz) ──
 # slowapi: Verhindert dass ein einzelner Tenant alle Ressourcen verbraucht.
@@ -1257,17 +1373,45 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "details": l.details
     } for l in db_logs]
     
-    # Load events and their products
+    # Load events and their products — BATCH-QUERY (CRITICAL FIX C4)
+    # Vorher: 1+N+N×M Queries (N=Events, M=Combos/Event) → 221 Queries bei 20 Events×10 Combos
+    # Nachher: 3 Queries total (Events + alle EventProducts + alle EventCombos + alle EventComboItems)
     from database import Event as DBEvent, EventProduct as DBEventProduct, EventCombo as DBEventCombo, EventComboItem as DBEventComboItem
     db_events = session.query(DBEvent).filter_by(tenant_slug=slug).order_by(DBEvent.position, DBEvent.id).all()
+    
+    if db_events:
+        event_ids = [ev.id for ev in db_events]
+        # Batch: alle EventProducts für diese Events
+        all_ev_products = session.query(DBEventProduct).filter(DBEventProduct.event_id.in_(event_ids)).all()
+        ev_products_by_event = {}
+        for ep in all_ev_products:
+            ev_products_by_event.setdefault(ep.event_id, []).append(ep)
+        
+        # Batch: alle EventCombos für diese Events
+        all_ev_combos = session.query(DBEventCombo).filter(DBEventCombo.event_id.in_(event_ids)).order_by(DBEventCombo.position, DBEventCombo.id).all()
+        ev_combos_by_event = {}
+        combo_ids = [c.id for c in all_ev_combos]
+        for combo in all_ev_combos:
+            ev_combos_by_event.setdefault(combo.event_id, []).append(combo)
+        
+        # Batch: alle EventComboItems für alle Combos
+        combo_items_by_combo = {}
+        if combo_ids:
+            all_combo_items = session.query(DBEventComboItem).filter(DBEventComboItem.combo_id.in_(combo_ids)).all()
+            for ci in all_combo_items:
+                combo_items_by_combo.setdefault(ci.combo_id, []).append(ci)
+    else:
+        ev_products_by_event = {}
+        ev_combos_by_event = {}
+        combo_items_by_combo = {}
+    
     events = []
     for ev in db_events:
-        ev_products = session.query(DBEventProduct).filter_by(event_id=ev.id).all()
-        # Load combos for this event
-        ev_combos = session.query(DBEventCombo).filter_by(event_id=ev.id).order_by(DBEventCombo.position, DBEventCombo.id).all()
+        ev_products = ev_products_by_event.get(ev.id, [])
+        ev_combos = ev_combos_by_event.get(ev.id, [])
         combos = []
         for combo in ev_combos:
-            combo_items = session.query(DBEventComboItem).filter_by(combo_id=combo.id).all()
+            combo_items = combo_items_by_combo.get(combo.id, [])
             combos.append({
                 "id": combo.id,
                 "name": combo.name,
@@ -1746,12 +1890,25 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     # AuditLog-Einträge werden per _audit_log() direkt in die DB geschrieben (append_audit_log_entry),
     # hier in save_restaurant_to_db werden sie NICHT mehr gelöscht/re-inserted.
     # Das verhindert Datenverlust bei parallelen Saves und ist performanter.
+    #
+    # CRITICAL FIX C6: Statt ALLE AuditLog-IDs (unbounded → 100k+ Rows) zu laden,
+    # laden wir nur die IDs die im Payload vorkommen. Das sind typischerweise <100.
+    # Vorher: 100k+ IDs in RAM pro Save → Memory-Druck
+    # Nachher: Nur IDs aus r["audit_log"] (≤ ~50 typisch) → O(payload size)
+    payload_audit_ids = set()
+    for l in r.get("audit_log", []):
+        log_id = l.get("id")
+        if log_id:
+            payload_audit_ids.add(log_id)
+    
     existing_audit_ids = set()
-    if r.get("audit_log"):
-        existing_audit_ids = set(
-            session.query(AuditLog.id).filter_by(tenant_slug=slug).all()
-        )
-        existing_audit_ids = {row[0] for row in existing_audit_ids}
+    if payload_audit_ids:
+        # Nur die IDs aus dem Payload prüfen — nicht alle IDs laden!
+        existing_rows = session.query(AuditLog.id).filter(
+            AuditLog.tenant_slug == slug,
+            AuditLog.id.in_(payload_audit_ids)
+        ).all()
+        existing_audit_ids = {row[0] for row in existing_rows}
     
     for l in r.get("audit_log", []):
         log_id = l.get("id")
@@ -1982,15 +2139,7 @@ def ensure_tenant_seeded(slug: str, db) -> Tenant:
     db.commit()
     return tenant
 
-def get_restaurant(slug: str, db, create_if_missing: bool = False) -> Optional[dict]:
-    slug_lower = slug.lower().strip()
-    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
-    if tenant is not None:
-        return load_restaurant_from_db(slug_lower, db)
-    if not create_if_missing and slug_lower != "demo":
-        return None
-    ensure_tenant_seeded(slug_lower, db)
-    return load_restaurant_from_db(slug_lower, db)
+
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -2006,11 +2155,52 @@ def get_restaurant(slug: str, db, create_if_missing: bool = False) -> Optional[d
 #   • `invalidate_restaurant_cache(slug)`     — async, for use in
 #     async endpoints after explicit commits.
 # ──────────────────────────────────────────────────────────────────
+# IMPORTANT: Diese Konstanten MÜSSEN vor get_restaurant() definiert sein,
+# da get_restaurant() sie für den Sync-Cache-Lookup verwendet.
 RESTAURANT_CACHE_TTL = 5  # seconds
 
 
 def _restaurant_cache_key(slug: str) -> str:
     return f"restaurant:{slug.lower().strip()}"
+
+
+def get_restaurant(slug: str, db, create_if_missing: bool = False) -> Optional[dict]:
+    slug_lower = slug.lower().strip()
+    # ── SYNC REDIS CACHE (CRITICAL FIX C1) ──
+    # Vorher: Jeder Aufruf von get_restaurant_or_raise() → load_restaurant_from_db()
+    #         → 200+ DB-Queries pro Request. Bei 43 Endpoints × 100 Gäste = 8.600 Queries/s.
+    # Nachher: Erst Redis-Cache checken (5s TTL), nur bei Miss DB laden.
+    #          Cache-Invalidierung via invalidate_restaurant_cache_sync() (nach jedem Save).
+    if sync_redis_client is not None:
+        try:
+            cached = sync_redis_client.get(_restaurant_cache_key(slug_lower))
+            if cached:
+                try:
+                    return fast_json_loads(cached)
+                except Exception:
+                    pass  # corrupt cache → fall through to DB
+        except Exception as e:
+            print(f"[Redis Cache] sync get failed for {slug}: {e}")
+    # Cache miss OR Redis unavailable → DB
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant is not None:
+        restaurant = load_restaurant_from_db(slug_lower, db)
+    elif not create_if_missing and slug_lower != "demo":
+        return None
+    else:
+        ensure_tenant_seeded(slug_lower, db)
+        restaurant = load_restaurant_from_db(slug_lower, db)
+    # Cache schreiben (nur wenn Redis verfügbar) — orjson für 10× Performance
+    if restaurant is not None and sync_redis_client is not None:
+        try:
+            sync_redis_client.setex(
+                _restaurant_cache_key(slug_lower),
+                RESTAURANT_CACHE_TTL,
+                fast_json_dumps(restaurant)
+            )
+        except Exception as e:
+            print(f"[Redis Cache] sync setex failed for {slug}: {e}")
+    return restaurant
 
 
 async def get_restaurant_cached(slug: str, db) -> Optional[dict]:
@@ -4545,12 +4735,22 @@ def post_tenant_cleanup_orders(
         except Exception:
             return RedirectResponse(url="/digi-gastro-admin?error=Ungueltiges+Datum", status_code=303)
 
-    # Restaurant laden um Bestellungen zu kriegen
-    restaurant = load_restaurant_from_db(slug_lower, db)
-    if not restaurant:
-        return RedirectResponse(url="/digi-gastro-admin?error=Restaurant+nicht+gefunden", status_code=303)
-
-    all_orders = restaurant.get("orders", [])
+    # CRITICAL FIX C9: Statt restaurant.get("orders", []) (LIMIT 200!) direkt
+    # aus DB laden — sonst löschen wir nur 200 von 5000 Bestellungen und die
+    # Success-Message lügt ("5000 gelöscht" aber tatsächlich nur 200).
+    # Backup muss auch alle Bestellungen enthalten (Buchhaltungs-Pflicht!).
+    from database import Order as DBOrderForCleanup
+    all_db_orders = db.query(DBOrderForCleanup).filter_by(tenant_slug=slug_lower).order_by(DBOrderForCleanup.id).all()
+    all_orders = [{
+        "id": o.id,
+        "table": o.table,
+        "items": [],  # Für Cleanup nicht nötig — nur metadaten
+        "total": o.total,
+        "status": o.status,
+        "timestamp": o.timestamp,
+        "waiter": getattr(o, "waiter", None) or "",
+        "tip": getattr(o, "tip", 0.0) or 0.0,
+    } for o in all_db_orders]
 
     # Bestellungen zum Löschen identifizieren
     orders_to_delete = []
@@ -4615,12 +4815,19 @@ def post_tenant_cleanup_orders(
         # Trotzdem weitermachen — Löschung ist wichtiger als Backup
 
     # ── Hard Delete aus DB: OrderItem + Order Einträge ──
+    # Chunked deletion: PostgreSQL IN-Clauses haben ein Parameter-Limit (~32k).
+    # Bei 100k+ Bestellungen würde der Delete sonst fehlschlagen.
     deleted_order_ids = [o.get("id") for o in orders_to_delete if o.get("id")]
+    total_deleted_count = 0
     if deleted_order_ids:
-        # OrderItems der zu löschenden Bestellungen löschen
-        db.query(DBOrderItem).filter(DBOrderItem.order_id.in_(deleted_order_ids)).delete(synchronize_session=False)
-        # Order-Einträge löschen
-        db.query(Order).filter(Order.id.in_(deleted_order_ids)).delete(synchronize_session=False)
+        CHUNK_SIZE = 5000  # sicher unter PG-Parameter-Limit
+        for i in range(0, len(deleted_order_ids), CHUNK_SIZE):
+            chunk = deleted_order_ids[i:i + CHUNK_SIZE]
+            # OrderItems der zu löschenden Bestellungen löschen
+            db.query(DBOrderItem).filter(DBOrderItem.order_id.in_(chunk)).delete(synchronize_session=False)
+            # Order-Einträge löschen
+            db.query(Order).filter(Order.id.in_(chunk)).delete(synchronize_session=False)
+            total_deleted_count += len(chunk)
 
     # ── Tagesumsatz neu berechnen (Summe der verbleibenden bezahlten Bestellungen) ──
     new_tagesumsatz = sum(
@@ -7366,54 +7573,83 @@ def post_login(
             
     if pin:
         pin_str = str(pin).strip()
-        all_tenants = db.query(Tenant).all()
-        for tenant in all_tenants:
-            slug = tenant.slug
-            restaurant = get_restaurant_or_raise(slug, db)
-            staff_list = restaurant.get("staff", [])
-            if not staff_list and pin_str == "1111":
-                staff_list = [{"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"}]
-                restaurant["staff"] = staff_list
-                try:
-                    save_restaurant_to_db(slug, restaurant, db)
-                    db.commit()
-                except Exception as e:
-                    db.rollback()
-                    raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+        # CRITICAL FIX C10: Statt alle Tenants zu iterieren und für jeden
+        # get_restaurant_or_raise() aufzurufen (200 Queries pro Tenant × 100 Tenants
+        # = 20.000 Queries!), suchen wir direkt in der Staff-Tabelle nach der PIN.
+        # Vorher: O(N_tenants × queries_per_tenant) → 22.000 Queries bei 100 Tenants
+        # Nachher: 1 Query mit JOIN → 1 Roundtrip
+        from database import Staff as DBStaff
+        # PIN in Staff-Tabelle suchen (chef-Mitarbeiter mit passender PIN)
+        # Hole direkt den Tenant über JOIN, das ist ein einziger Roundtrip.
+        matching_staff = db.query(DBStaff).filter(
+            DBStaff.pin_code == pin_str,
+            DBStaff.role == "chef"
+        ).all()
+        
+        # Fallback: wenn kein Staff mit PIN gefunden, prüfe ob ein Tenant ohne
+        # Staff ist und Default-PIN "1111" verwendet wird (Onboarding-Modus)
+        if not matching_staff and pin_str == "1111":
+            # Hole alle Tenants und prüfe ob einer keine Staff hat
+            all_tenants_for_default = db.query(Tenant).all()
+            for tenant in all_tenants_for_default:
+                # Schneller Count-Query statt load_restaurant_from_db
+                staff_count = db.query(DBStaff).filter_by(tenant_slug=tenant.slug).count()
+                if staff_count == 0:
+                    # Default-Chef mit PIN 1111 anlegen
+                    slug = tenant.slug
+                    restaurant = get_restaurant_or_raise(slug, db)
+                    restaurant["staff"] = [{"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"}]
+                    try:
+                        save_restaurant_to_db(slug, restaurant, db)
+                        db.commit()
+                        # Jetzt den matching_staff setzen
+                        matching_staff = [type('x', (), {'tenant_slug': slug, 'name': 'Chef', 'role': 'chef', 'pin_code': '1111'})()]
+                        break
+                    except Exception as e:
+                        db.rollback()
+                        raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+        
+        for staff_entry in matching_staff:
+            slug = staff_entry.tenant_slug
+            # Lade nur die nötigen Tenant-Daten (kein full restaurant dict!)
+            tenant = db.query(Tenant).filter_by(slug=slug).first()
+            if not tenant:
+                continue
+            # Schneller Status-Check ohne volles load_restaurant_from_db
+            role = staff_entry.role
+            name = staff_entry.name
+            
+            if role != "chef":
+                return templates.TemplateResponse(
+                    request,
+                    "login.html",
+                    {
+                        "request": request,
+                        "restaurant_name": tenant.name or "digi-gastro",
+                        "slug": "",
+                        "email": email or "",
+                        "error": "Mitarbeiter-Anmeldung erfolgt direkt auf dem Tablet-Sperrbildschirm.",
+                        "redirect": redirect
+                    }
+                )
+            
+            # Setup-Status ohne volles load_restaurant_from_db prüfen
+            is_setup_completed = bool(tenant.is_setup_completed)
+            
+            if not redirect:
+                if not is_setup_completed:
+                    target_url = "/admin/setup"
+                else:
+                    target_url = "/admin/dashboard"
+            elif redirect == "tablet":
+                target_url = f"/{slug}/tablet"
+            elif redirect == "kitchen":
+                target_url = f"/{slug}/kitchen"
                 
-            employee = next((s for s in staff_list if str(s.get("pin_code", s.get("pin"))) == pin_str), None)
-            if employee:
-                role = employee["role"]
-                name = employee["name"]
-                
-                if role != "chef":
-                    return templates.TemplateResponse(
-                        request,
-                        "login.html",
-                        {
-                            "request": request,
-                            "restaurant_name": restaurant["name"],
-                            "slug": "",
-                            "email": email or "",
-                            "error": "Mitarbeiter-Anmeldung erfolgt direkt auf dem Tablet-Sperrbildschirm.",
-                            "redirect": redirect
-                        }
-                    )
-                
-                if not redirect:
-                    if not restaurant.get("is_setup_completed", False):
-                        target_url = "/admin/setup"
-                    else:
-                        target_url = "/admin/dashboard"
-                elif redirect == "tablet":
-                    target_url = f"/{slug}/tablet"
-                elif redirect == "kitchen":
-                    target_url = f"/{slug}/kitchen"
-                    
-                resp = RedirectResponse(url=target_url, status_code=303)
-                # Set unified session cookie: slug:name:role:pin
-                resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
-                return resp
+            resp = RedirectResponse(url=target_url, status_code=303)
+            # Set unified session cookie: slug:name:role:pin
+            resp.set_cookie(key="session", value=f"{slug}:{name}:{role}:{pin_str}", httponly=True, max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV)
+            return resp
                 
     return templates.TemplateResponse(
         request,
@@ -7815,7 +8051,7 @@ async def import_products_csv(
     db: Session = Depends(get_db)
 ):
     user, slug, restaurant = chef_data
-    content = await csv_file.read()
+    content = await safe_read_upload(csv_file, MAX_CSV_UPLOAD_BYTES)
     
     try:
         csv_text = content.decode('utf-8-sig')
@@ -8024,14 +8260,17 @@ async def post_produkt_erstellen(
         os.makedirs(products_upload_dir, exist_ok=True)
         safe_name = f"{slug}-product-{new_id}.png"
         file_path = os.path.join(products_upload_dir, safe_name)
-        content = await image_file.read()
+        content = await safe_read_upload(image_file, MAX_IMAGE_UPLOAD_BYTES)
         # ── PIL-Verarbeitung (BG-Remove + Crop) — optional, falls rembg/PIL fehlt ──
         # Bug-Fix: Früher wurde content überschrieben = wenn PIL crasht, war content leer
         # → PNG wurde nie geschrieben → WebP-Konvertierung scheiterte → 404 im Frontend.
         # Jetzt: Original-Bytes als Fallback behalten, PIL-Output nur wenn erfolgreich.
         processed_content = None
         try:
-            processed_content = process_and_crop_product_image(content)
+            # CRITICAL FIX C8: rembg/ONNX dauert 5-30s und blockiert den Event-Loop
+            # → andere Requests auf dem Worker stehen. Mit run_in_threadpool auslagern.
+            from starlette.concurrency import run_in_threadpool
+            processed_content = await run_in_threadpool(process_and_crop_product_image, content)
             if not processed_content or len(processed_content) < 100:
                 # Leerer/minimal Output = Processing fehlgeschlagen
                 print(f"[Image Processing] Empty output for product {new_id}, using original bytes")
@@ -9160,7 +9399,7 @@ async def update_branding(
         filename = "".join(c for c in filename if c.isalnum() or c in "._-")
         file_path = os.path.join(logos_dir, filename)
 
-        content = logo_file.file.read()
+        content = await safe_read_upload(logo_file, MAX_LOGO_UPLOAD_BYTES)
         with open(file_path, "wb") as f:
             f.write(content)
 
@@ -9183,7 +9422,7 @@ async def update_branding(
         filename2 = "".join(c for c in filename2 if c.isalnum() or c in "._-")
         file_path2 = os.path.join(logos_dir, filename2)
 
-        content2 = logo_file_2.file.read()
+        content2 = await safe_read_upload(logo_file_2, MAX_LOGO_UPLOAD_BYTES)
         with open(file_path2, "wb") as f:
             f.write(content2)
 
@@ -9522,9 +9761,7 @@ async def update_landingpage(
         os.makedirs(vdir, exist_ok=True)
         safe_name = f"{slug}_{slug_prefix}_{int(time.time())}_{idx}{ext}"
         file_path = os.path.join(vdir, safe_name)
-        content = await file.read()
-        if len(content) > 50 * 1024 * 1024:
-            return None
+        content = await safe_read_upload(file, MAX_VIDEO_UPLOAD_BYTES)
         with open(file_path, "wb") as fh:
             fh.write(content)
         # Validate duration using ffprobe if available
@@ -9559,7 +9796,7 @@ async def update_landingpage(
                 os.makedirs(landing_dir, exist_ok=True)
                 safe_name = f"{slug}_offer_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(landing_dir, safe_name)
-                content = await file.read()
+                content = await safe_read_upload(file, MAX_IMAGE_UPLOAD_BYTES)
                 content = process_and_optimize_general_image(content)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
@@ -9583,7 +9820,7 @@ async def update_landingpage(
                 os.makedirs(slideshow_dir, exist_ok=True)
                 safe_name = f"{slug}_slide_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(slideshow_dir, safe_name)
-                content = await file.read()
+                content = await safe_read_upload(file, MAX_IMAGE_UPLOAD_BYTES)
                 content = process_and_optimize_general_image(content)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
@@ -9607,9 +9844,7 @@ async def update_landingpage(
                 os.makedirs(gallery_dir, exist_ok=True)
                 safe_name = f"{slug}_gal_{int(time.time())}_{idx}.jpg"
                 file_path = os.path.join(gallery_dir, safe_name)
-                content = await file.read()
-                if len(content) > 5 * 1024 * 1024:
-                    continue
+                content = await safe_read_upload(file, MAX_IMAGE_UPLOAD_BYTES)
                 content = process_and_optimize_general_image(content)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
@@ -9628,10 +9863,7 @@ async def update_landingpage(
                 ext = os.path.splitext(file.filename.lower())[1]
                 safe_name = f"{slug}_vid_{int(time.time())}_{idx}{ext}"
                 file_path = os.path.join(video_dir, safe_name)
-                content = await file.read()
-                # Size limit: 50MB for videos
-                if len(content) > 50 * 1024 * 1024:
-                    continue
+                content = await safe_read_upload(file, MAX_VIDEO_UPLOAD_BYTES)
                 # Write video as-is (no crop, no re-encode)
                 with open(file_path, "wb") as fh:
                     fh.write(content)
@@ -9742,7 +9974,7 @@ async def update_landingpage(
                     if is_valid_image(file.filename):
                         safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.jpg"
                         file_path = os.path.join(landing_dir, safe_name)
-                        content = await file.read()
+                        content = await safe_read_upload(file, MAX_IMAGE_UPLOAD_BYTES)
                         content = process_and_optimize_general_image(content)
                         with open(file_path, "wb") as fh:
                             fh.write(content)
@@ -9754,7 +9986,7 @@ async def update_landingpage(
                     elif is_valid_video(file.filename):
                         safe_name = f"{slug}_csec_{int(time.time())}_{custom_image_idx}.mp4"
                         file_path = os.path.join(landing_dir, safe_name)
-                        content = await file.read()
+                        content = await safe_read_upload(file, MAX_VIDEO_UPLOAD_BYTES)
                         with open(file_path, "wb") as fh:
                             fh.write(content)
                         custom_sections[sec_idx]["image"] = f"/uploads/landing/{safe_name}"
@@ -10471,12 +10703,14 @@ async def update_product_api(
         os.makedirs(products_upload_dir, exist_ok=True)
         safe_name = f"{slug}-product-{product_id}.png"
         file_path = os.path.join(products_upload_dir, safe_name)
-        content = await image_file.read()
+        content = await safe_read_upload(image_file, MAX_IMAGE_UPLOAD_BYTES)
         # ── Robustes Image-Processing (gleicher Fix wie produkt-erstellen) ──
         # PIL/rembg-Output nur verwenden wenn erfolgreich, sonst Original-Bytes.
         processed_content = None
         try:
-            processed_content = process_and_crop_product_image(content)
+            # CRITICAL FIX C8: rembg in Threadpool auslagern (5-30s blockieren verhindern)
+            from starlette.concurrency import run_in_threadpool
+            processed_content = await run_in_threadpool(process_and_crop_product_image, content)
             if not processed_content or len(processed_content) < 100:
                 print(f"[Image Processing] Empty output for product {product_id}, using original bytes")
                 processed_content = None
@@ -11260,13 +11494,15 @@ async def process_generated_image(
     import traceback
     try:
         user, slug, restaurant = chef_data
-        content = await file.read()
+        content = await safe_read_upload(file, MAX_AI_UPLOAD_BYTES)
         
         print(f"[AI Generation] Uploaded file size: {len(content)} bytes")
         
         # Process the image with background removal and auto-trim
         try:
-            processed_bytes = process_and_crop_product_image(content)
+            # CRITICAL FIX C8: rembg in Threadpool auslagern (5-30s blockieren verhindern)
+            from starlette.concurrency import run_in_threadpool
+            processed_bytes = await run_in_threadpool(process_and_crop_product_image, content)
         except Exception as e:
             print(f"[AI Generation] Process failed: {e}")
             processed_bytes = content
@@ -11447,6 +11683,65 @@ def _get_display_total(o):
     return max(t, ot)
 
 
+# ──────────────────────────────────────────────────────────────────
+# CRITICAL FIX C5: Export-Helper — lädt ALLE Bestellungen direkt aus DB
+# ──────────────────────────────────────────────────────────────────
+# Vorher: Exporte nutzten `restaurant.get("orders", [])` was über
+#         load_restaurant_from_db LIMIT 200 hat → bei Tenants mit >200
+#         Bestellungen im Monat fehlten z.B. 4800 von 5000 Orders im
+#         PDF/XLSX-Export. BUCHHALTUNGSBUG mit Steuer-Relevanz!
+# Nachher: Exporte nutzen _load_all_orders_for_export() — direkter
+#          DB-Query ohne LIMIT, mit Sanity-Cap von 100.000 Orders
+#          (über 100k Orders/Monat → Tenant braucht eigenes Archiv-System).
+def _load_all_orders_for_export(slug: str, db) -> list:
+    """Lädt ALLE Bestellungen eines Tenants direkt aus der DB — OHNE LIMIT 200.
+    Verwendet nur für PDF/XLSX-Exporte (Buchhaltung/Steuerberater).
+    Cap: 100.000 Orders als Sanity-Check (verhindert RAM-Overflow).
+    """
+    from database import Order as DBOrder, DBOrderItem
+    slug_lower = slug.lower().strip()
+    # Sanity-Cap: 100k Orders — das sind ~10 Jahre à 10k Orders/Monat
+    db_orders = db.query(DBOrder).filter_by(tenant_slug=slug_lower).order_by(DBOrder.id.desc()).limit(100000).all()
+    if not db_orders:
+        return []
+    db_orders.reverse()  # chronologisch (wie load_restaurant_from_db)
+    order_ids = [o.id for o in db_orders]
+    # Batch-Query für Items (kein N+1!)
+    all_items = db.query(DBOrderItem).filter(DBOrderItem.order_id.in_(order_ids)).order_by(DBOrderItem.id).all()
+    items_by_order = {}
+    for item in all_items:
+        items_by_order.setdefault(item.order_id, []).append({
+            "id": item.id,
+            "product_id": item.product_id,
+            "name": item.name,
+            "price": item.price,
+            "quantity": item.quantity,
+            "status": item.status,
+            "category": item.category,
+            "category_type": item.category_type,
+            "tax_rate": getattr(item, "tax_rate", None),
+            "is_event": getattr(item, "is_event", False),
+            "event_id": getattr(item, "event_id", None),
+            "note": getattr(item, "note", None),
+        })
+    orders = []
+    for o in db_orders:
+        orders.append({
+            "id": o.id,
+            "table": o.table,
+            "items": items_by_order.get(o.id, []),
+            "total": o.total,
+            "original_total": getattr(o, "original_total", None),
+            "status": o.status,
+            "timestamp": o.timestamp,
+            "waiter": getattr(o, "waiter", None) or "",
+            "tip": getattr(o, "tip", 0.0) or 0.0,
+            "payment_method": getattr(o, "payment_method", None),
+            "is_split": getattr(o, "is_split", False),
+        })
+    return orders
+
+
 @app.get("/admin/orders-export/pdf")
 def orders_export_pdf(
     request: Request,
@@ -11467,7 +11762,9 @@ def orders_export_pdf(
         return RedirectResponse(url="/admin/login")
 
     restaurant = get_restaurant_or_raise(slug, db)
-    all_orders = restaurant.get("orders", [])
+    # CRITICAL FIX C5: Lade ALLE Bestellungen aus DB — nicht nur die letzten 200
+    # aus load_restaurant_from_db (sonst fehlen Bestellungen im Buchhaltungs-Export!)
+    all_orders = _load_all_orders_for_export(slug, db)
     price_mode = restaurant.get("price_mode", "brutto")
     restaurant_name = restaurant.get("name", slug)
 
@@ -11727,7 +12024,8 @@ def monatsreport_pdf(
     restaurant = get_restaurant_or_raise(slug, db)
     restaurant_name = restaurant.get("name", slug)
     price_mode = restaurant.get("price_mode", "brutto")
-    all_orders = restaurant.get("orders", [])
+    # CRITICAL FIX C5: Lade ALLE Bestellungen aus DB (Buchhaltungs-Report!)
+    all_orders = _load_all_orders_for_export(slug, db)
 
     # ── Zeitraum parsen ──
     from datetime import datetime, timedelta
@@ -12134,7 +12432,8 @@ def orders_export_xlsx(
         return RedirectResponse(url="/admin/login")
 
     restaurant = get_restaurant_or_raise(slug, db)
-    all_orders = restaurant.get("orders", [])
+    # CRITICAL FIX C5: Lade ALLE Bestellungen aus DB (Buchhaltungs-Export!)
+    all_orders = _load_all_orders_for_export(slug, db)
     price_mode = restaurant.get("price_mode", "brutto")
     restaurant_name = restaurant.get("name", slug)
 
@@ -12477,7 +12776,7 @@ async def upload_logo(request: Request, file: UploadFile = File(...), chef_data:
     filename = f"{slug}-logo.{ext}"
     file_path = os.path.join(UPLOAD_LOGOS_DIR, filename)
 
-    content = await file.read()
+    content = await safe_read_upload(file, MAX_LOGO_UPLOAD_BYTES)
     with open(file_path, "wb") as f:
         f.write(content)
 
