@@ -9393,6 +9393,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         let seenOrderIds    = new Set();
         let seenCallIds     = new Set();
+        const MAX_SEEN_IDS = 500; // Memory-Leak-Schutz: max 500 IDs, dann älteste löschen
         let initialDone     = false;
 
         // ── AUDIO SYSTEM ──
@@ -9503,6 +9504,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         if (initialDone && !seenOrderIds.has(data.order_id)) {
                             playNewOrderSound();
                             seenOrderIds.add(data.order_id);
+                            // Memory-Leak-Schutz: Set begrenzen
+                            if (seenOrderIds.size > MAX_SEEN_IDS) {
+                                const arr = [...seenOrderIds];
+                                seenOrderIds = new Set(arr.slice(-MAX_SEEN_IDS / 2));
+                            }
                         }
                         // Also trigger full data refresh
                         checkLiveTischeUpdates();
@@ -9511,6 +9517,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         if (initialDone && !seenCallIds.has(data.call_id)) {
                             playServiceSound();
                             seenCallIds.add(data.call_id);
+                            // Memory-Leak-Schutz
+                            if (seenCallIds.size > MAX_SEEN_IDS) {
+                                const arr = [...seenCallIds];
+                                seenCallIds = new Set(arr.slice(-MAX_SEEN_IDS / 2));
+                            }
                         }
                         // Also trigger full data refresh
                         checkLiveTischeUpdates();

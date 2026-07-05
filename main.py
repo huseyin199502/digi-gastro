@@ -512,11 +512,21 @@ async def websocket_endpoint(websocket: WebSocket, slug: str):
 # In SQLite-Mode (Local-Dev) fällt der Advisory-Lock weg — nur asyncio.Lock.
 # ──────────────────────────────────────────────────────────────────
 _tenant_locks: Dict[str, asyncio.Lock] = {}
+_tenant_locks_access: Dict[str, float] = {}  # Track last access time for cleanup
+import time as _time_module
 
 def _get_tenant_lock(slug: str) -> asyncio.Lock:
     slug_lower = slug.lower().strip()
     if slug_lower not in _tenant_locks:
         _tenant_locks[slug_lower] = asyncio.Lock()
+    _tenant_locks_access[slug_lower] = _time_module.time()
+    # Cleanup: Entferne Locks die > 1 Stunde nicht genutzt wurden (max 100 behalten)
+    if len(_tenant_locks) > 100:
+        now = _time_module.time()
+        expired = [k for k, t in _tenant_locks_access.items() if now - t > 3600]
+        for k in expired:
+            _tenant_locks.pop(k, None)
+            _tenant_locks_access.pop(k, None)
     return _tenant_locks[slug_lower]
 
 
@@ -1161,8 +1171,16 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id.desc()).limit(200).all()
     db_orders.reverse()  # Wieder aufsteigend sortieren für UI
     orders = []
+    # PERFORMANCE: Batch-Query für Items statt N+1 (1 Query statt 200)
+    order_ids = [o.id for o in db_orders]
+    all_items = session.query(DBOrderItem).filter(DBOrderItem.order_id.in_(order_ids)).order_by(DBOrderItem.id).all() if order_ids else []
+    items_by_order = {}
+    for item in all_items:
+        if item.order_id not in items_by_order:
+            items_by_order[item.order_id] = []
+        items_by_order[item.order_id].append(item)
     for o in db_orders:
-        db_items = session.query(DBOrderItem).filter_by(order_id=o.id).order_by(DBOrderItem.id).all() if hasattr(o, "id") else []
+        db_items = items_by_order.get(o.id, [])
         items = [{
             "product_id": item.product_id,
             "name": item.name,
@@ -1194,7 +1212,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "pin_code": s.pin_code
     } for s in db_staff]
     
-    db_calls = session.query(ServiceCall).filter_by(tenant_slug=slug).order_by(ServiceCall.id).all()
+    db_calls = session.query(ServiceCall).filter_by(tenant_slug=slug).order_by(ServiceCall.id.desc()).limit(100).all()
     service_calls = [{
         "id": c.id,
         "table": c.table,
@@ -1225,7 +1243,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     except Exception:
         pass
     
-    db_logs = session.query(AuditLog).filter_by(tenant_slug=slug).order_by(AuditLog.id).all()
+    db_logs = session.query(AuditLog).filter_by(tenant_slug=slug).order_by(AuditLog.id.desc()).limit(200).all()
     audit_log = [{
         "id": l.id,
         "action": l.action,
@@ -8618,7 +8636,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         pass
 
     # 3. Service calls (klein)
-    db_calls = db.query(ServiceCall).filter_by(tenant_slug=slug_lower).order_by(ServiceCall.id).all()
+    db_calls = db.query(ServiceCall).filter_by(tenant_slug=slug_lower).order_by(ServiceCall.id.desc()).limit(100).all()
     service_calls = [{
         "id": c.id,
         "table": c.table,

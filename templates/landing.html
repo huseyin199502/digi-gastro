@@ -1814,37 +1814,7 @@
             }
         });
     </script>
-    <!-- PWA Service Worker Registrierung -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((registration) => {
-                        console.log('[PWA] SW registriert:', registration.scope);
-                        // Update-Flow: neue SW erkennen → SKIP_WAITING → controllerchange → reload
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            if (newWorker) {
-                                newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        newWorker.postMessage('SKIP_WAITING');
-                                    }
-                                });
-                            }
-                        });
-                    })
-                    .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
-
-                // Controller-Wechsel: Seite neu laden (verhindert Cache-Mismatch)
-                let refreshing = false;
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if (refreshing) return;
-                    refreshing = true;
-                    window.location.reload();
-                });
-            });
-        }
-    </script>
+    <!-- SW Registration entfernt — PWA funktioniert via manifest.json ohne SW -->
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- MOBILE STICKY CTA BAR — immer erreichbar auf Mobile -->
