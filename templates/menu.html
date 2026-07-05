@@ -472,7 +472,7 @@
                    angezeigt. Layout: Hauptlogo → Willkommen → Buttons → 2. Logo #}
                 {% if restaurant.branding and restaurant.branding.logo_url_2 %}
                 <div class="flex justify-center items-center" style="margin-top: 1px; margin-bottom: 1px; line-height: 0;">
-                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2" style="height: auto; max-height: 144px; width: auto; max-width: 280px; object-fit: contain; margin: 0; padding: 0; display: block;" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
+                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-36 sm:h-48 lg:h-56 w-auto max-w-[280px] sm:max-w-[360px] object-contain relative z-10" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high" style="margin: 0; padding: 0; display: block;">
                 </div>
                 {% endif %}
             </div>
