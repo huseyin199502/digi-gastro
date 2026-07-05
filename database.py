@@ -84,6 +84,7 @@ class Tenant(Base):
     has_kitchen = Column(Boolean, default=False)
     is_shishabar = Column(Boolean, default=False)
     orders_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Nur Speisekarte (keine Bestellungen)
+    show_revenue = Column(Boolean, default=True)  # Super-Admin Toggle: False = Tenant sieht keine Umsätze/Reports
     impressum_content = Column(Text, default="")
     datenschutz_content = Column(Text, default="")
     security_token = Column(String, default="")
@@ -302,8 +303,9 @@ class Event(Base):
     days = Column(Text, default="[]")  # JSON array of German day names, e.g. ["Donnerstag"]
     start_time = Column(String, default="18:00")
     end_time = Column(String, default="20:00")
-    mode = Column(String, default="selected")  # "selected" = only chosen products, "discount" = % on everything
+    mode = Column(String, default="selected")  # "selected" = only chosen products, "discount" = % on everything, "announcement" = text-only banner
     discount = Column(Integer, default=0)  # Percentage discount for "discount" mode
+    banner_color = Column(String, default="#dc2626")  # Banner-Hintergrundfarbe für announcement-Modus (rot default)
     is_active = Column(Boolean, default=True)
     position = Column(Integer, default=0)  # Sort order
 
@@ -365,6 +367,148 @@ class RevenueAdjustment(Base):
     adjusted_by = Column(String, default="admin@digi-gastro.de", nullable=False)
     adjusted_at = Column(String, nullable=False)          # ISO-Format Timestamp
 
+
+# ════════════════════════════════════════════════════════════════════
+# LOYALITY & WALLET-PASS TABLES
+# ════════════════════════════════════════════════════════════════════
+# Implementiert getqard.com-ähnliche Features:
+# - Digitale Stempelkarte (Apple Wallet + Google Wallet)
+# - Geofencing-Push (200m Nähe → Sperrbildschirm-Push via Pass-Update)
+# - Inaktivitäts-Push (14 Tage nicht dagewesen → Winback-Kampagne)
+#
+# Architektur: Wallet-Pässe statt native App. Vorteile:
+# - Kein App-Download nötig
+# - OS-seitiges Geofencing (keine Bewegungsprofile auf Servern → DSGVO-freundlich)
+# - Sperrbildschirm-Push ohne separate Notification-Permission
+
+class LoyaltyCard(Base):
+    """Digitale Stempelkarte pro Tenant.
+    Ein Tenant kann mehrere Karten haben (z.B. '10. Kaffee gratis', '5. Shisha gratis')."""
+    __tablename__ = 'loyalty_cards'
+    __table_args__ = (
+        Index('idx_loyalty_card_tenant', 'tenant_slug'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)                # z.B. "Kaffee-Karte", "Shisha-Karte"
+    description = Column(Text, default="")               # Kurzbeschreibung für Gäste
+    stamps_required = Column(Integer, default=10)        # Wie viele Stempel bis Reward?
+    reward_name = Column(String, nullable=False)         # z.B. "1× Kaffee gratis"
+    reward_product_id = Column(Integer, nullable=True)   # Optional: Produkt-ID das als Reward gilt
+    reward_discount_percent = Column(Integer, default=0) # Alternative: % Rabatt auf nächste Bestellung
+    is_active = Column(Boolean, default=True)
+    color_hex = Column(String, default="#C9A84C")        # Branding-Farbe der Karte
+    icon = Column(String, default="local_cafe")          # Material Icon Name
+    created_at = Column(String, nullable=False)
+
+class LoyaltyCustomer(Base):
+    """Ein Gast der eine Stempelkarte hat. Anonym (nur Wallet-Pass-Serial als ID).
+    Keine PIIs (Name, Email) — nur Gerätekoppelung via Pass-Serial."""
+    __tablename__ = 'loyalty_customers'
+    __table_args__ = (
+        Index('idx_loyalty_customer_tenant_serial', 'tenant_slug', 'pass_serial', unique=True),
+        Index('idx_loyalty_customer_tenant', 'tenant_slug'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    pass_serial = Column(String, nullable=False)         # Apple/Google Wallet Pass Serial (UUID)
+    pass_type = Column(String, default="apple")          # "apple" oder "google"
+    card_id = Column(Integer, ForeignKey('loyalty_cards.id', ondelete='CASCADE'), nullable=False)
+    current_stamps = Column(Integer, default=0)          # Aktuelle Stempel-Anzahl
+    total_stamps_earned = Column(Integer, default=0)     # Lifetime-Stempel (für Analytics)
+    rewards_redeemed = Column(Integer, default=0)        # Wie oft Reward eingelöst?
+    first_visit_at = Column(String, nullable=True)       # Erster Besuch (ISO-Datum)
+    last_visit_at = Column(String, nullable=True)        # Letzter Besuch (für Inaktivitäts-Cron)
+    last_push_at = Column(String, nullable=True)         # Letzter Push (Anti-Spam)
+    created_at = Column(String, nullable=False)
+    # Wallet-Pass-Update nötig? (z.B. nach Stempel-Vergabe)
+    pass_needs_update = Column(Boolean, default=True)
+    # Opt-out von Push-Kampagnien (DSGVO: jederzeit widerrufbar)
+    push_opt_out = Column(Boolean, default=False)
+
+class LoyaltyStamp(Base):
+    """Ein einzelner Stempel — wird bei Bestellung automatisch vergeben.
+    Ein Stempel = eine Bestellung (oder Mindestbestellwert erreicht)."""
+    __tablename__ = 'loyalty_stamps'
+    __table_args__ = (
+        Index('idx_loyalty_stamp_tenant_customer', 'tenant_slug', 'customer_id'),
+        Index('idx_loyalty_stamp_customer_card', 'customer_id', 'card_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    customer_id = Column(Integer, ForeignKey('loyalty_customers.id', ondelete='CASCADE'), nullable=False)
+    card_id = Column(Integer, ForeignKey('loyalty_cards.id', ondelete='CASCADE'), nullable=False)
+    order_id = Column(Integer, nullable=True)            # Bestellung die den Stempel ausgelöst hat
+    order_total = Column(Float, default=0.0)             # Bestellwert zum Zeitpunkt der Vergabe
+    stamp_type = Column(String, default="order")         # "order", "manual", "welcome_bonus"
+    is_redeemed = Column(Boolean, default=False)         # True wenn für Reward eingelöst
+    redeemed_at = Column(String, nullable=True)
+    created_at = Column(String, nullable=False)
+
+class LoyaltyCampaign(Base):
+    """Push-Kampagne: Geofencing (200m Nähe) oder Inaktivität (14 Tage)."""
+    __tablename__ = 'loyalty_campaigns'
+    __table_args__ = (
+        Index('idx_loyalty_campaign_tenant', 'tenant_slug'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)                # z.B. "Lunch-Push", "Winback 14 Tage"
+    campaign_type = Column(String, nullable=False)       # "geofence" oder "inactivity" oder "broadcast"
+    title = Column(String, nullable=False)               # Push-Titel
+    message = Column(Text, nullable=False)               # Push-Nachricht
+    # Geofencing: Radius in Metern um Lokal (typisch 200m)
+    geofence_radius_m = Column(Integer, default=200)
+    # Inaktivität: Tage seit letztem Besuch (typisch 14)
+    inactivity_days = Column(Integer, default=14)
+    # Anti-Spam: Mindest-Abstand zwischen Pushs an denselben Kunden (Stunden)
+    min_hours_between_pushs = Column(Integer, default=24)
+    # Scheduling: Wann ist die Kampagne aktiv?
+    active_from = Column(String, default="00:00")        # "HH:MM"
+    active_to = Column(String, default="23:59")          # "HH:MM"
+    active_days = Column(Text, default='["Mo","Di","Mi","Do","Fr","Sa","So"]')  # JSON-Array
+    is_active = Column(Boolean, default=True)
+    created_at = Column(String, nullable=False)
+
+class LoyaltyPushLog(Base):
+    """Log aller gesendeten Push-Nachrichten (DSGVO-Audit-Pflicht)."""
+    __tablename__ = 'loyalty_push_logs'
+    __table_args__ = (
+        Index('idx_loyalty_pushlog_tenant_customer', 'tenant_slug', 'customer_id'),
+        Index('idx_loyalty_pushlog_campaign', 'campaign_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    customer_id = Column(Integer, ForeignKey('loyalty_customers.id', ondelete='CASCADE'), nullable=False)
+    campaign_id = Column(Integer, ForeignKey('loyalty_campaigns.id', ondelete='SET NULL'), nullable=True)
+    push_type = Column(String, nullable=False)           # "geofence", "inactivity", "broadcast", "stamp"
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String, default="sent")              # "sent", "failed", "opened"
+    sent_at = Column(String, nullable=False)
+
+class TenantGeofence(Base):
+    """GPS-Koordinaten des Lokals für Geofencing-Push.
+    Eine Adresse pro Tenant (Hauptladen). Mehrere falls erweitert."""
+    __tablename__ = 'tenant_geofences'
+    __table_args__ = (
+        Index('idx_tenant_geofence_tenant', 'tenant_slug'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, default="Hauptladen")          # z.B. "Hauptladen", "Filiale 2"
+    latitude = Column(Float, nullable=False)             # z.B. 52.5200
+    longitude = Column(Float, nullable=False)            # z.B. 13.4050
+    address = Column(String, default="")                 # Zur Anzeige im Pass
+    is_primary = Column(Boolean, default=True)           # Nur eine primäre Location pro Tenant
+    created_at = Column(String, nullable=False)
+
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
@@ -413,6 +557,7 @@ def _migrate_database():
     add_column_if_missing('tenants', 'pos_active', "BOOLEAN DEFAULT FALSE")
     # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
     add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('tenants', 'show_revenue', "BOOLEAN DEFAULT TRUE")  # Super-Admin: Tenant sieht Umsatz/Reports
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")
@@ -456,6 +601,8 @@ def _migrate_database():
     add_column_if_missing('event_combos', 'days', "TEXT DEFAULT NULL")
     add_column_if_missing('event_combos', 'start_time', "VARCHAR DEFAULT NULL")
     add_column_if_missing('event_combos', 'end_time', "VARCHAR DEFAULT NULL")
+    # Announcement-Modus: Banner-Farbe (Tenant kann selbst wählen, Standard rot)
+    add_column_if_missing('events', 'banner_color', "VARCHAR DEFAULT '#dc2626'")
 
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")

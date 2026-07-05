@@ -1,25 +1,8 @@
-// digi-gastro Service Worker — DEAKTIVIERT
-// SW wurde komplett deaktiviert um Cache-Probleme zu lösen.
-// Kein fetch-Handler, kein caching, keine offline-page.
-// Browser macht alle Requests direkt ohne SW-Interception.
-const SW_VERSION = '2026-07-02-v5'; // FIX: controllerchange auto-reload entfernt — endlose Reload-Schleife behoben
-const CACHE_NAME = `digi-gastro-${SW_VERSION}`;
-
-// INSTALL: Sofort skipWaiting
-self.addEventListener('install', (event) => {
-    self.skipWaiting();
+// digi-gastro — Service Worker DEAKTIVIERT
+// PWA-Install funktioniert weiterhin via manifest.json (Chrome/Edge brauchen keinen SW seit 2023)
+const SW_VERSION = '2026-07-03-v1';
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => {
+    e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-
-// ACTIVATE: ALLE Caches löschen
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys()
-            .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-            .then(() => self.clients.claim())
-    );
-});
-
-// FETCH: Nichts tun — Browser macht normale Requests
-self.addEventListener('fetch', (event) => {
-    return;
-});
+self.addEventListener('fetch', () => {});

@@ -204,11 +204,14 @@ def get_webp_path(original_path: str) -> str:
 
 
 from fastapi import FastAPI, Request, Form, Response, HTTPException, Depends, UploadFile, File, WebSocket, WebSocketDisconnect, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 app = FastAPI(title="digi-gastro High-End Gastronomy OS")
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── Rate Limiting per Tenant (Noisy-Neighbor-Schutz) ──
 # slowapi: Verhindert dass ein einzelner Tenant alle Ressourcen verbraucht.
@@ -798,6 +801,10 @@ async def cache_static_assets_middleware(request: Request, call_next):
     path = request.url.path
     if path.startswith("/static/css/") or path.startswith("/static/js/") or path.startswith("/static/images/"):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path.startswith("/uploads/"):
+        response.headers["Cache-Control"] = "public, max-age=86400"
+    elif "text/html" in response.headers.get("content-type", ""):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return response
 
 # ════════════════════════════════════════════════════════════════════
@@ -1068,7 +1075,14 @@ from database import (
     get_db,
     Base,
     engine,
-    run_migrations
+    run_migrations,
+    # Loyalty & Wallet-Pass Tabellen
+    LoyaltyCard,
+    LoyaltyCustomer,
+    LoyaltyStamp,
+    LoyaltyCampaign,
+    LoyaltyPushLog,
+    TenantGeofence,
 )
 
 # ── Local-dev detection (für Cookie-Attribute) ──
@@ -1090,23 +1104,16 @@ try:
 except Exception as _e:
     print(f"[Multi-Tenant] Backfill migration skipped: {_e}")
 
-# ── CLEANUP: Loyalty/Announcement DB-Reste löschen ──
-# Der Revert hat den Loyalty-Code entfernt, aber die DB hat noch:
-# 1. Events mit mode='announcement' (alter Code kennt das nicht → Crashes)
-# 2. Loyalty-Tabellen (ungenutzt, aber harmlos)
-# 3. events.banner_color Spalte (ungenutzt, harmlos)
-# Wir löschen nur die announcement-Events — die anderen Sachen stören nicht.
+# CLEANUP: Alte announcement-Events löschen (falls vorhanden)
 try:
     from sqlalchemy import text as sa_text
     with engine.connect() as conn:
-        # Announcement-Events löschen
         result = conn.execute(sa_text("DELETE FROM events WHERE mode = 'announcement'"))
-        deleted = result.rowcount
-        if deleted > 0:
+        if result.rowcount > 0:
             conn.commit()
-            print(f"[CLEANUP] {deleted} announcement-Events gelöscht (Revert Cleanup)")
+            print(f"[CLEANUP] {result.rowcount} announcement-Events gelöscht")
 except Exception as _e:
-    print(f"[CLEANUP] Announcement-Event Cleanup skipped: {_e}")
+    print(f"[CLEANUP] skipped: {_e}")
 
 
 # Stateless Serialization Helpers for compatibility and template rendering
@@ -1157,9 +1164,6 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "related_product_ids": json.loads(getattr(p, "related_product_ids", "[]") or "[]")
         })
         
-    # PERFORMANCE FIX: Nur die letzten 200 Orders laden (statt alle)
-    # Bei deer-lounge: 575K+ Items → 82MB RAM → Worker OOM Crash
-    # Mit 200 Orders: ~200KB RAM → stabil
     db_orders = session.query(Order).filter_by(tenant_slug=slug).order_by(Order.id.desc()).limit(200).all()
     db_orders.reverse()  # Wieder aufsteigend sortieren für UI
     orders = []
@@ -1267,6 +1271,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "end_time": ev.end_time or "20:00",
             "mode": ev.mode or "selected",
             "discount": ev.discount or 0,
+            "banner_color": getattr(ev, 'banner_color', None) or "#dc2626",
             "is_active": ev.is_active if ev.is_active is not None else True,
             "position": ev.position or 0,
             "products": [{"product_id": ep.product_id, "event_price": ep.event_price} for ep in ev_products],
@@ -1301,6 +1306,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "has_kitchen": tenant.has_kitchen,
         "is_shishabar": tenant.is_shishabar,
         "orders_enabled": tenant.orders_enabled if tenant.orders_enabled is not None else True,
+        "show_revenue": getattr(tenant, 'show_revenue', True) if getattr(tenant, 'show_revenue', None) is not None else True,
         "impressum_content": tenant.impressum_content,
         "datenschutz_content": tenant.datenschutz_content,
         "security_token": tenant.security_token,
@@ -1593,8 +1599,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         if pid not in seen_product_ids:
             session.delete(db_p)
             
-    # 3. Update orders — nur Orders laden die im r["orders"] enthalten sind
-    # PERFORMANCE: Statt alle Orders zu laden, nur die IDs die aktualisiert werden
+    # 3. Update orders
     order_ids_in_payload = [o.get("id") for o in r.get("orders", []) if o.get("id")]
     if order_ids_in_payload:
         existing_orders = {o.id: o for o in session.query(Order).filter(Order.tenant_slug == slug, Order.id.in_(order_ids_in_payload)).all()}
@@ -3001,6 +3006,12 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         orders_label = "Bestellungen stoppen" if orders_on else "Bestellungen aktivieren"
         orders_class = "btn-toggle-off" if orders_on else "btn-toggle-on"
         orders_icon = "shopping_cart" if orders_on else "remove_shopping_cart"
+        revenue_on = getattr(t, 'show_revenue', True)
+        if revenue_on is None:
+            revenue_on = True
+        revenue_label = "Umsatz ausblenden" if revenue_on else "Umsatz einblenden"
+        revenue_class = "btn-toggle-off" if revenue_on else "btn-toggle-on"
+        revenue_icon = "visibility" if revenue_on else "visibility_off"
         
         tenant_cards += f"""
         <div class="tenant-card {status_class}">
@@ -3103,6 +3114,12 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
               <button type="submit" class="tenant-btn {orders_class}" title="{orders_label}">
                 <span class="material-symbols-outlined" style="font-size:14px;">{orders_icon}</span>
                 <span>{orders_label}</span>
+              </button>
+            </form>
+            <form method="POST" action="/digi-gastro-admin/tenant-revenue-toggle/{html_escape(t.slug)}" class="inline">
+              <button type="submit" class="tenant-btn {revenue_class}" title="{revenue_label}">
+                <span class="material-symbols-outlined" style="font-size:14px;">{revenue_icon}</span>
+                <span>{revenue_label}</span>
               </button>
             </form>
             {'<form method="POST" action="/digi-gastro-admin/tenant-complete-setup/' + html_escape(t.slug) + '" class="inline"><button type="submit" class="tenant-btn btn-toggle-on" title="Setup abschließen"><span class="material-symbols-outlined" style="font-size:14px;">check_circle</span><span>Setup abschließen</span></button></form>' if not t.is_setup_completed else ''}
@@ -4371,6 +4388,25 @@ def post_tenant_orders_toggle(request: Request, slug_key: str, db: Session = Dep
     return RedirectResponse(url="/digi-gastro-admin", status_code=303)
 
 
+@app.post("/digi-gastro-admin/tenant-revenue-toggle/{slug_key}")
+def post_tenant_revenue_toggle(request: Request, slug_key: str, db: Session = Depends(get_db)):
+    """Super-Admin Toggle: Tenant kann Umsatz/Reports sehen oder nicht."""
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        current = getattr(tenant, 'show_revenue', True)
+        if current is None:
+            current = True
+        tenant.show_revenue = not current
+        db.commit()
+
+    return RedirectResponse(url="/digi-gastro-admin", status_code=303)
+
+
 # ════════════════════════════════════════════════════════════════════
 # SUPER-ADMIN: Tenant Setup abschließen (für Tenants die direkt ins Dashboard sollen)
 # ════════════════════════════════════════════════════════════════════
@@ -5024,6 +5060,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
             "tisch_name": tisch_name,
             "role": role,
             "orders_enabled": restaurant.get("orders_enabled", True),
+            "show_revenue": restaurant.get("show_revenue", True),
             "hh_active_global": any_event_active,
             "active_events": active_events_info,
             "today_combo_events": today_events_info,
@@ -5365,6 +5402,12 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    
+    # Loyalty: Stempel vergeben falls Kunde erkannt (via Cookie)
+    try:
+        _maybe_award_loyalty_stamp(request, slug, new_order.get("id"), new_order.get("total", 0), db)
+    except Exception as e:
+        print(f"[Loyalty] Stamp hook error (non-fatal): {e}")
     
     # Bon-Druck: Küchenbon bei neuer Bestellung (falls POS aktiv)
     try:
@@ -7129,8 +7172,6 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             "stats": stats,
             "period": period,
             "current_user": user,
-            # PERFORMANCE FIX: Nur die letzten 50 Orders ins Dashboard laden
-            # (vorher: ALLE Orders → 82MB bei deer-lounge → Seite nie laden)
             "orders_json": json.dumps(sorted(restaurant.get("orders", []), key=lambda o: o.get("id", 0), reverse=True)[:50]),
             "tables_json": json.dumps(restaurant.get("tables", [])),
             "products_json": json.dumps(restaurant.get("products", [])),
@@ -8892,43 +8933,52 @@ def get_products_lite(request: Request, slug: str, db: Session = Depends(get_db)
     for p in products:
         if p.get("category") not in active_categories:
             continue
-        
+
         is_hh_active = False
         display_price = p.get("price", 0)
         active_event = None
-        
-        # Price mode conversion
-        if price_mode == "netto":
-            cat_type = p.get("category_type", "küche").lower()
-            mwst_factor = 1.19 if cat_type == "bar" else 1.07
-            display_price = round(display_price / mwst_factor, 2)
-        
+
+        # ── Price Mode Logik (MUSS identisch sein mit Haupttemplate-Stelle!) ──
+        # Bug-Fix: Diese Logik war VORHER invertiert (Div statt Mult, falsche
+        # if/else-Verteilung). Folge: /api/menu-lite hat anderen Preis gezeigt
+        # als das Haupttemplate → Kunden sahen 2,83 € in der Karte, aber 3,50 €
+        # im Warenkorb (Cart nutzt den Preis aus dem Haupttemplate).
+        #
+        # Korrekte Logik (identisch mit /menu Endpoint-Zeile ~4898):
+        #   DB speichert IMMER netto.
+        #   price_mode='brutto' → Display = netto × (1 + MwSt)
+        #   price_mode='netto'  → Display = netto (1:1)
+        cat_type = p.get("category_type", "küche").lower()
+        mwst_rate = 0.19 if cat_type == "bar" else 0.07
+        if price_mode == "brutto":
+            display_price = round(display_price * (1 + mwst_rate), 2)
+        # netto: 1:1 (keine Transformation)
+
         # Event pricing
         for ev in events:
             if not ev.get("is_active", True) or not ev.get("_is_currently_active", False):
                 continue
-            
+
             event_products = ev.get("products", [])
             if event_products:
                 matched_ep = next((ep for ep in event_products if ep.get("product_id") == p.get("id")), None)
                 if matched_ep and matched_ep.get("event_price") is not None:
                     is_hh_active = True
                     event_price_val = matched_ep["event_price"]
-                    if price_mode == "netto":
-                        cat_type = p.get("category_type", "küche").lower()
-                        mwst_factor = 1.19 if cat_type == "bar" else 1.07
-                        event_price_val = round(event_price_val / mwst_factor, 2)
+                    # Event-Preis ist auch netto → bei brutto +MwSt
+                    if price_mode == "brutto":
+                        event_price_val = round(event_price_val * (1 + mwst_rate), 2)
                     display_price = event_price_val
                     active_event = {"name": ev["name"], "display_name": ev.get("display_name", "")}
                     break
             elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
                 is_hh_active = True
                 discount_factor = (100 - ev["discount"]) / 100.0
-                display_price = round(p["price"] * discount_factor, 2)
-                if price_mode == "netto":
-                    cat_type = p.get("category_type", "küche").lower()
-                    mwst_factor = 1.19 if cat_type == "bar" else 1.07
-                    display_price = round(display_price / mwst_factor, 2)
+                # Discount auf netto-Basis, dann +MwSt falls brutto
+                discounted = round(p["price"] * discount_factor, 2)
+                if price_mode == "brutto":
+                    discounted = round(discounted * (1 + mwst_rate), 2)
+                display_price = discounted
                 active_event = {"name": ev["name"], "display_name": ev.get("display_name", "")}
                 break
         
@@ -9994,6 +10044,7 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
         end_time=body.get("end_time", "20:00"),
         mode=body.get("mode", "selected"),
         discount=int(body.get("discount", 0)),
+        banner_color=body.get("banner_color", "#dc2626") or "#dc2626",
         is_active=body.get("is_active", True),
         position=existing_count
     )
@@ -10072,6 +10123,8 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
     db_event.end_time = body.get("end_time", db_event.end_time)
     db_event.mode = body.get("mode", db_event.mode)
     db_event.discount = int(body.get("discount", 0)) if body.get("mode") == "discount" else 0
+    if "banner_color" in body:
+        db_event.banner_color = body.get("banner_color") or "#dc2626"
     db_event.is_active = body.get("is_active", db_event.is_active)
     
     # Update event products
@@ -13422,3 +13475,440 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
     return {"success": True}
 
 
+
+
+# ════════════════════════════════════════════════════════════════════
+# LOYALTY & WALLET-PASS ENDPOINTS
+# ════════════════════════════════════════════════════════════════════
+# Implementiert getqard.com-ähnliche Features:
+# - Digitale Stempelkarte (Apple Wallet + Google Wallet)
+# - Geofencing-Push (200m Nähe → Sperrbildschirm-Push via Pass-Update)
+# - Inaktivitäts-Push (14 Tage nicht dagewesen → Winback-Kampagne)
+
+from loyalty import (
+    generate_apple_pkpass,
+    generate_google_wallet_jwt,
+    award_stamp_for_order,
+    run_inactivity_cron,
+    get_customer_analytics,
+    get_or_create_customer,
+    _now_iso,
+    _berlin_now,
+    _is_apple_configured,
+    _is_google_configured,
+)
+
+
+@app.get("/{slug}/loyalty/card")
+def loyalty_get_card(slug: str, db: Session = Depends(get_db)):
+    """Öffentliche Stempelkarten-Info für Gäste."""
+    slug_lower = slug.lower().strip()
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Keine aktive Stempelkarte vorhanden.")
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Restaurant nicht gefunden.")
+    # Tenant-Branding für Popup-Preview (Logo)
+    tenant_logo_url = ""
+    try:
+        if tenant.logo_path:
+            tenant_logo_url = tenant.logo_path
+        elif hasattr(tenant, 'logo_url') and tenant.logo_url:
+            tenant_logo_url = tenant.logo_url
+    except Exception:
+        pass
+    return {
+        "card": {
+            "id": card.id, "name": card.name, "description": card.description,
+            "stamps_required": card.stamps_required, "reward_name": card.reward_name,
+            "color_hex": card.color_hex, "icon": card.icon,
+        },
+        "tenant_name": tenant.name,
+        "tenant_logo": tenant_logo_url,
+        "apple_configured": _is_apple_configured(),
+        "google_configured": _is_google_configured(),
+    }
+
+
+@app.get("/{slug}/loyalty/pass/apple")
+def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db)):
+    """Generiert .pkpass-File für Apple Wallet."""
+    slug_lower = slug.lower().strip()
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Keine aktive Stempelkarte vorhanden.")
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Restaurant nicht gefunden.")
+
+    cookie_name = f"loyalty_{slug_lower}"
+    customer_id = request.cookies.get(cookie_name)
+    customer = None
+    if customer_id:
+        try:
+            customer = db.query(LoyaltyCustomer).filter_by(
+                tenant_slug=slug_lower, id=int(customer_id)
+            ).first()
+        except Exception:
+            customer = None
+    if not customer:
+        customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple")
+
+    geofence = db.query(TenantGeofence).filter_by(
+        tenant_slug=slug_lower, is_primary=True
+    ).first()
+    geofence_dict = None
+    if geofence:
+        geofence_dict = {"latitude": geofence.latitude, "longitude": geofence.longitude}
+
+    customer_dict = {
+        "id": customer.id, "pass_serial": customer.pass_serial,
+        "current_stamps": customer.current_stamps, "auth_token": customer.pass_serial[:16],
+    }
+    card_dict = {
+        "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
+        "reward_name": card.reward_name, "color_hex": card.color_hex,
+    }
+    pkpass_bytes = generate_apple_pkpass(
+        slug_lower, tenant.name, card_dict, customer_dict, geofence_dict
+    )
+    if not pkpass_bytes:
+        raise HTTPException(status_code=500, detail="Pass-Generierung fehlgeschlagen.")
+
+    customer.pass_needs_update = False
+    db.commit()
+
+    response = Response(
+        content=pkpass_bytes,
+        media_type="application/vnd.apple.pkpass",
+        headers={"Content-Disposition": f'attachment; filename="{slug_lower}-stempelkarte.pkpass"'}
+    )
+    response.set_cookie(
+        key=cookie_name, value=str(customer.id), httponly=True,
+        max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
+    )
+    return response
+
+
+@app.get("/{slug}/loyalty/pass/google")
+def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_db)):
+    """Generiert JWT-Link für Google Wallet."""
+    slug_lower = slug.lower().strip()
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Keine aktive Stempelkarte vorhanden.")
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Restaurant nicht gefunden.")
+
+    cookie_name = f"loyalty_{slug_lower}"
+    customer_id = request.cookies.get(cookie_name)
+    customer = None
+    if customer_id:
+        try:
+            customer = db.query(LoyaltyCustomer).filter_by(
+                tenant_slug=slug_lower, id=int(customer_id)
+            ).first()
+        except Exception:
+            customer = None
+    if not customer:
+        customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="google")
+
+    geofence = db.query(TenantGeofence).filter_by(
+        tenant_slug=slug_lower, is_primary=True
+    ).first()
+    geofence_dict = None
+    if geofence:
+        geofence_dict = {"latitude": geofence.latitude, "longitude": geofence.longitude}
+
+    customer_dict = {
+        "id": customer.id, "pass_serial": customer.pass_serial,
+        "current_stamps": customer.current_stamps,
+    }
+    card_dict = {
+        "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
+        "reward_name": card.reward_name, "color_hex": card.color_hex,
+    }
+    jwt_token = generate_google_wallet_jwt(
+        slug_lower, tenant.name, card_dict, customer_dict, geofence_dict
+    )
+    if not jwt_token:
+        raise HTTPException(status_code=500, detail="Google Wallet JWT Generierung fehlgeschlagen.")
+
+    customer.pass_needs_update = False
+    db.commit()
+
+    response = JSONResponse({
+        "save_url": f"https://pay.google.com/gp/v/save/{jwt_token}",
+        "customer_id": customer.id,
+    })
+    response.set_cookie(
+        key=cookie_name, value=str(customer.id), httponly=True,
+        max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
+    )
+    return response
+
+
+@app.post("/{slug}/loyalty/opt-out")
+def loyalty_opt_out(slug: str, request: Request, db: Session = Depends(get_db)):
+    """DSGVO-Opt-out von Push-Kampagnien."""
+    slug_lower = slug.lower().strip()
+    cookie_name = f"loyalty_{slug_lower}"
+    customer_id = request.cookies.get(cookie_name)
+    if not customer_id:
+        raise HTTPException(status_code=404, detail="Keine Stempelkarte gefunden.")
+    try:
+        customer = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, id=int(customer_id)
+        ).first()
+    except Exception:
+        customer = None
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden.")
+    customer.push_opt_out = True
+    db.commit()
+    return {"success": True, "message": "Du wurdest erfolgreich von Push-Benachrichtigungen abgemeldet."}
+
+
+@app.get("/admin/loyalty/dashboard")
+def loyalty_dashboard(chef_data: tuple = Depends(require_chef_user_flat), db: Session = Depends(get_db)):
+    """Analytics-Übersicht für Admin."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    analytics = get_customer_analytics(db, slug_lower)
+    cards = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower).all()
+    campaigns = db.query(LoyaltyCampaign).filter_by(tenant_slug=slug_lower).all()
+    geofence = db.query(TenantGeofence).filter_by(tenant_slug=slug_lower, is_primary=True).first()
+
+    # Tenant-Branding für Stempelkarten-Preview (Logo + Name)
+    branding = restaurant.get("branding", {}) if isinstance(restaurant, dict) else {}
+    tenant_logo_url = branding.get("logo_url") or restaurant.get("logo_path", "") if isinstance(restaurant, dict) else ""
+    tenant_name = restaurant.get("name", "") if isinstance(restaurant, dict) else ""
+
+    return {
+        "analytics": analytics,
+        "tenant": {
+            "name": tenant_name,
+            "logo_url": tenant_logo_url,
+            "slug": slug_lower,
+        },
+        "cards": [{
+            "id": c.id, "name": c.name, "description": c.description,
+            "stamps_required": c.stamps_required, "reward_name": c.reward_name,
+            "is_active": c.is_active, "color_hex": c.color_hex, "icon": c.icon,
+        } for c in cards],
+        "campaigns": [{
+            "id": c.id, "name": c.name, "campaign_type": c.campaign_type,
+            "title": c.title, "message": c.message,
+            "geofence_radius_m": c.geofence_radius_m,
+            "inactivity_days": c.inactivity_days,
+            "min_hours_between_pushs": c.min_hours_between_pushs,
+            "active_from": c.active_from, "active_to": c.active_to,
+            "active_days": c.active_days, "is_active": c.is_active,
+        } for c in campaigns],
+        "geofence": {
+            "latitude": geofence.latitude, "longitude": geofence.longitude,
+            "address": geofence.address, "name": geofence.name,
+        } if geofence else None,
+        "apple_configured": _is_apple_configured(),
+        "google_configured": _is_google_configured(),
+    }
+
+
+@app.post("/admin/loyalty/card")
+def loyalty_create_card(
+    name: str = Form(...),
+    description: str = Form(""),
+    stamps_required: int = Form(10),
+    reward_name: str = Form(...),
+    reward_product_id: Optional[int] = Form(None),
+    reward_discount_percent: int = Form(0),
+    color_hex: str = Form("#C9A84C"),
+    icon: str = Form("local_cafe"),
+    is_active: bool = Form(True),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Erstellt eine neue Stempelkarte."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    card = LoyaltyCard(
+        tenant_slug=slug_lower, name=name.strip(), description=description.strip(),
+        stamps_required=max(1, min(50, stamps_required)),
+        reward_name=reward_name.strip(),
+        reward_product_id=reward_product_id,
+        reward_discount_percent=max(0, min(100, reward_discount_percent)),
+        color_hex=color_hex, icon=icon, is_active=is_active,
+        created_at=_now_iso(),
+    )
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    return {"success": True, "card_id": card.id}
+
+
+@app.delete("/admin/loyalty/card/{card_id}")
+def loyalty_delete_card(
+    card_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, id=card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Stempelkarte nicht gefunden.")
+    db.delete(card)
+    db.commit()
+    return {"success": True}
+
+
+@app.post("/admin/loyalty/campaign")
+def loyalty_create_campaign(
+    name: str = Form(...),
+    campaign_type: str = Form(...),
+    title: str = Form(...),
+    message: str = Form(...),
+    geofence_radius_m: int = Form(200),
+    inactivity_days: int = Form(14),
+    min_hours_between_pushs: int = Form(24),
+    active_from: str = Form("00:00"),
+    active_to: str = Form("23:59"),
+    active_days: str = Form('["Mo","Di","Mi","Do","Fr","Sa","So"]'),
+    is_active: bool = Form(True),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    if campaign_type not in ("geofence", "inactivity", "broadcast"):
+        raise HTTPException(status_code=400, detail="Ungültiger Kampagnen-Typ.")
+    campaign = LoyaltyCampaign(
+        tenant_slug=slug_lower, name=name.strip(), campaign_type=campaign_type,
+        title=title.strip(), message=message.strip(),
+        geofence_radius_m=max(50, min(1000, geofence_radius_m)),
+        inactivity_days=max(1, min(365, inactivity_days)),
+        min_hours_between_pushs=max(1, min(168, min_hours_between_pushs)),
+        active_from=active_from, active_to=active_to, active_days=active_days,
+        is_active=is_active, created_at=_now_iso(),
+    )
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
+    return {"success": True, "campaign_id": campaign.id}
+
+
+@app.delete("/admin/loyalty/campaign/{campaign_id}")
+def loyalty_delete_campaign(
+    campaign_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    campaign = db.query(LoyaltyCampaign).filter_by(
+        tenant_slug=slug_lower, id=campaign_id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Kampagne nicht gefunden.")
+    db.delete(campaign)
+    db.commit()
+    return {"success": True}
+
+
+@app.post("/admin/loyalty/geofence")
+def loyalty_save_geofence(
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    address: str = Form(""),
+    name: str = Form("Hauptladen"),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Speichert GPS-Koordinaten für Geofencing-Push."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    geofence = db.query(TenantGeofence).filter_by(
+        tenant_slug=slug_lower, is_primary=True
+    ).first()
+    if geofence:
+        geofence.latitude = latitude
+        geofence.longitude = longitude
+        geofence.address = address.strip()
+        geofence.name = name.strip()
+    else:
+        geofence = TenantGeofence(
+            tenant_slug=slug_lower, name=name.strip(),
+            latitude=latitude, longitude=longitude,
+            address=address.strip(), is_primary=True,
+            created_at=_now_iso(),
+        )
+        db.add(geofence)
+    db.commit()
+    return {"success": True}
+
+
+@app.get("/admin/loyalty/customers")
+def loyalty_customers_list(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Listet alle Stempelkarten-Kunden (anonym)."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+    return {
+        "customers": [{
+            "id": c.id,
+            "pass_serial": c.pass_serial[:8] + "…",
+            "pass_type": c.pass_type,
+            "current_stamps": c.current_stamps,
+            "total_stamps_earned": c.total_stamps_earned,
+            "rewards_redeemed": c.rewards_redeemed,
+            "first_visit_at": c.first_visit_at,
+            "last_visit_at": c.last_visit_at,
+            "push_opt_out": c.push_opt_out,
+        } for c in customers]
+    }
+
+
+@app.post("/admin/loyalty/cron/inactivity")
+def loyalty_trigger_inactivity_cron(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Triggert den Inaktivitäts-Cron manuell — aber NUR für den aktuellen Tenant!
+
+    MULTI-TENANT-ISOLATION (Security-Fix):
+    Vorher: run_inactivity_cron(db) lief für ALLE Tenants → deer-lounge Admin
+    konnte Pushs an daily-Kunden schicken. CRITICAL SECURITY BUG.
+
+    Jetzt: run_inactivity_cron(db, tenant_slug=slug) → nur eigener Tenant.
+    Kunde sieht/kontaktiert nur seine eigenen Loyalty-Kunden.
+    """
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    stats = run_inactivity_cron(db, tenant_slug=slug_lower)
+    return {"success": True, "stats": stats}
+
+
+def _maybe_award_loyalty_stamp(request: Request, slug: str, order_id: int, order_total: float, db: Session):
+    """Hook: Vergibt automatisch Stempel nach Bestellung (via Cookie erkannt)."""
+    try:
+        slug_lower = slug.lower().strip()
+        cookie_name = f"loyalty_{slug_lower}"
+        customer_id_str = request.cookies.get(cookie_name)
+        if not customer_id_str:
+            return None
+        customer_id = int(customer_id_str)
+        customer = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, id=customer_id
+        ).first()
+        if not customer:
+            return None
+        result = award_stamp_for_order(db, slug_lower, customer_id, order_id, order_total)
+        return result
+    except Exception as e:
+        print(f"[Loyalty] Stamp award failed: {e}")
+        return None

@@ -385,11 +385,26 @@
     <div id="happy-hour-banner-wrapper">
         {% if hh_active_global %}
         {% for ev in active_events %}
+        {% if ev.mode == 'announcement' %}
+        {# ── MELDUNGS-BANNER (z.B. "Wir suchen Verstärkung") ──
+            Tenant kann frei Text verfassen, der auf Landingpage + Speisekarte
+            angezeigt wird. Aktivierbar/deaktivierbar + zeitgesteuert (wie Events).
+            Farbe ist pro Event konfigurierbar (Standard rot #dc2626). #}
+        <div class="text-white py-3 px-4 text-center text-xs font-bold shadow-lg flex items-center justify-center gap-2 relative z-40" style="background: {{ ev.banner_color or '#dc2626' }};">
+            <span class="material-symbols-outlined text-base font-black shrink-0">campaign</span>
+            <span class="leading-snug">
+                {% if ev.display_name %}<strong class="uppercase tracking-wider">{{ ev.display_name }}</strong>{% endif %}
+                {% if ev.description %}<span class="ml-1 font-medium opacity-95">{{ ev.description }}</span>{% endif %}
+            </span>
+        </div>
+        {% else %}
+        {# ── HAPPY HOUR / EVENTS BANNER (bestehend) ── #}
         <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2.5 px-4 text-center text-xs font-black tracking-wider shadow-lg flex items-center justify-center gap-2 relative z-40 uppercase">
             <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">celebration</span>
             <span>🔥 {{ ev.display_name }} ist aktiv! {% if ev.mode == 'discount' and ev.discount > 0 %}{{ ev.discount }}% auf alles!{% elif ev.combos %}Sonderpreise & Kombi-Angebote!{% else %}Sonderpreise für ausgewählte Artikel!{% endif %} 🔥</span>
             <span class="material-symbols-outlined text-base font-black animate-spin" style="animation-duration: 4s;">celebration</span>
         </div>
+        {% endif %}
         {% endfor %}
         {% endif %}
     </div>
@@ -398,24 +413,21 @@
     <main class="flex-grow w-full max-w-4xl mx-auto px-4">
         
         <!-- ================= LANDING VIEW ================= -->
-        <div x-show="currentView === 'landing'" class="space-y-6 animate-fade-in py-6 landing-page-wrapper" id="landing-page-wrapper">
-            <div class="p-6 md:p-8 text-center space-y-6 relative overflow-hidden">
+        <div x-show="currentView === 'landing'" class="space-y-0 animate-fade-in py-2 sm:py-3 landing-page-wrapper" id="landing-page-wrapper">
+            <div class="p-4 sm:p-6 text-center space-y-0 relative overflow-hidden">
                 {% if restaurant.branding and restaurant.branding.logo_url %}
-                <div class="flex justify-center items-center gap-4 sm:gap-6 flex-wrap">
-                    <img alt="{{ restaurant.name }} Logo" class="header-logo h-32 sm:h-40 object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
-                    {% if restaurant.branding.logo_url_2 %}
-                    <!-- Zweites Logo prominent neben dem Haupt-Logo -->
-                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-32 sm:h-40 object-contain rounded-2xl shadow-lg bg-[#0a0a0a]/40 p-3" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
-                    {% endif %}
+                <!-- Hauptlogo — groß, zentriert -->
+                <div class="flex justify-center items-center logo-hero-row">
+                    <img alt="{{ restaurant.name }} Logo" class="header-logo h-36 sm:h-48 lg:h-56 w-auto max-w-[280px] sm:max-w-[360px] object-contain rounded-2xl relative z-10" src="{{ restaurant.branding.logo_url }}" decoding="async" fetchpriority="high">
                 </div>
                 {% endif %}
-                <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight font-display drop-shadow-md animate-pulse" style="color:#ffffff !important;" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
-                <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
+                <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-display drop-shadow-md animate-pulse" style="color:#ffffff !important;" x-text="restaurantLandingPage.welcome_title || 'Willkommen bei {{ restaurant.name }}'"></h2>
+                <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium mt-1" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
                 
                 <!-- Actions Group -->
                 <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
-                    <!-- CTA Button to go to Menu -->
-                    <button @click="currentView = 'speisekarte'" class="btn-premium glass-btn-primary w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
+                    <!-- CTA Button to go to Menu — prüft zuerst Loyalty-Popup -->
+                    <button @click="handleSpeisekarteClick()" class="btn-premium glass-btn-primary w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
                         <span class="material-symbols-outlined">menu_book</span>
                         <span data-translate="view_menu">Speisekarte ansehen</span>
                     </button>
@@ -454,6 +466,15 @@
                     </div>
                     {% endif %}
                 </div>
+
+                {# ── ZWEITES LOGO — UNTER den Buttons ──
+                   Wenn Tenant 2 Logos hat, wird das zweite Logo NACH den Buttons
+                   angezeigt. Layout: Hauptlogo → Willkommen → Buttons → 2. Logo #}
+                {% if restaurant.branding and restaurant.branding.logo_url_2 %}
+                <div class="flex justify-center items-center mt-4">
+                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-32 sm:h-40 lg:h-48 w-auto max-w-[240px] sm:max-w-[300px] object-contain rounded-2xl relative z-10" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
+                </div>
+                {% endif %}
             </div>
 
             <!-- Angebote (Bilder & Videos) - FULL WIDTH, vertikal untereinander -->
@@ -921,6 +942,177 @@
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
+    <!-- ═══ LOYALTY STEMPELKARTE POPUP (professionell) ═══
+         Wird beim Klick auf "Speisekarte ansehen" gezeigt, falls:
+         - Tenant hat aktive Stempelkarte
+         - Kunde hat noch keine Stempelkarte gespeichert (Cookie-Check)
+         smarte Texte: Erstbesuch vs. Wiederbesuch (falls Kunde übersprungen hat) -->
+    <div id="loyalty-popup" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 hidden overflow-y-auto modal-overscroll">
+        <div class="glass-panel border border-outline-variant rounded-3xl w-full max-w-sm relative flex flex-col max-h-[90vh] shadow-2xl my-2 overflow-hidden" style="max-width: 380px;">
+            <!-- Header-Bereich mit farbigem Gradient (Karten-Farbe) -->
+            <div id="loyalty-popup-header" class="relative p-5 text-center" style="background: linear-gradient(135deg, #C9A84C 0%, #b8964a 100%);">
+                <!-- Decorativer Glass-Effekt -->
+                <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 pointer-events-none"></div>
+                <button @click="closeLoyaltyPopupAndGoToMenu()" class="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/25 hover:bg-black/45 text-white transition-colors z-10">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+                </button>
+                <!-- Tenant-Logo -->
+                <div id="loyalty-popup-logo" class="inline-flex items-center justify-center w-14 h-14 bg-white/95 rounded-2xl shadow-lg mb-2 p-1.5 relative z-10">
+                </div>
+                <h3 id="loyalty-popup-title" class="text-base font-extrabold font-display text-white relative z-10">Unsere digitale Stempelkarte</h3>
+                <p id="loyalty-popup-subtitle" class="text-[11px] text-white/85 mt-0.5 relative z-10">Jetzt speichern und profitieren</p>
+            </div>
+
+            <!-- Body -->
+            <div class="p-4 space-y-3 overflow-y-auto">
+                <!-- Stempelkarten-Preview -->
+                <div id="loyalty-popup-card-preview" class="rounded-xl p-3 text-center" style="background: linear-gradient(135deg, #C9A84C 0%, #b8964a 100%);">
+                    <div class="text-[9px] text-white/75 uppercase font-bold tracking-wider mb-1.5" id="loyalty-popup-tenant-name">Restaurant</div>
+                    <div class="text-sm text-white font-black mb-2 flex items-center justify-center gap-1.5">
+                        <span class="material-symbols-outlined text-white" style="font-size:16px;" id="loyalty-popup-card-icon">local_cafe</span>
+                        <span id="loyalty-popup-card-name">Stempelkarte</span>
+                    </div>
+                    <div id="loyalty-popup-stamps" class="flex flex-wrap gap-1 justify-center mb-2"></div>
+                    <div class="text-[10px] text-white/90 font-bold">
+                        0 / <span id="loyalty-popup-stamps-required">10</span> Stempel
+                    </div>
+                </div>
+
+                <!-- Benefit -->
+                <div id="loyalty-popup-benefit" class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-2.5 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                    <div class="font-bold flex items-center gap-1.5">
+                        <span class="material-symbols-outlined" style="font-size:13px;">redeem</span>
+                        <span id="loyalty-popup-reward-name">Belohnung</span>
+                    </div>
+                </div>
+
+                <!-- Wallet Buttons -->
+                <div class="space-y-1.5 pt-1">
+                    <a id="loyalty-apple-btn" href="#" class="flex items-center justify-center gap-2 w-full py-2.5 bg-black text-white font-bold text-xs rounded-xl hover:bg-zinc-800 transition">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.03-2.5 2.04-3.7 2.13-3.76-1.16-1.7-2.97-1.93-3.61-1.96-1.54-.16-3 .91-3.78.91-.79 0-1.99-.89-3.27-.86-1.68.03-3.23.98-4.09 2.48-1.74 3.02-.44 7.46 1.26 9.91.83 1.21 1.82 2.56 3.12 2.51 1.26-.05 1.73-.81 3.25-.81 1.53 0 1.96.81 3.29.79 1.36-.03 2.22-1.23 3.06-2.44.96-1.4 1.36-2.76 1.38-2.83-.03-.01-2.65-1.01-2.68-4.01zM14.78 5.49c.69-.84 1.16-1.99 1.03-3.14-1 .04-2.21.66-2.93 1.5-.64.74-1.2 1.92-1.05 3.04 1.12.09 2.26-.57 2.95-1.4z"/></svg>
+                        In Apple Wallet laden
+                    </a>
+                    <a id="loyalty-google-btn" href="#" target="_blank" class="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-900 border border-gray-600 text-white font-bold text-xs rounded-xl hover:bg-gray-800 transition">
+                        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        In Google Wallet laden
+                    </a>
+                </div>
+
+                <!-- Später-Button -->
+                <button @click="closeLoyaltyPopupAndGoToMenu()" class="w-full py-2 text-on-surface-variant text-[11px] font-bold hover:text-on-surface transition-colors" id="loyalty-skip-btn">
+                    Vielleicht später
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══ LOYALTY POPUP LOGIC ═══
+        // Smart-Erkennung: Zeigt Popup nur wenn Kunde noch keine Stempelkarte hat.
+        // Unterscheidet Erstbesuch vs. Wiederbesuch (verschiedene Texte).
+
+        let _loyaltyCardData = null;
+        let _loyaltyCardActive = false;
+
+        async function checkLoyaltyAvailability() {
+            try {
+                const res = await fetch('/{{ slug }}/loyalty/card');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.card) {
+                    _loyaltyCardData = data;
+                    _loyaltyCardActive = true;
+                    // Modal-Daten vorbereiten (für eventuelle spätere Anzeige)
+                    prepareLoyaltyPopup(data);
+                }
+            } catch (e) { /* silently ignore — Loyalty ist optional */ }
+        }
+
+        function prepareLoyaltyPopup(data) {
+            const card = data.card;
+            const tenantName = data.tenant_name || '{{ restaurant.name }}';
+            const tenantLogo = data.tenant_logo || '';
+
+            // Header-Farbe = Karten-Farbe
+            const headerEl = document.getElementById('loyalty-popup-header');
+            const previewEl = document.getElementById('loyalty-popup-card-preview');
+            if (headerEl) headerEl.style.background = `linear-gradient(135deg, ${card.color_hex} 0%, ${card.color_hex}CC 100%)`;
+            if (previewEl) previewEl.style.background = `linear-gradient(135deg, ${card.color_hex} 0%, ${card.color_hex}CC 100%)`;
+
+            // Tenant-Logo
+            const logoContainer = document.getElementById('loyalty-popup-logo');
+            if (logoContainer) {
+                if (tenantLogo) {
+                    logoContainer.innerHTML = `<img src="${tenantLogo}" alt="${tenantName}" style="max-width:100%;max-height:100%;object-fit:contain;" decoding="async">`;
+                } else {
+                    logoContainer.innerHTML = `<span class="material-symbols-outlined text-gray-600" style="font-size:32px;">storefront</span>`;
+                }
+            }
+
+            // Tenant-Name
+            const tnEl = document.getElementById('loyalty-popup-tenant-name');
+            if (tnEl) tnEl.textContent = tenantName;
+
+            // Karten-Name + Icon
+            document.getElementById('loyalty-popup-card-name').textContent = card.name;
+            const iconEl = document.getElementById('loyalty-popup-card-icon');
+            if (iconEl) iconEl.textContent = card.icon;
+
+            // Stempel-Kreise generieren
+            const stampsContainer = document.getElementById('loyalty-popup-stamps');
+            if (stampsContainer) {
+                stampsContainer.innerHTML = Array.from({length: card.stamps_required}, (_, i) =>
+                    `<div style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.5);background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:rgba(255,255,255,0.7);">${i + 1}</div>`
+                ).join('');
+            }
+
+            // Stempel-Anzahl
+            document.getElementById('loyalty-popup-stamps-required').textContent = card.stamps_required;
+            document.getElementById('loyalty-popup-stamps-required-2').textContent = card.stamps_required;
+
+            // Reward
+            document.getElementById('loyalty-popup-reward-name').textContent = card.reward_name;
+            document.getElementById('loyalty-popup-reward-name-2').textContent = card.reward_name;
+
+            // Wallet-Links
+            document.getElementById('loyalty-apple-btn').href = '/{{ slug }}/loyalty/pass/apple';
+            document.getElementById('loyalty-google-btn').onclick = async (e) => {
+                e.preventDefault();
+                try {
+                    const r = await fetch('/{{ slug }}/loyalty/pass/google');
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (d.save_url) window.open(d.save_url, '_blank');
+                    }
+                } catch(_) {}
+            };
+        }
+
+        // Alte globale Funktionen wurden durch Alpine-Methoden ersetzt:
+        // - handleSpeisekarteClick() → Alpine-Methode in menuState()
+        // - closeLoyaltyPopupAndGoToMenu() → Alpine-Methode in menuState()
+        // Diese werden nicht mehr als globale Funktionen benötigt.
+
+        // Apple/Google Wallet Click → merken dass Kunde Karte gespeichert hat
+        document.addEventListener('DOMContentLoaded', () => {
+            const appleBtn = document.getElementById('loyalty-apple-btn');
+            const googleBtn = document.getElementById('loyalty-google-btn');
+            if (appleBtn) {
+                appleBtn.addEventListener('click', () => {
+                    localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                });
+            }
+            if (googleBtn) {
+                googleBtn.addEventListener('click', () => {
+                    localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                });
+            }
+        });
+
+        // Beim Laden prüfen ob Loyalty aktiv
+        document.addEventListener('DOMContentLoaded', checkLoyaltyAvailability);
+    </script>
+
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
     {% if not is_readonly and table and not token_error %}
     <!-- Cart Floating Bar moved slightly up to not overlap with bottom navigation -->
@@ -958,7 +1150,7 @@
             <span class="material-symbols-outlined text-[20px] leading-none">home</span>
             <span class="text-[11px] font-bold leading-none tracking-wide" data-translate="tab_welcome">Willkommen</span>
         </button>
-        <button @click="currentView = 'speisekarte'" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
+        <button @click="handleSpeisekarteClick()" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
             <span class="material-symbols-outlined text-[20px] leading-none">menu_book</span>
             <span class="text-[11px] font-bold leading-none tracking-wide" data-translate="tab_menu">Speisekarte</span>
         </button>
@@ -2455,6 +2647,56 @@
                     this.selectedPaymentType = type;
                 },
 
+                // ═══ LOYALTY SMART POPUP + SPEISEKARTE-NAVIGATION ═══
+                // Wird vom "Speisekarte ansehen" Button UND vom Bottom-Nav "Speisekarte" aufgerufen.
+                // Prüft: Hat Tenant aktive Stempelkarte? Hat Kunde schon Wallet? Hat Kunde übersprungen?
+                // Fallback: Falls Loyalty nicht aktiv → direkt zur Speisekarte.
+                handleSpeisekarteClick() {
+                    // Falls keine Loyalty-Karte aktiv → direkt zur Speisekarte
+                    if (!_loyaltyCardActive || !_loyaltyCardData) {
+                        this.currentView = 'speisekarte';
+                        return;
+                    }
+
+                    // Prüfe ob Kunde schon Stempelkarte gespeichert hat (Cookie)
+                    const hasLoyaltyCookie = document.cookie.includes('loyalty_{{ slug }}');
+                    // Prüfe ob Kunde schon mal übersprungen hat (localStorage)
+                    const skipKey = `loyalty_skipped_{{ slug }}`;
+                    const hasSkippedBefore = localStorage.getItem(skipKey) === 'true';
+
+                    if (hasLoyaltyCookie) {
+                        // Kunde hat schon Stempelkarte → kein Popup, direkt zur Speisekarte
+                        this.currentView = 'speisekarte';
+                        return;
+                    }
+
+                    // Popup zeigen — Texte je nach Erst- oder Wiederbesuch
+                    if (hasSkippedBefore) {
+                        document.getElementById('loyalty-popup-title').textContent = 'Schön, dass du wieder da bist!';
+                        document.getElementById('loyalty-popup-subtitle').textContent = 'Als Stammgast profitierst du doppelt — sichere dir jetzt deine Stempelkarte';
+                    } else {
+                        document.getElementById('loyalty-popup-title').textContent = 'Unsere digitale Stempelkarte';
+                        document.getElementById('loyalty-popup-subtitle').textContent = 'Jetzt speichern und bei jeder Bestellung profitieren';
+                    }
+
+                    // Popup anzeigen
+                    const popup = document.getElementById('loyalty-popup');
+                    if (popup) {
+                        popup.classList.remove('hidden');
+                        document.body.style.overflow = 'hidden';
+                    }
+                },
+
+                closeLoyaltyPopupAndGoToMenu() {
+                    const popup = document.getElementById('loyalty-popup');
+                    if (popup) {
+                        popup.classList.add('hidden');
+                        document.body.style.overflow = '';
+                    }
+                    // IMMER zur Speisekarte navigieren — egal ob Skip oder Close
+                    this.currentView = 'speisekarte';
+                },
+
 
 
                 confirmPaymentRequest() {
@@ -2467,7 +2709,7 @@
                     }
                     this.sendServiceRequestAPI(this.selectedPaymentType);
                     this.closePaymentModal();
-                    
+
                     // Start 30-second cooldown
                     this._serviceCooldownUntil = now + 30000;
                     this._serviceCooldownLabel = '30s';
@@ -2483,14 +2725,17 @@
                             this._serviceCooldownLabel = `${remaining}s`;
                         }
                     }, 1000);
-                    
-                    // Show review popup instead of direct redirect
-                    const googleUrl = this.restaurantLandingPage.google_rating_url;
-                    if (googleUrl) {
-                        setTimeout(() => {
-                            this.showReviewPopup(googleUrl);
-                        }, 500);
-                    }
+
+                    // ── BUGFIX: Review-Popup nach Bezahl-Anfrage ──
+                    // Vorher: Review-Popup wurde nur gezeigt wenn google_rating_url gesetzt war.
+                    // Aber viele Tenants haben die URL nicht konfiguriert → Popup kam nie.
+                    // Jetzt: Zeige Review-Popup IMMER nach Bezahl-Bestätigung, mit Fallback
+                    // auf Standard-Google-Review-URL falls keine Tenant-URL konfiguriert.
+                    const googleUrl = this.restaurantLandingPage?.google_rating_url
+                        || `https://www.google.com/search?q=${encodeURIComponent(this.restaurantName || '{{ restaurant.name }}')}`;
+                    setTimeout(() => {
+                        this.showReviewPopup(googleUrl);
+                    }, 800);
                 },
 
                 showReviewPopup(googleUrl) {
@@ -3478,34 +3723,7 @@
             }, true);
         })();
 
-        // ── PWA Service Worker Registrierung ──
-        // Cache-First für statische Assets, Network-First für HTML-Seiten.
-        // Aktiviert Offline-Funktionalität für Kellner in Funklöchern.
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((registration) => {
-                        console.log('[PWA] SW registriert:', registration.scope);
-                        // Bei Update: neue SW übernehmen
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            if (newWorker) {
-                                newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        console.log('[PWA] Update verfügbar — aktiviere...');
-                                        newWorker.postMessage('SKIP_WAITING');
-                                    }
-                                });
-                            }
-                        });
-                    })
-                    .catch((err) => {
-                        console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err);
-                    });
-
-                // KEIN controllerchange auto-reload — verursacht endlose Reload-Schleife
-            });
-        }
+        // SW Registration entfernt — PWA funktioniert via manifest.json
 
         // Clean up address bar query parameters to hide ?reset=true or any other params but preserve role=admin
         window.addEventListener('DOMContentLoaded', () => {

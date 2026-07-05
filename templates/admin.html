@@ -68,16 +68,16 @@
             overscroll-behavior: contain;
         }
         :root {
-            --gastro-primary: #009900;
-            --gastro-primary-hover: #008000;
+            --gastro-primary: #047857;       /* P1-Fix: #009900 (3.78:1) → #047857 (5.14:1) WCAG AA */
+            --gastro-primary-hover: #065f46;  /* P1-Fix: #008000 → #065f46 dunkler für Hover */
             --gastro-bg-gray: rgb(235, 235, 235);
             --gastro-card-bg: #ffffff;
             --gastro-text-main: #1f2937;
             --gastro-text-muted: #6b7280;
             --gastro-border: #e5e7eb;
             /* Override Tailwind primary to admin green (was set via CDN tailwind.config before) */
-            --color-primary: #009900;
-            --color-primary-rgb: 0 153 0;
+            --color-primary: #047857;
+            --color-primary-rgb: 4 120 87;
         }
 
         /* Dark Mode variables */
@@ -573,7 +573,7 @@
         html.light #event-modal .bg-teal-200 {
             background-color: #99f6e4 !important;
         }
-        html.light #event-modal .text-teal-600,
+        html.light #event-modal .text-teal-700,
         html.light #event-modal .text-teal-700,
         html.light #event-modal .text-teal-800 {
             color: #0f766e !important;
@@ -4187,10 +4187,12 @@
                 <span>Sitzplan</span>
             </button>
             {% if current_user.role == 'chef' %}
+            {% if restaurant.show_revenue != False %}
             <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
                 <span class="material-symbols-outlined">payments</span>
                 <span>Bestellungen & Reports</span>
             </button>
+            {% endif %}
 
             <div class="nav-divider"></div>
             <div class="nav-group-label">Inhalte verwalten</div>
@@ -4225,12 +4227,18 @@
                 <span class="material-symbols-outlined">settings</span>
                 <span>Einstellungen</span>
             </button>
+            <button id="tab-btn-loyalty" onclick="switchAdminTab('loyalty')" class="nav-btn">
+                <span class="material-symbols-outlined">loyalty</span>
+                <span>Loyalty & Newsletter</span>
+            </button>
             {% else %}
             {# Kellner: Sitzplan + Bestellungen (für Bon-Druck) + Produkte #}
+            {% if restaurant.show_revenue != False %}
             <button id="tab-btn-finanzen" onclick="switchAdminTab('finanzen')" class="nav-btn">
                 <span class="material-symbols-outlined">receipt_long</span>
                 <span>Bons & Drucken</span>
             </button>
+            {% endif %}
 
             <div class="nav-divider"></div>
             <div class="nav-group-label">Inhalte</div>
@@ -4364,7 +4372,7 @@
                                 <span class="text-[11px] font-bold text-zinc-700">Kategorie anlegen</span>
                             </button>
                             <button onclick="openEventCreateModal()" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition group">
-                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-amber-500" style="font-size:28px;">celebration</span>
+                                <span class="material-symbols-outlined text-zinc-500 group-hover:text-amber-700" style="font-size:28px;">celebration</span>
                                 <span class="text-[11px] font-bold text-zinc-700">Event erstellen</span>
                             </button>
                             <button onclick="switchAdminTab('landingpage')" class="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-zinc-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition group">
@@ -4431,7 +4439,7 @@
                     <div class="flex items-center gap-2 mb-2">
                         <span class="material-symbols-outlined text-zinc-700 dark:text-zinc-200" style="font-size:14px;">palette</span>
                         <span class="text-[11px] font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-100">Farb-Codierung Bestellungen</span>
-                        <span class="text-[10px] text-zinc-600 dark:text-zinc-300 font-semibold ml-auto" id="seating-legend-hint">Leiste pro Tisch = offene (noch nicht servierte) Artikel</span>
+                        <span class="text-[10px] text-zinc-600 dark:text-zinc-600 font-semibold ml-auto" id="seating-legend-hint">Leiste pro Tisch = offene (noch nicht servierte) Artikel</span>
                     </div>
                     <div class="flex flex-wrap gap-2" id="seating-legend-items">
                         <!-- Wird von renderSeatingLegend() gefüllt -->
@@ -4605,19 +4613,24 @@
 
             <!-- 🍽️ TAB: PRODUKTE (produkte) -->
             <div id="admin-tab-produkte" class="admin-tab-content">
-                <!-- Top action bar -->
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="flex items-center gap-2">
-                            <a href="/admin/products/export-csv" class="btn-secondary flex items-center gap-1.5 text-[10px] px-2.5 py-1.5">
-                                <span class="material-symbols-outlined" style="font-size:12px;">download</span> CSV Export
-                            </a>
-                            <button onclick="openCsvImportModal()" class="btn-secondary flex items-center gap-1.5 text-[10px] px-2.5 py-1.5">
-                                <span class="material-symbols-outlined" style="font-size:12px;">upload</span> CSV Import
-                            </button>
+                <!-- ═══ UNIFIED STICKY TOOLBAR ═══
+                     Alle Produkt-Aktionen in EINER Bar (vorher: 3 gestapelte Bars verschwendeten ~180px Viewport).
+                     Sticky = bleibt beim Scrollen sichtbar. Compact = mehr Platz für Inhalte. -->
+                <div class="produkte-toolbar">
+                    <!-- Linke Seite: Aktionen + Suche -->
+                    <div class="produkte-toolbar-left">
+                        <button onclick="openQuickCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs" title="Neues Produkt">
+                            <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>
+                            <span class="hidden sm:inline">Produkt erstellen</span>
+                        </button>
+                        <div class="toolbar-divider"></div>
+                        <div class="relative flex-1 min-w-[120px]">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" style="font-size:16px;">search</span>
+                            <input type="text" id="product-search" placeholder="Suchen..." oninput="filterProducts(this.value)" class="form-field pl-8 py-2 text-xs">
                         </div>
+                        <div class="toolbar-divider"></div>
                         <!-- View Toggle -->
-                        <div class="view-toggle" id="product-view-toggle">
+                        <div class="view-toggle compact" id="product-view-toggle">
                             <button id="view-btn-grid" class="active" onclick="setProductView('grid')" title="Kacheln">
                                 <span class="material-symbols-outlined" style="font-size:14px;">grid_view</span>
                             </button>
@@ -4626,43 +4639,138 @@
                             </button>
                         </div>
                     </div>
-                    <button onclick="openQuickCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs">
-                        <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>
-                        Produkt erstellen
-                    </button>
-                </div>
-
-                <!-- Search + Filter Chips -->
-                <div class="section-card mb-4">
-                    <div class="section-card-body">
-                        <div class="flex flex-col gap-3">
-                            <!-- Search Row -->
-                            <div class="relative flex-1">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" style="font-size:18px;">search</span>
-                                <input type="text" id="product-search" placeholder="Produkte suchen..." oninput="filterProducts(this.value)" class="form-field pl-9">
-                            </div>
-                            <!-- Filter Chips Row -->
-                            <div class="flex flex-wrap gap-2 items-center">
-                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mr-1">Status:</span>
-                                <button class="filter-chip active" data-filter-type="status" data-filter-value="all" onclick="setProductFilter('status','all', this)">Alle <span class="count" id="count-status-all">0</span></button>
-                                <button class="filter-chip" data-filter-type="status" data-filter-value="true" onclick="setProductFilter('status','true', this)">Aktiv <span class="count" id="count-status-true">0</span></button>
-                                <button class="filter-chip" data-filter-type="status" data-filter-value="false" onclick="setProductFilter('status','false', this)">Ausverkauft <span class="count" id="count-status-false">0</span></button>
-                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mx-2">Aktion:</span>
-                                <button class="filter-chip active" data-filter-type="hh" data-filter-value="all" onclick="setProductFilter('hh','all', this)">Alle</button>
-                                <button class="filter-chip" data-filter-type="hh" data-filter-value="true" onclick="setProductFilter('hh','true', this)">Mit Aktion</button>
-                                <button class="filter-chip" data-filter-type="hh" data-filter-value="false" onclick="setProductFilter('hh','false', this)">Ohne Aktion</button>
-                            </div>
-                            <!-- Kategorie Chips -->
-                            <div class="flex flex-wrap gap-2 items-center" id="category-chips-row">
-                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mr-1">Kategorie:</span>
-                                <button class="filter-chip active" data-filter-type="cat" data-filter-value="all" onclick="setProductFilter('cat','all', this)">Alle</button>
-                                {% for cat in restaurant.categories %}
-                                <button class="filter-chip" data-filter-type="cat" data-filter-value="{{ cat }}" onclick="setProductFilter('cat','{{ cat | replace("'", "\\'") }}', this)">{{ cat }}</button>
-                                {% endfor %}
-                            </div>
-                        </div>
+                    <!-- Rechte Seite: Import/Export + Counter -->
+                    <div class="produkte-toolbar-right">
+                        <a href="/admin/products/export-csv" class="btn-secondary flex items-center gap-1 text-[10px] px-2 py-1.5" title="CSV Export">
+                            <span class="material-symbols-outlined" style="font-size:12px;">download</span>
+                            <span class="hidden md:inline">Export</span>
+                        </a>
+                        <button onclick="openCsvImportModal()" class="btn-secondary flex items-center gap-1 text-[10px] px-2 py-1.5" title="CSV Import">
+                            <span class="material-symbols-outlined" style="font-size:12px;">upload</span>
+                            <span class="hidden md:inline">Import</span>
+                        </button>
+                        <div class="toolbar-divider"></div>
+                        <span class="text-[10px] font-bold text-zinc-500 whitespace-nowrap">
+                            <span id="product-filter-result-count">{{ restaurant.products|length }}</span> Produkte
+                        </span>
                     </div>
                 </div>
+
+                <!-- Filter Chips (kompakt, nur eine Zeile falls möglich) -->
+                <div class="produkte-filter-bar">
+                    <div class="flex flex-wrap gap-1.5 items-center">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase mr-1">Status:</span>
+                        <button class="filter-chip active" data-filter-type="status" data-filter-value="all" onclick="setProductFilter('status','all', this)">Alle <span class="count" id="count-status-all">0</span></button>
+                        <button class="filter-chip" data-filter-type="status" data-filter-value="true" onclick="setProductFilter('status','true', this)">Aktiv <span class="count" id="count-status-true">0</span></button>
+                        <button class="filter-chip" data-filter-type="status" data-filter-value="false" onclick="setProductFilter('status','false', this)">Ausverkauft <span class="count" id="count-status-false">0</span></button>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 items-center">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase mr-1">Aktion:</span>
+                        <button class="filter-chip active" data-filter-type="hh" data-filter-value="all" onclick="setProductFilter('hh','all', this)">Alle</button>
+                        <button class="filter-chip" data-filter-type="hh" data-filter-value="true" onclick="setProductFilter('hh','true', this)">Mit Aktion</button>
+                        <button class="filter-chip" data-filter-type="hh" data-filter-value="false" onclick="setProductFilter('hh','false', this)">Ohne Aktion</button>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 items-center" id="category-chips-row">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase mr-1">Kategorie:</span>
+                        <button class="filter-chip active" data-filter-type="cat" data-filter-value="all" onclick="setProductFilter('cat','all', this)">Alle</button>
+                        {% for cat in restaurant.categories %}
+                        <button class="filter-chip" data-filter-type="cat" data-filter-value="{{ cat }}" onclick="setProductFilter('cat','{{ cat | replace("'", "\\'") }}', this)">{{ cat }}</button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- ═══ PHASE 4: Aktive Filter Pills + Saved Views ═══ -->
+                    <div id="active-filters-row" class="hidden flex-wrap gap-1.5 items-center pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase">Aktiv:</span>
+                        <div id="active-filter-pills" class="flex flex-wrap gap-1.5"></div>
+                        <button onclick="clearAllProductFilters()" class="text-[10px] text-red-600 hover:text-red-700 font-bold underline ml-2">Alle zurücksetzen</button>
+                    </div>
+
+                    <!-- Saved Views (Notion-Stil) -->
+                    <div class="flex flex-wrap gap-1.5 items-center pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase">Ansicht:</span>
+                        <select id="saved-views-select" onchange="loadSavedView(this.value)" class="text-[10px] border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                            <option value="">— Gespeicherte Ansicht —</option>
+                        </select>
+                        <button onclick="saveCurrentView()" class="text-[10px] font-bold px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                            <span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;">bookmark_add</span> Speichern
+                        </button>
+                        <button onclick="deleteSavedView()" class="text-[10px] text-red-600 hover:text-red-700 font-bold px-2 py-1 hidden" id="delete-view-btn">
+                            <span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;">delete</span>
+                        </button>
+                    </div>
+                </div>
+
+                <style>
+                    /* ═══ STICKY UNIFIED TOOLBAR ═══ */
+                    .produkte-toolbar {
+                        position: sticky;
+                        top: 0;
+                        z-index: 30;
+                        background: var(--gastro-card-bg, #ffffff);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 12px;
+                        padding: 8px 12px;
+                        margin-bottom: 12px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 8px;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                        flex-wrap: wrap;
+                    }
+                    .produkte-toolbar-left, .produkte-toolbar-right {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    }
+                    .produkte-toolbar .form-field {
+                        min-height: 36px;
+                        font-size: 12px;
+                    }
+                    .produkte-toolbar .view-toggle.compact button {
+                        padding: 6px 8px;
+                        min-height: 32px;
+                        min-width: 32px;
+                    }
+                    .toolbar-divider {
+                        width: 1px;
+                        height: 24px;
+                        background: var(--gastro-border, #e5e7eb);
+                        margin: 0 2px;
+                    }
+                    .produkte-filter-bar {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 6px;
+                        padding: 8px 12px;
+                        background: var(--gastro-card-bg, #ffffff);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 12px;
+                        margin-bottom: 16px;
+                    }
+                    .produkte-filter-bar .filter-chip {
+                        padding: 4px 10px;
+                        font-size: 10px;
+                    }
+                    html.dark .produkte-toolbar,
+                    html.dark .produkte-filter-bar {
+                        background: #18181b;
+                        border-color: #27272a;
+                    }
+                    html.dark .toolbar-divider {
+                        background: #27272a;
+                    }
+                    @media (max-width: 640px) {
+                        .produkte-toolbar {
+                            position: static;
+                        }
+                        .produkte-toolbar-left, .produkte-toolbar-right {
+                            width: 100%;
+                            justify-content: space-between;
+                        }
+                    }
+                </style>
 
                 <!-- GRID VIEW (Default) -->
                 <div class="section-card" id="product-grid-container">
@@ -4821,7 +4929,7 @@
                                             <button onclick="openEditSlideOver({{ p.id }})" class="p-2.5 border border-gray-200 hover:bg-gray-100 text-zinc-500 hover:text-zinc-700 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center" title="Bearbeiten">
                                                 <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                                             </button>
-                                            <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-2.5 border border-gray-200 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center" title="Löschen">
+                                            <button onclick="deleteProduct({{ p.id }}, '{{ p.name | replace("'", "\\'") }}')" class="p-2.5 border border-gray-200 hover:bg-red-50 text-red-600 hover:text-red-600 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center" title="Löschen">
                                                 <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
                                             </button>
                                         </div>
@@ -5002,8 +5110,8 @@
                         </div>
                         <div id="events-empty" class="text-center py-8 hidden">
                             <span class="material-symbols-outlined text-4xl text-zinc-400 mb-2">celebration</span>
-                            <p class="text-xs text-zinc-300 dark:text-zinc-300 font-bold">Noch keine Events erstellt</p>
-                            <p class="text-[10px] text-zinc-300 dark:text-zinc-300">Klicke auf "Neues Event" um dein erstes Event anzulegen</p>
+                            <p class="text-xs text-zinc-600 dark:text-zinc-600 font-bold">Noch keine Events erstellt</p>
+                            <p class="text-[10px] text-zinc-600 dark:text-zinc-600">Klicke auf "Neues Event" um dein erstes Event anzulegen</p>
                         </div>
                     </div>
                 </div>
@@ -5020,7 +5128,7 @@
                     <div class="flex items-center justify-between px-4 sm:px-6 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 shrink-0 z-10"
                          style="padding-top: max(1rem, env(safe-area-inset-top, 0px)); min-height: 56px;">
                         <h3 id="event-modal-title" class="font-extrabold text-base text-zinc-800 dark:text-zinc-100">Neues Event</h3>
-                        <button onclick="closeEventModal()" class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors shrink-0">
+                        <button onclick="closeEventModal()" class="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors shrink-0">
                             <span class="material-symbols-outlined" style="font-size:24px;">close</span>
                         </button>
                     </div>
@@ -5074,7 +5182,13 @@
                             <select id="event-mode" class="form-field font-bold" onchange="toggleEventDiscountRow()">
                                 <option value="selected">Ausgewählte Produkte mit Eventpreis</option>
                                 <option value="discount">Rabatt auf alles (%)</option>
+                                <option value="announcement">📢 Meldung / Ankündigung (nur Text-Banner)</option>
                             </select>
+                        </div>
+
+                        <!-- Description-Hinweis für Meldungs-Modus -->
+                        <div id="event-announcement-hint" class="hidden p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
+                            <strong>📢 Meldungs-Banner:</strong> Schreibe oben den Titel (z.B. "Wir suchen Verstärkung!") und unten bei "Beschreibung" den ausführlichen Text (z.B. "Weibliche Servicekraft gesucht — Interesse? Melde dich beim Team!"). Der Banner erscheint auf Landingpage + Speisekarte. Keine Produkt-Auswahl nötig.
                         </div>
 
                         <!-- Discount (only for discount mode) -->
@@ -5091,7 +5205,7 @@
                             </label>
                             <div>
                                 <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200">Event aktiv</span>
-                                <p class="text-[9px] text-zinc-300 dark:text-zinc-300">Nur aktive Events werden Gästen angezeigt</p>
+                                <p class="text-[9px] text-zinc-600 dark:text-zinc-600">Nur aktive Events werden Gästen angezeigt</p>
                             </div>
                         </div>
 
@@ -5101,7 +5215,7 @@
                                 <label class="form-label mb-0">Event-Produkte</label>
                                 <span id="event-product-count" class="text-[10px] font-bold text-amber-700 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200">0 ausgewählt</span>
                             </div>
-                            <p class="text-[10px] text-zinc-300 dark:text-zinc-300 mb-3">Wähle Produkte und setze den Eventpreis. Der Originalpreis wird durchgestrichen angezeigt.</p>
+                            <p class="text-[10px] text-zinc-600 dark:text-zinc-600 mb-3">Wähle Produkte und setze den Eventpreis. Der Originalpreis wird durchgestrichen angezeigt.</p>
                             <div class="space-y-2 max-h-[400px] overflow-y-auto pr-1" id="event-products-list">
                                 <!-- Populated by JS -->
                             </div>
@@ -5112,9 +5226,9 @@
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center gap-2">
                                     <label class="form-label mb-0">Kombi-Angebote</label>
-                                    <span id="event-combo-count" class="text-[10px] font-bold text-teal-600 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">0 Kombis</span>
+                                    <span id="event-combo-count" class="text-[10px] font-bold text-teal-700 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200">0 Kombis</span>
                                 </div>
-                                <button type="button" onclick="addEventCombo()" class="text-[10px] font-bold text-teal-600 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors flex items-center gap-1">
+                                <button type="button" onclick="addEventCombo()" class="text-[10px] font-bold text-teal-700 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors flex items-center gap-1">
                                     <span class="material-symbols-outlined" style="font-size:12px;">add</span> Neue Kombi
                                 </button>
                             </div>
@@ -5326,7 +5440,7 @@
                                     {% if restaurant.landing_page %}
                                     <div class="landing-section-item bg-white p-3 rounded-xl border border-gray-200 space-y-2" data-section-type="about">
                                         <div class="flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-emerald-500 text-sm">info</span>
+                                            <span class="material-symbols-outlined text-emerald-700 text-sm">info</span>
                                             <input type="text" name="section_title_about" value="{{ restaurant.landing_page.title_about if restaurant.landing_page else '' }}" placeholder="Titel: z.B. &Uuml;ber uns" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                                         </div>
                                         <textarea name="section_content_about" rows="2" placeholder="Beschreibungstext..." class="form-field" oninput="markLandingUnsaved();">{{ restaurant.landing_page.what_we_offer }}</textarea>
@@ -5347,7 +5461,7 @@
                                                 <span class="material-symbols-outlined text-purple-600 text-sm">extension</span>
                                                 <input type="text" name="section_title_custom_{{ loop.index }}" value="{{ cs.title if cs.title else '' }}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                                             </div>
-                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
+                                            <button type="button" onclick="removeLandingSection(this)" class="text-red-600 hover:text-red-600 transition p-1" title="Sektion l&ouml;schen">
                                                 <span class="material-symbols-outlined text-sm">delete</span>
                                             </button>
                                         </div>
@@ -5878,6 +5992,229 @@
                 </div>
             </div>
 
+            <!-- 🎟️ TAB: LOYALTY & NEWSLETTER (loyalty) -->
+            <div id="admin-tab-loyalty" class="admin-tab-content">
+                <!-- Section 1: Analytics Übersicht -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">insights</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Loyalty Dashboard</h3>
+                        </div>
+                        <button onclick="loadLoyaltyDashboard()" class="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
+                            <span class="material-symbols-outlined" style="font-size:14px;">refresh</span> Aktualisieren
+                        </button>
+                    </div>
+                    <div class="section-card-body">
+                        <div id="loyalty-analytics" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-700">
+                                <div class="text-[10px] font-bold text-zinc-500 uppercase">Kunden</div>
+                                <div id="loyalty-stat-total" class="text-xl font-black text-zinc-800 dark:text-zinc-200 mt-1">—</div>
+                            </div>
+                            <div class="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900">
+                                <div class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Aktiv (30d)</div>
+                                <div id="loyalty-stat-active" class="text-xl font-black text-emerald-700 dark:text-emerald-400 mt-1">—</div>
+                            </div>
+                            <div class="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900">
+                                <div class="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">Rewards eingelöst</div>
+                                <div id="loyalty-stat-rewards" class="text-xl font-black text-amber-700 dark:text-amber-300 mt-1">—</div>
+                            </div>
+                            <div class="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800" style="background-color: #1e3a8a;">
+                                <div class="text-[10px] font-bold text-blue-100 uppercase" style="color: #dbeafe;">Pushs (30d)</div>
+                                <div id="loyalty-stat-pushs" class="text-xl font-black mt-1" style="color: #ffffff;">—</div>
+                            </div>
+                        </div>
+                        <div id="loyalty-setup-warning" class="hidden mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl text-xs">
+                            <strong class="text-amber-800 dark:text-amber-300">⚠️ Wallet-Pass-Integration nicht konfiguriert</strong>
+                            <p class="text-amber-700 dark:text-amber-300 mt-1">Damit Gäste Stempelkarten in Apple/Google Wallet speichern können, müssen Zertifikate hinterlegt werden. Kontaktiere den digi-gastro Support.</p>
+                            <p id="loyalty-config-status" class="text-[10px] mt-1.5 opacity-70"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Stempelkarte verwalten -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">confirmation_number</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Stempelkarte</h3>
+                        </div>
+                    </div>
+                    <div class="section-card-body">
+                        <div id="loyalty-cards-list" class="space-y-3 mb-4">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                        <form id="loyalty-card-form" onsubmit="createLoyaltyCard(event)" class="space-y-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700">
+                            <h4 class="text-xs font-extrabold text-zinc-700 dark:text-zinc-600 uppercase">Neue Stempelkarte erstellen</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="form-label">Karten-Name</label>
+                                    <input type="text" name="name" required placeholder="z.B. Kaffee-Karte" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Belohnung (Reward)</label>
+                                    <input type="text" name="reward_name" required placeholder="z.B. 1× Kaffee gratis" class="form-field">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="form-label">Stempel bis Reward</label>
+                                    <input type="number" name="stamps_required" value="10" min="1" max="50" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Farbe (Hex)</label>
+                                    <input type="color" name="color_hex" value="#C9A84C" class="form-field h-10">
+                                </div>
+                                <div>
+                                    <label class="form-label">Icon (Material)</label>
+                                    <select name="icon" class="form-field">
+                                        <option value="local_cafe">☕ Café</option>
+                                        <option value="restaurant">🍽️ Restaurant</option>
+                                        <option value="local_bar">🍸 Bar</option>
+                                        <option value="smoking_rooms">💨 Shisha</option>
+                                        <option value="icecream">🍦 Eis</option>
+                                        <option value="bakery_dining">🥐 Bäckerei</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label">Beschreibung (optional)</label>
+                                <textarea name="description" rows="2" placeholder="z.B. Bei jedem Kaffee ein Stempel — nach 10 Stempeln gratis!" class="form-field"></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined" style="font-size:14px;">add</span> Stempelkarte erstellen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Section 3: GPS-Standort (Geofencing) -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">location_on</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">GPS-Standort (Geofencing)</h3>
+                        </div>
+                        <span class="text-[10px] font-bold text-blue-700">200m Radius</span>
+                    </div>
+                    <div class="section-card-body">
+                        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">
+                            Wenn ein Kunde mit deiner Stempelkarte im Wallet in 200m Nähe deines Lokals ist, zeigt das Betriebssystem automatisch deine Karte auf dem Sperrbildschirm — <strong>ohne App, ohne Server-Tracking</strong> (geräteseitig).
+                        </p>
+                        <form id="loyalty-geofence-form" onsubmit="saveLoyaltyGeofence(event)" class="space-y-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="form-label">Breitengrad (Latitude)</label>
+                                    <input type="number" step="0.000001" name="latitude" id="loyalty-geofence-lat" required placeholder="52.5200" class="form-field font-mono">
+                                </div>
+                                <div>
+                                    <label class="form-label">Längengrad (Longitude)</label>
+                                    <input type="number" step="0.000001" name="longitude" id="loyalty-geofence-lng" required placeholder="13.4050" class="form-field font-mono">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label">Adresse (zur Anzeige im Pass)</label>
+                                <input type="text" name="address" id="loyalty-geofence-address" placeholder="Musterstraße 12, 10115 Berlin" class="form-field">
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="detectGeolocation()" class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-xs">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">my_location</span> Standort ermitteln
+                                </button>
+                                <button type="submit" class="btn-primary flex-1 flex items-center justify-center gap-1.5">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">save</span> Speichern
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Section 4: Push-Kampagnen -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">campaign</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Push-Kampagnen</h3>
+                        </div>
+                    </div>
+                    <div class="section-card-body">
+                        <div id="loyalty-campaigns-list" class="space-y-3 mb-4">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                        <form id="loyalty-campaign-form" onsubmit="createLoyaltyCampaign(event)" class="space-y-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700">
+                            <h4 class="text-xs font-extrabold text-zinc-700 dark:text-zinc-600 uppercase">Neue Push-Kampagne</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="form-label">Name (intern)</label>
+                                    <input type="text" name="name" required placeholder="z.B. Winback 14 Tage" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Typ</label>
+                                    <select name="campaign_type" class="form-field" onchange="toggleCampaignFields(this)">
+                                        <option value="inactivity">Inaktivität (X Tage nicht da)</option>
+                                        <option value="geofence">Geofencing (200m Nähe)</option>
+                                        <option value="broadcast">Broadcast (alle Kunden)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="form-label">Push-Titel</label>
+                                    <input type="text" name="title" required placeholder="z.B. Wir vermissen dich! 🥺" class="form-field">
+                                </div>
+                                <div class="campaign-inactivity-field">
+                                    <label class="form-label">Inaktivitäts-Tage</label>
+                                    <input type="number" name="inactivity_days" value="14" min="1" max="365" class="form-field">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label">Push-Nachricht</label>
+                                <textarea name="message" rows="3" required placeholder="z.B. Schau doch wieder vorbei — auf deinen nächsten Kaffee gibt's 10% Rabatt! ☕" class="form-field"></textarea>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="campaign-inactivity-field">
+                                    <label class="form-label">Min. Stunden zwischen Pushs</label>
+                                    <input type="number" name="min_hours_between_pushs" value="24" min="1" max="168" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Aktiv von</label>
+                                    <input type="time" name="active_from" value="00:00" class="form-field">
+                                </div>
+                                <div>
+                                    <label class="form-label">Aktiv bis</label>
+                                    <input type="time" name="active_to" value="23:59" class="form-field">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined" style="font-size:14px;">add</span> Kampagne erstellen
+                            </button>
+                        </form>
+                        <div class="mt-3 flex gap-2">
+                            <button onclick="triggerInactivityCron()" class="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined" style="font-size:14px;">play_arrow</span> Inaktivitäts-Push an deine Kunden testen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Kunden (anonym) -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">group</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800">Kunden (anonym)</h3>
+                        </div>
+                    </div>
+                    <div class="section-card-body">
+                        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">
+                            Alle Stempelkarten-Kunden. Anonym (nur Pass-Serial, keine Namen/Emails). DSGVO-konform.
+                        </p>
+                        <div id="loyalty-customers-list" class="overflow-x-auto">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -6118,9 +6455,16 @@
                 <h2 class="font-extrabold text-sm text-zinc-800">Produkt bearbeiten</h2>
                 <p class="text-[10px] text-zinc-500 mt-0.5" id="edit-slide-over-subtitle">Produkt-Details &auml;ndern</p>
             </div>
-            <button onclick="closeEditSlideOver()" class="w-11 h-11 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition shrink-0">
-                <span class="material-symbols-outlined" style="font-size:18px;">close</span>
-            </button>
+            <div class="flex items-center gap-2">
+                <!-- Live-Preview Toggle Button -->
+                <button onclick="toggleLivePreview()" id="preview-toggle-btn" class="text-[10px] font-bold px-3 py-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 transition flex items-center gap-1" title="Live-Vorschau im Gästemenü">
+                    <span class="material-symbols-outlined" style="font-size:14px;">visibility</span>
+                    <span class="hidden sm:inline">Vorschau</span>
+                </button>
+                <button onclick="closeEditSlideOver()" class="w-11 h-11 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50 transition shrink-0">
+                    <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+                </button>
+            </div>
         </div>
 
         <!-- Slide-over tabs -->
@@ -6128,6 +6472,38 @@
             <button class="slide-tab-btn active" onclick="switchSlideTab('details', this)">Details</button>
             <button class="slide-tab-btn" onclick="switchSlideTab('bilder', this)">Bilder</button>
             <button class="slide-tab-btn" onclick="switchSlideTab('preise', this)">Preise & HH</button>
+        </div>
+
+        <!-- ═══ LIVE PREVIEW PANEL (optional einblendbar) ═══
+             Zeigt live wie das Produkt im Gästemenü aussieht.
+             Wird via toggleLivePreview() ein-/ausgeblendet.
+             Update passiert oninput via updateLivePreview(). -->
+        <div id="live-preview-panel" class="hidden border-b border-zinc-200 bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950 p-4">
+            <div class="text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-1">
+                <span class="material-symbols-outlined" style="font-size:12px;">preview</span>
+                Live-Vorschau (Gästemenü)
+            </div>
+            <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md p-3 max-w-[200px] mx-auto border border-zinc-100 dark:border-zinc-700">
+                <!-- Produkt-Karte Preview -->
+                <div class="aspect-square w-full bg-zinc-100 dark:bg-zinc-700 rounded-xl mb-2 overflow-hidden flex items-center justify-center">
+                    <img id="preview-product-image" src="" alt="" class="w-full h-full object-cover" onerror="this.style.display='none'; document.getElementById('preview-image-placeholder').style.display='flex'">
+                    <div id="preview-image-placeholder" class="hidden w-full h-full items-center justify-center text-zinc-400">
+                        <span class="material-symbols-outlined" style="font-size:32px;">image</span>
+                    </div>
+                </div>
+                <div class="text-xs font-extrabold text-zinc-800 dark:text-zinc-200 truncate" id="preview-product-name" style="color:#1f2937;">Produktname</div>
+                <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-2" id="preview-product-desc" style="color:#6b7280;"></div>
+                <div class="flex items-center justify-between mt-2">
+                    <span class="text-sm font-black text-primary" id="preview-product-price" style="color:#C9A84C;">0,00 €</span>
+                    <span class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center" style="background:#C9A84C;">
+                        <span class="material-symbols-outlined" style="font-size:14px;">add</span>
+                    </span>
+                </div>
+                <!-- Allergene Preview -->
+                <div id="preview-allergens" class="flex flex-wrap gap-1 mt-2 hidden">
+                </div>
+            </div>
+            <p class="text-[9px] text-center text-zinc-400 mt-2 italic">So sehen Gäste das Produkt in der Speisekarte</p>
         </div>
 
         <form id="edit-product-form" onsubmit="submitEditProduct(event)" class="p-4 space-y-4">
@@ -6139,7 +6515,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Produkt-Name (DE)</label>
-                        <input type="text" id="edit-product-name" class="form-field">
+                        <input type="text" id="edit-product-name" class="form-field" oninput="updateLivePreview()">
                     </div>
                     <div>
                         <label class="form-label">Name (EN)</label>
@@ -6149,7 +6525,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Preis (&euro;)</label>
-                        <input type="number" step="0.01" id="edit-product-price" class="form-field font-mono">
+                        <input type="number" step="0.01" id="edit-product-price" class="form-field font-mono" oninput="updateLivePreview()">
                     </div>
                     <div>
                         <label class="form-label">Kategorie</label>
@@ -6163,7 +6539,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Beschreibung (DE)</label>
-                        <textarea id="edit-product-description" rows="3" class="form-field resize-none"></textarea>
+                        <textarea id="edit-product-description" rows="3" class="form-field resize-none" oninput="updateLivePreview()"></textarea>
                     </div>
                     <div>
                         <label class="form-label">Beschreibung (EN)</label>
@@ -6173,10 +6549,10 @@
                 <!-- Allergene (EU 1169/2011 — 14 Hauptallergene) -->
                 <div class="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900 space-y-2">
                     <label class="form-label flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-amber-600 dark:text-amber-400" style="font-size:16px;">warning</span>
+                        <span class="material-symbols-outlined text-amber-800 dark:text-amber-700" style="font-size:16px;">warning</span>
                         Allergene (EU-Pflicht)
                     </label>
-                    <p class="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">Wähle alle enthaltenen Allergene an. Werden als Badge unter der Produktbeschreibung im Gästemenü angezeigt.</p>
+                    <p class="text-[9px] text-amber-800 dark:text-amber-700 font-semibold">Wähle alle enthaltenen Allergene an. Werden als Badge unter der Produktbeschreibung im Gästemenü angezeigt.</p>
                     <div id="allergen-checkboxes" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                         <!-- 14 EU-Hauptallergene als Checkboxes -->
                     </div>
@@ -6509,7 +6885,7 @@
         function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
             // Validate tabId — only allow known tabs
-            const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
+            const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen', 'loyalty'];
             if (!validTabs.includes(tabId)) tabId = 'live';
 
             // Rollen-basierte Zugriffskontrolle:
@@ -6537,7 +6913,8 @@
                 'happyhour': 'Events',
                 'personal': 'Personal & Account',
                 'landingpage': 'Landingpage',
-                'einstellungen': 'Einstellungen'
+                'einstellungen': 'Einstellungen',
+                'loyalty': 'Loyalty & Newsletter'
             };
             const breadcrumb = document.getElementById('breadcrumb-current');
             if (breadcrumb) {
@@ -6688,13 +7065,7 @@
             }
         }
 
-        // ── CONFIG SUB-TAB SWITCHING ──
-        function switchConfigTab(tabId) {
-            document.querySelectorAll('.config-tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.config-subtab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById('config-tab-' + tabId).classList.add('active');
-            document.getElementById('config-btn-' + tabId).classList.add('active');
-        }
+        // (LOW-3 Cleanup) switchConfigTab() entfernt — war toter Code (keine .config-tab-content/.config-subtab-btn im HTML)
 
         // ── SITZPLAN / WAITER POS GLOBAL STATE ──
         let allOrders  = {{ orders_json | safe }} || [];
@@ -7846,12 +8217,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">folder_open</span>
                                 <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
                                 <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
-                                <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-500 p-0.5" title="Bearbeiten">
+                                <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-700 p-0.5" title="Bearbeiten">
                                     <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                                 </button>
                                 <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \\'${catName.replace(/'/g, "\\'")}\\' löschen? Alle Produkte darin verlieren ihre Kategorie!')">
                                     <input type="hidden" name="name" value="${escapeHtml(catName)}">
-                                    <button type="submit" class="text-red-400 hover:text-red-600 p-0.5" title="Löschen">
+                                    <button type="submit" class="text-red-600 hover:text-red-600 p-0.5" title="Löschen">
                                         <span class="material-symbols-outlined" style="font-size:12px;">delete</span>
                                     </button>
                                 </form>
@@ -7883,12 +8254,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">folder_open</span>
                             <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
                             <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
-                            <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-500 p-0.5" title="Bearbeiten">
+                            <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-700 p-0.5" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                             </button>
                             <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
                                 <input type="hidden" name="name" value="${escapeHtml(catName)}">
-                                <button type="submit" class="text-red-400 hover:text-red-600 p-0.5" title="Löschen">
+                                <button type="submit" class="text-red-600 hover:text-red-600 p-0.5" title="Löschen">
                                     <span class="material-symbols-outlined" style="font-size:12px;">delete</span>
                                 </button>
                             </form>
@@ -7939,10 +8310,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             <div class="font-bold text-xs text-zinc-800 truncate">${escapeHtml(sg.name)}</div>
                             <div class="text-[9px] text-zinc-500">${catCount} Kategorie(n) zugeordnet</div>
                         </div>
-                        <button onclick="openSuperGroupEditModal(${sg.id})" class="text-zinc-500 hover:text-emerald-500 p-1" title="Bearbeiten">
+                        <button onclick="openSuperGroupEditModal(${sg.id})" class="text-zinc-500 hover:text-emerald-700 p-1" title="Bearbeiten">
                             <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                         </button>
-                        <button onclick="deleteSuperGroup(${sg.id}, '${sg.name.replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-600 p-1" title="Löschen">
+                        <button onclick="deleteSuperGroup(${sg.id}, '${sg.name.replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-600 p-1" title="Löschen">
                             <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
                         </button>
                     </div>
@@ -8167,7 +8538,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                     <input type="checkbox" value="${key}" class="custom-checkbox shrink-0">
                                     <div class="flex-1 min-w-0">
                                         <div class="text-xs font-bold text-white truncate">${item.quantity}x ${escHtml(item.name)}</div>
-                                        ${item.note ? `<div class="text-[10px] text-amber-400 font-medium mt-0.5">✎ ${escHtml(item.note)}</div>` : ''}
+                                        ${item.note ? `<div class="text-[10px] text-amber-700 font-medium mt-0.5">✎ ${escHtml(item.note)}</div>` : ''}
                                     </div>
                                     <span class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${statusBg}">${statusLabel}</span>
                                 </label>
@@ -8538,7 +8909,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         }
                         
                         return `
-                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700 dark:text-amber-400">
+                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700 dark:text-amber-700">
                                 <span class="font-extrabold flex items-center gap-1.5">
                                     <span class="animate-bounce">${cIcon}</span> ${escapeHtml(cText)}
                                 </span>
@@ -11699,10 +12070,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 const oldTbody = document.querySelector('tbody.product-sortable-list');
                 if (newTbody && oldTbody) oldTbody.innerHTML = newTbody.innerHTML;
 
-                // Replace mobile product card view
-                const newCards = doc.querySelector('.product-card-view');
-                const oldCards = document.querySelector('.product-card-view');
-                if (newCards && oldCards) oldCards.innerHTML = newCards.innerHTML;
+                // (LOW-1 Cleanup) Alte .product-card-view Referenz entfernt — Klasse wurde gelöscht
 
                 // Update JS data by evaluating script content from the fetched page
                 try {
@@ -11732,8 +12100,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 // Re-apply current filters
                 const searchInput = document.querySelector('#product-search');
                 if (searchInput && searchInput.value) filterProducts(searchInput.value);
-                const catFilter = document.querySelector('#category-filter');
-                if (catFilter && catFilter.value && catFilter.value !== 'all') filterProductsByCategory(catFilter.value);
+                // (LOW-2 Cleanup) #category-filter existiert nicht mehr — Filter läuft via Chips setProductFilter('cat', ...)
             } catch (err) {
                 console.error('refreshProductsUI failed, fallback to reload:', err);
                 window.location.reload();
@@ -11846,8 +12213,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 const isChecked = selectedAllergens.includes(allergen);
                 return `
                     <label class="flex items-center gap-1.5 p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 cursor-pointer hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
-                        <input type="checkbox" class="allergen-checkbox rounded text-amber-500 focus:ring-0" value="${allergen}" ${isChecked ? 'checked' : ''}>
-                        <span class="text-[10px] font-bold text-zinc-700 dark:text-zinc-300">${allergen}</span>
+                        <input type="checkbox" class="allergen-checkbox rounded text-amber-700 focus:ring-0" value="${allergen}" ${isChecked ? 'checked' : ''}>
+                        <span class="text-[10px] font-bold text-zinc-700 dark:text-zinc-600">${allergen}</span>
                     </label>
                 `;
             }).join('');
@@ -11888,7 +12255,101 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         function closeEditProductModal() {
             closeEditSlideOver();
+            // Live-Preview zurücksetzen
+            const previewPanel = document.getElementById('live-preview-panel');
+            if (previewPanel) previewPanel.classList.add('hidden');
         }
+
+        // ═══ LIVE PREVIEW FUNKTIONEN ═══
+        // Zeigt live wie das Produkt im Gästemenü aussieht während der Admin es bearbeitet.
+        // Update passiert oninput via updateLivePreview() auf den Input-Feldern.
+
+        function toggleLivePreview() {
+            const panel = document.getElementById('live-preview-panel');
+            const btn = document.getElementById('preview-toggle-btn');
+            if (!panel || !btn) return;
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                btn.classList.add('bg-emerald-100', 'text-emerald-700', 'border-emerald-300', 'dark:bg-emerald-950/30', 'dark:text-emerald-400', 'dark:border-emerald-800');
+                updateLivePreview();
+            } else {
+                panel.classList.add('hidden');
+                btn.classList.remove('bg-emerald-100', 'text-emerald-700', 'border-emerald-300', 'dark:bg-emerald-950/30', 'dark:text-emerald-400', 'dark:border-emerald-800');
+            }
+        }
+
+        function updateLivePreview() {
+            // Name
+            const nameEl = document.getElementById('edit-product-name');
+            const previewName = document.getElementById('preview-product-name');
+            if (nameEl && previewName) {
+                previewName.textContent = nameEl.value || 'Produktname';
+            }
+            // Beschreibung
+            const descEl = document.getElementById('edit-product-description');
+            const previewDesc = document.getElementById('preview-product-desc');
+            if (descEl && previewDesc) {
+                previewDesc.textContent = descEl.value || '';
+            }
+            // Preis
+            const priceEl = document.getElementById('edit-product-price');
+            const previewPrice = document.getElementById('preview-product-price');
+            if (priceEl && previewPrice) {
+                const price = parseFloat(priceEl.value) || 0;
+                previewPrice.textContent = price.toFixed(2).replace('.', ',') + ' €';
+            }
+            // Bild
+            const imageUrlEl = document.getElementById('edit-product-image-url');
+            const fileInput = document.getElementById('edit-product-image-file');
+            const previewImg = document.getElementById('preview-product-image');
+            const placeholder = document.getElementById('preview-image-placeholder');
+            if (previewImg && placeholder) {
+                // File-Upload hat Vorrang
+                if (fileInput && fileInput.files && fileInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        previewImg.src = e.target.result;
+                        previewImg.style.display = '';
+                        placeholder.style.display = 'none';
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else if (imageUrlEl && imageUrlEl.value) {
+                    previewImg.src = imageUrlEl.value;
+                    previewImg.style.display = '';
+                    placeholder.style.display = 'none';
+                } else {
+                    previewImg.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                }
+            }
+            // Allergene
+            const allergenCheckboxes = document.querySelectorAll('.allergen-checkbox:checked');
+            const previewAllergens = document.getElementById('preview-allergens');
+            if (previewAllergens) {
+                if (allergenCheckboxes.length > 0) {
+                    previewAllergens.classList.remove('hidden');
+                    previewAllergens.innerHTML = Array.from(allergenCheckboxes).map(cb =>
+                        `<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-bold">${escapeHtml(cb.value)}</span>`
+                    ).join('');
+                } else {
+                    previewAllergens.classList.add('hidden');
+                }
+            }
+        }
+
+        // File-Input Listener für Live-Preview (sobald ein Bild gewählt wird)
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'edit-product-image-file') {
+                updateLivePreview();
+            }
+            if (e.target && e.target.id === 'edit-product-image-url') {
+                updateLivePreview();
+            }
+            if (e.target && e.target.classList && e.target.classList.contains('allergen-checkbox')) {
+                updateLivePreview();
+            }
+        });
 
         function switchSlideTab(tabId, btn) {
             document.querySelectorAll('.slide-tab-content').forEach(el => el.classList.remove('active'));
@@ -11952,8 +12413,17 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         // Product filter functions (works on both table rows and mobile cards)
         function filterProducts(searchTerm) {
+            // Sync mit _productFilterState für Aktive-Filter-Pills
+            _productFilterState.search = searchTerm || '';
+            // Nutze kombinierte applyProductFilters() falls vorhanden (mit Pills + Saved Views)
+            if (typeof applyProductFilters === 'function') {
+                applyProductFilters();
+                if (typeof updateActiveFilterPills === 'function') updateActiveFilterPills();
+                return;
+            }
+            // Fallback: einfache Filterung
             const items = document.querySelectorAll('.product-row, .product-tile, .product-card');
-            const term = searchTerm.toLowerCase();
+            const term = (searchTerm || '').toLowerCase();
             items.forEach(item => {
                 const name = item.dataset.name;
                 item.style.display = name.includes(term) ? '' : 'none';
@@ -11975,7 +12445,186 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             document.querySelectorAll('.filter-chip[data-filter-type="' + type + '"]').forEach(c => c.classList.remove('active'));
             if (btn) btn.classList.add('active');
             applyProductFilters();
+            updateActiveFilterPills();
         }
+
+        // ═══ PHASE 4: Aktive Filter Pills + Saved Views ═══
+        // Aktive Filter als visuell entfernbare Pills anzeigen (Notion/Airtable-Stil)
+        // + Saved Views im localStorage speichern (pro Tenant via slug aus URL)
+
+        const _filterTypeLabels = {
+            'status': 'Status',
+            'hh': 'Aktion',
+            'cat': 'Kategorie',
+            'search': 'Suche'
+        };
+
+        function _getFilterValueLabel(type, value) {
+            if (type === 'status') return value === 'true' ? 'Aktiv' : value === 'false' ? 'Ausverkauft' : 'Alle';
+            if (type === 'hh') return value === 'true' ? 'Mit Aktion' : value === 'false' ? 'Ohne Aktion' : 'Alle';
+            return value;
+        }
+
+        function updateActiveFilterPills() {
+            const row = document.getElementById('active-filters-row');
+            const container = document.getElementById('active-filter-pills');
+            if (!row || !container) return;
+
+            const pills = [];
+            ['status', 'hh', 'cat', 'search'].forEach(type => {
+                const value = _productFilterState[type];
+                if (value && value !== 'all' && value !== '') {
+                    pills.push({
+                        type,
+                        value,
+                        label: `${_filterTypeLabels[type]}: ${_getFilterValueLabel(type, value)}`
+                    });
+                }
+            });
+
+            if (pills.length === 0) {
+                row.classList.add('hidden');
+                container.innerHTML = '';
+                return;
+            }
+
+            row.classList.remove('hidden');
+            container.innerHTML = pills.map(p => `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                    ${escapeHtml(p.label)}
+                    <button onclick="removeFilterPill('${p.type}')" class="hover:text-emerald-900 dark:hover:text-emerald-100 ml-0.5">
+                        <span class="material-symbols-outlined" style="font-size:11px;">close</span>
+                    </button>
+                </span>
+            `).join('');
+        }
+
+        function removeFilterPill(type) {
+            _productFilterState[type] = 'all';
+            // Reset chip active state für diesen Type
+            document.querySelectorAll('.filter-chip[data-filter-type="' + type + '"]').forEach(c => {
+                c.classList.toggle('active', c.dataset.filterValue === 'all');
+            });
+            // Search-Feld leeren falls type=search
+            if (type === 'search') {
+                const searchInput = document.getElementById('product-search');
+                if (searchInput) searchInput.value = '';
+            }
+            applyProductFilters();
+            updateActiveFilterPills();
+        }
+
+        function clearAllProductFilters() {
+            ['status', 'hh', 'cat', 'search'].forEach(type => {
+                _productFilterState[type] = 'all';
+            });
+            // Alle Chips zurücksetzen
+            document.querySelectorAll('.filter-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.filterValue === 'all');
+            });
+            // Search leeren
+            const searchInput = document.getElementById('product-search');
+            if (searchInput) searchInput.value = '';
+            applyProductFilters();
+            updateActiveFilterPills();
+            // Saved-View Select zurücksetzen
+            const select = document.getElementById('saved-views-select');
+            if (select) select.value = '';
+            document.getElementById('delete-view-btn').classList.add('hidden');
+        }
+
+        // ── Saved Views (localStorage pro Tenant) ──
+        function _getSavedViewsKey() {
+            const slug = window.location.pathname.split('/')[1] || 'default';
+            return `digi_gastro_saved_views_${slug}`;
+        }
+
+        function _loadSavedViews() {
+            try {
+                const raw = localStorage.getItem(_getSavedViewsKey());
+                return JSON.parse(raw) || {};
+            } catch { return {}; }
+        }
+
+        function _saveSavedViewsToStorage(views) {
+            try {
+                localStorage.setItem(_getSavedViewsKey(), JSON.stringify(views));
+            } catch (e) { console.warn('Failed to save views:', e); }
+        }
+
+        function refreshSavedViewsSelect() {
+            const select = document.getElementById('saved-views-select');
+            if (!select) return;
+            const views = _loadSavedViews();
+            const currentVal = select.value;
+            // Behalte "—" Option, füge gespeicherte Views hinzu
+            select.innerHTML = '<option value="">— Gespeicherte Ansicht —</option>' +
+                Object.keys(views).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+            select.value = currentVal;
+        }
+
+        function saveCurrentView() {
+            const name = prompt('Name für diese Ansicht:', 'Meine Ansicht');
+            if (!name || !name.trim()) return;
+            const views = _loadSavedViews();
+            views[name.trim()] = { ..._productFilterState };
+            _saveSavedViewsToStorage(views);
+            refreshSavedViewsSelect();
+            const select = document.getElementById('saved-views-select');
+            if (select) select.value = name.trim();
+            document.getElementById('delete-view-btn').classList.remove('hidden');
+            showToast('Ansicht gespeichert: ' + name.trim(), 'success');
+        }
+
+        function loadSavedView(name) {
+            if (!name) {
+                document.getElementById('delete-view-btn').classList.add('hidden');
+                return;
+            }
+            const views = _loadSavedViews();
+            const view = views[name];
+            if (!view) return;
+
+            // Filter-State setzen
+            _productFilterState.status = view.status || 'all';
+            _productFilterState.hh = view.hh || 'all';
+            _productFilterState.cat = view.cat || 'all';
+            _productFilterState.search = view.search || '';
+
+            // Chips aktualisieren
+            ['status', 'hh', 'cat'].forEach(type => {
+                document.querySelectorAll('.filter-chip[data-filter-type="' + type + '"]').forEach(c => {
+                    c.classList.toggle('active', c.dataset.filterValue === _productFilterState[type]);
+                });
+            });
+
+            // Search-Feld aktualisieren
+            const searchInput = document.getElementById('product-search');
+            if (searchInput) searchInput.value = _productFilterState.search;
+
+            applyProductFilters();
+            updateActiveFilterPills();
+            document.getElementById('delete-view-btn').classList.remove('hidden');
+            showToast('Ansicht geladen: ' + name, 'success');
+        }
+
+        function deleteSavedView() {
+            const select = document.getElementById('saved-views-select');
+            if (!select || !select.value) return;
+            const name = select.value;
+            if (!confirm('Ansicht "' + name + '" löschen?')) return;
+            const views = _loadSavedViews();
+            delete views[name];
+            _saveSavedViewsToStorage(views);
+            refreshSavedViewsSelect();
+            document.getElementById('delete-view-btn').classList.add('hidden');
+            showToast('Ansicht gelöscht', 'success');
+        }
+
+        // Initialisiere Saved Views beim Laden
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshSavedViewsSelect();
+        });
 
         function applyProductFilters() {
             const items = document.querySelectorAll('#product-grid-view .product-tile, #product-table-container .product-row');
@@ -12297,17 +12946,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             body.classList.toggle('open');
         }
 
-        // ── Landingpage Editor: Tab-Wechsel ──
-        function switchLPTab(tabId) {
-            // Alle Tabs deaktivieren
-            document.querySelectorAll('.lp-tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.lp-tab-panel').forEach(panel => panel.classList.remove('active'));
-            // Gewählten Tab aktivieren
-            const btn = document.querySelector(`.lp-tab-btn[data-tab="${tabId}"]`);
-            const panel = document.getElementById('lp-panel-' + tabId);
-            if (btn) btn.classList.add('active');
-            if (panel) panel.classList.add('active');
-        }
+        // (LOW-4 Cleanup) switchLPTab() entfernt — war toter Code (keine .lp-tab-btn/.lp-tab-panel im HTML)
 
         function toggleHHForm(productId) {
             const form = document.getElementById('hh-form-' + productId);
@@ -12412,12 +13051,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 </span>
                                 ${comboCount > 0 ? (() => {
                                     const combosWithOwnTime = (ev.combos || []).filter(c => (c.days && c.days.length > 0) || (c.start_time && c.end_time));
-                                    let comboHtml = `<span class="flex items-center gap-0.5 text-teal-600 dark:text-teal-400">
+                                    let comboHtml = `<span class="flex items-center gap-0.5 text-teal-700 dark:text-teal-400">
                                         <span class="material-symbols-outlined" style="font-size:12px;">loyalty</span>
                                         ${comboCount} Kombi${comboCount > 1 ? 's' : ''}
                                     </span>`;
                                     if (combosWithOwnTime.length > 0) {
-                                        comboHtml += `<span class="flex items-center gap-0.5 text-teal-500 dark:text-teal-400">
+                                        comboHtml += `<span class="flex items-center gap-0.5 text-teal-700 dark:text-teal-400">
                                             <span class="material-symbols-outlined" style="font-size:12px;">schedule</span>
                                             ${combosWithOwnTime.length} mit eigener Zeit
                                         </span>`;
@@ -12431,7 +13070,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             <button onclick="openEventEditModal(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors p-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:18px;">edit</span>
                             </button>
-                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Löschen">
+                            <button onclick="deleteEvent(${parseInt(ev.id, 10)})" class="text-zinc-500 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-600 transition-colors p-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Löschen">
                                 <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
                             </button>
                         </div>
@@ -12452,7 +13091,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             document.getElementById('event-mode').value = 'selected';
             document.getElementById('event-discount').value = '0';
             document.getElementById('event-is-active').checked = true;
-            document.getElementById('event-discount-row').classList.add('hidden');
+            // toggleEventDiscountRow() initialisieren (versteckt Meldungs-Hint + zeigt Produkt-Liste)
+            toggleEventDiscountRow();
 
             renderDaySelector([]);
             renderProductSelector([]);
@@ -12482,11 +13122,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             document.getElementById('event-discount').value = (ev.discount || 0).toString();
             document.getElementById('event-is-active').checked = ev.is_active !== false;
 
-            if (ev.mode === 'discount') {
-                document.getElementById('event-discount-row').classList.remove('hidden');
-            } else {
-                document.getElementById('event-discount-row').classList.add('hidden');
-            }
+            // toggleEventDiscountRow() zeigt/versteckt Discount-Row + Meldungs-Hint
+            // + Produkt/Combo-Liste je nach Modus
+            toggleEventDiscountRow();
 
             renderDaySelector(ev.days || []);
             renderProductSelector(ev.products || []);
@@ -12597,6 +13235,34 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     discountRow.classList.remove('hidden');
                 } else {
                     discountRow.classList.add('hidden');
+                }
+            }
+            // Meldungs-Hinweis nur im announcement-Modus anzeigen
+            const hintEl = document.getElementById('event-announcement-hint');
+            if (hintEl) {
+                if (mode === 'announcement') {
+                    hintEl.classList.remove('hidden');
+                } else {
+                    hintEl.classList.add('hidden');
+                }
+            }
+            // Im announcement-Modus: Produkt-Liste + Combo-Liste verstecken (nicht relevant)
+            const productList = document.getElementById('event-products-list');
+            const productContainer = productList?.closest('.space-y-2');
+            if (productContainer) {
+                if (mode === 'announcement') {
+                    productContainer.style.display = 'none';
+                } else {
+                    productContainer.style.display = '';
+                }
+            }
+            const comboList = document.getElementById('event-combos-list');
+            const comboContainer = comboList?.closest('.space-y-3');
+            if (comboContainer) {
+                if (mode === 'announcement') {
+                    comboContainer.style.display = 'none';
+                } else {
+                    comboContainer.style.display = '';
                 }
             }
         }
@@ -12856,12 +13522,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 <div class="p-3 rounded-xl border-2 border-teal-300 bg-teal-50 dark:border-teal-500 dark:bg-teal-900/30 space-y-2.5" id="combo-${combo._tempId}">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2 flex-1 min-w-0">
-                            <span class="material-symbols-outlined text-teal-600 dark:text-teal-300" style="font-size:16px;">loyalty</span>
+                            <span class="material-symbols-outlined text-teal-700 dark:text-teal-300" style="font-size:16px;">loyalty</span>
                             <input type="text" placeholder="Kombi-Name, z.B. Cola + Shisha" value="${(combo.name || '').replace(/"/g, '&quot;')}"
                                    class="flex-1 bg-white dark:bg-zinc-700 border border-teal-200 dark:border-teal-600 rounded-lg px-2 py-1 text-[11px] font-bold text-zinc-900 dark:text-white focus:ring-teal-400 focus:border-teal-400"
                                    onchange="updateComboField(${combo._tempId}, 'name', this.value)">
                         </div>
-                        <button type="button" onclick="removeEventCombo(${combo._tempId})" class="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2" title="Kombi entfernen">
+                        <button type="button" onclick="removeEventCombo(${combo._tempId})" class="text-red-600 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2" title="Kombi entfernen">
                             <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                         </button>
                     </div>
@@ -12887,7 +13553,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 const isSelected = comboDays.includes(day);
                                 return `
                                 <label class="flex items-center gap-1 ${isSelected ? 'bg-teal-200 border-teal-400 text-teal-800 dark:bg-teal-600 dark:border-teal-400 dark:text-white' : 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-zinc-700 dark:border-zinc-500 dark:text-zinc-200'} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 border">
-                                    <input type="checkbox" class="combo-day-check rounded text-teal-500 focus:ring-0"
+                                    <input type="checkbox" class="combo-day-check rounded text-teal-700 focus:ring-0"
                                            data-combo-temp-id="${combo._tempId}" value="${day}" ${isSelected ? 'checked' : ''}
                                            onchange="toggleComboDay(${combo._tempId}, '${day}', this.checked)">
                                     <span>${day.substring(0,2)}</span>
@@ -12926,7 +13592,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                         : 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-zinc-700 dark:border-zinc-500 dark:text-zinc-200';
                                 return `
                                 <label class="flex items-center gap-1 ${stateClass} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 border">
-                                    <input type="checkbox" class="combo-cat-toggle rounded text-teal-500 focus:ring-0"
+                                    <input type="checkbox" class="combo-cat-toggle rounded text-teal-700 focus:ring-0"
                                            data-combo-temp-id="${combo._tempId}" value="${cs.name}" ${allSelected ? 'checked' : ''} ${someSelected ? 'style="opacity:0.5"' : ''}
                                            onchange="toggleComboCategory(${combo._tempId}, '${cs.name.replace(/'/g, "\\'")}', this.checked)">
                                     <span>${cs.name}</span>
@@ -12944,7 +13610,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 const isSelected = selectedIds.includes(p.id);
                                 return `
                                 <label class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isSelected ? 'bg-teal-200 dark:bg-teal-700/60 border border-teal-400 dark:border-teal-500' : 'bg-gray-100 dark:bg-zinc-700/50 border border-transparent'} cursor-pointer transition-colors text-[10px]">
-                                    <input type="checkbox" class="combo-item-toggle rounded text-teal-500 focus:ring-teal-400 shrink-0"
+                                    <input type="checkbox" class="combo-item-toggle rounded text-teal-700 focus:ring-teal-400 shrink-0"
                                            data-combo-temp-id="${combo._tempId}" data-product-id="${p.id}"
                                            ${isSelected ? 'checked' : ''}
                                            onchange="toggleComboItem(${combo._tempId}, ${p.id}, this.checked)">
@@ -13208,7 +13874,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         <span class="material-symbols-outlined text-purple-600 text-sm">extension</span>
                         <input type="text" name="section_title_${id}" value="${title || ''}" placeholder="Titel der Sektion" class="bg-transparent font-bold text-xs text-zinc-800 border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1 py-0.5 flex-1" oninput="markLandingUnsaved();">
                     </div>
-                    <button type="button" onclick="removeLandingSection(this)" class="text-red-400 hover:text-red-600 transition p-1" title="Sektion löschen">
+                    <button type="button" onclick="removeLandingSection(this)" class="text-red-600 hover:text-red-600 transition p-1" title="Sektion löschen">
                         <span class="material-symbols-outlined text-sm">delete</span>
                     </button>
                 </div>
@@ -13359,7 +14025,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         let touchEndX = 0;
         let touchEndY = 0;
 
-        const tabsSequence = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen'];
+        const tabsSequence = ['live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen', 'loyalty'];
 
         function isModalOpen() {
             const modals = document.querySelectorAll('.overlay-backdrop');
@@ -13495,12 +14161,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         result.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900';
                         result.innerHTML = '✓ ' + (data.message || 'Verbindung erfolgreich!');
                     } else {
-                        result.className = 'p-3 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900';
+                        result.className = 'p-3 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-600 border border-red-200 dark:border-red-900';
                         result.innerHTML = '✗ ' + (data.message || 'Verbindung fehlgeschlagen.');
                     }
                 } catch (err) {
                     result.classList.remove('hidden');
-                    result.className = 'p-3 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900';
+                    result.className = 'p-3 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-600 border border-red-200 dark:border-red-900';
                     result.innerHTML = '✗ Fehler: ' + err.message;
                 } finally {
                     btn.disabled = false;
@@ -13516,30 +14182,6 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
     </div>
     <!-- PWA Service Worker Registrierung + Update-Flow -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((reg) => {
-                        // Update-Flow: Bei neuer SW-Version → SKIP_WAITING + reload
-                        reg.addEventListener('updatefound', () => {
-                            const newWorker = reg.installing;
-                            if (!newWorker) return;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // Neue SW installiert → Toast anzeigen + automatisch aktivieren
-                                    if (typeof showToast === 'function') {
-                                        showToast('Neue Version verfügbar — wird geladen...', 'success');
-                                    }
-                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                }
-                            });
-                        });
-                        // KEIN controllerchange auto-reload — verursacht endlose Reload-Schleife
-                    })
-                    .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
-            });
-        }
-    </script>
+    <!-- SW Registration entfernt -->
 </body>
 </html>

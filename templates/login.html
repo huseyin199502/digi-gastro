@@ -194,19 +194,6 @@
             }
         }
     </script>
-    <script>
-        // Service Worker Registration — vereinfacht (kein auto-reload mehr!)
-        // Der controllerchange auto-reload hat eine endlose Reload-Schleife verursacht.
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((registration) => {
-                        console.log('[PWA] SW registriert:', registration.scope);
-                    })
-                    .catch((err) => console.warn('[PWA] SW fehlgeschlagen:', err));
-                // KEIN controllerchange Listener mehr — kein auto-reload!
-            });
-        }
-    </script>
+    <!-- SW Registration entfernt -->
 </body>
 </html>
