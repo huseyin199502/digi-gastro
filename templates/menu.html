@@ -2307,11 +2307,16 @@
                     }
 
                     // Scroll to top AFTER Alpine.js has updated the DOM (only on user click, not on WS re-apply)
+                    // WICHTIG: 50ms Verzögerung (vorher 10ms) — Mobile braucht länger zum Rendern
                     if (isUserAction) {
                         this.$nextTick(() => {
                             setTimeout(() => {
                                 (document.scrollingElement || document.documentElement).scrollTo({ top: 0, behavior: 'instant' });
-                            }, 10);
+                                // Nochmal nach 100ms — iOS Safari braucht manchmal länger
+                                setTimeout(() => {
+                                    (document.scrollingElement || document.documentElement).scrollTo({ top: 0, behavior: 'instant' });
+                                }, 100);
+                            }, 50);
                         });
                     }
                 },
@@ -2324,20 +2329,27 @@
                         if (lsPos) savedPos = parseInt(lsPos) || 0;
                     } catch(e) {}
 
-                    this.currentCategory = '';
                     // localStorage Eintrag löschen (zurück zur Übersicht)
                     try { localStorage.removeItem('dl_last_category_{{ slug }}'); } catch(e) {}
 
-                    // Hide all products when back to category list
+                    // Erst currentCategory zurücksetzen — das zeigt die Kategorie-Liste
+                    this.currentCategory = '';
+
+                    // Produkte verstecken
                     const products = document.querySelectorAll('.product-item');
                     products.forEach(item => {
                         item.style.display = 'none';
                     });
-                    // Restore scroll position AFTER Alpine.js has updated the DOM
-                    // Längere Verzögerung (50ms statt 10ms) damit DOM wirklich fertig ist
+
+                    // Scroll-Position WIEDERHERSTELLEN — mit ausreichend Verzögerung
+                    // damit Alpine.js die Kategorie-Liste komplett gerendert hat
                     this.$nextTick(() => {
                         setTimeout(() => {
                             (document.scrollingElement || document.documentElement).scrollTo({ top: savedPos, behavior: 'instant' });
+                            // Nochmal nach 100ms — manchmal braucht iOS Safari länger
+                            setTimeout(() => {
+                                (document.scrollingElement || document.documentElement).scrollTo({ top: savedPos, behavior: 'instant' });
+                            }, 100);
                         }, 50);
                     });
                 },
