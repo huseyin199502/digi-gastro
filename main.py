@@ -513,17 +513,22 @@ async def websocket_endpoint(websocket: WebSocket, slug: str):
 # ──────────────────────────────────────────────────────────────────
 _tenant_locks: Dict[str, asyncio.Lock] = {}
 _tenant_locks_access: Dict[str, float] = {}  # Track last access time for cleanup
-import time as _time_module
 
 def _get_tenant_lock(slug: str) -> asyncio.Lock:
     slug_lower = slug.lower().strip()
     if slug_lower not in _tenant_locks:
         _tenant_locks[slug_lower] = asyncio.Lock()
-    _tenant_locks_access[slug_lower] = _time_module.time()
+    _tenant_locks_access[slug_lower] = time.time()
     # Cleanup: Entferne Locks die > 1 Stunde nicht genutzt wurden (max 100 behalten)
+    # WICHTIG: Prüfe lock.locked() — niemals einen noch gehaltenen Lock löschen!
+    # Sonst verliert ein langlaufender Tenant (>1h) seine Serialisierung → Race Condition.
     if len(_tenant_locks) > 100:
-        now = _time_module.time()
-        expired = [k for k, t in _tenant_locks_access.items() if now - t > 3600]
+        now = time.time()
+        expired = [
+            k for k, t in _tenant_locks_access.items()
+            if now - t > 3600
+            and not _tenant_locks[k].locked()  # Lock darf nicht in Benutzung sein
+        ]
         for k in expired:
             _tenant_locks.pop(k, None)
             _tenant_locks_access.pop(k, None)
@@ -1679,13 +1684,24 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         )
         session.add(db_s)
         
-    # 5. Update service calls
-    existing_calls = {c.id: c for c in session.query(ServiceCall).filter_by(tenant_slug=slug).all()}
+    # 5. Update service calls — Append/Update-Only (kein Delete!)
+    # WARUM: load_restaurant_from_db lädt nur die letzten 100 ServiceCalls (LIMIT 100).
+    # Wenn wir hier alle DB-Calls laden und die nicht im Payload löschen würden,
+    # würden wir bei jedem Save eines Tenants mit >100 Calls die älteren Calls
+    # stillschweigend löschen. Da ServiceCalls historisch relevant sind (Audit-Trail),
+    # ändern wir das Verhalten auf Append/Update-Only — analog zu AuditLog.
+    # Bestehende Calls in DB, die nicht im Payload sind, bleiben unangetastet.
+    existing_calls_ids = set(
+        row[0] for row in session.query(ServiceCall.id).filter_by(tenant_slug=slug).all()
+    )
     seen_call_ids = set()
     for c in r.get("service_calls", []):
         c_id = c.get("id")
-        if c_id and c_id in existing_calls:
-            db_c = existing_calls[c_id]
+        if c_id and c_id in existing_calls_ids:
+            # Bestehenden Call updaten — zuerst laden
+            db_c = session.query(ServiceCall).filter_by(id=c_id, tenant_slug=slug).first()
+            if db_c is None:
+                continue
             seen_call_ids.add(c_id)
         else:
             db_c = ServiceCall(tenant_slug=slug)
@@ -1699,10 +1715,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
             session.flush()
             c["id"] = db_c.id
             seen_call_ids.add(db_c.id)
-            
-    for cid, db_c in existing_calls.items():
-        if cid not in seen_call_ids:
-            session.delete(db_c)
+    # KEIN Delete-Loop mehr — ältere ServiceCalls bleiben in DB erhalten.
         
     # 6. Update tables
     session.query(Table).filter_by(tenant_slug=slug).delete()
