@@ -743,6 +743,8 @@
                     {% set cat_img = category_images.get(cat, '') %}
 
                     <button onclick="filterCategory('{{ cat }}')" 
+                            id="cat-btn-{{ loop.index }}"
+                            data-cat-name="{{ cat }}"
                             class="w-full group relative overflow-hidden rounded-2xl border border-outline-variant/60 hover:border-primary/60 transition-all duration-300 active:scale-[0.98] hover-lift">
                         <div class="flex items-center h-24 sm:h-28">
                             <!-- Category Image -->
@@ -2266,13 +2268,15 @@
                 },
 
                 filterCategory(category, isUserAction = true) {
-                    // Save current scroll position before navigating into category (only on user click)
+                    // Save which category button was clicked (for backToCategories scroll)
                     if (isUserAction) {
-                        this._savedCategoryScrollPos = (document.scrollingElement || document.documentElement).scrollTop;
-                        // Auch in localStorage für Seitenwechsel
-                        try {
-                            localStorage.setItem('dl_category_scroll_{{ slug }}', String(this._savedCategoryScrollPos));
-                        } catch(e) {}
+                        // Finde den geklickten Button und speichere ihn
+                        const buttons = document.querySelectorAll('[data-cat-name]');
+                        buttons.forEach(btn => {
+                            if (btn.getAttribute('data-cat-name') === category) {
+                                this._lastClickedCategoryBtn = btn;
+                            }
+                        });
                     }
 
                     this.currentCategory = category;
@@ -2325,13 +2329,6 @@
                 },
 
                 backToCategories() {
-                    // Scroll-Position aus Memory oder localStorage holen
-                    let savedPos = this._savedCategoryScrollPos || 0;
-                    try {
-                        const lsPos = localStorage.getItem('dl_category_scroll_{{ slug }}');
-                        if (lsPos) savedPos = parseInt(lsPos) || 0;
-                    } catch(e) {}
-
                     // localStorage Eintrag löschen (zurück zur Übersicht)
                     try { localStorage.removeItem('dl_last_category_{{ slug }}'); } catch(e) {}
 
@@ -2344,14 +2341,25 @@
                         item.style.display = 'none';
                     });
 
-                    // Scroll-Position WIEDERHERSTELLEN — mit ausreichend Verzögerung
-                    // damit Alpine.js die Kategorie-Liste komplett gerendert hat
+                    // Zum zuletzt geklickten Kategorie-Button scrollen
+                    // WICHTIG: Nach $nextTick + Verzögerung ausführen damit DOM gerendert ist
                     this.$nextTick(() => {
                         setTimeout(() => {
-                            (document.scrollingElement || document.documentElement).scrollTo({ top: savedPos, behavior: 'instant' });
-                            // Nochmal nach 100ms — manchmal braucht iOS Safari länger
+                            if (this._lastClickedCategoryBtn) {
+                                // Button gefunden → dorthin scrollen (mit Sticky-Header-Offset)
+                                const headerOffset = 80; // Header + safe-area
+                                const rect = this._lastClickedCategoryBtn.getBoundingClientRect();
+                                const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset;
+                                (document.scrollingElement || document.documentElement).scrollTo({ top: scrollTarget, behavior: 'instant' });
+                            }
+                            // Nochmal nach 100ms für iOS Safari
                             setTimeout(() => {
-                                (document.scrollingElement || document.documentElement).scrollTo({ top: savedPos, behavior: 'instant' });
+                                if (this._lastClickedCategoryBtn) {
+                                    const headerOffset = 80;
+                                    const rect = this._lastClickedCategoryBtn.getBoundingClientRect();
+                                    const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset;
+                                    (document.scrollingElement || document.documentElement).scrollTo({ top: scrollTarget, behavior: 'instant' });
+                                }
                             }, 100);
                         }, 50);
                     });
