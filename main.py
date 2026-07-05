@@ -274,18 +274,16 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # DSN wird via Env-Var SENTRY_DSN konfiguriert (Coolify Secret).
 # Ohne DSN → Sentry deaktiviert (kein Crash, kein Spying).
 # Free Tier: 5.000 Errors/Monat, 10.000 Performance-Traces/Monat.
+#
+# WICHTIG: Keine expliziten Integrations-Imports — sentry-sdk 2.x
+# hat FastApiIntegration entfernt, das würde ImportError werfen.
+# Stattdessen auto-detect lassen (funktioniert in 1.x UND 2.x).
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
     try:
         import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.redis import RedisIntegration
         sentry_sdk.init(
             dsn=SENTRY_DSN,
-            integrations=[
-                FastApiIntegration(),
-                RedisIntegration(),
-            ],
             # 1% Sampling — ausreichend für Pattern-Erkennung ohne Kosten-Explosion
             traces_sample_rate=0.01,
             # PII-Schutz: keine User-Daten, keine IPs
