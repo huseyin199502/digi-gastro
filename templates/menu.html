@@ -2310,16 +2310,15 @@
                     }
 
                     // Scroll to top AFTER Alpine.js has updated the DOM (only on user click, not on WS re-apply)
-                    // WICHTIG: Browser auto-scroll muss deaktiviert sein + scrollTop direkt setzen
+                    // WICHTIG: iOS-26 Workaround macht body zum Scroll-Container, nicht html!
+                    // document.scrollingElement gibt html zurück (overflow:hidden) → scrollTop ist No-Op.
+                    // Lösung: Dynamisch prüfen welches Element scrollt.
                     if (isUserAction) {
                         if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
+                        const scrollEl = (getComputedStyle(document.body).overflowY === 'auto' && getComputedStyle(document.documentElement).overflowY === 'hidden') ? document.body : (document.scrollingElement || document.documentElement);
                         this.$nextTick(() => {
-                            setTimeout(() => {
-                                (document.scrollingElement || document.documentElement).scrollTop = 0;
-                            }, 50);
-                            setTimeout(() => {
-                                (document.scrollingElement || document.documentElement).scrollTop = 0;
-                            }, 200);
+                            setTimeout(() => { scrollEl.scrollTop = 0; }, 50);
+                            setTimeout(() => { scrollEl.scrollTop = 0; }, 200);
                         });
                     }
                 },
@@ -2342,17 +2341,18 @@
                     products.forEach(item => { item.style.display = 'none'; });
 
                     // Zum geklickten Kategorie-Button scrollen (via data-cat-name)
+                    // WICHTIG: iOS-26 Workaround — body ist Scroll-Container, nicht html!
+                    const scrollEl = (getComputedStyle(document.body).overflowY === 'auto' && getComputedStyle(document.documentElement).overflowY === 'hidden') ? document.body : (document.scrollingElement || document.documentElement);
                     this.$nextTick(() => {
                         setTimeout(() => {
                             if (catName) {
                                 const btn = document.querySelector('[data-cat-name="' + CSS.escape(catName) + '"]');
                                 if (btn) {
-                                    // Sticky Header Höhe dynamisch messen
                                     const header = document.querySelector('.dash-header') || document.querySelector('header');
                                     const headerOffset = header ? header.offsetHeight : 80;
                                     const rect = btn.getBoundingClientRect();
-                                    const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset - 10;
-                                    (document.scrollingElement || document.documentElement).scrollTop = scrollTarget;
+                                    const scrollTarget = scrollEl.scrollTop + rect.top - headerOffset - 10;
+                                    scrollEl.scrollTop = scrollTarget;
                                 }
                             }
                             // Nochmal nach 150ms für iOS Safari
@@ -2363,8 +2363,8 @@
                                         const header = document.querySelector('.dash-header') || document.querySelector('header');
                                         const headerOffset = header ? header.offsetHeight : 80;
                                         const rect = btn.getBoundingClientRect();
-                                        const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset - 10;
-                                        (document.scrollingElement || document.documentElement).scrollTop = scrollTarget;
+                                        const scrollTarget = scrollEl.scrollTop + rect.top - headerOffset - 10;
+                                        scrollEl.scrollTop = scrollTarget;
                                     }
                                 }
                             }, 150);
