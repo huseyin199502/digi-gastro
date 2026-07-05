@@ -133,7 +133,30 @@ MAX_LOGO_UPLOAD_BYTES  = 5 * 1024 * 1024    # 5 MB für Logos
 MAX_CSV_UPLOAD_BYTES   = 10 * 1024 * 1024   # 10 MB für CSV-Importe
 
 
-async def safe_read_upload(file: UploadFile, max_bytes: int = MAX_IMAGE_UPLOAD_BYTES) -> bytes:
+# ── Helper für safe_read_upload (muss VOR FastAPI-Import definiert sein) ──
+# HTTPException wird erst auf Zeile 260 importiert, aber safe_read_upload
+# wird davor definiert. Wir nutzen lazy-Import inside the helper function.
+class _HTTPExceptionEarly(Exception):
+    """Marker class — ersetzt HTTPException bis FastAPI importiert ist."""
+    def __init__(self, status_code, detail):
+        self.status_code = status_code
+        self.detail = detail
+
+
+def _make_413_error(actual_bytes: int, max_bytes: int):
+    """Erstellt eine HTTP 413 Exception. Lazy-import von HTTPException."""
+    try:
+        from fastapi import HTTPException as _HE
+        return _HE(
+            status_code=413,
+            detail=f"Datei zu groß: {actual_bytes} Bytes. Maximum: {max_bytes // (1024*1024)} MB."
+        )
+    except ImportError:
+        # Fallback wenn FastAPI noch nicht importiert (sollte nie passieren zur Laufzeit)
+        return _HTTPExceptionEarly(413, f"Datei zu groß: {actual_bytes} Bytes. Maximum: {max_bytes // (1024*1024)} MB.")
+
+
+async def safe_read_upload(file: "UploadFile", max_bytes: int = MAX_IMAGE_UPLOAD_BYTES) -> bytes:
     """Liest UploadFile IN CHUNKS und prüft Size-Limit VOR dem Laden in RAM.
 
     1. Prüft file.size (falls bekannt) VOR dem read — lehnt zu große Uploads sofort ab.
@@ -141,15 +164,18 @@ async def safe_read_upload(file: UploadFile, max_bytes: int = MAX_IMAGE_UPLOAD_B
     3. Defense-in-depth: nochmal size-check nach read.
 
     Verhindert OOM-Crashes durch 1 GB+ Uploads.
+
+    NOTE: UploadFile als String-Annotation (Forward Reference) — UploadFile
+    wird erst später importiert (Zeile 260). String-Annotation wird erst
+    bei Bedarf aufgelöst, nicht bei Modul-Ladezeit → kein NameError.
     """
     # Pre-check via file.size (Starlette 0.27+)
+    # NOTE: HTTPException wird später importiert (Zeile 260), aber da dieser
+    # Code nur zur Laufzeit ausgeführt wird (nicht bei Modul-Laden), ist das OK.
     try:
         if file.size is not None and file.size > max_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Datei zu groß: {file.size} Bytes. Maximum: {max_bytes // (1024*1024)} MB."
-            )
-    except HTTPException:
+            raise _make_413_error(file.size, max_bytes)
+    except _HTTPExceptionEarly:
         raise
     except Exception:
         pass  # file.size nicht verfügbar → chunked-check unten
@@ -164,10 +190,7 @@ async def safe_read_upload(file: UploadFile, max_bytes: int = MAX_IMAGE_UPLOAD_B
             break
         total += len(chunk)
         if total > max_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Datei zu groß: >{max_bytes // (1024*1024)} MB überschritten."
-            )
+            raise _make_413_error(total, max_bytes)
         chunks.append(chunk)
     content = b"".join(chunks)
     return content
