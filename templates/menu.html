@@ -1758,6 +1758,7 @@
                 activeFilters: { vegan: false, glutenfree: false },
                 currentCategory: '',
                 _savedCategoryScrollPos: 0,
+                _lastClickedCategoryName: '', // Kategorie-Name statt DOM-Ref (überlebt Reload)
                 allCategories: {{ restaurant.categories | tojson | safe }},
                 currentOfferIdx: 0,
                 currentBgVideoIdx: 0,
@@ -2268,15 +2269,10 @@
                 },
 
                 filterCategory(category, isUserAction = true) {
-                    // Save which category button was clicked (for backToCategories scroll)
-                    if (isUserAction) {
-                        // Finde den geklickten Button und speichere ihn
-                        const buttons = document.querySelectorAll('[data-cat-name]');
-                        buttons.forEach(btn => {
-                            if (btn.getAttribute('data-cat-name') === category) {
-                                this._lastClickedCategoryBtn = btn;
-                            }
-                        });
+                    // Kategorie-Name speichern (statt DOM-Ref — überlebt Reload)
+                    if (isUserAction && category) {
+                        this._lastClickedCategoryName = category;
+                        try { localStorage.setItem('dl_last_cat_name_{{ slug }}', category); } catch(e) {}
                     }
 
                     this.currentCategory = category;
@@ -2314,16 +2310,16 @@
                     }
 
                     // Scroll to top AFTER Alpine.js has updated the DOM (only on user click, not on WS re-apply)
-                    // WICHTIG: 50ms Verzögerung (vorher 10ms) — Mobile braucht länger zum Rendern
+                    // WICHTIG: Browser auto-scroll muss deaktiviert sein + scrollTop direkt setzen
                     if (isUserAction) {
+                        if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
                         this.$nextTick(() => {
                             setTimeout(() => {
-                                (document.scrollingElement || document.documentElement).scrollTo({ top: 0, behavior: 'instant' });
-                                // Nochmal nach 100ms — iOS Safari braucht manchmal länger
-                                setTimeout(() => {
-                                    (document.scrollingElement || document.documentElement).scrollTo({ top: 0, behavior: 'instant' });
-                                }, 100);
+                                (document.scrollingElement || document.documentElement).scrollTop = 0;
                             }, 50);
+                            setTimeout(() => {
+                                (document.scrollingElement || document.documentElement).scrollTop = 0;
+                            }, 200);
                         });
                     }
                 },
@@ -2332,35 +2328,46 @@
                     // localStorage Eintrag löschen (zurück zur Übersicht)
                     try { localStorage.removeItem('dl_last_category_{{ slug }}'); } catch(e) {}
 
-                    // Erst currentCategory zurücksetzen — das zeigt die Kategorie-Liste
+                    // Kategorie-Name aus Memory oder localStorage holen
+                    let catName = this._lastClickedCategoryName || '';
+                    if (!catName) {
+                        try { catName = localStorage.getItem('dl_last_cat_name_{{ slug }}') || ''; } catch(e) {}
+                    }
+
+                    // currentCategory zurücksetzen — zeigt Kategorie-Liste
                     this.currentCategory = '';
 
                     // Produkte verstecken
                     const products = document.querySelectorAll('.product-item');
-                    products.forEach(item => {
-                        item.style.display = 'none';
-                    });
+                    products.forEach(item => { item.style.display = 'none'; });
 
-                    // Zum zuletzt geklickten Kategorie-Button scrollen
-                    // WICHTIG: Nach $nextTick + Verzögerung ausführen damit DOM gerendert ist
+                    // Zum geklickten Kategorie-Button scrollen (via data-cat-name)
                     this.$nextTick(() => {
                         setTimeout(() => {
-                            if (this._lastClickedCategoryBtn) {
-                                // Button gefunden → dorthin scrollen (mit Sticky-Header-Offset)
-                                const headerOffset = 80; // Header + safe-area
-                                const rect = this._lastClickedCategoryBtn.getBoundingClientRect();
-                                const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset;
-                                (document.scrollingElement || document.documentElement).scrollTo({ top: scrollTarget, behavior: 'instant' });
-                            }
-                            // Nochmal nach 100ms für iOS Safari
-                            setTimeout(() => {
-                                if (this._lastClickedCategoryBtn) {
-                                    const headerOffset = 80;
-                                    const rect = this._lastClickedCategoryBtn.getBoundingClientRect();
-                                    const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset;
-                                    (document.scrollingElement || document.documentElement).scrollTo({ top: scrollTarget, behavior: 'instant' });
+                            if (catName) {
+                                const btn = document.querySelector('[data-cat-name="' + CSS.escape(catName) + '"]');
+                                if (btn) {
+                                    // Sticky Header Höhe dynamisch messen
+                                    const header = document.querySelector('.dash-header') || document.querySelector('header');
+                                    const headerOffset = header ? header.offsetHeight : 80;
+                                    const rect = btn.getBoundingClientRect();
+                                    const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset - 10;
+                                    (document.scrollingElement || document.documentElement).scrollTop = scrollTarget;
                                 }
-                            }, 100);
+                            }
+                            // Nochmal nach 150ms für iOS Safari
+                            setTimeout(() => {
+                                if (catName) {
+                                    const btn = document.querySelector('[data-cat-name="' + CSS.escape(catName) + '"]');
+                                    if (btn) {
+                                        const header = document.querySelector('.dash-header') || document.querySelector('header');
+                                        const headerOffset = header ? header.offsetHeight : 80;
+                                        const rect = btn.getBoundingClientRect();
+                                        const scrollTarget = (document.scrollingElement || document.documentElement).scrollTop + rect.top - headerOffset - 10;
+                                        (document.scrollingElement || document.documentElement).scrollTop = scrollTarget;
+                                    }
+                                }
+                            }, 150);
                         }, 50);
                     });
                 },
