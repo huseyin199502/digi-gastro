@@ -425,7 +425,7 @@
                 <p class="text-sm max-w-md mx-auto leading-relaxed drop-shadow-md font-medium mt-1" style="color:#e5e7eb !important;" x-text="restaurantLandingPage.welcome_subtitle || 'Wir freuen uns, Sie als Gast begrüßen zu dürfen. Genießen Sie Ihren Aufenthalt!'"></p>
                 
                 <!-- Actions Group -->
-                <div class="flex flex-col gap-3 max-w-xs mx-auto w-full">
+                <div class="flex flex-col gap-2 max-w-xs mx-auto w-full">
                     <!-- CTA Button to go to Menu — prüft zuerst Loyalty-Popup -->
                     <button @click="handleSpeisekarteClick()" class="btn-premium glass-btn-primary w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
                         <span class="material-symbols-outlined">menu_book</span>
@@ -447,7 +447,7 @@
 
                     <!-- Social Media Links (moved from footer, larger design) -->
                     {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
-                    <div class="flex justify-center items-center gap-5 mt-2.5">
+                    <div class="flex justify-center items-center gap-5" style="margin-top: 4px;">
                         {% if restaurant.branding.instagram %}
                         <a href="{{ restaurant.branding.instagram }}" target="_blank" class="w-12 h-12 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-outline-variant hover:text-primary active:scale-95 transition flex items-center justify-center shadow-lg" style="color:#ffffff !important;" title="Instagram">
                             <i class="fa-brands fa-instagram text-2xl"></i>
@@ -471,8 +471,8 @@
                    Wenn Tenant 2 Logos hat, wird das zweite Logo NACH den Buttons
                    angezeigt. Layout: Hauptlogo → Willkommen → Buttons → 2. Logo #}
                 {% if restaurant.branding and restaurant.branding.logo_url_2 %}
-                <div class="flex justify-center items-center" style="margin-top: 1px; margin-bottom: 1px;">
-                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2 h-36 sm:h-48 lg:h-56 w-auto max-w-[280px] sm:max-w-[360px] object-contain relative z-10" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high" style="margin: 0; padding: 0; display: block;">
+                <div class="flex justify-center items-center" style="margin-top: 1px; margin-bottom: 1px; line-height: 0;">
+                    <img alt="{{ restaurant.name }} Logo 2" class="header-logo-2" style="height: auto; max-height: 144px; width: auto; max-width: 280px; object-fit: contain; margin: 0; padding: 0; display: block;" src="{{ restaurant.branding.logo_url_2 }}" decoding="async" fetchpriority="high">
                 </div>
                 {% endif %}
             </div>
