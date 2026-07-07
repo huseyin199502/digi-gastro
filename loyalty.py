@@ -286,35 +286,34 @@ def _gen_auth_token(serial: str) -> str:
     return hashlib.sha256(f"{serial}:{time.time()}".encode()).hexdigest()[:16]
 
 
-def _sign_pass_manifest(manifest: Dict[str, str]) -> bytes:
+def _sign_pass_manifest(manifest_bytes: bytes) -> bytes:
     """Signiert das Manifest mit dem Apple Wallet Zertifikat.
     Liefert die PKCS#7-Signatur als DER-encoded Bytes.
 
-    Benötigt: Apple Pass Certificate + WWDR Intermediate Certificate + Private Key.
+    WICHTIG: Signiert die EXAKT gleichen Bytes die auch im .pkpass als
+    manifest.json gespeichert werden. Früher wurde das manifest dict neu
+    serialisiert → unterschiedliche Bytes → Signatur-Verifikation schlug fehl.
 
+    Benötigt: Apple Pass Certificate + WWDR Intermediate Certificate + Private Key.
     Verwendet openssl CLI (zuverlässigster Weg für PKCS#7 detached signatures).
-    Die cryptography-Library hat 2026 einen Bug in PKCS7SignatureBuilder.finalize()
-    — wir nutzen deshalb den direkten openssl CLI Aufruf.
     """
     if not _is_apple_configured():
-        # Dev-Modus: leere Signatur (Pass wird von Apple abgelehnt)
         return b"DEV_MODE_NO_SIGNATURE"
 
     try:
         import subprocess
         import tempfile as _tf
 
-        # Manifest in temporäre Datei schreiben
-        with _tf.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as manifest_file:
-            json.dump(manifest, manifest_file)
+        # Manifest bytes in temporäre Datei schreiben (EXAKT die gleichen bytes
+        # die auch im .pkpass gespeichert werden)
+        with _tf.NamedTemporaryFile(mode="wb", suffix=".json", delete=False) as manifest_file:
+            manifest_file.write(manifest_bytes)
             manifest_path = manifest_file.name
 
-        # Signatur in temporäre Datei schreiben
         with _tf.NamedTemporaryFile(suffix=".der", delete=False) as sig_file:
             sig_path = sig_file.name
 
         try:
-            # openssl smime -binary -sign -certfile WWDR -signer CERT -inkey KEY -in manifest -out sig.der -outform DER -passin pass:PASSWORD
             cmd = [
                 "openssl", "smime", "-binary", "-sign",
                 "-certfile", APPLE_WWDR_PATH,
@@ -324,7 +323,6 @@ def _sign_pass_manifest(manifest: Dict[str, str]) -> bytes:
                 "-out", sig_path,
                 "-outform", "DER",
             ]
-            # Falls Passwort gesetzt, als -passin übergeben
             if APPLE_CERT_PASSWORD:
                 cmd.extend(["-passin", f"pass:{APPLE_CERT_PASSWORD}"])
 
@@ -334,11 +332,9 @@ def _sign_pass_manifest(manifest: Dict[str, str]) -> bytes:
                 print(f"[Apple Pass] openssl signing failed: {result.stderr}")
                 return b"SIGN_ERROR"
 
-            # Signatur lesen
             with open(sig_path, "rb") as f:
                 return f.read()
         finally:
-            # Temp-Files aufräumen
             try:
                 os.unlink(manifest_path)
                 os.unlink(sig_path)
@@ -348,6 +344,59 @@ def _sign_pass_manifest(manifest: Dict[str, str]) -> bytes:
     except Exception as e:
         print(f"[Apple Pass] Signing setup failed: {e}")
         return b"SIGN_ERROR"
+
+
+def _generate_default_icon(color_hex: str = "#C9A84C") -> bytes:
+    """Generiert ein Default-Icon.png (158x158 px) mit 'S' für Stempelkarte.
+    Apple benötigt icon.png (29x29) und icon@2x.png (58x58) im .pkpass —
+    ohne diese wird der Pass abgelehnt.
+
+    Wir generieren ein hochauflösendes Icon (158x158) das für alle Größen passt.
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import io as _io
+
+        # 158x158 px (Apple akzeptiert das für icon@2x.png, skaliert für icon.png)
+        size = 158
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        # Farbe aus Hex parsen
+        hex_str = color_hex.lstrip("#")
+        if len(hex_str) == 6:
+            r = int(hex_str[0:2], 16)
+            g = int(hex_str[2:4], 16)
+            b = int(hex_str[4:6], 16)
+        else:
+            r, g, b = 201, 168, 76  # Default gold
+
+        # Abgerundetes Rechteck als Hintergrund
+        radius = 32
+        draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=(r, g, b, 255))
+
+        # "S" Buchstabe in weiß (für Stempelkarte)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 90)
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Text zentrieren
+        text = "S"
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        x = (size - text_w) // 2 - bbox[0]
+        y = (size - text_h) // 2 - bbox[1]
+        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+
+        out = _io.BytesIO()
+        img.save(out, format="PNG", optimize=True)
+        return out.getvalue()
+    except Exception as e:
+        print(f"[Apple Pass] Default icon generation failed: {e}")
+        # Fallback: 1x1 transparentes PNG (besser als nichts)
+        return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
 
 
 def generate_apple_pkpass(
@@ -361,13 +410,11 @@ def generate_apple_pkpass(
     """Generiert einen kompletten .pkpass-File (ZIP) für Apple Wallet.
 
     Ein .pkpass ist ein ZIP-Archiv mit:
-    - pass.json (Pass-Definition)
-    - manifest.json (SHA1-Hashes aller Dateien)
-    - signature (PKCS#7-Signatur des Manifests)
-    - icon.png, logo.png, background.png (optional)
-    - de.lproj/pass.strings (Lokalisierung, optional)
-
-    Returns: ZIP-Bytes oder None bei Fehler.
+    - pass.json (Pass-Definition) — REQUIRED
+    - manifest.json (SHA1-Hashes aller Dateien) — REQUIRED
+    - signature (PKCS#7-Signatur des Manifests) — REQUIRED
+    - icon.png + icon@2x.png — REQUIRED (Apple lehnt Pass ohne icon ab!)
+    - logo.png + logo@2x.png (optional, auf Pass sichtbar)
     """
     try:
         # 1. pass.json generieren
@@ -376,30 +423,42 @@ def generate_apple_pkpass(
         )
         pass_json_bytes = json.dumps(pass_json, indent=2).encode("utf-8")
 
-        # 2. Manifest (Hashes aller Dateien)
-        manifest = {
-            "pass.json": hashlib.sha1(pass_json_bytes).hexdigest()
-        }
+        # 2. icon.png generieren (REQUIRED — Apple lehnt Pass ohne icon ab)
+        color_hex = card.get("color_hex", "#C9A84C")
+        icon_bytes = _generate_default_icon(color_hex)
 
-        # Logo hinzufügen falls vorhanden
+        # 3. Logo laden falls vorhanden (optional, auf Pass sichtbar)
         logo_bytes = None
         if logo_path and os.path.exists(logo_path):
             with open(logo_path, "rb") as f:
                 logo_bytes = f.read()
+
+        # 4. Manifest bauen — Hashes ALLER Dateien die im ZIP landen
+        manifest = {
+            "pass.json": hashlib.sha1(pass_json_bytes).hexdigest(),
+            "icon.png": hashlib.sha1(icon_bytes).hexdigest(),
+            "icon@2x.png": hashlib.sha1(icon_bytes).hexdigest(),  # gleiches Icon, andere Größe
+        }
+        if logo_bytes:
             manifest["logo.png"] = hashlib.sha1(logo_bytes).hexdigest()
             manifest["logo@2x.png"] = hashlib.sha1(logo_bytes).hexdigest()
 
+        # 5. Manifest als bytes serialisieren — EXAKT diese bytes werden signiert UND im ZIP gespeichert
         manifest_bytes = json.dumps(manifest, indent=2).encode("utf-8")
 
-        # 3. Signatur
-        signature = _sign_pass_manifest(manifest)
+        # 6. Signatur über EXAKT diese manifest_bytes (nicht neu serialisieren!)
+        signature = _sign_pass_manifest(manifest_bytes)
 
-        # 4. ZIP erstellen
+        # 7. ZIP erstellen
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("pass.json", pass_json_bytes)
             zf.writestr("manifest.json", manifest_bytes)
             zf.writestr("signature", signature)
+            # REQUIRED: icon.png + icon@2x.png
+            zf.writestr("icon.png", icon_bytes)
+            zf.writestr("icon@2x.png", icon_bytes)
+            # Optional: logo.png
             if logo_bytes:
                 zf.writestr("logo.png", logo_bytes)
                 zf.writestr("logo@2x.png", logo_bytes)
