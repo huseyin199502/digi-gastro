@@ -1100,48 +1100,60 @@
             const appleBtn = document.getElementById('loyalty-apple-btn');
             if (appleBtn) {
                 appleBtn.href = '/{{ slug }}/loyalty/pass/apple';
-                // Beim Klick: merken dass Kunde Karte gespeichert hat
                 appleBtn.addEventListener('click', () => {
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
                 });
             }
 
             // GOOGLE: save_url via fetch holen und als href setzen.
-            // Wird VOR Popup-Anzeige gemacht, damit User beim Klick sofort
-            // zur Google Wallet Seite kommt (kein Warten, kein JSON-Rohtext).
             const googleBtn = document.getElementById('loyalty-google-btn');
             if (googleBtn) {
                 googleBtn.addEventListener('click', () => {
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
                 });
-                // Async fetch save_url — Button-Href wird gesetzt sobald verfügbar
                 fetch('/{{ slug }}/loyalty/pass/google')
                     .then(r => r.ok ? r.json() : null)
                     .then(d => {
                         if (d && d.save_url) {
                             googleBtn.href = d.save_url;
                         } else {
-                            // Fallback: falls API kaputt, Button ausblenden
                             googleBtn.style.display = 'none';
                         }
                     })
                     .catch(() => { googleBtn.style.display = 'none'; });
             }
 
-            // ── SMART DEVICE DETECTION ──
-            // iOS: nur Apple Wallet Button zeigen
-            // Android: nur Google Wallet Button zeigen
-            // Desktop: beide zeigen (User kann wählen)
+            // Device Detection initial anwenden (beim Laden)
+            applyDeviceDetection();
+        }
+
+        // ── GLOBALE Device Detection Funktion ──
+        // Wird bei jedem Popup-Öffnen aufgerufen (handleSpeisekarteClick)
+        // UND beim initialen Laden (prepareLoyaltyPopup).
+        // iOS (iPhone/iPad/iPod + iPadOS 13+ als MacIntel): nur Apple Button
+        // Android: nur Google Button
+        // Desktop/Other: beide Buttons
+        function applyDeviceDetection() {
+            const appleBtn = document.getElementById('loyalty-apple-btn');
+            const googleBtn = document.getElementById('loyalty-google-btn');
+            if (!appleBtn || !googleBtn) return;
+
+            // Reset: beide Buttons sichtbar
+            appleBtn.style.display = '';
+            googleBtn.style.display = '';
+
             const ua = navigator.userAgent || '';
-            const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            // iOS Detection: iPhone/iPad/iPod ODER iPadOS 13+ (meldet sich als MacIntel mit Touch)
+            const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             const isAndroid = /Android/i.test(ua);
 
             if (isIOS) {
                 // iOS → nur Apple Button
-                if (googleBtn) googleBtn.style.display = 'none';
+                googleBtn.style.display = 'none';
             } else if (isAndroid) {
                 // Android → nur Google Button
-                if (appleBtn) appleBtn.style.display = 'none';
+                appleBtn.style.display = 'none';
             }
             // Desktop: beide sichtbar (Default)
         }
@@ -2781,6 +2793,12 @@
                         document.getElementById('loyalty-popup-title').textContent = 'Unsere digitale Stempelkarte';
                         document.getElementById('loyalty-popup-subtitle').textContent = 'Jetzt speichern und bei jeder Bestellung profitieren';
                     }
+
+                    // ── CRITICAL: Device Detection JEDS MAL beim Öffnen ausführen ──
+                    // Vorher lief die Detection nur in prepareLoyaltyPopup (einmal beim Laden).
+                    // Wenn der User das Popup schließt und wieder öffnet, war die Detection
+                    // nicht mehr aktiv. Jetzt läuft sie bei jedem handleSpeisekarteClick.
+                    applyDeviceDetection();
 
                     // Popup anzeigen
                     const popup = document.getElementById('loyalty-popup');
