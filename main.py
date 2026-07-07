@@ -13916,6 +13916,14 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
     if not customer:
         customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple")
 
+    # CRITICAL FIX: Wenn der Customer zuvor als "google" erstellt wurde, aber
+    # jetzt einen Apple Pass lädt → pass_type auf "apple" updaten!
+    # Sonst versucht _trigger_pass_update_push Google Push zu senden statt Apple APNs.
+    if customer.pass_type != "apple":
+        customer.pass_type = "apple"
+        db.commit()
+        print(f"[Loyalty] Customer {customer.id} pass_type updated: google → apple")
+
     geofence = db.query(TenantGeofence).filter_by(
         tenant_slug=slug_lower, is_primary=True
     ).first()
