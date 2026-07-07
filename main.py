@@ -14124,51 +14124,28 @@ async def passkit_get_registrations(
     db: Session = Depends(get_db),
 ):
     """Apple PassKit: Listet alle Passes die auf diesem Device registriert sind.
-    Query: ?passesUpdatedSince=<tag>
 
-    WICHTIG: Apple schickt den Authorization Header als 'ApplePass <token>'.
-    Der Token ist der authenticationToken aus der pass.json. Da wir den Token
-    deterministisch generieren (SHA256 von pass_serial), können wir ihn hier
-    validieren. Aber Apple ruft diesen Endpoint manchmal OHNE Authorization
-    auf (z.B. beim 'Get serial #s task'). In dem Fall geben wir 204 zurück
-    (keine Passes) anstatt 401 — das verhindert dass iOS den Pass als
-    'fehlerhaft' markiert und Updates verweigert.
+    WICHTIG: Apple's 'Get serial #s task' (background check nach APNs Push)
+    ruft diesen Endpoint auf. Wenn wir 204 zurückgeben, denkt iOS 'nichts zu
+    tun' → ruft nicht GET /passes/... auf → Pass aktualisiert sich nicht.
+
+    Fix: IMMER 200 mit serialNumbers zurückgeben wenn Registrierungen
+    existieren (ohne Auth-Validierung). Apple's Spec ist hier ambivalent —
+    die Praxis zeigt: 204 = 'nichts zu tun' = Pass wird nie aktualisiert.
     """
-    auth = request.headers.get("Authorization", "")
+    regs = db.query(DBPasskitReg).filter_by(
+        device_library_identifier=device_library_id,
+        pass_type_identifier=pass_type_id
+    ).all()
 
-    # Wenn Authorization Header da → validieren
-    if auth.startswith("ApplePass "):
-        token = auth[10:]
-        # Token gegen alle Passes dieses device_library_id prüfen
-        regs = db.query(DBPasskitReg).filter_by(
-            device_library_identifier=device_library_id,
-            pass_type_identifier=pass_type_id
-        ).all()
+    if not regs:
+        return Response(status_code=204)
 
-        # Token validieren: SHA256(pass_serial + ":digi-gastro-auth")[:32]
-        import hashlib as _hl
-        valid = False
-        for reg in regs:
-            expected = _hl.sha256(f"{reg.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32]
-            if token == expected:
-                valid = True
-                break
-
-        if not valid:
-            # Token stimmt nicht → trotzdem 204 statt 401 (weniger streng)
-            return Response(status_code=204)
-
-        if not regs:
-            return Response(status_code=204)
-
-        return {
-            "lastUpdated": _now_iso(),
-            "serialNumbers": [r.pass_serial for r in regs]
-        }
-
-    # Kein Authorization Header → 204 (keine Passes)
-    # Das ist sicherer als 401 — iOS behandelt 401 als Fatal Error
-    return Response(status_code=204)
+    # 200 + serialNumbers → iOS ruft GET /passes/... für jeden serial auf
+    return {
+        "lastUpdated": _now_iso(),
+        "serialNumbers": [r.pass_serial for r in regs]
+    }
 
 
 @app.delete("/api/wallet/apple/v1/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
