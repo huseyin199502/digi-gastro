@@ -14585,7 +14585,77 @@ def loyalty_delete_all_customers(
 
 
 # ──────────────────────────────────────────────────────────────────
-# BROADCAST PUSH ENDPOINT — sendet Push an alle Kunden des Tenants
+# QUICK SEND — direkte Push-Nachricht ohne Kampagne (an alle oder einzelne)
+# ──────────────────────────────────────────────────────────────────
+@app.post("/admin/loyalty/quick-send")
+async def loyalty_quick_send(
+    request: Request,
+    db: Session = Depends(get_db),
+    chef_data: tuple = Depends(require_chef_user_flat),
+):
+    """Sendet sofort eine Push-Nachricht — ohne vorher eine Kampagne anlegen zu müssen.
+
+    Body: {"title": "Hallo", "message": "Test", "customer_id": null}
+    - customer_id leer/null → an ALLE Kunden senden
+    - customer_id gesetzt → nur an diesen einen Kunden senden
+    """
+    from loyalty import _trigger_pass_update_push, _now_iso
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    title = (body.get("title") or "").strip()
+    message = (body.get("message") or "").strip()
+    customer_id = body.get("customer_id")
+
+    if not title or not message:
+        raise HTTPException(status_code=400, detail="Titel und Nachricht erforderlich.")
+
+    # Kunde(n) laden
+    if customer_id:
+        customers = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, id=int(customer_id), push_opt_out=False
+        ).all()
+    else:
+        customers = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, push_opt_out=False
+        ).all()
+
+    if not customers:
+        raise HTTPException(status_code=404, detail="Keine Kunden gefunden.")
+
+    full_msg = f"{title}: {message}"
+    stats = {"pushs_sent": 0, "pushs_failed": 0}
+
+    for customer in customers:
+        # last_message updaten → changeMessage triggert iOS Notification
+        customer.last_message = full_msg[:200]
+
+        success = _trigger_pass_update_push(db, customer, title, message)
+        if success:
+            customer.last_push_at = _now_iso()
+            log = LoyaltyPushLog(
+                tenant_slug=slug_lower,
+                customer_id=customer.id,
+                campaign_id=None,
+                push_type="quick_send",
+                title=title,
+                message=message,
+                status="sent",
+                sent_at=_now_iso(),
+            )
+            db.add(log)
+            stats["pushs_sent"] += 1
+        else:
+            stats["pushs_failed"] += 1
+
+    db.commit()
+    return {"success": True, "stats": stats}
+
+
 # ──────────────────────────────────────────────────────────────────
 @app.post("/admin/loyalty/broadcast/{campaign_id}")
 def loyalty_broadcast_push(
