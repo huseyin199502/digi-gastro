@@ -13939,6 +13939,7 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         # Deterministisch: gleicher Token bei jedem Pass-Download/Update
         "auth_token": hashlib.sha256(f"{customer.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32],
         "short_code": customer.short_code or "",
+        "last_message": getattr(customer, 'last_message', 'Willkommen!') or 'Willkommen!',
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
@@ -14218,6 +14219,7 @@ async def passkit_get_pass(
         # CRITICAL: Same deterministic auth_token as in initial pass download
         "auth_token": hashlib.sha256(f"{customer.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32],
         "short_code": customer.short_code or "",
+        "last_message": getattr(customer, 'last_message', 'Willkommen!') or 'Willkommen!',
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
@@ -14633,6 +14635,9 @@ def loyalty_broadcast_push(
 
         success = _trigger_pass_update_push(db, customer, campaign.title, campaign.message)
         if success:
+            # CRITICAL: last_message updaten → changeMessage triggert iOS Notification
+            full_msg = f"{campaign.title}: {campaign.message}"
+            customer.last_message = full_msg[:200]  # Max 200 chars
             customer.last_push_at = _now_iso()
             log = LoyaltyPushLog(
                 tenant_slug=slug_lower,

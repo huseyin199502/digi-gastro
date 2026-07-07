@@ -241,6 +241,16 @@ def _generate_apple_pass_json(
                     "label": "Nächster Reward",
                     "value": reward_name,
                     "textAlignment": "PKTextAlignmentLeft"
+                },
+                {
+                    "key": "lastmsg",
+                    "label": "Letzte Nachricht",
+                    "value": customer.get("last_message", "Willkommen!"),
+                    "textAlignment": "PKTextAlignmentLeft",
+                    # CRITICAL: changeMessage für Broadcast/Inaktivität-Pushs.
+                    # Wenn sich last_message ändert → iOS zeigt Notification!
+                    "changeMessage": "%@",
+                    "hidden": False
                 }
             ],
             "backFields": [
@@ -807,6 +817,9 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
             )
 
             if success:
+                # CRITICAL: last_message updaten → changeMessage triggert iOS Notification
+                full_msg = f"{campaign.title}: {campaign.message}"
+                customer.last_message = full_msg[:200]
                 # Log + Customer updaten
                 log = LoyaltyPushLog(
                     tenant_slug=customer.tenant_slug,

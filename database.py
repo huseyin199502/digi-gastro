@@ -444,6 +444,8 @@ class LoyaltyCustomer(Base):
     # ── PHASE B: Stammkunden-Tier ──
     # Automatisch nach Visits: 1-2 = "neu", 3-9 = "stamm", 10+ = "vip"
     tier = Column(String, default="neu")                  # "neu", "stamm", "vip"
+    # ── Broadcast/Inaktivität: letzte Nachricht (für changeMessage) ──
+    last_message = Column(String, default="Willkommen!")  # Ändert sich bei Broadcast → iOS Notification
 
 class LoyaltyStamp(Base):
     """Ein einzelner Stempel — wird bei Bestellung automatisch vergeben.
@@ -616,6 +618,7 @@ def _migrate_database():
     add_column_if_missing('loyalty_customers', 'nickname', "VARCHAR")
     add_column_if_missing('loyalty_customers', 'birthday', "VARCHAR")  # "MM-DD" nur Monat+Tag, DSGVO!
     add_column_if_missing('loyalty_customers', 'tier', "VARCHAR DEFAULT 'neu'")
+    add_column_if_missing('loyalty_customers', 'last_message', "VARCHAR DEFAULT 'Willkommen!'")
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")
