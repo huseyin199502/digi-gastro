@@ -283,9 +283,16 @@ def _generate_apple_pass_json(
             "customer_id": customer.get("id"),
         },
         # ── Push Notification Settings ──
-        # WICHTIG: Für Pass-Update Push Notifications (changeMessage)
-        # iOS braucht diese Fields um Notifications zu zeigen:
-        "notificationLockScreen": True,
+        # WICHTIG: relevantText wird auf dem SPERRBILDSCHIRM angezeigt wenn:
+        # 1. Pass geupdatet wird (via APNs push) → iOS zeigt relevantText als Banner
+        # 2. Kunde in Geofencing-Nähe ist → iOS zeigt relevantText auf Sperrbildschirm
+        # OHNE relevantText: changeMessage erscheint nur im Notification Center (nicht Sperrbildschirm)
+        "relevantText": f"📍 {tenant_name} — {stamps_current}/{stamps_required} Stempel · {reward_name}",
+        "userInfo": {
+            "tenant_slug": tenant_slug,
+            "card_id": card.get("id"),
+            "customer_id": customer.get("id"),
+        },
         # ── PHASE 1: barcodes Field für QR-Code-Anzeige im Pass ──
         "barcodes": [
             {

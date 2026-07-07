@@ -13980,8 +13980,16 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         media_type="application/vnd.apple.pkpass",
         headers={"Content-Disposition": f'attachment; filename="{slug_lower}-stempelkarte.pkpass"'}
     )
+    # CRITICAL: customer_id Cookie setzen (für PassKit Web Service)
     response.set_cookie(
         key=cookie_name, value=str(customer.id), httponly=True,
+        max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
+    )
+    # CRITICAL: 'saved' Cookie setzen (für Popup-Suppression)
+    # Dieser Cookie verhindert dass das Loyalty-Popup wieder erscheint
+    # nachdem der Kunde den Pass heruntergeladen hat.
+    response.set_cookie(
+        key=f"loyalty_{slug_lower}", value="saved", httponly=False,
         max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
     )
     return response
@@ -14042,6 +14050,11 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
     })
     response.set_cookie(
         key=cookie_name, value=str(customer.id), httponly=True,
+        max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
+    )
+    # CRITICAL: 'saved' Cookie setzen (für Popup-Suppression)
+    response.set_cookie(
+        key=f"loyalty_{slug_lower}", value="saved", httponly=False,
         max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
     )
     return response
