@@ -14521,6 +14521,62 @@ def loyalty_customers_list(
     }
 
 
+@app.delete("/admin/loyalty/customer/{customer_id}")
+def loyalty_delete_customer(
+    customer_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Löscht einen einzelnen Customer + alle seine Stempel + Logs."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customer = db.query(LoyaltyCustomer).filter_by(
+        id=customer_id, tenant_slug=slug_lower
+    ).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden.")
+
+    # Stempel löschen
+    from database import LoyaltyStamp as DBLoyaltyStamp, LoyaltyPushLog as DBLoyaltyPushLog
+    db.query(DBLoyaltyStamp).filter_by(customer_id=customer_id).delete()
+    # Push-Logs löschen
+    db.query(DBLoyaltyPushLog).filter_by(customer_id=customer_id).delete()
+    # Device-Registrierungen löschen
+    from database import PasskitDeviceRegistration as DBPasskitReg
+    db.query(DBPasskitReg).filter_by(pass_serial=customer.pass_serial).delete()
+    # Customer löschen
+    db.delete(customer)
+    db.commit()
+    return {"success": True, "deleted": customer_id}
+
+
+@app.post("/admin/loyalty/delete-all-customers")
+def loyalty_delete_all_customers(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Löscht ALLE Kunden des aktuellen Tenants (für Demo-Cleanup)."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    from database import LoyaltyStamp as DBLoyaltyStamp, LoyaltyPushLog as DBLoyaltyPushLog, PasskitDeviceRegistration as DBPasskitReg
+
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+    serials = [c.pass_serial for c in customers]
+    customer_ids = [c.id for c in customers]
+
+    if customer_ids:
+        db.query(DBLoyaltyStamp).filter(DBLoyaltyStamp.customer_id.in_(customer_ids)).delete(synchronize_session=False)
+        db.query(DBLoyaltyPushLog).filter(DBLoyaltyPushLog.customer_id.in_(customer_ids)).delete(synchronize_session=False)
+        if serials:
+            db.query(DBPasskitReg).filter(DBPasskitReg.pass_serial.in_(serials)).delete(synchronize_session=False)
+        db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).delete(synchronize_session=False)
+        db.commit()
+
+    return {"success": True, "deleted_count": len(customers)}
+
+
 # ──────────────────────────────────────────────────────────────────
 # BROADCAST PUSH ENDPOINT — sendet Push an alle Kunden des Tenants
 # ──────────────────────────────────────────────────────────────────

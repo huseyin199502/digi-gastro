@@ -944,8 +944,9 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
                 json=payload,
                 headers={
                     "apns-topic": APPLE_PASS_TYPE_ID,
-                    "apns-push-type": "passbook",  # CRITICAL: "passbook" not "alert"
-                    "apns-priority": "10"
+                    "apns-push-type": "background",  # Apple 2023+: "background" for pass updates (not "passbook")
+                    "apns-priority": "5",
+                    "apns-expiration": "0"
                 },
                 timeout=10
             )
