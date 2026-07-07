@@ -219,20 +219,35 @@ def _generate_apple_pass_json(
         reward_label = "Noch bis zum Reward"
         reward_value = f"🎁 {reward_name} — Nur noch {remaining} Stempel!"
 
+    # ── Karten-Farbe als Hintergrund (Tenant wählt rot → Pass ist rot) ──
+    # Helligkeit berechnen um Text-Farbe automatisch anzupassen (Kontrast)
+    # Helle Farben → dunkler Text, dunkle Farben → heller Text
+    brightness = (r * 299 + g * 587 + b * 114) / 1000
+    if brightness > 140:
+        # Helle Farbe → dunkler Text für Kontrast
+        bg_color = rgb_color
+        fg_color = "rgb(28,28,30)"       # dunkler Text
+        label_color = "rgb(28,28,30)"    # dunkle Labels
+    else:
+        # Dunkle Farbe → heller Text für Kontrast
+        bg_color = rgb_color
+        fg_color = "rgb(255,255,255)"    # weißer Text
+        label_color = "rgb(255,255,255)" # weiße Labels
+
     pass_json = {
         "description": f"{card_name} - {tenant_name}",
         "formatVersion": 1,
         "organizationName": tenant_name or "digi-gastro",
-        "logoText": tenant_name or "digi-gastro",  # WICHTIG: Logo-Text = Tenant-Name (sichtbar auf Pass)
+        "logoText": tenant_name or "digi-gastro",
         "passTypeIdentifier": APPLE_PASS_TYPE_ID,
         "serialNumber": serial,
         "teamIdentifier": APPLE_TEAM_ID,
         "webServiceURL": f"https://digi-gastro.de/api/wallet/apple",
         "authenticationToken": customer.get("auth_token", _gen_auth_token(serial)),
-        # Dark Mode Design (2026 modern)
-        "backgroundColor": "rgb(20,20,22)",
-        "foregroundColor": "rgb(255,255,255)",
-        "labelColor": rgb_color,
+        # Karten-Farbe als Hintergrund (Tenant wählt rot → Pass ist rot!)
+        "backgroundColor": bg_color,
+        "foregroundColor": fg_color,
+        "labelColor": label_color,
         "associatedStoreIdentifiers": [],
         "storeCard": {
             "headerFields": [
@@ -316,6 +331,11 @@ def _generate_apple_pass_json(
         # 2. Kunde in Geofencing-Nähe ist → iOS zeigt relevantText auf Sperrbildschirm
         # OHNE relevantText: changeMessage erscheint nur im Notification Center (nicht Sperrbildschirm)
         "relevantText": f"📍 {tenant_name} — {stamps_current}/{stamps_required} Stempel · {reward_name}",
+        # WICHTIG: relevantDate macht den Pass "zeit-relevant" → iOS zeigt
+        # Notification auf Sperrbildschirm wenn Pass-Update empfangen wird.
+        # Ohne relevantDate: Notification nur im Notification Center (Hintergrund).
+        # Mit relevantDate: iOS behandelt den Pass als "aktuell" → Sperrbildschirm.
+        "relevantDate": _now_iso().replace("Z", "+00:00"),
         "userInfo": {
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
@@ -332,12 +352,13 @@ def _generate_apple_pass_json(
         ]
     }
 
-    # Geofencing: bis zu 10 Locations (Apple-Limit)
+    # Geofencing: IMMER Location hinzufügen wenn vorhanden (nicht nur bei Kampagne)
+    # Location macht den Pass "relevant" wenn Kunde in der Nähe ist → Sperrbildschirm
     if geofence:
         pass_json["locations"] = [{
             "latitude": geofence["latitude"],
             "longitude": geofence["longitude"],
-            "relevantText": f"📍 Hey, du bist in der Nähe! Schau doch rein 👋"
+            "relevantText": f"📍 {tenant_name} — Schau doch rein! {stamps_current}/{stamps_required} Stempel"
         }]
 
     return pass_json
