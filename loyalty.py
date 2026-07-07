@@ -64,7 +64,7 @@ def _ensure_db_models():
 # Für Dev: Platzhalter-String. In Prod: z.B. "de.digi-gastro.loyalty"
 APPLE_PASS_TYPE_ID = os.getenv("APPLE_PASS_TYPE_ID", "de.digi-gastro.loyalty")
 APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID", "TEAMID123")
-# Pfade zu Zertifikaten (in Prod via Secret Volume mounten)
+# Pfade zu Zertifikaten (in Prod via Secret Volume mounten ODER via Base64-Env-Vars)
 APPLE_CERT_PATH = os.getenv("APPLE_CERT_PATH", "/app/secrets/apple_cert.pem")
 APPLE_KEY_PATH = os.getenv("APPLE_KEY_PATH", "/app/secrets/apple_key.pem")
 APPLE_WWDR_PATH = os.getenv("APPLE_WWDR_PATH", "/app/secrets/wwdr.pem")
@@ -74,6 +74,52 @@ APPLE_CERT_PASSWORD = os.getenv("APPLE_CERT_PASSWORD", "")
 GOOGLE_SERVICE_ACCOUNT_PATH = os.getenv("GOOGLE_SERVICE_ACCOUNT_PATH", "/app/secrets/google_sa.json")
 GOOGLE_ISSUER_ID = os.getenv("GOOGLE_ISSUER_ID", "33880000000000003234")
 GOOGLE_CLASS_ID = f"{GOOGLE_ISSUER_ID}.digi-gastro-loyalty"
+
+
+# ──────────────────────────────────────────────────────────────────
+# WALLET SECRETS — Base64-Env-Vars als Alternative zu File-Mounts
+# ──────────────────────────────────────────────────────────────────
+# Coolify API unterstützt keine File-Mounts, nur Env-Vars.
+# Daher: Zertifikate als Base64-Env-Vars setzen, beim Start dekodieren
+# und als temporäre Files ablegen. Die Pfade oben (APPLE_CERT_PATH etc.)
+# werden dann auf diese temporären Files umgebogen.
+import tempfile as _tempfile
+import base64 as _base64
+
+def _decode_secret_to_file(env_var_name: str, suffix: str = ".pem") -> Optional[str]:
+    """Liest eine Base64-kodierte Secret aus einer Env-Var und schreibt sie in ein temporäres File.
+    Returns: Pfad zur temporären Datei, oder None wenn Env-Var nicht gesetzt."""
+    b64_value = os.getenv(env_var_name, "").strip()
+    if not b64_value:
+        return None
+    try:
+        content = _base64.b64decode(b64_value)
+        # Persistentes File im /tmp Verzeichnis (überlebt Container-Restart nicht, aber das ist OK)
+        tmp_path = _tempfile.mktemp(suffix=suffix, prefix=f"secret_{env_var_name.lower()}_")
+        with open(tmp_path, "wb") as f:
+            f.write(content)
+        os.chmod(tmp_path, 0o600)
+        return tmp_path
+    except Exception as e:
+        print(f"[Loyalty Secret] Failed to decode {env_var_name}: {e}")
+        return None
+
+# Base64-Env-Vars dekodieren (falls gesetzt) und Pfade überschreiben
+_apple_cert_from_env = _decode_secret_to_file("APPLE_CERT_B64", ".pem")
+if _apple_cert_from_env:
+    APPLE_CERT_PATH = _apple_cert_from_env
+
+_apple_key_from_env = _decode_secret_to_file("APPLE_KEY_B64", ".pem")
+if _apple_key_from_env:
+    APPLE_KEY_PATH = _apple_key_from_env
+
+_apple_wwdr_from_env = _decode_secret_to_file("APPLE_WWDR_B64", ".pem")
+if _apple_wwdr_from_env:
+    APPLE_WWDR_PATH = _apple_wwdr_from_env
+
+_google_sa_from_env = _decode_secret_to_file("GOOGLE_SA_B64", ".json")
+if _google_sa_from_env:
+    GOOGLE_SERVICE_ACCOUNT_PATH = _google_sa_from_env
 
 
 def _is_apple_configured() -> bool:
@@ -209,7 +255,19 @@ def _generate_apple_pass_json(
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
             "customer_id": customer.get("id"),
-        }
+        },
+        # ── PHASE 1: barcodes Field für QR-Code-Anzeige im Pass ──
+        # Apple Wallet zeigt den QR-Code auf der Pass-Rückseite an.
+        # Kellner kann mit seinem Handy-Camera den QR scannen → Stempel vergeben.
+        # Format: "PKBarcodeFormatQR" mit message=pass_serial (alternativ short_code)
+        "barcodes": [
+            {
+                "format": "PKBarcodeFormatQR",
+                "message": customer.get("short_code") or serial,  # Short-Code primär, Serial als Fallback
+                "messageEncoding": "iso-8859-1",
+                "altText": f"Code: {customer.get('short_code', '')}"  # Wird unter QR angezeigt
+            }
+        ]
     }
 
     # Geofencing: bis zu 10 Locations (Apple-Limit)
@@ -740,10 +798,119 @@ def get_or_create_customer(
         created_at=_now_iso(),
         pass_needs_update=True,
         push_opt_out=False,
+        short_code=_generate_short_code(),  # PHASE 1: 4-stelliger Code
+        tier="neu",
     )
     db_session.add(customer)
     db_session.commit()
     return customer, True
+
+
+# ──────────────────────────────────────────────────────────────────
+# PHASE 1: Short-Code für manuelle Stempel-Vergabe (Scanner-Alternative)
+# ──────────────────────────────────────────────────────────────────
+# Crockford Base32 Alphabet (kein 0/O/1/I → keine Verwechslung beim Ablesen)
+_CROCKFORD_BASE32 = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+
+def _generate_short_code() -> str:
+    """Generiert einen eindeutigen 4-stelligen Code (z.B. 'A7K2').
+
+    Verwendung: Wird im Wallet-Pass angezeigt. Kellner tippt Code ein →
+    System findet Customer → Stempel vergeben. Keine Kamera, kein QR-Scan nötig.
+    """
+    import random
+    return "".join(random.choice(_CROCKFORD_BASE32) for _ in range(4))
+
+
+def find_customer_by_short_code(db_session, tenant_slug: str, short_code: str):
+    """Findet einen Customer anhand seines 4-stelligen Codes.
+
+    Case-insensitive, tolerant gegen 0/O und 1/I Verwechslung.
+    Returns: LoyaltyCustomer oder None.
+    """
+    _ensure_db_models()
+    if not short_code:
+        return None
+    # Normalisiere: uppercase, O→0… nein wait, Crockford hat kein 0/O.
+    # Aber User könnte O statt 0 tippen → wir normalisieren O→null? Nein, kein 0 im Alphabet.
+    # Stattdessen: O→Q (ähnlich), I→J (ähnlich). Einfacher: O→Q, I→J, 1→J, 0→Q.
+    code = short_code.upper().strip()
+    code = code.replace("0", "Q").replace("O", "Q").replace("1", "J").replace("I", "J")
+    return db_session.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.tenant_slug == tenant_slug.lower().strip(),
+        LoyaltyCustomer.short_code == code
+    ).first()
+
+
+def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by: str = "waiter"):
+    """Vergibt einen manuellen Stempel an einen Customer via Short-Code.
+
+    Wird vom Scanner-Modus im Admin-Panel aufgerufen.
+    Returns: dict mit success/Fehler-Info.
+    """
+    _ensure_db_models()
+    customer = find_customer_by_short_code(db_session, tenant_slug, short_code)
+    if not customer:
+        return {"success": False, "error": "Kein Kunde mit diesem Code gefunden."}
+
+    # Card laden für stamps_required
+    card = db_session.query(LoyaltyCard).filter_by(id=customer.card_id).first()
+    if not card:
+        return {"success": False, "error": "Stempelkarte existiert nicht mehr."}
+
+    # Stempel vergeben
+    customer.current_stamps += 1
+    customer.total_stamps_earned += 1
+    customer.last_visit_at = _now_iso()
+    customer.pass_needs_update = True
+
+    # Tier updaten (PHASE B)
+    total = customer.total_stamps_earned
+    if total >= 10:
+        customer.tier = "vip"
+    elif total >= 3:
+        customer.tier = "stamm"
+    else:
+        customer.tier = "neu"
+
+    # Stamp-Log-Eintrag
+    stamp = LoyaltyStamp(
+        tenant_slug=tenant_slug.lower().strip(),
+        customer_id=customer.id,
+        card_id=customer.card_id,
+        order_id=None,
+        order_total=0.0,
+        stamp_type="manual",
+        is_redeemed=False,
+        created_at=_now_iso(),
+    )
+    db_session.add(stamp)
+
+    # Reward prüfen
+    reward_redeemed = False
+    if customer.current_stamps >= card.stamps_required:
+        customer.current_stamps = 0
+        customer.rewards_redeemed += 1
+        reward_redeemed = True
+
+    db_session.commit()
+
+    # Pass-Update Push triggern (falls konfiguriert)
+    try:
+        _trigger_pass_update_push(db_session, customer, card.name, "Stempel erhalten!")
+    except Exception as e:
+        print(f"[Loyalty] Push failed (non-fatal): {e}")
+
+    return {
+        "success": True,
+        "customer_nickname": customer.nickname or f"Kunde {customer.short_code}",
+        "current_stamps": customer.current_stamps,
+        "stamps_required": card.stamps_required,
+        "reward_redeemed": reward_redeemed,
+        "reward_name": card.reward_name if reward_redeemed else None,
+        "tier": customer.tier,
+    }
 
 
 def get_customer_analytics(db_session, tenant_slug: str) -> Dict[str, Any]:
