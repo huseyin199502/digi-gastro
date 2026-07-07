@@ -14534,6 +14534,7 @@ def loyalty_customers_list(
             "rewards_redeemed": c.rewards_redeemed,
             "tier": c.tier or "neu",
             "nickname": c.nickname,
+            "last_message": getattr(c, 'last_message', None) or "Willkommen!",
             "first_visit_at": c.first_visit_at,
             "last_visit_at": c.last_visit_at,
             "push_opt_out": c.push_opt_out,
