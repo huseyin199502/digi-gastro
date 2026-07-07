@@ -6947,6 +6947,9 @@
             if (tabId === 'landingpage') {
                 initLandingpagePreview();
             }
+            if (tabId === 'loyalty') {
+                loadLoyaltyDashboard();
+            }
 
             // Live-Badge nur auf operativen Tabs anzeigen
             const liveBadge = document.getElementById('dash-live-badge');
@@ -14184,6 +14187,271 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">wifi_find</span> Verbindung testen';
                 }
             }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // 🎟️ LOYALTY DASHBOARD (Stempelkarten, Kampagnen, Kunden)
+        // ══════════════════════════════════════════════════════
+        const TENANT_SLUG = "{{ slug }}";
+
+        async function loadLoyaltyDashboard() {
+            try {
+                const res = await fetch('/admin/loyalty/dashboard', { credentials: 'same-origin' });
+                if (!res.ok) throw new Error('Dashboard load failed');
+                const data = await res.json();
+
+                // Analytics
+                const a = data.analytics || {};
+                document.getElementById('loyalty-stat-total').textContent = a.total_customers ?? '—';
+                document.getElementById('loyalty-stat-active').textContent = a.active_customers_30d ?? '—';
+                document.getElementById('loyalty-stat-rewards').textContent = a.rewards_redeemed ?? '—';
+                document.getElementById('loyalty-stat-pushs').textContent = (a.pushs_sent_30d ?? 0) + '✓ / ' + (a.pushs_failed_30d ?? 0) + '✗';
+
+                // Setup-Warning (falls Apple/Google nicht konfiguriert)
+                const warning = document.getElementById('loyalty-setup-warning');
+                const configStatus = document.getElementById('loyalty-config-status');
+                if (warning) {
+                    if (!data.apple_configured || !data.google_configured) {
+                        warning.classList.remove('hidden');
+                        if (configStatus) {
+                            configStatus.textContent = 'Apple: ' + (data.apple_configured ? '✅' : '❌') + ' | Google: ' + (data.google_configured ? '✅' : '❌');
+                        }
+                    } else {
+                        warning.classList.add('hidden');
+                    }
+                }
+
+                // Karten rendern
+                renderLoyaltyCards(data.cards || []);
+
+                // Geofence
+                if (data.geofence) {
+                    document.getElementById('loyalty-geofence-lat').value = data.geofence.latitude;
+                    document.getElementById('loyalty-geofence-lng').value = data.geofence.longitude;
+                    document.getElementById('loyalty-geofence-address').value = data.geofence.address || '';
+                }
+
+                // Kampagnen
+                renderLoyaltyCampaigns(data.campaigns || []);
+            } catch (e) {
+                console.error('Loyalty Dashboard error:', e);
+                showToast('Fehler beim Laden des Loyalty Dashboards', 'error');
+            }
+        }
+
+        function renderLoyaltyCards(cards) {
+            const container = document.getElementById('loyalty-cards-list');
+            const form = document.getElementById('loyalty-card-form');
+            if (!container) return;
+
+            if (cards.length === 0) {
+                container.innerHTML = '<div class="text-center text-zinc-400 text-xs py-4">Noch keine Stempelkarte erstellt. Unten erstellen →</div>';
+                if (form) form.classList.remove('hidden');
+                return;
+            }
+
+            // LIMIT 1 Karte: Wenn eine Karte existiert, Formular verstecken
+            if (form) form.classList.add('hidden');
+
+            container.innerHTML = cards.map(card => {
+                const iconMap = { local_cafe: '☕', restaurant: '🍽️', local_bar: '🍸', smoking_rooms: '💨', icecream: '🍦', bakery_dining: '🥐' };
+                const icon = iconMap[card.icon] || '🎫';
+                return `
+                <div class="p-4 rounded-xl border-2 flex items-center gap-4" style="border-color:${card.color_hex};background:${card.color_hex}15;">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:${card.color_hex};color:#fff;">${icon}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-sm text-zinc-800 truncate">${escapeHtml(card.name)}</div>
+                        <div class="text-xs text-zinc-500">Reward: <strong>${escapeHtml(card.reward_name)}</strong></div>
+                        <div class="text-xs text-zinc-500">${card.stamps_required} Stempel bis Reward · ${card.is_active ? '🟢 Aktiv' : '🔴 Inaktiv'}</div>
+                        ${card.description ? `<div class="text-[10px] text-zinc-400 mt-1 truncate">${escapeHtml(card.description)}</div>` : ''}
+                    </div>
+                    <div class="flex flex-col gap-1 flex-shrink-0">
+                        <a href="/${TENANT_SLUG}/loyalty/pass/apple" target="_blank" class="btn-secondary text-[10px] px-2 py-1 flex items-center gap-1" title="Apple Wallet Pass testen">
+                            🍎 Apple
+                        </a>
+                        <a href="/${TENANT_SLUG}/loyalty/pass/google" target="_blank" class="btn-secondary text-[10px] px-2 py-1 flex items-center gap-1" title="Google Wallet Pass testen">
+                            🟢 Google
+                        </a>
+                        <a href="/${TENANT_SLUG}/stempel" target="_blank" class="btn-secondary text-[10px] px-2 py-1 flex items-center gap-1" title="Kellner Scanner-Page">
+                            📱 Stempel
+                        </a>
+                        <button onclick="deleteLoyaltyCard(${card.id})" class="text-[10px] px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">🗑 Löschen</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function createLoyaltyCard(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            try {
+                const res = await fetch('/admin/loyalty/card', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('✅ Stempelkarte erstellt!', 'success');
+                    form.reset();
+                    loadLoyaltyDashboard();
+                } else {
+                    showToast(data.detail || 'Fehler beim Erstellen', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteLoyaltyCard(cardId) {
+            if (!confirm('Stempelkarte wirklich löschen? Alle Kunden-Stempel gehen verloren.')) return;
+            try {
+                const res = await fetch(`/admin/loyalty/card/${cardId}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Stempelkarte gelöscht', 'success');
+                    loadLoyaltyDashboard();
+                } else {
+                    showToast(data.detail || 'Fehler beim Löschen', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        function renderLoyaltyCampaigns(campaigns) {
+            const container = document.getElementById('loyalty-campaigns-list');
+            if (!container) return;
+            if (campaigns.length === 0) {
+                container.innerHTML = '<div class="text-center text-zinc-400 text-xs py-3">Noch keine Kampagnen. Unten erstellen →</div>';
+                return;
+            }
+            container.innerHTML = campaigns.map(c => {
+                const typeLabel = { inactivity: 'Inaktivität', geofence: 'Geofencing', broadcast: 'Broadcast' }[c.campaign_type] || c.campaign_type;
+                const typeColor = { inactivity: 'amber', geofence: 'blue', broadcast: 'purple' }[c.campaign_type] || 'gray';
+                return `
+                <div class="p-3 rounded-xl border border-${typeColor}-200 bg-${typeColor}-50 dark:bg-${typeColor}-950/30">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-sm text-zinc-800">${escapeHtml(c.name)}</div>
+                            <div class="text-xs text-${typeColor}-700 font-semibold">${typeLabel} · ${c.is_active ? '🟢 Aktiv' : '🔴 Pausiert'}</div>
+                            <div class="text-xs text-zinc-600 mt-1">"${escapeHtml(c.title)}" → ${escapeHtml(c.message)}</div>
+                        </div>
+                        <button onclick="deleteLoyaltyCampaign(${c.id})" class="text-xs px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function createLoyaltyCampaign(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            try {
+                const res = await fetch('/admin/loyalty/campaign', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('✅ Kampagne erstellt!', 'success');
+                    form.reset();
+                    loadLoyaltyDashboard();
+                } else {
+                    showToast(data.detail || 'Fehler', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteLoyaltyCampaign(id) {
+            if (!confirm('Kampagne löschen?')) return;
+            try {
+                const res = await fetch(`/admin/loyalty/campaign/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                if (res.ok) {
+                    showToast('Kampagne gelöscht', 'success');
+                    loadLoyaltyDashboard();
+                }
+            } catch (e) {
+                showToast('Fehler: ' + e.message, 'error');
+            }
+        }
+
+        async function saveLoyaltyGeofence(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            try {
+                const res = await fetch('/admin/loyalty/geofence', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('✅ GPS-Standort gespeichert!', 'success');
+                } else {
+                    showToast(data.detail || 'Fehler', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        function detectGeolocation() {
+            if (!navigator.geolocation) {
+                showToast('Geolocation nicht verfügbar', 'error');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(pos => {
+                document.getElementById('loyalty-geofence-lat').value = pos.coords.latitude.toFixed(6);
+                document.getElementById('loyalty-geofence-lng').value = pos.coords.longitude.toFixed(6);
+                showToast('✅ Standort erkannt!', 'success');
+            }, err => {
+                showToast('Standort-Fehler: ' + err.message, 'error');
+            }, { enableHighAccuracy: true, timeout: 10000 });
+        }
+
+        function toggleCampaignFields(select) {
+            const isInactivity = select.value === 'inactivity';
+            document.querySelectorAll('.campaign-inactivity-field').forEach(el => {
+                el.style.display = isInactivity ? '' : 'none';
+            });
+        }
+
+        async function triggerInactivityCron() {
+            if (!confirm('Inaktivitäts-Push an alle deine Kunden senden?')) return;
+            try {
+                const res = await fetch('/admin/loyalty/cron/inactivity', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const s = data.stats || {};
+                    showToast(`✅ ${s.pushs_sent || 0} Pushs gesendet, ${s.pushs_skipped_optout || 0} opt-out, ${s.pushs_skipped_cooldown || 0} cooldown`, 'success');
+                } else {
+                    showToast(data.detail || 'Fehler', 'error');
+                }
+            } catch (e) {
+                showToast('Fehler: ' + e.message, 'error');
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
     </script>
 

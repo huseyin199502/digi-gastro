@@ -39,6 +39,9 @@ arq
 # sentry-sdk 2.x auto-detectet FastAPI via StarletteIntegration.
 sentry-sdk>=1.40.0
 
+# ── Crypto für Google Wallet JWT (RS256 Signing) ──
+cryptography>=42.0.0
+
 # ── Testing ──
 pytest
 httpx

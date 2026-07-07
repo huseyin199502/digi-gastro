@@ -14090,9 +14090,23 @@ def loyalty_create_card(
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db),
 ):
-    """Erstellt eine neue Stempelkarte."""
+    """Erstellt eine neue Stempelkarte.
+    
+    LIMIT: 1 Stempelkarte pro Tenant. Wenn der Tenant schon eine hat, muss er
+    zuerst die bestehende löschen (DELETE /admin/loyalty/card/{id}) bevor er
+    eine neue erstellen kann.
+    """
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
+    
+    # LIMIT-CHECK: 1 Karte pro Tenant
+    existing_count = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower).count()
+    if existing_count >= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Du hast bereits eine Stempelkarte. Bitte lösche zuerst die bestehende Karte, um eine neue zu erstellen."
+        )
+    
     card = LoyaltyCard(
         tenant_slug=slug_lower, name=name.strip(), description=description.strip(),
         stamps_required=max(1, min(50, stamps_required)),
