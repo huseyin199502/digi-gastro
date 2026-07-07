@@ -889,14 +889,19 @@ def _trigger_pass_update_push(
 def _send_apple_apns_push(db_session, customer: LoyaltyCustomer, title: str, message: str) -> bool:
     """Sendet APNs Push für einen Apple Wallet Pass.
 
-    ZWEI Pushs senden für maximale Sichtbarkeit:
-    1. Background Push (leer) → iOS holt Pass → aktualisiert sich + changeMessage
-    2. Alert Push (title+body+sound) → Sperrbildschirm + Ton 🔔
+    Apple Wallet Pass Type IDs können NUR background Pushs empfangen.
+    Alert Pushs (mit aps.alert) werden von APNs ABGELEHNT weil der Topic
+    ein Pass Type ID ist (kein App Bundle ID).
 
-    Apple Wallet behandelt alert Pushs mit aps.payload als Pass-Update.
-    changeMessage erscheint nur im NC (kein Ton, kein Sperrbildschirm).
-    Ein ZWEITER alert Push mit title+body+sound zeigt die Nachricht
-    als normale Notification auf dem Sperrbildschirm MIT Ton.
+    Flow:
+    1. Background Push (leer) → iOS wacht auf
+    2. iOS ruft GET /passes/.../... auf → holt aktualisierten Pass
+    3. changeMessage in pass.json wird als Notification angezeigt
+    4. last_message Field ändert sich → iOS zeigt Notification-Text
+
+    WICHTIG: Apple Wallet Pass Notifications erscheinen im Notification Center
+    mit changeMessage-Text. Ton und Sperrbildschirm sind NICHT möglich ohne
+    companion iOS App (Apple Plattform-Limitation).
     """
     from database import PasskitDeviceRegistration
 
@@ -911,25 +916,23 @@ def _send_apple_apns_push(db_session, customer: LoyaltyCustomer, title: str, mes
     success_count = 0
     for reg in registrations:
         try:
-            # Push 1: Background → iOS holt Pass → aktualisiert + changeMessage
-            if _apns_push_background(reg.push_token):
-                success_count += 1
-
-            # Push 2: Alert → Sperrbildschirm + Ton 🔔
-            if _apns_push_alert(reg.push_token, title, message):
+            if _apns_push(reg.push_token, title, message):
                 success_count += 1
         except Exception as e:
             print(f"[Loyalty Push] APNs failed for device {reg.device_library_identifier}: {e}")
 
-    print(f"[Loyalty Push] Apple APNs: {success_count}/{len(registrations)*2} pushs sent")
+    print(f"[Loyalty Push] Apple APNs: {success_count}/{len(registrations)} devices reached")
     return success_count > 0
 
 
-def _apns_push_background(push_token: str) -> bool:
-    """Background Push (leer) — iOS holt Pass und aktualisiert sich."""
+def _apns_push(push_token: str, title: str, message: str) -> bool:
+    """Sendet HTTP/2 Background Push an APNs für Pass-Update.
+
+    Background Push (leer) → iOS holt Pass → changeMessage als Notification.
+    """
     import ssl
 
-    payload = {}  # Empty — iOS knows it's a pass update from the topic
+    payload = {}  # Empty — iOS holt Pass und zeigt changeMessage
 
     try:
         import httpx
@@ -952,59 +955,13 @@ def _apns_push_background(push_token: str) -> bool:
                 timeout=10
             )
             if resp.status_code == 200:
-                print(f"[APNs] Background push sent to {push_token[:16]}...")
+                print(f"[APNs] Push sent to {push_token[:16]}... (title={title[:30]})")
                 return True
             else:
-                print(f"[APNs] Background push failed: {resp.status_code} {resp.text}")
+                print(f"[APNs] Push failed: {resp.status_code} {resp.text}")
                 return False
     except Exception as e:
-        print(f"[APNs] Background push error: {e}")
-        return False
-
-
-def _apns_push_alert(push_token: str, title: str, message: str) -> bool:
-    """Alert Push — Sperrbildschirm + Ton + Banner."""
-    import ssl
-
-    payload = {
-        "aps": {
-            "alert": {
-                "title": title[:100],
-                "body": message[:200]
-            },
-            "sound": "default",
-            "interruption-level": "active"
-        }
-    }
-
-    try:
-        import httpx
-
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_context.load_cert_chain(certfile=APPLE_CERT_PATH, keyfile=APPLE_KEY_PATH)
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
-        with httpx.Client(http2=True, verify=ssl_context) as client:
-            resp = client.post(
-                f"https://api.push.apple.com/3/device/{push_token}",
-                json=payload,
-                headers={
-                    "apns-topic": APPLE_PASS_TYPE_ID,
-                    "apns-push-type": "alert",
-                    "apns-priority": "10",
-                    "apns-expiration": "0"
-                },
-                timeout=10
-            )
-            if resp.status_code == 200:
-                print(f"[APNs] Alert push sent to {push_token[:16]}... (title={title[:30]})")
-                return True
-            else:
-                print(f"[APNs] Alert push failed: {resp.status_code} {resp.text}")
-                return False
-    except Exception as e:
-        print(f"[APNs] Alert push error: {e}")
+        print(f"[APNs] Push error: {e}")
         return False
 
 
