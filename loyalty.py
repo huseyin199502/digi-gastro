@@ -934,7 +934,7 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
             keyfile=APPLE_KEY_PATH
         )
 
-        with httpx.Client(http2=True, verify=False, ssl=ssl_context) as client:
+        with httpx.Client(http2=True, verify=ssl_context) as client:
             resp = client.post(
                 f"https://api.push.apple.com/3/device/{push_token}",
                 json=payload,
