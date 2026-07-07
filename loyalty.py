@@ -177,6 +177,7 @@ def _generate_apple_pass_json(
     reward_name = card.get("reward_name", "Belohnung")
     card_name = card.get("name", "Stempelkarte")
     color = card.get("color_hex", "#C9A84C")
+    short_code = customer.get("short_code", "")  # 4-stelliger Code für Kellner
 
     # Konvertiere Hex zu RGB-String für Apple (z.B. "rgb(201,168,76)")
     hex_clean = color.lstrip("#")
@@ -186,7 +187,7 @@ def _generate_apple_pass_json(
     except Exception:
         rgb_color = "rgb(201,168,76)"
 
-    # Fortschritts-Balken als Text (z.B. "★★★★★★☆☆☆☆" für 6/10)
+    # Fortschritts-Balken als Sterne (gefüllt/leer)
     filled = "★" * stamps_current
     empty = "☆" * max(0, stamps_required - stamps_current)
     progress_text = filled + empty
@@ -200,15 +201,24 @@ def _generate_apple_pass_json(
         "teamIdentifier": APPLE_TEAM_ID,
         "webServiceURL": f"https://digi-gastro.de/api/wallet/apple",
         "authenticationToken": customer.get("auth_token", _gen_auth_token(serial)),
-        "backgroundColor": "rgb(255,255,255)",
-        "foregroundColor": "rgb(28,28,30)",
+        # Dark Mode Design (2026 modern)
+        "backgroundColor": "rgb(20,20,22)",
+        "foregroundColor": "rgb(255,255,255)",
         "labelColor": rgb_color,
         "associatedStoreIdentifiers": [],
         "storeCard": {
+            "headerFields": [
+                {
+                    "key": "code",
+                    "label": "Stempel-Code",
+                    "value": short_code or "—",
+                    "textAlignment": "PKTextAlignmentRight"
+                }
+            ],
             "primaryFields": [
                 {
                     "key": "stamps",
-                    "label": "Stempel",
+                    "label": f"{card_name}",
                     "value": f"{stamps_current} / {stamps_required}",
                     "textAlignment": "PKTextAlignmentCenter"
                 }
@@ -258,14 +268,15 @@ def _generate_apple_pass_json(
         },
         # ── PHASE 1: barcodes Field für QR-Code-Anzeige im Pass ──
         # Apple Wallet zeigt den QR-Code auf der Pass-Rückseite an.
-        # Kellner kann mit seinem Handy-Camera den QR scannen → Stempel vergeben.
-        # Format: "PKBarcodeFormatQR" mit message=pass_serial (alternativ short_code)
+        # Kellner scannt den QR → Stempel vergeben.
+        # WICHTIG: short_code als message (nicht pass_serial!) weil Kellner
+        # den Code eintippen können muss falls QR-Scan nicht klappt.
         "barcodes": [
             {
                 "format": "PKBarcodeFormatQR",
-                "message": customer.get("short_code") or serial,  # Short-Code primär, Serial als Fallback
+                "message": short_code or serial,
                 "messageEncoding": "iso-8859-1",
-                "altText": f"Code: {customer.get('short_code', '')}"  # Wird unter QR angezeigt
+                "altText": f"Code: {short_code}" if short_code else ""
             }
         ]
     }

@@ -2787,19 +2787,38 @@
                 // Fallback: Falls Loyalty nicht aktiv → direkt zur Speisekarte.
                 handleSpeisekarteClick() {
                     // Falls keine Loyalty-Karte aktiv → direkt zur Speisekarte
+                    // WICHTIG: Tenant ohne Stempelkarte → KEIN Popup, normaler Ablauf
                     if (!_loyaltyCardActive || !_loyaltyCardData) {
                         this.currentView = 'speisekarte';
                         return;
                     }
 
-                    // Prüfe ob Kunde schon Stempelkarte gespeichert hat (Cookie)
-                    const hasLoyaltyCookie = document.cookie.includes('loyalty_{{ slug }}');
-                    // Prüfe ob Kunde schon mal übersprungen hat (localStorage)
+                    // ── Popup-Suppression Logik ──
+                    // 1. Cookie 'loyalty_{slug}' = gesetzt wenn Kunde Wallet geladen hat
+                    //    → Popup NICHT mehr anzeigen (Kunde hat bereits Wallet)
+                    // 2. URL-Param ?reset_loyalty=1 → Cookie löschen, Popup anzeigen
+                    //    (falls Kunde Wallet gelöscht hat und neu anfragen möchte)
+                    // 3. localStorage 'loyalty_skipped_{slug}' = Kunde hat auf "Später" geklickt
+                    //    → Popup in dieser Session nicht mehr anzeigen
+
+                    // Reset via URL-Param (z.B. /memo?reset_loyalty=1)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.get('reset_loyalty') === '1') {
+                        // Cookie löschen
+                        document.cookie = `loyalty_{{ slug }}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                        localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                        // URL-Param entfernen
+                        urlParams.delete('reset_loyalty');
+                        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                        window.history.replaceState({}, document.title, newUrl);
+                    }
+
+                    const hasLoyaltyCookie = document.cookie.includes('loyalty_{{ slug }}=saved');
                     const skipKey = `loyalty_skipped_{{ slug }}`;
                     const hasSkippedBefore = localStorage.getItem(skipKey) === 'true';
 
+                    // Kunde hat schon Wallet → kein Popup, direkt zur Speisekarte
                     if (hasLoyaltyCookie) {
-                        // Kunde hat schon Stempelkarte → kein Popup, direkt zur Speisekarte
                         this.currentView = 'speisekarte';
                         return;
                     }
@@ -2814,9 +2833,6 @@
                     }
 
                     // ── CRITICAL: Device Detection JEDS MAL beim Öffnen ausführen ──
-                    // Vorher lief die Detection nur in prepareLoyaltyPopup (einmal beim Laden).
-                    // Wenn der User das Popup schließt und wieder öffnet, war die Detection
-                    // nicht mehr aktiv. Jetzt läuft sie bei jedem handleSpeisekarteClick.
                     applyDeviceDetection();
 
                     // Popup anzeigen
@@ -2833,6 +2849,9 @@
                         popup.classList.add('hidden');
                         document.body.style.overflow = '';
                     }
+                    // localStorage setzen: Kunde hat übersprungen
+                    // → Popup kommt beim nächsten Öffnen wieder (aber nicht in dieser Session)
+                    localStorage.setItem(`loyalty_skipped_{{ slug }}`, 'true');
                     // IMMER zur Speisekarte navigieren — egal ob Skip oder Close
                     this.currentView = 'speisekarte';
                 },

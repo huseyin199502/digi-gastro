@@ -13925,6 +13925,7 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
     customer_dict = {
         "id": customer.id, "pass_serial": customer.pass_serial,
         "current_stamps": customer.current_stamps, "auth_token": customer.pass_serial[:16],
+        "short_code": customer.short_code or "",  # CRITICAL: für barcodes Field im Pass
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
@@ -13985,6 +13986,7 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
     customer_dict = {
         "id": customer.id, "pass_serial": customer.pass_serial,
         "current_stamps": customer.current_stamps,
+        "short_code": customer.short_code or "",  # CRITICAL: für Google Pass barcode
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
