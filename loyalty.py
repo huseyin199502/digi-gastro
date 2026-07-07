@@ -288,50 +288,65 @@ def _gen_auth_token(serial: str) -> str:
 
 def _sign_pass_manifest(manifest: Dict[str, str]) -> bytes:
     """Signiert das Manifest mit dem Apple Wallet Zertifikat.
-    Liefert die PKCS#7-Signatur als Bytes.
+    Liefert die PKCS#7-Signatur als DER-encoded Bytes.
 
     Benötigt: Apple Pass Certificate + WWDR Intermediate Certificate + Private Key.
-    In Dev (ohne Zertifikate) wird ein Dummy-Signatur zurückgegeben → Pass
-    lässt sich NICCHT in Apple Wallet laden, aber die JSON-Struktur ist validierbar.
+
+    Verwendet openssl CLI (zuverlässigster Weg für PKCS#7 detached signatures).
+    Die cryptography-Library hat 2026 einen Bug in PKCS7SignatureBuilder.finalize()
+    — wir nutzen deshalb den direkten openssl CLI Aufruf.
     """
     if not _is_apple_configured():
-        # Dev-Modus: leere Signatur (Pass wird von Apple abgelehnt, aber
-        # JSON-Struktur ist prüfbar)
+        # Dev-Modus: leere Signatur (Pass wird von Apple abgelehnt)
         return b"DEV_MODE_NO_SIGNATURE"
 
     try:
-        from cryptography.hazmat.primitives.serialization import pkcs12, load_pem_private_key
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import padding
-        from cryptography.x509 import load_pem_x509_certificate
-        from cryptography.hazmat.primitives.hashes import SHA256
+        import subprocess
+        import tempfile as _tf
 
-        # Lade Private Key
-        with open(APPLE_KEY_PATH, "rb") as f:
-            private_key = load_pem_private_key(f.read(), password=APPLE_CERT_PASSWORD.encode() if APPLE_CERT_PASSWORD else None)
+        # Manifest in temporäre Datei schreiben
+        with _tf.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as manifest_file:
+            json.dump(manifest, manifest_file)
+            manifest_path = manifest_file.name
 
-        # Lade Pass Certificate
-        with open(APPLE_CERT_PATH, "rb") as f:
-            pass_cert = load_pem_x509_certificate(f.read())
+        # Signatur in temporäre Datei schreiben
+        with _tf.NamedTemporaryFile(suffix=".der", delete=False) as sig_file:
+            sig_path = sig_file.name
 
-        # Lade WWDR Intermediate
-        with open(APPLE_WWDR_PATH, "rb") as f:
-            wwdr_cert = load_pem_x509_certificate(f.read())
+        try:
+            # openssl smime -binary -sign -certfile WWDR -signer CERT -inkey KEY -in manifest -out sig.der -outform DER -passin pass:PASSWORD
+            cmd = [
+                "openssl", "smime", "-binary", "-sign",
+                "-certfile", APPLE_WWDR_PATH,
+                "-signer", APPLE_CERT_PATH,
+                "-inkey", APPLE_KEY_PATH,
+                "-in", manifest_path,
+                "-out", sig_path,
+                "-outform", "DER",
+            ]
+            # Falls Passwort gesetzt, als -passin übergeben
+            if APPLE_CERT_PASSWORD:
+                cmd.extend(["-passin", f"pass:{APPLE_CERT_PASSWORD}"])
 
-        # PKCS#7 Signatur erstellen
-        from cryptography.hazmat.primitives.serialization import pkcs7
-        signed_data = pkcs7.PKCS7SignatureBuilder().set_data(
-            json.dumps(manifest).encode()
-        ).add_signer(
-            pass_cert, private_key, hashes.SHA256()
-        )
-        # WWDR als intermediate hinzufügen
-        # (Vereinfacht — echte Impl. benötigt OpenSSL CLI Wrapper oder
-        # cryptography's full PKCS7 API)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
 
-        return signed_data.finalize()
+            if result.returncode != 0:
+                print(f"[Apple Pass] openssl signing failed: {result.stderr}")
+                return b"SIGN_ERROR"
+
+            # Signatur lesen
+            with open(sig_path, "rb") as f:
+                return f.read()
+        finally:
+            # Temp-Files aufräumen
+            try:
+                os.unlink(manifest_path)
+                os.unlink(sig_path)
+            except Exception:
+                pass
+
     except Exception as e:
-        print(f"[Apple Pass] Signing failed: {e}")
+        print(f"[Apple Pass] Signing setup failed: {e}")
         return b"SIGN_ERROR"
 
 
