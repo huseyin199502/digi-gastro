@@ -14694,13 +14694,23 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 showToast('Geolocation nicht verfügbar', 'error');
                 return;
             }
+            showToast('📍 Standort wird ermittelt...', 'info');
             navigator.geolocation.getCurrentPosition(pos => {
                 document.getElementById('loyalty-geofence-lat').value = pos.coords.latitude.toFixed(6);
                 document.getElementById('loyalty-geofence-lng').value = pos.coords.longitude.toFixed(6);
                 showToast('✅ Standort erkannt!', 'success');
             }, err => {
-                showToast('Standort-Fehler: ' + err.message, 'error');
-            }, { enableHighAccuracy: true, timeout: 10000 });
+                // Bessere Fehlermeldungen je nach Fehlercode
+                let msg = err.message;
+                if (err.code === 1) {
+                    msg = 'Zugriff verweigert. Bitte erlaube Standortzugriff in deinen Browser-Einstellungen.';
+                } else if (err.code === 2) {
+                    msg = 'Standort nicht verfügbar. Prüfe deine GPS/Internet-Verbindung.';
+                } else if (err.code === 3) {
+                    msg = 'Zeitüberschreitung. Versuche es erneut.';
+                }
+                showToast('Standort-Fehler: ' + msg, 'error');
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
         }
 
         function toggleCampaignFields(select) {
