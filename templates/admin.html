@@ -14233,6 +14233,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
                 // Kampagnen
                 renderLoyaltyCampaigns(data.campaigns || []);
+
+                // Kunden laden (Section 5)
+                loadLoyaltyCustomers();
             } catch (e) {
                 console.error('Loyalty Dashboard error:', e);
                 showToast('Fehler beim Laden des Loyalty Dashboards', 'error');
@@ -14333,18 +14336,130 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             container.innerHTML = campaigns.map(c => {
                 const typeLabel = { inactivity: 'Inaktivität', geofence: 'Geofencing', broadcast: 'Broadcast' }[c.campaign_type] || c.campaign_type;
                 const typeColor = { inactivity: 'amber', geofence: 'blue', broadcast: 'purple' }[c.campaign_type] || 'gray';
+                const typeIcon = { inactivity: 'schedule', geofence: 'location_on', broadcast: 'campaign' }[c.campaign_type] || 'campaign';
+                // Broadcast: extra "Senden" Button
+                const broadcastBtn = c.campaign_type === 'broadcast'
+                    ? `<button onclick="triggerBroadcast(${c.id})" class="text-xs px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center gap-1">
+                         <span class="material-symbols-outlined" style="font-size:14px;">send</span> Jetzt senden
+                       </button>`
+                    : '';
                 return `
                 <div class="p-3 rounded-xl border border-${typeColor}-200 bg-${typeColor}-50 dark:bg-${typeColor}-950/30">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="font-bold text-sm text-zinc-800">${escapeHtml(c.name)}</div>
-                            <div class="text-xs text-${typeColor}-700 font-semibold">${typeLabel} · ${c.is_active ? '🟢 Aktiv' : '🔴 Pausiert'}</div>
-                            <div class="text-xs text-zinc-600 mt-1">"${escapeHtml(c.title)}" → ${escapeHtml(c.message)}</div>
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm text-zinc-800 truncate">${escapeHtml(c.name)}</div>
+                            <div class="text-xs text-${typeColor}-700 font-semibold flex items-center gap-1 mt-0.5">
+                                <span class="material-symbols-outlined" style="font-size:13px;">${typeIcon}</span>
+                                ${typeLabel} · ${c.is_active ? '🟢 Aktiv' : '🔴 Pausiert'}
+                            </div>
+                            <div class="text-xs text-zinc-600 mt-1 truncate"><strong>${escapeHtml(c.title)}</strong> → ${escapeHtml(c.message)}</div>
                         </div>
-                        <button onclick="deleteLoyaltyCampaign(${c.id})" class="text-xs px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">🗑</button>
+                        <div class="flex gap-1 flex-shrink-0">
+                            ${broadcastBtn}
+                            <button onclick="deleteLoyaltyCampaign(${c.id})" class="text-xs px-2 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">🗑</button>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        async function loadLoyaltyCustomers() {
+            const container = document.getElementById('loyalty-customers-list');
+            if (!container) return;
+            try {
+                const res = await fetch('/admin/loyalty/customers', { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const customers = data.customers || [];
+                if (customers.length === 0) {
+                    container.innerHTML = '<div class="text-center text-zinc-400 text-xs py-4">Noch keine Kunden mit Stempelkarte.</div>';
+                    return;
+                }
+                container.innerHTML = `
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-50 dark:bg-zinc-800 text-zinc-500 uppercase text-[10px]">
+                            <tr>
+                                <th class="px-2 py-2 text-left">Code</th>
+                                <th class="px-2 py-2 text-left">Typ</th>
+                                <th class="px-2 py-2 text-center">Stempel</th>
+                                <th class="px-2 py-2 text-center">Tier</th>
+                                <th class="px-2 py-2 text-center">Letzter Besuch</th>
+                                <th class="px-2 py-2 text-center">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${customers.map(c => {
+                                const tierBadge = {neu: 'bg-gray-100 text-gray-700', stamm: 'bg-blue-100 text-blue-700', vip: 'bg-amber-100 text-amber-700'}[c.tier] || 'bg-gray-100 text-gray-700';
+                                const tierIcon = {neu: '🆕', stamm: '⭐', vip: '👑'}[c.tier] || '';
+                                const lastVisit = c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('de-DE') : '—';
+                                return `
+                                <tr class="border-t border-gray-100 dark:border-zinc-700">
+                                    <td class="px-2 py-2 font-mono font-bold text-zinc-800">${c.short_code || '—'}</td>
+                                    <td class="px-2 py-2">${c.pass_type === 'apple' ? '🍎' : '🟢'}</td>
+                                    <td class="px-2 py-2 text-center font-bold">${c.current_stamps}</td>
+                                    <td class="px-2 py-2 text-center"><span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${tierBadge}">${tierIcon} ${c.tier}</span></td>
+                                    <td class="px-2 py-2 text-center text-zinc-500">${lastVisit}</td>
+                                    <td class="px-2 py-2 text-center">
+                                        <button onclick="awardStampToCustomer('${c.short_code}')" class="text-xs px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold flex items-center gap-1 mx-auto">
+                                            <span class="material-symbols-outlined" style="font-size:13px;">add_circle</span> Stempel
+                                        </button>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>`;
+            } catch (e) {
+                console.error('Load customers error:', e);
+            }
+        }
+
+        async function awardStampToCustomer(shortCode) {
+            if (!shortCode || shortCode === '—') {
+                showToast('Kunde hat keinen Short-Code', 'error');
+                return;
+            }
+            if (!confirm(`Stempel an Kunde ${shortCode} vergeben?`)) return;
+            try {
+                const res = await fetch('/admin/loyalty/stamp-manual', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({short_code: shortCode})
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    if (data.reward_redeemed) {
+                        showToast(`🎉 ${data.customer_nickname}: Reward "${data.reward_name}" eingelöst!`, 'success');
+                    } else {
+                        showToast(`✅ Stempel vergeben! ${data.current_stamps}/${data.stamps_required}`, 'success');
+                    }
+                    loadLoyaltyCustomers();  // Liste aktualisieren
+                } else {
+                    showToast(data.detail || 'Fehler beim Vergeben', 'error');
+                }
+            } catch (e) {
+                showToast('Fehler: ' + e.message, 'error');
+            }
+        }
+
+        async function triggerBroadcast(campaignId) {
+            if (!confirm('Broadcast an ALLE deine Kunden senden? Das kann nicht rückgängig gemacht werden.')) return;
+            try {
+                const res = await fetch(`/admin/loyalty/broadcast/${campaignId}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    const s = data.stats || {};
+                    showToast(`✅ ${s.pushs_sent || 0} Pushs gesendet, ${s.pushs_skipped_cooldown || 0} cooldown, ${s.pushs_skipped_optout || 0} failed`, 'success');
+                    loadLoyaltyDashboard();
+                } else {
+                    showToast(data.detail || 'Fehler beim Broadcast', 'error');
+                }
+            } catch (e) {
+                showToast('Fehler: ' + e.message, 'error');
+            }
         }
 
         async function createLoyaltyCampaign(event) {

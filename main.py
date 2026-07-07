@@ -14232,19 +14232,103 @@ def loyalty_customers_list(
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
     customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+
+    # CRITICAL FIX: Backfill short_code für Legacy Customers (die vor der
+    # short_code Spalte erstellt wurden). Sonst sind sie im Scanner unsichtbar.
+    from loyalty import _generate_short_code
+    for c in customers:
+        if not c.short_code:
+            c.short_code = _generate_short_code()
+    if any(not c.short_code for c in customers):
+        db.commit()
+
     return {
         "customers": [{
             "id": c.id,
             "pass_serial": c.pass_serial[:8] + "…",
+            "short_code": c.short_code,
             "pass_type": c.pass_type,
             "current_stamps": c.current_stamps,
             "total_stamps_earned": c.total_stamps_earned,
             "rewards_redeemed": c.rewards_redeemed,
+            "tier": c.tier or "neu",
+            "nickname": c.nickname,
             "first_visit_at": c.first_visit_at,
             "last_visit_at": c.last_visit_at,
             "push_opt_out": c.push_opt_out,
         } for c in customers]
     }
+
+
+# ──────────────────────────────────────────────────────────────────
+# BROADCAST PUSH ENDPOINT — sendet Push an alle Kunden des Tenants
+# ──────────────────────────────────────────────────────────────────
+@app.post("/admin/loyalty/broadcast/{campaign_id}")
+def loyalty_broadcast_push(
+    campaign_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Sendet eine Broadcast-Kampagne an alle Kunden des Tenants.
+
+    Broadcast = Nachricht an ALLE Kunden (keine Filter wie Inaktivität/Geofence).
+    Opt-out Kunden werden respektiert (DSGVO).
+    Cooldown wird respektiert (Anti-Spam).
+    """
+    from loyalty import _trigger_pass_update_push, _now_iso, _berlin_now
+    from database import LoyaltyCampaign as DBLoyaltyCampaign
+    from datetime import timedelta
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    campaign = db.query(DBLoyaltyCampaign).filter_by(
+        id=campaign_id, tenant_slug=slug_lower, campaign_type="broadcast"
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Broadcast-Kampagne nicht gefunden.")
+    if not campaign.is_active:
+        raise HTTPException(status_code=400, detail="Kampagne ist pausiert.")
+
+    # Alle Kunden des Tenants laden
+    customers = db.query(LoyaltyCustomer).filter_by(
+        tenant_slug=slug_lower, push_opt_out=False
+    ).all()
+
+    berlin_now = _berlin_now()
+    cooldown_delta = timedelta(hours=campaign.min_hours_between_pushs or 24)
+    stats = {"pushs_sent": 0, "pushs_skipped_optout": 0, "pushs_skipped_cooldown": 0}
+
+    for customer in customers:
+        # Cooldown prüfen
+        if customer.last_push_at:
+            try:
+                last_push = datetime.fromisoformat(customer.last_push_at.replace("Z", ""))
+                if berlin_now - last_push < cooldown_delta:
+                    stats["pushs_skipped_cooldown"] += 1
+                    continue
+            except Exception:
+                pass
+
+        success = _trigger_pass_update_push(db, customer, campaign.title, campaign.message)
+        if success:
+            customer.last_push_at = _now_iso()
+            log = LoyaltyPushLog(
+                tenant_slug=slug_lower,
+                customer_id=customer.id,
+                campaign_id=campaign.id,
+                push_type="broadcast",
+                title=campaign.title,
+                message=campaign.message,
+                status="sent",
+                sent_at=_now_iso(),
+            )
+            db.add(log)
+            stats["pushs_sent"] += 1
+        else:
+            stats["pushs_skipped_optout"] += 1  # failed push
+
+    db.commit()
+    return {"success": True, "stats": stats}
 
 
 @app.post("/admin/loyalty/cron/inactivity")
@@ -14352,8 +14436,22 @@ def loyalty_scanner_page(request: Request, slug: str, db: Session = Depends(get_
     restaurant = get_restaurant_or_raise(slug, db)
     slug_lower = slug.lower().strip()
 
-    # Tenant muss Stempelkarte haben
-    cards = restaurant.get("loyalty_cards", [])
+    # CRITICAL FIX: Loyalty-Cards direkt aus DB laden (load_restaurant_from_db
+    # gibt sie nicht zurück). Vorher war cards=[] → 404 immer.
+    from database import LoyaltyCard as DBLoyaltyCard
+    db_cards = db.query(DBLoyaltyCard).filter_by(
+        tenant_slug=slug_lower, is_active=True
+    ).all()
+    cards = [{
+        "id": c.id,
+        "name": c.name,
+        "description": c.description or "",
+        "stamps_required": c.stamps_required,
+        "reward_name": c.reward_name,
+        "color_hex": c.color_hex,
+        "icon": c.icon,
+    } for c in db_cards]
+
     if not cards:
         return HTMLResponse(content="""
         <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
