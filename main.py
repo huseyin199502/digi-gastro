@@ -14645,10 +14645,14 @@ async def loyalty_quick_send(
     stats = {"pushs_sent": 0, "pushs_failed": 0}
 
     for customer in customers:
-        # CRITICAL: last_message updaten + COMMIT VOR dem Push!
-        # Sonst liest passkit_get_pass den alten Wert aus DB → changeMessage
-        # triggert nicht weil Wert sich nicht geändert hat.
-        customer.last_message = full_msg[:200]
+        # CRITICAL: last_message updaten + Zeitstempel damit sich Wert IMMER ändert!
+        # Ohne Zeitstempel: gleiche Nachricht zweimal → gleicher last_message →
+        # iOS sieht keine Änderung → keine Notification!
+        # Mit Zeitstempel: last_message ist immer einzigartig → iOS zeigt immer Notification!
+        from datetime import datetime as _dt
+        timestamp = _dt.now().strftime("%H:%M")
+        full_msg_with_time = f"{title}: {message} ({timestamp})"
+        customer.last_message = full_msg_with_time[:200]
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, title, message)
@@ -14772,8 +14776,10 @@ def loyalty_broadcast_push(
             except Exception:
                 pass
 
-        # CRITICAL: last_message VOR dem Push setzen + committen!
-        full_msg = f"{campaign.title}: {campaign.message}"
+        # CRITICAL: last_message VOR dem Push setzen + Zeitstempel + committen!
+        from datetime import datetime as _dt
+        timestamp = _dt.now().strftime("%H:%M")
+        full_msg = f"{campaign.title}: {campaign.message} ({timestamp})"
         customer.last_message = full_msg[:200]
         db.commit()  # ← VOR dem Push committen!
 

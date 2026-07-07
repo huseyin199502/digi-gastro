@@ -862,8 +862,10 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
                 except Exception:
                     pass
 
-            # CRITICAL: last_message VOR dem Push setzen + committen!
-            full_msg = f"{campaign.title}: {campaign.message}"
+            # CRITICAL: last_message VOR dem Push setzen + Zeitstempel + committen!
+            from datetime import datetime as _dt
+            timestamp = _dt.now().strftime("%H:%M")
+            full_msg = f"{campaign.title}: {campaign.message} ({timestamp})"
             customer.last_message = full_msg[:200]
             db_session.commit()  # ← VOR dem Push committen!
 
