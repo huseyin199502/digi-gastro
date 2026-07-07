@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <title>Stempel vergeben — {{ restaurant.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .stamp-input {
+            font-size: 2.5rem;
+            letter-spacing: 0.5rem;
+            text-align: center;
+            text-transform: uppercase;
+            background: #1e293b;
+            border: 2px solid #475569;
+            color: #f1f5f9;
+            border-radius: 1rem;
+            padding: 1rem 0.5rem;
+            width: 100%;
+            font-weight: 800;
+            transition: all 0.15s;
+        }
+        .stamp-input:focus {
+            border-color: #22c55e;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+        }
+        .stamp-btn {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            font-weight: 800;
+            padding: 1.25rem;
+            border-radius: 1rem;
+            font-size: 1.125rem;
+            width: 100%;
+            border: none;
+            box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.4);
+            transition: all 0.15s;
+        }
+        .stamp-btn:active { transform: scale(0.98); }
+        .stamp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .lookup-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #334155;
+            border-radius: 1rem;
+            padding: 1rem;
+            backdrop-filter: blur(8px);
+        }
+        .toast {
+            position: fixed;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.show { opacity: 1; }
+        .toast.success { background: #22c55e; color: white; }
+        .toast.error { background: #ef4444; color: white; }
+        .toast.reward { background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; font-size: 1.25rem; }
+        .progress-circle {
+            width: 4rem; height: 4rem;
+            border-radius: 50%;
+            background: conic-gradient(#22c55e var(--progress, 0%), #334155 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .progress-inner {
+            width: 3.5rem; height: 3.5rem;
+            border-radius: 50%;
+            background: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #f1f5f9;
+        }
+    </style>
+</head>
+<body class="text-slate-100">
+    <div class="container mx-auto px-4 py-6 max-w-md">
+
+        <!-- Header mit Tenant-Logo + Name -->
+        <div class="text-center mb-6">
+            {% if restaurant.logo_path %}
+                <img src="{{ restaurant.logo_path }}" alt="{{ restaurant.name }}" class="w-20 h-20 mx-auto rounded-2xl object-contain bg-white/5 p-2 mb-3">
+            {% endif %}
+            <h1 class="text-2xl font-black tracking-tight">{{ restaurant.name }}</h1>
+            <p class="text-slate-400 text-sm mt-1">Stempel vergeben</p>
+        </div>
+
+        <!-- Short-Code Eingabe -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2 text-center">
+                    Code vom Kunden-Pass eingeben
+                </label>
+                <input
+                    type="text"
+                    id="shortCode"
+                    class="stamp-input"
+                    placeholder="A7K2"
+                    maxlength="4"
+                    autocomplete="off"
+                    autocapitalize="characters"
+                    spellcheck="false"
+                    inputmode="text"
+                >
+                <p class="text-center text-xs text-slate-500 mt-2">
+                    4-stelliger Code auf der Rückseite des Wallet-Passes
+                </p>
+            </div>
+
+            <!-- Live-Lookup Vorschau -->
+            <div id="lookupResult" class="hidden">
+                <!-- Wird via JS befüllt -->
+            </div>
+
+            <!-- Stempel vergeben Button -->
+            <button
+                id="stampBtn"
+                class="stamp-btn"
+                disabled
+                onclick="awardStamp()"
+            >
+                <span class="text-2xl mr-2">⭐</span>
+                Stempel vergeben
+            </button>
+
+            <!-- Reload-Button (für nächsten Kunden) -->
+            <button
+                id="nextBtn"
+                class="hidden w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold text-slate-200"
+                onclick="resetForm()"
+            >
+                Nächster Kunde
+            </button>
+        </div>
+
+        <!-- Info unten -->
+        <div class="mt-8 text-center text-xs text-slate-500">
+            <p>Powered by digi-gastro · Stempel werden sofort ins Wallet gepusht</p>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const slug = "{{ slug }}";
+        const cards = JSON.parse('{{ cards_json | safe }}');
+        let currentLookup = null;
+
+        const codeInput = document.getElementById('shortCode');
+        const lookupResult = document.getElementById('lookupResult');
+        const stampBtn = document.getElementById('stampBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        // Auto-Upper-Case + nur gültige Zeichen
+        codeInput.addEventListener('input', async (e) => {
+            let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            // Crockford-Normalisierung: O→Q, I→J, 0→Q, 1→J
+            v = v.replace(/O/g, 'Q').replace(/I/g, 'J').replace(/0/g, 'Q').replace(/1/g, 'J');
+            e.target.value = v;
+
+            if (v.length >= 3) {
+                await lookupCustomer(v);
+            } else {
+                lookupResult.classList.add('hidden');
+                stampBtn.disabled = true;
+                currentLookup = null;
+            }
+        });
+
+        // Enter-Taste = Stempel vergeben
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !stampBtn.disabled) {
+                awardStamp();
+            }
+        });
+
+        async function lookupCustomer(code) {
+            try {
+                const res = await fetch(`/admin/loyalty/lookup-customer?code=${encodeURIComponent(code)}`, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) {
+                    lookupResult.classList.add('hidden');
+                    stampBtn.disabled = true;
+                    currentLookup = null;
+                    return;
+                }
+                const data = await res.json();
+                if (data.exists) {
+                    currentLookup = data;
+                    const progress = (data.current_stamps / data.stamps_required) * 100;
+                    const tierLabel = {neu: 'Neu', stamm: 'Stammgast', vip: 'VIP ⭐'}[data.tier] || data.tier;
+                    const tierColor = {neu: 'text-slate-400', stamm: 'text-blue-400', vip: 'text-amber-400'}[data.tier] || 'text-slate-400';
+                    lookupResult.innerHTML = `
+                        <div class="lookup-card">
+                            <div class="flex items-center gap-3">
+                                <div class="progress-circle" style="--progress: ${progress}%">
+                                    <div class="progress-inner">${data.current_stamps}/${data.stamps_required}</div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-bold text-white truncate">${data.nickname}</div>
+                                    <div class="text-xs ${tierColor} font-semibold">${tierLabel}</div>
+                                    <div class="text-xs text-slate-400 truncate">${data.card_name}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    lookupResult.classList.remove('hidden');
+                    stampBtn.disabled = false;
+                } else {
+                    lookupResult.innerHTML = `
+                        <div class="lookup-card text-center text-red-400">
+                            <div class="text-2xl mb-1">❌</div>
+                            <div class="text-sm font-semibold">Kein Kunde mit Code "${code}" gefunden</div>
+                        </div>
+                    `;
+                    lookupResult.classList.remove('hidden');
+                    stampBtn.disabled = true;
+                    currentLookup = null;
+                }
+            } catch (e) {
+                console.error('Lookup failed:', e);
+            }
+        }
+
+        async function awardStamp() {
+            if (!currentLookup) return;
+            stampBtn.disabled = true;
+            stampBtn.innerHTML = '<span class="text-2xl">⏳</span> Wird vergeben...';
+
+            try {
+                const res = await fetch('/admin/loyalty/stamp-manual', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({short_code: codeInput.value})
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    if (data.reward_redeemed) {
+                        showToast(`🎉 ${data.customer_nickname} hat "${data.reward_name}" eingelöst!`, 'reward');
+                    } else {
+                        showToast(`✅ Stempel vergeben! ${data.current_stamps}/${data.stamps_required}`, 'success');
+                    }
+                    // Lookup aktualisieren
+                    await lookupCustomer(codeInput.value);
+                    stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Noch ein Stempel';
+                    stampBtn.disabled = false;
+                    nextBtn.classList.remove('hidden');
+                } else {
+                    showToast(data.detail || 'Fehler beim Vergeben', 'error');
+                    stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Stempel vergeben';
+                    stampBtn.disabled = false;
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+                stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Stempel vergeben';
+                stampBtn.disabled = false;
+            }
+        }
+
+        function resetForm() {
+            codeInput.value = '';
+            codeInput.focus();
+            lookupResult.classList.add('hidden');
+            stampBtn.disabled = true;
+            stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Stempel vergeben';
+            nextBtn.classList.add('hidden');
+            currentLookup = null;
+        }
+
+        function showToast(msg, type='success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast show ${type}`;
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        // Auto-Focus aufs Input
+        codeInput.focus();
+    </script>
+</body>
+</html>

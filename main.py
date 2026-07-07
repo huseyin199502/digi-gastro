@@ -1489,6 +1489,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "is_shishabar": tenant.is_shishabar,
         "orders_enabled": tenant.orders_enabled if tenant.orders_enabled is not None else True,
         "show_revenue": getattr(tenant, 'show_revenue', True) if getattr(tenant, 'show_revenue', None) is not None else True,
+        # PHASE 4: operating_mode — 'full' | 'menu_only' | 'stempelkarte_only'
+        "operating_mode": getattr(tenant, 'operating_mode', None) or "full",
         "impressum_content": tenant.impressum_content,
         "datenschutz_content": tenant.datenschutz_content,
         "security_token": tenant.security_token,
@@ -14249,6 +14251,134 @@ def loyalty_trigger_inactivity_cron(
     slug_lower = slug.lower().strip()
     stats = run_inactivity_cron(db, tenant_slug=slug_lower)
     return {"success": True, "stats": stats}
+
+
+# ──────────────────────────────────────────────────────────────────
+# PHASE 1: Scanner-Alternative — Short-Code Lookup + Manual Stamp
+# ──────────────────────────────────────────────────────────────────
+# Endpoints für die "Stempel vergeben" UI im Admin-Panel.
+# Kellner gibt 4-stelligen Code vom Kunden-Pass ein → Stempel vergeben.
+# Funktioniert OHNE Scanner-App, OHNE Kamera, OHNE Bestellsystem.
+
+@app.post("/admin/loyalty/stamp-manual")
+def loyalty_stamp_manual(
+    request: Request,
+    payload: dict,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Vergibt einen manuellen Stempel an einen Customer via 4-stelligem Code.
+
+    Body: {"short_code": "A7K2"}
+    Returns: {"success": true, "current_stamps": 3, "stamps_required": 10, ...}
+
+    Verwendung:
+    - Kellner öffnet Admin-Panel → "Stempel vergeben"
+    - Tippt den 4-stelligen Code vom Kunden-Wallet-Pass ein
+    - System findet Customer via Short-Code → Stempel vergeben → Push ans Handy
+    """
+    from loyalty import award_manual_stamp
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    short_code = (payload or {}).get("short_code", "").strip().upper()
+    if not short_code or len(short_code) < 3:
+        raise HTTPException(status_code=400, detail="Bitte gültigen Code eingeben (mindestens 3 Zeichen).")
+    result = award_manual_stamp(db, slug_lower, short_code, awarded_by=user.get("name", "waiter"))
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get("error", "Kunde nicht gefunden."))
+    return result
+
+
+@app.get("/admin/loyalty/lookup-customer")
+def loyalty_lookup_customer(
+    request: Request,
+    code: str,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Schaut nach ob ein Short-Code existiert (für Live-Preview im Admin).
+
+    Returns: {exists: true, nickname: "Max", current_stamps: 3, ...} ohne Stempel zu vergeben.
+    """
+    from loyalty import find_customer_by_short_code
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    customer = find_customer_by_short_code(db, slug_lower, code)
+    if not customer:
+        return {"exists": False}
+    # Card laden für reward_name
+    from database import LoyaltyCard
+    card = db.query(LoyaltyCard).filter_by(id=customer.card_id).first()
+    return {
+        "exists": True,
+        "customer_id": customer.id,
+        "nickname": customer.nickname or f"Kunde {customer.short_code}",
+        "tier": customer.tier,
+        "current_stamps": customer.current_stamps,
+        "stamps_required": card.stamps_required if card else 10,
+        "reward_name": card.reward_name if card else "",
+        "card_name": card.name if card else "",
+    }
+
+
+# ──────────────────────────────────────────────────────────────────
+# PHASE 2: Öffentliche Scanner-Page /{slug}/stempel
+# ──────────────────────────────────────────────────────────────────
+# Kellner kann diese URL auf seinem Handy öffnen (kein Admin-Login nötig,
+# POS-Token Auth). Sieht: Logo + Namen des Tenants, Short-Code-Eingabe,
+# "Stempel vergeben" Button. Funktioniert auch offline (PWA).
+
+@app.get("/{slug}/stempel", response_class=HTMLResponse)
+def loyalty_scanner_page(request: Request, slug: str, db: Session = Depends(get_db)):
+    """Öffentliche Scanner-Page für Kellner (POS-Token Auth via Cookie).
+
+    URL: /{slug}/stempel — bookmarkable auf dem Kellner-Handy.
+    Sieht: Tenant-Logo, Tenant-Name, Short-Code-Eingabe, Stempel-Button.
+    """
+    restaurant = get_restaurant_or_raise(slug, db)
+    slug_lower = slug.lower().strip()
+
+    # Tenant muss Stempelkarte haben
+    cards = restaurant.get("loyalty_cards", [])
+    if not cards:
+        return HTMLResponse(content="""
+        <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Stempel</title><style>body{font-family:system-ui;text-align:center;padding:2rem;background:#0f172a;color:#e2e8f0;}</style>
+        </head><body><h2>Keine Stempelkarte aktiv</h2><p>Dieser Betrieb hat noch keine digitale Stempelkarte eingerichtet.</p>
+        </body></html>""", status_code=404)
+
+    # Einfache Scanner-UI
+    return templates.TemplateResponse(
+        request,
+        "loyalty_scanner.html",
+        {
+            "request": request,
+            "restaurant": restaurant,
+            "slug": slug,
+            "cards_json": json.dumps(cards),
+        }
+    )
+
+
+# ──────────────────────────────────────────────────────────────────
+# PHASE 4: Stempelkarte-Only Mode — Tenant kann Speisekarte deaktivieren
+# ──────────────────────────────────────────────────────────────────
+@app.post("/digi-gastro-admin/tenant-operating-mode/{slug}")
+def set_tenant_operating_mode(
+    slug: str,
+    mode: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Super-Admin setzt operating_mode: 'full' | 'menu_only' | 'stempelkarte_only'."""
+    if mode not in ("full", "menu_only", "stempelkarte_only"):
+        raise HTTPException(status_code=400, detail="Ungültiger mode. Erlaubt: full, menu_only, stempelkarte_only")
+    tenant = db.query(Tenant).filter_by(slug=slug.lower().strip()).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant nicht gefunden")
+    tenant.operating_mode = mode
+    db.commit()
+    invalidate_restaurant_cache_sync(slug)
+    return {"success": True, "operating_mode": mode}
 
 
 def _maybe_award_loyalty_stamp(request: Request, slug: str, order_id: int, order_total: float, db: Session):

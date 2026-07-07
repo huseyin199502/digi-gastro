@@ -85,6 +85,11 @@ class Tenant(Base):
     is_shishabar = Column(Boolean, default=False)
     orders_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Nur Speisekarte (keine Bestellungen)
     show_revenue = Column(Boolean, default=True)  # Super-Admin Toggle: False = Tenant sieht keine Umsätze/Reports
+    # ── PHASE 4: operating_mode — Stempelkarte-Only Mode ──
+    # "full" = Speisekarte + Bestellung + Stempelkarte (Default)
+    # "menu_only" = Nur Speisekarte, keine Bestellung, keine Stempelkarte
+    # "stempelkarte_only" = Nur Stempelkarte, keine Speisekarte (getqard-Modus)
+    operating_mode = Column(String, default="full")
     impressum_content = Column(Text, default="")
     datenschutz_content = Column(Text, default="")
     security_token = Column(String, default="")
@@ -409,6 +414,7 @@ class LoyaltyCustomer(Base):
     __table_args__ = (
         Index('idx_loyalty_customer_tenant_serial', 'tenant_slug', 'pass_serial', unique=True),
         Index('idx_loyalty_customer_tenant', 'tenant_slug'),
+        Index('idx_loyalty_customer_tenant_shortcode', 'tenant_slug', 'short_code'),  # Phase 1: Short-Code Lookup
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -427,6 +433,17 @@ class LoyaltyCustomer(Base):
     pass_needs_update = Column(Boolean, default=True)
     # Opt-out von Push-Kampagnien (DSGVO: jederzeit widerrufbar)
     push_opt_out = Column(Boolean, default=False)
+    # ── PHASE 1: Short-Code für manuelle Stempel-Vergabe ──
+    # 4-stelliger Code (Crockford Base32: kein 0/O/1/I)
+    # Wird im Wallet-Pass angezeigt ("Stempel-Code: A7K2")
+    # Kellner tippt Code ein → System findet Customer → Stempel vergeben
+    short_code = Column(String, default="")               # 4 Zeichen, z.B. "A7K2"
+    # ── PHASE B: Optionale Customer-Daten (DSGVO: immer optional) ──
+    nickname = Column(String, nullable=True)              # Optional: "Max" oder "Stammgast 1"
+    birthday = Column(String, nullable=True)              # Optional: "MM-DD" (KEIN Jahr, DSGVO!)
+    # ── PHASE B: Stammkunden-Tier ──
+    # Automatisch nach Visits: 1-2 = "neu", 3-9 = "stamm", 10+ = "vip"
+    tier = Column(String, default="neu")                  # "neu", "stamm", "vip"
 
 class LoyaltyStamp(Base):
     """Ein einzelner Stempel — wird bei Bestellung automatisch vergeben.
@@ -558,6 +575,13 @@ def _migrate_database():
     # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
     add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
     add_column_if_missing('tenants', 'show_revenue', "BOOLEAN DEFAULT TRUE")  # Super-Admin: Tenant sieht Umsatz/Reports
+    # PHASE 4: operating_mode — 'full', 'menu_only', 'stempelkarte_only'
+    add_column_if_missing('tenants', 'operating_mode', "VARCHAR DEFAULT 'full'")
+    # PHASE 1: Short-Code + Customer-Fields für LoyaltyCustomer
+    add_column_if_missing('loyalty_customers', 'short_code', "VARCHAR DEFAULT ''")
+    add_column_if_missing('loyalty_customers', 'nickname', "VARCHAR")
+    add_column_if_missing('loyalty_customers', 'birthday', "VARCHAR")  # "MM-DD" nur Monat+Tag, DSGVO!
+    add_column_if_missing('loyalty_customers', 'tier', "VARCHAR DEFAULT 'neu'")
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")
