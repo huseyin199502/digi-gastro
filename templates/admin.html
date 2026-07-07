@@ -5998,8 +5998,8 @@
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">insights</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Loyalty Dashboard</h3>
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">insights</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Loyalty Dashboard</h3>
                         </div>
                         <button onclick="loadLoyaltyDashboard()" class="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
                             <span class="material-symbols-outlined" style="font-size:14px;">refresh</span> Aktualisieren
@@ -6007,27 +6007,27 @@
                     </div>
                     <div class="section-card-body">
                         <div id="loyalty-analytics" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div class="p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-100 dark:border-zinc-700">
-                                <div class="text-[10px] font-bold text-zinc-500 uppercase">Kunden</div>
-                                <div id="loyalty-stat-total" class="text-xl font-black text-zinc-800 dark:text-zinc-200 mt-1">—</div>
+                            <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                                <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Kunden</div>
+                                <div id="loyalty-stat-total" class="text-xl font-black text-zinc-900 dark:text-white mt-1">—</div>
                             </div>
-                            <div class="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900">
-                                <div class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Aktiv (30d)</div>
-                                <div id="loyalty-stat-active" class="text-xl font-black text-emerald-700 dark:text-emerald-400 mt-1">—</div>
+                            <div class="p-3 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                                <div class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">Aktiv (30d)</div>
+                                <div id="loyalty-stat-active" class="text-xl font-black text-emerald-800 dark:text-emerald-300 mt-1">—</div>
                             </div>
-                            <div class="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900">
+                            <div class="p-3 bg-amber-50 dark:bg-amber-950/50 rounded-xl border border-amber-200 dark:border-amber-800">
                                 <div class="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">Rewards eingelöst</div>
-                                <div id="loyalty-stat-rewards" class="text-xl font-black text-amber-700 dark:text-amber-300 mt-1">—</div>
+                                <div id="loyalty-stat-rewards" class="text-xl font-black text-amber-800 dark:text-amber-300 mt-1">—</div>
                             </div>
-                            <div class="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800" style="background-color: #1e3a8a;">
-                                <div class="text-[10px] font-bold text-blue-100 uppercase" style="color: #dbeafe;">Pushs (30d)</div>
-                                <div id="loyalty-stat-pushs" class="text-xl font-black mt-1" style="color: #ffffff;">—</div>
+                            <div class="p-3 bg-blue-50 dark:bg-blue-950/50 rounded-xl border border-blue-200 dark:border-blue-800">
+                                <div class="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase">Pushs (30d)</div>
+                                <div id="loyalty-stat-pushs" class="text-xl font-black text-blue-800 dark:text-blue-300 mt-1">—</div>
                             </div>
                         </div>
-                        <div id="loyalty-setup-warning" class="hidden mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl text-xs">
-                            <strong class="text-amber-800 dark:text-amber-300">⚠️ Wallet-Pass-Integration nicht konfiguriert</strong>
+                        <div id="loyalty-setup-warning" class="hidden mt-3 p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl text-xs">
+                            <strong class="text-amber-800 dark:text-amber-200">⚠️ Wallet-Pass-Integration nicht konfiguriert</strong>
                             <p class="text-amber-700 dark:text-amber-300 mt-1">Damit Gäste Stempelkarten in Apple/Google Wallet speichern können, müssen Zertifikate hinterlegt werden. Kontaktiere den digi-gastro Support.</p>
-                            <p id="loyalty-config-status" class="text-[10px] mt-1.5 opacity-70"></p>
+                            <p id="loyalty-config-status" class="text-[10px] mt-1.5 text-amber-600 dark:text-amber-400"></p>
                         </div>
                     </div>
                 </div>
@@ -6036,8 +6036,8 @@
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">confirmation_number</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Stempelkarte</h3>
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">confirmation_number</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Stempelkarte</h3>
                         </div>
                     </div>
                     <div class="section-card-body">
@@ -6045,7 +6045,7 @@
                             <!-- Wird von JS gefüllt -->
                         </div>
                         <form id="loyalty-card-form" onsubmit="createLoyaltyCard(event)" class="space-y-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700">
-                            <h4 class="text-xs font-extrabold text-zinc-700 dark:text-zinc-600 uppercase">Neue Stempelkarte erstellen</h4>
+                            <h4 class="text-xs font-extrabold text-zinc-700 dark:text-zinc-200 uppercase">Neue Stempelkarte erstellen</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="form-label">Karten-Name</label>
@@ -6092,13 +6092,13 @@
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">location_on</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">GPS-Standort (Geofencing)</h3>
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">location_on</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">GPS-Standort (Geofencing)</h3>
                         </div>
                         <span class="text-[10px] font-bold text-blue-700">200m Radius</span>
                     </div>
                     <div class="section-card-body">
-                        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">
+                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mb-3 leading-relaxed">
                             Wenn ein Kunde mit deiner Stempelkarte im Wallet in 200m Nähe deines Lokals ist, zeigt das Betriebssystem automatisch deine Karte auf dem Sperrbildschirm — <strong>ohne App, ohne Server-Tracking</strong> (geräteseitig).
                         </p>
                         <form id="loyalty-geofence-form" onsubmit="saveLoyaltyGeofence(event)" class="space-y-3">
@@ -6132,8 +6132,8 @@
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">campaign</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Push-Kampagnen</h3>
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">campaign</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Push-Kampagnen</h3>
                         </div>
                     </div>
                     <div class="section-card-body">
@@ -6141,7 +6141,7 @@
                             <!-- Wird von JS gefüllt -->
                         </div>
                         <form id="loyalty-campaign-form" onsubmit="createLoyaltyCampaign(event)" class="space-y-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700">
-                            <h4 class="text-xs font-extrabold text-zinc-700 dark:text-zinc-600 uppercase">Neue Push-Kampagne</h4>
+                            <h4 class="text-xs font-extrabold text-zinc-700 dark:text-zinc-200 uppercase">Neue Push-Kampagne</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="form-label">Name (intern)</label>
@@ -6200,12 +6200,12 @@
                 <div class="section-card mb-4">
                     <div class="section-card-header">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-zinc-500" style="font-size:18px;">group</span>
-                            <h3 class="font-extrabold text-sm text-zinc-800">Kunden (anonym)</h3>
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">group</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Kunden (anonym)</h3>
                         </div>
                     </div>
                     <div class="section-card-body">
-                        <p class="text-[11px] text-zinc-500 mb-3 leading-relaxed">
+                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mb-3 leading-relaxed">
                             Alle Stempelkarten-Kunden. Anonym (nur Pass-Serial, keine Namen/Emails). DSGVO-konform.
                         </p>
                         <div id="loyalty-customers-list" class="overflow-x-auto">
@@ -14376,38 +14376,40 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     return;
                 }
                 container.innerHTML = `
+                    <div class="overflow-x-auto -mx-2 px-2">
                     <table class="w-full text-xs">
-                        <thead class="bg-gray-50 dark:bg-zinc-800 text-zinc-500 uppercase text-[10px]">
+                        <thead class="bg-gray-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 uppercase text-[10px]">
                             <tr>
                                 <th class="px-2 py-2 text-left">Code</th>
                                 <th class="px-2 py-2 text-left">Typ</th>
                                 <th class="px-2 py-2 text-center">Stempel</th>
                                 <th class="px-2 py-2 text-center">Tier</th>
-                                <th class="px-2 py-2 text-center">Letzter Besuch</th>
+                                <th class="px-2 py-2 text-center hidden sm:table-cell">Letzter Besuch</th>
                                 <th class="px-2 py-2 text-center">Aktion</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${customers.map(c => {
-                                const tierBadge = {neu: 'bg-gray-100 text-gray-700', stamm: 'bg-blue-100 text-blue-700', vip: 'bg-amber-100 text-amber-700'}[c.tier] || 'bg-gray-100 text-gray-700';
+                                const tierBadge = {neu: 'bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300', stamm: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300', vip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'}[c.tier] || 'bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300';
                                 const tierIcon = {neu: '🆕', stamm: '⭐', vip: '👑'}[c.tier] || '';
                                 const lastVisit = c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('de-DE') : '—';
                                 return `
-                                <tr class="border-t border-gray-100 dark:border-zinc-700">
-                                    <td class="px-2 py-2 font-mono font-bold text-zinc-800">${c.short_code || '—'}</td>
+                                <tr class="border-t border-gray-100 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200">
+                                    <td class="px-2 py-2 font-mono font-bold">${c.short_code || '—'}</td>
                                     <td class="px-2 py-2">${c.pass_type === 'apple' ? '🍎' : '🟢'}</td>
                                     <td class="px-2 py-2 text-center font-bold">${c.current_stamps}</td>
                                     <td class="px-2 py-2 text-center"><span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold ${tierBadge}">${tierIcon} ${c.tier}</span></td>
-                                    <td class="px-2 py-2 text-center text-zinc-500">${lastVisit}</td>
+                                    <td class="px-2 py-2 text-center text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">${lastVisit}</td>
                                     <td class="px-2 py-2 text-center">
-                                        <button onclick="awardStampToCustomer('${c.short_code}')" class="text-xs px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold flex items-center gap-1 mx-auto">
-                                            <span class="material-symbols-outlined" style="font-size:13px;">add_circle</span> Stempel
+                                        <button onclick="awardStampToCustomer('${c.short_code}')" class="text-xs px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 dark:text-emerald-300 font-bold flex items-center gap-1 mx-auto">
+                                            <span class="material-symbols-outlined" style="font-size:13px;">add_circle</span> <span class="hidden sm:inline">Stempel</span>
                                         </button>
                                     </td>
                                 </tr>`;
                             }).join('')}
                         </tbody>
-                    </table>`;
+                    </table>
+                    </div>`;
             } catch (e) {
                 console.error('Load customers error:', e);
             }

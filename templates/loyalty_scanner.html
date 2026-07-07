@@ -1,160 +1,293 @@
 <!DOCTYPE html>
-<html lang="de" class="dark">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#000000">
     <title>Stempel vergeben — {{ restaurant.name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-            min-height: 100vh;
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #000000;
+            color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-            -webkit-tap-highlight-color: transparent;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: env(safe-area-inset-top, 1rem) 1rem env(safe-area-inset-bottom, 1rem);
+            padding-top: max(env(safe-area-inset-top), 1rem);
+            padding-bottom: max(env(safe-area-inset-bottom), 2rem);
+        }
+        /* Header mit Logo + Name */
+        .header {
+            text-align: center;
+            padding: 1.5rem 0 1rem;
+        }
+        .header img {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            border-radius: 1rem;
+            margin: 0 auto 0.75rem;
+            background: rgba(255,255,255,0.05);
+            padding: 8px;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 900;
+            margin: 0;
+            color: #ffffff;
+        }
+        .header p {
+            font-size: 0.875rem;
+            color: #a1a1aa;
+            margin: 0.25rem 0 0;
+        }
+        /* Code-Eingabe */
+        .code-section {
+            margin: 1.5rem 0 1rem;
+        }
+        .code-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #a1a1aa;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .stamp-input {
-            font-size: 2.5rem;
+            font-size: clamp(2rem, 8vw, 3rem);
             letter-spacing: 0.5rem;
             text-align: center;
             text-transform: uppercase;
-            background: #1e293b;
-            border: 2px solid #475569;
-            color: #f1f5f9;
-            border-radius: 1rem;
+            background: #18181b;
+            border: 2px solid #3f3f46;
+            color: #ffffff;
+            border-radius: 0.75rem;
             padding: 1rem 0.5rem;
             width: 100%;
-            font-weight: 800;
+            font-weight: 900;
+            font-family: ui-monospace, "SF Mono", Monaco, monospace;
             transition: all 0.15s;
+            -webkit-appearance: none;
+            appearance: none;
         }
         .stamp-input:focus {
             border-color: #22c55e;
             outline: none;
-            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+            background: #18181b;
         }
-        .stamp-btn {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            color: white;
-            font-weight: 800;
-            padding: 1.25rem;
-            border-radius: 1rem;
-            font-size: 1.125rem;
-            width: 100%;
-            border: none;
-            box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.4);
-            transition: all 0.15s;
+        .stamp-input::placeholder {
+            color: #52525b;
         }
-        .stamp-btn:active { transform: scale(0.98); }
-        .stamp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .lookup-card {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid #334155;
-            border-radius: 1rem;
-            padding: 1rem;
-            backdrop-filter: blur(8px);
-        }
-        .toast {
-            position: fixed;
-            top: 1rem;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem;
-            font-weight: 700;
-            z-index: 100;
-            opacity: 0;
-            transition: opacity 0.3s;
-            max-width: 90%;
+        .code-hint {
             text-align: center;
+            font-size: 0.75rem;
+            color: #71717a;
+            margin-top: 0.5rem;
         }
-        .toast.show { opacity: 1; }
-        .toast.success { background: #22c55e; color: white; }
-        .toast.error { background: #ef4444; color: white; }
-        .toast.reward { background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; font-size: 1.25rem; }
+        /* Lookup Ergebnis */
+        .lookup-card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .lookup-card.error {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            text-align: center;
+            justify-content: center;
+            flex-direction: column;
+        }
         .progress-circle {
-            width: 4rem; height: 4rem;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
-            background: conic-gradient(#22c55e var(--progress, 0%), #334155 0);
+            background: conic-gradient(#22c55e var(--progress, 0%), #3f3f46 0);
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
         .progress-inner {
-            width: 3.5rem; height: 3.5rem;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
-            background: #1e293b;
+            background: #18181b;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 900;
+            color: #ffffff;
+        }
+        .lookup-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .lookup-name {
             font-weight: 800;
-            color: #f1f5f9;
+            color: #ffffff;
+            font-size: 0.95rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .lookup-tier {
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .lookup-tier.neu { color: #a1a1aa; }
+        .lookup-tier.stamm { color: #60a5fa; }
+        .lookup-tier.vip { color: #fbbf24; }
+        .lookup-card-name {
+            font-size: 0.7rem;
+            color: #71717a;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: #ffffff;
+            font-weight: 900;
+            padding: 1.125rem;
+            border-radius: 0.75rem;
+            font-size: 1.05rem;
+            width: 100%;
+            border: none;
+            box-shadow: 0 8px 24px -4px rgba(34, 197, 94, 0.4);
+            transition: all 0.15s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .btn-secondary {
+            background: #27272a;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 0.875rem;
+            border-radius: 0.75rem;
+            font-size: 0.95rem;
+            width: 100%;
+            border: 1px solid #3f3f46;
+            cursor: pointer;
+            margin-top: 0.75rem;
+            transition: all 0.15s;
+        }
+        .btn-secondary:active { transform: scale(0.98); }
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: max(env(safe-area-inset-top), 1rem);
+            left: 50%;
+            transform: translateX(-50%) translateY(-150%);
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 800;
+            z-index: 100;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 90vw;
+            text-align: center;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .toast.success { background: #22c55e; color: #ffffff; }
+        .toast.error { background: #ef4444; color: #ffffff; }
+        .toast.reward { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #ffffff; font-size: 1rem; }
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #52525b;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #27272a;
         }
     </style>
 </head>
-<body class="text-slate-100">
-    <div class="container mx-auto px-4 py-6 max-w-md">
-
-        <!-- Header mit Tenant-Logo + Name -->
-        <div class="text-center mb-6">
+<body>
+    <div class="container">
+        <header class="header">
             {% if restaurant.logo_path %}
-                <img src="{{ restaurant.logo_path }}" alt="{{ restaurant.name }}" class="w-20 h-20 mx-auto rounded-2xl object-contain bg-white/5 p-2 mb-3">
+                <img src="{{ restaurant.logo_path }}" alt="{{ restaurant.name }}">
             {% endif %}
-            <h1 class="text-2xl font-black tracking-tight">{{ restaurant.name }}</h1>
-            <p class="text-slate-400 text-sm mt-1">Stempel vergeben</p>
-        </div>
+            <h1>{{ restaurant.name }}</h1>
+            <p>Stempel vergeben</p>
+        </header>
 
-        <!-- Short-Code Eingabe -->
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-semibold text-slate-300 mb-2 text-center">
-                    Code vom Kunden-Pass eingeben
-                </label>
-                <input
-                    type="text"
-                    id="shortCode"
-                    class="stamp-input"
-                    placeholder="A7K2"
-                    maxlength="4"
-                    autocomplete="off"
-                    autocapitalize="characters"
-                    spellcheck="false"
-                    inputmode="text"
-                >
-                <p class="text-center text-xs text-slate-500 mt-2">
-                    4-stelliger Code auf der Rückseite des Wallet-Passes
-                </p>
-            </div>
-
-            <!-- Live-Lookup Vorschau -->
-            <div id="lookupResult" class="hidden">
-                <!-- Wird via JS befüllt -->
-            </div>
-
-            <!-- Stempel vergeben Button -->
-            <button
-                id="stampBtn"
-                class="stamp-btn"
-                disabled
-                onclick="awardStamp()"
+        <section class="code-section">
+            <label class="code-label" for="shortCode">Code vom Kunden-Pass</label>
+            <input
+                type="text"
+                id="shortCode"
+                class="stamp-input"
+                placeholder="ABCD"
+                maxlength="4"
+                autocomplete="off"
+                autocapitalize="characters"
+                spellcheck="false"
+                inputmode="text"
             >
-                <span class="text-2xl mr-2">⭐</span>
-                Stempel vergeben
-            </button>
+            <p class="code-hint">4-stelliger Code auf der Pass-Rückseite</p>
+        </section>
 
-            <!-- Reload-Button (für nächsten Kunden) -->
-            <button
-                id="nextBtn"
-                class="hidden w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-semibold text-slate-200"
-                onclick="resetForm()"
-            >
-                Nächster Kunde
-            </button>
-        </div>
+        <div id="lookupResult" style="display:none;"></div>
 
-        <!-- Info unten -->
-        <div class="mt-8 text-center text-xs text-slate-500">
-            <p>Powered by digi-gastro · Stempel werden sofort ins Wallet gepusht</p>
-        </div>
+        <button
+            id="stampBtn"
+            class="btn-primary"
+            disabled
+            onclick="awardStamp()"
+        >
+            <span style="font-size:1.25rem;">⭐</span>
+            Stempel vergeben
+        </button>
+
+        <button
+            id="nextBtn"
+            class="btn-secondary"
+            style="display:none;"
+            onclick="resetForm()"
+        >
+            Nächster Kunde
+        </button>
+
+        <footer class="footer">
+            Powered by digi-gastro · Stempel sofort im Wallet
+        </footer>
     </div>
 
     <div id="toast" class="toast"></div>
@@ -169,23 +302,19 @@
         const stampBtn = document.getElementById('stampBtn');
         const nextBtn = document.getElementById('nextBtn');
 
-        // Auto-Upper-Case + nur gültige Zeichen
         codeInput.addEventListener('input', async (e) => {
             let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            // Crockford-Normalisierung: O→Q, I→J, 0→Q, 1→J
             v = v.replace(/O/g, 'Q').replace(/I/g, 'J').replace(/0/g, 'Q').replace(/1/g, 'J');
             e.target.value = v;
-
             if (v.length >= 3) {
                 await lookupCustomer(v);
             } else {
-                lookupResult.classList.add('hidden');
+                lookupResult.style.display = 'none';
                 stampBtn.disabled = true;
                 currentLookup = null;
             }
         });
 
-        // Enter-Taste = Stempel vergeben
         codeInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !stampBtn.disabled) {
                 awardStamp();
@@ -199,7 +328,7 @@
                     credentials: 'same-origin'
                 });
                 if (!res.ok) {
-                    lookupResult.classList.add('hidden');
+                    lookupResult.style.display = 'none';
                     stampBtn.disabled = true;
                     currentLookup = null;
                     return;
@@ -209,31 +338,28 @@
                     currentLookup = data;
                     const progress = (data.current_stamps / data.stamps_required) * 100;
                     const tierLabel = {neu: 'Neu', stamm: 'Stammgast', vip: 'VIP ⭐'}[data.tier] || data.tier;
-                    const tierColor = {neu: 'text-slate-400', stamm: 'text-blue-400', vip: 'text-amber-400'}[data.tier] || 'text-slate-400';
                     lookupResult.innerHTML = `
                         <div class="lookup-card">
-                            <div class="flex items-center gap-3">
-                                <div class="progress-circle" style="--progress: ${progress}%">
-                                    <div class="progress-inner">${data.current_stamps}/${data.stamps_required}</div>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-bold text-white truncate">${data.nickname}</div>
-                                    <div class="text-xs ${tierColor} font-semibold">${tierLabel}</div>
-                                    <div class="text-xs text-slate-400 truncate">${data.card_name}</div>
-                                </div>
+                            <div class="progress-circle" style="--progress: ${progress}%">
+                                <div class="progress-inner">${data.current_stamps}/${data.stamps_required}</div>
+                            </div>
+                            <div class="lookup-info">
+                                <div class="lookup-name">${data.nickname}</div>
+                                <div class="lookup-tier ${data.tier}">${tierLabel}</div>
+                                <div class="lookup-card-name">${data.card_name}</div>
                             </div>
                         </div>
                     `;
-                    lookupResult.classList.remove('hidden');
+                    lookupResult.style.display = 'block';
                     stampBtn.disabled = false;
                 } else {
                     lookupResult.innerHTML = `
-                        <div class="lookup-card text-center text-red-400">
-                            <div class="text-2xl mb-1">❌</div>
-                            <div class="text-sm font-semibold">Kein Kunde mit Code "${code}" gefunden</div>
+                        <div class="lookup-card error">
+                            <div style="font-size:1.5rem;">❌</div>
+                            <div>Kein Kunde mit Code "${code}"</div>
                         </div>
                     `;
-                    lookupResult.classList.remove('hidden');
+                    lookupResult.style.display = 'block';
                     stampBtn.disabled = true;
                     currentLookup = null;
                 }
@@ -245,7 +371,7 @@
         async function awardStamp() {
             if (!currentLookup) return;
             stampBtn.disabled = true;
-            stampBtn.innerHTML = '<span class="text-2xl">⏳</span> Wird vergeben...';
+            stampBtn.innerHTML = '<span style="font-size:1.25rem;">⏳</span> Wird vergeben...';
 
             try {
                 const res = await fetch('/admin/loyalty/stamp-manual', {
@@ -257,23 +383,22 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     if (data.reward_redeemed) {
-                        showToast(`🎉 ${data.customer_nickname} hat "${data.reward_name}" eingelöst!`, 'reward');
+                        showToast(`🎉 ${data.customer_nickname}: "${data.reward_name}" eingelöst!`, 'reward');
                     } else {
-                        showToast(`✅ Stempel vergeben! ${data.current_stamps}/${data.stamps_required}`, 'success');
+                        showToast(`✅ Stempel! ${data.current_stamps}/${data.stamps_required}`, 'success');
                     }
-                    // Lookup aktualisieren
                     await lookupCustomer(codeInput.value);
-                    stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Noch ein Stempel';
+                    stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Noch ein Stempel';
                     stampBtn.disabled = false;
-                    nextBtn.classList.remove('hidden');
+                    nextBtn.style.display = 'block';
                 } else {
-                    showToast(data.detail || 'Fehler beim Vergeben', 'error');
-                    stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Stempel vergeben';
+                    showToast(data.detail || 'Fehler', 'error');
+                    stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Stempel vergeben';
                     stampBtn.disabled = false;
                 }
             } catch (e) {
                 showToast('Netzwerkfehler: ' + e.message, 'error');
-                stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Stempel vergeben';
+                stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Stempel vergeben';
                 stampBtn.disabled = false;
             }
         }
@@ -281,10 +406,10 @@
         function resetForm() {
             codeInput.value = '';
             codeInput.focus();
-            lookupResult.classList.add('hidden');
+            lookupResult.style.display = 'none';
             stampBtn.disabled = true;
-            stampBtn.innerHTML = '<span class="text-2xl mr-2">⭐</span> Stempel vergeben';
-            nextBtn.classList.add('hidden');
+            stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Stempel vergeben';
+            nextBtn.style.display = 'none';
             currentLookup = null;
         }
 
@@ -295,7 +420,6 @@
             setTimeout(() => toast.classList.remove('show'), 4000);
         }
 
-        // Auto-Focus aufs Input
         codeInput.focus();
     </script>
 </body>
