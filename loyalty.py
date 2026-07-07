@@ -933,6 +933,10 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
             certfile=APPLE_CERT_PATH,
             keyfile=APPLE_KEY_PATH
         )
+        # WICHTIG: Apple APNs Server-Zertifikat nicht verifizieren
+        # (unser ssl_context hat nur den Client-Cert, keine CA-Bundle)
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
         with httpx.Client(http2=True, verify=ssl_context) as client:
             resp = client.post(
