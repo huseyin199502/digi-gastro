@@ -924,19 +924,27 @@ def _send_apple_apns_push(db_session, customer: LoyaltyCustomer, title: str, mes
 def _apns_push(push_token: str, title: str, message: str) -> bool:
     """Sendet HTTP/2 Push an APNs (api.push.apple.com) für Pass-Update.
 
-    Apple Wallet Pass Updates funktionieren anders als normale Pushs:
-    - Leerer Push body (kein alert payload)
-    - apns-push-type: "passbook" (nicht "alert")
-    - apns-topic: passTypeIdentifier (pass.com.digi-gastro.loyalty)
+    Apple Wallet Pass Updates mit SICHTBARER Notification (Sperrbildschirm + Ton):
+    - apns-push-type: "alert" (NICHT "background" — background zeigt keine Notification!)
+    - aps.payload mit alert.title + alert.body → Sperrbildschirm + Ton + Banner
+    - aps.sound: "default" → Standard-Benachrichtigungston
+    - aps.badge: nicht setzen (Pässe haben kein Badge)
     - iOS ruft dann automatisch GET /passes/.../... auf → holt aktualisierten Pass
-    - Wenn changeMessage in pass.json definiert ist → iOS zeigt Notification
+    - changeMessage in pass.json wird als Notification-Text angezeigt
     """
     import ssl
-    import json as _json
 
-    # Für Pass Updates: LEERER body! iOS holt sich den Pass selbst.
-    # Die changeMessage in pass.json definiert was iOS als Notification zeigt.
-    payload = {}  # Empty — iOS knows it's a pass update from the topic
+    # WICHTIG: alert Push mit title + body + sound → Sperrbildschirm + Ton!
+    payload = {
+        "aps": {
+            "alert": {
+                "title": title[:100],      # Titel auf Sperrbildschirm
+                "body": message[:200]      # Nachricht auf Sperrbildschirm
+            },
+            "sound": "default",            # Standard-Benachrichtigungston 🔔
+            "interruption-level": "active" # Auf Sperrbildschirm anzeigen
+        }
+    }
 
     try:
         import httpx
@@ -957,8 +965,8 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
                 json=payload,
                 headers={
                     "apns-topic": APPLE_PASS_TYPE_ID,
-                    "apns-push-type": "background",  # Apple 2023+: "background" for pass updates (not "passbook")
-                    "apns-priority": "5",
+                    "apns-push-type": "alert",       # CRITICAL: "alert" für Sperrbildschirm + Ton!
+                    "apns-priority": "10",           # Hoch — sofortige Zustellung
                     "apns-expiration": "0"
                 },
                 timeout=10
