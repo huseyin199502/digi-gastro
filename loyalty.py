@@ -187,10 +187,37 @@ def _generate_apple_pass_json(
     except Exception:
         rgb_color = "rgb(201,168,76)"
 
-    # Fortschritts-Balken als Sterne (gefüllt/leer)
+    # ── Professionelle Stempel-Visualisierung ──
+    # Statt nur Sterne: kombinierter Text mit Stempel-Status + Reward-Info
+    # Bei 10/10: "★★★★★★★★★★ 🎉 PRÄMIE BEREIT!"
+    # Bei 3/10:  "★★★☆☆☆☆☆☆☆ — 7 Stempel bis Kaffee gratis"
+    # Bei 0/10:  "☆☆☆☆☆☆☆☆☆☆ — 10 Stempel bis Kaffee gratis"
     filled = "★" * stamps_current
     empty = "☆" * max(0, stamps_required - stamps_current)
-    progress_text = filled + empty
+    progress_stars = filled + empty
+
+    if stamps_current >= stamps_required:
+        # 10/10 erreicht — PRÄMIE BEREIT!
+        progress_text = f"{progress_stars}\n🎉 PRÄMIE BEREIT: {reward_name}!"
+        primary_value = f"{stamps_current} / {stamps_required} ✓"
+        primary_change = f"🎉 Prämie bereit! {reward_name} — %@"
+        reward_label = "PRÄMIE BEREIT"
+        reward_value = f"🎁 {reward_name} — Bei deinem nächsten Besuch einlösen!"
+    elif stamps_current == 0:
+        # 0/10 — frisch gestartet
+        progress_text = progress_stars
+        primary_value = f"{stamps_current} / {stamps_required}"
+        primary_change = "🎉 Neuer Stempel! Jetzt %@"
+        reward_label = "Dein Ziel"
+        reward_value = f"🎁 {reward_name} — Noch {stamps_required} Stempel"
+    else:
+        # 1-9/10 — unterwegs
+        remaining = stamps_required - stamps_current
+        progress_text = progress_stars
+        primary_value = f"{stamps_current} / {stamps_required}"
+        primary_change = "🎉 Neuer Stempel! Jetzt %@"
+        reward_label = "Noch bis zum Reward"
+        reward_value = f"🎁 {reward_name} — Nur noch {remaining} Stempel!"
 
     pass_json = {
         "description": f"{card_name} - {tenant_name}",
@@ -222,10 +249,10 @@ def _generate_apple_pass_json(
                 {
                     "key": "stamps",
                     "label": f"{card_name}",
-                    "value": f"{stamps_current} / {stamps_required}",
+                    "value": primary_value,
                     "textAlignment": "PKTextAlignmentCenter",
-                    # WICHTIG: changeMessage triggert iOS Notification bei Stempel-Vergabe!
-                    "changeMessage": "🎉 Neuer Stempel! Jetzt %@"
+                    # changeMessage dynamisch: bei 10/10 "Prämie bereit!"
+                    "changeMessage": primary_change
                 }
             ],
             "auxiliaryFields": [
@@ -238,9 +265,10 @@ def _generate_apple_pass_json(
                 },
                 {
                     "key": "reward",
-                    "label": "Nächster Reward",
-                    "value": reward_name,
-                    "textAlignment": "PKTextAlignmentLeft"
+                    "label": reward_label,
+                    "value": reward_value,
+                    "textAlignment": "PKTextAlignmentLeft",
+                    "changeMessage": "%@"
                 },
                 {
                     "key": "lastmsg",
@@ -1160,11 +1188,26 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
     db_session.add(stamp)
 
     # Reward prüfen
+    # WICHTIG: Bei 10/10 wird NICHT sofort auf 0 gesetzt!
+    # Der Kunde soll 10/10 mit "PRÄMIE BEREIT!" sehen.
+    # Erst wenn der Kellner den Reward einlöst (separater Button/API),
+    # wird auf 0 resettet. So sieht der Kunde seinen Erfolg im Wallet.
     reward_redeemed = False
     if customer.current_stamps >= card.stamps_required:
-        customer.current_stamps = 0
+        # 10/10 erreicht — aber NICHT resetten!
+        # current_stamps bleibt bei 10/10 → Pass zeigt "PRÄMIE BEREIT!"
         customer.rewards_redeemed += 1
         reward_redeemed = True
+        # Stempel als redeemed markieren
+        unredeemed = db_session.query(LoyaltyStamp).filter_by(
+            customer_id=customer.id, card_id=card.id, is_redeemed=False
+        ).all()
+        for s in unredeemed:
+            s.is_redeemed = True
+            s.redeemed_at = _now_iso()
+        # WICHTIG: current_stamps bleibt bei stamps_required (z.B. 10)
+        # Pass zeigt: "10 / 10 ✓" + "🎉 PRÄMIE BEREIT!"
+        # Reset erfolgt erst via reward_redeem API (Kellner löst ein)
 
     db_session.commit()
 

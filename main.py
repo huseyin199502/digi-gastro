@@ -14670,6 +14670,58 @@ async def loyalty_quick_send(
 
 
 # ──────────────────────────────────────────────────────────────────
+# REWARD EINLÖSEN — Kellner löst Prämie ein → Stempel auf 0
+# ──────────────────────────────────────────────────────────────────
+@app.post("/admin/loyalty/redeem/{customer_id}")
+def loyalty_redeem_reward(
+    customer_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Löst den Reward für einen Kunden ein → current_stamps = 0.
+
+    Wird aufgerufen wenn Kellner den Reward bestätigt (z.B. gratis Kaffee gegeben).
+    Danach startet die Stempelkarte von vorn (0/10).
+    """
+    from loyalty import _trigger_pass_update_push, _now_iso
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customer = db.query(LoyaltyCustomer).filter_by(
+        id=customer_id, tenant_slug=slug_lower
+    ).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden.")
+
+    card = db.query(LoyaltyCard).filter_by(id=customer.card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Karte nicht gefunden.")
+
+    if customer.current_stamps < card.stamps_required:
+        raise HTTPException(status_code=400, detail=f"Kunde hat erst {customer.current_stamps}/{card.stamps_required} Stempel — Prämie noch nicht bereit.")
+
+    # Reward einlösen → Stempel reset
+    old_stamps = customer.current_stamps
+    customer.current_stamps = 0
+    customer.last_message = f"Prämie eingelöst: {card.reward_name}! 🎁 Neue Runde startet."
+    db.commit()
+
+    # Pass-Update Push → Kunde sieht 0/10 + "Neue Runde"
+    try:
+        _trigger_pass_update_push(db, customer, card.name, f"Prämie eingelöst: {card.reward_name}!")
+    except Exception as e:
+        print(f"[Loyalty] Reward redeem push failed: {e}")
+
+    return {
+        "success": True,
+        "customer_id": customer_id,
+        "reward_name": card.reward_name,
+        "old_stamps": old_stamps,
+        "new_stamps": 0
+    }
+
+
+# ──────────────────────────────────────────────────────────────────
 @app.post("/admin/loyalty/broadcast/{campaign_id}")
 def loyalty_broadcast_push(
     campaign_id: int,
