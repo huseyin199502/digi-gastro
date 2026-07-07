@@ -283,7 +283,7 @@ def _generate_apple_pass_json(
                     "label": reward_label,
                     "value": reward_value,
                     "textAlignment": "PKTextAlignmentLeft",
-                    "changeMessage": "%@"
+                    "changeMessage": "🎁 Reward aktualisiert: %@"
                 },
                 {
                     "key": "lastmsg",
@@ -291,8 +291,9 @@ def _generate_apple_pass_json(
                     "value": customer.get("last_message", "Willkommen!"),
                     "textAlignment": "PKTextAlignmentLeft",
                     # CRITICAL: changeMessage für Broadcast/Inaktivität-Pushs.
-                    # Wenn sich last_message ändert → iOS zeigt Notification!
-                    "changeMessage": "%@",
+                    # WICHTIG: "%@" allein funktioniert NICHT in iOS — es MUSS
+                    # beschreibender Text dabei stehen! Sonst zeigt iOS keinen Banner.
+                    "changeMessage": "📬 Neue Nachricht: %@",
                     "hidden": False
                 }
             ],
