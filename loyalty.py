@@ -196,6 +196,7 @@ def _generate_apple_pass_json(
         "description": f"{card_name} - {tenant_name}",
         "formatVersion": 1,
         "organizationName": tenant_name or "digi-gastro",
+        "logoText": tenant_name or "digi-gastro",  # WICHTIG: Logo-Text = Tenant-Name (sichtbar auf Pass)
         "passTypeIdentifier": APPLE_PASS_TYPE_ID,
         "serialNumber": serial,
         "teamIdentifier": APPLE_TEAM_ID,
@@ -212,7 +213,9 @@ def _generate_apple_pass_json(
                     "key": "code",
                     "label": "Stempel-Code",
                     "value": short_code or "—",
-                    "textAlignment": "PKTextAlignmentRight"
+                    "textAlignment": "PKTextAlignmentRight",
+                    # changeMessage: iOS zeigt Notification wenn dieser Wert sich ändert
+                    "changeMessage": "Neuer Code: %@"
                 }
             ],
             "primaryFields": [
@@ -220,7 +223,9 @@ def _generate_apple_pass_json(
                     "key": "stamps",
                     "label": f"{card_name}",
                     "value": f"{stamps_current} / {stamps_required}",
-                    "textAlignment": "PKTextAlignmentCenter"
+                    "textAlignment": "PKTextAlignmentCenter",
+                    # WICHTIG: changeMessage triggert iOS Notification bei Stempel-Vergabe!
+                    "changeMessage": "🎉 Neuer Stempel! Jetzt %@"
                 }
             ],
             "auxiliaryFields": [
@@ -228,7 +233,8 @@ def _generate_apple_pass_json(
                     "key": "progress",
                     "label": "Fortschritt",
                     "value": progress_text,
-                    "textAlignment": "PKTextAlignmentCenter"
+                    "textAlignment": "PKTextAlignmentCenter",
+                    "changeMessage": "Fortschritt aktualisiert: %@"
                 },
                 {
                     "key": "reward",
@@ -266,11 +272,11 @@ def _generate_apple_pass_json(
             "card_id": card.get("id"),
             "customer_id": customer.get("id"),
         },
+        # ── Push Notification Settings ──
+        # WICHTIG: Für Pass-Update Push Notifications (changeMessage)
+        # iOS braucht diese Fields um Notifications zu zeigen:
+        "notificationLockScreen": True,
         # ── PHASE 1: barcodes Field für QR-Code-Anzeige im Pass ──
-        # Apple Wallet zeigt den QR-Code auf der Pass-Rückseite an.
-        # Kellner scannt den QR → Stempel vergeben.
-        # WICHTIG: short_code als message (nicht pass_serial!) weil Kellner
-        # den Code eintippen können muss falls QR-Scan nicht klappt.
         "barcodes": [
             {
                 "format": "PKBarcodeFormatQR",
@@ -434,15 +440,33 @@ def generate_apple_pkpass(
         )
         pass_json_bytes = json.dumps(pass_json, indent=2).encode("utf-8")
 
-        # 2. icon.png generieren (REQUIRED — Apple lehnt Pass ohne icon ab)
-        color_hex = card.get("color_hex", "#C9A84C")
-        icon_bytes = _generate_default_icon(color_hex)
-
-        # 3. Logo laden falls vorhanden (optional, auf Pass sichtbar)
+        # 2. Logo laden falls vorhanden (Tenant-Logo)
         logo_bytes = None
         if logo_path and os.path.exists(logo_path):
             with open(logo_path, "rb") as f:
                 logo_bytes = f.read()
+
+        # 3. Icon generieren — Tenant-Logo als Icon falls vorhanden, sonst Default
+        color_hex = card.get("color_hex", "#C9A84C")
+        if logo_bytes:
+            # Tenant-Logo als icon.png verwenden (Apple akzeptiert PNG)
+            # Logo auf 158x158 skalieren für optimale Darstellung
+            try:
+                from PIL import Image
+                import io as _io
+                img = Image.open(_io.BytesIO(logo_bytes))
+                img = img.convert("RGBA")
+                # Auf 158x158 skalieren (Apple empfiehlt diese Größe)
+                img = img.resize((158, 158), Image.Resampling.LANCZOS)
+                out = _io.BytesIO()
+                img.save(out, format="PNG", optimize=True)
+                icon_bytes = out.getvalue()
+            except Exception as e:
+                print(f"[Apple Pass] Logo resize failed, using default: {e}")
+                icon_bytes = _generate_default_icon(color_hex)
+        else:
+            # Kein Logo → Default "S" Icon generieren
+            icon_bytes = _generate_default_icon(color_hex)
 
         # 4. Manifest bauen — Hashes ALLER Dateien die im ZIP landen
         manifest = {
@@ -884,103 +908,51 @@ def _send_apple_apns_push(db_session, customer: LoyaltyCustomer, title: str, mes
 
 
 def _apns_push(push_token: str, title: str, message: str) -> bool:
-    """Sendet HTTP/2 Push an APNs (api.push.apple.com).
+    """Sendet HTTP/2 Push an APNs (api.push.apple.com) für Pass-Update.
 
-    Apple Wallet Passes nutzen den 'passbook' push type.
-    Auth: Provider Certificate (Apple Pass Type ID Certificate — das gleiche
-    wie für Pass-Signing).
+    Apple Wallet Pass Updates funktionieren anders als normale Pushs:
+    - Leerer Push body (kein alert payload)
+    - apns-push-type: "passbook" (nicht "alert")
+    - apns-topic: passTypeIdentifier (pass.com.digi-gastro.loyalty)
+    - iOS ruft dann automatisch GET /passes/.../... auf → holt aktualisierten Pass
+    - Wenn changeMessage in pass.json definiert ist → iOS zeigt Notification
     """
     import ssl
     import json as _json
-    import socket
-    import http.client
 
-    # APNs Payload für Pass-Update
-    # WICHTIG: push_type = "passbook" für Wallet Pass Updates
-    payload = {
-        "aps": {
-            "alert": {
-                "title": title,
-                "body": message
-            }
-        }
-    }
+    # Für Pass Updates: LEERER body! iOS holt sich den Pass selbst.
+    # Die changeMessage in pass.json definiert was iOS als Notification zeigt.
+    payload = {}  # Empty — iOS knows it's a pass update from the topic
 
-    # HTTP/2 Verbindung zu APNs mit Provider Certificate
-    # Apple benötigt HTTP/2 (multiplex) für APNs
     try:
-        import hyper
-    except ImportError:
-        # hyper nicht installiert → fallback auf httpx mit http2
-        try:
-            import httpx
-            # SSL Context mit Apple Certificate
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ssl_context.load_cert_chain(
-                certfile=APPLE_CERT_PATH,
-                keyfile=APPLE_KEY_PATH
-            )
+        import httpx
 
-            with httpx.Client(http2=True, verify=False, ssl=ssl_context) as client:
-                resp = client.post(
-                    f"https://api.push.apple.com/3/device/{push_token}",
-                    json=payload,
-                    headers={
-                        "apns-topic": APPLE_PASS_TYPE_ID,
-                        "apns-push-type": "alert",
-                        "apns-priority": "10"
-                    },
-                    timeout=10
-                )
-                if resp.status_code == 200:
-                    print(f"[APNs] Push sent to {push_token[:16]}...")
-                    return True
-                else:
-                    print(f"[APNs] Push failed: {resp.status_code} {resp.text}")
-                    return False
-        except ImportError:
-            print("[APNs] Neither hyper nor httpx[http2] available — cannot send push")
-            return False
-
-    # hyper ist installiert — nutze es für HTTP/2
-    try:
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.load_cert_chain(
             certfile=APPLE_CERT_PATH,
             keyfile=APPLE_KEY_PATH
         )
 
-        conn = hyper.HTTP20Connection(
-            "api.push.apple.com:443",
-            secure=True,
-            ssl_context=ssl_context
-        )
-
-        headers = {
-            "apns-topic": APPLE_PASS_TYPE_ID,
-            "apns-push-type": "alert",
-            "apns-priority": "10",
-            "content-type": "application/json"
-        }
-
-        body = _json.dumps(payload).encode("utf-8")
-        conn.request(
-            "POST",
-            f"/3/device/{push_token}",
-            body=body,
-            headers=headers
-        )
-
-        resp = conn.get_response()
-        conn.close()
-
-        if resp.status == 200:
-            print(f"[APNs] Push sent to {push_token[:16]}...")
-            return True
-        else:
-            error_body = resp.read().decode("utf-8", errors="replace")
-            print(f"[APNs] Push failed: {resp.status} {error_body}")
-            return False
+        with httpx.Client(http2=True, verify=False, ssl=ssl_context) as client:
+            resp = client.post(
+                f"https://api.push.apple.com/3/device/{push_token}",
+                json=payload,
+                headers={
+                    "apns-topic": APPLE_PASS_TYPE_ID,
+                    "apns-push-type": "passbook",  # CRITICAL: "passbook" not "alert"
+                    "apns-priority": "10"
+                },
+                timeout=10
+            )
+            if resp.status_code == 200:
+                print(f"[APNs] Pass update push sent to {push_token[:16]}...")
+                return True
+            else:
+                print(f"[APNs] Push failed: {resp.status_code} {resp.text}")
+                return False
+    except ImportError:
+        print("[APNs] httpx[http2] not available — cannot send push")
+        return False
     except Exception as e:
         print(f"[APNs] Push error: {e}")
         return False

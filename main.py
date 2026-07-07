@@ -13931,8 +13931,29 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
         "reward_name": card.reward_name, "color_hex": card.color_hex,
     }
+
+    # CRITICAL FIX: Tenant-Logo in den Pass einbinden
+    # Vorher: logo_path nie übergeben → Pass hatte nur generisches "S" Icon
+    # Nachher: logo_path vom Tenant wird als logo.png + icon.png in den Pass gepackt
+    logo_path = None
+    if tenant.logo_path:
+        # logo_path ist z.B. "/uploads/logos/memo_logo_xxx.webp"
+        # Wir brauchen den echten File-Pfad im Container
+        logo_filename = tenant.logo_path.split("/")[-1]
+        # WebP → PNG konvertieren (Apple Wallet braucht PNG, kein WebP)
+        # Prüfe ob PNG-Version existiert (convert_to_webp hat evtl. schon eine .png Version)
+        possible_paths = [
+            os.path.join(UPLOAD_DIR, "logos", logo_filename.replace(".webp", ".png")),
+            os.path.join(UPLOAD_DIR, "logos", logo_filename),
+        ]
+        for p in possible_paths:
+            if os.path.exists(p):
+                logo_path = p
+                break
+
     pkpass_bytes = generate_apple_pkpass(
-        slug_lower, tenant.name, card_dict, customer_dict, geofence_dict
+        slug_lower, tenant.name, card_dict, customer_dict, geofence_dict,
+        logo_path=logo_path  # CRITICAL: Tenant-Logo in den Pass!
     )
     if not pkpass_bytes:
         raise HTTPException(status_code=500, detail="Pass-Generierung fehlgeschlagen.")
@@ -14178,8 +14199,22 @@ def passkit_get_pass(
         "reward_name": card.reward_name, "color_hex": card.color_hex,
     }
 
+    # Logo für Pass-Update auch hier laden (gleiche Logik wie beim initialen Download)
+    logo_path_update = None
+    if tenant.logo_path:
+        logo_filename = tenant.logo_path.split("/")[-1]
+        possible_paths = [
+            os.path.join(UPLOAD_DIR, "logos", logo_filename.replace(".webp", ".png")),
+            os.path.join(UPLOAD_DIR, "logos", logo_filename),
+        ]
+        for p in possible_paths:
+            if os.path.exists(p):
+                logo_path_update = p
+                break
+
     pkpass_bytes = generate_apple_pkpass(
-        customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict
+        customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict,
+        logo_path=logo_path_update
     )
 
     if not pkpass_bytes:
@@ -14633,11 +14668,27 @@ def loyalty_lookup_customer(
 
 @app.get("/{slug}/stempel", response_class=HTMLResponse)
 def loyalty_scanner_page(request: Request, slug: str, db: Session = Depends(get_db)):
-    """Öffentliche Scanner-Page für Kellner (POS-Token Auth via Cookie).
+    """Scanner-Page für Kellner — erfordert Chef/Kellner Login.
 
-    URL: /{slug}/stempel — bookmarkable auf dem Kellner-Handy.
-    Sieht: Tenant-Logo, Tenant-Name, Short-Code-Eingabe, Stempel-Button.
+    SECURITY FIX: Vorher war diese Seite öffentlich — jeder der den Link kannte
+    konnte Stempel vergeben! Jetzt: nur eingeloggte Chef/Kellner haben Zugriff.
+
+    URL: /{slug}/stempel — bookmarkable auf dem Kellner-Handy (nach Login).
     """
+    # CRITICAL: Auth-Check — nur Chef/Kellner dürfen Stempel vergeben
+    res = get_current_user_and_slug(request)
+    if not res:
+        # Nicht eingeloggt → redirect zum Login
+        return RedirectResponse(url=f"/admin/login?redirect=stempel", status_code=303)
+    user, user_slug = res
+    # Prüfe dass der User zu diesem Tenant gehört
+    if user_slug.lower().strip() != slug.lower().strip():
+        return HTMLResponse(content="""
+        <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Zugriff verweigert</title><style>body{font-family:system-ui;text-align:center;padding:2rem;background:#000;color:#fff;}</style>
+        </head><body><h2>🚫 Zugriff verweigert</h2><p>Du bist nicht für diesen Betrieb eingeloggt.</p>
+        <p><a href="/admin/login" style="color:#22c55e;">Zum Login</a></p></body></html>""", status_code=403)
+
     restaurant = get_restaurant_or_raise(slug, db)
     slug_lower = slug.lower().strip()
 
