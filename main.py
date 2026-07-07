@@ -14644,8 +14644,11 @@ async def loyalty_quick_send(
     stats = {"pushs_sent": 0, "pushs_failed": 0}
 
     for customer in customers:
-        # last_message updaten → changeMessage triggert iOS Notification
+        # CRITICAL: last_message updaten + COMMIT VOR dem Push!
+        # Sonst liest passkit_get_pass den alten Wert aus DB → changeMessage
+        # triggert nicht weil Wert sich nicht geändert hat.
         customer.last_message = full_msg[:200]
+        db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, title, message)
         if success:
@@ -14768,11 +14771,13 @@ def loyalty_broadcast_push(
             except Exception:
                 pass
 
+        # CRITICAL: last_message VOR dem Push setzen + committen!
+        full_msg = f"{campaign.title}: {campaign.message}"
+        customer.last_message = full_msg[:200]
+        db.commit()  # ← VOR dem Push committen!
+
         success = _trigger_pass_update_push(db, customer, campaign.title, campaign.message)
         if success:
-            # CRITICAL: last_message updaten → changeMessage triggert iOS Notification
-            full_msg = f"{campaign.title}: {campaign.message}"
-            customer.last_message = full_msg[:200]  # Max 200 chars
             customer.last_push_at = _now_iso()
             log = LoyaltyPushLog(
                 tenant_slug=slug_lower,

@@ -868,15 +868,17 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
                 except Exception:
                     pass
 
+            # CRITICAL: last_message VOR dem Push setzen + committen!
+            full_msg = f"{campaign.title}: {campaign.message}"
+            customer.last_message = full_msg[:200]
+            db_session.commit()  # ← VOR dem Push committen!
+
             # Push senden (via Pass-Update)
             success = _trigger_pass_update_push(
                 db_session, customer, campaign.title, campaign.message
             )
 
             if success:
-                # CRITICAL: last_message updaten → changeMessage triggert iOS Notification
-                full_msg = f"{campaign.title}: {campaign.message}"
-                customer.last_message = full_msg[:200]
                 # Log + Customer updaten
                 log = LoyaltyPushLog(
                     tenant_slug=customer.tenant_slug,
