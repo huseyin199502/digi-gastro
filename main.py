@@ -14037,17 +14037,19 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
 # APPLE PASSKIT WEB SERVICE — Push-Token Registrierung + Pass-Updates
 # ──────────────────────────────────────────────────────────────────
 # Diese Endpoints werden von iOS automatisch aufgerufen:
-# 1. Wenn ein Pass zum Wallet hinzugefügt wird → POST /devices/.../registrations/...
-# 2. Wenn ein Pass aktualisiert werden soll → GET /passes/.../...
+# 1. Wenn ein Pass zum Wallet hinzugefügt wird → POST /v1/devices/.../registrations/...
+# 2. Wenn ein Pass aktualisiert werden soll → GET /v1/passes/.../...
 # 3. Wenn iOS Fehler loggen will → POST /v1/log
 #
+# WICHTIG: Apple PassKit Spec verlangt /v1/ Prefix in der URL!
 # Die webServiceURL in der pass.json zeigt auf https://digi-gastro.de/api/wallet/apple
+# iOS hängt dann automatisch /v1/devices/... an.
 
 from database import PasskitDeviceRegistration as DBPasskitReg, PasskitLog as DBPasskitLog
 
 
-@app.post("/api/wallet/apple/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
-def passkit_register_device(
+@app.post("/api/wallet/apple/v1/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
+async def passkit_register_device(
     request: Request,
     device_library_id: str,
     pass_type_id: str,
@@ -14062,7 +14064,11 @@ def passkit_register_device(
     if not auth.startswith("ApplePass "):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    body = request.json() if request.headers.get("content-type") == "application/json" else {}
+    # CRITICAL: Request.json() ist async in FastAPI — await verwenden!
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
     push_token = body.get("pushToken", "")
 
     if not push_token:
@@ -14093,12 +14099,12 @@ def passkit_register_device(
         db.add(reg)
 
     db.commit()
-    print(f"[PassKit] Device registered: {device_library_id[:16]}... → pass {serial_number[:8]}...")
+    print(f"[PassKit] ✅ Device registered: {device_library_id[:16]}... → pass {serial_number[:8]}... push_token={push_token[:16]}...")
     return Response(status_code=201)
 
 
-@app.get("/api/wallet/apple/devices/{device_library_id}/registrations/{pass_type_id}")
-def passkit_get_registrations(
+@app.get("/api/wallet/apple/v1/devices/{device_library_id}/registrations/{pass_type_id}")
+async def passkit_get_registrations(
     request: Request,
     device_library_id: str,
     pass_type_id: str,
@@ -14124,8 +14130,8 @@ def passkit_get_registrations(
     }
 
 
-@app.delete("/api/wallet/apple/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
-def passkit_unregister_device(
+@app.delete("/api/wallet/apple/v1/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
+async def passkit_unregister_device(
     request: Request,
     device_library_id: str,
     pass_type_id: str,
@@ -14151,8 +14157,8 @@ def passkit_unregister_device(
     return Response(status_code=200)
 
 
-@app.get("/api/wallet/apple/passes/{pass_type_id}/{serial_number}")
-def passkit_get_pass(
+@app.get("/api/wallet/apple/v1/passes/{pass_type_id}/{serial_number}")
+async def passkit_get_pass(
     request: Request,
     pass_type_id: str,
     serial_number: str,
@@ -14220,6 +14226,7 @@ def passkit_get_pass(
     if not pkpass_bytes:
         raise HTTPException(status_code=500, detail="Pass generation failed")
 
+    print(f"[PassKit] ✅ Pass served for {serial_number[:8]}... (stamps: {customer.current_stamps}/{card.stamps_required})")
     return Response(
         content=pkpass_bytes,
         media_type="application/vnd.apple.pkpass",
@@ -14231,10 +14238,10 @@ def passkit_get_pass(
 
 
 @app.post("/api/wallet/apple/v1/log")
-def passkit_log(request: Request, db: Session = Depends(get_db)):
+async def passkit_log(request: Request, db: Session = Depends(get_db)):
     """Apple PassKit: iOS schickt Fehler-Logs an diesen Endpoint."""
     try:
-        body = request.json() if request.headers.get("content-type") == "application/json" else {}
+        body = await request.json()
         logs = body.get("logs", [])
         if logs:
             log_entry = DBPasskitLog(
@@ -14243,7 +14250,7 @@ def passkit_log(request: Request, db: Session = Depends(get_db)):
             )
             db.add(log_entry)
             db.commit()
-            print(f"[PassKit Log] {len(logs)} entries logged")
+            print(f"[PassKit Log] {len(logs)} entries: {logs[:2]}")
     except Exception as e:
         print(f"[PassKit Log] Error: {e}")
 
