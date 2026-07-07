@@ -14012,6 +14012,209 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
     return response
 
 
+# ──────────────────────────────────────────────────────────────────
+# APPLE PASSKIT WEB SERVICE — Push-Token Registrierung + Pass-Updates
+# ──────────────────────────────────────────────────────────────────
+# Diese Endpoints werden von iOS automatisch aufgerufen:
+# 1. Wenn ein Pass zum Wallet hinzugefügt wird → POST /devices/.../registrations/...
+# 2. Wenn ein Pass aktualisiert werden soll → GET /passes/.../...
+# 3. Wenn iOS Fehler loggen will → POST /v1/log
+#
+# Die webServiceURL in der pass.json zeigt auf https://digi-gastro.de/api/wallet/apple
+
+from database import PasskitDeviceRegistration as DBPasskitReg, PasskitLog as DBPasskitLog
+
+
+@app.post("/api/wallet/apple/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
+def passkit_register_device(
+    request: Request,
+    device_library_id: str,
+    pass_type_id: str,
+    serial_number: str,
+    db: Session = Depends(get_db),
+):
+    """Apple PassKit: Registriert ein Device für einen Pass.
+    iOS ruft diesen Endpoint auf wenn der Pass zum Wallet hinzugefügt wird.
+    Body: {"pushToken": "<hex>"}"""
+    # Auth: ApplePass <token>
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("ApplePass "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    body = request.json() if request.headers.get("content-type") == "application/json" else {}
+    push_token = body.get("pushToken", "")
+
+    if not push_token:
+        raise HTTPException(status_code=400, detail="pushToken missing")
+
+    # Customer finden für tenant_slug
+    customer = db.query(LoyaltyCustomer).filter_by(pass_serial=serial_number).first()
+    tenant_slug = customer.tenant_slug if customer else None
+
+    # Existierende Registration updaten oder neue erstellen
+    reg = db.query(DBPasskitReg).filter_by(
+        device_library_identifier=device_library_id,
+        pass_serial=serial_number
+    ).first()
+
+    if reg:
+        reg.push_token = push_token
+        reg.tenant_slug = tenant_slug
+    else:
+        reg = DBPasskitReg(
+            device_library_identifier=device_library_id,
+            pass_type_identifier=pass_type_id,
+            pass_serial=serial_number,
+            push_token=push_token,
+            tenant_slug=tenant_slug,
+            created_at=_now_iso(),
+        )
+        db.add(reg)
+
+    db.commit()
+    print(f"[PassKit] Device registered: {device_library_id[:16]}... → pass {serial_number[:8]}...")
+    return Response(status_code=201)
+
+
+@app.get("/api/wallet/apple/devices/{device_library_id}/registrations/{pass_type_id}")
+def passkit_get_registrations(
+    request: Request,
+    device_library_id: str,
+    pass_type_id: str,
+    db: Session = Depends(get_db),
+):
+    """Apple PassKit: Listet alle Passes die auf diesem Device registriert sind.
+    Query: ?passesUpdatedSince=<tag>"""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("ApplePass "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    regs = db.query(DBPasskitReg).filter_by(
+        device_library_identifier=device_library_id,
+        pass_type_identifier=pass_type_id
+    ).all()
+
+    if not regs:
+        return Response(status_code=204)  # No Content
+
+    return {
+        "lastUpdated": _now_iso(),
+        "serialNumbers": [r.pass_serial for r in regs]
+    }
+
+
+@app.delete("/api/wallet/apple/devices/{device_library_id}/registrations/{pass_type_id}/{serial_number}")
+def passkit_unregister_device(
+    request: Request,
+    device_library_id: str,
+    pass_type_id: str,
+    serial_number: str,
+    db: Session = Depends(get_db),
+):
+    """Apple PassKit: Entfernt ein Device von einem Pass.
+    iOS ruft diesen Endpoint auf wenn der Pass aus dem Wallet gelöscht wird."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("ApplePass "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    reg = db.query(DBPasskitReg).filter_by(
+        device_library_identifier=device_library_id,
+        pass_serial=serial_number
+    ).first()
+
+    if reg:
+        db.delete(reg)
+        db.commit()
+        print(f"[PassKit] Device unregistered: {device_library_id[:16]}... → pass {serial_number[:8]}...")
+
+    return Response(status_code=200)
+
+
+@app.get("/api/wallet/apple/passes/{pass_type_id}/{serial_number}")
+def passkit_get_pass(
+    request: Request,
+    pass_type_id: str,
+    serial_number: str,
+    db: Session = Depends(get_db),
+):
+    """Apple PassKit: Liefert den aktuellsten Pass-Status.
+    iOS ruft diesen Endpoint auf wenn es einen Push bekommt → will aktualisierten Pass.
+    Response: Updated .pkpass file."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("ApplePass "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Customer finden
+    customer = db.query(LoyaltyCustomer).filter_by(pass_serial=serial_number).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Pass not found")
+
+    # Aktuelle Karte laden
+    card = db.query(LoyaltyCard).filter_by(id=customer.card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    tenant = db.query(Tenant).filter_by(slug=customer.tenant_slug).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    # Geofence
+    geofence = db.query(TenantGeofence).filter_by(
+        tenant_slug=customer.tenant_slug, is_primary=True
+    ).first()
+    geofence_dict = {"latitude": geofence.latitude, "longitude": geofence.longitude} if geofence else None
+
+    # Pass generieren
+    from loyalty import generate_apple_pkpass
+    customer_dict = {
+        "id": customer.id,
+        "pass_serial": customer.pass_serial,
+        "current_stamps": customer.current_stamps,
+        "auth_token": customer.pass_serial[:16],
+        "short_code": customer.short_code or "",
+    }
+    card_dict = {
+        "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
+        "reward_name": card.reward_name, "color_hex": card.color_hex,
+    }
+
+    pkpass_bytes = generate_apple_pkpass(
+        customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict
+    )
+
+    if not pkpass_bytes:
+        raise HTTPException(status_code=500, detail="Pass generation failed")
+
+    return Response(
+        content=pkpass_bytes,
+        media_type="application/vnd.apple.pkpass",
+        headers={
+            "Content-Disposition": f'attachment; filename="{customer.tenant_slug}-stempelkarte.pkpass"',
+            "Last-Modified": _now_iso(),
+        }
+    )
+
+
+@app.post("/api/wallet/apple/v1/log")
+def passkit_log(request: Request, db: Session = Depends(get_db)):
+    """Apple PassKit: iOS schickt Fehler-Logs an diesen Endpoint."""
+    try:
+        body = request.json() if request.headers.get("content-type") == "application/json" else {}
+        logs = body.get("logs", [])
+        if logs:
+            log_entry = DBPasskitLog(
+                logs=json.dumps(logs),
+                created_at=_now_iso(),
+            )
+            db.add(log_entry)
+            db.commit()
+            print(f"[PassKit Log] {len(logs)} entries logged")
+    except Exception as e:
+        print(f"[PassKit Log] Error: {e}")
+
+    return Response(status_code=200)
+
+
 @app.post("/{slug}/loyalty/opt-out")
 def loyalty_opt_out(slug: str, request: Request, db: Session = Depends(get_db)):
     """DSGVO-Opt-out von Push-Kampagnien."""

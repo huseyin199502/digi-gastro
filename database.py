@@ -526,6 +526,40 @@ class TenantGeofence(Base):
     is_primary = Column(Boolean, default=True)           # Nur eine primäre Location pro Tenant
     created_at = Column(String, nullable=False)
 
+
+class PasskitDeviceRegistration(Base):
+    """Apple Wallet PassKit Web Service: Device-Registrierungen.
+    Wenn ein iPhone einen Pass zum Wallet hinzufügt, registriert iOS
+    automatisch das Gerät beim Web Service (POST /devices/.../registrations/...).
+    Wir speichern den APNs Push Token hier, um später Push-Notifications zu senden."""
+    __tablename__ = 'passkit_device_registrations'
+    __table_args__ = (
+        Index('idx_passkit_device_serial', 'pass_serial'),
+        Index('idx_passkit_device_library', 'device_library_identifier'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_library_identifier = Column(String, nullable=False)  # iOS device ID
+    pass_type_identifier = Column(String, nullable=False)       # pass.com.digi-gastro.loyalty
+    pass_serial = Column(String, nullable=False)                # Pass serialNumber (UUID)
+    push_token = Column(String, nullable=False)                 # APNs Push Token
+    tenant_slug = Column(String, nullable=True)                 # Für Multi-Tenant Lookup
+    created_at = Column(String, nullable=False)
+
+
+class PasskitLog(Base):
+    """Apple Wallet PassKit Web Service: Log-Einträge von iOS.
+    iOS schickt Fehler-Logs an POST /v1/log — wir speichern sie für Debugging."""
+    __tablename__ = 'passkit_logs'
+    __table_args__ = (
+        Index('idx_passkit_log_created', 'created_at'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    logs = Column(Text, nullable=False)  # JSON array of log strings
+    created_at = Column(String, nullable=False)
+
+
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
