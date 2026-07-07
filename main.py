@@ -13924,8 +13924,12 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
 
     customer_dict = {
         "id": customer.id, "pass_serial": customer.pass_serial,
-        "current_stamps": customer.current_stamps, "auth_token": customer.pass_serial[:16],
-        "short_code": customer.short_code or "",  # CRITICAL: für barcodes Field im Pass
+        "current_stamps": customer.current_stamps,
+        # CRITICAL: auth_token muss 32-char hex sein (nicht pass_serial[:16])
+        # Apple PassKit Spec: min 16 chars, aber 32-char hex ist sicherer
+        # Deterministisch: gleicher Token bei jedem Pass-Download/Update
+        "auth_token": hashlib.sha256(f"{customer.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32],
+        "short_code": customer.short_code or "",
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
@@ -14197,7 +14201,8 @@ async def passkit_get_pass(
         "id": customer.id,
         "pass_serial": customer.pass_serial,
         "current_stamps": customer.current_stamps,
-        "auth_token": customer.pass_serial[:16],
+        # CRITICAL: Same deterministic auth_token as in initial pass download
+        "auth_token": hashlib.sha256(f"{customer.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32],
         "short_code": customer.short_code or "",
     }
     card_dict = {

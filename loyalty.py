@@ -299,8 +299,9 @@ def _generate_apple_pass_json(
 
 
 def _gen_auth_token(serial: str) -> str:
-    """Generiert 16-char Auth Token für Apple Wallet Web Service."""
-    return hashlib.sha256(f"{serial}:{time.time()}".encode()).hexdigest()[:16]
+    """Generiert 32-char Auth Token für Apple Wallet Web Service.
+    Apple requires at least 16 characters. Wir verwenden 32 für mehr Sicherheit."""
+    return hashlib.sha256(f"{serial}:{time.time()}".encode()).hexdigest()[:32]
 
 
 def _sign_pass_manifest(manifest_bytes: bytes) -> bytes:
