@@ -320,31 +320,15 @@ def _generate_apple_pass_json(
                 }
             ]
         },
-        "relevantText": f"📍 {tenant_name} — Du hast {stamps_current}/{stamps_required} Stempel",
-        "userInfo": {
-            "tenant_slug": tenant_slug,
-            "card_id": card.get("id"),
-            "customer_id": customer.get("id"),
-        },
         # ── Push Notification Settings ──
-        # WICHTIG: relevantText wird auf dem SPERRBILDSCHIRM angezeigt wenn:
-        # 1. Pass geupdatet wird (via APNs push) → iOS zeigt relevantText als Banner
-        # 2. Kunde in Geofencing-Nähe ist → iOS zeigt relevantText auf Sperrbildschirm
-        # OHNE relevantText: changeMessage erscheint nur im Notification Center (nicht Sperrbildschirm)
         # WICHTIG: relevantText = das was auf dem SPERRBILDSCHIRM angezeigt wird!
         # Wie Geofencing: iOS zeigt relevantText sofort auf Sperrbildschirm.
-        # Wir zeigen hier die LETZTE NACHRICHT (last_message) — nicht nur Stempel.
-        # Wenn last_message = "Willkommen!" → zeige Stempel-Stand
         # Wenn last_message = "Hallo: Test" → zeige Nachricht auf Sperrbildschirm!
-        last_msg = customer.get("last_message", "Willkommen!")
-        if last_msg and last_msg != "Willkommen!":
-            # Es gibt eine echte Nachricht → auf Sperrbildschirm zeigen!
-            relevant_text = f"📍 {tenant_name} — {last_msg}"
-        else:
-            # Keine Nachricht → Stempel-Stand zeigen
-            relevant_text = f"📍 {tenant_name} — {stamps_current}/{stamps_required} Stempel · {reward_name}"
-
-        "relevantText": relevant_text,
+        "relevantText": (
+            f"📍 {tenant_name} — {customer.get('last_message', 'Willkommen!')}"
+            if customer.get("last_message", "Willkommen!") != "Willkommen!"
+            else f"📍 {tenant_name} — {stamps_current}/{stamps_required} Stempel · {reward_name}"
+        ),
         # relevantDate = jetzt → iOS behandelt Pass als "aktuell" → Sperrbildschirm
         "relevantDate": _now_iso().replace("Z", "+00:00"),
         "userInfo": {
