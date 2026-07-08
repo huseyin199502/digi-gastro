@@ -1122,10 +1122,13 @@
             if (appleBtn) {
                 appleBtn.href = '/{{ slug }}/loyalty/pass/apple';
                 appleBtn.addEventListener('click', () => {
-                    // Cookie setzen: Kunde hat Stempelkarte gespeichert
-                    // → Popup wird nicht mehr angezeigt bei nächsten Besuchen
                     _setLoyaltySavedCookie();
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                    // Stempel Button sofort verstecken
+                    const navBtn = document.getElementById('nav-stempelkarte-btn');
+                    const rdBtn = document.getElementById('loyalty-redownload-btn');
+                    if (navBtn) navBtn.style.display = 'none';
+                    if (rdBtn) rdBtn.style.display = 'none';
                     // Popup automatisch schließen nach kurzer Verzögerung
                     // (damit iOS Safari den .pkpass Download starten kann)
                     setTimeout(() => {
@@ -1144,6 +1147,11 @@
                 googleBtn.addEventListener('click', () => {
                     _setLoyaltySavedCookie();
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                    // Stempel Button sofort verstecken
+                    const navBtn = document.getElementById('nav-stempelkarte-btn');
+                    const rdBtn = document.getElementById('loyalty-redownload-btn');
+                    if (navBtn) navBtn.style.display = 'none';
+                    if (rdBtn) rdBtn.style.display = 'none';
                     // Popup automatisch schließen (Google öffnet in neuem Tab)
                     setTimeout(() => {
                         const popup = document.getElementById('loyalty-popup');

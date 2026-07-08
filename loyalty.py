@@ -187,33 +187,29 @@ def _generate_apple_pass_json(
     except Exception:
         rgb_color = "rgb(201,168,76)"
 
-    # ── Professionelle Stempel-Visualisierung ──
-    # Statt nur Sterne: kombinierter Text mit Stempel-Status + Reward-Info
-    # Bei 10/10: "★★★★★★★★★★ 🎉 PRÄMIE BEREIT!"
-    # Bei 3/10:  "★★★☆☆☆☆☆☆☆ — 7 Stempel bis Kaffee gratis"
-    # Bei 0/10:  "☆☆☆☆☆☆☆☆☆☆ — 10 Stempel bis Kaffee gratis"
-    filled = "★" * stamps_current
-    empty = "☆" * max(0, stamps_required - stamps_current)
-    progress_stars = filled + empty
+    # ── Professionelle Stempel-Visualisierung mit Icons ──
+    # Statt Sterne (★☆) verwenden wir Emoji-Icons basierend auf Karten-Icon
+    icon_map = {
+        "local_cafe": "☕", "restaurant": "🍽️", "local_bar": "🍸", "smoking_rooms": "💨",
+        "icecream": "🍦", "bakery_dining": "🥐"
+    }
+    stamp_icon = icon_map.get(card.get("icon", "local_cafe"), "🎫")
 
     if stamps_current >= stamps_required:
-        # 10/10 erreicht — PRÄMIE BEREIT!
-        progress_text = f"{progress_stars}\n🎉 PRÄMIE BEREIT: {reward_name}!"
+        progress_text = f"{stamp_icon} " * stamps_current
         primary_value = f"{stamps_current} / {stamps_required} ✓"
         primary_change = f"🎉 Prämie bereit! {reward_name} — %@"
         reward_label = "PRÄMIE BEREIT"
         reward_value = f"🎁 {reward_name} — Bei deinem nächsten Besuch einlösen!"
     elif stamps_current == 0:
-        # 0/10 — frisch gestartet
-        progress_text = progress_stars
+        progress_text = f"▫️ " * stamps_required
         primary_value = f"{stamps_current} / {stamps_required}"
         primary_change = "🎉 Neuer Stempel! Jetzt %@"
         reward_label = "Dein Ziel"
         reward_value = f"🎁 {reward_name} — Noch {stamps_required} Stempel"
     else:
-        # 1-9/10 — unterwegs
         remaining = stamps_required - stamps_current
-        progress_text = progress_stars
+        progress_text = f"{stamp_icon} " * stamps_current + f"▫️ " * remaining
         primary_value = f"{stamps_current} / {stamps_required}"
         primary_change = "🎉 Neuer Stempel! Jetzt %@"
         reward_label = "Noch bis zum Reward"
@@ -290,16 +286,12 @@ def _generate_apple_pass_json(
                     "label": "Letzte Nachricht",
                     "value": customer.get("last_message", "Willkommen!"),
                     "textAlignment": "PKTextAlignmentLeft",
-                    # changeMessage für sichtbare Nachricht
                     "changeMessage": "📬 Neue Nachricht: %@",
-                    "hidden": False
+                    "hidden": True
                 },
                 {
                     "key": "msgnonce",
                     "label": "Nonce",
-                    # Verstecktes Feld das sich IMMER ändert (Timestamp)
-                    # → triggert changeMessage auch wenn lastmsg gleich bleibt
-                    # → Nutzer sieht KEINEN Timestamp (Feld ist hidden)
                     "value": customer.get("msg_nonce", "0"),
                     "changeMessage": "📬 Neue Nachricht von " + (tenant_name or "digi-gastro"),
                     "hidden": True
