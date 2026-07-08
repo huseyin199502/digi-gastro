@@ -1227,7 +1227,7 @@
 
         // forceShowLoyaltyPopup: Öffnet Popup auch wenn Cookie 'saved' gesetzt ist
         // (für Kunden die Pass gelöscht haben und neu laden wollen)
-        function forceShowLoyaltyPopup() {
+        window.forceShowLoyaltyPopup = function() {
             if (!_loyaltyCardActive || !_loyaltyCardData) return;
             prepareLoyaltyPopup(_loyaltyCardData);
             applyDeviceDetection();
@@ -3833,10 +3833,12 @@
                 setTimeout(() => {
                     const banner = document.getElementById('cookieBanner');
                     if (banner) {
-                        banner.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-                        banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+                        banner.style.transform = 'translateY(0)';
+                        banner.style.opacity = '1';
+                        banner.style.pointerEvents = 'auto';
+                        banner.style.zIndex = '9999';
                     }
-                }, 1000);
+                }, 2000);
             }
         });
 
