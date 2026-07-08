@@ -290,11 +290,19 @@ def _generate_apple_pass_json(
                     "label": "Letzte Nachricht",
                     "value": customer.get("last_message", "Willkommen!"),
                     "textAlignment": "PKTextAlignmentLeft",
-                    # CRITICAL: changeMessage für Broadcast/Inaktivität-Pushs.
-                    # WICHTIG: "%@" allein funktioniert NICHT in iOS — es MUSS
-                    # beschreibender Text dabei stehen! Sonst zeigt iOS keinen Banner.
+                    # changeMessage für sichtbare Nachricht
                     "changeMessage": "📬 Neue Nachricht: %@",
                     "hidden": False
+                },
+                {
+                    "key": "msgnonce",
+                    "label": "Nonce",
+                    # Verstecktes Feld das sich IMMER ändert (Timestamp)
+                    # → triggert changeMessage auch wenn lastmsg gleich bleibt
+                    # → Nutzer sieht KEINEN Timestamp (Feld ist hidden)
+                    "value": customer.get("msg_nonce", "0"),
+                    "changeMessage": "📬 Neue Nachricht von " + (tenant_name or "digi-gastro"),
+                    "hidden": True
                 }
             ],
             "backFields": [
@@ -862,11 +870,10 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
                 except Exception:
                     pass
 
-            # CRITICAL: last_message VOR dem Push setzen + Zeitstempel + committen!
-            from datetime import datetime as _dt
-            timestamp = _dt.now().strftime("%H:%M")
-            full_msg = f"{campaign.title}: {campaign.message} ({timestamp})"
+            # CRITICAL: last_message = saubere Nachricht + nonce increment
+            full_msg = f"{campaign.title}: {campaign.message}"
             customer.last_message = full_msg[:200]
+            customer.msg_nonce = (customer.msg_nonce or 0) + 1
             db_session.commit()  # ← VOR dem Push committen!
 
             # Push senden (via Pass-Update)

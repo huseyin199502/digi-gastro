@@ -13903,15 +13903,19 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
     if not tenant:
         raise HTTPException(status_code=404, detail="Restaurant nicht gefunden.")
 
-    cookie_name = f"loyalty_{slug_lower}"
-    customer_id = request.cookies.get(cookie_name)
+    # CRITICAL FIX: customer_id Cookie heißt jetzt 'loyalty_{slug}_cid'
+    # Vorher hieß er 'loyalty_{slug}' = wurde von 'loyalty_{slug}=saved' überschrieben!
+    # → customer_id verloren → jeder Download = neuer Customer (9 statt 3 Kunden!)
+    cid_cookie_name = f"loyalty_{slug_lower}_cid"
+    customer_id = request.cookies.get(cid_cookie_name) or request.cookies.get(f"loyalty_{slug_lower}")
     customer = None
     if customer_id:
         try:
+            customer_id_int = int(customer_id)
             customer = db.query(LoyaltyCustomer).filter_by(
-                tenant_slug=slug_lower, id=int(customer_id)
+                tenant_slug=slug_lower, id=customer_id_int
             ).first()
-        except Exception:
+        except (ValueError, TypeError):
             customer = None
     if not customer:
         customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple")
@@ -13940,6 +13944,7 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         "auth_token": hashlib.sha256(f"{customer.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32],
         "short_code": customer.short_code or "",
         "last_message": getattr(customer, 'last_message', 'Willkommen!') or 'Willkommen!',
+        "msg_nonce": str(getattr(customer, 'msg_nonce', 0) or 0),
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
@@ -13980,14 +13985,12 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         media_type="application/vnd.apple.pkpass",
         headers={"Content-Disposition": f'attachment; filename="{slug_lower}-stempelkarte.pkpass"'}
     )
-    # CRITICAL: customer_id Cookie setzen (für PassKit Web Service)
+    # CRITICAL: customer_id Cookie mit EIGENEM Namen (_cid) — nicht überschreiben!
     response.set_cookie(
-        key=cookie_name, value=str(customer.id), httponly=True,
+        key=f"loyalty_{slug_lower}_cid", value=str(customer.id), httponly=True,
         max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
     )
-    # CRITICAL: 'saved' Cookie setzen (für Popup-Suppression)
-    # Dieser Cookie verhindert dass das Loyalty-Popup wieder erscheint
-    # nachdem der Kunde den Pass heruntergeladen hat.
+    # 'saved' Cookie für Popup-Suppression (separater Name, kein Überschreiben)
     response.set_cookie(
         key=f"loyalty_{slug_lower}", value="saved", httponly=False,
         max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
@@ -14006,15 +14009,17 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
     if not tenant:
         raise HTTPException(status_code=404, detail="Restaurant nicht gefunden.")
 
-    cookie_name = f"loyalty_{slug_lower}"
-    customer_id = request.cookies.get(cookie_name)
+    # CRITICAL FIX: customer_id Cookie heißt 'loyalty_{slug}_cid' (nicht überschrieben)
+    cid_cookie_name = f"loyalty_{slug_lower}_cid"
+    customer_id = request.cookies.get(cid_cookie_name) or request.cookies.get(f"loyalty_{slug_lower}")
     customer = None
     if customer_id:
         try:
+            customer_id_int = int(customer_id)
             customer = db.query(LoyaltyCustomer).filter_by(
-                tenant_slug=slug_lower, id=int(customer_id)
+                tenant_slug=slug_lower, id=customer_id_int
             ).first()
-        except Exception:
+        except (ValueError, TypeError):
             customer = None
     if not customer:
         customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="google")
@@ -14048,11 +14053,12 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
         "save_url": f"https://pay.google.com/gp/v/save/{jwt_token}",
         "customer_id": customer.id,
     })
+    # CRITICAL: customer_id Cookie mit EIGENEM Namen (_cid)
     response.set_cookie(
-        key=cookie_name, value=str(customer.id), httponly=True,
+        key=f"loyalty_{slug_lower}_cid", value=str(customer.id), httponly=True,
         max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
     )
-    # CRITICAL: 'saved' Cookie setzen (für Popup-Suppression)
+    # 'saved' Cookie für Popup-Suppression
     response.set_cookie(
         key=f"loyalty_{slug_lower}", value="saved", httponly=False,
         max_age=31536000, samesite="lax", secure=not _IS_LOCAL_DEV,
@@ -14233,6 +14239,7 @@ async def passkit_get_pass(
         "auth_token": hashlib.sha256(f"{customer.pass_serial}:digi-gastro-auth".encode()).hexdigest()[:32],
         "short_code": customer.short_code or "",
         "last_message": getattr(customer, 'last_message', 'Willkommen!') or 'Willkommen!',
+        "msg_nonce": str(getattr(customer, 'msg_nonce', 0) or 0),
     }
     card_dict = {
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
@@ -14645,14 +14652,12 @@ async def loyalty_quick_send(
     stats = {"pushs_sent": 0, "pushs_failed": 0}
 
     for customer in customers:
-        # CRITICAL: last_message updaten + Zeitstempel damit sich Wert IMMER ändert!
-        # Ohne Zeitstempel: gleiche Nachricht zweimal → gleicher last_message →
-        # iOS sieht keine Änderung → keine Notification!
-        # Mit Zeitstempel: last_message ist immer einzigartig → iOS zeigt immer Notification!
-        from datetime import datetime as _dt
-        timestamp = _dt.now().strftime("%H:%M")
-        full_msg_with_time = f"{title}: {message} ({timestamp})"
-        customer.last_message = full_msg_with_time[:200]
+        # CRITICAL: last_message = saubere Nachricht (KEINE Uhrzeit!)
+        # msg_nonce = incrementing counter → ändert sich IMMER → triggert changeMessage
+        # → Notification erscheint immer, auch bei gleicher Nachricht
+        # → Uhrzeit ist NICHT sichtbar (hidden Field im Pass)
+        customer.last_message = full_msg[:200]
+        customer.msg_nonce = (customer.msg_nonce or 0) + 1
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, title, message)
@@ -14776,11 +14781,10 @@ def loyalty_broadcast_push(
             except Exception:
                 pass
 
-        # CRITICAL: last_message VOR dem Push setzen + Zeitstempel + committen!
-        from datetime import datetime as _dt
-        timestamp = _dt.now().strftime("%H:%M")
-        full_msg = f"{campaign.title}: {campaign.message} ({timestamp})"
+        # CRITICAL: last_message = saubere Nachricht (keine Uhrzeit) + nonce increment
+        full_msg = f"{campaign.title}: {campaign.message}"
         customer.last_message = full_msg[:200]
+        customer.msg_nonce = (customer.msg_nonce or 0) + 1
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, campaign.title, campaign.message)
