@@ -1218,10 +1218,10 @@
         // Nach checkLoyaltyAvailability: Button zeigen wenn Loyalty aktiv + Kunde schon Wallet hat
         function updateRedownloadButton() {
             const btn = document.getElementById('loyalty-redownload-btn');
-            if (!btn) return;
+            const navBtn = document.getElementById('nav-stempelkarte-btn');
             if (_loyaltyCardActive && _loyaltyCardData) {
-                // Loyalty aktiv → Button zeigen (egal ob Cookie da oder nicht)
-                btn.style.display = 'flex';
+                if (btn) btn.style.display = 'flex';
+                if (navBtn) navBtn.style.display = 'flex';
             }
         }
 
@@ -1279,6 +1279,11 @@
         <button @click="handleSpeisekarteClick()" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
             <span class="material-symbols-outlined text-[20px] leading-none">menu_book</span>
             <span class="text-[11px] font-bold leading-none tracking-wide" data-translate="tab_menu">Speisekarte</span>
+        </button>
+        <!-- Stempelkarte Tab — nur sichtbar wenn Loyalty aktiv -->
+        <button id="nav-stempelkarte-btn" onclick="forceShowLoyaltyPopup()" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors text-on-surface-variant hover:text-primary" style="display:none;">
+            <span class="material-symbols-outlined text-[20px] leading-none">confirmation_number</span>
+            <span class="text-[11px] font-bold leading-none tracking-wide">Stempel</span>
         </button>
     </div>
     {% endif %}
