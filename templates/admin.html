@@ -6209,17 +6209,11 @@
                             Sende sofort eine Push-Nachricht — ohne vorher eine Kampagne anlegen zu müssen.
                         </p>
                         <div class="space-y-3 p-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="form-label">Titel</label>
-                                    <input type="text" id="quicksend-title" placeholder="z.B. ☕ Heute 2für1 Kaffee!" class="form-field">
-                                </div>
-                                <div>
-                                    <label class="form-label">Empfänger</label>
-                                    <select id="quicksend-target" class="form-field">
-                                        <option value="all">📢 Alle Kunden</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label class="form-label">Empfänger</label>
+                                <select id="quicksend-target" class="form-field">
+                                    <option value="all">📢 Alle Kunden</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="form-label">Nachricht</label>
@@ -14553,14 +14547,13 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         }
 
         async function quickSend(customerId) {
-            const title = document.getElementById('quicksend-title').value.trim();
             const message = document.getElementById('quicksend-message').value.trim();
-            if (!title || !message) {
-                showToast('Bitte Titel und Nachricht eingeben', 'error');
+            if (!message) {
+                showToast('Bitte Nachricht eingeben', 'error');
                 return;
             }
             const target = customerId ? `Kunde #${customerId}` : 'alle Kunden';
-            if (!confirm(`Nachricht an ${target} senden?\n\nTitel: ${title}\nNachricht: ${message}`)) return;
+            if (!confirm(`Nachricht an ${target} senden?\n\n${message}`)) return;
 
             const btn = document.getElementById('quicksend-btn');
             if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">hourglass_empty</span> Wird gesendet...'; }
@@ -14570,13 +14563,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
-                    body: JSON.stringify({title, message, customer_id: customerId || null})
+                    body: JSON.stringify({message, customer_id: customerId || null})
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
                     const s = data.stats || {};
                     showToast(`✅ ${s.pushs_sent || 0} Pushs gesendet, ${s.pushs_failed || 0} failed`, 'success');
-                    document.getElementById('quicksend-title').value = '';
                     document.getElementById('quicksend-message').value = '';
                 } else {
                     showToast(data.detail || 'Fehler beim Senden', 'error');
@@ -14591,13 +14583,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         async function quickSendToCustomer(customerId, customerName) {
             const message = prompt(`Push-Nachricht an ${customerName}:\n\nNachricht eingeben:`);
             if (!message) return;
-            const title = `Nachricht von {{ restaurant.name }}`;
             try {
                 const res = await fetch('/admin/loyalty/quick-send', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
-                    body: JSON.stringify({title, message, customer_id: customerId})
+                    body: JSON.stringify({message, customer_id: customerId})
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {

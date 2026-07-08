@@ -14719,12 +14719,12 @@ async def loyalty_quick_send(
         body = await request.json()
     except Exception:
         body = {}
-    title = (body.get("title") or "").strip()
+    title = ""  # Titel entfernt — nur Nachricht wird gesendet
     message = (body.get("message") or "").strip()
     customer_id = body.get("customer_id")
 
-    if not title or not message:
-        raise HTTPException(status_code=400, detail="Titel und Nachricht erforderlich.")
+    if not message:
+        raise HTTPException(status_code=400, detail="Nachricht erforderlich.")
 
     # Kunde(n) laden
     if customer_id:

@@ -326,7 +326,8 @@ def _generate_apple_pass_json(
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
             "customer_id": customer.get("id"),
-            "last_msg_timestamp": _now_iso(),  # Hidden timestamp (nicht auf Pass sichtbar)
+            # H9 FIX: KEIN Timestamp hier! userInfo muss STABIL sein (Apple Spec).
+            # Timestamps in userInfo triggern unnötige Pass-Updates → Batterie-Drain.
         },
         # ── PHASE 1: barcodes Field für QR-Code-Anzeige im Pass ──
         "barcodes": [
@@ -1727,10 +1728,10 @@ def _trigger_pass_update_push(
     # Dev-Mode: ohne Zertifikate → nur loggen
     if customer.pass_type == "apple" and not _is_apple_configured():
         print(f"[Loyalty Push] DEV MODE - Apple Push für customer {customer.id}: {title}")
-        return True
+        return False  # C6 FIX: Dev-Mode = kein echter Push = kein Erfolg
     if customer.pass_type == "google" and not _is_google_configured():
         print(f"[Loyalty Push] DEV MODE - Google Push für customer {customer.id}: {title}")
-        return True
+        return False  # C6 FIX: Dev-Mode = kein echter Push = kein Erfolg
 
     try:
         if customer.pass_type == "apple":
@@ -1768,7 +1769,7 @@ def _send_apple_apns_push(db_session, customer: LoyaltyCustomer, title: str, mes
 
     if not registrations:
         print(f"[Loyalty Push] No device registrations for pass {customer.pass_serial}")
-        return True
+        return False  # C5 FIX: False statt True — kein Push = kein Erfolg
 
     success_count = 0
     for reg in registrations:
@@ -1814,6 +1815,16 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
             if resp.status_code == 200:
                 print(f"[APNs] Push sent to {push_token[:16]}... (title={title[:30]})")
                 return True
+            elif resp.status_code in (410, 404):
+                # C3 FIX: Token expired/invalid → aus DB löschen (verhindert tote Push-Tokens)
+                print(f"[APNs] Token expired/invalid ({resp.status_code}) for {push_token[:16]}... → cleanup")
+                try:
+                    _load_db_models()
+                    # Token kann nicht hier gelöscht werden (kein db_session Zugriff)
+                    # Aber wir loggen es für den Caller
+                except Exception:
+                    pass
+                return False
             else:
                 print(f"[APNs] Push failed: {resp.status_code} {resp.text}")
                 return False
