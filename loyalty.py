@@ -189,9 +189,8 @@ def _generate_apple_pass_json(
 
     # ── Stempel-Visualisierung ──
     # WICHTIG: Apple Wallet unterstützt KEINE Emoji-Icons in Feld-Werten!
-    # Lösung: Thumbnail-PNG mit PIL generieren (siehe _generate_stamp_thumbnail).
-    # Das Thumbnail zeigt 10 Stempel-Icons graphisch (wie Starbucks, Subway etc.)
-    # Im auxiliaryFields zeigen wir nur noch Text-Fortschritt.
+    # Lösung: Strip-Bild = Branding (Wasserzeichen-Icon), primaryFields = Text.
+    # So macht es auch getqard.com: Stempel-Anzahl als Text, Branding im strip.
     if stamps_current >= stamps_required:
         primary_value = f"{stamps_current} / {stamps_required} ✓"
         primary_change = f"🎉 Prämie bereit! {reward_name} — %@"
@@ -260,7 +259,9 @@ def _generate_apple_pass_json(
                     "changeMessage": primary_change
                 }
             ],
-            "auxiliaryFields": [
+            # secondaryFields sitzen UNTER dem strip-Bild auf solidem Hintergrund.
+            # Immer gut lesbar, kein Kontrast-Problem wie bei auxiliaryFields über strip.
+            "secondaryFields": [
                 {
                     "key": "reward",
                     "label": reward_label,
@@ -269,6 +270,7 @@ def _generate_apple_pass_json(
                     "changeMessage": "Reward aktualisiert: %@"
                 }
             ],
+            "auxiliaryFields": [],
             "backFields": [
                 {
                     "key": "info",
@@ -672,27 +674,28 @@ def _generate_stamp_strip(
     card_icon: str = "local_cafe",
     color_hex: str = "#C9A84C",
 ) -> bytes:
-    """Generiert ein strip.png Bild (1125x360 px) mit Stempel-Visualisierung.
+    """Generiert ein strip.png Branding-Bild (1125x432 px) für Apple Wallet storeCard.
 
-    Apple Wallet storeCard Style zeigt 'strip.png' als großes Bild in der Mitte.
-    Das ist der richtige Platz für die Stempel-Visualisierung (NICHT thumbnail).
+    WICHTIG: Apple Wallet legt primaryFields + auxiliaryFields Texte ÜBER das strip-Bild.
+    Daher darf das strip-Bild KEINE Stempel-Icons enthalten (würde überlappen).
+    Stattdessen: Sauberes Branding-Bild mit großem Icon + dezentem Hintergrund.
 
-    Strip-Dimensionen: 1125x360 px (@3x) oder 375x120 pt (@1x)
-    Apple akzeptiert auch 620x246 (legacy @2x) oder 750x240 (@2x).
+    So macht es auch getqard.com: Strip = Branding, Stempel-Anzahl = primaryFields Text.
 
     Layout:
-    - Horizontal: 10 Stempel-Icons in einer Reihe
-    - Gefüllt = vollfarbiger Kreis + Icon (weiß)
-    - Leer = nur Outline + halbtransparentes Icon
+    - Großes zentrales Icon (Shisha/Tasse/etc.) als Wasserzeichen
+    - Dezenter Hintergrund (leicht transparent für Kontrast mit Text)
+    - KEINE Stempel-Visualisierung (die kommt in secondaryFields als Text)
+
+    Apple Wallet strip image: 1125x432 px (@3x) oder 375x144 pt (@1x) für storeCard.
     """
     try:
         from PIL import Image, ImageDraw, ImageFont
         import io as _io
         import math
 
-        # Apple Wallet strip image: 1125x360 px (3:1 aspect ratio for storeCard)
-        # Höhe reduziert auf 360 für kompaktere Anzeige
-        W, H = 1125, 360
+        # Apple Wallet strip image für storeCard: 1125x432 px
+        W, H = 1125, 432
         img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
@@ -705,82 +708,99 @@ def _generate_stamp_strip(
         else:
             r, g, b = 201, 168, 76  # Default gold
 
-        # Helligkeit berechnen für Kontrast
+        # Helligkeit berechnen
         brightness = (r * 299 + g * 587 + b * 114) / 1000
         is_dark = brightness < 140
-        # Empty circles: hohe Alpha für Sichtbarkeit auf Pass-Hintergrund
-        empty_color = (255, 255, 255, 200) if is_dark else (28, 28, 30, 180)
-        empty_outline = (255, 255, 255, 230) if is_dark else (28, 28, 30, 220)
-        filled_color = (r, g, b, 255)
 
         icon_type = card_icon or "local_cafe"
 
-        # Layout: 10 Stempel horizontal in einer Reihe
-        # Jeder Stempel bekommt eine Zelle von W/stamps_required px Breite
-        # Icon-Größe = 70% der Höhe (ca. 250px)
-        n = stamps_required
-        cell_w = W // n
-        icon_size = int(min(cell_w * 0.75, H * 0.7))  # ~250px
-        cy = H // 2  # vertikal zentriert
+        # Großes zentrales Icon als Wasserzeichen (rechte Hälfte)
+        # Weiß mit niedriger Alpha für dezente Wirkung
+        icon_color = (255, 255, 255, 60) if is_dark else (255, 255, 255, 80)
+        icon_size = 280  # Großes Icon
+        cx = int(W * 0.75)  # Rechts positioniert (Text kommt links)
+        cy = H // 2
 
-        def _draw_icon_symbol(draw, cx, cy, sz, icon_type, color):
-            """Zeichnet das Icon-Symbol innerhalb des Stempels."""
+        def _draw_brand_icon(draw, cx, cy, sz, icon_type, color):
+            """Zeichnet großes Branding-Icon (Wasserzeichen-Stil)."""
             if icon_type in ("local_cafe", "bakery_dining"):
-                # Kaffeetasse
-                cup_w = int(sz * 0.6)
-                cup_h = int(sz * 0.5)
+                # Große Kaffeetasse
+                cup_w = int(sz * 0.7)
+                cup_h = int(sz * 0.55)
+                # Tasse
                 draw.rounded_rectangle(
-                    [cx - cup_w//2, cy - cup_h//2, cx + cup_w//2, cy + cup_h//2 + 2],
-                    radius=4, fill=color
+                    [cx - cup_w//2, cy - cup_h//2, cx + cup_w//2, cy + cup_h//2 + 4],
+                    radius=8, fill=color
                 )
-                handle_x = cx + cup_w//2 + 2
+                # Henkel
+                handle_x = cx + cup_w//2 + 4
                 draw.ellipse(
-                    [handle_x, cy - cup_h//4, handle_x + sz//4, cy + cup_h//4],
-                    outline=color, width=2
+                    [handle_x, cy - cup_h//3, handle_x + sz//4, cy + cup_h//3],
+                    outline=color, width=6
                 )
-                steam_y = cy - cup_h//2 - 4
-                draw.arc([cx - sz//4, steam_y - sz//4, cx, steam_y + sz//4],
-                         200, 340, fill=color, width=2)
-                draw.arc([cx + 2, steam_y - sz//4, cx + sz//4 + 2, steam_y + sz//4],
-                         200, 340, fill=color, width=2)
+                # Dampf
+                steam_y = cy - cup_h//2 - 20
+                for offset in (-sz//4, 0, sz//4):
+                    draw.arc(
+                        [cx + offset - 15, steam_y - 20, cx + offset + 15, steam_y + 20],
+                        200, 340, fill=color, width=4
+                    )
             elif icon_type == "restaurant":
+                # Große Gabel und Messer
                 fork_x = cx - sz//4
                 knife_x = cx + sz//4
-                for dx in (-3, 0, 3):
+                for dx in (-6, 0, 6):
                     draw.line(
-                        [(fork_x + dx, cy - sz//2), (fork_x + dx, cy)],
-                        fill=color, width=2
+                        [(fork_x + dx, cy - sz//2), (fork_x + dx, cy + sz//8)],
+                        fill=color, width=5
                     )
-                draw.line([(fork_x, cy), (fork_x, cy + sz//2)], fill=color, width=3)
+                draw.line([(fork_x, cy + sz//8), (fork_x, cy + sz//2)], fill=color, width=8)
                 draw.line([(knife_x, cy - sz//2), (knife_x, cy + sz//2)],
-                          fill=color, width=3)
+                          fill=color, width=8)
             elif icon_type == "local_bar":
+                # Großes Cocktailglas
                 top_y = cy - sz//2
                 bot_y = cy + sz//3
                 draw.polygon(
-                    [(cx - sz//2, top_y), (cx + sz//2, top_y), (cx, cy)],
+                    [(cx - sz//2, top_y), (cx + sz//2, top_y), (cx, cy + sz//8)],
                     fill=color
                 )
-                draw.line([(cx, cy), (cx, bot_y)], fill=color, width=2)
-                draw.line([(cx - sz//4, bot_y), (cx + sz//4, bot_y)],
-                          fill=color, width=2)
+                draw.line([(cx, cy + sz//8), (cx, bot_y)], fill=color, width=6)
+                draw.line([(cx - sz//3, bot_y), (cx + sz//3, bot_y)],
+                          fill=color, width=6)
             elif icon_type == "smoking_rooms":
-                # Shisha / Rauchwolke
-                draw.ellipse([cx - sz//3, cy - sz//4, cx + sz//3, cy + sz//4],
-                             fill=color)
-                draw.ellipse([cx - sz//2, cy - sz//8, cx, cy + sz//3],
-                             fill=color)
-                draw.ellipse([cx, cy - sz//8, cx + sz//2, cy + sz//3],
-                             fill=color)
+                # Große Shisha / Rauchwolke
+                # Hauptwolke (großer Kreis)
+                draw.ellipse(
+                    [cx - sz//2, cy - sz//3, cx + sz//2, cy + sz//3],
+                    fill=color
+                )
+                # Seitenwolken
+                draw.ellipse(
+                    [cx - sz//2 - 20, cy - sz//8, cx - 10, cy + sz//3 + 20],
+                    fill=color
+                )
+                draw.ellipse(
+                    [cx + 10, cy - sz//8, cx + sz//2 + 20, cy + sz//3 + 20],
+                    fill=color
+                )
+                # Oberer Rauch
+                draw.ellipse(
+                    [cx - sz//4, cy - sz//2 - 30, cx + sz//4, cy - sz//3],
+                    fill=color
+                )
             elif icon_type == "icecream":
+                # Großes Eis
                 draw.polygon(
                     [(cx - sz//3, cy), (cx + sz//3, cy), (cx, cy + sz//2)],
                     fill=color
                 )
-                draw.ellipse([cx - sz//3, cy - sz//2, cx + sz//3, cy + sz//8],
-                             fill=color)
+                draw.ellipse(
+                    [cx - sz//3, cy - sz//2, cx + sz//3, cy + sz//8],
+                    fill=color
+                )
             else:
-                # Default: Stern
+                # Default: Großer Stern
                 points = []
                 for i in range(10):
                     angle = math.pi / 2 + i * math.pi / 5
@@ -790,28 +810,21 @@ def _generate_stamp_strip(
                     points.append((px, py))
                 draw.polygon(points, fill=color)
 
-        # Stempel zeichnen (horizontal)
-        for i in range(n):
-            cx = i * cell_w + cell_w // 2
-            half = icon_size // 2
-            filled = i < stamps_current
-            if filled:
-                # Gefüllt: Vollfarbiger Kreis + Icon in weiß
-                draw.ellipse(
-                    [cx - half, cy - half, cx + half, cy + half],
-                    fill=filled_color,
-                    outline=None
-                )
-                _draw_icon_symbol(draw, cx, cy, int(icon_size * 0.5), icon_type, (255, 255, 255, 255))
+        _draw_brand_icon(draw, cx, cy, icon_size, icon_type, icon_color)
+
+        # Dezenter diagonal-verlaufender Hintergrund (links heller für Text-Kontrast)
+        # Linker Bereich: leicht transparente Schicht für bessere Text-Lesbarkeit
+        overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        # Sanfter Verlauf von links (dunkler) nach rechts (transparenter)
+        for x in range(0, W, 3):
+            alpha = int(80 * (1 - x / W))  # Links alpha=80, rechts alpha=0
+            if is_dark:
+                overlay_draw.line([(x, 0), (x, H)], fill=(0, 0, 0, alpha))
             else:
-                # Leer: Nur Outline (Kreis) + halbtransparentes Icon
-                draw.ellipse(
-                    [cx - half, cy - half, cx + half, cy + half],
-                    fill=None,
-                    outline=empty_outline,
-                    width=3
-                )
-                _draw_icon_symbol(draw, cx, cy, int(icon_size * 0.5), icon_type, empty_color)
+                overlay_draw.line([(x, 0), (x, H)], fill=(255, 255, 255, alpha))
+        img = Image.alpha_composite(img, overlay)
+        draw = ImageDraw.Draw(img)
 
         out = _io.BytesIO()
         img.save(out, format="PNG", optimize=True)
