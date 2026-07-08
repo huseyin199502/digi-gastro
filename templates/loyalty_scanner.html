@@ -137,7 +137,6 @@
         const cards = JSON.parse('{{ cards_json | safe }}');
         let currentLookup = null;
         let videoStream = null;
-        let scanLoop = null;
 
         const codeInput = document.getElementById('shortCode');
         const lookupResult = document.getElementById('lookupResult');
@@ -161,51 +160,117 @@
         }
 
         // QR Scanner
+        let scanInterval = null;
+        let isScanning = false;
+
         async function startScanner() {
+            if (isScanning) return;
+            isScanning = true;
             try {
-                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                // Kamera mit preferBackCamera für mobile Geräte
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
                 const video = document.getElementById('qr-video');
                 video.srcObject = videoStream;
-                video.play();
-                scanLoop = requestAnimationFrame(scanQR);
+                await video.play();
+
+                // Scan-Status anzeigen
+                const hint = document.querySelector('.scanner-hint');
+                if (hint) hint.textContent = '📷 Kamera aktiv — QR-Code scannen...';
+
+                // Throttled scan loop (10fps statt 60fps für Performance)
+                scanInterval = setInterval(scanQR, 100);
             } catch (e) {
-                showToast('Kamera nicht verfügbar: ' + e.message, 'error');
+                console.error('Scanner start failed:', e);
+                let errMsg = 'Kamera nicht verfügbar';
+                if (e.name === 'NotAllowedError') errMsg = 'Kamera-Berechtigung verweigert. Bitte erlauben.';
+                else if (e.name === 'NotFoundError') errMsg = 'Keine Kamera gefunden.';
+                else if (e.name === 'NotReadableError') errMsg = 'Kamera wird bereits verwendet.';
+                else errMsg = 'Kamera-Fehler: ' + e.message;
+                showToast(errMsg, 'error');
+                isScanning = false;
                 switchTab('code');
             }
         }
 
         function stopScanner() {
+            isScanning = false;
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
             if (videoStream) {
                 videoStream.getTracks().forEach(t => t.stop());
                 videoStream = null;
             }
-            if (scanLoop) cancelAnimationFrame(scanLoop);
+            const video = document.getElementById('qr-video');
+            if (video) video.srcObject = null;
         }
 
         function scanQR() {
+            if (!isScanning) return;
             const video = document.getElementById('qr-video');
-            if (!video || !video.videoWidth) { scanLoop = requestAnimationFrame(scanQR); return; }
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            if (code) {
-                // QR gescannt! Code extrahieren
-                let scannedCode = code.data.trim().toUpperCase();
-                // QR enthält evtl. "Code: ABCD" oder nur "ABCD"
-                if (scannedCode.includes(':')) scannedCode = scannedCode.split(':').pop().trim();
-                if (scannedCode.length >= 3 && scannedCode.length <= 4) {
-                    codeInput.value = scannedCode;
-                    stopScanner();
-                    switchTab('code');
-                    lookupCustomer(scannedCode);
-                    return;
-                }
+            // Warte bis Video bereit ist (readyState >= 2 = HAVE_CURRENT_DATA)
+            if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+                return;
             }
-            scanLoop = requestAnimationFrame(scanQR);
+
+            try {
+                // Canvas auf Video-Größe setzen
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // QR-Code erkennen
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'dontInvert'
+                });
+
+                if (code && code.data) {
+                    // QR gescannt! Code extrahieren
+                    let scannedCode = code.data.trim().toUpperCase();
+                    console.log('QR gescannt:', scannedCode);
+
+                    // QR enthält evtl. "Code: ABCD" oder nur "ABCD" oder URL
+                    if (scannedCode.includes(':')) {
+                        scannedCode = scannedCode.split(':').pop().trim();
+                    }
+                    // Entferne alles außer A-Z0-9
+                    scannedCode = scannedCode.replace(/[^A-Z0-9]/g, '');
+
+                    // Code-Länge prüfen (3-5 Zeichen für Crockford Base32)
+                    if (scannedCode.length >= 3 && scannedCode.length <= 5) {
+                        // Vibration Feedback (falls unterstützt)
+                        if (navigator.vibrate) navigator.vibrate(200);
+
+                        // Scanner stoppen
+                        stopScanner();
+
+                        // Code eintragen und Lookup starten
+                        codeInput.value = scannedCode;
+                        switchTab('code');
+
+                        // Visuelles Feedback
+                        showToast('✅ QR-Code gescannt: ' + scannedCode, 'success');
+
+                        // Kunde lookup
+                        lookupCustomer(scannedCode);
+                        return;
+                    } else {
+                        console.log('QR-Code ignoriert (falsche Länge):', scannedCode);
+                    }
+                }
+            } catch (e) {
+                console.error('Scan error:', e);
+            }
         }
 
         // Code-Eingabe

@@ -1210,10 +1210,12 @@ def _generate_stamp_strip(
 
         icon_type = card_icon or "local_cafe"
 
-        # ── Sterne (vertikal zentriert, volle Breite) ──
+        # ── Sterne UNTEN (Y=200-420) - kein Überlapp mit primaryFields oben ──
+        # Apple Wallet rendert primaryFields "0/15" ÜBER strip.png (oben zentriert, Y=0-180).
+        # Sterne müssen UNTEN sein (Y=200+) damit sie nicht überlappt werden.
         # 4-Schicht-Rendering: Drop-Shadow, Radial-Gradient, Glass, Outline
-        stars_area_top = 60
-        stars_area_h = H - 120  # Vertikaler Padding
+        stars_area_top = 200  # Unterhalb des primaryFields Text-Bereichs
+        stars_area_h = H - stars_area_top - 20  # 20px bottom padding = 212px
 
         n = stamps_required
 
