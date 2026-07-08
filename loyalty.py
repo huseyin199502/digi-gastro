@@ -187,29 +187,24 @@ def _generate_apple_pass_json(
     except Exception:
         rgb_color = "rgb(201,168,76)"
 
-    # ── Professionelle Stempel-Visualisierung mit Icons ──
-    # Statt Sterne (★☆) verwenden wir Emoji-Icons basierend auf Karten-Icon
-    icon_map = {
-        "local_cafe": "☕", "restaurant": "🍽️", "local_bar": "🍸", "smoking_rooms": "💨",
-        "icecream": "🍦", "bakery_dining": "🥐"
-    }
-    stamp_icon = icon_map.get(card.get("icon", "local_cafe"), "🎫")
-
+    # ── Stempel-Visualisierung mit Unicode-Symbolen ──
+    # Apple Wallet unterstützt KEINE Emoji in Feld-Werten!
+    # Nur grundlegende Unicode-Zeichen: ● ○ ✓ etc.
     if stamps_current >= stamps_required:
-        progress_text = f"{stamp_icon} " * stamps_current
+        progress_text = "● " * stamps_current
         primary_value = f"{stamps_current} / {stamps_required} ✓"
         primary_change = f"🎉 Prämie bereit! {reward_name} — %@"
         reward_label = "PRÄMIE BEREIT"
         reward_value = f"🎁 {reward_name} — Bei deinem nächsten Besuch einlösen!"
     elif stamps_current == 0:
-        progress_text = f"▫️ " * stamps_required
+        progress_text = "○ " * stamps_required
         primary_value = f"{stamps_current} / {stamps_required}"
         primary_change = "🎉 Neuer Stempel! Jetzt %@"
         reward_label = "Dein Ziel"
         reward_value = f"🎁 {reward_name} — Noch {stamps_required} Stempel"
     else:
         remaining = stamps_required - stamps_current
-        progress_text = f"{stamp_icon} " * stamps_current + f"▫️ " * remaining
+        progress_text = "● " * stamps_current + "○ " * remaining
         primary_value = f"{stamps_current} / {stamps_required}"
         primary_change = "🎉 Neuer Stempel! Jetzt %@"
         reward_label = "Noch bis zum Reward"

@@ -1183,7 +1183,9 @@
         function _setLoyaltySavedCookie() {
             const expires = new Date();
             expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000));
-            document.cookie = `loyalty_{{ slug }}=saved; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+            document.cookie = `loyalty_{{ slug }}=saved; expires=${expires.toUTCString()}; path=/; SameSite=Lax; Secure`;
+            // localStorage als Fallback (cookies können bei .pkpass Download verloren gehen)
+            localStorage.setItem(`loyalty_saved_{{ slug }}`, 'true');
         }
 
         // ── GLOBALE Device Detection Funktion ──
@@ -1237,9 +1239,10 @@
             if (_loyaltyCardActive && _loyaltyCardData) {
                 const btn = document.getElementById('nav-stempelkarte-btn');
                 const btn2 = document.getElementById('loyalty-redownload-btn');
-                // Cookie prüfen: hat Kunde schon Wallet?
-                const hasWallet = document.cookie.includes('loyalty_{{ slug }}=saved');
-                const showBtn = !hasWallet;
+                // Cookie UND localStorage prüfen: hat Kunde schon Wallet?
+                const hasWalletCookie = document.cookie.includes('loyalty_{{ slug }}=saved');
+                const hasWalletLS = localStorage.getItem('loyalty_saved_{{ slug }}') === 'true';
+                const showBtn = !hasWalletCookie && !hasWalletLS;
                 
                 if (btn) {
                     btn.style.display = showBtn ? 'flex' : 'none';
@@ -2900,6 +2903,7 @@
                     if (urlParams.get('reset_loyalty') === '1') {
                         // Cookie löschen
                         document.cookie = `loyalty_{{ slug }}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                        localStorage.removeItem(`loyalty_saved_{{ slug }}`);
                         localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
                         // URL-Param entfernen
                         urlParams.delete('reset_loyalty');
@@ -2908,11 +2912,12 @@
                     }
 
                     const hasLoyaltyCookie = document.cookie.includes('loyalty_{{ slug }}=saved');
+                    const hasLoyaltyLS = localStorage.getItem('loyalty_saved_{{ slug }}') === 'true';
                     const skipKey = `loyalty_skipped_{{ slug }}`;
                     const hasSkippedBefore = localStorage.getItem(skipKey) === 'true';
 
                     // Kunde hat schon Wallet → kein Popup, direkt zur Speisekarte
-                    if (hasLoyaltyCookie) {
+                    if (hasLoyaltyCookie || hasLoyaltyLS) {
                         this.currentView = 'speisekarte';
                         return;
                     }
