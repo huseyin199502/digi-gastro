@@ -14046,7 +14046,7 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         slug_lower, tenant.name, card_dict, customer_dict, geofence_dict,
         logo_path=logo_path,  # CRITICAL: Tenant-Logo in den Pass!
         wallet_banner_path=getattr(card, 'wallet_banner_path', None),
-        wallet_banner_mode=getattr(card, 'wallet_banner_mode', 'zone') or 'zone',
+        wallet_banner_mode=getattr(card, 'wallet_banner_mode', 'full') or 'full',
     )
     if not pkpass_bytes:
         raise HTTPException(status_code=500, detail="Pass-Generierung fehlgeschlagen.")
@@ -14355,7 +14355,7 @@ async def passkit_get_pass(
         customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict,
         logo_path=logo_path_update,
         wallet_banner_path=getattr(card, 'wallet_banner_path', None),
-        wallet_banner_mode=getattr(card, 'wallet_banner_mode', 'zone') or 'zone',
+        wallet_banner_mode=getattr(card, 'wallet_banner_mode', 'full') or 'full',
     )
 
     if not pkpass_bytes:
@@ -14445,7 +14445,7 @@ def loyalty_dashboard(chef_data: tuple = Depends(require_chef_user_flat), db: Se
             "stamps_required": c.stamps_required, "reward_name": c.reward_name,
             "is_active": c.is_active, "color_hex": c.color_hex, "icon": c.icon,
             "wallet_banner_path": getattr(c, 'wallet_banner_path', None),
-            "wallet_banner_mode": getattr(c, 'wallet_banner_mode', 'zone') or 'zone',
+            "wallet_banner_mode": getattr(c, 'wallet_banner_mode', 'full') or 'full',
         } for c in cards],
         "campaigns": [{
             "id": c.id, "name": c.name, "campaign_type": c.campaign_type,

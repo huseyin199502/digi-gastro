@@ -408,7 +408,7 @@ class LoyaltyCard(Base):
     # Wallet-Banner-Foto (optional): Tenant-Foto das im strip.png angezeigt wird
     # Pfad wie "/uploads/wallet-banners/{slug}-wallet-banner.png"
     wallet_banner_path = Column(String, nullable=True)
-    wallet_banner_mode = Column(String, default="zone")  # "zone" (Foto mittig) oder "full" (Vollbild)
+    wallet_banner_mode = Column(String, default="full")  # "full" (Vollbild) oder "zone"
     created_at = Column(String, nullable=False)
 
 class LoyaltyCustomer(Base):
@@ -637,7 +637,7 @@ def _migrate_database():
     add_column_if_missing('loyalty_customers', 'pass_downloaded_at', "VARCHAR")
     # Wallet-Banner-Foto für LoyaltyCard (Tenant kann Foto hochladen)
     add_column_if_missing('loyalty_cards', 'wallet_banner_path', "VARCHAR")
-    add_column_if_missing('loyalty_cards', 'wallet_banner_mode', "VARCHAR DEFAULT 'zone'")
+    add_column_if_missing('loyalty_cards', 'wallet_banner_mode', "VARCHAR DEFAULT 'full'")
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")

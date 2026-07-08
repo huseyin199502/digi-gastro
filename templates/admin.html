@@ -6115,14 +6115,8 @@
                                 <label class="form-label">Foto hochladen</label>
                                 <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required class="form-field text-[11px]">
                             </div>
-                            <div>
-                                <label class="form-label">Anzeige-Modus</label>
-                                <select name="banner_mode" class="form-field">
-                                    <option value="zone">Zonen (Foto mittig, Sterne unten, Text oben)</option>
-                                    <option value="full">Vollbild (Foto als Hintergrund, dunkles Overlay oben)</option>
-                                </select>
-                                <div class="text-[10px] text-zinc-500 mt-1">Zonen = sauberer Look ohne Überlappung. Vollbild = maximale Foto-Wirkung.</div>
-                            </div>
+                            <input type="hidden" name="banner_mode" value="full">
+                            <div class="text-[10px] text-zinc-500">Das Foto wird als Voll-Hintergrund angezeigt. Sterne erscheinen weiß über dem Foto, Text oben bleibt durch dunkles Overlay lesbar.</div>
                             <button type="submit" class="btn-primary w-full flex items-center justify-center gap-1.5">
                                 <span class="material-symbols-outlined" style="font-size:14px;">upload</span> Banner hochladen
                             </button>

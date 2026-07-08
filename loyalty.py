@@ -1001,7 +1001,7 @@ def _generate_stamp_strip(
     card_icon: str = "local_cafe",
     color_hex: str = "#C9A84C",
     banner_path: Optional[str] = None,
-    banner_mode: str = "zone",
+    banner_mode: str = "full",
 ) -> bytes:
     """Generiert ein strip.png (1125x432 px) für Apple Wallet storeCard.
 
@@ -1046,50 +1046,50 @@ def _generate_stamp_strip(
 
         # ── Banner-Foto einbauen (optional) ──
         # Apple Wallet storeCard unterstützt nur strip.png als großes Bild.
-        # Wir integrieren das Tenant-Foto ins strip.png:
-        # - "zone": Foto in mittlerer Zone (Y=120-240), Sterne unten, Text oben transparent
-        # - "full": Foto als Voll-Hintergrund + dunkles Gradient oben für Text-Lesbarkeit
+        # Vollbild-Modus (default): Foto füllt komplettes strip.png,
+        # Sterne werden ÜBER das Foto gezeichnet (weiße Outlines),
+        # dunkles Gradient oben für Text-Lesbarkeit.
+        # So macht es auch Starbucks: Foto = Branding, Sterne = Overlay.
         banner_loaded = False
         if banner_path:
             # Pfad auflösen: "/uploads/..." → tatsächlicher Dateipfad
             fs_path = banner_path
             if banner_path.startswith("/uploads/"):
-                # UPLOAD_DIR wird in main.py gesetzt; Fallback-Logik
                 upload_dir = os.environ.get("UPLOAD_DIR", "/app/data/uploads")
                 fs_path = os.path.join(upload_dir, banner_path[len("/uploads/"):])
-                # Alternative Pfade prüfen
                 if not os.path.exists(fs_path):
                     fs_path = os.path.join("/app/data/uploads", banner_path[len("/uploads/"):])
             if os.path.exists(fs_path):
                 try:
                     banner_img = Image.open(fs_path).convert("RGBA")
-                    if banner_mode == "full":
-                        # Foto als Voll-Hintergrund (1125x432)
-                        banner_img = banner_img.resize((W, H), Image.Resampling.LANCZOS)
-                        img.paste(banner_img, (0, 0), banner_img)
-                        # Dunkles Gradient oben (Y=0-180) für Text-Lesbarkeit
-                        gradient = Image.new("RGBA", (W, 180), (0, 0, 0, 160))
-                        img = Image.alpha_composite(img, gradient)
-                        draw = ImageDraw.Draw(img)
-                    else:  # "zone"
-                        # Foto in mittlerer Zone (Y=120-240 = 120px hoch, volle Breite)
-                        zone_top, zone_h = 120, 120
-                        zone_w = W
-                        src_ratio = banner_img.width / banner_img.height
-                        dst_ratio = zone_w / zone_h
-                        if src_ratio > dst_ratio:
-                            new_w = int(banner_img.height * dst_ratio)
-                            left = (banner_img.width - new_w) // 2
-                            cropped = banner_img.crop((left, 0, left + new_w, banner_img.height))
-                        else:
-                            new_h = int(banner_img.width / dst_ratio)
-                            top = (banner_img.height - new_h) // 2
-                            cropped = banner_img.crop((0, top, banner_img.width, top + new_h))
-                        cropped = cropped.resize((zone_w, zone_h), Image.Resampling.LANCZOS)
-                        img.paste(cropped, (0, zone_top), cropped)
+                    # Foto auf volle strip.png Größe resizen (1125x432)
+                    banner_img = banner_img.resize((W, H), Image.Resampling.LANCZOS)
+                    # Foto als Hintergrund (alpha_composite für korrektes Alpha-Blending)
+                    img = Image.alpha_composite(img, banner_img)
+                    draw = ImageDraw.Draw(img)
+                    # Dunkles Gradient oben (Y=0-160) für primaryFields Text-Lesbarkeit
+                    # Sanfter Verlauf: oben dunkel (alpha=180) → unten transparent
+                    # WICHTIG: Gradient muss gleiche Größe wie img haben für alpha_composite
+                    gradient = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                    gradient_draw = ImageDraw.Draw(gradient)
+                    for y in range(min(160, H)):
+                        alpha = int(180 * (1 - y / 160))
+                        gradient_draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
+                    img = Image.alpha_composite(img, gradient)
+                    # Dunkles Gradient unten (Y=300-432) für Sterne-Lesbarkeit
+                    gradient_bot = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                    gradient_bot_draw = ImageDraw.Draw(gradient_bot)
+                    bot_start = 300
+                    for y in range(bot_start, H):
+                        alpha = int(120 * ((y - bot_start) / (H - bot_start)))
+                        gradient_bot_draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
+                    img = Image.alpha_composite(img, gradient_bot)
+                    draw = ImageDraw.Draw(img)
                     banner_loaded = True
                 except Exception as e:
+                    import traceback
                     print(f"[Apple Pass] Banner load failed, fallback to default: {e}")
+                    traceback.print_exc()
             else:
                 print(f"[Apple Pass] Banner file not found: {fs_path}")
 
@@ -1097,11 +1097,19 @@ def _generate_stamp_strip(
         brightness = (r * 299 + g * 587 + b * 114) / 1000
         is_dark = brightness < 140
 
-        # Farben für Kreise
-        filled_color = (r, g, b, 255)
-        empty_outline = (255, 255, 255, 230) if is_dark else (28, 28, 30, 200)
-        empty_icon_color = (255, 255, 255, 180) if is_dark else (28, 28, 30, 140)
-        filled_icon_color = (255, 255, 255, 255)
+        # Farben für Sterne
+        # Wenn Banner aktiv: Sterne weiß mit hohem Kontrast (über Foto)
+        # Ohne Banner: Sterne in Kartenfarbe (auf transparentem/Pass-Hintergrund)
+        if banner_loaded:
+            filled_color = (255, 255, 255, 255)       # Weiß gefüllt
+            empty_outline = (255, 255, 255, 200)      # Weiße Outlines
+            empty_icon_color = (255, 255, 255, 120)   # Halbsichtbare leere Sterne
+            filled_icon_color = (r, g, b, 255)        # Kartenfarbe als Icon in gefülltem Stern
+        else:
+            filled_color = (r, g, b, 255)
+            empty_outline = (255, 255, 255, 230) if is_dark else (28, 28, 30, 200)
+            empty_icon_color = (255, 255, 255, 180) if is_dark else (28, 28, 30, 140)
+            filled_icon_color = (255, 255, 255, 255)
 
         icon_type = card_icon or "local_cafe"
 
@@ -1139,38 +1147,50 @@ def _generate_stamp_strip(
                 points.append((px, py))
             draw.polygon(points, fill=color)
 
-        # n Kreise zeichnen (horizontal, am unteren Rand — 1 oder 2 Reihen je nach Anzahl)
+        # n Sterne zeichnen (horizontal, am unteren Rand — 1 oder 2 Reihen je nach Anzahl)
+        # Bei Banner aktiv: KEINE Kreise, nur Sterne direkt über das Foto
+        # Ohne Banner: Sterne in Kreisen (gefüllt/Outline) wie bisher
         for i in range(n):
             row = i // cols
             col = i % cols
             cx = col * cell_w + cell_w // 2
             cy = stamps_area_top + row * cell_h + cell_h // 2
-            half = circle_size // 2
             filled = i < stamps_current
-            if filled:
-                # Gefüllt: Vollfarbiger Kreis + weißes Icon
-                draw.ellipse(
-                    [cx - half, cy - half, cx + half, cy + half],
-                    fill=filled_color,
-                    outline=None
-                )
-                icon_color = filled_icon_color
-            else:
-                # Leer: Outline + halbtransparentes Icon
-                draw.ellipse(
-                    [cx - half, cy - half, cx + half, cy + half],
-                    fill=None,
-                    outline=empty_outline,
-                    width=3
-                )
-                icon_color = empty_icon_color
 
-            # Icon zeichnen (echte Silhouette)
-            icon_sz = int(circle_size * 0.7)
-            if icon_drawer:
-                icon_drawer(draw, cx, cy, icon_sz, icon_color)
+            if banner_loaded:
+                # Banner-Modus: Nur Sterne, keine Kreise
+                # Gefüllte Sterne: vollfarbig (weiß), leere Sterne: Outline
+                if filled:
+                    _draw_default_star(draw, cx, cy, circle_size, filled_color)
+                else:
+                    # Leerer Stern: nur Outline (gezeichneter Stern mit transparenter Füllung)
+                    # Wir zeichnen den Stern in empty_outline Farbe
+                    _draw_default_star(draw, cx, cy, circle_size, empty_outline)
             else:
-                _draw_default_star(draw, cx, cy, icon_sz, icon_color)
+                # Standard-Modus: Sterne in Kreisen
+                half = circle_size // 2
+                if filled:
+                    draw.ellipse(
+                        [cx - half, cy - half, cx + half, cy + half],
+                        fill=filled_color,
+                        outline=None
+                    )
+                    icon_color = filled_icon_color
+                else:
+                    draw.ellipse(
+                        [cx - half, cy - half, cx + half, cy + half],
+                        fill=None,
+                        outline=empty_outline,
+                        width=3
+                    )
+                    icon_color = empty_icon_color
+
+                # Icon zeichnen (Stern)
+                icon_sz = int(circle_size * 0.7)
+                if icon_drawer:
+                    icon_drawer(draw, cx, cy, icon_sz, icon_color)
+                else:
+                    _draw_default_star(draw, cx, cy, icon_sz, icon_color)
 
         out = _io.BytesIO()
         img.save(out, format="PNG", optimize=True)
@@ -1188,7 +1208,7 @@ def generate_apple_pkpass(
     geofence: Optional[Dict[str, Any]] = None,
     logo_path: Optional[str] = None,
     wallet_banner_path: Optional[str] = None,
-    wallet_banner_mode: str = "zone",
+    wallet_banner_mode: str = "full",
 ) -> Optional[bytes]:
     """Generiert einen kompletten .pkpass-File (ZIP) für Apple Wallet.
 
