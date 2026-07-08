@@ -432,6 +432,13 @@
                         <span data-translate="view_menu">Speisekarte ansehen</span>
                     </button>
 
+                    <!-- Loyalty: "Stempelkarte" Button — immer sichtbar wenn Loyalty aktiv -->
+                    <!-- Kunde kann Pass neu laden falls er gelöscht wurde -->
+                    <button id="loyalty-redownload-btn" onclick="forceShowLoyaltyPopup()" class="btn-premium glass-btn-secondary w-full py-3 rounded-xl text-xs font-bold hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2" style="display:none; color:#C9A84C !important;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">confirmation_number</span>
+                        Stempelkarte
+                    </button>
+
                     <!-- Google Review Link -->
                     <div x-show="restaurantLandingPage.google_rating_url" class="w-full">
                         <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95" style="color:#ffffff !important;">
@@ -1050,6 +1057,8 @@
                     _loyaltyCardActive = true;
                     // Modal-Daten vorbereiten (für eventuelle spätere Anzeige)
                     prepareLoyaltyPopup(data);
+                    // "Stempelkarte" Button anzeigen (für Kunden die Pass neu laden wollen)
+                    updateRedownloadButton();
                 }
             } catch (e) { /* silently ignore — Loyalty ist optional */ }
         }
@@ -1205,6 +1214,29 @@
 
         // Beim Laden prüfen ob Loyalty aktiv
         document.addEventListener('DOMContentLoaded', checkLoyaltyAvailability);
+
+        // Nach checkLoyaltyAvailability: Button zeigen wenn Loyalty aktiv + Kunde schon Wallet hat
+        function updateRedownloadButton() {
+            const btn = document.getElementById('loyalty-redownload-btn');
+            if (!btn) return;
+            if (_loyaltyCardActive && _loyaltyCardData) {
+                // Loyalty aktiv → Button zeigen (egal ob Cookie da oder nicht)
+                btn.style.display = 'flex';
+            }
+        }
+
+        // forceShowLoyaltyPopup: Öffnet Popup auch wenn Cookie 'saved' gesetzt ist
+        // (für Kunden die Pass gelöscht haben und neu laden wollen)
+        function forceShowLoyaltyPopup() {
+            if (!_loyaltyCardActive || !_loyaltyCardData) return;
+            prepareLoyaltyPopup(_loyaltyCardData);
+            applyDeviceDetection();
+            const popup = document.getElementById('loyalty-popup');
+            if (popup) {
+                popup.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+        }
     </script>
 
     <!-- Persistent Sticky Bottom Bar (Thumb-Zone) -->
