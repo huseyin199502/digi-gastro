@@ -1104,12 +1104,16 @@
             }
 
             // Stempel-Anzahl
-            document.getElementById('loyalty-popup-stamps-required').textContent = card.stamps_required;
-            document.getElementById('loyalty-popup-stamps-required-2').textContent = card.stamps_required;
+            const srEl = document.getElementById('loyalty-popup-stamps-required');
+            if (srEl) srEl.textContent = card.stamps_required;
+            const srEl2 = document.getElementById('loyalty-popup-stamps-required-2');
+            if (srEl2) srEl2.textContent = card.stamps_required;
 
             // Reward
-            document.getElementById('loyalty-popup-reward-name').textContent = card.reward_name;
-            document.getElementById('loyalty-popup-reward-name-2').textContent = card.reward_name;
+            const rnEl = document.getElementById('loyalty-popup-reward-name');
+            if (rnEl) rnEl.textContent = card.reward_name;
+            const rnEl2 = document.getElementById('loyalty-popup-reward-name-2');
+            if (rnEl2) rnEl2.textContent = card.reward_name;
 
             // Wallet-Links
             // APPLE: href direkt setzen. KEIN target="_blank" — iOS Safari
@@ -1215,15 +1219,22 @@
         // DOMContentLoaded Listener nötig)
 
         // Beim Laden prüfen ob Loyalty aktiv
-        // Polling: Alle 500ms prüfen ob Loyalty aktiv + Button im DOM → anzeigen
+        // Polling: Alle 500ms prüfen ob Loyalty aktiv + Button im DOM → anzeigen + click handler
         let _loyaltyPollCount = 0;
         const _loyaltyPoll = setInterval(() => {
             _loyaltyPollCount++;
             if (_loyaltyCardActive && _loyaltyCardData) {
                 const btn = document.getElementById('nav-stempelkarte-btn');
                 const btn2 = document.getElementById('loyalty-redownload-btn');
-                if (btn) btn.style.display = 'flex';
-                if (btn2) btn2.style.display = 'flex';
+                if (btn) {
+                    btn.style.display = 'flex';
+                    // Click Handler sicherstellen (onclick wird von Alpine.js überschrieben)
+                    btn.onclick = function(e) { e.preventDefault(); window.forceShowLoyaltyPopup(); };
+                }
+                if (btn2) {
+                    btn2.style.display = 'flex';
+                    btn2.onclick = function(e) { e.preventDefault(); window.forceShowLoyaltyPopup(); };
+                }
                 if (btn || _loyaltyPollCount > 20) clearInterval(_loyaltyPoll);
             }
             if (_loyaltyPollCount > 20) clearInterval(_loyaltyPoll);
