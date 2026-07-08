@@ -995,6 +995,159 @@ def _draw_bakery_icon(draw, cx, cy, sz, color):
 _ICON_DRAWERS = {}
 
 
+# ════════════════════════════════════════════════════════════════
+# PROFESSIONAL STARS (getqard.com / Starbucks-inspiriert)
+# 4-Schicht-Rendering: Drop-Shadow → Radial-Gradient → Glass-Highlight → Outline
+# ════════════════════════════════════════════════════════════════
+from PIL import ImageFilter, Image as _PIL_Image, ImageDraw as _PIL_ImageDraw
+import math as _math
+
+
+def _star_polygon(cx, cy, outer_r, inner_r, points=5, rotation=-_math.pi / 2):
+    """Return list of (x,y) points for a 5-pointed star."""
+    pts = []
+    for i in range(points * 2):
+        angle = rotation + i * _math.pi / points
+        r = outer_r if i % 2 == 0 else inner_r
+        pts.append((cx + r * _math.cos(angle), cy + r * _math.sin(angle)))
+    return pts
+
+
+def _draw_star_with_depth(base_img, cx, cy, size, brand_rgb, filled, on_dark=True):
+    """Draw a single star with drop shadow, gradient fill, and glass highlight.
+
+    4-Schicht-Rendering für professionelles Aussehen (wie getqard.com):
+    1. Drop-Shadow (gaussian-blurred dark star, offset down)
+    2. Radial-Gradient-Fill (bright top-left → mid → darker edge)
+    3. White glass-arc highlight on top (getqard sa-glass effect)
+    4. Crisp outline for definition
+    """
+    pad = int(size * 0.35)
+    layer_w = int(size + pad * 2)
+    layer_h = int(size + pad * 2)
+    layer = _PIL_Image.new("RGBA", (layer_w, layer_h), (0, 0, 0, 0))
+    ld = _PIL_ImageDraw.Draw(layer)
+
+    lcx = layer_w // 2
+    lcy = layer_h // 2
+    outer_r = size / 2
+    inner_r = outer_r * 0.42  # classic 5-point star ratio
+
+    if filled:
+        # ── 1. DROP SHADOW (gaussian-blurred dark star, offset down) ──
+        shadow = _PIL_Image.new("RGBA", (layer_w, layer_h), (0, 0, 0, 0))
+        sd = _PIL_ImageDraw.Draw(shadow)
+        shadow_pts = _star_polygon(lcx, lcy + size * 0.04, outer_r * 1.02, inner_r * 1.02)
+        sd.polygon(shadow_pts, fill=(0, 0, 0, 150))
+        shadow = shadow.filter(ImageFilter.GaussianBlur(radius=size * 0.08))
+        layer = _PIL_Image.alpha_composite(layer, shadow)
+        ld = _PIL_ImageDraw.Draw(layer)
+
+        # ── 2. RADIAL GRADIENT FILL (gloss: bright top-left → mid → darker edge) ──
+        grad_size = int(size * 2)
+        grad = _PIL_Image.new("RGBA", (grad_size, grad_size), (0, 0, 0, 0))
+        gd = _PIL_ImageDraw.Draw(grad)
+        gcx = grad_size * 0.42
+        gcy = grad_size * 0.38
+        max_r = outer_r
+        steps = 24
+        for i in range(steps, 0, -1):
+            t = i / steps
+            if t > 0.55:
+                tt = (t - 0.55) / 0.45
+                r = int(brand_rgb[0] * (1 - tt * 0.45))
+                g = int(brand_rgb[1] * (1 - tt * 0.45))
+                b = int(brand_rgb[2] * (1 - tt * 0.45))
+            else:
+                tt = t / 0.55
+                hr = min(255, int(brand_rgb[0] + (255 - brand_rgb[0]) * (1 - tt) * 0.65))
+                hg = min(255, int(brand_rgb[1] + (255 - brand_rgb[1]) * (1 - tt) * 0.65))
+                hb = min(255, int(brand_rgb[2] + (255 - brand_rgb[2]) * (1 - tt) * 0.65))
+                r, g, b = hr, hg, hb
+            radius = max_r * t
+            pts = _star_polygon(gcx, gcy, radius, radius * 0.42)
+            gd.polygon(pts, fill=(r, g, b, 255))
+        # Crop gradient to star shape
+        star_mask = _PIL_Image.new("L", (grad_size, grad_size), 0)
+        md = _PIL_ImageDraw.Draw(star_mask)
+        mpts = _star_polygon(grad_size / 2, grad_size / 2, max_r, max_r * 0.42)
+        md.polygon(mpts, fill=255)
+        grad_rgb = grad.convert("RGB")
+        final_star = _PIL_Image.new("RGBA", (grad_size, grad_size), (0, 0, 0, 0))
+        final_star.paste(grad_rgb, (0, 0), star_mask)
+        offset = (lcx - grad_size // 2, lcy - grad_size // 2)
+        layer.paste(final_star, offset, final_star)
+        ld = _PIL_ImageDraw.Draw(layer)
+
+        # ── 3. GLASS HIGHLIGHT (white arc on top, getqard sa-glass) ──
+        gloss = _PIL_Image.new("RGBA", (layer_w, layer_h), (0, 0, 0, 0))
+        gld = _PIL_ImageDraw.Draw(gloss)
+        gld.ellipse(
+            [lcx - outer_r * 0.78, lcy - outer_r * 0.72,
+             lcx + outer_r * 0.78, lcy + outer_r * 0.05],
+            fill=(255, 255, 255, 110)
+        )
+        gloss = gloss.filter(ImageFilter.GaussianBlur(radius=size * 0.06))
+        star_mask_l = _PIL_Image.new("L", (layer_w, layer_h), 0)
+        md2 = _PIL_ImageDraw.Draw(star_mask_l)
+        mpts2 = _star_polygon(lcx, lcy, outer_r * 0.98, inner_r * 0.98)
+        md2.polygon(mpts2, fill=255)
+        gloss.putalpha(star_mask_l)
+        layer = _PIL_Image.alpha_composite(layer, gloss)
+        ld = _PIL_ImageDraw.Draw(layer)
+
+        # ── 4. CRISP OUTLINE (thin brand-dark edge for definition) ──
+        outline_color = (
+            max(0, brand_rgb[0] - 80),
+            max(0, brand_rgb[1] - 80),
+            max(0, brand_rgb[2] - 80),
+            200,
+        )
+        out_pts = _star_polygon(lcx, lcy, outer_r, inner_r)
+        ld.line(out_pts + [out_pts[0]], fill=outline_color, width=2)
+    else:
+        # ── EMPTY STAR: thick semi-transparent outline with subtle inner glow ──
+        outline_color = (255, 255, 255, 230) if on_dark else (28, 28, 30, 200)
+        # Soft glow underneath
+        glow = _PIL_Image.new("RGBA", (layer_w, layer_h), (0, 0, 0, 0))
+        gwd = _PIL_ImageDraw.Draw(glow)
+        gpts = _star_polygon(lcx, lcy, outer_r * 1.15, inner_r * 1.15)
+        gwd.polygon(gpts, fill=(255, 255, 255, 40) if on_dark else (0, 0, 0, 30))
+        glow = glow.filter(ImageFilter.GaussianBlur(radius=size * 0.05))
+        layer = _PIL_Image.alpha_composite(layer, glow)
+        ld = _PIL_ImageDraw.Draw(layer)
+        # Thick outline
+        out_pts = _star_polygon(lcx, lcy, outer_r, inner_r)
+        ld.line(out_pts + [out_pts[0]], fill=outline_color, width=max(3, int(size * 0.04)))
+        # Inner faint star for visual weight
+        inner_pts = _star_polygon(lcx, lcy, outer_r * 0.7, inner_r * 0.7)
+        ld.polygon(inner_pts, fill=(255, 255, 255, 35) if on_dark else (0, 0, 0, 25))
+
+    # Composite the layer onto the base image
+    base_img.alpha_composite(layer, (int(cx - lcx), int(cy - lcy)))
+
+
+def _apply_radial_vignette(img, W, H, strength=0.45):
+    """Apply a smooth radial vignette: darken edges, keep center bright."""
+    cx, cy = W / 2, H / 2
+    vignette = _PIL_Image.new("L", (W, H), 0)
+    vd = _PIL_ImageDraw.Draw(vignette)
+    steps = 60
+    for i in range(steps, 0, -1):
+        t = i / steps
+        alpha = int(255 * strength * (t ** 2.2))
+        radius_x = cx * t
+        radius_y = cy * t
+        vd.ellipse([cx - radius_x, cy - radius_y, cx + radius_x, cy + radius_y], fill=255 - alpha)
+    darkness = _PIL_Image.new("RGBA", (W, H), (0, 0, 0, 255))
+    inverted = _PIL_Image.eval(vignette, lambda x: 255 - x)
+    darkness.putalpha(inverted)
+    r, g, b, a = darkness.split()
+    a = a.point(lambda v: int(v * 0.5))
+    darkness.putalpha(a)
+    return _PIL_Image.alpha_composite(img, darkness)
+
+
 def _generate_stamp_strip(
     stamps_current: int,
     stamps_required: int,
@@ -1045,14 +1198,14 @@ def _generate_stamp_strip(
             r, g, b = 201, 168, 76  # Default gold
 
         # ── Banner-Foto einbauen (optional) ──
-        # Apple Wallet storeCard unterstützt nur strip.png als großes Bild.
-        # Vollbild-Modus (default): Foto füllt komplettes strip.png,
-        # Sterne werden ÜBER das Foto gezeichnet (weiße Outlines),
-        # dunkles Gradient oben für Text-Lesbarkeit.
-        # So macht es auch Starbucks: Foto = Branding, Sterne = Overlay.
+        # PROFESSIONAL DESIGN (getqard.com / Starbucks-inspiriert):
+        # - Foto als Voll-Hintergrund mit Cover-Fit (keine Verzerrung)
+        # - Stärkeres Gradient oben (alpha 210) für Text-Lesbarkeit
+        # - Radiale Vignette (dunkelt Ränder ab, Fokus auf Mitte)
+        # - Gradient unten für Sterne-Lesbarkeit
+        # - Sterne mit 4-Schicht-Rendering (Drop-Shadow, Gradient, Glass, Outline)
         banner_loaded = False
         if banner_path:
-            # Pfad auflösen: "/uploads/..." → tatsächlicher Dateipfad
             fs_path = banner_path
             if banner_path.startswith("/uploads/"):
                 upload_dir = os.environ.get("UPLOAD_DIR", "/app/data/uploads")
@@ -1062,34 +1215,43 @@ def _generate_stamp_strip(
             if os.path.exists(fs_path):
                 try:
                     banner_img = Image.open(fs_path).convert("RGBA")
-                    # Foto auf volle strip.png Größe resizen (1125x432)
-                    banner_img = banner_img.resize((W, H), Image.Resampling.LANCZOS)
-                    # Foto als Hintergrund (alpha_composite für korrektes Alpha-Blending)
+                    # Cover-Fit: preserves aspect ratio, crops overflow (keine Verzerrung)
+                    bw, bh = banner_img.size
+                    scale = max(W / bw, H / bh)
+                    new_w, new_h = int(bw * scale), int(bh * scale)
+                    banner_img = banner_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    left = (new_w - W) // 2
+                    top = (new_h - H) // 2
+                    banner_img = banner_img.crop((left, top, left + W, top + H))
                     img = Image.alpha_composite(img, banner_img)
                     draw = ImageDraw.Draw(img)
-                    # Dunkles Gradient oben (Y=0-160) für primaryFields Text-Lesbarkeit
-                    # Sanfter Verlauf: oben dunkel (alpha=180) → unten transparent
-                    # WICHTIG: Gradient muss gleiche Größe wie img haben für alpha_composite
-                    gradient = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                    gradient_draw = ImageDraw.Draw(gradient)
-                    for y in range(min(160, H)):
-                        alpha = int(180 * (1 - y / 160))
-                        gradient_draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-                    img = Image.alpha_composite(img, gradient)
-                    # Dunkles Gradient unten (Y=300-432) für Sterne-Lesbarkeit
-                    gradient_bot = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                    gradient_bot_draw = ImageDraw.Draw(gradient_bot)
-                    bot_start = 300
+
+                    # Stärkeres Top-Gradient (alpha 210, ease-out Kurve)
+                    top_grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                    td = ImageDraw.Draw(top_grad)
+                    top_h = 200
+                    for y in range(top_h):
+                        t = y / top_h
+                        alpha = int(210 * (1 - t) ** 1.4)
+                        td.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
+                    img = Image.alpha_composite(img, top_grad)
+
+                    # Bottom-Gradient für Sterne-Lesbarkeit (alpha 150, ease-in)
+                    bot_grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                    bd = ImageDraw.Draw(bot_grad)
+                    bot_start = 260
                     for y in range(bot_start, H):
-                        alpha = int(120 * ((y - bot_start) / (H - bot_start)))
-                        gradient_bot_draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-                    img = Image.alpha_composite(img, gradient_bot)
+                        t = (y - bot_start) / (H - bot_start)
+                        alpha = int(150 * t ** 1.6)
+                        bd.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
+                    img = Image.alpha_composite(img, bot_grad)
+
+                    # Radiale Vignette (dunkelt Ränder ab, Fokus auf Mitte)
+                    img = _apply_radial_vignette(img, W, H, strength=0.45)
                     draw = ImageDraw.Draw(img)
                     banner_loaded = True
                 except Exception as e:
-                    import traceback
                     print(f"[Apple Pass] Banner load failed, fallback to default: {e}")
-                    traceback.print_exc()
             else:
                 print(f"[Apple Pass] Banner file not found: {fs_path}")
 
@@ -1097,30 +1259,16 @@ def _generate_stamp_strip(
         brightness = (r * 299 + g * 587 + b * 114) / 1000
         is_dark = brightness < 140
 
-        # Farben für Sterne
-        # Wenn Banner aktiv: Sterne weiß mit hohem Kontrast (über Foto)
-        # Ohne Banner: Sterne in Kartenfarbe (auf transparentem/Pass-Hintergrund)
-        if banner_loaded:
-            filled_color = (255, 255, 255, 255)       # Weiß gefüllt
-            empty_outline = (255, 255, 255, 200)      # Weiße Outlines
-            empty_icon_color = (255, 255, 255, 120)   # Halbsichtbare leere Sterne
-            filled_icon_color = (r, g, b, 255)        # Kartenfarbe als Icon in gefülltem Stern
-        else:
-            filled_color = (r, g, b, 255)
-            empty_outline = (255, 255, 255, 230) if is_dark else (28, 28, 30, 200)
-            empty_icon_color = (255, 255, 255, 180) if is_dark else (28, 28, 30, 140)
-            filled_icon_color = (255, 255, 255, 255)
-
         icon_type = card_icon or "local_cafe"
 
-        # ── Stempel-Kreise am UNTENEN Rand ──
-        # Oberer Bereich (0 bis 240px) bleibt transparent für primaryFields Text
-        # Unterer Bereich (240 bis 432px = 192px) für Stempel-Kreise
-        stamps_area_top = 240
-        stamps_area_h = H - stamps_area_top  # ~192px
+        # ── Sterne mit PROFESSIONAL 4-Schicht-Rendering ──
+        # Sterne sind jetzt größer (~85% der Zelle statt ~65%)
+        # und haben Drop-Shadow + Radial-Gradient + Glass-Highlight + Outline
+        stamps_area_top = H - 200  # Sterne in unteren 200px
+        stamps_area_h = H - stamps_area_top - 20  # 20px bottom padding
         n = stamps_required
 
-        # Layout: 1 Reihe für n<=10, 2 Reihen für n>10 (verhindert zu kleine Kreise)
+        # Layout: 1 Reihe für n<=10, 2 Reihen für n>10
         if n > 10:
             rows = 2
             cols = math.ceil(n / rows)
@@ -1128,69 +1276,24 @@ def _generate_stamp_strip(
             rows = 1
             cols = n
 
-        # Kreis-Größe dynamisch berechnen
-        cell_w = W // cols
-        cell_h = stamps_area_h // rows
-        circle_size = int(min(cell_w * 0.85, cell_h * 0.95))
+        cell_w = W / cols
+        cell_h = stamps_area_h / rows
+        # Sterne GRÖßER: ~85% der Zelle (vorher ~65%)
+        star_size = int(min(cell_w * 0.82, cell_h * 0.92))
 
-        # Icon-Zeichner aus dem Mapping holen (Fallback: Stern)
-        icon_drawer = _ICON_DRAWERS.get(icon_type)
+        brand_rgb = (r, g, b)
+        on_dark = True  # Sterne immer auf dunklem/foto Hintergrund
 
-        def _draw_default_star(draw, cx, cy, sz, color):
-            """Fallback: Stern (5 Zacken = 10 Vertices)."""
-            points = []
-            for i in range(10):
-                angle = math.pi / 2 + i * math.pi / 5
-                radius = sz // 2 if i % 2 == 0 else sz // 4
-                px = cx + int(radius * math.cos(angle))
-                py = cy - int(radius * math.sin(angle))
-                points.append((px, py))
-            draw.polygon(points, fill=color)
-
-        # n Sterne zeichnen (horizontal, am unteren Rand — 1 oder 2 Reihen je nach Anzahl)
-        # Bei Banner aktiv: KEINE Kreise, nur Sterne direkt über das Foto
-        # Ohne Banner: Sterne in Kreisen (gefüllt/Outline) wie bisher
         for i in range(n):
             row = i // cols
             col = i % cols
-            cx = col * cell_w + cell_w // 2
-            cy = stamps_area_top + row * cell_h + cell_h // 2
+            cx = int(col * cell_w + cell_w / 2)
+            cy = int(stamps_area_top + row * cell_h + cell_h / 2)
             filled = i < stamps_current
+            _draw_star_with_depth(img, cx, cy, star_size, brand_rgb, filled, on_dark=on_dark)
 
-            if banner_loaded:
-                # Banner-Modus: Nur Sterne, keine Kreise
-                # Gefüllte Sterne: vollfarbig (weiß), leere Sterne: Outline
-                if filled:
-                    _draw_default_star(draw, cx, cy, circle_size, filled_color)
-                else:
-                    # Leerer Stern: nur Outline (gezeichneter Stern mit transparenter Füllung)
-                    # Wir zeichnen den Stern in empty_outline Farbe
-                    _draw_default_star(draw, cx, cy, circle_size, empty_outline)
-            else:
-                # Standard-Modus: Sterne in Kreisen
-                half = circle_size // 2
-                if filled:
-                    draw.ellipse(
-                        [cx - half, cy - half, cx + half, cy + half],
-                        fill=filled_color,
-                        outline=None
-                    )
-                    icon_color = filled_icon_color
-                else:
-                    draw.ellipse(
-                        [cx - half, cy - half, cx + half, cy + half],
-                        fill=None,
-                        outline=empty_outline,
-                        width=3
-                    )
-                    icon_color = empty_icon_color
-
-                # Icon zeichnen (Stern)
-                icon_sz = int(circle_size * 0.7)
-                if icon_drawer:
-                    icon_drawer(draw, cx, cy, icon_sz, icon_color)
-                else:
-                    _draw_default_star(draw, cx, cy, icon_sz, icon_color)
+        # draw muss neu initialisiert werden nach alpha_composite Operationen
+        draw = ImageDraw.Draw(img)
 
         out = _io.BytesIO()
         img.save(out, format="PNG", optimize=True)
