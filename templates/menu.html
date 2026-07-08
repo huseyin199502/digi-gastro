@@ -1057,8 +1057,10 @@
                     _loyaltyCardActive = true;
                     // Modal-Daten vorbereiten (für eventuelle spätere Anzeige)
                     prepareLoyaltyPopup(data);
-                    // "Stempelkarte" Button anzeigen (für Kunden die Pass neu laden wollen)
+                    // "Stempelkarte" Button anzeigen — mit retry falls DOM noch nicht bereit
                     updateRedownloadButton();
+                    setTimeout(() => updateRedownloadButton(), 500);
+                    setTimeout(() => updateRedownloadButton(), 1500);
                 }
             } catch (e) { /* silently ignore — Loyalty ist optional */ }
         }
