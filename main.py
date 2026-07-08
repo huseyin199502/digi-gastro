@@ -1489,6 +1489,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
         "has_kitchen": tenant.has_kitchen,
         "is_shishabar": tenant.is_shishabar,
         "orders_enabled": tenant.orders_enabled if tenant.orders_enabled is not None else True,
+        "loyalty_enabled": getattr(tenant, 'loyalty_enabled', True) if getattr(tenant, 'loyalty_enabled', None) is not None else True,
         "show_revenue": getattr(tenant, 'show_revenue', True) if getattr(tenant, 'show_revenue', None) is not None else True,
         # PHASE 4: operating_mode — 'full' | 'menu_only' | 'stempelkarte_only'
         "operating_mode": getattr(tenant, 'operating_mode', None) or "full",
@@ -3245,6 +3246,13 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
         orders_label = "Bestellungen stoppen" if orders_on else "Bestellungen aktivieren"
         orders_class = "btn-toggle-off" if orders_on else "btn-toggle-on"
         orders_icon = "shopping_cart" if orders_on else "remove_shopping_cart"
+        loyalty_on = getattr(t, 'loyalty_enabled', True)
+        if loyalty_on is None:
+            loyalty_on = True
+        loyalty_label = "Loyalty stoppen" if loyalty_on else "Loyalty aktivieren"
+        loyalty_class = "btn-toggle-off" if loyalty_on else "btn-toggle-on"
+        loyalty_icon = "confirmation_number" if loyalty_on else "confirmation_number"
+        op_mode = getattr(t, 'operating_mode', None) or "full"
         revenue_on = getattr(t, 'show_revenue', True)
         if revenue_on is None:
             revenue_on = True
@@ -3354,6 +3362,19 @@ def get_global_admin(request: Request, db: Session = Depends(get_db)):
                 <span class="material-symbols-outlined" style="font-size:14px;">{orders_icon}</span>
                 <span>{orders_label}</span>
               </button>
+            </form>
+            <form method="POST" action="/digi-gastro-admin/tenant-loyalty-toggle/{html_escape(t.slug)}" class="inline">
+              <button type="submit" class="tenant-btn {loyalty_class}" title="{loyalty_label}">
+                <span class="material-symbols-outlined" style="font-size:14px;">{loyalty_icon}</span>
+                <span>{loyalty_label}</span>
+              </button>
+            </form>
+            <form method="POST" action="/digi-gastro-admin/tenant-operating-mode/{html_escape(t.slug)}" class="inline">
+              <select name="mode" onchange="this.form.submit()" class="tenant-btn" style="padding:6px 8px; font-size:11px; border-radius:8px; border:1px solid #3f3f46; background:#18181b; color:#fff;" title="Betriebsmodus">
+                <option value="full" {'selected' if op_mode == 'full' else ''}>Voll</option>
+                <option value="menu_only" {'selected' if op_mode == 'menu_only' else ''}>Nur Speisekarte</option>
+                <option value="stempelkarte_only" {'selected' if op_mode == 'stempelkarte_only' else ''}>Newsletter Only</option>
+              </select>
             </form>
             <form method="POST" action="/digi-gastro-admin/tenant-revenue-toggle/{html_escape(t.slug)}" class="inline">
               <button type="submit" class="tenant-btn {revenue_class}" title="{revenue_label}">
@@ -4627,6 +4648,21 @@ def post_tenant_orders_toggle(request: Request, slug_key: str, db: Session = Dep
     return RedirectResponse(url="/digi-gastro-admin", status_code=303)
 
 
+@app.post("/digi-gastro-admin/tenant-loyalty-toggle/{slug_key}")
+def post_tenant_loyalty_toggle(request: Request, slug_key: str, db: Session = Depends(get_db)):
+    """Super-Admin Toggle: Loyalty/Stempelkarte aktivieren/deaktivieren."""
+    session_cookie = request.cookies.get("session_global")
+    if not session_cookie or session_cookie != "admin@digi-gastro.de":
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+    slug_lower = slug_key.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if tenant:
+        tenant.loyalty_enabled = not tenant.loyalty_enabled
+        db.commit()
+        invalidate_restaurant_cache_sync(slug_lower)
+    return RedirectResponse(url="/digi-gastro-admin", status_code=303)
+
+
 @app.post("/digi-gastro-admin/tenant-revenue-toggle/{slug_key}")
 def post_tenant_revenue_toggle(request: Request, slug_key: str, db: Session = Depends(get_db)):
     """Super-Admin Toggle: Tenant kann Umsatz/Reports sehen oder nicht."""
@@ -4968,7 +5004,11 @@ def get_orders_status(request: Request, slug: str, ids: str, db: Session = Depen
 def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Optional[str] = None, t: Optional[str] = None, tk: Optional[str] = None, z: Optional[str] = None, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     role = request.query_params.get("role") or ""
-    
+
+    # Standalone Newsletter Modus: Redirect zur Newsletter-Landingpage
+    if restaurant.get("operating_mode") == "stempelkarte_only" and role != "admin" and role != "kellner":
+        return RedirectResponse(url=f"/{slug}/newsletter", status_code=303)
+
     if not restaurant.get("impressum_content"):
         restaurant["impressum_content"] = f"Impressum\nAngaben gemäß § 5 TMG:\n{restaurant['name']} Gastro GmbH\nInhaber: Chef\n{restaurant.get('branding', {}).get('address', 'Musterstraße 1, 80331 München')}"
     if not restaurant.get("datenschutz_content"):
@@ -13860,6 +13900,39 @@ from loyalty import (
 )
 
 
+@app.get("/{slug}/newsletter", response_class=HTMLResponse)
+def newsletter_landing_page(slug: str, request: Request, db: Session = Depends(get_db)):
+    """Standalone Newsletter Landing Page — nur Stempelkarte/Newsletter, keine Speisekarte.
+
+    Wird verwendet wenn operating_mode = 'stempelkarte_only'.
+    Zeigt nur das Loyalty-Popup mit Apple/Google Wallet Download Buttons.
+    """
+    slug_lower = slug.lower().strip()
+    restaurant = get_restaurant_or_raise(slug, db)
+
+    # Loyalty-Karte laden
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+
+    # Tenant-Branding
+    tenant_logo_url = ""
+    try:
+        if restaurant.get("logo_path"):
+            tenant_logo_url = restaurant["logo_path"]
+    except Exception:
+        pass
+
+    return templates.TemplateResponse("newsletter.html", {
+        "request": request,
+        "slug": slug_lower,
+        "restaurant": restaurant,
+        "tenant_name": restaurant.get("name", slug_lower),
+        "tenant_logo": tenant_logo_url,
+        "card": card,
+        "apple_configured": _is_apple_configured(),
+        "google_configured": _is_google_configured(),
+    })
+
+
 @app.get("/{slug}/loyalty/card")
 def loyalty_get_card(slug: str, db: Session = Depends(get_db)):
     """Öffentliche Stempelkarten-Info für Gäste."""
@@ -14604,22 +14677,48 @@ def loyalty_save_geofence(
 
 @app.get("/admin/loyalty/customers")
 def loyalty_customers_list(
+    page: int = 1,
+    per_page: int = 25,
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db),
 ):
-    """Listet alle Stempelkarten-Kunden (anonym)."""
+    """Listet alle Stempelkarten-Kunden (anonym) — mit Pagination (default 25 pro Seite)."""
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
-    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+
+    # Pagination-Parameter absichern (Grenzen: page >= 1, 1 <= per_page <= 100)
+    if page < 1:
+        page = 1
+    if per_page < 1 or per_page > 100:
+        per_page = 25
 
     # CRITICAL FIX: Backfill short_code für Legacy Customers (die vor der
     # short_code Spalte erstellt wurden). Sonst sind sie im Scanner unsichtbar.
+    # Wird als eigenständige Query ausgeführt, damit der Pagination-Query schlank bleibt.
     from loyalty import _generate_short_code
-    for c in customers:
-        if not c.short_code:
+    legacy_customers = db.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.tenant_slug == slug_lower,
+        (LoyaltyCustomer.short_code.is_(None)) | (LoyaltyCustomer.short_code == ""),
+    ).all()
+    if legacy_customers:
+        for c in legacy_customers:
             c.short_code = _generate_short_code()
-    if any(not c.short_code for c in customers):
         db.commit()
+
+    # Total-Anzahl für Pagination (für "Seite X von Y" Anzeige)
+    total = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).count()
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    offset = (page - 1) * per_page
+
+    # Paginierte Query: neueste Kunden zuerst (id desc), dann LIMIT/OFFSET
+    customers = (
+        db.query(LoyaltyCustomer)
+        .filter_by(tenant_slug=slug_lower)
+        .order_by(LoyaltyCustomer.id.desc())
+        .limit(per_page)
+        .offset(offset)
+        .all()
+    )
 
     return {
         "customers": [{
@@ -14636,7 +14735,13 @@ def loyalty_customers_list(
             "first_visit_at": c.first_visit_at,
             "last_visit_at": c.last_visit_at,
             "push_opt_out": c.push_opt_out,
-        } for c in customers]
+        } for c in customers],
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages,
+        }
     }
 
 

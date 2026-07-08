@@ -85,10 +85,11 @@ class Tenant(Base):
     is_shishabar = Column(Boolean, default=False)
     orders_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Nur Speisekarte (keine Bestellungen)
     show_revenue = Column(Boolean, default=True)  # Super-Admin Toggle: False = Tenant sieht keine Umsätze/Reports
+    loyalty_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Keine Stempelkarte/Newsletter
     # ── PHASE 4: operating_mode — Stempelkarte-Only Mode ──
     # "full" = Speisekarte + Bestellung + Stempelkarte (Default)
     # "menu_only" = Nur Speisekarte, keine Bestellung, keine Stempelkarte
-    # "stempelkarte_only" = Nur Stempelkarte, keine Speisekarte (getqard-Modus)
+    # "stempelkarte_only" = Nur Stempelkarte, keine Speisekarte (Standalone Newsletter Modus)
     operating_mode = Column(String, default="full")
     impressum_content = Column(Text, default="")
     datenschutz_content = Column(Text, default="")
@@ -622,6 +623,9 @@ def _migrate_database():
     add_column_if_missing('tenants', 'pos_active', "BOOLEAN DEFAULT FALSE")
     # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
     add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('tenants', 'loyalty_enabled', "BOOLEAN DEFAULT TRUE")
+    # PHASE 4: operating_mode — 'full', 'menu_only', 'stempelkarte_only'
+    add_column_if_missing('tenants', 'operating_mode', "VARCHAR DEFAULT 'full'")
     add_column_if_missing('tenants', 'show_revenue', "BOOLEAN DEFAULT TRUE")  # Super-Admin: Tenant sieht Umsatz/Reports
     # PHASE 4: operating_mode — 'full', 'menu_only', 'stempelkarte_only'
     add_column_if_missing('tenants', 'operating_mode', "VARCHAR DEFAULT 'full'")

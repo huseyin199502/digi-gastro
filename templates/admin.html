@@ -14396,18 +14396,111 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             }).join('');
         }
 
-        async function loadLoyaltyCustomers() {
+        // ─── Pagination State für Loyalty-Kunden (Section 5) ───
+        // Wird von loadLoyaltyCustomers(page) gelesen/geschrieben, damit
+        // nach Award/Delete dieselbe Seite neugeladen wird.
+        let loyaltyCustomersCurrentPage = 1;
+        const LOYALTY_CUSTOMERS_PER_PAGE = 25;
+
+        /**
+         * Rendert die Pagination-Controls (Seite X von Y + Buttons) für die
+         * Loyalty-Kunden-Liste. Wird von loadLoyaltyCustomers() aufgerufen.
+         */
+        function renderLoyaltyCustomersPagination(p) {
+            if (!p || p.total_pages <= 1) {
+                // Bei ≤ 1 Seite zeigen wir nur die Anzahl, keine Buttons
+                return `
+                    <div class="mt-3 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <span>${(p && p.total) || 0} Kunde(n) insgesamt</span>
+                        <span>Seite 1 / 1</span>
+                    </div>`;
+            }
+
+            const cur = p.page;
+            const last = p.total_pages;
+
+            // Seiten-Buttons mit Ellipsen ("1 … 4 5 6 … 12")
+            const pages = [];
+            pages.push(1);
+            if (cur - 2 > 2) pages.push('…');
+            for (let i = Math.max(2, cur - 1); i <= Math.min(last - 1, cur + 1); i++) {
+                pages.push(i);
+            }
+            if (cur + 2 < last - 1) pages.push('…');
+            if (last > 1) pages.push(last);
+
+            const buttons = pages.map(pn => {
+                if (pn === '…') {
+                    return `<span class="px-2 py-1 text-zinc-400 dark:text-zinc-500 select-none">…</span>`;
+                }
+                const isCurrent = pn === cur;
+                const cls = isCurrent
+                    ? 'bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold'
+                    : 'bg-white hover:bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200';
+                return `<button onclick="loadLoyaltyCustomers(${pn})" class="px-2.5 py-1 rounded-lg text-xs ${cls} transition">${pn}</button>`;
+            }).join('');
+
+            const prevDisabled = cur <= 1;
+            const nextDisabled = cur >= last;
+            const prevCls = prevDisabled
+                ? 'opacity-40 cursor-not-allowed bg-zinc-100 text-zinc-400 dark:bg-zinc-800'
+                : 'bg-white hover:bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200';
+            const nextCls = nextDisabled
+                ? 'opacity-40 cursor-not-allowed bg-zinc-100 text-zinc-400 dark:bg-zinc-800'
+                : 'bg-white hover:bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200';
+
+            // disabled-Buttons verhindern Klick via onclick="return false"
+            const prevAttr = prevDisabled ? 'onclick="return false" disabled' : `onclick="loadLoyaltyCustomers(${cur - 1})"`;
+            const nextAttr = nextDisabled ? 'onclick="return false" disabled' : `onclick="loadLoyaltyCustomers(${cur + 1})"`;
+
+            return `
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span>${p.total} Kunde(n) insgesamt · Seite ${cur} / ${last}</span>
+                    <div class="flex items-center gap-1">
+                        <button ${prevAttr} class="px-2 py-1 rounded-lg text-xs ${prevCls}">
+                            <span class="material-symbols-outlined" style="font-size:14px;">chevron_left</span>
+                        </button>
+                        ${buttons}
+                        <button ${nextAttr} class="px-2 py-1 rounded-lg text-xs ${nextCls}">
+                            <span class="material-symbols-outlined" style="font-size:14px;">chevron_right</span>
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        async function loadLoyaltyCustomers(page) {
             const container = document.getElementById('loyalty-customers-list');
             if (!container) return;
+
+            // Page-State updaten falls übergeben, sonst aktuelle Seite behalten
+            if (typeof page === 'number' && page >= 1) {
+                loyaltyCustomersCurrentPage = page;
+            }
+            const currentPage = loyaltyCustomersCurrentPage;
+
             try {
-                const res = await fetch('/admin/loyalty/customers', { credentials: 'same-origin' });
+                const res = await fetch(
+                    `/admin/loyalty/customers?page=${currentPage}&per_page=${LOYALTY_CUSTOMERS_PER_PAGE}`,
+                    { credentials: 'same-origin' }
+                );
                 if (!res.ok) return;
                 const data = await res.json();
                 const customers = data.customers || [];
+                const pagination = data.pagination || { page: 1, per_page: LOYALTY_CUSTOMERS_PER_PAGE, total: 0, total_pages: 1 };
+
+                // Edge-Case: aktuelle Seite > total_pages (z.B. nachdem der letzte
+                // Kunde auf der letzten Seite gelöscht wurde) → Seite zurücksetzen
+                // und rekursiv neuladen.
+                if (pagination.total_pages > 0 && currentPage > pagination.total_pages) {
+                    loyaltyCustomersCurrentPage = pagination.total_pages;
+                    return loadLoyaltyCustomers();
+                }
+
                 if (customers.length === 0) {
                     container.innerHTML = '<div class="text-center text-zinc-400 text-xs py-4">Noch keine Kunden mit Stempelkarte.</div>';
                     return;
                 }
+                const paginationHtml = renderLoyaltyCustomersPagination(pagination);
                 container.innerHTML = `
                     <div class="overflow-x-auto -mx-2 px-2">
                     <table class="w-full text-xs">
@@ -14453,7 +14546,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             }).join('')}
                         </tbody>
                     </table>
-                    </div>`;
+                    </div>
+                    ${paginationHtml}`;
             } catch (e) {
                 console.error('Load customers error:', e);
             }
