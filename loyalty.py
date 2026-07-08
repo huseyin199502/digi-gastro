@@ -1216,7 +1216,25 @@ def _generate_stamp_strip(
         # - Professionell wie Starbucks/getqard (Brand-Color als Hintergrund)
         # ════════════════════════════════════════════════════════════════
 
-        # ── Foto LINKS (scharf, abgerundete Ecken, 420x420) ──
+        # ════════════════════════════════════════════════════════════════
+        # NEUES LAYOUT: Foto RECHTS + Sterne UNTEN (User-Wunsch)
+        #
+        # Problem: primaryFields "0/15" wird von Apple Wallet ÜBER strip.png
+        # gerendert (oben zentriert). Wenn Foto links ist, überlappt der Text.
+        #
+        # Lösung: Foto RECHTS (wo vorher Sterne waren), Sterne UNTEN.
+        # So gibt es keine Überlappung:
+        # - Oben: primaryFields "0/15" (auf backgroundColor, nicht über Foto)
+        # - Rechts: Foto (scharf, abgerundete Ecken)
+        # - Unten: Sterne (über volle Breite)
+        #
+        # Layout (1125x432, transparent):
+        # - Foto RECHTS: 320x320 px, scharf, abgerundete Ecken
+        # - Sterne UNTEN: volle Breite, 1-2 Reihen
+        # - Oben links: transparent (für primaryFields Text)
+        # ════════════════════════════════════════════════════════════════
+
+        # ── Foto RECHTS (scharf, abgerundete Ecken, 320x320) ──
         banner_loaded = False
         if banner_path:
             fs_path = banner_path
@@ -1228,10 +1246,10 @@ def _generate_stamp_strip(
             if os.path.exists(fs_path):
                 try:
                     banner_img = Image.open(fs_path).convert("RGBA")
-                    # Foto als Quadrat (420x420) mit abgerundeten Ecken
-                    foto_size = 380
-                    foto_x = 40  # Linker Rand
-                    foto_y = (H - foto_size) // 2  # Vertikal zentriert
+                    # Foto als Quadrat (320x320) mit abgerundeten Ecken
+                    foto_size = 320
+                    foto_x = W - foto_size - 40  # Rechtsbündig mit 40px Rand
+                    foto_y = 40  # Oben mit 40px Rand
 
                     # Cover-Fit auf Quadrat
                     bw, bh = banner_img.size
@@ -1242,15 +1260,14 @@ def _generate_stamp_strip(
                     top = (new_h - foto_size) // 2
                     banner_img = banner_img.crop((left, top, left + foto_size, top + foto_size))
 
-                    # Abgerundete Ecken (Radius 24px) für professionelles Aussehen
+                    # Abgerundete Ecken (Radius 20px)
                     mask = Image.new("L", (foto_size, foto_size), 0)
                     mask_draw = ImageDraw.Draw(mask)
-                    mask_draw.rounded_rectangle([0, 0, foto_size, foto_size], radius=24, fill=255)
-                    # Foto mit Maske kombinieren (nur abgerundete Ecken sichtbar)
+                    mask_draw.rounded_rectangle([0, 0, foto_size, foto_size], radius=20, fill=255)
                     rounded_foto = Image.new("RGBA", (foto_size, foto_size), (0, 0, 0, 0))
                     rounded_foto.paste(banner_img, (0, 0), mask)
 
-                    # Foto auf strip-Bild pasten (nur linker Bereich, Rest bleibt transparent)
+                    # Foto auf strip-Bild pasten (rechts oben, Rest bleibt transparent)
                     img.alpha_composite(rounded_foto, (foto_x, foto_y))
                     draw = ImageDraw.Draw(img)
                     banner_loaded = True
@@ -1265,30 +1282,26 @@ def _generate_stamp_strip(
 
         icon_type = card_icon or "local_cafe"
 
-        # ── Sterne RECHTS neben Foto (auf transparentem Hintergrund) ──
+        # ── Sterne UNTEN (über volle Breite, unterhalb des Fotos) ──
         # 4-Schicht-Rendering: Drop-Shadow, Radial-Gradient, Glass, Outline
-        # Sterne-Bereich: X=480 bis X=1125 (rechte Hälfte), vollvertikal zentriert
+        # Sterne-Bereich: Y=370 bis Y=425 (unterhalb des Fotos das bei Y=40-360 liegt)
+        # Bei Foto: Sterne unten über volle Breite (kein Überlapp mit Foto oben rechts)
         if banner_loaded:
-            stars_area_x = 500  # Start X für Sterne (rechts vom Foto)
-            stars_area_w = W - stars_area_x - 40  # 40px rechter Rand
-            stars_area_top = 60
-            stars_area_h = H - 120  # Vertikaler Padding
+            stars_area_top = 370  # Unterhalb des Fotos (Foto: Y=40-360)
+            stars_area_h = H - stars_area_top - 10  # 10px bottom padding = 52px
         else:
-            # Kein Banner → Sterne über volle Breite
-            stars_area_x = 40
-            stars_area_w = W - 80
+            # Kein Banner → Sterne vertikal zentriert über volle Breite
             stars_area_top = 60
             stars_area_h = H - 120
 
         n = stamps_required
 
-        # Layout: 1 Reihe für n<=10, 2 Reihen für n>10
-        if n > 10:
-            rows = 2
-            cols = math.ceil(n / rows)
-        else:
-            rows = 1
-            cols = n
+        # Layout: 1 Reihe für alle (Sterne unten sind schmal)
+        rows = 1
+        cols = n
+
+        stars_area_x = 40
+        stars_area_w = W - 80
 
         cell_w = stars_area_w / cols
         cell_h = stars_area_h / rows
@@ -1299,10 +1312,9 @@ def _generate_stamp_strip(
         on_dark = True  # Sterne auf Pass-backgroundColor (dunkel)
 
         for i in range(n):
-            row = i // cols
             col = i % cols
             cx = int(stars_area_x + col * cell_w + cell_w / 2)
-            cy = int(stars_area_top + row * cell_h + cell_h / 2)
+            cy = int(stars_area_top + cell_h / 2)
             filled = i < stamps_current
             _draw_star_with_depth(img, cx, cy, star_size, brand_rgb, filled, on_dark=on_dark)
 
