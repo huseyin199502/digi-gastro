@@ -187,28 +187,27 @@ def _generate_apple_pass_json(
     except Exception:
         rgb_color = "rgb(201,168,76)"
 
-    # ── Stempel-Visualisierung mit Unicode-Symbolen ──
-    # Apple Wallet unterstützt KEINE Emoji in Feld-Werten!
-    # Nur grundlegende Unicode-Zeichen: ● ○ ✓ etc.
+    # ── Stempel-Visualisierung ──
+    # WICHTIG: Apple Wallet unterstützt KEINE Emoji-Icons in Feld-Werten!
+    # Lösung: Thumbnail-PNG mit PIL generieren (siehe _generate_stamp_thumbnail).
+    # Das Thumbnail zeigt 10 Stempel-Icons graphisch (wie Starbucks, Subway etc.)
+    # Im auxiliaryFields zeigen wir nur noch Text-Fortschritt.
     if stamps_current >= stamps_required:
-        progress_text = "● " * stamps_current
         primary_value = f"{stamps_current} / {stamps_required} ✓"
         primary_change = f"🎉 Prämie bereit! {reward_name} — %@"
         reward_label = "PRÄMIE BEREIT"
-        reward_value = f"🎁 {reward_name} — Bei deinem nächsten Besuch einlösen!"
+        reward_value = f"{reward_name} — Bei deinem nächsten Besuch einlösen!"
     elif stamps_current == 0:
-        progress_text = "○ " * stamps_required
         primary_value = f"{stamps_current} / {stamps_required}"
         primary_change = "🎉 Neuer Stempel! Jetzt %@"
         reward_label = "Dein Ziel"
-        reward_value = f"🎁 {reward_name} — Noch {stamps_required} Stempel"
+        reward_value = f"{reward_name} — Noch {stamps_required} Stempel"
     else:
         remaining = stamps_required - stamps_current
-        progress_text = "● " * stamps_current + "○ " * remaining
         primary_value = f"{stamps_current} / {stamps_required}"
         primary_change = "🎉 Neuer Stempel! Jetzt %@"
         reward_label = "Noch bis zum Reward"
-        reward_value = f"🎁 {reward_name} — Nur noch {remaining} Stempel!"
+        reward_value = f"{reward_name} — Nur noch {remaining} Stempel!"
 
     # ── Karten-Farbe als Hintergrund (Tenant wählt rot → Pass ist rot) ──
     # Helligkeit berechnen um Text-Farbe automatisch anzupassen (Kontrast)
@@ -263,33 +262,11 @@ def _generate_apple_pass_json(
             ],
             "auxiliaryFields": [
                 {
-                    "key": "progress",
-                    "label": "Fortschritt",
-                    "value": progress_text,
-                    "textAlignment": "PKTextAlignmentCenter",
-                    "changeMessage": "Fortschritt aktualisiert: %@"
-                },
-                {
                     "key": "reward",
                     "label": reward_label,
                     "value": reward_value,
                     "textAlignment": "PKTextAlignmentLeft",
-                    "changeMessage": "🎁 Reward aktualisiert: %@"
-                },
-                {
-                    "key": "lastmsg",
-                    "label": "Letzte Nachricht",
-                    "value": customer.get("last_message", "Willkommen!"),
-                    "textAlignment": "PKTextAlignmentLeft",
-                    "changeMessage": "📬 Neue Nachricht: %@",
-                    "hidden": True
-                },
-                {
-                    "key": "msgnonce",
-                    "label": "Nonce",
-                    "value": customer.get("msg_nonce", "0"),
-                    "changeMessage": "📬 Neue Nachricht von " + (tenant_name or "digi-gastro"),
-                    "hidden": True
+                    "changeMessage": "Reward aktualisiert: %@"
                 }
             ],
             "backFields": [
@@ -312,6 +289,24 @@ def _generate_apple_pass_json(
                     "key": "terms",
                     "label": "AGB",
                     "value": "Stempel können nicht übertragen werden. Einlösung erfolgt ausschließlich vor Ort. Keine Barauszahlung."
+                },
+                # ── Hidden Tracking Fields (nur auf Rückseite des Passes sichtbar) ──
+                # WICHTIG: backFields sind auf der Vorderseite VERSTECKT — nur sichtbar
+                # wenn User auf (i) tippt. changeMessage funktioniert trotzdem:
+                # iOS triggert Notification wenn sich der Value ändert!
+                # Das ist die zuverlässigste Methode um Felder zu verstecken
+                # (das 'hidden' property funktioniert nur iOS 17+, backFields immer).
+                {
+                    "key": "lastmsg",
+                    "label": "Letzte Nachricht",
+                    "value": customer.get("last_message", "Willkommen!"),
+                    "changeMessage": "📬 Neue Nachricht: %@"
+                },
+                {
+                    "key": "msgnonce",
+                    "label": "Nonce",
+                    "value": str(customer.get("msg_nonce", 0)),
+                    "changeMessage": "📬 Neue Nachricht von " + (tenant_name or "digi-gastro")
                 }
             ]
         },
@@ -473,6 +468,204 @@ def _generate_default_icon(color_hex: str = "#C9A84C") -> bytes:
         return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
 
 
+def _generate_stamp_thumbnail(
+    stamps_current: int,
+    stamps_required: int,
+    card_icon: str = "local_cafe",
+    color_hex: str = "#C9A84C",
+    reward_name: str = "",
+) -> bytes:
+    """Generiert ein thumbnail.png Bild (240x240 px) mit Stempel-Visualisierung.
+
+    Apple Wallet unterstütz KEINE Emoji-Icons in Feld-Werten (auxiliaryFields).
+    Daher generieren wir ein PNG-Bild das die Stempel als graphische Icons zeigt.
+    Das Bild wird als 'thumbnail' im Pass referenziert und neben dem primaryField angezeigt.
+
+    So machen es auch professionelle Apps wie Starbucks, Subway etc.
+
+    Layout:
+    - 5x2 Grid mit Stempel-Icons (max 10)
+    - Gefüllte Stempel = vollfarbig mit Icon
+    - Leere Stempel = nur Outline
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import io as _io
+        import math
+
+        # Apple Wallet Thumbnail: max 240x240 px (square)
+        # Wir verwenden 240x240 für hohe Auflösung
+        size = 240
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        # Farbe aus Hex parsen
+        hex_str = color_hex.lstrip("#")
+        if len(hex_str) == 6:
+            r = int(hex_str[0:2], 16)
+            g = int(hex_str[2:4], 16)
+            b = int(hex_str[4:6], 16)
+        else:
+            r, g, b = 201, 168, 76  # Default gold
+
+        # Helligkeit berechnen für Kontrast
+        brightness = (r * 299 + g * 587 + b * 114) / 1000
+        is_dark = brightness < 140
+        text_color = (255, 255, 255, 255) if is_dark else (28, 28, 30, 255)
+        # Empty circles: use higher alpha for better visibility on pass background
+        empty_color = (255, 255, 255, 200) if is_dark else (28, 28, 30, 180)
+        empty_outline = (255, 255, 255, 230) if is_dark else (28, 28, 30, 220)
+
+        # Icon-Typ bestimmen (für das PNG zeichnen wir einfache Formen)
+        # local_cafe → Tasse, restaurant → Gabel/Messer, local_bar → Glas, smoking_rooms → Rauch
+        icon_type = card_icon or "local_cafe"
+
+        # Grid-Layout: 5 Spalten x 2 Zeilen (für 10 Stempel)
+        # Bei weniger Stempeln passen wir das Layout an
+        cols = 5 if stamps_required <= 10 else stamps_required
+        rows = math.ceil(stamps_required / cols)
+        # Wenn nur 1 Reihe nötig, layout anpassen
+        if rows == 1:
+            cols = stamps_required
+
+        # Padding und Zellengröße berechnen
+        padding = 20
+        available_w = size - 2 * padding
+        available_h = size - 2 * padding
+        cell_size = min(available_w // cols, available_h // rows)
+        # Icon-Größe = 70% der Zelle
+        icon_size = int(cell_size * 0.7)
+
+        # Start-Position zentrieren
+        total_w = cols * cell_size
+        total_h = rows * cell_size
+        start_x = (size - total_w) // 2
+        start_y = (size - total_h) // 2
+
+        # Hilfsfunktion: Zeichnet ein Stempel-Icon an Position (cx, cy)
+        def draw_stamp_icon(cx, cy, sz, filled, icon_type, color):
+            """Zeichnet einen einzelnen Stempel an Position cx, cy."""
+            half = sz // 2
+            if filled:
+                # Gefüllt: Vollfarbiger Kreis + Icon-Symbol in weiß
+                draw.ellipse(
+                    [cx - half, cy - half, cx + half, cy + half],
+                    fill=color,
+                    outline=None
+                )
+                # Icon in weiß zeichnen (je nach icon_type)
+                icon_color = (255, 255, 255, 255)
+                _draw_icon_symbol(draw, cx, cy, int(sz * 0.5), icon_type, icon_color)
+            else:
+                # Leer: Nur Outline (Kreis)
+                draw.ellipse(
+                    [cx - half, cy - half, cx + half, cy + half],
+                    fill=None,
+                    outline=empty_outline,
+                    width=2
+                )
+                # Icon in halbtransparent (angedeutet)
+                _draw_icon_symbol(draw, cx, cy, int(sz * 0.5), icon_type, empty_color)
+
+        def _draw_icon_symbol(draw, cx, cy, sz, icon_type, color):
+            """Zeichnet das Icon-Symbol (Tasse, Glas, etc.) innerhalb des Stempels."""
+            if icon_type in ("local_cafe", "bakery_dining"):
+                # Kaffeetasse: Rechteck mit Henkel
+                cup_w = int(sz * 0.6)
+                cup_h = int(sz * 0.5)
+                # Tasse (Rechteck)
+                draw.rounded_rectangle(
+                    [cx - cup_w//2, cy - cup_h//2, cx + cup_w//2, cy + cup_h//2 + 2],
+                    radius=4, fill=color
+                )
+                # Henkel (Ellipse rechts)
+                handle_x = cx + cup_w//2 + 2
+                draw.ellipse(
+                    [handle_x, cy - cup_h//4, handle_x + sz//4, cy + cup_h//4],
+                    outline=color, width=2
+                )
+                # Dampf (optional, kleine Wellen über der Tasse)
+                steam_y = cy - cup_h//2 - 4
+                draw.arc([cx - sz//4, steam_y - sz//4, cx, steam_y + sz//4],
+                         200, 340, fill=color, width=2)
+                draw.arc([cx + 2, steam_y - sz//4, cx + sz//4 + 2, steam_y + sz//4],
+                         200, 340, fill=color, width=2)
+            elif icon_type == "restaurant":
+                # Gabel und Messer
+                fork_x = cx - sz//4
+                knife_x = cx + sz//4
+                # Gabel (3 Zinken + Stiel)
+                for dx in (-3, 0, 3):
+                    draw.line(
+                        [(fork_x + dx, cy - sz//2), (fork_x + dx, cy)],
+                        fill=color, width=2
+                    )
+                draw.line([(fork_x, cy), (fork_x, cy + sz//2)], fill=color, width=3)
+                # Messer (Klinge + Stiel)
+                draw.line([(knife_x, cy - sz//2), (knife_x, cy + sz//2)],
+                          fill=color, width=3)
+            elif icon_type == "local_bar":
+                # Cocktailglas (Dreieck mit Stiel)
+                top_y = cy - sz//2
+                bot_y = cy + sz//3
+                # Glas (Dreieck)
+                draw.polygon(
+                    [(cx - sz//2, top_y), (cx + sz//2, top_y), (cx, cy)],
+                    fill=color
+                )
+                # Stiel
+                draw.line([(cx, cy), (cx, bot_y)], fill=color, width=2)
+                # Boden
+                draw.line([(cx - sz//4, bot_y), (cx + sz//4, bot_y)],
+                          fill=color, width=2)
+            elif icon_type == "smoking_rooms":
+                # Shisha / Rauchwolke
+                # Wolke aus mehreren Kreisen
+                draw.ellipse([cx - sz//3, cy - sz//4, cx + sz//3, cy + sz//4],
+                             fill=color)
+                draw.ellipse([cx - sz//2, cy - sz//8, cx, cy + sz//3],
+                             fill=color)
+                draw.ellipse([cx, cy - sz//8, cx + sz//2, cy + sz//3],
+                             fill=color)
+            elif icon_type == "icecream":
+                # Eis (Dreieck unten + Kreis oben)
+                # Waffel (Dreieck)
+                draw.polygon(
+                    [(cx - sz//3, cy), (cx + sz//3, cy), (cx, cy + sz//2)],
+                    fill=color
+                )
+                # Eis (Kreis oben)
+                draw.ellipse([cx - sz//3, cy - sz//2, cx + sz//3, cy + sz//8],
+                             fill=color)
+            else:
+                # Default: Stern
+                points = []
+                for i in range(10):
+                    angle = math.pi / 2 + i * math.pi / 5
+                    radius = sz//2 if i % 2 == 0 else sz//4
+                    px = cx + int(radius * math.cos(angle))
+                    py = cy - int(radius * math.sin(angle))
+                    points.append((px, py))
+                draw.polygon(points, fill=color)
+
+        # Stempel zeichnen
+        for i in range(stamps_required):
+            row = i // cols
+            col = i % cols
+            cx = start_x + col * cell_size + cell_size // 2
+            cy = start_y + row * cell_size + cell_size // 2
+            filled = i < stamps_current
+            draw_stamp_icon(cx, cy, icon_size, filled, icon_type, (r, g, b, 255))
+
+        out = _io.BytesIO()
+        img.save(out, format="PNG", optimize=True)
+        return out.getvalue()
+    except Exception as e:
+        print(f"[Apple Pass] Thumbnail generation failed: {e}")
+        # Fallback: 1x1 transparentes PNG
+        return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+
+
 def generate_apple_pkpass(
     tenant_slug: str,
     tenant_name: str,
@@ -525,11 +718,30 @@ def generate_apple_pkpass(
             # Kein Logo → Default "S" Icon generieren
             icon_bytes = _generate_default_icon(color_hex)
 
+        # 3b. Thumbnail generieren — Stempel-Visualisierung als PNG (240x240)
+        # WICHTIG: Apple Wallet unterstützt KEINE Emoji-Icons in Feld-Werten!
+        # Daher generieren wir ein PNG mit graphischen Stempel-Icons.
+        # Das Thumbnail wird NEBEN dem primaryField angezeigt (rechts).
+        # So machen es auch professionelle Apps wie Starbucks, Subway etc.
+        stamps_current = customer.get("current_stamps", 0)
+        stamps_required = card.get("stamps_required", 10)
+        card_icon = card.get("icon", "local_cafe")
+        reward_name = card.get("reward_name", "Belohnung")
+        thumbnail_bytes = _generate_stamp_thumbnail(
+            stamps_current=stamps_current,
+            stamps_required=stamps_required,
+            card_icon=card_icon,
+            color_hex=color_hex,
+            reward_name=reward_name,
+        )
+
         # 4. Manifest bauen — Hashes ALLER Dateien die im ZIP landen
         manifest = {
             "pass.json": hashlib.sha1(pass_json_bytes).hexdigest(),
             "icon.png": hashlib.sha1(icon_bytes).hexdigest(),
             "icon@2x.png": hashlib.sha1(icon_bytes).hexdigest(),  # gleiches Icon, andere Größe
+            "thumbnail.png": hashlib.sha1(thumbnail_bytes).hexdigest(),
+            "thumbnail@2x.png": hashlib.sha1(thumbnail_bytes).hexdigest(),
         }
         if logo_bytes:
             manifest["logo.png"] = hashlib.sha1(logo_bytes).hexdigest()
@@ -550,6 +762,9 @@ def generate_apple_pkpass(
             # REQUIRED: icon.png + icon@2x.png
             zf.writestr("icon.png", icon_bytes)
             zf.writestr("icon@2x.png", icon_bytes)
+            # Stempel-Visualisierung (Thumbnail neben primaryField)
+            zf.writestr("thumbnail.png", thumbnail_bytes)
+            zf.writestr("thumbnail@2x.png", thumbnail_bytes)
             # Optional: logo.png
             if logo_bytes:
                 zf.writestr("logo.png", logo_bytes)
