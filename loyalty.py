@@ -763,6 +763,238 @@ def _draw_shisha_icon(draw, cx, cy, sz, color):
     )
 
 
+def _draw_coffee_icon(draw, cx, cy, sz, color):
+    """Echte Kaffeetasse mit Henkel, Untertasse und Dampf."""
+    h = sz
+    w = int(sz * 0.7)
+
+    # 1. Dampf (3 Bögen über der Tasse)
+    steam_y = cy - h // 2
+    for offset in (-int(w * 0.25), 0, int(w * 0.25)):
+        draw.arc(
+            [cx + offset - 8, steam_y - 5, cx + offset + 8, steam_y + 15],
+            200, 340, fill=color, width=3
+        )
+
+    # 2. Tasse (abgerundetes Rechteck)
+    cup_top = steam_y + 20
+    cup_h = int(h * 0.45)
+    cup_w = int(w * 0.7)
+    cup_x = cx - cup_w // 2
+    draw.rounded_rectangle(
+        [cup_x, cup_top, cup_x + cup_w, cup_top + cup_h],
+        radius=int(cup_w * 0.1), fill=color
+    )
+
+    # 3. Henkel (Ellipse rechts an der Tasse)
+    handle_x = cup_x + cup_w
+    handle_y = cup_top + int(cup_h * 0.25)
+    handle_h = int(cup_h * 0.5)
+    draw.ellipse(
+        [handle_x - 4, handle_y, handle_x + int(w * 0.25), handle_y + handle_h],
+        outline=color, width=max(3, int(w * 0.08))
+    )
+
+    # 4. Untertasse (flaches breites Rechteck unten)
+    saucer_y = cup_top + cup_h + 2
+    saucer_w = int(w * 0.95)
+    saucer_h = max(3, int(h * 0.06))
+    saucer_x = cx - saucer_w // 2
+    draw.rounded_rectangle(
+        [saucer_x, saucer_y, saucer_x + saucer_w, saucer_y + saucer_h],
+        radius=2, fill=color
+    )
+
+
+def _draw_restaurant_icon(draw, cx, cy, sz, color):
+    """Gabel und Messer als echte Silhouetten."""
+    h = sz
+    w = int(sz * 0.6)
+
+    # Gabel (links)
+    fork_x = cx - int(w * 0.25)
+    # Zinken (3 kurze Linien oben)
+    for dx in (-int(w * 0.08), 0, int(w * 0.08)):
+        draw.line(
+            [(fork_x + dx, cy - h // 2), (fork_x + dx, cy - int(h * 0.15))],
+            fill=color, width=max(2, int(w * 0.05))
+        )
+    # Verbindung der Zinken (Querbalken)
+    draw.line(
+        [(fork_x - int(w * 0.1), cy - int(h * 0.15)),
+         (fork_x + int(w * 0.1), cy - int(h * 0.15))],
+        fill=color, width=max(2, int(w * 0.05))
+    )
+    # Stiel der Gabel
+    draw.line(
+        [(fork_x, cy - int(h * 0.15)), (fork_x, cy + int(h * 0.35))],
+        fill=color, width=max(3, int(w * 0.1))
+    )
+
+    # Messer (rechts)
+    knife_x = cx + int(w * 0.25)
+    # Klinge (obere Teil, dünner)
+    blade_top = cy - h // 2
+    blade_bot = cy - int(h * 0.1)
+    draw.polygon(
+        [(knife_x - int(w * 0.08), blade_top),
+         (knife_x + int(w * 0.08), blade_top),
+         (knife_x + int(w * 0.04), blade_bot),
+         (knife_x - int(w * 0.04), blade_bot)],
+        fill=color
+    )
+    # Griff (unterer Teil, dicker)
+    draw.line(
+        [(knife_x, blade_bot), (knife_x, cy + int(h * 0.35))],
+        fill=color, width=max(4, int(w * 0.12))
+    )
+
+
+def _draw_bar_icon(draw, cx, cy, sz, color):
+    """Cocktailglas (Martini) mit Olive am Stöckchen."""
+    h = sz
+    w = int(sz * 0.6)
+
+    # 1. Glas (Dreieck - Martini-Form)
+    top_y = cy - int(h * 0.4)
+    bottom_y = cy
+    draw.polygon(
+        [(cx - int(w * 0.45), top_y), (cx + int(w * 0.45), top_y), (cx, bottom_y)],
+        fill=color
+    )
+
+    # 2. Stiel (vertikale Linie)
+    stem_bot = cy + int(h * 0.25)
+    draw.line(
+        [(cx, bottom_y), (cx, stem_bot)],
+        fill=color, width=max(3, int(w * 0.08))
+    )
+
+    # 3. Boden (flache Ellipse)
+    foot_w = int(w * 0.5)
+    foot_h = max(3, int(h * 0.05))
+    draw.ellipse(
+        [cx - foot_w // 2, stem_bot - foot_h // 2,
+         cx + foot_w // 2, stem_bot + foot_h // 2],
+        fill=color
+    )
+
+    # 4. Olive am Stöckchen (kleiner Kreis im Glas)
+    olive_y = top_y + int(h * 0.1)
+    olive_r = max(3, int(w * 0.08))
+    draw.line(
+        [(cx + int(w * 0.15), top_y - int(h * 0.05)),
+         (cx - int(w * 0.05), olive_y)],
+        fill=color, width=max(2, int(w * 0.03))
+    )
+    draw.ellipse(
+        [cx - int(w * 0.05) - olive_r, olive_y - olive_r,
+         cx - int(w * 0.05) + olive_r, olive_y + olive_r],
+        fill=color
+    )
+
+
+def _draw_icecream_icon(draw, cx, cy, sz, color):
+    """Eiswaffel mit 2 Kugeln."""
+    h = sz
+    w = int(sz * 0.6)
+
+    # 1. Waffel (Dreieck unten)
+    cone_top = cy - int(h * 0.1)
+    cone_bot = cy + int(h * 0.45)
+    cone_w = int(w * 0.5)
+    draw.polygon(
+        [(cx - cone_w // 2, cone_top),
+         (cx + cone_w // 2, cone_top),
+         (cx, cone_bot)],
+        fill=color
+    )
+    # Waffel-Muster (Kreuzlinie)
+    draw.line(
+        [(cx - cone_w // 4, cone_top + int(h * 0.05)),
+         (cx + cone_w // 4, cone_bot - int(h * 0.1))],
+        fill=color, width=1
+    )
+
+    # 2. Untere Kugel (großer Kreis)
+    scoop1_r = int(w * 0.3)
+    scoop1_y = cone_top - scoop1_r + 3
+    draw.ellipse(
+        [cx - scoop1_r, scoop1_y - scoop1_r,
+         cx + scoop1_r, scoop1_y + scoop1_r],
+        fill=color
+    )
+
+    # 3. Obere Kugel (kleinerer Kreis)
+    scoop2_r = int(w * 0.22)
+    scoop2_y = scoop1_y - scoop1_r + scoop2_r - 2
+    draw.ellipse(
+        [cx - scoop2_r, scoop2_y - scoop2_r,
+         cx + scoop2_r, scoop2_y + scoop2_r],
+        fill=color
+    )
+
+
+def _draw_bakery_icon(draw, cx, cy, sz, color):
+    """Brezel (klassische Knoten-Form mit 2 Schleifen und Überkreuzung)."""
+    import math
+    h = sz
+    w = int(sz * 0.7)
+
+    # Dicke der Brezel-Linien
+    bw = max(6, int(w * 0.15))
+
+    # 2 Schleifen oben
+    left_cx = cx - int(w * 0.18)
+    left_cy = cy - int(h * 0.05)
+    left_r = int(w * 0.2)
+    right_cx = cx + int(w * 0.18)
+    right_cy = cy - int(h * 0.05)
+    right_r = int(w * 0.2)
+
+    # Linke Schleife: 270° Bogen
+    draw.arc(
+        [left_cx - left_r, left_cy - left_r, left_cx + left_r, left_cy + left_r],
+        90, 360, fill=color, width=bw
+    )
+    # Rechte Schleife: 270° Bogen
+    draw.arc(
+        [right_cx - right_r, right_cy - right_r, right_cx + right_r, right_cy + right_r],
+        180, 450, fill=color, width=bw
+    )
+    # Untere Verbindung (U-Form)
+    bottom_y = cy + int(h * 0.3)
+    draw.arc(
+        [cx - int(w * 0.35), cy + int(h * 0.05),
+         cx + int(w * 0.35), bottom_y + int(h * 0.2)],
+        0, 180, fill=color, width=bw
+    )
+    # Überkreuzung in der Mitte (X)
+    cross_top_y = cy - int(h * 0.15)
+    cross_bot_y = cy + int(h * 0.05)
+    draw.line(
+        [(cx - int(w * 0.08), cross_top_y),
+         (cx + int(w * 0.08), cross_bot_y)],
+        fill=color, width=bw
+    )
+    draw.line(
+        [(cx + int(w * 0.08), cross_top_y),
+         (cx - int(w * 0.08), cross_bot_y)],
+        fill=color, width=bw
+    )
+
+
+# Mapping von Karten-Icon zu Zeichenfunktion
+_ICON_DRAWERS = {
+    "smoking_rooms": _draw_shisha_icon,
+    "local_cafe": _draw_coffee_icon,
+    "bakery_dining": _draw_bakery_icon,
+    "restaurant": _draw_restaurant_icon,
+    "local_bar": _draw_bar_icon,
+    "icecream": _draw_icecream_icon,
+}
+
+
 def _generate_stamp_strip(
     stamps_current: int,
     stamps_required: int,
@@ -816,8 +1048,8 @@ def _generate_stamp_strip(
         icon_type = card_icon or "local_cafe"
 
         # ── Stempel-Kreise am UNTENEN Rand ──
-        # Oberer Bereich (0 bis 260px) bleibt transparent für primaryFields Text
-        # Unterer Bereich (260 bis 432px = 172px) für Stempel-Kreise
+        # Oberer Bereich (0 bis 240px) bleibt transparent für primaryFields Text
+        # Unterer Bereich (240 bis 432px = 192px) für Stempel-Kreise
         stamps_area_top = 240
         stamps_area_h = H - stamps_area_top  # ~192px
         n = stamps_required
@@ -827,60 +1059,19 @@ def _generate_stamp_strip(
         circle_size = int(min(cell_w * 0.85, stamps_area_h * 0.95))  # ~110px
         cy = stamps_area_top + stamps_area_h // 2
 
-        def _draw_icon_symbol(draw, cx, cy, sz, icon_type, color):
-            """Zeichnet Icon-Symbol innerhalb des Kreises."""
-            if icon_type in ("local_cafe", "bakery_dining"):
-                cup_w = int(sz * 0.6)
-                cup_h = int(sz * 0.45)
-                draw.rounded_rectangle(
-                    [cx - cup_w//2, cy - cup_h//2, cx + cup_w//2, cy + cup_h//2 + 2],
-                    radius=3, fill=color
-                )
-                handle_x = cx + cup_w//2 + 2
-                draw.ellipse(
-                    [handle_x, cy - cup_h//4, handle_x + sz//4, cy + cup_h//4],
-                    outline=color, width=2
-                )
-            elif icon_type == "restaurant":
-                fork_x = cx - sz//4
-                knife_x = cx + sz//4
-                for dx in (-3, 0, 3):
-                    draw.line(
-                        [(fork_x + dx, cy - sz//2), (fork_x + dx, cy)],
-                        fill=color, width=2
-                    )
-                draw.line([(fork_x, cy), (fork_x, cy + sz//2)], fill=color, width=3)
-                draw.line([(knife_x, cy - sz//2), (knife_x, cy + sz//2)],
-                          fill=color, width=3)
-            elif icon_type == "local_bar":
-                top_y = cy - sz//2
-                bot_y = cy + sz//3
-                draw.polygon(
-                    [(cx - sz//2, top_y), (cx + sz//2, top_y), (cx, cy)],
-                    fill=color
-                )
-                draw.line([(cx, cy), (cx, bot_y)], fill=color, width=2)
-                draw.line([(cx - sz//4, bot_y), (cx + sz//4, bot_y)],
-                          fill=color, width=2)
-            elif icon_type == "smoking_rooms":
-                # Echte Shisha-Silhouette (Kohlebehälter, Stiel, bauchiges Glas, Schlauch)
-                _draw_shisha_icon(draw, cx, cy, int(sz * 1.4), color)
-            elif icon_type == "icecream":
-                draw.polygon(
-                    [(cx - sz//3, cy), (cx + sz//3, cy), (cx, cy + sz//2)],
-                    fill=color
-                )
-                draw.ellipse([cx - sz//3, cy - sz//2, cx + sz//3, cy + sz//8],
-                             fill=color)
-            else:
-                points = []
-                for i in range(10):
-                    angle = math.pi / 2 + i * math.pi / 5
-                    radius = sz//2 if i % 2 == 0 else sz//4
-                    px = cx + int(radius * math.cos(angle))
-                    py = cy - int(radius * math.sin(angle))
-                    points.append((px, py))
-                draw.polygon(points, fill=color)
+        # Icon-Zeichner aus dem Mapping holen (Fallback: Stern)
+        icon_drawer = _ICON_DRAWERS.get(icon_type)
+
+        def _draw_default_star(draw, cx, cy, sz, color):
+            """Fallback: Stern."""
+            points = []
+            for i in range(10):
+                angle = math.pi / 2 + i * math.pi / 5
+                radius = sz // 2 if i % 2 == 0 else sz // 4
+                px = cx + int(radius * math.cos(angle))
+                py = cy - int(radius * math.sin(angle))
+                points.append((px, py))
+            draw.polygon(points, fill=color)
 
         # 10 Kreise zeichnen (horizontal, am unteren Rand)
         for i in range(n):
@@ -894,7 +1085,7 @@ def _generate_stamp_strip(
                     fill=filled_color,
                     outline=None
                 )
-                _draw_icon_symbol(draw, cx, cy, int(circle_size * 0.5), icon_type, filled_icon_color)
+                icon_color = filled_icon_color
             else:
                 # Leer: Outline + halbtransparentes Icon
                 draw.ellipse(
@@ -903,7 +1094,14 @@ def _generate_stamp_strip(
                     outline=empty_outline,
                     width=3
                 )
-                _draw_icon_symbol(draw, cx, cy, int(circle_size * 0.5), icon_type, empty_icon_color)
+                icon_color = empty_icon_color
+
+            # Icon zeichnen (echte Silhouette)
+            icon_sz = int(circle_size * 0.7)
+            if icon_drawer:
+                icon_drawer(draw, cx, cy, icon_sz, icon_color)
+            else:
+                _draw_default_star(draw, cx, cy, icon_sz, icon_color)
 
         out = _io.BytesIO()
         img.save(out, format="PNG", optimize=True)
