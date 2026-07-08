@@ -130,8 +130,8 @@
 
     <div id="toast" class="toast"></div>
 
-    <!-- QR Scanner Library (lightweight, no dependencies) -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.2/dist/jsQR.js"></script>
+    <!-- QR Scanner Library — LOKAL (CDN hatte falsche Version 1.4.2 die nicht existiert!) -->
+    <script src="/static/js/jsQR.js"></script>
     <script>
         const slug = "{{ slug }}";
         const cards = JSON.parse('{{ cards_json | safe }}');
