@@ -1246,26 +1246,33 @@ def _generate_stamp_strip(
             if os.path.exists(fs_path):
                 try:
                     banner_img = Image.open(fs_path).convert("RGBA")
-                    # Foto als Quadrat (320x320) mit abgerundeten Ecken
+                    # Foto-Bereich: 320x320 px Quadrat mit abgerundeten Ecken
                     foto_size = 320
                     foto_x = W - foto_size - 40  # Rechtsbündig mit 40px Rand
                     foto_y = 40  # Oben mit 40px Rand
 
-                    # Cover-Fit auf Quadrat
+                    # CONTAIN-FIT (nicht Cover-Fit!): Komplettes Bild sichtbar
+                    # Cover-Fit schneidet Bildteile ab → User will alles sehen
+                    # Contain-Fit skaliert das Bild so dass es KOMPLETT in den
+                    # 320x320 Container passt (mit transparentem Padding falls nötig)
                     bw, bh = banner_img.size
-                    scale = max(foto_size / bw, foto_size / bh)
-                    new_w, new_h = int(bw * scale), int(bh * scale)
+                    scale = min(foto_size / bw, foto_size / bh)  # min statt max!
+                    new_w = int(bw * scale)
+                    new_h = int(bh * scale)
                     banner_img = banner_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    left = (new_w - foto_size) // 2
-                    top = (new_h - foto_size) // 2
-                    banner_img = banner_img.crop((left, top, left + foto_size, top + foto_size))
 
-                    # Abgerundete Ecken (Radius 20px)
+                    # Bild auf 320x320 Canvas zentrieren (mit transparentem Padding)
+                    foto_canvas = Image.new("RGBA", (foto_size, foto_size), (0, 0, 0, 0))
+                    paste_x = (foto_size - new_w) // 2
+                    paste_y = (foto_size - new_h) // 2
+                    foto_canvas.paste(banner_img, (paste_x, paste_y), banner_img)
+
+                    # Abgerundete Ecken (Radius 20px) für professionelles Aussehen
                     mask = Image.new("L", (foto_size, foto_size), 0)
                     mask_draw = ImageDraw.Draw(mask)
                     mask_draw.rounded_rectangle([0, 0, foto_size, foto_size], radius=20, fill=255)
                     rounded_foto = Image.new("RGBA", (foto_size, foto_size), (0, 0, 0, 0))
-                    rounded_foto.paste(banner_img, (0, 0), mask)
+                    rounded_foto.paste(foto_canvas, (0, 0), mask)
 
                     # Foto auf strip-Bild pasten (rechts oben, Rest bleibt transparent)
                     img.alpha_composite(rounded_foto, (foto_x, foto_y))
