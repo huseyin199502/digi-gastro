@@ -249,33 +249,25 @@ def _generate_apple_pass_json(
                     "changeMessage": "Neuer Code: %@"
                 }
             ],
-            # primaryFields: NUR Label (kein Wert) — nichts überdeckt das Foto im strip
-            # Apple Wallet rendert primaryFields ÜBER strip.png. Mit leerem value
-            # wird nur das kleine Label oben angezeigt (z.B. "Shisha Karte").
+            # primaryFields: Stempel-Zähler (Foto ist jetzt LINKS im strip, nicht vollflächig)
+            # Apple Wallet rendert primaryFields ÜBER strip.png, aber da strip transparent ist
+            # mit Foto nur links, ist der Text oben gut lesbar auf backgroundColor.
             "primaryFields": [
                 {
                     "key": "stamps",
                     "label": card_name,
-                    "value": "",
+                    "value": primary_value,
                     "textAlignment": "PKTextAlignmentCenter",
                     "changeMessage": primary_change
                 }
             ],
             # secondaryFields sitzen UNTER dem strip-Bild auf solidem Hintergrund.
-            # Hier zeigen wir Stempel-Zähler + reward — immer gut lesbar!
             "secondaryFields": [
-                {
-                    "key": "stampcount",
-                    "label": "Stempel",
-                    "value": primary_value,  # z.B. "3 / 10"
-                    "textAlignment": "PKTextAlignmentLeft",
-                    "changeMessage": primary_change
-                },
                 {
                     "key": "reward",
                     "label": reward_label,
                     "value": reward_value,
-                    "textAlignment": "PKTextAlignmentRight",
+                    "textAlignment": "PKTextAlignmentLeft",
                     "changeMessage": "Reward aktualisiert: %@"
                 }
             ],
@@ -1207,22 +1199,24 @@ def _generate_stamp_strip(
             r, g, b = 201, 168, 76  # Default gold
 
         # ════════════════════════════════════════════════════════════════
-        # NEUES LAYOUT (Sub-Agent Recherche + Agent Browser Analyse):
-        # Foto OBEN (Y=0-255) + Sterne UNTEN auf dunklem Band (Y=285-415)
-        # Sauber getrennt - kein Ueberlapp mehr!
+        # NEUES LAYOUT: Transparentes strip.png (Sub-Agent Recherche)
         #
-        # Y=0   : TENANT-FOTO (Cover-Fit, voll)
-        # Y=255 : dunkler Verlauf (30px)
-        # Y=285 : Sterne auf dunklem Band (4-Schicht-Rendering)
-        # Y=415 : Safe-Bottom
-        # Y=432 : Ende
+        # background.png wird bei storeCard NICHT unterstützt (nur eventTicket).
+        # Lösung: Transparentes strip.png mit Foto scharf links + Sterne rechts.
+        # Die Pass-backgroundColor scheint durch die transparenten Bereiche.
         #
-        # Apple Wallet rendert primaryFields UEBER strip.png -> wir lassen
-        # primaryFields LEER (nichts ueberdeckt das Foto).
-        # Stempel-Zaehler "3/10" kommt in secondaryFields (UNTER strip).
+        # Layout (1125x432, voll transparent):
+        # - Foto LINKS: scharf, abgerundete Ecken, perfekt zugeschnitten (420x420)
+        # - Sterne RECHTS: 4-Schicht-Rendering auf transparentem Hintergrund
+        # - Transparente Bereiche: Pass-backgroundColor scheint durch
+        #
+        # Vorteile:
+        # - Foto ist scharf (kein Apple-Blur wie bei background.png)
+        # - Perfekt zugeschnitten (PIL center-crop + rounded corners)
+        # - Professionell wie Starbucks/getqard (Brand-Color als Hintergrund)
         # ════════════════════════════════════════════════════════════════
 
-        # ── Foto OBEN (Y=0-255) ──
+        # ── Foto LINKS (scharf, abgerundete Ecken, 420x420) ──
         banner_loaded = False
         if banner_path:
             fs_path = banner_path
@@ -1234,18 +1228,30 @@ def _generate_stamp_strip(
             if os.path.exists(fs_path):
                 try:
                     banner_img = Image.open(fs_path).convert("RGBA")
-                    # Foto-Bereich: Y=0 bis Y=255 (255px hoch, volle Breite)
-                    foto_h = 255
-                    # Cover-Fit auf 1125x255
+                    # Foto als Quadrat (420x420) mit abgerundeten Ecken
+                    foto_size = 380
+                    foto_x = 40  # Linker Rand
+                    foto_y = (H - foto_size) // 2  # Vertikal zentriert
+
+                    # Cover-Fit auf Quadrat
                     bw, bh = banner_img.size
-                    scale = max(W / bw, foto_h / bh)
+                    scale = max(foto_size / bw, foto_size / bh)
                     new_w, new_h = int(bw * scale), int(bh * scale)
                     banner_img = banner_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    left = (new_w - W) // 2
-                    top = (new_h - foto_h) // 2
-                    banner_img = banner_img.crop((left, top, left + W, top + foto_h))
-                    # Foto auf das strip-Bild pasten (nur oberer Bereich)
-                    img.paste(banner_img, (0, 0), banner_img)
+                    left = (new_w - foto_size) // 2
+                    top = (new_h - foto_size) // 2
+                    banner_img = banner_img.crop((left, top, left + foto_size, top + foto_size))
+
+                    # Abgerundete Ecken (Radius 24px) für professionelles Aussehen
+                    mask = Image.new("L", (foto_size, foto_size), 0)
+                    mask_draw = ImageDraw.Draw(mask)
+                    mask_draw.rounded_rectangle([0, 0, foto_size, foto_size], radius=24, fill=255)
+                    # Foto mit Maske kombinieren (nur abgerundete Ecken sichtbar)
+                    rounded_foto = Image.new("RGBA", (foto_size, foto_size), (0, 0, 0, 0))
+                    rounded_foto.paste(banner_img, (0, 0), mask)
+
+                    # Foto auf strip-Bild pasten (nur linker Bereich, Rest bleibt transparent)
+                    img.alpha_composite(rounded_foto, (foto_x, foto_y))
                     draw = ImageDraw.Draw(img)
                     banner_loaded = True
                 except Exception as e:
@@ -1253,34 +1259,27 @@ def _generate_stamp_strip(
             else:
                 print(f"[Apple Pass] Banner file not found: {fs_path}")
 
-        # ── Dunkles Band UNTEN für Sterne (Y=255-432) ──
-        # Sanfter Verlauf von Foto zu dunklem Band (Y=255-285 = 30px)
-        # Dann volles dunkles Band für Sterne (Y=285-432)
-        band_color = (20, 20, 20, 255)  # Sehr dunkles Grau
-        if banner_loaded:
-            # Verlauf Foto → dunkles Band (Y=255 bis Y=285)
-            transition_top = 240
-            transition_bot = 290
-            for y in range(transition_top, transition_bot):
-                t = (y - transition_top) / (transition_bot - transition_top)
-                alpha = int(255 * t)
-                draw.line([(0, y), (W, y)], fill=(20, 20, 20, alpha))
-            # Voll dunkles Band ab Y=290
-            draw.rectangle([0, 290, W, H], fill=band_color)
-        else:
-            # Kein Banner → komplettes dunkles Band
-            draw.rectangle([0, 0, W, H], fill=band_color)
-
         # Helligkeit berechnen
         brightness = (r * 299 + g * 587 + b * 114) / 1000
         is_dark = brightness < 140
 
         icon_type = card_icon or "local_cafe"
 
-        # ── Sterne UNTEN auf dunklem Band (Y=295-415) ──
+        # ── Sterne RECHTS neben Foto (auf transparentem Hintergrund) ──
         # 4-Schicht-Rendering: Drop-Shadow, Radial-Gradient, Glass, Outline
-        stamps_area_top = 300  # Unterhalb des Fotos + Verlauf
-        stamps_area_h = H - stamps_area_top - 20  # 20px bottom padding = 112px
+        # Sterne-Bereich: X=480 bis X=1125 (rechte Hälfte), vollvertikal zentriert
+        if banner_loaded:
+            stars_area_x = 500  # Start X für Sterne (rechts vom Foto)
+            stars_area_w = W - stars_area_x - 40  # 40px rechter Rand
+            stars_area_top = 60
+            stars_area_h = H - 120  # Vertikaler Padding
+        else:
+            # Kein Banner → Sterne über volle Breite
+            stars_area_x = 40
+            stars_area_w = W - 80
+            stars_area_top = 60
+            stars_area_h = H - 120
+
         n = stamps_required
 
         # Layout: 1 Reihe für n<=10, 2 Reihen für n>10
@@ -1291,19 +1290,19 @@ def _generate_stamp_strip(
             rows = 1
             cols = n
 
-        cell_w = W / cols
-        cell_h = stamps_area_h / rows
+        cell_w = stars_area_w / cols
+        cell_h = stars_area_h / rows
         # Sterne GRÖßER: ~85% der Zelle
         star_size = int(min(cell_w * 0.82, cell_h * 0.92))
 
         brand_rgb = (r, g, b)
-        on_dark = True  # Sterne immer auf dunklem Band
+        on_dark = True  # Sterne auf Pass-backgroundColor (dunkel)
 
         for i in range(n):
             row = i // cols
             col = i % cols
-            cx = int(col * cell_w + cell_w / 2)
-            cy = int(stamps_area_top + row * cell_h + cell_h / 2)
+            cx = int(stars_area_x + col * cell_w + cell_w / 2)
+            cy = int(stars_area_top + row * cell_h + cell_h / 2)
             filled = i < stamps_current
             _draw_star_with_depth(img, cx, cy, star_size, brand_rgb, filled, on_dark=on_dark)
 
