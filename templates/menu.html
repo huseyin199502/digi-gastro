@@ -1215,7 +1215,7 @@
         // DOMContentLoaded Listener nötig)
 
         // Beim Laden prüfen ob Loyalty aktiv
-        document.addEventListener('DOMContentLoaded', checkLoyaltyAvailability);
+        window.addEventListener('load', checkLoyaltyAvailability);
 
         // Nach checkLoyaltyAvailability: Button zeigen wenn Loyalty aktiv + Kunde schon Wallet hat
         function updateRedownloadButton() {
