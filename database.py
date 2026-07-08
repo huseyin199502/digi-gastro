@@ -409,12 +409,13 @@ class LoyaltyCard(Base):
 
 class LoyaltyCustomer(Base):
     """Ein Gast der eine Stempelkarte hat. Anonym (nur Wallet-Pass-Serial als ID).
-    Keine PIIs (Name, Email) — nur Gerätekoppelung via Pass-Serial."""
+    Keine PIIs (Name, Email) — nur Gerätekoppelung via anonymous_id."""
     __tablename__ = 'loyalty_customers'
     __table_args__ = (
         Index('idx_loyalty_customer_tenant_serial', 'tenant_slug', 'pass_serial', unique=True),
         Index('idx_loyalty_customer_tenant', 'tenant_slug'),
         Index('idx_loyalty_customer_tenant_shortcode', 'tenant_slug', 'short_code'),  # Phase 1: Short-Code Lookup
+        Index('idx_loyalty_customer_tenant_aid', 'tenant_slug', 'anonymous_id'),      # Drei-Kanal-Lookup
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -447,6 +448,12 @@ class LoyaltyCustomer(Base):
     # ── Broadcast/Inaktivität: letzte Nachricht (für changeMessage) ──
     last_message = Column(String, default="Willkommen!")  # Ändert sich bei Broadcast → iOS Notification
     msg_nonce = Column(Integer, default=0)  # Incrementing counter → always changes → always triggers notification
+    # ── Drei-Kanal-Server-Lookup (DSGVO-konforme Geräteerkennung) ──
+    # anonymous_id: stabile UUID, server-seitig beim ersten Besuch generiert.
+    # Wird im Cookie loyalty_{slug}_cid, LocalStorage dg_aid_{slug} und IndexedDB gespeichert.
+    # Verhindert Customer-Duplikate bei Cookielöschung / Inkognito-Modus.
+    anonymous_id = Column(String, nullable=True)          # UUID4, unique pro Gerät+Tenant
+    pass_downloaded_at = Column(String, nullable=True)    # ISO-Datum: wann wurde Pass heruntergeladen?
 
 class LoyaltyStamp(Base):
     """Ein einzelner Stempel — wird bei Bestellung automatisch vergeben.
@@ -621,6 +628,9 @@ def _migrate_database():
     add_column_if_missing('loyalty_customers', 'tier', "VARCHAR DEFAULT 'neu'")
     add_column_if_missing('loyalty_customers', 'last_message', "VARCHAR DEFAULT 'Willkommen!'")
     add_column_if_missing('loyalty_customers', 'msg_nonce', "INTEGER DEFAULT 0")
+    # Drei-Kanal-Server-Lookup (DSGVO-konforme Geräteerkennung)
+    add_column_if_missing('loyalty_customers', 'anonymous_id', "VARCHAR")
+    add_column_if_missing('loyalty_customers', 'pass_downloaded_at', "VARCHAR")
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")

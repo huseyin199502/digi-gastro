@@ -1747,16 +1747,32 @@ def get_or_create_customer(
     tenant_slug: str,
     card_id: int,
     pass_type: str = "apple",
+    anonymous_id: Optional[str] = None,
 ) -> Tuple[LoyaltyCustomer, bool]:
     """Findet oder erstellt einen Customer.
-    Pass-Serial wird als UUID generiert.
-    Returns (customer, created)."""
-    _ensure_db_models()
 
-    # Versuche einen existierenden Customer via Session-Cookie zu finden
-    # (in API-Endpoints: Customer-ID aus Cookie lesen, hier: Platzhalter)
-    # Für neue Kunden: neue UUID + neuen Customer anlegen
+    Lookup-Priorität:
+    1. anonymous_id (stabil, server-seitig persistent) — verhindert Duplikate
+    2. Neu-Erstellung mit eindeutigem Short-Code (Retry bei Kollision)
+
+    Returns (customer, created).
+    """
+    _ensure_db_models()
+    tenant_slug = tenant_slug.lower().strip()
+
+    # 1. Lookup via anonymous_id (wird vom /loyalty/identify Endpoint gesetzt)
+    if anonymous_id:
+        existing = db_session.query(LoyaltyCustomer).filter_by(
+            tenant_slug=tenant_slug, anonymous_id=anonymous_id
+        ).first()
+        if existing:
+            existing.last_visit_at = _now_iso()
+            db_session.commit()
+            return existing, False
+
+    # 2. Neuer Customer
     serial = str(uuid.uuid4())
+    short_code = _generate_unique_short_code(db_session, tenant_slug)
     customer = LoyaltyCustomer(
         tenant_slug=tenant_slug,
         pass_serial=serial,
@@ -1770,8 +1786,10 @@ def get_or_create_customer(
         created_at=_now_iso(),
         pass_needs_update=True,
         push_opt_out=False,
-        short_code=_generate_short_code(),  # PHASE 1: 4-stelliger Code
+        short_code=short_code,
         tier="neu",
+        anonymous_id=anonymous_id or str(uuid.uuid4()),
+        pass_downloaded_at=None,
     )
     db_session.add(customer)
     db_session.commit()
@@ -1786,13 +1804,34 @@ _CROCKFORD_BASE32 = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 
 def _generate_short_code() -> str:
-    """Generiert einen eindeutigen 4-stelligen Code (z.B. 'A7K2').
+    """Generiert einen 4-stelligen Code (z.B. 'A7K2').
 
     Verwendung: Wird im Wallet-Pass angezeigt. Kellner tippt Code ein →
     System findet Customer → Stempel vergeben. Keine Kamera, kein QR-Scan nötig.
     """
     import random
     return "".join(random.choice(_CROCKFORD_BASE32) for _ in range(4))
+
+
+def _generate_unique_short_code(db_session, tenant_slug: str, max_retries: int = 10) -> str:
+    """Generiert einen Short-Code mit Kollisions-Prüfung (Retry-Schleife).
+
+    BUG 3 FIX: _generate_short_code() hatte keinen Eindeutigkeits-Check.
+    Nach ~1000 Kunden pro Tenant drohten Kollisionen (Geburtstagsparadoxon).
+    """
+    tenant_slug = tenant_slug.lower().strip()
+    for _ in range(max_retries):
+        code = _generate_short_code()
+        # Prüfe ob Code schon existiert
+        exists = db_session.query(LoyaltyCustomer.id).filter(
+            LoyaltyCustomer.tenant_slug == tenant_slug,
+            LoyaltyCustomer.short_code == code
+        ).first()
+        if not exists:
+            return code
+    # Fallback: 5-stelliger Code (32^5 = 33M Kombinationen)
+    import random
+    return "".join(random.choice(_CROCKFORD_BASE32) for _ in range(5))
 
 
 def find_customer_by_short_code(db_session, tenant_slug: str, short_code: str):

@@ -13892,6 +13892,68 @@ def loyalty_get_card(slug: str, db: Session = Depends(get_db)):
     }
 
 
+@app.get("/{slug}/loyalty/state")
+def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)):
+    """Drei-Kanal-Server-Lookup: Hat dieser Kunde schon einen Pass?
+
+    Der Client sendet seine anonymous_id (aid) — der Server prüft verlässlich,
+    ob bereits ein Pass heruntergeladen wurde. Frontend nutzt diese Antwort,
+    um das Loyalty-Popup zu zeigen/verstecken.
+
+    DSGVO: anonymous_id ist eine zufällige UUID (keine PII), 1-Jahres-Lifetime.
+    Kein Fingerprinting, kein Tracking. Dient nur der UX (Popup-Suppression).
+
+    Response:
+    {
+      "show_popup": bool,        # True = Popup anzeigen
+      "customer_id": int|null,   # Customer-ID (für Auto-Stempel nach Bestellung)
+      "has_pass": bool,          # True = Pass wurde bereits heruntergeladen
+      "anonymous_id": str,       # Bestätigte/Neue anonymous_id
+    }
+    """
+    slug_lower = slug.lower().strip()
+    aid = request.query_params.get("aid", "").strip()
+
+    # Tenant-Test-Override: ?no_loyalty_popup=1 → Popup immer unterdrücken
+    if request.query_params.get("no_loyalty_popup") == "1":
+        return {"show_popup": False, "customer_id": None, "has_pass": False, "anonymous_id": aid}
+
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+    if not card:
+        return {"show_popup": False, "customer_id": None, "has_pass": False, "anonymous_id": aid}
+
+    # Lookup-Priorität: 1. anonymous_id (DB), 2. _cid Cookie (Backward-Compat)
+    customer = None
+    if aid:
+        customer = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, anonymous_id=aid
+        ).first()
+
+    if not customer:
+        cid_cookie = request.cookies.get(f"loyalty_{slug_lower}_cid")
+        if cid_cookie:
+            try:
+                customer = db.query(LoyaltyCustomer).filter_by(
+                    tenant_slug=slug_lower, id=int(cid_cookie)
+                ).first()
+                # Bestehenden Customer mit anonymous_id anreichern (falls noch nicht gesetzt)
+                if customer and not customer.anonymous_id and aid:
+                    customer.anonymous_id = aid
+                    db.commit()
+            except (ValueError, TypeError):
+                customer = None
+
+    has_pass = bool(customer and customer.pass_downloaded_at)
+    show_popup = not has_pass
+
+    return {
+        "show_popup": show_popup,
+        "customer_id": customer.id if customer else None,
+        "has_pass": has_pass,
+        "anonymous_id": aid or (customer.anonymous_id if customer else None),
+    }
+
+
 @app.get("/{slug}/loyalty/pass/apple")
 def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db)):
     """Generiert .pkpass-File für Apple Wallet."""
@@ -13917,8 +13979,14 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
             ).first()
         except (ValueError, TypeError):
             customer = None
+    # Drei-Kanal-Lookup: anonymous_id aus Query-Param (vom Frontend gesendet)
+    aid = request.query_params.get("aid", "").strip()
+    if not customer and aid:
+        customer = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, anonymous_id=aid
+        ).first()
     if not customer:
-        customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple")
+        customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple", anonymous_id=aid or None)
 
     # CRITICAL FIX: Wenn der Customer zuvor als "google" erstellt wurde, aber
     # jetzt einen Apple Pass lädt → pass_type auf "apple" updaten!
@@ -13978,6 +14046,13 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         raise HTTPException(status_code=500, detail="Pass-Generierung fehlgeschlagen.")
 
     customer.pass_needs_update = False
+    # Drei-Kanal-Lookup: pass_downloaded_at markieren → Server weiß ab jetzt, dass dieser
+    # Customer einen Pass hat → /loyalty/state liefert show_popup=False
+    if not customer.pass_downloaded_at:
+        customer.pass_downloaded_at = _now_iso()
+    # anonymous_id sicherheitshalber setzen (falls Customer älter ist als das Feld)
+    if not customer.anonymous_id:
+        customer.anonymous_id = aid or str(uuid.uuid4())
     db.commit()
 
     response = Response(
@@ -14021,8 +14096,14 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
             ).first()
         except (ValueError, TypeError):
             customer = None
+    # Drei-Kanal-Lookup: anonymous_id aus Query-Param
+    aid = request.query_params.get("aid", "").strip()
+    if not customer and aid:
+        customer = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, anonymous_id=aid
+        ).first()
     if not customer:
-        customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="google")
+        customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="google", anonymous_id=aid or None)
 
     geofence = db.query(TenantGeofence).filter_by(
         tenant_slug=slug_lower, is_primary=True
@@ -14047,6 +14128,11 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
         raise HTTPException(status_code=500, detail="Google Wallet JWT Generierung fehlgeschlagen.")
 
     customer.pass_needs_update = False
+    # Drei-Kanal-Lookup: pass_downloaded_at markieren
+    if not customer.pass_downloaded_at:
+        customer.pass_downloaded_at = _now_iso()
+    if not customer.anonymous_id:
+        customer.anonymous_id = aid or str(uuid.uuid4())
     db.commit()
 
     response = JSONResponse({
@@ -14300,9 +14386,14 @@ async def passkit_log(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/{slug}/loyalty/opt-out")
 def loyalty_opt_out(slug: str, request: Request, db: Session = Depends(get_db)):
-    """DSGVO-Opt-out von Push-Kampagnien."""
+    """DSGVO-Opt-out von Push-Kampagnien.
+
+    BUG-FIX: Cookie-Name war 'loyalty_{slug}' (Wert='saved') → int('saved') ValueError → 404.
+    Korrekt: 'loyalty_{slug}_cid' (Wert=customer.id, HttpOnly).
+    """
     slug_lower = slug.lower().strip()
-    cookie_name = f"loyalty_{slug_lower}"
+    # BUG 7 FIX: _cid Cookie enthält die Customer-ID
+    cookie_name = f"loyalty_{slug_lower}_cid"
     customer_id = request.cookies.get(cookie_name)
     if not customer_id:
         raise HTTPException(status_code=404, detail="Keine Stempelkarte gefunden.")
@@ -14988,10 +15079,15 @@ def set_tenant_operating_mode(
 
 
 def _maybe_award_loyalty_stamp(request: Request, slug: str, order_id: int, order_total: float, db: Session):
-    """Hook: Vergibt automatisch Stempel nach Bestellung (via Cookie erkannt)."""
+    """Hook: Vergibt automatisch Stempel nach Bestellung (via Cookie erkannt).
+
+    BUG-FIX: Cookie-Name war 'loyalty_{slug}' (Wert='saved') → int('saved') ValueError.
+    Korrekt: 'loyalty_{slug}_cid' (Wert=customer.id, HttpOnly).
+    """
     try:
         slug_lower = slug.lower().strip()
-        cookie_name = f"loyalty_{slug_lower}"
+        # BUG 1 FIX: _cid Cookie enthält die Customer-ID, nicht das "saved"-Cookie
+        cookie_name = f"loyalty_{slug_lower}_cid"
         customer_id_str = request.cookies.get(cookie_name)
         if not customer_id_str:
             return None
