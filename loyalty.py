@@ -317,20 +317,16 @@ def _generate_apple_pass_json(
             ]
         },
         # ── Push Notification Settings ──
-        # WICHTIG: relevantText = das was auf dem SPERRBILDSCHIRM angezeigt wird!
-        # Wie Geofencing: iOS zeigt relevantText sofort auf Sperrbildschirm.
-        # Wenn last_message = "Hallo: Test" → zeige Nachricht auf Sperrbildschirm!
-        "relevantText": (
-            f"📍 {tenant_name} — {customer.get('last_message', 'Willkommen!')}"
-            if customer.get("last_message", "Willkommen!") != "Willkommen!"
-            else f"📍 {tenant_name} — {stamps_current}/{stamps_required} Stempel · {reward_name}"
-        ),
-        # relevantDate = jetzt → iOS behandelt Pass als "aktuell" → Sperrbildschirm
+        # relevantDate = jetzt → iOS behandelt Pass als "aktuell" → kann auf Sperrbildschirm erscheinen
+        # WICHTIG: relevantText ist KEIN gültiger Top-Level Key (nur in locations[]/beacons[])!
+        # Top-level relevantText wird von iOS ignoriert. Für Push-Notifications ist
+        # changeMessage in backFields zuständig (nicht relevantText).
         "relevantDate": _now_iso().replace("Z", "+00:00"),
         "userInfo": {
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
             "customer_id": customer.get("id"),
+            "last_msg_timestamp": _now_iso(),  # Hidden timestamp (nicht auf Pass sichtbar)
         },
         # ── PHASE 1: barcodes Field für QR-Code-Anzeige im Pass ──
         "barcodes": [
@@ -1210,12 +1206,12 @@ def _generate_stamp_strip(
 
         icon_type = card_icon or "local_cafe"
 
-        # ── Sterne UNTEN (Y=200-420) - kein Überlapp mit primaryFields oben ──
-        # Apple Wallet rendert primaryFields "0/15" ÜBER strip.png (oben zentriert, Y=0-180).
-        # Sterne müssen UNTEN sein (Y=200+) damit sie nicht überlappt werden.
-        # 4-Schicht-Rendering: Drop-Shadow, Radial-Gradient, Glass, Outline
-        stars_area_top = 200  # Unterhalb des primaryFields Text-Bereichs
-        stars_area_h = H - stars_area_top - 20  # 20px bottom padding = 212px
+        # ── Sterne GANZ UNTEN (Y=280-420) - kein Überlapp mit primaryFields ──
+        # Apple Wallet rendert primaryFields (Label "Memo Test" + Value "0/15")
+        # ÜBER strip.png im Bereich Y=0-270 (Label klein + Value groß).
+        # Sterne müssen UNTERHALB davon sein (Y=280+).
+        stars_area_top = 280  # Unterhalb des primaryFields Text-Bereichs
+        stars_area_h = H - stars_area_top - 15  # 15px bottom padding = 137px
 
         n = stamps_required
 
@@ -1669,7 +1665,8 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
                     pass
 
             # CRITICAL: last_message = saubere Nachricht + nonce increment
-            full_msg = f"{campaign.title}: {campaign.message}"
+            # User-Wunsch: Nur Nachricht (ohne Titel-Präfix) in Push-Notification
+            full_msg = campaign.message
             customer.last_message = full_msg[:200]
             customer.msg_nonce = (customer.msg_nonce or 0) + 1
             db_session.commit()  # ← VOR dem Push committen!
@@ -1809,7 +1806,7 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
                 headers={
                     "apns-topic": APPLE_PASS_TYPE_ID,
                     "apns-push-type": "background",
-                    "apns-priority": "10",  # Hohe Priorität — Notification soll sofort ankommen
+                    "apns-priority": "5",  # Pflicht für background push! Apple: "Using priority 10 is an error"
                     "apns-expiration": "0"
                 },
                 timeout=10

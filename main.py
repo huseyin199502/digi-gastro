@@ -14739,7 +14739,10 @@ async def loyalty_quick_send(
     if not customers:
         raise HTTPException(status_code=404, detail="Keine Kunden gefunden.")
 
-    full_msg = f"{title}: {message}"
+    # User-Wunsch: Nur Nachricht (ohne Titel-Präfix) in Push-Notification
+    # Vorher: "Titel: Nachricht" → changeMessage zeigte "📬 Neue Nachricht: Titel: Nachricht"
+    # Jetzt: Nur "Nachricht" → changeMessage zeigt "📬 Neue Nachricht: Nachricht"
+    full_msg = message
     stats = {"pushs_sent": 0, "pushs_failed": 0}
 
     for customer in customers:
@@ -14876,7 +14879,8 @@ def loyalty_broadcast_push(
                 pass
 
         # CRITICAL: last_message = saubere Nachricht (keine Uhrzeit) + nonce increment
-        full_msg = f"{campaign.title}: {campaign.message}"
+        # User-Wunsch: Nur Nachricht (ohne Titel-Präfix) in Push-Notification
+        full_msg = campaign.message
         customer.last_message = full_msg[:200]
         customer.msg_nonce = (customer.msg_nonce or 0) + 1
         db.commit()  # ← VOR dem Push committen!
