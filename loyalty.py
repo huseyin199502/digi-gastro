@@ -270,7 +270,28 @@ def _generate_apple_pass_json(
                     "changeMessage": "Reward aktualisiert: %@"
                 }
             ],
-            "auxiliaryFields": [],
+            # auxiliaryFields: Hidden Message Fields für Push-Notifications
+            # WICHTIG: changeMessage funktioniert NUR in auxiliaryFields/primaryFields/headerFields
+            # (NICHT in backFields — dort zeigt iOS nur generisches "Karte aktualisiert"-Banner!)
+            # hidden: true (iOS 17+) versteckt das Feld auf der Vorderseite, aber die
+            # changeMessage-Notification funktioniert weiterhin → Kunde sieht die Nachricht als Banner.
+            # msgnonce darf KEINE changeMessage haben, sonst fasst iOS die Notifications zusammen!
+            "auxiliaryFields": [
+                {
+                    "key": "lastmsg",
+                    "label": "Letzte Nachricht",
+                    "value": customer.get("last_message", "Willkommen!"),
+                    "hidden": True,
+                    "changeMessage": "📬 Neue Nachricht: %@"
+                },
+                {
+                    "key": "msgnonce",
+                    "label": "Nonce",
+                    "value": str(customer.get("msg_nonce", 0)),
+                    "hidden": True
+                    # KEINE changeMessage — sonst fasst iOS die Notifications zusammen!
+                }
+            ],
             "backFields": [
                 {
                     "key": "info",
@@ -291,24 +312,6 @@ def _generate_apple_pass_json(
                     "key": "terms",
                     "label": "AGB",
                     "value": "Stempel können nicht übertragen werden. Einlösung erfolgt ausschließlich vor Ort. Keine Barauszahlung."
-                },
-                # ── Hidden Tracking Fields (nur auf Rückseite des Passes sichtbar) ──
-                # WICHTIG: backFields sind auf der Vorderseite VERSTECKT — nur sichtbar
-                # wenn User auf (i) tippt. changeMessage funktioniert trotzdem:
-                # iOS triggert Notification wenn sich der Value ändert!
-                # Das ist die zuverlässigste Methode um Felder zu verstecken
-                # (das 'hidden' property funktioniert nur iOS 17+, backFields immer).
-                {
-                    "key": "lastmsg",
-                    "label": "Letzte Nachricht",
-                    "value": customer.get("last_message", "Willkommen!"),
-                    "changeMessage": "📬 Neue Nachricht: %@"
-                },
-                {
-                    "key": "msgnonce",
-                    "label": "Nonce",
-                    "value": str(customer.get("msg_nonce", 0)),
-                    "changeMessage": "📬 Neue Nachricht von " + (tenant_name or "digi-gastro")
                 }
             ]
         },
@@ -1656,7 +1659,7 @@ def _apns_push(push_token: str, title: str, message: str) -> bool:
                 headers={
                     "apns-topic": APPLE_PASS_TYPE_ID,
                     "apns-push-type": "background",
-                    "apns-priority": "5",
+                    "apns-priority": "10",  # Hohe Priorität — Notification soll sofort ankommen
                     "apns-expiration": "0"
                 },
                 timeout=10
@@ -1919,6 +1922,14 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
         # WICHTIG: current_stamps bleibt bei stamps_required (z.B. 10)
         # Pass zeigt: "10 / 10 ✓" + "🎉 PRÄMIE BEREIT!"
         # Reset erfolgt erst via reward_redeem API (Kellner löst ein)
+
+    # last_message + msg_nonce updaten VOR dem Push
+    # WICHTIG: Damit changeMessage in auxiliaryFields triggert ("📬 Neue Nachricht: %@")
+    # muss last_message sich ändern. msg_nonce zwingend incrementieren für garantierten
+    # Wertwechsel (falls dieselbe Nachricht mehrmals gesendet wird).
+    stamp_msg = f"🎉 Neuer Stempel! {customer.current_stamps}/{card.stamps_required}"
+    customer.last_message = stamp_msg[:200]
+    customer.msg_nonce = (customer.msg_nonce or 0) + 1
 
     db_session.commit()
 
