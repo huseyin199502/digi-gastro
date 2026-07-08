@@ -432,13 +432,6 @@
                         <span data-translate="view_menu">Speisekarte ansehen</span>
                     </button>
 
-                    <!-- Loyalty: "Stempelkarte" Button — immer sichtbar wenn Loyalty aktiv -->
-                    <!-- Kunde kann Pass neu laden falls er gelöscht wurde -->
-                    <button id="loyalty-redownload-btn" onclick="forceShowLoyaltyPopup()" class="btn-premium glass-btn-secondary w-full py-3 rounded-xl text-xs font-bold hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2" style="display:none; color:#C9A84C !important;">
-                        <span class="material-symbols-outlined" style="font-size:18px;">confirmation_number</span>
-                        Stempelkarte
-                    </button>
-
                     <!-- Google Review Link -->
                     <div x-show="restaurantLandingPage.google_rating_url" class="w-full">
                         <a :href="restaurantLandingPage.google_rating_url" target="_blank" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95" style="color:#ffffff !important;">
@@ -1193,11 +1186,6 @@
                             }
                         }
                     } catch (e) { /* Server-Lookup optional, Cookie-Fallback unten */ }
-
-                    // "Stempelkarte" Button anzeigen — mit retry falls DOM noch nicht bereit
-                    updateRedownloadButton();
-                    setTimeout(() => updateRedownloadButton(), 500);
-                    setTimeout(() => updateRedownloadButton(), 1500);
                 }
             } catch (e) { /* silently ignore — Loyalty ist optional */ }
         }
@@ -1268,11 +1256,6 @@
                     }
                     _setLoyaltySavedCookie();
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
-                    // Stempel Button sofort verstecken
-                    const navBtn = document.getElementById('nav-stempelkarte-btn');
-                    const rdBtn = document.getElementById('loyalty-redownload-btn');
-                    if (navBtn) navBtn.style.display = 'none';
-                    if (rdBtn) rdBtn.style.display = 'none';
                     // Popup automatisch schließen nach kurzer Verzögerung
                     // (damit iOS Safari den .pkpass Download starten kann)
                     setTimeout(() => {
@@ -1291,11 +1274,6 @@
                 googleBtn.addEventListener('click', () => {
                     _setLoyaltySavedCookie();
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
-                    // Stempel Button sofort verstecken
-                    const navBtn = document.getElementById('nav-stempelkarte-btn');
-                    const rdBtn = document.getElementById('loyalty-redownload-btn');
-                    if (navBtn) navBtn.style.display = 'none';
-                    if (rdBtn) rdBtn.style.display = 'none';
                     // Popup automatisch schließen (Google öffnet in neuem Tab)
                     setTimeout(() => {
                         const popup = document.getElementById('loyalty-popup');
@@ -1375,47 +1353,12 @@
         // DOMContentLoaded Listener nötig)
 
         // Beim Laden prüfen ob Loyalty aktiv
-        // Polling: Alle 500ms prüfen ob Loyalty aktiv + Button im DOM
-        // WICHTIG: Button nur zeigen wenn Kunde KEIN Wallet hat (kein 'saved' Cookie)
-        // Wenn Kunde Wallet hat → Button verstecken (Cookie 'loyalty_{slug}=saved')
-        // Wenn Kunde Wallet löscht → ?reset_loyalty=1 löscht Cookie → Button wieder da
-        let _loyaltyPollCount = 0;
-        const _loyaltyPoll = setInterval(() => {
-            _loyaltyPollCount++;
-            if (_loyaltyCardActive && _loyaltyCardData) {
-                const btn = document.getElementById('nav-stempelkarte-btn');
-                const btn2 = document.getElementById('loyalty-redownload-btn');
-                // Cookie UND localStorage prüfen: hat Kunde schon Wallet?
-                const hasWalletCookie = document.cookie.includes('loyalty_{{ slug }}=saved');
-                const hasWalletLS = localStorage.getItem('loyalty_saved_{{ slug }}') === 'true';
-                const showBtn = !hasWalletCookie && !hasWalletLS;
-                
-                if (btn) {
-                    btn.style.display = showBtn ? 'flex' : 'none';
-                    btn.onclick = function(e) { e.preventDefault(); window.forceShowLoyaltyPopup(); };
-                }
-                if (btn2) {
-                    btn2.style.display = showBtn ? 'flex' : 'none';
-                    btn2.onclick = function(e) { e.preventDefault(); window.forceShowLoyaltyPopup(); };
-                }
-                if (btn || _loyaltyPollCount > 20) clearInterval(_loyaltyPoll);
-            }
-            if (_loyaltyPollCount > 20) clearInterval(_loyaltyPoll);
-        }, 500);
+        // (Polling + Redownload-Button entfernt — Stempel-Buttons sind weg,
+        //  das Loyalty-Popup wird nur noch über handleSpeisekarteClick getriggert.)
         checkLoyaltyAvailability();
 
-        // Nach checkLoyaltyAvailability: Button zeigen wenn Loyalty aktiv + Kunde schon Wallet hat
-        function updateRedownloadButton() {
-            const btn = document.getElementById('loyalty-redownload-btn');
-            const navBtn = document.getElementById('nav-stempelkarte-btn');
-            if (_loyaltyCardActive && _loyaltyCardData) {
-                if (btn) btn.style.display = 'flex';
-                if (navBtn) navBtn.style.display = 'flex';
-            }
-        }
-
         // forceShowLoyaltyPopup: Öffnet Popup auch wenn Cookie 'saved' gesetzt ist
-        // (für Kunden die Pass gelöscht haben und neu laden wollen)
+        // (für Kunden die Pass gelöscht haben und neu laden wollen — via ?reset_loyalty=1)
         window.forceShowLoyaltyPopup = function() {
             if (!_loyaltyCardActive || !_loyaltyCardData) return;
             prepareLoyaltyPopup(_loyaltyCardData);
@@ -1468,11 +1411,6 @@
         <button @click="handleSpeisekarteClick()" :class="currentView === 'speisekarte' ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors">
             <span class="material-symbols-outlined text-[20px] leading-none">menu_book</span>
             <span class="text-[11px] font-bold leading-none tracking-wide" data-translate="tab_menu">Speisekarte</span>
-        </button>
-        <!-- Stempelkarte Tab — nur sichtbar wenn Loyalty aktiv -->
-        <button id="nav-stempelkarte-btn" onclick="window.forceShowLoyaltyPopup()" class="flex flex-col items-center justify-center w-full h-full gap-0.5 transition-colors text-on-surface-variant hover:text-primary" style="display:none;">
-            <span class="material-symbols-outlined text-[20px] leading-none">confirmation_number</span>
-            <span class="text-[11px] font-bold leading-none tracking-wide">Stempel</span>
         </button>
     </div>
     {% endif %}
