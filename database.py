@@ -405,6 +405,10 @@ class LoyaltyCard(Base):
     is_active = Column(Boolean, default=True)
     color_hex = Column(String, default="#C9A84C")        # Branding-Farbe der Karte
     icon = Column(String, default="local_cafe")          # Material Icon Name
+    # Wallet-Banner-Foto (optional): Tenant-Foto das im strip.png angezeigt wird
+    # Pfad wie "/uploads/wallet-banners/{slug}-wallet-banner.png"
+    wallet_banner_path = Column(String, nullable=True)
+    wallet_banner_mode = Column(String, default="zone")  # "zone" (Foto mittig) oder "full" (Vollbild)
     created_at = Column(String, nullable=False)
 
 class LoyaltyCustomer(Base):
@@ -631,6 +635,9 @@ def _migrate_database():
     # Drei-Kanal-Server-Lookup (DSGVO-konforme Geräteerkennung)
     add_column_if_missing('loyalty_customers', 'anonymous_id', "VARCHAR")
     add_column_if_missing('loyalty_customers', 'pass_downloaded_at', "VARCHAR")
+    # Wallet-Banner-Foto für LoyaltyCard (Tenant kann Foto hochladen)
+    add_column_if_missing('loyalty_cards', 'wallet_banner_path', "VARCHAR")
+    add_column_if_missing('loyalty_cards', 'wallet_banner_mode', "VARCHAR DEFAULT 'zone'")
     # § 5 TMG: Verantwortlicher / Inhaber für Impressum
     add_column_if_missing('tenants', 'owner_name', "VARCHAR DEFAULT ''")
     add_column_if_missing('tenants', 'owner_street', "VARCHAR DEFAULT ''")

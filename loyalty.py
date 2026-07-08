@@ -988,14 +988,11 @@ def _draw_bakery_icon(draw, cx, cy, sz, color):
 
 
 # Mapping von Karten-Icon zu Zeichenfunktion
-_ICON_DRAWERS = {
-    "smoking_rooms": _draw_shisha_icon,
-    "local_cafe": _draw_coffee_icon,
-    "bakery_dining": _draw_bakery_icon,
-    "restaurant": _draw_restaurant_icon,
-    "local_bar": _draw_bar_icon,
-    "icecream": _draw_icecream_icon,
-}
+# WICHTIG: Aktuell LEER → alle Icons zeigen Sterne (User-Wunsch 2026-07).
+# Drawer-Funktionen (_draw_shisha_icon etc.) bleiben als Reserve erhalten.
+# Um Icons wieder zu aktivieren: Mapping befüllen, z.B.
+#   _ICON_DRAWERS = {"smoking_rooms": _draw_shisha_icon, ...}
+_ICON_DRAWERS = {}
 
 
 def _generate_stamp_strip(
@@ -1003,21 +1000,30 @@ def _generate_stamp_strip(
     stamps_required: int,
     card_icon: str = "local_cafe",
     color_hex: str = "#C9A84C",
+    banner_path: Optional[str] = None,
+    banner_mode: str = "zone",
 ) -> bytes:
     """Generiert ein strip.png (1125x432 px) für Apple Wallet storeCard.
 
     LAYOUT (kein Überlapp mit primaryFields Text):
-    - Obere 60% (ca. 260px): Transparent → primaryFields "0/10 Shisha Karte" rendert hier
-    - Untere 40% (ca. 170px): 10 Stempel-Kreise in horizontaler Reihe
+    - Obere ~240px: Transparent → primaryFields "0/10 Karte" rendert hier
+    - Mittlere Zone (optional): Tenant-Foto (banner_mode="zone")
+    - Untere ~192px: Stempel-Sterne in 1-2 Reihen
 
     Apple Wallet legt primaryFields Text ÜBER das strip-Bild (zentriert).
-    Da der Text nur die obere Hälfte nutzt, platzieren wir die Stempel-Kreise
+    Da der Text nur die obere Hälfte nutzt, platzieren wir die Sterne
     am unteren Rand → saubere Trennung, kein Überlapp.
 
+    Modi:
+    - Ohne banner_path: Sterne unten, oben transparent (Standard)
+    - banner_mode="zone": Foto mittig + Sterne unten + transparent oben
+    - banner_mode="full": Foto komplett + dunkles Gradient oben + Sterne unten
+
     Layout:
-    - 10 Kreise horizontal (5 gefüllt + 5 leer, je nach Fortschritt)
-    - Gefüllt = vollfarbiger Kreis mit weißem Icon
-    - Leer = Outline-Kreis mit halbtransparentem Icon
+    - n Sterne horizontal (n = stamps_required)
+    - Bei n>10: 2 Reihen
+    - Gefüllt = vollfarbiger Stern
+    - Leer = Outline-Stern
     """
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -1037,6 +1043,55 @@ def _generate_stamp_strip(
             b = int(hex_str[4:6], 16)
         else:
             r, g, b = 201, 168, 76  # Default gold
+
+        # ── Banner-Foto einbauen (optional) ──
+        # Apple Wallet storeCard unterstützt nur strip.png als großes Bild.
+        # Wir integrieren das Tenant-Foto ins strip.png:
+        # - "zone": Foto in mittlerer Zone (Y=120-240), Sterne unten, Text oben transparent
+        # - "full": Foto als Voll-Hintergrund + dunkles Gradient oben für Text-Lesbarkeit
+        banner_loaded = False
+        if banner_path:
+            # Pfad auflösen: "/uploads/..." → tatsächlicher Dateipfad
+            fs_path = banner_path
+            if banner_path.startswith("/uploads/"):
+                # UPLOAD_DIR wird in main.py gesetzt; Fallback-Logik
+                upload_dir = os.environ.get("UPLOAD_DIR", "/app/data/uploads")
+                fs_path = os.path.join(upload_dir, banner_path[len("/uploads/"):])
+                # Alternative Pfade prüfen
+                if not os.path.exists(fs_path):
+                    fs_path = os.path.join("/app/data/uploads", banner_path[len("/uploads/"):])
+            if os.path.exists(fs_path):
+                try:
+                    banner_img = Image.open(fs_path).convert("RGBA")
+                    if banner_mode == "full":
+                        # Foto als Voll-Hintergrund (1125x432)
+                        banner_img = banner_img.resize((W, H), Image.Resampling.LANCZOS)
+                        img.paste(banner_img, (0, 0), banner_img)
+                        # Dunkles Gradient oben (Y=0-180) für Text-Lesbarkeit
+                        gradient = Image.new("RGBA", (W, 180), (0, 0, 0, 160))
+                        img = Image.alpha_composite(img, gradient)
+                        draw = ImageDraw.Draw(img)
+                    else:  # "zone"
+                        # Foto in mittlerer Zone (Y=120-240 = 120px hoch, volle Breite)
+                        zone_top, zone_h = 120, 120
+                        zone_w = W
+                        src_ratio = banner_img.width / banner_img.height
+                        dst_ratio = zone_w / zone_h
+                        if src_ratio > dst_ratio:
+                            new_w = int(banner_img.height * dst_ratio)
+                            left = (banner_img.width - new_w) // 2
+                            cropped = banner_img.crop((left, 0, left + new_w, banner_img.height))
+                        else:
+                            new_h = int(banner_img.width / dst_ratio)
+                            top = (banner_img.height - new_h) // 2
+                            cropped = banner_img.crop((0, top, banner_img.width, top + new_h))
+                        cropped = cropped.resize((zone_w, zone_h), Image.Resampling.LANCZOS)
+                        img.paste(cropped, (0, zone_top), cropped)
+                    banner_loaded = True
+                except Exception as e:
+                    print(f"[Apple Pass] Banner load failed, fallback to default: {e}")
+            else:
+                print(f"[Apple Pass] Banner file not found: {fs_path}")
 
         # Helligkeit berechnen
         brightness = (r * 299 + g * 587 + b * 114) / 1000
@@ -1132,6 +1187,8 @@ def generate_apple_pkpass(
     customer: Dict[str, Any],
     geofence: Optional[Dict[str, Any]] = None,
     logo_path: Optional[str] = None,
+    wallet_banner_path: Optional[str] = None,
+    wallet_banner_mode: str = "zone",
 ) -> Optional[bytes]:
     """Generiert einen kompletten .pkpass-File (ZIP) für Apple Wallet.
 
@@ -1193,6 +1250,8 @@ def generate_apple_pkpass(
             stamps_required=stamps_required,
             card_icon=card_icon,
             color_hex=color_hex,
+            banner_path=wallet_banner_path,
+            banner_mode=wallet_banner_mode,
         )
 
         # 4. Manifest bauen — Hashes ALLER Dateien die im ZIP landen

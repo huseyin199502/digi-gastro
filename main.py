@@ -868,6 +868,10 @@ UPLOAD_DIR = os.getenv(
 )
 UPLOAD_LOGOS_DIR = os.path.join(UPLOAD_DIR, "logos")
 os.makedirs(UPLOAD_LOGOS_DIR, exist_ok=True)
+# Wallet-Banner-Uploads (Tenant-Foto für Stempelkarte strip.png)
+UPLOAD_WALLET_BANNERS_DIR = os.path.join(UPLOAD_DIR, "wallet-banners")
+os.makedirs(UPLOAD_WALLET_BANNERS_DIR, exist_ok=True)
+MAX_WALLET_BANNER_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 def delete_local_image_if_unused(image_path: str, restaurant: dict, current_product_id: Optional[int] = None):
     if not image_path or not image_path.startswith("/uploads/"):
@@ -14040,7 +14044,9 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
 
     pkpass_bytes = generate_apple_pkpass(
         slug_lower, tenant.name, card_dict, customer_dict, geofence_dict,
-        logo_path=logo_path  # CRITICAL: Tenant-Logo in den Pass!
+        logo_path=logo_path,  # CRITICAL: Tenant-Logo in den Pass!
+        wallet_banner_path=getattr(card, 'wallet_banner_path', None),
+        wallet_banner_mode=getattr(card, 'wallet_banner_mode', 'zone') or 'zone',
     )
     if not pkpass_bytes:
         raise HTTPException(status_code=500, detail="Pass-Generierung fehlgeschlagen.")
@@ -14347,7 +14353,9 @@ async def passkit_get_pass(
 
     pkpass_bytes = generate_apple_pkpass(
         customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict,
-        logo_path=logo_path_update
+        logo_path=logo_path_update,
+        wallet_banner_path=getattr(card, 'wallet_banner_path', None),
+        wallet_banner_mode=getattr(card, 'wallet_banner_mode', 'zone') or 'zone',
     )
 
     if not pkpass_bytes:
@@ -14436,6 +14444,8 @@ def loyalty_dashboard(chef_data: tuple = Depends(require_chef_user_flat), db: Se
             "id": c.id, "name": c.name, "description": c.description,
             "stamps_required": c.stamps_required, "reward_name": c.reward_name,
             "is_active": c.is_active, "color_hex": c.color_hex, "icon": c.icon,
+            "wallet_banner_path": getattr(c, 'wallet_banner_path', None),
+            "wallet_banner_mode": getattr(c, 'wallet_banner_mode', 'zone') or 'zone',
         } for c in cards],
         "campaigns": [{
             "id": c.id, "name": c.name, "campaign_type": c.campaign_type,
@@ -14499,6 +14509,126 @@ def loyalty_create_card(
     db.commit()
     db.refresh(card)
     return {"success": True, "card_id": card.id}
+
+
+@app.post("/admin/loyalty/upload-banner")
+async def loyalty_upload_banner(
+    request: Request,
+    file: "UploadFile" = File(...),
+    banner_mode: str = Form("zone"),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Lädt ein Tenant-Foto hoch das im Apple Wallet strip.png angezeigt wird.
+
+    Bild-Verarbeitung:
+    - Center-Crop auf 1125x432 px (Apple storeCard strip Spec)
+    - PNG-Format (Apple akzeptiert nur PNG im .pkpass)
+    - Max 5 MB Upload-Größe
+
+    Modi:
+    - "zone" (default): Foto in mittlerer Zone, Sterne unten, Text oben transparent
+    - "full": Foto als Voll-Hintergrund + dunkles Gradient oben für Text-Lesbarkeit
+    """
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    # Aktive Karte des Tenants finden
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Keine aktive Stempelkarte vorhanden. Bitte zuerst erstellen.")
+
+    # Upload lesen mit Size-Limit
+    content = await safe_read_upload(file, MAX_WALLET_BANNER_UPLOAD_BYTES)
+
+    # Bild mit PIL öffnen und validieren
+    try:
+        from PIL import Image as _PILImage
+        import io as _pil_io
+        img = _PILImage.open(_pil_io.BytesIO(content))
+        img = img.convert("RGBA")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ungültiges Bild-Format: {e}")
+
+    # Center-Crop auf 1125x432 px (Apple storeCard strip @3x)
+    target_w, target_h = 1125, 432
+    src_ratio = img.width / img.height
+    dst_ratio = target_w / target_h
+    if src_ratio > dst_ratio:
+        # Quelle zu breit → horizontal croppen
+        new_w = int(img.height * dst_ratio)
+        left = (img.width - new_w) // 2
+        img = img.crop((left, 0, left + new_w, img.height))
+    else:
+        # Quelle zu hoch → vertikal croppen
+        new_h = int(img.width / dst_ratio)
+        top = (img.height - new_h) // 2
+        img = img.crop((0, top, img.width, top + new_h))
+    img = img.resize((target_w, target_h), _PILImage.Resampling.LANCZOS)
+
+    # Als PNG speichern (Apple akzeptiert nur PNG im .pkpass!)
+    filename = f"{slug_lower}-wallet-banner.png"
+    file_path = os.path.join(UPLOAD_WALLET_BANNERS_DIR, filename)
+    img.save(file_path, format="PNG", optimize=True)
+
+    # Pfad in DB speichern
+    banner_url = f"/uploads/wallet-banners/{filename}"
+    card.wallet_banner_path = banner_url
+    card.wallet_banner_mode = banner_mode if banner_mode in ("zone", "full") else "zone"
+    db.commit()
+
+    # Alle Kunden-Pässe dieses Tenants zum Update pushen (APNs)
+    try:
+        customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+        for cust in customers:
+            try:
+                _trigger_pass_update_push(db, cust, card.name, "Banner aktualisiert")
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[Loyalty] Banner push trigger failed: {e}")
+
+    return {
+        "success": True,
+        "banner_url": banner_url,
+        "banner_mode": card.wallet_banner_mode,
+        "pushed_customers": db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).count(),
+    }
+
+
+@app.delete("/admin/loyalty/banner")
+def loyalty_delete_banner(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Entfernt das Wallet-Banner-Foto des Tenants."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Keine aktive Stempelkarte vorhanden.")
+    if card.wallet_banner_path:
+        # Datei löschen
+        filename = card.wallet_banner_path.split("/")[-1]
+        file_path = os.path.join(UPLOAD_WALLET_BANNERS_DIR, filename)
+        try:
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+        except Exception:
+            pass
+    card.wallet_banner_path = None
+    db.commit()
+    # Push update an alle Kunden
+    try:
+        customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+        for cust in customers:
+            try:
+                _trigger_pass_update_push(db, cust, card.name, "Banner entfernt")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return {"success": True}
 
 
 @app.delete("/admin/loyalty/card/{card_id}")

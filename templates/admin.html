@@ -6088,6 +6088,48 @@
                     </div>
                 </div>
 
+                <!-- Section 2b: Wallet-Banner-Foto (optional) -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">photo_camera</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Wallet-Banner-Foto (optional)</h3>
+                        </div>
+                        <span class="text-[10px] font-bold text-amber-600">Empfohlen 1125×432 px</span>
+                    </div>
+                    <div class="section-card-body">
+                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mb-3 leading-relaxed">
+                            Lade ein Foto deines Lokals, deines Signature-Dishes oder deines Teams hoch. Es erscheint prominent in der Mitte der Apple-Wallet-Stempelkarte deiner Gäste. <strong>Optimal: 1125×432 Pixel, Querformat, PNG/JPG.</strong>
+                        </p>
+                        <div id="loyalty-banner-preview" class="mb-3 hidden">
+                            <div class="text-[10px] font-bold text-zinc-500 mb-1">Aktuelles Banner:</div>
+                            <img id="loyalty-banner-img" src="" alt="Banner-Vorschau" class="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 max-h-32 object-cover">
+                            <div class="flex gap-2 mt-2">
+                                <button type="button" onclick="deleteLoyaltyBanner()" class="btn-premium glass-btn-secondary text-[10px] py-1 px-2 rounded-lg" style="color:#dc2626 !important;">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">delete</span> Banner löschen
+                                </button>
+                            </div>
+                        </div>
+                        <form id="loyalty-banner-form" onsubmit="uploadLoyaltyBanner(event)" class="space-y-3">
+                            <div>
+                                <label class="form-label">Foto hochladen</label>
+                                <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required class="form-field text-[11px]">
+                            </div>
+                            <div>
+                                <label class="form-label">Anzeige-Modus</label>
+                                <select name="banner_mode" class="form-field">
+                                    <option value="zone">Zonen (Foto mittig, Sterne unten, Text oben)</option>
+                                    <option value="full">Vollbild (Foto als Hintergrund, dunkles Overlay oben)</option>
+                                </select>
+                                <div class="text-[10px] text-zinc-500 mt-1">Zonen = sauberer Look ohne Überlappung. Vollbild = maximale Foto-Wirkung.</div>
+                            </div>
+                            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined" style="font-size:14px;">upload</span> Banner hochladen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Section 3: GPS-Standort (Geofencing) -->
                 <div class="section-card mb-4">
                     <div class="section-card-header">
@@ -14239,6 +14281,19 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 if (!res.ok) throw new Error('Dashboard load failed');
                 const data = await res.json();
 
+                // Banner-Vorschau aktualisieren
+                const card0 = data.cards && data.cards[0];
+                const preview = document.getElementById('loyalty-banner-preview');
+                const img = document.getElementById('loyalty-banner-img');
+                if (preview && img) {
+                    if (card0 && card0.wallet_banner_path) {
+                        img.src = card0.wallet_banner_path + '?t=' + Date.now();
+                        preview.classList.remove('hidden');
+                    } else {
+                        preview.classList.add('hidden');
+                    }
+                }
+
                 // Analytics
                 const a = data.analytics || {};
                 document.getElementById('loyalty-stat-total').textContent = a.total_customers ?? '—';
@@ -14344,6 +14399,67 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             } catch (e) {
                 showToast('Netzwerkfehler: ' + e.message, 'error');
             }
+        }
+
+        async function uploadLoyaltyBanner(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            try {
+                showToast('⏳ Banner wird hochgeladen...', 'info');
+                const res = await fetch('/admin/loyalty/upload-banner', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(`✅ Banner hochgeladen! ${data.pushed_customers} Pässe werden aktualisiert.`, 'success');
+                    form.reset();
+                    loadLoyaltyBannerPreview();
+                } else {
+                    showToast(data.detail || 'Fehler beim Upload', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteLoyaltyBanner() {
+            if (!confirm('Wallet-Banner wirklich löschen? Pässe werden aktualisiert.')) return;
+            try {
+                const res = await fetch('/admin/loyalty/banner', {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('✅ Banner gelöscht!', 'success');
+                    loadLoyaltyBannerPreview();
+                } else {
+                    showToast(data.detail || 'Fehler beim Löschen', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        async function loadLoyaltyBannerPreview() {
+            // Prüfe via loyalty dashboard ob ein Banner gesetzt ist
+            try {
+                const res = await fetch('/admin/loyalty/dashboard', { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const card = data.cards && data.cards[0];
+                const preview = document.getElementById('loyalty-banner-preview');
+                const img = document.getElementById('loyalty-banner-img');
+                if (card && card.wallet_banner_path) {
+                    img.src = card.wallet_banner_path + '?t=' + Date.now();
+                    preview.classList.remove('hidden');
+                } else {
+                    preview.classList.add('hidden');
+                }
+            } catch (e) { /* ignore */ }
         }
 
         async function deleteLoyaltyCard(cardId) {
