@@ -6059,7 +6059,7 @@
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div>
                                     <label class="form-label">Stempel bis Reward</label>
-                                    <input type="number" name="stamps_required" value="10" min="1" max="50" class="form-field">
+                                    <input type="number" name="stamps_required" value="10" min="1" max="50" required class="form-field" onchange="this.dataset.userEdited='1'">
                                 </div>
                                 <div>
                                     <label class="form-label">Farbe (Hex)</label>

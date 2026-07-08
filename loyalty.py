@@ -1057,16 +1057,24 @@ def _generate_stamp_strip(
         stamps_area_h = H - stamps_area_top  # ~192px
         n = stamps_required
 
-        # Kreis-Größe: größer für bessere Sichtbarkeit
-        cell_w = W // n
-        circle_size = int(min(cell_w * 0.85, stamps_area_h * 0.95))  # ~110px
-        cy = stamps_area_top + stamps_area_h // 2
+        # Layout: 1 Reihe für n<=10, 2 Reihen für n>10 (verhindert zu kleine Kreise)
+        if n > 10:
+            rows = 2
+            cols = math.ceil(n / rows)
+        else:
+            rows = 1
+            cols = n
+
+        # Kreis-Größe dynamisch berechnen
+        cell_w = W // cols
+        cell_h = stamps_area_h // rows
+        circle_size = int(min(cell_w * 0.85, cell_h * 0.95))
 
         # Icon-Zeichner aus dem Mapping holen (Fallback: Stern)
         icon_drawer = _ICON_DRAWERS.get(icon_type)
 
         def _draw_default_star(draw, cx, cy, sz, color):
-            """Fallback: Stern."""
+            """Fallback: Stern (5 Zacken = 10 Vertices)."""
             points = []
             for i in range(10):
                 angle = math.pi / 2 + i * math.pi / 5
@@ -1076,9 +1084,12 @@ def _generate_stamp_strip(
                 points.append((px, py))
             draw.polygon(points, fill=color)
 
-        # 10 Kreise zeichnen (horizontal, am unteren Rand)
+        # n Kreise zeichnen (horizontal, am unteren Rand — 1 oder 2 Reihen je nach Anzahl)
         for i in range(n):
-            cx = i * cell_w + cell_w // 2
+            row = i // cols
+            col = i % cols
+            cx = col * cell_w + cell_w // 2
+            cy = stamps_area_top + row * cell_h + cell_h // 2
             half = circle_size // 2
             filled = i < stamps_current
             if filled:
@@ -1174,6 +1185,9 @@ def generate_apple_pkpass(
         stamps_current = customer.get("current_stamps", 0)
         stamps_required = card.get("stamps_required", 10)
         card_icon = card.get("icon", "local_cafe")
+        # Debug-Log: Verifikation dass stamps_required korrekt durchgereicht wird
+        print(f"[Apple Pass] stamps_required={stamps_required} (type={type(stamps_required).__name__}), "
+              f"stamps_current={stamps_current}, card_id={card.get('id')}, icon={card_icon}")
         strip_bytes = _generate_stamp_strip(
             stamps_current=stamps_current,
             stamps_required=stamps_required,

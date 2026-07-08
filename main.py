@@ -14459,7 +14459,7 @@ def loyalty_dashboard(chef_data: tuple = Depends(require_chef_user_flat), db: Se
 def loyalty_create_card(
     name: str = Form(...),
     description: str = Form(""),
-    stamps_required: int = Form(10),
+    stamps_required: int = Form(...),  # Pflichtfeld — verhindert stummes Defaulting auf 10
     reward_name: str = Form(...),
     reward_product_id: Optional[int] = Form(None),
     reward_discount_percent: int = Form(0),
