@@ -249,24 +249,33 @@ def _generate_apple_pass_json(
                     "changeMessage": "Neuer Code: %@"
                 }
             ],
+            # primaryFields: NUR Label (kein Wert) — nichts überdeckt das Foto im strip
+            # Apple Wallet rendert primaryFields ÜBER strip.png. Mit leerem value
+            # wird nur das kleine Label oben angezeigt (z.B. "Shisha Karte").
             "primaryFields": [
                 {
                     "key": "stamps",
-                    "label": f"{card_name}",
-                    "value": primary_value,
+                    "label": card_name,
+                    "value": "",
                     "textAlignment": "PKTextAlignmentCenter",
-                    # changeMessage dynamisch: bei 10/10 "Prämie bereit!"
                     "changeMessage": primary_change
                 }
             ],
             # secondaryFields sitzen UNTER dem strip-Bild auf solidem Hintergrund.
-            # Immer gut lesbar, kein Kontrast-Problem wie bei auxiliaryFields über strip.
+            # Hier zeigen wir Stempel-Zähler + reward — immer gut lesbar!
             "secondaryFields": [
+                {
+                    "key": "stampcount",
+                    "label": "Stempel",
+                    "value": primary_value,  # z.B. "3 / 10"
+                    "textAlignment": "PKTextAlignmentLeft",
+                    "changeMessage": primary_change
+                },
                 {
                     "key": "reward",
                     "label": reward_label,
                     "value": reward_value,
-                    "textAlignment": "PKTextAlignmentLeft",
+                    "textAlignment": "PKTextAlignmentRight",
                     "changeMessage": "Reward aktualisiert: %@"
                 }
             ],
@@ -1197,13 +1206,23 @@ def _generate_stamp_strip(
         else:
             r, g, b = 201, 168, 76  # Default gold
 
-        # ── Banner-Foto einbauen (optional) ──
-        # PROFESSIONAL DESIGN (getqard.com / Starbucks-inspiriert):
-        # - Foto als Voll-Hintergrund mit Cover-Fit (keine Verzerrung)
-        # - Stärkeres Gradient oben (alpha 210) für Text-Lesbarkeit
-        # - Radiale Vignette (dunkelt Ränder ab, Fokus auf Mitte)
-        # - Gradient unten für Sterne-Lesbarkeit
-        # - Sterne mit 4-Schicht-Rendering (Drop-Shadow, Gradient, Glass, Outline)
+        # ════════════════════════════════════════════════════════════════
+        # NEUES LAYOUT (Sub-Agent Recherche + Agent Browser Analyse):
+        # Foto OBEN (Y=0-255) + Sterne UNTEN auf dunklem Band (Y=285-415)
+        # Sauber getrennt - kein Ueberlapp mehr!
+        #
+        # Y=0   : TENANT-FOTO (Cover-Fit, voll)
+        # Y=255 : dunkler Verlauf (30px)
+        # Y=285 : Sterne auf dunklem Band (4-Schicht-Rendering)
+        # Y=415 : Safe-Bottom
+        # Y=432 : Ende
+        #
+        # Apple Wallet rendert primaryFields UEBER strip.png -> wir lassen
+        # primaryFields LEER (nichts ueberdeckt das Foto).
+        # Stempel-Zaehler "3/10" kommt in secondaryFields (UNTER strip).
+        # ════════════════════════════════════════════════════════════════
+
+        # ── Foto OBEN (Y=0-255) ──
         banner_loaded = False
         if banner_path:
             fs_path = banner_path
@@ -1215,39 +1234,18 @@ def _generate_stamp_strip(
             if os.path.exists(fs_path):
                 try:
                     banner_img = Image.open(fs_path).convert("RGBA")
-                    # Cover-Fit: preserves aspect ratio, crops overflow (keine Verzerrung)
+                    # Foto-Bereich: Y=0 bis Y=255 (255px hoch, volle Breite)
+                    foto_h = 255
+                    # Cover-Fit auf 1125x255
                     bw, bh = banner_img.size
-                    scale = max(W / bw, H / bh)
+                    scale = max(W / bw, foto_h / bh)
                     new_w, new_h = int(bw * scale), int(bh * scale)
                     banner_img = banner_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
                     left = (new_w - W) // 2
-                    top = (new_h - H) // 2
-                    banner_img = banner_img.crop((left, top, left + W, top + H))
-                    img = Image.alpha_composite(img, banner_img)
-                    draw = ImageDraw.Draw(img)
-
-                    # Stärkeres Top-Gradient (alpha 210, ease-out Kurve)
-                    top_grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                    td = ImageDraw.Draw(top_grad)
-                    top_h = 200
-                    for y in range(top_h):
-                        t = y / top_h
-                        alpha = int(210 * (1 - t) ** 1.4)
-                        td.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-                    img = Image.alpha_composite(img, top_grad)
-
-                    # Bottom-Gradient für Sterne-Lesbarkeit (alpha 150, ease-in)
-                    bot_grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-                    bd = ImageDraw.Draw(bot_grad)
-                    bot_start = 260
-                    for y in range(bot_start, H):
-                        t = (y - bot_start) / (H - bot_start)
-                        alpha = int(150 * t ** 1.6)
-                        bd.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-                    img = Image.alpha_composite(img, bot_grad)
-
-                    # Radiale Vignette (dunkelt Ränder ab, Fokus auf Mitte)
-                    img = _apply_radial_vignette(img, W, H, strength=0.45)
+                    top = (new_h - foto_h) // 2
+                    banner_img = banner_img.crop((left, top, left + W, top + foto_h))
+                    # Foto auf das strip-Bild pasten (nur oberer Bereich)
+                    img.paste(banner_img, (0, 0), banner_img)
                     draw = ImageDraw.Draw(img)
                     banner_loaded = True
                 except Exception as e:
@@ -1255,17 +1253,34 @@ def _generate_stamp_strip(
             else:
                 print(f"[Apple Pass] Banner file not found: {fs_path}")
 
+        # ── Dunkles Band UNTEN für Sterne (Y=255-432) ──
+        # Sanfter Verlauf von Foto zu dunklem Band (Y=255-285 = 30px)
+        # Dann volles dunkles Band für Sterne (Y=285-432)
+        band_color = (20, 20, 20, 255)  # Sehr dunkles Grau
+        if banner_loaded:
+            # Verlauf Foto → dunkles Band (Y=255 bis Y=285)
+            transition_top = 240
+            transition_bot = 290
+            for y in range(transition_top, transition_bot):
+                t = (y - transition_top) / (transition_bot - transition_top)
+                alpha = int(255 * t)
+                draw.line([(0, y), (W, y)], fill=(20, 20, 20, alpha))
+            # Voll dunkles Band ab Y=290
+            draw.rectangle([0, 290, W, H], fill=band_color)
+        else:
+            # Kein Banner → komplettes dunkles Band
+            draw.rectangle([0, 0, W, H], fill=band_color)
+
         # Helligkeit berechnen
         brightness = (r * 299 + g * 587 + b * 114) / 1000
         is_dark = brightness < 140
 
         icon_type = card_icon or "local_cafe"
 
-        # ── Sterne mit PROFESSIONAL 4-Schicht-Rendering ──
-        # Sterne sind jetzt größer (~85% der Zelle statt ~65%)
-        # und haben Drop-Shadow + Radial-Gradient + Glass-Highlight + Outline
-        stamps_area_top = H - 200  # Sterne in unteren 200px
-        stamps_area_h = H - stamps_area_top - 20  # 20px bottom padding
+        # ── Sterne UNTEN auf dunklem Band (Y=295-415) ──
+        # 4-Schicht-Rendering: Drop-Shadow, Radial-Gradient, Glass, Outline
+        stamps_area_top = 300  # Unterhalb des Fotos + Verlauf
+        stamps_area_h = H - stamps_area_top - 20  # 20px bottom padding = 112px
         n = stamps_required
 
         # Layout: 1 Reihe für n<=10, 2 Reihen für n>10
@@ -1278,11 +1293,11 @@ def _generate_stamp_strip(
 
         cell_w = W / cols
         cell_h = stamps_area_h / rows
-        # Sterne GRÖßER: ~85% der Zelle (vorher ~65%)
+        # Sterne GRÖßER: ~85% der Zelle
         star_size = int(min(cell_w * 0.82, cell_h * 0.92))
 
         brand_rgb = (r, g, b)
-        on_dark = True  # Sterne immer auf dunklem/foto Hintergrund
+        on_dark = True  # Sterne immer auf dunklem Band
 
         for i in range(n):
             row = i // cols
