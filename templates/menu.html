@@ -1215,6 +1215,19 @@
         // DOMContentLoaded Listener nötig)
 
         // Beim Laden prüfen ob Loyalty aktiv
+        // Polling: Alle 500ms prüfen ob Loyalty aktiv + Button im DOM → anzeigen
+        let _loyaltyPollCount = 0;
+        const _loyaltyPoll = setInterval(() => {
+            _loyaltyPollCount++;
+            if (_loyaltyCardActive && _loyaltyCardData) {
+                const btn = document.getElementById('nav-stempelkarte-btn');
+                const btn2 = document.getElementById('loyalty-redownload-btn');
+                if (btn) btn.style.display = 'flex';
+                if (btn2) btn2.style.display = 'flex';
+                if (btn || _loyaltyPollCount > 20) clearInterval(_loyaltyPoll);
+            }
+            if (_loyaltyPollCount > 20) clearInterval(_loyaltyPoll);
+        }, 500);
         checkLoyaltyAvailability();
 
         // Nach checkLoyaltyAvailability: Button zeigen wenn Loyalty aktiv + Kunde schon Wallet hat
