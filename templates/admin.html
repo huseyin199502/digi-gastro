@@ -14710,7 +14710,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     msg = 'Zeitüberschreitung. Versuche es erneut.';
                 }
                 showToast('Standort-Fehler: ' + msg, 'error');
-            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+            }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 });
         }
 
         function toggleCampaignFields(select) {

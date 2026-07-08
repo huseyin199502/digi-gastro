@@ -1111,6 +1111,15 @@
                     // → Popup wird nicht mehr angezeigt bei nächsten Besuchen
                     _setLoyaltySavedCookie();
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                    // Popup automatisch schließen nach kurzer Verzögerung
+                    // (damit iOS Safari den .pkpass Download starten kann)
+                    setTimeout(() => {
+                        const popup = document.getElementById('loyalty-popup');
+                        if (popup) {
+                            popup.classList.add('hidden');
+                            document.body.style.overflow = '';
+                        }
+                    }, 1500);
                 });
             }
 
@@ -1120,6 +1129,14 @@
                 googleBtn.addEventListener('click', () => {
                     _setLoyaltySavedCookie();
                     localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                    // Popup automatisch schließen (Google öffnet in neuem Tab)
+                    setTimeout(() => {
+                        const popup = document.getElementById('loyalty-popup');
+                        if (popup) {
+                            popup.classList.add('hidden');
+                            document.body.style.overflow = '';
+                        }
+                    }, 1000);
                 });
                 fetch('/{{ slug }}/loyalty/pass/google')
                     .then(r => r.ok ? r.json() : null)

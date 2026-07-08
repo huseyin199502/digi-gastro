@@ -9,233 +9,76 @@
     <style>
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         html, body {
-            margin: 0;
-            padding: 0;
-            background: #000000;
-            color: #ffffff;
+            margin: 0; padding: 0;
+            background: #000000; color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-            min-height: 100vh;
-            min-height: 100dvh;
+            min-height: 100vh; min-height: 100dvh;
             overflow-x: hidden;
         }
         .container {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: env(safe-area-inset-top, 1rem) 1rem env(safe-area-inset-bottom, 1rem);
-            padding-top: max(env(safe-area-inset-top), 1rem);
-            padding-bottom: max(env(safe-area-inset-bottom), 2rem);
+            max-width: 480px; margin: 0 auto;
+            padding: max(env(safe-area-inset-top), 1rem) 1rem max(env(safe-area-inset-bottom), 2rem);
         }
-        /* Header mit Logo + Name */
-        .header {
-            text-align: center;
-            padding: 1.5rem 0 1rem;
-        }
-        .header img {
-            width: 72px;
-            height: 72px;
-            object-fit: contain;
-            border-radius: 1rem;
-            margin: 0 auto 0.75rem;
-            background: rgba(255,255,255,0.05);
-            padding: 8px;
-        }
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 900;
-            margin: 0;
-            color: #ffffff;
-        }
-        .header p {
-            font-size: 0.875rem;
-            color: #a1a1aa;
-            margin: 0.25rem 0 0;
-        }
+        .header { text-align: center; padding: 1rem 0 0.5rem; }
+        .header img { width: 64px; height: 64px; object-fit: contain; border-radius: 1rem; margin: 0 auto 0.5rem; background: rgba(255,255,255,0.05); padding: 6px; }
+        .header h1 { font-size: 1.25rem; font-weight: 900; margin: 0; }
+        .header p { font-size: 0.75rem; color: #a1a1aa; margin: 0.25rem 0 0; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0.5rem; margin: 1rem 0; }
+        .tab-btn { flex: 1; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid #3f3f46; background: #18181b; color: #a1a1aa; font-weight: 700; font-size: 0.875rem; cursor: pointer; transition: all 0.15s; }
+        .tab-btn.active { background: #22c55e; color: #fff; border-color: #22c55e; }
+
         /* Code-Eingabe */
-        .code-section {
-            margin: 1.5rem 0 1rem;
-        }
-        .code-label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #a1a1aa;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+        .code-section { margin: 0.5rem 0; }
+        .code-label { display: block; font-size: 0.75rem; font-weight: 700; color: #a1a1aa; text-align: center; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .stamp-input {
-            font-size: clamp(2rem, 8vw, 3rem);
-            letter-spacing: 0.5rem;
-            text-align: center;
-            text-transform: uppercase;
-            background: #18181b;
-            border: 2px solid #3f3f46;
-            color: #ffffff;
-            border-radius: 0.75rem;
-            padding: 1rem 0.5rem;
-            width: 100%;
-            font-weight: 900;
-            font-family: ui-monospace, "SF Mono", Monaco, monospace;
-            transition: all 0.15s;
-            -webkit-appearance: none;
-            appearance: none;
+            font-size: clamp(1.75rem, 7vw, 2.5rem); letter-spacing: 0.4rem; text-align: center; text-transform: uppercase;
+            background: #18181b; border: 2px solid #3f3f46; color: #ffffff; border-radius: 0.75rem;
+            padding: 0.875rem 0.5rem; width: 100%; font-weight: 900; font-family: ui-monospace, "SF Mono", Monaco, monospace;
+            transition: all 0.15s; -webkit-appearance: none; appearance: none;
         }
-        .stamp-input:focus {
-            border-color: #22c55e;
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
-            background: #18181b;
-        }
-        .stamp-input::placeholder {
-            color: #52525b;
-        }
-        .code-hint {
-            text-align: center;
-            font-size: 0.75rem;
-            color: #71717a;
-            margin-top: 0.5rem;
-        }
+        .stamp-input:focus { border-color: #22c55e; outline: none; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2); }
+        .stamp-input::placeholder { color: #52525b; }
+        .code-hint { text-align: center; font-size: 0.7rem; color: #71717a; margin-top: 0.5rem; }
+
         /* Lookup Ergebnis */
-        .lookup-card {
-            background: #18181b;
-            border: 1px solid #27272a;
-            border-radius: 0.75rem;
-            padding: 1rem;
-            margin-top: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .lookup-card.error {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.1);
-            color: #fca5a5;
-            text-align: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-        .progress-circle {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: conic-gradient(#22c55e var(--progress, 0%), #3f3f46 0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .progress-inner {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: #18181b;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 900;
-            color: #ffffff;
-        }
-        .lookup-info {
-            flex: 1;
-            min-width: 0;
-        }
-        .lookup-name {
-            font-weight: 800;
-            color: #ffffff;
-            font-size: 0.95rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .lookup-tier {
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-top: 2px;
-        }
+        .lookup-card { background: #18181b; border: 1px solid #27272a; border-radius: 0.75rem; padding: 1rem; margin-top: 1rem; display: flex; align-items: center; gap: 1rem; }
+        .lookup-card.error { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); color: #fca5a5; text-align: center; justify-content: center; flex-direction: column; }
+        .progress-circle { width: 52px; height: 52px; border-radius: 50%; background: conic-gradient(#22c55e var(--progress, 0%), #3f3f46 0); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .progress-inner { width: 44px; height: 44px; border-radius: 50%; background: #18181b; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 900; color: #ffffff; }
+        .lookup-info { flex: 1; min-width: 0; }
+        .lookup-name { font-weight: 800; color: #ffffff; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lookup-tier { font-size: 0.7rem; font-weight: 700; margin-top: 2px; }
         .lookup-tier.neu { color: #a1a1aa; }
         .lookup-tier.stamm { color: #60a5fa; }
         .lookup-tier.vip { color: #fbbf24; }
-        .lookup-card-name {
-            font-size: 0.7rem;
-            color: #71717a;
-            margin-top: 2px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+        .lookup-card-name { font-size: 0.65rem; color: #71717a; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
         /* Buttons */
-        .btn-primary {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            color: #ffffff;
-            font-weight: 900;
-            padding: 1.125rem;
-            border-radius: 0.75rem;
-            font-size: 1.05rem;
-            width: 100%;
-            border: none;
-            box-shadow: 0 8px 24px -4px rgba(34, 197, 94, 0.4);
-            transition: all 0.15s;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
+        .btn-primary { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #fff; font-weight: 900; padding: 1rem; border-radius: 0.75rem; font-size: 1rem; width: 100%; border: none; box-shadow: 0 8px 24px -4px rgba(34, 197, 94, 0.4); transition: all 0.15s; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
         .btn-primary:active { transform: scale(0.98); }
-        .btn-primary:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-        .btn-secondary {
-            background: #27272a;
-            color: #ffffff;
-            font-weight: 700;
-            padding: 0.875rem;
-            border-radius: 0.75rem;
-            font-size: 0.95rem;
-            width: 100%;
-            border: 1px solid #3f3f46;
-            cursor: pointer;
-            margin-top: 0.75rem;
-            transition: all 0.15s;
-        }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+        .btn-reward { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; font-weight: 900; padding: 1rem; border-radius: 0.75rem; font-size: 1rem; width: 100%; border: none; box-shadow: 0 8px 24px -4px rgba(245, 158, 11, 0.4); transition: all 0.15s; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .btn-reward:active { transform: scale(0.98); }
+        .btn-secondary { background: #27272a; color: #fff; font-weight: 700; padding: 0.75rem; border-radius: 0.75rem; font-size: 0.875rem; width: 100%; border: 1px solid #3f3f46; cursor: pointer; margin-top: 0.5rem; transition: all 0.15s; }
         .btn-secondary:active { transform: scale(0.98); }
+
+        /* QR Scanner */
+        .scanner-section { display: none; }
+        .scanner-section.active { display: block; }
+        #qr-video { width: 100%; border-radius: 1rem; background: #000; }
+        .scanner-overlay { position: relative; }
+        .scanner-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 70%; height: 70%; border: 3px solid #22c55e; border-radius: 1rem; pointer-events: none; }
+        .scanner-hint { text-align: center; font-size: 0.75rem; color: #a1a1aa; margin-top: 0.5rem; }
+
         /* Toast */
-        .toast {
-            position: fixed;
-            top: max(env(safe-area-inset-top), 1rem);
-            left: 50%;
-            transform: translateX(-50%) translateY(-150%);
-            padding: 1rem 1.25rem;
-            border-radius: 0.75rem;
-            font-weight: 800;
-            z-index: 100;
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            max-width: 90vw;
-            text-align: center;
-            font-size: 0.9rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-        .toast.success { background: #22c55e; color: #ffffff; }
-        .toast.error { background: #ef4444; color: #ffffff; }
-        .toast.reward { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #ffffff; font-size: 1rem; }
-        /* Footer */
-        .footer {
-            text-align: center;
-            font-size: 0.7rem;
-            color: #52525b;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #27272a;
-        }
+        .toast { position: fixed; top: max(env(safe-area-inset-top), 1rem); left: 50%; transform: translateX(-50%) translateY(-150%); padding: 1rem 1.25rem; border-radius: 0.75rem; font-weight: 800; z-index: 100; opacity: 0; transition: all 0.3s; max-width: 90vw; text-align: center; font-size: 0.875rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { background: #22c55e; color: #fff; }
+        .toast.error { background: #ef4444; color: #fff; }
+        .toast.reward { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; font-size: 1rem; }
+        .footer { text-align: center; font-size: 0.65rem; color: #52525b; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #27272a; }
     </style>
 </head>
 <body>
@@ -245,181 +88,210 @@
                 <img src="{{ restaurant.logo_path }}" alt="{{ restaurant.name }}">
             {% endif %}
             <h1>{{ restaurant.name }}</h1>
-            <p>Stempel vergeben</p>
+            <p>Stempel-Konsole</p>
         </header>
 
-        <section class="code-section">
+        <!-- Tabs: Code-Eingabe vs QR-Scanner -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('code')" id="tab-code">🔢 Code</button>
+            <button class="tab-btn" onclick="switchTab('scan')" id="tab-scan">📷 QR-Scan</button>
+        </div>
+
+        <!-- Tab 1: Code-Eingabe -->
+        <div class="code-section" id="code-section">
             <label class="code-label" for="shortCode">Code vom Kunden-Pass</label>
-            <input
-                type="text"
-                id="shortCode"
-                class="stamp-input"
-                placeholder="ABCD"
-                maxlength="4"
-                autocomplete="off"
-                autocapitalize="characters"
-                spellcheck="false"
-                inputmode="text"
-            >
+            <input type="text" id="shortCode" class="stamp-input" placeholder="ABCD" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text">
             <p class="code-hint">4-stelliger Code auf der Pass-Rückseite</p>
-        </section>
+        </div>
+
+        <!-- Tab 2: QR-Scanner -->
+        <div class="scanner-section" id="scan-section">
+            <div class="scanner-overlay">
+                <video id="qr-video" playsinline autoplay></video>
+                <div class="scanner-frame"></div>
+            </div>
+            <p class="scanner-hint">QR-Code auf der Stempelkarte scannen</p>
+        </div>
 
         <div id="lookupResult" style="display:none;"></div>
 
-        <button
-            id="stampBtn"
-            class="btn-primary"
-            disabled
-            onclick="awardStamp()"
-        >
-            <span style="font-size:1.25rem;">⭐</span>
-            Stempel vergeben
+        <button id="stampBtn" class="btn-primary" disabled onclick="awardStamp()">
+            <span style="font-size:1.125rem;">⭐</span> Stempel vergeben
         </button>
 
-        <button
-            id="nextBtn"
-            class="btn-secondary"
-            style="display:none;"
-            onclick="resetForm()"
-        >
-            Nächster Kunde
+        <button id="rewardBtn" class="btn-reward" style="display:none;" onclick="redeemReward()">
+            <span style="font-size:1.125rem;">🎁</span> Prämie einlösen
         </button>
 
-        <footer class="footer">
-            Powered by digi-gastro · Stempel sofort im Wallet
-        </footer>
+        <button id="nextBtn" class="btn-secondary" style="display:none;" onclick="resetForm()">Nächster Kunde</button>
+
+        <footer class="footer">Powered by digi-gastro · Stempel sofort im Wallet</footer>
     </div>
 
     <div id="toast" class="toast"></div>
 
+    <!-- QR Scanner Library (lightweight, no dependencies) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.2/dist/jsQR.js"></script>
     <script>
         const slug = "{{ slug }}";
         const cards = JSON.parse('{{ cards_json | safe }}');
         let currentLookup = null;
+        let videoStream = null;
+        let scanLoop = null;
 
         const codeInput = document.getElementById('shortCode');
         const lookupResult = document.getElementById('lookupResult');
         const stampBtn = document.getElementById('stampBtn');
+        const rewardBtn = document.getElementById('rewardBtn');
         const nextBtn = document.getElementById('nextBtn');
 
+        // Tab Switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'code') {
+                document.getElementById('code-section').style.display = '';
+                document.getElementById('scan-section').classList.remove('active');
+                stopScanner();
+            } else {
+                document.getElementById('code-section').style.display = 'none';
+                document.getElementById('scan-section').classList.add('active');
+                startScanner();
+            }
+        }
+
+        // QR Scanner
+        async function startScanner() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                const video = document.getElementById('qr-video');
+                video.srcObject = videoStream;
+                video.play();
+                scanLoop = requestAnimationFrame(scanQR);
+            } catch (e) {
+                showToast('Kamera nicht verfügbar: ' + e.message, 'error');
+                switchTab('code');
+            }
+        }
+
+        function stopScanner() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+                videoStream = null;
+            }
+            if (scanLoop) cancelAnimationFrame(scanLoop);
+        }
+
+        function scanQR() {
+            const video = document.getElementById('qr-video');
+            if (!video || !video.videoWidth) { scanLoop = requestAnimationFrame(scanQR); return; }
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            if (code) {
+                // QR gescannt! Code extrahieren
+                let scannedCode = code.data.trim().toUpperCase();
+                // QR enthält evtl. "Code: ABCD" oder nur "ABCD"
+                if (scannedCode.includes(':')) scannedCode = scannedCode.split(':').pop().trim();
+                if (scannedCode.length >= 3 && scannedCode.length <= 4) {
+                    codeInput.value = scannedCode;
+                    stopScanner();
+                    switchTab('code');
+                    lookupCustomer(scannedCode);
+                    return;
+                }
+            }
+            scanLoop = requestAnimationFrame(scanQR);
+        }
+
+        // Code-Eingabe
         codeInput.addEventListener('input', async (e) => {
             let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
             v = v.replace(/O/g, 'Q').replace(/I/g, 'J').replace(/0/g, 'Q').replace(/1/g, 'J');
             e.target.value = v;
-            if (v.length >= 3) {
-                await lookupCustomer(v);
-            } else {
-                lookupResult.style.display = 'none';
-                stampBtn.disabled = true;
-                currentLookup = null;
-            }
+            if (v.length >= 3) await lookupCustomer(v);
+            else { lookupResult.style.display = 'none'; stampBtn.disabled = true; rewardBtn.style.display = 'none'; currentLookup = null; }
         });
-
-        codeInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !stampBtn.disabled) {
-                awardStamp();
-            }
-        });
+        codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !stampBtn.disabled) awardStamp(); });
 
         async function lookupCustomer(code) {
             try {
-                const res = await fetch(`/admin/loyalty/lookup-customer?code=${encodeURIComponent(code)}`, {
-                    headers: { 'Accept': 'application/json' },
-                    credentials: 'same-origin'
-                });
-                if (!res.ok) {
-                    lookupResult.style.display = 'none';
-                    stampBtn.disabled = true;
-                    currentLookup = null;
-                    return;
-                }
+                const res = await fetch(`/admin/loyalty/lookup-customer?code=${encodeURIComponent(code)}`, { credentials: 'same-origin' });
+                if (!res.ok) { lookupResult.style.display = 'none'; stampBtn.disabled = true; rewardBtn.style.display = 'none'; currentLookup = null; return; }
                 const data = await res.json();
                 if (data.exists) {
                     currentLookup = data;
                     const progress = (data.current_stamps / data.stamps_required) * 100;
-                    const tierLabel = {neu: 'Neu', stamm: 'Stammgast', vip: 'VIP ⭐'}[data.tier] || data.tier;
-                    lookupResult.innerHTML = `
-                        <div class="lookup-card">
-                            <div class="progress-circle" style="--progress: ${progress}%">
-                                <div class="progress-inner">${data.current_stamps}/${data.stamps_required}</div>
-                            </div>
-                            <div class="lookup-info">
-                                <div class="lookup-name">${data.nickname}</div>
-                                <div class="lookup-tier ${data.tier}">${tierLabel}</div>
-                                <div class="lookup-card-name">${data.card_name}</div>
-                            </div>
-                        </div>
-                    `;
+                    const tierLabel = {neu:'Neu', stamm:'Stammgast', vip:'VIP ⭐'}[data.tier] || data.tier;
+                    const tierClass = {neu:'neu', stamm:'stamm', vip:'vip'}[data.tier] || 'neu';
+                    lookupResult.innerHTML = `<div class="lookup-card"><div class="progress-circle" style="--progress:${progress}%"><div class="progress-inner">${data.current_stamps}/${data.stamps_required}</div></div><div class="lookup-info"><div class="lookup-name">${data.nickname}</div><div class="lookup-tier ${tierClass}">${tierLabel}</div><div class="lookup-card-name">${data.card_name}</div></div></div>`;
                     lookupResult.style.display = 'block';
-                    stampBtn.disabled = false;
+
+                    // Wenn 10/10 erreicht → Reward Button zeigen, Stempel verstecken
+                    if (data.current_stamps >= data.stamps_required) {
+                        stampBtn.style.display = 'none';
+                        rewardBtn.style.display = 'flex';
+                        rewardBtn.disabled = false;
+                    } else {
+                        stampBtn.style.display = 'flex';
+                        stampBtn.disabled = false;
+                        rewardBtn.style.display = 'none';
+                    }
                 } else {
-                    lookupResult.innerHTML = `
-                        <div class="lookup-card error">
-                            <div style="font-size:1.5rem;">❌</div>
-                            <div>Kein Kunde mit Code "${code}"</div>
-                        </div>
-                    `;
+                    lookupResult.innerHTML = `<div class="lookup-card error"><div style="font-size:1.5rem;">❌</div><div>Kein Kunde mit Code "${code}"</div></div>`;
                     lookupResult.style.display = 'block';
-                    stampBtn.disabled = true;
-                    currentLookup = null;
+                    stampBtn.disabled = true; rewardBtn.style.display = 'none'; currentLookup = null;
                 }
-            } catch (e) {
-                console.error('Lookup failed:', e);
-            }
+            } catch (e) { console.error('Lookup failed:', e); }
         }
 
         async function awardStamp() {
             if (!currentLookup) return;
             stampBtn.disabled = true;
-            stampBtn.innerHTML = '<span style="font-size:1.25rem;">⏳</span> Wird vergeben...';
-
+            stampBtn.innerHTML = '<span style="font-size:1.125rem;">⏳</span> Wird vergeben...';
             try {
-                const res = await fetch('/admin/loyalty/stamp-manual', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    credentials: 'same-origin',
-                    body: JSON.stringify({short_code: codeInput.value})
-                });
+                const res = await fetch('/admin/loyalty/stamp-manual', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'same-origin', body: JSON.stringify({short_code: codeInput.value}) });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    if (data.reward_redeemed) {
-                        showToast(`🎉 ${data.customer_nickname}: "${data.reward_name}" eingelöst!`, 'reward');
-                    } else {
-                        showToast(`✅ Stempel! ${data.current_stamps}/${data.stamps_required}`, 'success');
-                    }
+                    if (data.reward_redeemed) showToast(`🎉 ${data.customer_nickname}: "${data.reward_name}" eingelöst!`, 'reward');
+                    else showToast(`✅ Stempel! ${data.current_stamps}/${data.stamps_required}`, 'success');
                     await lookupCustomer(codeInput.value);
-                    stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Noch ein Stempel';
+                    stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Noch ein Stempel';
                     stampBtn.disabled = false;
                     nextBtn.style.display = 'block';
-                } else {
-                    showToast(data.detail || 'Fehler', 'error');
-                    stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Stempel vergeben';
-                    stampBtn.disabled = false;
-                }
-            } catch (e) {
-                showToast('Netzwerkfehler: ' + e.message, 'error');
-                stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Stempel vergeben';
-                stampBtn.disabled = false;
-            }
+                } else { showToast(data.detail || 'Fehler', 'error'); stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Stempel vergeben'; stampBtn.disabled = false; }
+            } catch (e) { showToast('Fehler: ' + e.message, 'error'); stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Stempel vergeben'; stampBtn.disabled = false; }
+        }
+
+        async function redeemReward() {
+            if (!currentLookup) return;
+            if (!confirm(`Prämie für ${currentLookup.nickname} einlösen?\nStempel werden auf 0 zurückgesetzt.`)) return;
+            rewardBtn.disabled = true;
+            rewardBtn.innerHTML = '<span style="font-size:1.125rem;">⏳</span> Wird eingelöst...';
+            try {
+                const res = await fetch(`/admin/loyalty/redeem/${currentLookup.customer_id}`, { method: 'POST', credentials: 'same-origin' });
+                const data = await res.json();
+                if (res.ok && data.success) { showToast(`🎁 Prämie eingelöst: ${data.reward_name}`, 'success'); await lookupCustomer(codeInput.value); nextBtn.style.display = 'block'; }
+                else { showToast(data.detail || 'Fehler', 'error'); rewardBtn.disabled = false; rewardBtn.innerHTML = '<span style="font-size:1.125rem;">🎁</span> Prämie einlösen'; }
+            } catch (e) { showToast('Fehler: ' + e.message, 'error'); rewardBtn.disabled = false; rewardBtn.innerHTML = '<span style="font-size:1.125rem;">🎁</span> Prämie einlösen'; }
         }
 
         function resetForm() {
-            codeInput.value = '';
-            codeInput.focus();
+            codeInput.value = ''; codeInput.focus();
             lookupResult.style.display = 'none';
-            stampBtn.disabled = true;
-            stampBtn.innerHTML = '<span style="font-size:1.25rem;">⭐</span> Stempel vergeben';
-            nextBtn.style.display = 'none';
-            currentLookup = null;
+            stampBtn.disabled = true; stampBtn.style.display = 'flex'; stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Stempel vergeben';
+            rewardBtn.style.display = 'none'; nextBtn.style.display = 'none'; currentLookup = null;
         }
 
         function showToast(msg, type='success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.className = `toast show ${type}`;
-            setTimeout(() => toast.classList.remove('show'), 4000);
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = `toast show ${type}`;
+            setTimeout(() => t.classList.remove('show'), 4000);
         }
-
         codeInput.focus();
     </script>
 </body>
