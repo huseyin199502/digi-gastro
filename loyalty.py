@@ -621,14 +621,8 @@ def _generate_stamp_thumbnail(
                 draw.line([(cx - sz//4, bot_y), (cx + sz//4, bot_y)],
                           fill=color, width=2)
             elif icon_type == "smoking_rooms":
-                # Shisha / Rauchwolke
-                # Wolke aus mehreren Kreisen
-                draw.ellipse([cx - sz//3, cy - sz//4, cx + sz//3, cy + sz//4],
-                             fill=color)
-                draw.ellipse([cx - sz//2, cy - sz//8, cx, cy + sz//3],
-                             fill=color)
-                draw.ellipse([cx, cy - sz//8, cx + sz//2, cy + sz//3],
-                             fill=color)
+                # Echte Shisha-Silhouette (Kohlebehälter, Stiel, bauchiges Glas, Schlauch)
+                _draw_shisha_icon(draw, cx, cy, int(sz * 1.4), color)
             elif icon_type == "icecream":
                 # Eis (Dreieck unten + Kreis oben)
                 # Waffel (Dreieck)
@@ -666,6 +660,107 @@ def _generate_stamp_thumbnail(
         print(f"[Apple Pass] Thumbnail generation failed: {e}")
         # Fallback: 1x1 transparentes PNG
         return b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+
+
+def _draw_shisha_icon(draw, cx, cy, sz, color):
+    """Zeichnet eine echte Shisha-Silhouette (Kohlebehälter, Stiel, bauchiges Glas, Schlauch).
+    
+    cx, cy = Zentrum der Shisha
+    sz = Gesamthöhe
+    color = Farbe (inkl. Alpha)
+    
+    Aufbau von oben nach unten:
+    1. Kohlebehälter (kleiner Zylinder)
+    2. Schirm/Deckel (flaches rundes Teil)
+    3. Stiel (dünner Zylinder)
+    4. Glas (bauchiger Behälter)
+    5. Schlauch (Kurve nach rechts mit Mundstück)
+    """
+    h = sz
+    w = int(sz * 0.6)
+
+    # 1. Kohlebehälter (kleines Kästchen ganz oben)
+    coal_w = int(w * 0.35)
+    coal_h = max(3, int(h * 0.08))
+    coal_x = cx - coal_w // 2
+    coal_y = cy - h // 2
+    draw.rounded_rectangle(
+        [coal_x, coal_y, coal_x + coal_w, coal_y + coal_h],
+        radius=2, fill=color
+    )
+
+    # 2. Schirm/Deckel (flaches breites Teil)
+    tray_y = coal_y + coal_h + max(1, int(h * 0.02))
+    tray_w = int(w * 0.7)
+    tray_h = max(2, int(h * 0.04))
+    tray_x = cx - tray_w // 2
+    draw.rounded_rectangle(
+        [tray_x, tray_y, tray_x + tray_w, tray_y + tray_h],
+        radius=2, fill=color
+    )
+
+    # 3. Stiel (Zylinder vom Schirm zum Glas)
+    stem_top = tray_y + tray_h
+    stem_w = max(3, int(w * 0.18))
+    stem_h = int(h * 0.32)
+    stem_x = cx - stem_w // 2
+    draw.rounded_rectangle(
+        [stem_x, stem_top, stem_x + stem_w, stem_top + stem_h],
+        radius=2, fill=color
+    )
+
+    # 4. Glas (bauchiger Behälter unten) - als Polygon
+    glass_top = stem_top + stem_h
+    glass_h = int(h * 0.45)
+    glass_w = int(w * 0.85)
+    glass_x = cx - glass_w // 2
+    glass_y = glass_top
+    points = []
+    # Obere Kante (schmaler)
+    points.append((glass_x + int(glass_w * 0.1), glass_y))
+    points.append((glass_x + int(glass_w * 0.9), glass_y))
+    # Rechte Seite nach außen (bauchig)
+    for i in range(1, 6):
+        t = i / 6
+        bulge = int(glass_w * 0.05) * (1 - (2 * t - 1) ** 2)
+        y = glass_y + int(glass_h * t)
+        x_right = glass_x + int(glass_w * 0.9) + bulge - int(glass_w * 0.1) * t
+        points.append((x_right, y))
+    # Untere Kante
+    points.append((glass_x + int(glass_w * 0.95), glass_y + glass_h))
+    points.append((glass_x + int(glass_w * 0.05), glass_y + glass_h))
+    # Linke Seite nach oben (bauchig)
+    for i in range(5, 0, -1):
+        t = i / 6
+        bulge = int(glass_w * 0.05) * (1 - (2 * t - 1) ** 2)
+        y = glass_y + int(glass_h * t)
+        x_left = glass_x + int(glass_w * 0.1) - bulge + int(glass_w * 0.1) * t
+        points.append((x_left, y))
+    draw.polygon(points, fill=color)
+
+    # 5. Schlauch (Kurve von Glas-Mitte nach rechts)
+    hose_start_x = glass_x + int(glass_w * 0.9)
+    hose_start_y = glass_y + int(glass_h * 0.4)
+    hose_end_x = hose_start_x + int(w * 0.5)
+    hose_end_y = hose_start_y + int(h * 0.15)
+    mid1_x = hose_start_x + int(w * 0.25)
+    mid1_y = hose_start_y - int(h * 0.05)
+    mid2_x = hose_start_x + int(w * 0.4)
+    mid2_y = hose_start_y + int(h * 0.1)
+    hose_width = max(2, int(w * 0.08))
+    draw.line(
+        [(hose_start_x, hose_start_y), (mid1_x, mid1_y),
+         (mid2_x, mid2_y), (hose_end_x, hose_end_y)],
+        fill=color, width=hose_width, joint="curve"
+    )
+    # Mundstück (Ellipse am Ende)
+    mouth_w = max(3, int(w * 0.12))
+    mouth_h = max(2, int(h * 0.06))
+    draw.ellipse(
+        [hose_end_x - 2, hose_end_y - mouth_h // 2,
+         hose_end_x + mouth_w, hose_end_y + mouth_h // 2],
+        fill=color
+    )
 
 
 def _generate_stamp_strip(
@@ -723,13 +818,13 @@ def _generate_stamp_strip(
         # ── Stempel-Kreise am UNTENEN Rand ──
         # Oberer Bereich (0 bis 260px) bleibt transparent für primaryFields Text
         # Unterer Bereich (260 bis 432px = 172px) für Stempel-Kreise
-        stamps_area_top = 270
-        stamps_area_h = H - stamps_area_top  # ~162px
+        stamps_area_top = 240
+        stamps_area_h = H - stamps_area_top  # ~192px
         n = stamps_required
 
-        # Kreis-Größe: passt in die untere Hälfte
+        # Kreis-Größe: größer für bessere Sichtbarkeit
         cell_w = W // n
-        circle_size = int(min(cell_w * 0.65, stamps_area_h * 0.75))  # ~100px
+        circle_size = int(min(cell_w * 0.85, stamps_area_h * 0.95))  # ~110px
         cy = stamps_area_top + stamps_area_h // 2
 
         def _draw_icon_symbol(draw, cx, cy, sz, icon_type, color):
@@ -768,13 +863,8 @@ def _generate_stamp_strip(
                 draw.line([(cx - sz//4, bot_y), (cx + sz//4, bot_y)],
                           fill=color, width=2)
             elif icon_type == "smoking_rooms":
-                # Shisha / Rauchwolke - kompakt für kleinen Kreis
-                draw.ellipse([cx - sz//3, cy - sz//4, cx + sz//3, cy + sz//4],
-                             fill=color)
-                draw.ellipse([cx - sz//2, cy - sz//8, cx, cy + sz//3],
-                             fill=color)
-                draw.ellipse([cx, cy - sz//8, cx + sz//2, cy + sz//3],
-                             fill=color)
+                # Echte Shisha-Silhouette (Kohlebehälter, Stiel, bauchiges Glas, Schlauch)
+                _draw_shisha_icon(draw, cx, cy, int(sz * 1.4), color)
             elif icon_type == "icecream":
                 draw.polygon(
                     [(cx - sz//3, cy), (cx + sz//3, cy), (cx, cy + sz//2)],
