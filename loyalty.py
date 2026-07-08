@@ -270,28 +270,17 @@ def _generate_apple_pass_json(
                     "changeMessage": "Reward aktualisiert: %@"
                 }
             ],
-            # auxiliaryFields: Hidden Message Fields für Push-Notifications
-            # WICHTIG: changeMessage funktioniert NUR in auxiliaryFields/primaryFields/headerFields
-            # (NICHT in backFields — dort zeigt iOS nur generisches "Karte aktualisiert"-Banner!)
-            # hidden: true (iOS 17+) versteckt das Feld auf der Vorderseite, aber die
-            # changeMessage-Notification funktioniert weiterhin → Kunde sieht die Nachricht als Banner.
-            # msgnonce darf KEINE changeMessage haben, sonst fasst iOS die Notifications zusammen!
-            "auxiliaryFields": [
-                {
-                    "key": "lastmsg",
-                    "label": "Letzte Nachricht",
-                    "value": customer.get("last_message", "Willkommen!"),
-                    "hidden": True,
-                    "changeMessage": "📬 Neue Nachricht: %@"
-                },
-                {
-                    "key": "msgnonce",
-                    "label": "Nonce",
-                    "value": str(customer.get("msg_nonce", 0)),
-                    "hidden": True
-                    # KEINE changeMessage — sonst fasst iOS die Notifications zusammen!
-                }
-            ],
+            # auxiliaryFields: leer — keine hidden fields hier.
+            # (hidden:true ist NICHT offiziell dokumentiert und funktioniert unzuverlässig.)
+            "auxiliaryFields": [],
+            # backFields: lastmsg + msgnonce hier → auf Vorderseite VERSTECKT (nur ⓘ-Button).
+            # WICHTIG: changeMessage funktioniert in backFields (Apple-Doku + passkit.com bestätigt).
+            # Bei Push zeigt iOS den changeMessage-Text als Banner (z.B. "📬 Neue Nachricht: Hallo: Test").
+            # Voraussetzung: pro Push darf nur EIN Feld mit changeMessage seinen Wert ändern
+            # (sonst fasst iOS sie zusammen → "Karte aktualisiert").
+            # → Bei Nachrichten: nur lastmsg ändert sich (stamps/code/reward bleiben gleich)
+            # → Bei Stempel: nur stamps ändert sich (lastmsg bleibt gleich)
+            # msgnonce darf KEINE changeMessage haben (sonst Coalescing mit lastmsg)!
             "backFields": [
                 {
                     "key": "info",
@@ -312,6 +301,17 @@ def _generate_apple_pass_json(
                     "key": "terms",
                     "label": "AGB",
                     "value": "Stempel können nicht übertragen werden. Einlösung erfolgt ausschließlich vor Ort. Keine Barauszahlung."
+                },
+                {
+                    "key": "lastmsg",
+                    "label": "Letzte Nachricht",
+                    "value": customer.get("last_message", "Willkommen!"),
+                    "changeMessage": "📬 Neue Nachricht: %@"
+                },
+                {
+                    "key": "msgnonce",
+                    "label": "Nonce",
+                    "value": str(customer.get("msg_nonce", 0))
                 }
             ]
         },
@@ -1923,13 +1923,13 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
         # Pass zeigt: "10 / 10 ✓" + "🎉 PRÄMIE BEREIT!"
         # Reset erfolgt erst via reward_redeem API (Kellner löst ein)
 
-    # last_message + msg_nonce updaten VOR dem Push
-    # WICHTIG: Damit changeMessage in auxiliaryFields triggert ("📬 Neue Nachricht: %@")
-    # muss last_message sich ändern. msg_nonce zwingend incrementieren für garantierten
-    # Wertwechsel (falls dieselbe Nachricht mehrmals gesendet wird).
-    stamp_msg = f"🎉 Neuer Stempel! {customer.current_stamps}/{card.stamps_required}"
-    customer.last_message = stamp_msg[:200]
-    customer.msg_nonce = (customer.msg_nonce or 0) + 1
+    # WICHTIG: last_message + msg_nonce hier NICHT updaten!
+    # Bei Stempel-Push darf NUR der stamps-Wert (primaryFields) sich ändern.
+    # Wenn lastmsg (backFields) sich GLEICHZEITIG ändert, fasst iOS die
+    # changeMessages zusammen → zeigt nur "Karte aktualisiert" statt
+    # "🎉 Neuer Stempel! 4/10".
+    # Bei Stempel-Push: nur stamps ändert sich → stamps-changeMessage triggert.
+    # Bei Nachrichten-Push (quick_send/broadcast): nur lastmsg ändert sich → lastmsg-changeMessage triggert.
 
     db_session.commit()
 

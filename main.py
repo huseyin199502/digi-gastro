@@ -14805,9 +14805,12 @@ def loyalty_redeem_reward(
         raise HTTPException(status_code=400, detail=f"Kunde hat erst {customer.current_stamps}/{card.stamps_required} Stempel — Prämie noch nicht bereit.")
 
     # Reward einlösen → Stempel reset
+    # WICHTIG: last_message hier NICHT updaten!
+    # Bei Reward-Einlösung ändert sich current_stamps (10→0). Wenn last_message sich
+    # GLEICHZEITIG ändert, fasst iOS die changeMessages zusammen → "Karte aktualisiert".
+    # Nur stamps ändern → stamps-changeMessage triggert mit korrektem Text.
     old_stamps = customer.current_stamps
     customer.current_stamps = 0
-    customer.last_message = f"Prämie eingelöst: {card.reward_name}! 🎁 Neue Runde startet."
     db.commit()
 
     # Pass-Update Push → Kunde sieht 0/10 + "Neue Runde"
