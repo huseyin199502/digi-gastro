@@ -107,7 +107,7 @@
         <!-- Tab 2: QR-Scanner -->
         <div class="scanner-section" id="scan-section">
             <div class="scanner-overlay">
-                <video id="qr-video" playsinline autoplay></video>
+                <video id="qr-video" playsinline autoplay muted></video>
                 <div class="scanner-frame"></div>
             </div>
             <p class="scanner-hint">QR-Code auf der Stempelkarte scannen</p>
@@ -159,32 +159,42 @@
             }
         }
 
-        // QR Scanner
-        let scanInterval = null;
+        // QR Scanner — komplett überarbeitet (Sub-Agent Bug-Fixes)
+        let scanTimer = null;
         let isScanning = false;
+        let scanCanvas = null;
+        let scanCtx = null;
+        const SCAN_W = 480, SCAN_H = 360; // Downscaled für Performance (statt 1280x720)
+        let lastScanLog = 0;
 
         async function startScanner() {
             if (isScanning) return;
+
+            // BUG 5 FIX: jsQR Load-Check
+            if (typeof jsQR !== 'function') {
+                showToast('QR-Scanner konnte nicht geladen werden. Code-Eingabe nutzen.', 'error');
+                switchTab('code');
+                return;
+            }
+
             isScanning = true;
             try {
-                // Kamera mit preferBackCamera für mobile Geräte
                 videoStream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: { ideal: 'environment' },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
                     }
                 });
                 const video = document.getElementById('qr-video');
                 video.srcObject = videoStream;
                 await video.play();
 
-                // Scan-Status anzeigen
                 const hint = document.querySelector('.scanner-hint');
                 if (hint) hint.textContent = '📷 Kamera aktiv — QR-Code scannen...';
 
-                // Throttled scan loop (10fps statt 60fps für Performance)
-                scanInterval = setInterval(scanQR, 100);
+                // BUG 3 FIX: Recursive setTimeout statt setInterval (kein Queue-Stacking)
+                scheduleScan();
             } catch (e) {
                 console.error('Scanner start failed:', e);
                 let errMsg = 'Kamera nicht verfügbar';
@@ -198,11 +208,19 @@
             }
         }
 
+        function scheduleScan() {
+            if (!isScanning) return;
+            scanTimer = setTimeout(() => {
+                scanQR();
+                if (isScanning) scheduleScan();
+            }, 150); // 150ms = ~6.6fps (ausreichend für QR, wenig CPU)
+        }
+
         function stopScanner() {
             isScanning = false;
-            if (scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
+            if (scanTimer) {
+                clearTimeout(scanTimer);
+                scanTimer = null;
             }
             if (videoStream) {
                 videoStream.getTracks().forEach(t => t.stop());
@@ -215,61 +233,54 @@
         function scanQR() {
             if (!isScanning) return;
             const video = document.getElementById('qr-video');
-            // Warte bis Video bereit ist (readyState >= 2 = HAVE_CURRENT_DATA)
-            if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
-                return;
-            }
+            if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
 
             try {
-                // Canvas auf Video-Größe setzen
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                // BUG 2 FIX: Canvas einmalig anlegen + downscalen für Performance
+                if (!scanCanvas) {
+                    scanCanvas = document.createElement('canvas');
+                    scanCanvas.width = SCAN_W;
+                    scanCanvas.height = SCAN_H;
+                    scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+                }
+                scanCtx.drawImage(video, 0, 0, SCAN_W, SCAN_H);
+                const imageData = scanCtx.getImageData(0, 0, SCAN_W, SCAN_H);
 
-                // QR-Code erkennen
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: 'dontInvert'
-                });
+                // BUG 1 FIX (KRITISCH): dontInvert entfernt → attemptBoth (default)
+                // Dark Mode invertiert QR-Code → dontInvert findet ihn nie!
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
 
                 if (code && code.data) {
-                    // QR gescannt! Code extrahieren
                     let scannedCode = code.data.trim().toUpperCase();
-                    console.log('QR gescannt:', scannedCode);
+                    console.log('[QR] erkannt:', scannedCode);
 
-                    // QR enthält evtl. "Code: ABCD" oder nur "ABCD" oder URL
                     if (scannedCode.includes(':')) {
                         scannedCode = scannedCode.split(':').pop().trim();
                     }
-                    // Entferne alles außer A-Z0-9
                     scannedCode = scannedCode.replace(/[^A-Z0-9]/g, '');
+                    // BUG 7 FIX: Normalisierung wie bei manueller Eingabe
+                    scannedCode = scannedCode.replace(/O/g,'Q').replace(/I/g,'J').replace(/0/g,'Q').replace(/1/g,'J');
 
-                    // Code-Länge prüfen (3-5 Zeichen für Crockford Base32)
                     if (scannedCode.length >= 3 && scannedCode.length <= 5) {
-                        // Vibration Feedback (falls unterstützt)
                         if (navigator.vibrate) navigator.vibrate(200);
-
-                        // Scanner stoppen
                         stopScanner();
-
-                        // Code eintragen und Lookup starten
                         codeInput.value = scannedCode;
                         switchTab('code');
-
-                        // Visuelles Feedback
                         showToast('✅ QR-Code gescannt: ' + scannedCode, 'success');
-
-                        // Kunde lookup
                         lookupCustomer(scannedCode);
                         return;
                     } else {
-                        console.log('QR-Code ignoriert (falsche Länge):', scannedCode);
+                        console.log('[QR] Code ignoriert (falsche Länge):', scannedCode);
+                    }
+                } else {
+                    // BUG 6 FIX: Diagnose-Logging (1x pro Sekunde)
+                    if (Date.now() - lastScanLog > 1000) {
+                        console.log('[QR] kein Code, readyState=', video.readyState, 'w/h=', video.videoWidth, video.videoHeight);
+                        lastScanLog = Date.now();
                     }
                 }
             } catch (e) {
-                console.error('Scan error:', e);
+                console.error('[QR] Scan error:', e);
             }
         }
 
