@@ -14194,8 +14194,19 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
         "id": card.id, "name": card.name, "stamps_required": card.stamps_required,
         "reward_name": card.reward_name, "color_hex": card.color_hex,
     }
+    # Logo-URL für Google Wallet (muss PNG/JPEG sein, erreichbar von Google-Servern)
+    logo_url_for_google = ""
+    if tenant.logo_path:
+        # tenant.logo_path ist z.B. "/uploads/logos/memo_logo_xxx.webp"
+        # Google akzeptiert WebP nicht → versuche PNG-Version
+        logo_filename = tenant.logo_path.split("/")[-1]
+        png_filename = logo_filename.replace(".webp", ".png")
+        logo_url_for_google = f"https://digi-gastro.de/uploads/logos/{png_filename}"
+        # Fallback: Original WebP (Google akzeptiert evtl. manche WebP)
+        # Aber besser das Logo ganz weglassen als 404
     jwt_token = generate_google_wallet_jwt(
-        slug_lower, tenant.name, card_dict, customer_dict, geofence_dict
+        slug_lower, tenant.name, card_dict, customer_dict, geofence_dict,
+        logo_url=logo_url_for_google,
     )
     if not jwt_token:
         raise HTTPException(status_code=500, detail="Google Wallet JWT Generierung fehlgeschlagen.")

@@ -1438,24 +1438,21 @@ def _generate_google_class_payload(
     tenant_slug: str,
     tenant_name: str,
     card: Dict[str, Any],
+    logo_url: str = "",
 ) -> Dict[str, Any]:
     """Generiert LoyaltyClass — definiert visuelles Layout (Farbe, Logo, Template).
 
     WICHTIG: hexBackgroundColor muss '#rrggbb' Format sein (NICHT ARGB!).
     Google Wallet erwartet '#C9A84C' nicht 'FFC9A84C'.
+    WICHTIG: Logo URL muss erreichbar sein (kein 404!) → sonst Fehler.
     """
     color_hex = card.get("color_hex", "#C9A84C")
-    # Google: '#rrggbb' Format (mit #, ohne Alpha)
     hex_bg = "#" + color_hex.lstrip("#").upper()
 
     class_payload = {
         "id": GOOGLE_CLASS_ID,
         "issuerName": tenant_name or "digi-gastro",
         "programName": card.get("name", "Stempelkarte"),
-        "programLogo": {
-            "sourceUri": {"uri": f"https://digi-gastro.de/uploads/logos/{tenant_slug}-logo.png"},
-            "contentDescription": {"defaultValue": {"language": "de", "value": f"{tenant_name} Logo"}}
-        },
         "hexBackgroundColor": hex_bg,
         "rewardsTier": card.get("reward_name", "Belohnung"),
         "rewardsTierLabel": "Stempel",
@@ -1464,6 +1461,13 @@ def _generate_google_class_payload(
         "countryCode": "DE",
         "localizedIssuerName": {"defaultValue": {"language": "de", "value": tenant_name or "digi-gastro"}},
     }
+
+    # Logo nur hinzufügen wenn URL gültig ist (kein 404!)
+    if logo_url:
+        class_payload["programLogo"] = {
+            "sourceUri": {"uri": logo_url},
+            "contentDescription": {"defaultValue": {"language": "de", "value": f"{tenant_name} Logo"}}
+        }
 
     return class_payload
 
@@ -1474,6 +1478,7 @@ def generate_google_wallet_jwt(
     card: Dict[str, Any],
     customer: Dict[str, Any],
     geofence: Optional[Dict[str, Any]] = None,
+    logo_url: str = "",
 ) -> Optional[str]:
     """Generiert ein JWT für Google Wallet "Save to Google Wallet" Link.
 
@@ -1501,7 +1506,7 @@ def generate_google_wallet_jwt(
 
         # Class-Payload (für visuelles Layout — ohne Class nur Text!)
         class_payload = _generate_google_class_payload(
-            tenant_slug, tenant_name, card
+            tenant_slug, tenant_name, card, logo_url=logo_url
         )
 
         # JWT Claims — WICHTIG: loyaltyClasses UND loyaltyObjects!
