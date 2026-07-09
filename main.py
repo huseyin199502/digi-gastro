@@ -14201,17 +14201,27 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
         raise HTTPException(status_code=500, detail="Google Wallet JWT Generierung fehlgeschlagen.")
 
     customer.pass_needs_update = False
-    # Drei-Kanal-Lookup: pass_downloaded_at markieren
     if not customer.pass_downloaded_at:
         customer.pass_downloaded_at = _now_iso()
     if not customer.anonymous_id:
         customer.anonymous_id = aid or str(uuid.uuid4())
     db.commit()
 
-    response = JSONResponse({
-        "save_url": f"https://pay.google.com/gp/v/save/{jwt_token}",
-        "customer_id": customer.id,
-    })
+    save_url = f"https://pay.google.com/gp/v/save/{jwt_token}"
+
+    # WICHTIG: Bei direktem Browser-Besuch (Accept: text/html) zur save_url weiterleiten.
+    # Bei AJAX/Fetch (Accept: application/json) JSON zurückgeben.
+    # Das verhindert dass User rohen JSON-Text sieht wenn sie die URL direkt öffnen.
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header and "application/json" not in accept_header:
+        # Direkter Browser-Besuch → Redirect zur Google Wallet Save Page
+        response = RedirectResponse(url=save_url, status_code=302)
+    else:
+        # AJAX/Fetch → JSON Response für Frontend
+        response = JSONResponse({
+            "save_url": save_url,
+            "customer_id": customer.id,
+        })
     # CRITICAL: customer_id Cookie mit EIGENEM Namen (_cid)
     response.set_cookie(
         key=f"loyalty_{slug_lower}_cid", value=str(customer.id), httponly=True,
