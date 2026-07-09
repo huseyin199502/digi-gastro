@@ -2982,6 +2982,11 @@
                 // Prüft: Hat Tenant aktive Stempelkarte? Hat Kunde schon Wallet? Hat Kunde übersprungen?
                 // Fallback: Falls Loyalty nicht aktiv → direkt zur Speisekarte.
                 handleSpeisekarteClick() {
+                    // Admin/Kellner: NIEMALS Loyalty Popup zeigen
+                    if (this.role === 'admin' || this.role === 'waiter' || this.role === 'kellner') {
+                        this.currentView = 'speisekarte';
+                        return;
+                    }
                     // Falls keine Loyalty-Karte aktiv → direkt zur Speisekarte
                     // WICHTIG: Tenant ohne Stempelkarte → KEIN Popup, normaler Ablauf
                     // ABER: checkLoyaltyAvailability ist async — wenn User schnell klickt
