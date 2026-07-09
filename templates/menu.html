@@ -1291,8 +1291,11 @@
                     }
                 });
                 // AID anhängen → Server kann Customer erkennen
+                // WICHTIG: Accept: application/json damit Server JSON zurückgibt (nicht redirect)
                 const aidParam = _dgAid ? `?aid=${encodeURIComponent(_dgAid)}` : '';
-                fetch(`/{{ slug }}/loyalty/pass/google${aidParam}`)
+                fetch(`/{{ slug }}/loyalty/pass/google${aidParam}`, {
+                    headers: { 'Accept': 'application/json' }
+                })
                     .then(r => r.ok ? r.json() : null)
                     .then(d => {
                         if (d && d.save_url) {

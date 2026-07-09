@@ -149,7 +149,9 @@
                 }
             });
             // Pre-fetch save_url
-            fetch(`/${slug}/loyalty/pass/google`)
+            fetch(`/${slug}/loyalty/pass/google`, {
+                headers: { 'Accept': 'application/json' }
+            })
                 .then(r => r.ok ? r.json() : null)
                 .then(d => {
                     if (d && d.save_url) {

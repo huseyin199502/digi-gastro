@@ -14209,11 +14209,13 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
 
     save_url = f"https://pay.google.com/gp/v/save/{jwt_token}"
 
-    # WICHTIG: Bei direktem Browser-Besuch (Accept: text/html) zur save_url weiterleiten.
-    # Bei AJAX/Fetch (Accept: application/json) JSON zurückgeben.
-    # Das verhindert dass User rohen JSON-Text sieht wenn sie die URL direkt öffnen.
+    # WICHTIG: Bei direktem Browser-Besuch (Accept: text/html, kein X-Requested-With)
+    # zur save_url weiterleiten. Bei AJAX/Fetch JSON zurückgeben.
     accept_header = request.headers.get("accept", "")
-    if "text/html" in accept_header and "application/json" not in accept_header:
+    x_requested = request.headers.get("x-requested-with", "")
+    is_browser_direct = "text/html" in accept_header and "application/json" not in accept_header and not x_requested
+
+    if is_browser_direct:
         # Direkter Browser-Besuch → Redirect zur Google Wallet Save Page
         response = RedirectResponse(url=save_url, status_code=302)
     else:
