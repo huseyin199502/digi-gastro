@@ -1380,13 +1380,13 @@ def _generate_google_pass_payload(
     customer: Dict[str, Any],
     geofence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Generiert das JSON-Payload für Google Wallet LoyaltyCard Object."""
+    """Generiert das JSON-Payload für Google Wallet LoyaltyObject.
+
+    WICHTIG: Nur gültige LoyaltyObject-Felder verwenden!
+    cardTitle, subtitle, hexBackgroundColor sind GenericObject-Felder → werden ignoriert.
+    """
     serial = customer.get("pass_serial", str(uuid.uuid4()))
     stamps_current = customer.get("current_stamps", 0)
-    stamps_required = card.get("stamps_required", 10)
-    color_hex = card.get("color_hex", "#C9A84C")
-    # Google braucht Farbe ohne # und als ARGB (mit Alpha FF)
-    hex_bg = "FF" + color_hex.lstrip("#").upper()
     short_code = customer.get("short_code", "")
 
     object_id = f"{GOOGLE_ISSUER_ID}.{tenant_slug}-{serial[:16]}"
@@ -1397,69 +1397,39 @@ def _generate_google_pass_payload(
         "state": "ACTIVE",
         "loyaltyPoints": {
             "label": "Stempel",
-            "balance": {
-                "int": stamps_current
-            }
+            "balance": {"int": stamps_current}
         },
-        "cardTitle": {
-            "defaultValue": {
-                "language": "de",
-                "value": card.get("name", "Stempelkarte")
-            }
+        "barcode": {
+            "type": "QR_CODE",
+            "value": short_code or serial,
+            "alternateText": f"Code: {short_code}" if short_code else ""
         },
-        "subtitle": {
-            "defaultValue": {
-                "language": "de",
-                "value": f"{stamps_current} / {stamps_required} Stempel"
-            }
-        },
-        "hexBackgroundColor": hex_bg,
+        "accountName": f"{tenant_name} Stempelkarte",
+        "accountId": serial[:16],
         "infoModuleData": {
             "showLastUpdateTime": True,
             "labelValueRows": [
-                {
-                    "label": "Nächster Reward",
-                    "value": card.get("reward_name", "Belohnung")
-                },
-                {
-                    "label": "Restaurant",
-                    "value": tenant_name
-                },
-                {
-                    "label": "Stempel-Code",
-                    "value": short_code or "—"
-                }
+                {"label": "Reward", "value": card.get("reward_name", "Belohnung")},
+                {"label": "Restaurant", "value": tenant_name},
+                {"label": "Stempel-Code", "value": short_code or "—"}
             ]
         },
         "textModulesData": [
             {
                 "id": "info",
                 "header": "So funktioniert's",
-                "body": f"Bei jeder Bestellung erhältst du automatisch einen Stempel. Nach {stamps_required} Stempeln: {card.get('reward_name', 'Belohnung')}!"
+                "body": f"Bei jeder Bestellung erhältst du automatisch einen Stempel. Nach {card.get('stamps_required', 10)} Stempeln: {card.get('reward_name', 'Belohnung')}!"
             }
         ],
         "linksModuleData": {
             "uris": [
-                {
-                    "uri": f"https://digi-gastro.de/{tenant_slug}",
-                    "description": "Speisekarte öffnen"
-                }
+                {"uri": f"https://digi-gastro.de/{tenant_slug}", "description": "Speisekarte öffnen"}
             ]
-        },
-        # Barcode für Scanner (gleicher Code wie Apple Wallet)
-        "barcode": {
-            "type": "QR_CODE",
-            "value": short_code or serial,
-            "alternateText": f"Code: {short_code}" if short_code else ""
         },
     }
 
-    # Geofencing
     if geofence:
-        payload["locations"] = [{
-            "latitude": geofence["latitude"],
-            "longitude": geofence["longitude"]
-        }]
+        payload["locations"] = [{"latitude": geofence["latitude"], "longitude": geofence["longitude"]}]
 
     return payload
 
@@ -1469,39 +1439,30 @@ def _generate_google_class_payload(
     tenant_name: str,
     card: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Generiert das JSON-Payload für Google Wallet LoyaltyClass.
+    """Generiert LoyaltyClass — definiert visuelles Layout (Farbe, Logo, Template).
 
-    Die Class definiert das visuelle Layout (Farbe, Logo, Template).
-    Ohne Class zeigt Google Wallet nur Text an — kein Branding!
+    WICHTIG: hexBackgroundColor muss '#rrggbb' Format sein (NICHT ARGB!).
+    Google Wallet erwartet '#C9A84C' nicht 'FFC9A84C'.
     """
     color_hex = card.get("color_hex", "#C9A84C")
-    hex_bg = "FF" + color_hex.lstrip("#").upper()
+    # Google: '#rrggbb' Format (mit #, ohne Alpha)
+    hex_bg = "#" + color_hex.lstrip("#").upper()
 
     class_payload = {
         "id": GOOGLE_CLASS_ID,
         "issuerName": tenant_name or "digi-gastro",
         "programName": card.get("name", "Stempelkarte"),
         "programLogo": {
-            "sourceUri": {
-                "uri": f"https://digi-gastro.de/uploads/logos/{tenant_slug}-logo.png"
-            }
+            "sourceUri": {"uri": f"https://digi-gastro.de/uploads/logos/{tenant_slug}-logo.png"},
+            "contentDescription": {"defaultValue": {"language": "de", "value": f"{tenant_name} Logo"}}
         },
         "hexBackgroundColor": hex_bg,
-        "loyaltyRewardsTier": [
-            {
-                "label": f"Reward: {card.get('reward_name', 'Belohnung')}",
-                "rewardsTierLabel": "Stempel"
-            }
-        ],
-        "allowMultipleUsersPerObject": False,
+        "rewardsTier": card.get("reward_name", "Belohnung"),
+        "rewardsTierLabel": "Stempel",
+        "multipleDevicesAndHoldersAllowedStatus": "STATUS_MULTIPLE_HOLDERS",
         "reviewStatus": "UNDER_REVIEW",
         "countryCode": "DE",
-        "localizedIssuerName": {
-            "defaultValue": {
-                "language": "de",
-                "value": tenant_name or "digi-gastro"
-            }
-        },
+        "localizedIssuerName": {"defaultValue": {"language": "de", "value": tenant_name or "digi-gastro"}},
     }
 
     return class_payload
@@ -1550,6 +1511,7 @@ def generate_google_wallet_jwt(
             "aud": "google",
             "typ": "savetowallet",
             "iat": int(time.time()),
+            "origins": ["digi-gastro.de"],
             "payload": {
                 "loyaltyClasses": [class_payload],
                 "loyaltyObjects": [obj_payload]
