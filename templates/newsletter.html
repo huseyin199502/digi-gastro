@@ -124,9 +124,11 @@
             });
         }
 
-        // Google Button: save_url fetchen
+        // Google Button: save_url fetchen und direkt öffnen
         const googleBtn = document.getElementById('google-btn');
         if (googleBtn) {
+            googleBtn.style.pointerEvents = 'none';
+            googleBtn.style.opacity = '0.5';
             googleBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 try {
@@ -138,13 +140,27 @@
                             expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000));
                             document.cookie = `loyalty_${slug}=saved; expires=${expires.toUTCString()}; path=/; SameSite=Lax; Secure`;
                             localStorage.setItem(`loyalty_saved_${slug}`, 'true');
-                            window.location.href = data.save_url;
+                            window.open(data.save_url, '_blank');
+                            showToast('✅ Wird zu Google Wallet hinzugefügt...', 'success');
                         }
                     }
                 } catch (err) {
                     showToast('Fehler beim Google Wallet Download', 'error');
                 }
             });
+            // Pre-fetch save_url
+            fetch(`/${slug}/loyalty/pass/google`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                    if (d && d.save_url) {
+                        googleBtn.href = d.save_url;
+                        googleBtn.style.pointerEvents = 'auto';
+                        googleBtn.style.opacity = '1';
+                    } else {
+                        googleBtn.style.display = 'none';
+                    }
+                })
+                .catch(() => { googleBtn.style.display = 'none'; });
         }
 
         function showToast(msg, type='success') {

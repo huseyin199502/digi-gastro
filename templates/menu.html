@@ -1271,17 +1271,24 @@
             // GOOGLE: save_url via fetch holen und als href setzen.
             const googleBtn = document.getElementById('loyalty-google-btn');
             if (googleBtn) {
-                googleBtn.addEventListener('click', () => {
-                    _setLoyaltySavedCookie();
-                    localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
-                    // Popup automatisch schließen (Google öffnet in neuem Tab)
-                    setTimeout(() => {
-                        const popup = document.getElementById('loyalty-popup');
-                        if (popup) {
-                            popup.classList.add('hidden');
-                            document.body.style.overflow = '';
-                        }
-                    }, 1000);
+                // Button erst klickbar wenn save_url geladen ist
+                googleBtn.style.pointerEvents = 'none';
+                googleBtn.style.opacity = '0.5';
+                googleBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (googleBtn.href && googleBtn.href !== '#' && googleBtn.href !== window.location.href) {
+                        _setLoyaltySavedCookie();
+                        localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                        // Save URL in neuem Tab öffnen
+                        window.open(googleBtn.href, '_blank');
+                        setTimeout(() => {
+                            const popup = document.getElementById('loyalty-popup');
+                            if (popup) {
+                                popup.classList.add('hidden');
+                                document.body.style.overflow = '';
+                            }
+                        }, 1000);
+                    }
                 });
                 // AID anhängen → Server kann Customer erkennen
                 const aidParam = _dgAid ? `?aid=${encodeURIComponent(_dgAid)}` : '';
@@ -1290,6 +1297,8 @@
                     .then(d => {
                         if (d && d.save_url) {
                             googleBtn.href = d.save_url;
+                            googleBtn.style.pointerEvents = 'auto';
+                            googleBtn.style.opacity = '1';
                         } else {
                             googleBtn.style.display = 'none';
                         }
