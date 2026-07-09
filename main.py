@@ -14195,15 +14195,22 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
         "reward_name": card.reward_name, "color_hex": card.color_hex,
     }
     # Logo-URL für Google Wallet (muss PNG/JPEG sein, erreichbar von Google-Servern)
+    # WICHTIG: Google akzeptiert kein WebP! Wenn nur WebP existiert → Logo weglassen.
+    # Ein fehlendes Logo ist besser als ein 404 (was Google Wallet Fehler verursacht).
     logo_url_for_google = ""
     if tenant.logo_path:
-        # tenant.logo_path ist z.B. "/uploads/logos/memo_logo_xxx.webp"
-        # Google akzeptiert WebP nicht → versuche PNG-Version
         logo_filename = tenant.logo_path.split("/")[-1]
         png_filename = logo_filename.replace(".webp", ".png")
-        logo_url_for_google = f"https://digi-gastro.de/uploads/logos/{png_filename}"
-        # Fallback: Original WebP (Google akzeptiert evtl. manche WebP)
-        # Aber besser das Logo ganz weglassen als 404
+        png_url = f"https://digi-gastro.de/uploads/logos/{png_filename}"
+        # Prüfe ob PNG-Version existiert
+        import os as _os
+        png_fs_path = _os.path.join(UPLOAD_DIR, "logos", png_filename)
+        if _os.path.exists(png_fs_path):
+            logo_url_for_google = png_url
+        else:
+            # Kein PNG → Logo weglassen (lieber kein Logo als 404 Fehler)
+            print(f"[Google Wallet] PNG logo not found: {png_fs_path} → skipping logo")
+            logo_url_for_google = ""
     jwt_token = generate_google_wallet_jwt(
         slug_lower, tenant.name, card_dict, customer_dict, geofence_dict,
         logo_url=logo_url_for_google,
