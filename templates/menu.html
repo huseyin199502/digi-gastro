@@ -1183,6 +1183,12 @@
                             // Bestehendes "saved"-Cookie synchronisieren (falls Server sagt: hat Pass)
                             if (state.has_pass) {
                                 _setLoyaltySavedCookie();
+                            } else if (state.show_popup === true) {
+                                // BUGFIX: Server sagt autoritativ "hat keinen Pass" →
+                                // stale Client-Daten (Cookie/LS) löschen, sonst blockieren
+                                // sie dauerhaft das Popup, obwohl der Server has_pass=false liefert.
+                                document.cookie = `loyalty_{{ slug }}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure`;
+                                localStorage.removeItem(`loyalty_saved_{{ slug }}`);
                             }
                         }
                     } catch (e) { /* Server-Lookup optional, Cookie-Fallback unten */ }
