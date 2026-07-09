@@ -1274,45 +1274,42 @@
                 });
             }
 
-            // GOOGLE: save_url via fetch holen und als href setzen.
+            // GOOGLE: save_url wird ERST beim Klick geholt (nicht pre-fetch!)
+            // WICHTIG: Pre-fetch würde /loyalty/pass/google aufrufen → erstellt Customer
+            // → setzt pass_downloaded_at → Popup wird nie gezeigt!
             const googleBtn = document.getElementById('loyalty-google-btn');
             if (googleBtn) {
-                // Button erst klickbar wenn save_url geladen ist
-                googleBtn.style.pointerEvents = 'none';
-                googleBtn.style.opacity = '0.5';
-                googleBtn.addEventListener('click', (e) => {
+                googleBtn.addEventListener('click', async (e) => {
                     e.preventDefault();
-                    if (googleBtn.href && googleBtn.href !== '#' && googleBtn.href !== window.location.href) {
-                        _setLoyaltySavedCookie();
-                        localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
-                        // Save URL in neuem Tab öffnen
-                        window.open(googleBtn.href, '_blank');
-                        setTimeout(() => {
-                            const popup = document.getElementById('loyalty-popup');
-                            if (popup) {
-                                popup.classList.add('hidden');
-                                document.body.style.overflow = '';
+                    googleBtn.style.opacity = '0.5';
+                    googleBtn.style.pointerEvents = 'none';
+                    try {
+                        const aidParam = _dgAid ? `?aid=${encodeURIComponent(_dgAid)}` : '';
+                        const res = await fetch(`/{{ slug }}/loyalty/pass/google${aidParam}`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        if (res.ok) {
+                            const d = await res.json();
+                            if (d && d.save_url) {
+                                _setLoyaltySavedCookie();
+                                localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
+                                window.open(d.save_url, '_blank');
+                                setTimeout(() => {
+                                    const popup = document.getElementById('loyalty-popup');
+                                    if (popup) {
+                                        popup.classList.add('hidden');
+                                        document.body.style.overflow = '';
+                                    }
+                                }, 1000);
                             }
-                        }, 1000);
+                        }
+                    } catch (err) {
+                        console.error('Google Wallet fetch error:', err);
+                    } finally {
+                        googleBtn.style.opacity = '1';
+                        googleBtn.style.pointerEvents = 'auto';
                     }
                 });
-                // AID anhängen → Server kann Customer erkennen
-                // WICHTIG: Accept: application/json damit Server JSON zurückgibt (nicht redirect)
-                const aidParam = _dgAid ? `?aid=${encodeURIComponent(_dgAid)}` : '';
-                fetch(`/{{ slug }}/loyalty/pass/google${aidParam}`, {
-                    headers: { 'Accept': 'application/json' }
-                })
-                    .then(r => r.ok ? r.json() : null)
-                    .then(d => {
-                        if (d && d.save_url) {
-                            googleBtn.href = d.save_url;
-                            googleBtn.style.pointerEvents = 'auto';
-                            googleBtn.style.opacity = '1';
-                        } else {
-                            googleBtn.style.display = 'none';
-                        }
-                    })
-                    .catch(() => { googleBtn.style.display = 'none'; });
             }
 
             // Device Detection initial anwenden (beim Laden)
