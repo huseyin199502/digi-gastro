@@ -2981,10 +2981,28 @@
                 handleSpeisekarteClick() {
                     // Falls keine Loyalty-Karte aktiv → direkt zur Speisekarte
                     // WICHTIG: Tenant ohne Stempelkarte → KEIN Popup, normaler Ablauf
-                    if (!_loyaltyCardActive || !_loyaltyCardData) {
-                        this.currentView = 'speisekarte';
+                    // ABER: checkLoyaltyAvailability ist async — wenn User schnell klickt
+                    // ist _loyaltyCardActive noch false. Wir warten bis zu 2 Sekunden.
+                    if (!_loyaltyCardActive) {
+                        // Warte kurz ob Loyalty noch geladen wird (max 2 Sekunden)
+                        let waitCount = 0;
+                        const waitInterval = setInterval(() => {
+                            waitCount++;
+                            if (_loyaltyCardActive) {
+                                clearInterval(waitInterval);
+                                this._showLoyaltyPopupOrMenu();
+                            } else if (waitCount > 20) {
+                                // Nach 2 Sekunden aufgeben → direkt zur Speisekarte
+                                clearInterval(waitInterval);
+                                this.currentView = 'speisekarte';
+                            }
+                        }, 100);
                         return;
                     }
+                    this._showLoyaltyPopupOrMenu();
+                },
+
+                _showLoyaltyPopupOrMenu() {
 
                     // ── Popup-Suppression Logik (Drei-Kanal-Server-Lookup) ──
                     // 1. Tenant-Test-Override: ?no_loyalty_popup=1 → Popup dauerhaft unterdrücken
