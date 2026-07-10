@@ -1361,48 +1361,55 @@ def generate_apple_pkpass(
             with open(logo_path, "rb") as f:
                 logo_bytes = f.read()
 
-        # 3. Icon generieren — Reihenfolge: Notification-Icon > Tenant-Logo > Default
+        # 3. Icon generieren — Reihenfolge: Notification-Icon > Tenant-Logo (PNG konvertiert) > Default
         # Das icon.png erscheint in Push-Notifications (kleines Viereck links)
+        # WICHTIG: Apple Wallet akzeptiert NUR PNG als icon.png (kein JPEG, kein WebP!)
         color_hex = card.get("color_hex", "#C9A84C")
 
+        icon_bytes = _generate_default_icon(color_hex)  # Default Fallback
+
         # Priorität 1: Extra hochgeladenes Notification-Icon (PNG, 158x158)
-        icon_source_path = None
         if notification_icon_path and os.path.exists(notification_icon_path):
-            icon_source_path = notification_icon_path
+            try:
+                from PIL import Image as _PILImg
+                import io as _io3
+                img = _PILImg.open(notification_icon_path).convert("RGBA")
+                # Square center-crop + resize auf 158x158
+                w, h = img.size
+                if w != h:
+                    s = min(w, h)
+                    left = (w - s) // 2
+                    top = (h - s) // 2
+                    img = img.crop((left, top, left + s, top + s))
+                img = img.resize((158, 158), _PILImg.Resampling.LANCZOS)
+                out = _io3.BytesIO()
+                img.save(out, format="PNG", optimize=True)
+                icon_bytes = out.getvalue()
+                print(f"[Apple Pass] Using notification icon: {notification_icon_path}")
+            except Exception as e:
+                print(f"[Apple Pass] Notification icon load failed: {e}")
+
+        # Priorität 2: Tenant-Logo (JPEG/WebP → PNG konvertieren, square crop)
         elif logo_bytes:
-            # Priorität 2: Tenant-Logo als PNG (falls WebP → konvertieren)
             try:
                 from PIL import Image as _PILImg
                 import io as _io2
                 img = Image.open(_io2.BytesIO(logo_bytes))
                 img = img.convert("RGBA")
+                # Square center-crop (verhindert Verzerrung bei nicht-quadratischen Logos)
+                w, h = img.size
+                if w != h:
+                    s = min(w, h)
+                    left = (w - s) // 2
+                    top = (h - s) // 2
+                    img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), Image.Resampling.LANCZOS)
                 out = _io2.BytesIO()
                 img.save(out, format="PNG", optimize=True)
                 icon_bytes = out.getvalue()
-                icon_source_path = None  # bereits verarbeitet
+                print(f"[Apple Pass] Using tenant logo as icon (converted to PNG)")
             except Exception as e:
                 print(f"[Apple Pass] Logo resize failed, using default: {e}")
-                icon_bytes = _generate_default_icon(color_hex)
-                icon_source_path = None
-        else:
-            icon_bytes = _generate_default_icon(color_hex)
-            icon_source_path = None
-
-        # Wenn icon_source_path gesetzt → PNG Datei direkt laden
-        if icon_source_path:
-            try:
-                from PIL import Image as _PILImg
-                import io as _io3
-                img = _PILImg.open(icon_source_path).convert("RGBA")
-                img = img.resize((158, 158), Image.Resampling.LANCZOS)
-                out = _io3.BytesIO()
-                img.save(out, format="PNG", optimize=True)
-                icon_bytes = out.getvalue()
-                print(f"[Apple Pass] Using notification icon: {icon_source_path}")
-            except Exception as e:
-                print(f"[Apple Pass] Notification icon load failed: {e}")
-                icon_bytes = _generate_default_icon(color_hex)
 
         # 3b. Strip-Bild generieren — Stempel-Visualisierung als PNG (1125x360)
         # WICHTIG: Apple Wallet storeCard Style zeigt 'strip.png' als großes Bild
