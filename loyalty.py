@@ -1361,45 +1361,14 @@ def generate_apple_pkpass(
             with open(logo_path, "rb") as f:
                 logo_bytes = f.read()
 
-        # 3. Icon generieren — Reihenfolge: Notification-Icon > Tenant-Logo (PNG konvertiert) > Default
-        # Das icon.png erscheint in Push-Notifications (kleines Viereck links)
-        # WICHTIG: Apple Wallet akzeptiert NUR PNG als icon.png (kein JPEG, kein WebP!)
+        # 3. Icon generieren — Tenant-Logo als Icon falls vorhanden, sonst Default
+        # WICHTIG: Einfach das Logo als PNG konvertieren — keine Transparenz, kein dark check!
         color_hex = card.get("color_hex", "#C9A84C")
-
-        icon_bytes = _generate_default_icon(color_hex)  # Default Fallback
-
-        # Priorität 1: Extra hochgeladenes Notification-Icon (PNG, 158x158)
-        # WICHTIG: Icon SO VERWENDEN wie hochgeladen — KEINE BG-Transparenz!
-        # Warum: Wenn Logo weißer Text auf schwarz ist → transparent machen
-        # würde weißen Text auf weißem Notification-HG = unsichtbar!
-        # Apple rendert icon.png als abgerundetes Quadrat mit Original-HG.
-        if notification_icon_path and os.path.exists(notification_icon_path):
+        if logo_bytes:
             try:
-                from PIL import Image as _PILImg
-                import io as _io3
-                img = _PILImg.open(notification_icon_path).convert("RGBA")
-                w, h = img.size
-                if w != h:
-                    s = min(w, h)
-                    left = (w - s) // 2
-                    top = (h - s) // 2
-                    img = img.crop((left, top, left + s, top + s))
-                img = img.resize((158, 158), _PILImg.Resampling.LANCZOS)
-                # KEINE Transparenz-Änderung — Original-Icon so verwenden wie hochgeladen
-                out = _io3.BytesIO()
-                img.save(out, format="PNG", optimize=True)
-                icon_bytes = out.getvalue()
-                print(f"[Apple Pass] Using notification icon (original, no bg removal): {notification_icon_path}")
-            except Exception as e:
-                print(f"[Apple Pass] Notification icon load failed: {e}")
-
-        # Priorität 2: Tenant-Logo (JPEG/WebP → PNG, square crop, dark check)
-        # dark_ratio Check NUR hier — nicht bei user-uploaded notification-icon!
-        elif logo_bytes:
-            try:
-                from PIL import Image as _PILImg
-                import io as _io2
-                img = Image.open(_io2.BytesIO(logo_bytes))
+                from PIL import Image
+                import io as _io
+                img = Image.open(_io.BytesIO(logo_bytes))
                 img = img.convert("RGBA")
                 w, h = img.size
                 if w != h:
@@ -1408,28 +1377,14 @@ def generate_apple_pkpass(
                     top = (h - s) // 2
                     img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), Image.Resampling.LANCZOS)
-
-                # Gleiche Logik: dunkle Logos → Default Icon
-                import numpy as _np2
-                arr = _np2.array(img)
-                r_ch, g_ch, b_ch = arr[:,:,0], arr[:,:,1], arr[:,:,2]
-                brightness = (r_ch.astype(int) + g_ch.astype(int) + b_ch.astype(int)) / 3
-                dark_ratio = (brightness < 30).sum() / (arr.shape[0] * arr.shape[1])
-
-                if dark_ratio > 0.6:
-                    print(f"[Apple Pass] Logo is {dark_ratio:.0%} dark → using default icon")
-                    # Default Icon behalten (wurde oben gesetzt)
-                else:
-                    # Dunkle Pixel transparent machen
-                    mask = brightness < 30
-                    arr[mask, 3] = 0
-                    img = _PILImg.fromarray(arr)
-                    out = _io2.BytesIO()
-                    img.save(out, format="PNG", optimize=True)
-                    icon_bytes = out.getvalue()
-                    print(f"[Apple Pass] Using tenant logo as icon (dark bg removed, PNG)")
+                out = _io.BytesIO()
+                img.save(out, format="PNG", optimize=True)
+                icon_bytes = out.getvalue()
             except Exception as e:
                 print(f"[Apple Pass] Logo resize failed, using default: {e}")
+                icon_bytes = _generate_default_icon(color_hex)
+        else:
+            icon_bytes = _generate_default_icon(color_hex)
 
         # 3b. Strip-Bild generieren — Stempel-Visualisierung als PNG (1125x360)
         # WICHTIG: Apple Wallet storeCard Style zeigt 'strip.png' als großes Bild
