@@ -1369,13 +1369,14 @@ def generate_apple_pkpass(
         icon_bytes = _generate_default_icon(color_hex)  # Default Fallback
 
         # Priorität 1: Extra hochgeladenes Notification-Icon (PNG, 158x158)
-        # WICHTIG: User-uploaded Icon IMMER verwenden (kein dark_ratio Check)
-        # ABER: Schwarzen Hintergrund transparent machen damit Text sichtbar ist
+        # WICHTIG: Icon SO VERWENDEN wie hochgeladen — KEINE BG-Transparenz!
+        # Warum: Wenn Logo weißer Text auf schwarz ist → transparent machen
+        # würde weißen Text auf weißem Notification-HG = unsichtbar!
+        # Apple rendert icon.png als abgerundetes Quadrat mit Original-HG.
         if notification_icon_path and os.path.exists(notification_icon_path):
             try:
                 from PIL import Image as _PILImg
                 import io as _io3
-                import numpy as _np
                 img = _PILImg.open(notification_icon_path).convert("RGBA")
                 w, h = img.size
                 if w != h:
@@ -1384,19 +1385,11 @@ def generate_apple_pkpass(
                     top = (h - s) // 2
                     img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), _PILImg.Resampling.LANCZOS)
-
-                # Schwarzen Hintergrund transparent machen (behält weißen Text)
-                arr = _np.array(img)
-                r_ch, g_ch, b_ch = arr[:,:,0], arr[:,:,1], arr[:,:,2]
-                brightness = (r_ch.astype(int) + g_ch.astype(int) + b_ch.astype(int)) / 3
-                mask = brightness < 30  # Sehr dunkle Pixel = Hintergrund
-                arr[mask, 3] = 0  # Alpha = 0 → transparent
-                img = _PILImg.fromarray(arr)
-
+                # KEINE Transparenz-Änderung — Original-Icon so verwenden wie hochgeladen
                 out = _io3.BytesIO()
                 img.save(out, format="PNG", optimize=True)
                 icon_bytes = out.getvalue()
-                print(f"[Apple Pass] Using notification icon (bg removed): {notification_icon_path}")
+                print(f"[Apple Pass] Using notification icon (original, no bg removal): {notification_icon_path}")
             except Exception as e:
                 print(f"[Apple Pass] Notification icon load failed: {e}")
 
