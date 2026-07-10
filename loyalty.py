@@ -1369,6 +1369,8 @@ def generate_apple_pkpass(
         icon_bytes = _generate_default_icon(color_hex)  # Default Fallback
 
         # Priorität 1: Extra hochgeladenes Notification-Icon (PNG, 158x158)
+        # WICHTIG: Wenn User EXTRA ein Icon hochlädt → IMMER verwenden!
+        # Kein dark_ratio Check — User hat sich bewusst für dieses Icon entschieden.
         if notification_icon_path and os.path.exists(notification_icon_path):
             try:
                 from PIL import Image as _PILImg
@@ -1381,34 +1383,15 @@ def generate_apple_pkpass(
                     top = (h - s) // 2
                     img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), _PILImg.Resampling.LANCZOS)
-
-                # WICHTIG: Dark-Background-Removal nur wenn Logo NICHT überwiegend dunkel ist
-                # Deer Lounge Logo: weißer Text auf schwarz → 97% würde transparent → unsichtbar!
-                # Lösung: Wenn >60% der Pixel dunkel sind → verwende Default Icon (Brand-Farbe)
-                import numpy as _np
-                arr = _np.array(img)
-                r_ch, g_ch, b_ch = arr[:,:,0], arr[:,:,1], arr[:,:,2]
-                brightness = (r_ch.astype(int) + g_ch.astype(int) + b_ch.astype(int)) / 3
-                dark_ratio = (brightness < 30).sum() / (arr.shape[0] * arr.shape[1])
-
-                if dark_ratio > 0.6:
-                    # Logo ist überwiegend dunkel (z.B. weißer Text auf schwarz)
-                    # → Default Icon in Brand-Farbe ist besser sichtbar
-                    print(f"[Apple Pass] Logo is {dark_ratio:.0%} dark → using default icon instead")
-                    icon_bytes = _generate_default_icon(color_hex)
-                else:
-                    # Logo hat hellen Hintergrund → dunkle Pixel transparent machen
-                    mask = brightness < 30
-                    arr[mask, 3] = 0
-                    img = _PILImg.fromarray(arr)
-                    out = _io3.BytesIO()
-                    img.save(out, format="PNG", optimize=True)
-                    icon_bytes = out.getvalue()
-                    print(f"[Apple Pass] Using notification icon (dark bg removed): {notification_icon_path}")
+                out = _io3.BytesIO()
+                img.save(out, format="PNG", optimize=True)
+                icon_bytes = out.getvalue()
+                print(f"[Apple Pass] Using notification icon (user upload): {notification_icon_path}")
             except Exception as e:
                 print(f"[Apple Pass] Notification icon load failed: {e}")
 
-        # Priorität 2: Tenant-Logo (JPEG/WebP → PNG konvertiert, square crop)
+        # Priorität 2: Tenant-Logo (JPEG/WebP → PNG, square crop, dark check)
+        # dark_ratio Check NUR hier — nicht bei user-uploaded notification-icon!
         elif logo_bytes:
             try:
                 from PIL import Image as _PILImg
