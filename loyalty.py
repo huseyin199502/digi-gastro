@@ -1374,7 +1374,6 @@ def generate_apple_pkpass(
                 from PIL import Image as _PILImg
                 import io as _io3
                 img = _PILImg.open(notification_icon_path).convert("RGBA")
-                # Square center-crop + resize auf 158x158
                 w, h = img.size
                 if w != h:
                     s = min(w, h)
@@ -1382,30 +1381,40 @@ def generate_apple_pkpass(
                     top = (h - s) // 2
                     img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), _PILImg.Resampling.LANCZOS)
-                # WICHTIG: Dunkle Pixel → transparent (verhindert "weißes Viereck" in Notifications)
-                # Logos mit schwarzem Hintergrund sehen in Push-Notifications aus wie ein Viereck
+
+                # WICHTIG: Dark-Background-Removal nur wenn Logo NICHT überwiegend dunkel ist
+                # Deer Lounge Logo: weißer Text auf schwarz → 97% würde transparent → unsichtbar!
+                # Lösung: Wenn >60% der Pixel dunkel sind → verwende Default Icon (Brand-Farbe)
                 import numpy as _np
                 arr = _np.array(img)
                 r_ch, g_ch, b_ch = arr[:,:,0], arr[:,:,1], arr[:,:,2]
                 brightness = (r_ch.astype(int) + g_ch.astype(int) + b_ch.astype(int)) / 3
-                mask = brightness < 30  # Sehr dunkle Pixel = Hintergrund
-                arr[mask, 3] = 0  # Alpha = 0 → transparent
-                img = _PILImg.fromarray(arr)
-                out = _io3.BytesIO()
-                img.save(out, format="PNG", optimize=True)
-                icon_bytes = out.getvalue()
-                print(f"[Apple Pass] Using notification icon (dark bg removed): {notification_icon_path}")
+                dark_ratio = (brightness < 30).sum() / (arr.shape[0] * arr.shape[1])
+
+                if dark_ratio > 0.6:
+                    # Logo ist überwiegend dunkel (z.B. weißer Text auf schwarz)
+                    # → Default Icon in Brand-Farbe ist besser sichtbar
+                    print(f"[Apple Pass] Logo is {dark_ratio:.0%} dark → using default icon instead")
+                    icon_bytes = _generate_default_icon(color_hex)
+                else:
+                    # Logo hat hellen Hintergrund → dunkle Pixel transparent machen
+                    mask = brightness < 30
+                    arr[mask, 3] = 0
+                    img = _PILImg.fromarray(arr)
+                    out = _io3.BytesIO()
+                    img.save(out, format="PNG", optimize=True)
+                    icon_bytes = out.getvalue()
+                    print(f"[Apple Pass] Using notification icon (dark bg removed): {notification_icon_path}")
             except Exception as e:
                 print(f"[Apple Pass] Notification icon load failed: {e}")
 
-        # Priorität 2: Tenant-Logo (JPEG/WebP → PNG konvertiert, square crop, dark bg removed)
+        # Priorität 2: Tenant-Logo (JPEG/WebP → PNG konvertiert, square crop)
         elif logo_bytes:
             try:
                 from PIL import Image as _PILImg
                 import io as _io2
                 img = Image.open(_io2.BytesIO(logo_bytes))
                 img = img.convert("RGBA")
-                # Square center-crop (verhindert Verzerrung bei nicht-quadratischen Logos)
                 w, h = img.size
                 if w != h:
                     s = min(w, h)
@@ -1413,18 +1422,26 @@ def generate_apple_pkpass(
                     top = (h - s) // 2
                     img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), Image.Resampling.LANCZOS)
-                # WICHTIG: Dunkle Pixel → transparent (verhindert "weißes Viereck" in Notifications)
+
+                # Gleiche Logik: dunkle Logos → Default Icon
                 import numpy as _np2
                 arr = _np2.array(img)
                 r_ch, g_ch, b_ch = arr[:,:,0], arr[:,:,1], arr[:,:,2]
                 brightness = (r_ch.astype(int) + g_ch.astype(int) + b_ch.astype(int)) / 3
-                mask = brightness < 30  # Sehr dunkle Pixel = Hintergrund
-                arr[mask, 3] = 0  # Alpha = 0 → transparent
-                img = _PILImg.fromarray(arr)
-                out = _io2.BytesIO()
-                img.save(out, format="PNG", optimize=True)
-                icon_bytes = out.getvalue()
-                print(f"[Apple Pass] Using tenant logo as icon (dark bg removed, PNG)")
+                dark_ratio = (brightness < 30).sum() / (arr.shape[0] * arr.shape[1])
+
+                if dark_ratio > 0.6:
+                    print(f"[Apple Pass] Logo is {dark_ratio:.0%} dark → using default icon")
+                    # Default Icon behalten (wurde oben gesetzt)
+                else:
+                    # Dunkle Pixel transparent machen
+                    mask = brightness < 30
+                    arr[mask, 3] = 0
+                    img = _PILImg.fromarray(arr)
+                    out = _io2.BytesIO()
+                    img.save(out, format="PNG", optimize=True)
+                    icon_bytes = out.getvalue()
+                    print(f"[Apple Pass] Using tenant logo as icon (dark bg removed, PNG)")
             except Exception as e:
                 print(f"[Apple Pass] Logo resize failed, using default: {e}")
 
