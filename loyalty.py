@@ -244,9 +244,8 @@ def _generate_apple_pass_json(
                     "key": "code",
                     "label": "Stempel-Code",
                     "value": short_code or "—",
-                    "textAlignment": "PKTextAlignmentRight",
-                    # changeMessage: iOS zeigt Notification wenn dieser Wert sich ändert
-                    "changeMessage": "Neuer Code: %@"
+                    "textAlignment": "PKTextAlignmentRight"
+                    # KEINE changeMessage — sonst Coalescing mit lastmsg/stamps!
                 }
             ],
             # primaryFields: Stempel-Zähler (Foto ist jetzt LINKS im strip, nicht vollflächig)
@@ -267,8 +266,8 @@ def _generate_apple_pass_json(
                     "key": "reward",
                     "label": reward_label,
                     "value": reward_value,
-                    "textAlignment": "PKTextAlignmentLeft",
-                    "changeMessage": "Reward aktualisiert: %@"
+                    "textAlignment": "PKTextAlignmentLeft"
+                    # KEINE changeMessage — sonst Coalescing mit lastmsg/stamps!
                 }
             ],
             # auxiliaryFields: leer — keine hidden fields hier.
