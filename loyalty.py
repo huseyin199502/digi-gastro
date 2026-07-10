@@ -1460,26 +1460,76 @@ def generate_apple_pkpass(
                 if bbox:
                     img = img.crop(bbox)
 
-                # --- Schritt 4: Auf ~90% der 158x158 Canvas skalieren (mit Padding) ---
-                canvas_size = 158
-                target_size = int(canvas_size * 0.90)  # 90% → ~142px, 5% Padding pro Seite
+                # --- Schritt 3b: Banner-Logo Behandlung ---
+                # WICHTIG: Breite Banner-Logos (z.B. "DEER HOOKAH | COCKTAIL" 768x343)
+                # werden bei contain-fit zu klein (40% Höhe → Text unleserlich).
+                # Lösung: Bei breiten Logos auf Canvas-Höhe skalieren + linke Hälfte zeigen.
                 cw, ch = img.size
-                scale = min(target_size / cw, target_size / ch)
-                new_w = max(1, int(cw * scale))
-                new_h = max(1, int(ch * scale))
-                img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                aspect_ratio = max(cw, ch) / max(1, min(cw, ch))
+                canvas_size = 158
 
-                # --- Schritt 5: Auf 158x158 Canvas zentrieren (transparenter Hintergrund) ---
-                canvas = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
-                offset_x = (canvas_size - new_w) // 2
-                offset_y = (canvas_size - new_h) // 2
-                canvas.paste(img, (offset_x, offset_y), img)
+                if aspect_ratio > 1.5 and cw > ch:
+                    # Breites Banner-Logo: auf Höhe skalieren, linke 50% zeigen
+                    # (Haupt-Brand-Name ist meistens links, z.B. "DEER" bei Deer Lounge)
+                    scale = canvas_size / ch
+                    new_w_full = int(cw * scale)
+                    img_scaled = img.resize((new_w_full, canvas_size), Image.Resampling.LANCZOS)
+                    # Linke Hälfte nehmen (enthält meistens den Brand-Name)
+                    portion_width = min(new_w_full, int(new_w_full * 0.50))
+                    img = img_scaled.crop((0, 0, portion_width, canvas_size))
+                    # Auf 90% skalieren (mit Padding)
+                    cw, ch = img.size
+                    scale2 = min(int(canvas_size * 0.90) / cw, int(canvas_size * 0.90) / ch)
+                    new_w = max(1, int(cw * scale2))
+                    new_h = max(1, int(ch * scale2))
+                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    print(f"[Apple Pass] Wide logo crop: {cw}x{ch} (aspect {aspect_ratio:.2f}:1) "
+                          f"→ {new_w}x{new_h}")
+                else:
+                    # --- Schritt 4: Auf ~90% der 158x158 Canvas skalieren (mit Padding) ---
+                    target_size = int(canvas_size * 0.90)  # 90% → ~142px, 5% Padding pro Seite
+                    scale = min(target_size / cw, target_size / ch)
+                    new_w = max(1, int(cw * scale))
+                    new_h = max(1, int(ch * scale))
+                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+                # --- Schritt 5: Auf 158x158 Canvas zentrieren ---
+                # WICHTIG: Hintergrund-Verarbeitung abhängig von bg_color Helligkeit:
+                # - HELLE Hintergründe (weiss, hellgrau) → transparent machen → iOS zeigt
+                #   pass.backgroundColor durch (z.B. gold für memo) → brand-konsistent
+                # - DUNKLE Hintergründe (schwarz, dunkelblau) → BEIBEHALTEN als opake Farbe
+                #   → dunkles Quadrat mit Logo (besserer Kontrast als transparent + backgroundColor)
+                keep_bg_opaque = False
+                if bg_color is not None:
+                    brightness = (bg_color[0] + bg_color[1] + bg_color[2]) / 3
+                    if brightness < 128:
+                        # Dunkler Hintergrund → opakes Quadrat mit bg_color beibehalten
+                        keep_bg_opaque = True
+
+                if keep_bg_opaque:
+                    # Opaker Hintergrund mit bg_color, Logo zentriert darauf
+                    canvas = Image.new("RGBA", (canvas_size, canvas_size),
+                                       (bg_color[0], bg_color[1], bg_color[2], 255))
+                    cw, ch = img.size
+                    offset_x = (canvas_size - cw) // 2
+                    offset_y = (canvas_size - ch) // 2
+                    canvas.paste(img, (offset_x, offset_y), img)
+                    print(f"[Apple Pass] Dark bg ({bg_color}) kept opaque — logo on dark square")
+                else:
+                    # Transparenter Hintergrund (helle bg_color oder kein bg erkannt)
+                    canvas = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
+                    cw, ch = img.size
+                    offset_x = (canvas_size - cw) // 2
+                    offset_y = (canvas_size - ch) // 2
+                    canvas.paste(img, (offset_x, offset_y), img)
+                    print(f"[Apple Pass] Light/transparent bg — iOS shows pass.backgroundColor")
 
                 out = _io.BytesIO()
                 canvas.save(out, format="PNG", optimize=True)
                 icon_bytes = out.getvalue()
                 print(f"[Apple Pass] Icon generiert: bg_color={bg_color}, "
-                      f"logo_size={cw}x{ch}→{new_w}x{new_h}, canvas={canvas_size}x{canvas_size}")
+                      f"logo_size={new_w}x{new_h}, canvas={canvas_size}x{canvas_size}, "
+                      f"keep_bg_opaque={keep_bg_opaque}")
             except Exception as e:
                 print(f"[Apple Pass] Logo resize failed, using default: {e}")
                 icon_bytes = _generate_default_icon(color_hex)
