@@ -1260,6 +1260,7 @@ def generate_apple_pkpass(
     customer: Dict[str, Any],
     geofence: Optional[Dict[str, Any]] = None,
     logo_path: Optional[str] = None,
+    notification_icon_path: Optional[str] = None,
     wallet_banner_path: Optional[str] = None,
     wallet_banner_mode: str = "full",
 ) -> Optional[bytes]:
@@ -1285,27 +1286,48 @@ def generate_apple_pkpass(
             with open(logo_path, "rb") as f:
                 logo_bytes = f.read()
 
-        # 3. Icon generieren — Tenant-Logo als Icon falls vorhanden, sonst Default
+        # 3. Icon generieren — Reihenfolge: Notification-Icon > Tenant-Logo > Default
+        # Das icon.png erscheint in Push-Notifications (kleines Viereck links)
         color_hex = card.get("color_hex", "#C9A84C")
-        if logo_bytes:
-            # Tenant-Logo als icon.png verwenden (Apple akzeptiert PNG)
-            # Logo auf 158x158 skalieren für optimale Darstellung
+
+        # Priorität 1: Extra hochgeladenes Notification-Icon (PNG, 158x158)
+        icon_source_path = None
+        if notification_icon_path and os.path.exists(notification_icon_path):
+            icon_source_path = notification_icon_path
+        elif logo_bytes:
+            # Priorität 2: Tenant-Logo als PNG (falls WebP → konvertieren)
             try:
-                from PIL import Image
-                import io as _io
-                img = Image.open(_io.BytesIO(logo_bytes))
+                from PIL import Image as _PILImg
+                import io as _io2
+                img = Image.open(_io2.BytesIO(logo_bytes))
                 img = img.convert("RGBA")
-                # Auf 158x158 skalieren (Apple empfiehlt diese Größe)
                 img = img.resize((158, 158), Image.Resampling.LANCZOS)
-                out = _io.BytesIO()
+                out = _io2.BytesIO()
                 img.save(out, format="PNG", optimize=True)
                 icon_bytes = out.getvalue()
+                icon_source_path = None  # bereits verarbeitet
             except Exception as e:
                 print(f"[Apple Pass] Logo resize failed, using default: {e}")
                 icon_bytes = _generate_default_icon(color_hex)
+                icon_source_path = None
         else:
-            # Kein Logo → Default "S" Icon generieren
             icon_bytes = _generate_default_icon(color_hex)
+            icon_source_path = None
+
+        # Wenn icon_source_path gesetzt → PNG Datei direkt laden
+        if icon_source_path:
+            try:
+                from PIL import Image as _PILImg
+                import io as _io3
+                img = _PILImg.open(icon_source_path).convert("RGBA")
+                img = img.resize((158, 158), Image.Resampling.LANCZOS)
+                out = _io3.BytesIO()
+                img.save(out, format="PNG", optimize=True)
+                icon_bytes = out.getvalue()
+                print(f"[Apple Pass] Using notification icon: {icon_source_path}")
+            except Exception as e:
+                print(f"[Apple Pass] Notification icon load failed: {e}")
+                icon_bytes = _generate_default_icon(color_hex)
 
         # 3b. Strip-Bild generieren — Stempel-Visualisierung als PNG (1125x360)
         # WICHTIG: Apple Wallet storeCard Style zeigt 'strip.png' als großes Bild

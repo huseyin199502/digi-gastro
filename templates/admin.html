@@ -6088,6 +6088,31 @@
                     </div>
                 </div>
 
+                <!-- Section 2c: Notification-Icon Upload -->
+                <div class="section-card mb-4">
+                    <div class="section-card-header">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500" style="font-size:18px;">notifications</span>
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Push-Notification Icon</h3>
+                        </div>
+                        <span class="text-[10px] font-bold text-amber-600">Empfohlen 158×158 px PNG</span>
+                    </div>
+                    <div class="section-card-body">
+                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mb-3 leading-relaxed">
+                            Dieses Icon erscheint als kleines Bild in Push-Notifications auf dem iPhone. Lade ein quadratisches PNG hoch (z.B. dein Logo). <strong>Optimal: 158×158 Pixel, PNG, quadratisch.</strong>
+                        </p>
+                        <form id="notification-icon-form" onsubmit="uploadNotificationIcon(event)" class="space-y-3">
+                            <div>
+                                <label class="form-label">Icon hochladen</label>
+                                <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required class="form-field text-[11px]">
+                            </div>
+                            <button type="submit" class="btn-primary w-full flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined" style="font-size:14px;">upload</span> Icon hochladen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Section 3: GPS-Standort (Geofencing) -->
                 <div class="section-card mb-4">
                     <div class="section-card-header">
@@ -14334,6 +14359,27 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     loadLoyaltyDashboard();
                 } else {
                     showToast(data.detail || 'Fehler beim Erstellen', 'error');
+                }
+            } catch (e) {
+                showToast('Netzwerkfehler: ' + e.message, 'error');
+            }
+        }
+
+        async function uploadNotificationIcon(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            try {
+                showToast('⏳ Icon wird hochgeladen...', 'info');
+                const res = await fetch('/admin/loyalty/upload-notification-icon', {
+                    method: 'POST', body: formData, credentials: 'same-origin'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('✅ Notification-Icon hochgeladen! Pässe werden aktualisiert.', 'success');
+                    form.reset();
+                } else {
+                    showToast(data.detail || 'Fehler beim Upload', 'error');
                 }
             } catch (e) {
                 showToast('Netzwerkfehler: ' + e.message, 'error');

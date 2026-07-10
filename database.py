@@ -86,6 +86,7 @@ class Tenant(Base):
     orders_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Nur Speisekarte (keine Bestellungen)
     show_revenue = Column(Boolean, default=True)  # Super-Admin Toggle: False = Tenant sieht keine Umsätze/Reports
     loyalty_enabled = Column(Boolean, default=True)  # Super-Admin Toggle: False = Keine Stempelkarte/Newsletter
+    notification_icon_path = Column(String, nullable=True)  # PNG für Push-Notification icon.png
     # ── PHASE 4: operating_mode — Stempelkarte-Only Mode ──
     # "full" = Speisekarte + Bestellung + Stempelkarte (Default)
     # "menu_only" = Nur Speisekarte, keine Bestellung, keine Stempelkarte
@@ -624,6 +625,7 @@ def _migrate_database():
     # Super-Admin Toggle: orders_enabled = False → Gäste sehen Speisekarte aber können nicht bestellen
     add_column_if_missing('tenants', 'orders_enabled', "BOOLEAN DEFAULT TRUE")
     add_column_if_missing('tenants', 'loyalty_enabled', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('tenants', 'notification_icon_path', "VARCHAR")
     # PHASE 4: operating_mode — 'full', 'menu_only', 'stempelkarte_only'
     add_column_if_missing('tenants', 'operating_mode', "VARCHAR DEFAULT 'full'")
     add_column_if_missing('tenants', 'show_revenue', "BOOLEAN DEFAULT TRUE")  # Super-Admin: Tenant sieht Umsatz/Reports

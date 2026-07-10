@@ -869,6 +869,19 @@ UPLOAD_DIR = os.getenv(
 UPLOAD_LOGOS_DIR = os.path.join(UPLOAD_DIR, "logos")
 os.makedirs(UPLOAD_LOGOS_DIR, exist_ok=True)
 
+
+def _resolve_notification_icon(tenant, upload_dir: str) -> Optional[str]:
+    """Löst den Pfad zum Notification-Icon auf (PNG-Datei auf dem Server)."""
+    icon_url = getattr(tenant, 'notification_icon_path', None)
+    if not icon_url:
+        return None
+    # icon_url ist z.B. "/uploads/notification-icons/memo-notification-icon.png"
+    if icon_url.startswith("/uploads/"):
+        fs_path = os.path.join(upload_dir, icon_url[len("/uploads/"):])
+        if os.path.exists(fs_path):
+            return fs_path
+    return None
+
 def delete_local_image_if_unused(image_path: str, restaurant: dict, current_product_id: Optional[int] = None):
     if not image_path or not image_path.startswith("/uploads/"):
         return
@@ -14113,7 +14126,8 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
 
     pkpass_bytes = generate_apple_pkpass(
         slug_lower, tenant.name, card_dict, customer_dict, geofence_dict,
-        logo_path=logo_path,  # CRITICAL: Tenant-Logo in den Pass!
+        logo_path=logo_path,
+        notification_icon_path=_resolve_notification_icon(tenant, UPLOAD_DIR),
     )
     if not pkpass_bytes:
         raise HTTPException(status_code=500, detail="Pass-Generierung fehlgeschlagen.")
@@ -14451,6 +14465,7 @@ async def passkit_get_pass(
     pkpass_bytes = generate_apple_pkpass(
         customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict,
         logo_path=logo_path_update,
+        notification_icon_path=_resolve_notification_icon(tenant, UPLOAD_DIR),
     )
 
     if not pkpass_bytes:
@@ -14556,6 +14571,63 @@ def loyalty_dashboard(chef_data: tuple = Depends(require_chef_user_flat), db: Se
         "apple_configured": _is_apple_configured(),
         "google_configured": _is_google_configured(),
     }
+
+
+@app.post("/admin/loyalty/upload-notification-icon")
+async def loyalty_upload_notification_icon(
+    request: Request,
+    file: "UploadFile" = File(...),
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Lädt ein PNG-Icon hoch das als icon.png in Apple Wallet Push-Notifications angezeigt wird.
+
+    Das ist das kleine Viereck das in der Notification links erscheint.
+    Apple icon.png: 29x29 pt = 87x87 px (@3x), akzeptiert bis 158x158 px.
+    Wird als PNG gespeichert (Apple akzeptiert nur PNG im .pkpass).
+    """
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    tenant = db.query(Tenant).filter_by(slug=slug_lower).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant nicht gefunden.")
+
+    content = await safe_read_upload(file, MAX_LOGO_UPLOAD_BYTES)
+
+    try:
+        from PIL import Image as _PILImage
+        import io as _pil_io
+        img = _PILImage.open(_pil_io.BytesIO(content))
+        img = img.convert("RGBA")
+        # Auf 158x158 skalieren (Apple empfiehlt diese Größe)
+        img = img.resize((158, 158), _PILImage.Resampling.LANCZOS)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ungültiges Bild-Format: {e}")
+
+    # Als PNG speichern
+    icon_dir = os.path.join(UPLOAD_DIR, "notification-icons")
+    os.makedirs(icon_dir, exist_ok=True)
+    filename = f"{slug_lower}-notification-icon.png"
+    file_path = os.path.join(icon_dir, filename)
+    img.save(file_path, format="PNG", optimize=True)
+
+    # Pfad in Tenant speichern
+    icon_url = f"/uploads/notification-icons/{filename}"
+    tenant.notification_icon_path = icon_url
+    db.commit()
+
+    # Alle Kunden-Pässe aktualisieren
+    try:
+        customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+        for cust in customers:
+            try:
+                _trigger_pass_update_push(db, cust, "Icon aktualisiert", "Icon aktualisiert")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return {"success": True, "icon_url": icon_url}
 
 
 @app.post("/admin/loyalty/card")
