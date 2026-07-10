@@ -1362,6 +1362,10 @@ def generate_apple_pkpass(
                 logo_bytes = f.read()
 
         # 3. Icon generieren — Tenant-Logo als Icon falls vorhanden, sonst Default
+        # WICHTIG: Apple Wallet rendert icon.png ÜBER der pass.backgroundColor (gold).
+        # Wenn das Logo eine weisse/opake Hintergrundfläche hat, überdeckt diese
+        # die Gold-Farbe → User sieht "weisses/goldenes Viereck mit winzigem Logo".
+        # FIX: Hintergrund transparent machen + Logo auf ~90% der Canvas skalieren.
         color_hex = card.get("color_hex", "#C9A84C")
         if logo_bytes:
             try:
@@ -1369,10 +1373,113 @@ def generate_apple_pkpass(
                 import io as _io
                 img = Image.open(_io.BytesIO(logo_bytes))
                 img = img.convert("RGBA")
-                img = img.resize((158, 158), Image.Resampling.LANCZOS)
+                w, h = img.size
+
+                # --- Schritt 1: Hintergrund-Erkennung über Eck-Pixel ---
+                # Sample 10x10 Bereiche in allen 4 Ecken
+                corner_colors = []
+                for (cx, cy) in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]:
+                    px = []
+                    for dx in range(min(10, w)):
+                        for dy in range(min(10, h)):
+                            px.append(img.getpixel((min(cx + dx, w - 1), min(cy + dy, h - 1))))
+                    if px:
+                        # Durchschnitt der Eck-Pixel
+                        avg_r = sum(p[0] for p in px) // len(px)
+                        avg_g = sum(p[1] for p in px) // len(px)
+                        avg_b = sum(p[2] for p in px) // len(px)
+                        avg_a = sum(p[3] for p in px) // len(px)
+                        corner_colors.append((avg_r, avg_g, avg_b, avg_a))
+
+                # Wenn alle 4 Ecken ähnliche Farbe haben → das ist der Hintergrund
+                bg_color = None
+                if corner_colors and len(corner_colors) == 4:
+                    first = corner_colors[0]
+                    all_similar = all(
+                        abs(c[0] - first[0]) < 15 and
+                        abs(c[1] - first[1]) < 15 and
+                        abs(c[2] - first[2]) < 15
+                        for c in corner_colors
+                    )
+                    if all_similar and first[3] > 200:  # nicht bereits transparent
+                        bg_color = first
+
+                # --- Schritt 2: Hintergrund transparent machen (Flood Fill von Ecken) ---
+                # WICHTIG: Nur Pixel transparent machen die mit dem Hintergrund VERBUNDEN sind.
+                # Flood Fill von den Ecken → erfasst nur den Hintergrund, NICHT weissen
+                # Text oder weisse Sterne INNERHALB des Logos.
+                if bg_color is not None:
+                    from collections import deque
+                    pixels = img.load()
+                    threshold = 25
+                    visited = set()
+                    queue = deque()
+
+                    # Start-Pixel: alle Rand-Pixel die ähnlich der Hintergrund-Farbe sind
+                    for x in range(w):
+                        for y_edge in [0, h - 1]:
+                            r, g, b, a = pixels[x, y_edge]
+                            if (abs(r - bg_color[0]) < threshold and
+                                abs(g - bg_color[1]) < threshold and
+                                abs(b - bg_color[2]) < threshold):
+                                queue.append((x, y_edge))
+                    for y in range(h):
+                        for x_edge in [0, w - 1]:
+                            r, g, b, a = pixels[x_edge, y]
+                            if (abs(r - bg_color[0]) < threshold and
+                                abs(g - bg_color[1]) < threshold and
+                                abs(b - bg_color[2]) < threshold):
+                                queue.append((x_edge, y))
+
+                    # BFS: alle verbundenen Hintergrund-Pixel finden
+                    bg_count = 0
+                    while queue:
+                        x, y = queue.popleft()
+                        if (x, y) in visited:
+                            continue
+                        if x < 0 or x >= w or y < 0 or y >= h:
+                            continue
+                        r, g, b, a = pixels[x, y]
+                        if not (abs(r - bg_color[0]) < threshold and
+                                abs(g - bg_color[1]) < threshold and
+                                abs(b - bg_color[2]) < threshold):
+                            continue
+                        visited.add((x, y))
+                        pixels[x, y] = (0, 0, 0, 0)  # transparent
+                        bg_count += 1
+                        # Nachbarn hinzufügen
+                        queue.append((x + 1, y))
+                        queue.append((x - 1, y))
+                        queue.append((x, y + 1))
+                        queue.append((x, y - 1))
+                    print(f"[Apple Pass] Flood fill: {bg_count} Hintergrund-Pixel transparent "
+                          f"({100*bg_count/(w*h):.1f}%)")
+
+                # --- Schritt 3: Auto-Crop auf Non-Transparent-Bereich ---
+                bbox = img.getbbox()  # Bounding-Box der nicht-transparenten Pixel
+                if bbox:
+                    img = img.crop(bbox)
+
+                # --- Schritt 4: Auf ~90% der 158x158 Canvas skalieren (mit Padding) ---
+                canvas_size = 158
+                target_size = int(canvas_size * 0.90)  # 90% → ~142px, 5% Padding pro Seite
+                cw, ch = img.size
+                scale = min(target_size / cw, target_size / ch)
+                new_w = max(1, int(cw * scale))
+                new_h = max(1, int(ch * scale))
+                img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+                # --- Schritt 5: Auf 158x158 Canvas zentrieren (transparenter Hintergrund) ---
+                canvas = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
+                offset_x = (canvas_size - new_w) // 2
+                offset_y = (canvas_size - new_h) // 2
+                canvas.paste(img, (offset_x, offset_y), img)
+
                 out = _io.BytesIO()
-                img.save(out, format="PNG", optimize=True)
+                canvas.save(out, format="PNG", optimize=True)
                 icon_bytes = out.getvalue()
+                print(f"[Apple Pass] Icon generiert: bg_color={bg_color}, "
+                      f"logo_size={cw}x{ch}→{new_w}x{new_h}, canvas={canvas_size}x{canvas_size}")
             except Exception as e:
                 print(f"[Apple Pass] Logo resize failed, using default: {e}")
                 icon_bytes = _generate_default_icon(color_hex)
