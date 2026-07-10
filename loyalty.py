@@ -1362,7 +1362,6 @@ def generate_apple_pkpass(
                 logo_bytes = f.read()
 
         # 3. Icon generieren — Tenant-Logo als Icon falls vorhanden, sonst Default
-        # WICHTIG: Einfach das Logo als PNG konvertieren — keine Transparenz, kein dark check!
         color_hex = card.get("color_hex", "#C9A84C")
         if logo_bytes:
             try:
@@ -1370,12 +1369,6 @@ def generate_apple_pkpass(
                 import io as _io
                 img = Image.open(_io.BytesIO(logo_bytes))
                 img = img.convert("RGBA")
-                w, h = img.size
-                if w != h:
-                    s = min(w, h)
-                    left = (w - s) // 2
-                    top = (h - s) // 2
-                    img = img.crop((left, top, left + s, top + s))
                 img = img.resize((158, 158), Image.Resampling.LANCZOS)
                 out = _io.BytesIO()
                 img.save(out, format="PNG", optimize=True)
