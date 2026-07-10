@@ -1153,97 +1153,172 @@ def _generate_stamp_strip(
     banner_path: Optional[str] = None,
     banner_mode: str = "full",
 ) -> bytes:
-    """Generiert ein strip.png (1125x432 px) für Apple Wallet storeCard.
+    """Generiert ein strip.png (1125x432 px) im getqard.com Style.
 
-    LAYOUT (kein Überlapp mit primaryFields Text):
-    - Obere ~240px: Transparent → primaryFields "0/10 Karte" rendert hier
-    - Mittlere Zone (optional): Tenant-Foto (banner_mode="zone")
-    - Untere ~192px: Stempel-Sterne in 1-2 Reihen
+    7-Schicht-Layering (von getqard.com inspiriert):
+    1. Fließende Bezier-Kurven (sa-flow) — Brand-Farbe, variierte Opazität
+    2. Brand-Coin mit radialem Gradient (sa-disc) — rechts oben
+    3. Dünner Außenring (sa-ring)
+    4. Gestrichelter Innenring (sa-ring2)
+    5. Glass-Glanz Bogen (sa-glass) — weißer Arc oben auf Coin
+    6. Branchenspezifisches Glyph (sa-glyph) — z.B. Kaffeetasse
+    7. Sparkles (sa-spark) — kleine Brand-Farb-Punkte
 
-    Apple Wallet legt primaryFields Text ÜBER das strip-Bild (zentriert).
-    Da der Text nur die obere Hälfte nutzt, platzieren wir die Sterne
-    am unteren Rand → saubere Trennung, kein Überlapp.
-
-    Modi:
-    - Ohne banner_path: Sterne unten, oben transparent (Standard)
-    - banner_mode="zone": Foto mittig + Sterne unten + transparent oben
-    - banner_mode="full": Foto komplett + dunkles Gradient oben + Sterne unten
-
-    Layout:
-    - n Sterne horizontal (n = stamps_required)
-    - Bei n>10: 2 Reihen
-    - Gefüllt = vollfarbiger Stern
-    - Leer = Outline-Stern
+    Unten (Y>280): Stempel-Sterne mit 4-Schicht-Rendering
+    Oben (Y<280): Brand-Art Layering (transparent für primaryFields Text)
     """
     try:
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import Image, ImageDraw, ImageFilter
         import io as _io
-        import math
+        import math as _m
 
-        # Apple Wallet strip image für storeCard: 1125x432 px
-        W, H = 1125, 432
-        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
+        _W, _H = 1125, 432
 
-        # Farbe aus Hex parsen
-        hex_str = color_hex.lstrip("#")
-        if len(hex_str) == 6:
-            r = int(hex_str[0:2], 16)
-            g = int(hex_str[2:4], 16)
-            b = int(hex_str[4:6], 16)
+        def _hex_rgb(h):
+            h = h.lstrip("#")
+            if len(h) == 6:
+                return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            return 201, 168, 76
+
+        def _bezier(p0, p1, p2, p3, steps=60):
+            pts = []
+            for i in range(steps + 1):
+                t = i / steps
+                u = 1 - t
+                pts.append((
+                    u**3 * p0[0] + 3*u**2*t*p1[0] + 3*u*t**2*p2[0] + t**3*p3[0],
+                    u**3 * p0[1] + 3*u**2*t*p1[1] + 3*u*t**2*p2[1] + t**3*p3[1]
+                ))
+            return pts
+
+        brand = _hex_rgb(color_hex)
+        img = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+
+        # ── 1. Flowing curves (sa-flow) ──
+        ops = [0.22, 0.48, 0.74, 1.00, 0.74, 0.48, 0.22]
+        widths = [0.77, 0.86, 0.96, 1.05, 0.96, 0.86, 0.77]
+        flow = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+        fd = ImageDraw.Draw(flow)
+        sx = 3.31
+        for i, (op, w) in enumerate(zip(ops, widths)):
+            y = 48 + i * 15
+            p0 = (-66*sx, y); p1 = (70*sx, y)
+            p2 = (110*sx, y-26); p3 = (175*sx, y-30)
+            c1 = (2*p3[0]-p2[0], 2*p3[1]-p2[1])
+            p4 = (295*sx, y-52); p5 = (360*sx, y-58)
+            pts = _bezier(p0, p1, p2, p3, 50) + _bezier(p3, c1, p4, p5, 50)[1:]
+            a = int(255 * op)
+            fd.line(pts, fill=(brand[0], brand[1], brand[2], a), width=max(1, int(w*3)))
+        flow = flow.filter(ImageFilter.GaussianBlur(radius=0.7))
+        img = Image.alpha_composite(img, flow)
+
+        # ── 2. Coin disc (sa-disc) ──
+        ccx = int(_W * 0.74)
+        ccy = int(_H * 0.36)
+        cr = 56
+        disc_size = cr * 2 + 4
+        disc = Image.new("RGBA", (disc_size, disc_size), (0, 0, 0, 0))
+        dcx, dcy = disc_size * 0.36, disc_size * 0.32
+        max_r = disc_size * 0.76
+        dp = disc.load()
+        for y in range(disc_size):
+            for x in range(disc_size):
+                d = _m.hypot(x - dcx, y - dcy) / max_r
+                if d <= 1.0:
+                    if d < 0.56:
+                        t = d / 0.56
+                        op = 0.95 * (1-t) + 0.34 * t
+                    else:
+                        t = (d - 0.56) / 0.44
+                        op = 0.34 * (1-t)
+                    dp[x, y] = (brand[0], brand[1], brand[2], int(255*op))
+        img.alpha_composite(disc, (ccx - disc_size//2, ccy - disc_size//2))
+
+        # ── 3. Outer ring (sa-ring) ──
+        ring = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+        rd = ImageDraw.Draw(ring)
+        rd.ellipse([ccx-cr, ccy-cr, ccx+cr, ccy+cr],
+                   outline=(brand[0], brand[1], brand[2], int(255*0.42)), width=4)
+        img = Image.alpha_composite(img, ring)
+
+        # ── 4. Dashed inner ring (sa-ring2) ──
+        ir = int(cr * 0.78)
+        dash_layer = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+        dd = ImageDraw.Draw(dash_layer)
+        circ = 2 * _m.pi * ir
+        seg = int(circ / 19)
+        for i in range(seg):
+            a0 = i * 2 * _m.pi / seg
+            a1 = a0 + 2 * _m.pi / seg * (5/19)
+            dd.line([(ccx + ir*_m.cos(a0), ccy + ir*_m.sin(a0)),
+                     (ccx + ir*_m.cos(a1), ccy + ir*_m.sin(a1))],
+                    fill=(brand[0], brand[1], brand[2], int(255*0.28)), width=2)
+        img = Image.alpha_composite(img, dash_layer)
+
+        # ── 5. Glass arc (sa-glass) ──
+        glass = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glass)
+        gd.arc([ccx-cr, ccy-cr, ccx+cr, ccy+cr], 210, 330,
+               fill=(255, 255, 255, int(255*0.46)), width=max(2, int(cr*0.06)))
+        glass = glass.filter(ImageFilter.GaussianBlur(radius=0.6))
+        img = Image.alpha_composite(img, glass)
+
+        # ── 6. Glyph (sa-glyph) — branchenspezifisches Icon im Coin ──
+        gs = int(cr * 0.65)
+        glyph = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+        gld = ImageDraw.Draw(glyph)
+        ga = int(255 * 0.78)
+        gc = (brand[0], brand[1], brand[2], ga)
+        if card_icon in ("local_cafe", "free_breakfast", "coffee"):
+            # Kaffeetasse
+            cl, cr2 = ccx - 0.6*gs, ccx + 0.6*gs
+            ct, cb = ccy - 0.7*gs, ccy + 0.4*gs
+            gld.rounded_rectangle([cl, ct, cr2, cb], radius=0.18*gs, outline=gc, width=max(2, int(0.13*gs)))
+            gld.arc([cr2, ct+0.1*gs, cr2+0.45*gs, ct+0.55*gs], -90, 90, fill=gc, width=max(2, int(0.13*gs)))
+            gld.line([(ccx-0.7*gs, ccy+0.5*gs), (ccx+0.7*gs, ccy+0.5*gs)], fill=gc, width=max(2, int(0.13*gs)))
+        elif card_icon == "smoking_rooms":
+            # Shisha Wolke
+            gld.ellipse([ccx-0.35*gs, ccy-0.2*gs, ccx+0.35*gs, ccy+0.2*gs], fill=gc)
+            gld.ellipse([ccx-0.5*gs, ccy-0.05*gs, ccx, ccy+0.35*gs], fill=gc)
+            gld.ellipse([ccx, ccy-0.05*gs, ccx+0.5*gs, ccy+0.35*gs], fill=gc)
+        elif card_icon == "restaurant":
+            # Gabel + Messer
+            for dx in (-0.15, 0, 0.15):
+                gld.line([(ccx+dx*gs, ccy-0.5*gs), (ccx+dx*gs, ccy)], fill=gc, width=2)
+            gld.line([(ccx, ccy), (ccx, ccy+0.5*gs)], fill=gc, width=4)
+            gld.line([(ccx+0.25*gs, ccy-0.5*gs), (ccx+0.25*gs, ccy+0.5*gs)], fill=gc, width=4)
         else:
-            r, g, b = 201, 168, 76  # Default gold
+            # Default: 3 Balken
+            for i in range(-1, 2):
+                gld.rounded_rectangle([ccx-0.3*gs+i*0.3*gs, ccy-0.4*gs, ccx-0.1*gs+i*0.3*gs, ccy+0.4*gs], radius=0.08*gs, fill=gc)
+        img = Image.alpha_composite(img, glyph)
 
-        # ════════════════════════════════════════════════════════════════
-        # LAYOUT: Nur Sterne (User-Wunsch 2026-07)
-        # Foto-Upload Funktion wurde entfernt — nur Sterne auf transparentem strip.png
-        # Pass-backgroundColor scheint durch transparente Bereiche.
-        # ════════════════════════════════════════════════════════════════
+        # ── 7. Sparkles (sa-spark) ──
+        spark = Image.new("RGBA", (_W, _H), (0, 0, 0, 0))
+        spd = ImageDraw.Draw(spark)
+        for (sx2, sy2, sr), op in [((int(_W*0.34), int(_H*0.55), 7), 0.66), ((int(_W*0.49), int(_H*0.48), 4), 0.4)]:
+            spd.ellipse([sx2-sr, sy2-sr, sx2+sr, sy2+sr], fill=(brand[0], brand[1], brand[2], int(255*op)))
+        img = Image.alpha_composite(img, spark)
 
-        # Helligkeit berechnen
-        brightness = (r * 299 + g * 587 + b * 114) / 1000
-        is_dark = brightness < 140
-
-        icon_type = card_icon or "local_cafe"
-
-        # ── Sterne GANZ UNTEN (Y=280-420) - kein Überlapp mit primaryFields ──
-        # Apple Wallet rendert primaryFields (Label "Memo Test" + Value "0/15")
-        # ÜBER strip.png im Bereich Y=0-270 (Label klein + Value groß).
-        # Sterne müssen UNTERHALB davon sein (Y=280+).
-        stars_area_top = 280  # Unterhalb des primaryFields Text-Bereichs
-        stars_area_h = H - stars_area_top - 15  # 15px bottom padding = 137px
-
+        # ── Sterne unten (Y>280) — 4-Schicht-Rendering ──
+        stars_top = 290
+        stars_h = _H - stars_top - 14
         n = stamps_required
-
-        # Layout: 1 Reihe für n<=10, 2 Reihen für n>10
-        if n > 10:
-            rows = 2
-            cols = math.ceil(n / rows)
-        else:
-            rows = 1
-            cols = n
-
-        stars_area_x = 40
-        stars_area_w = W - 80
-
-        cell_w = stars_area_w / cols
-        cell_h = stars_area_h / rows
-        # Sterne GRÖßER: ~85% der Zelle
-        star_size = int(min(cell_w * 0.82, cell_h * 0.92))
-
-        brand_rgb = (r, g, b)
-        on_dark = True  # Sterne auf Pass-backgroundColor (dunkel)
+        rows = 2 if n > 10 else 1
+        cols = _m.ceil(n / rows)
+        area_x = 40
+        area_w = _W - 80
+        cell_w = area_w / cols
+        cell_h = stars_h / rows
+        star_sz = int(min(cell_w * 0.82, cell_h * 0.92))
 
         for i in range(n):
             row = i // cols
             col = i % cols
-            cx = int(stars_area_x + col * cell_w + cell_w / 2)
-            cy = int(stars_area_top + row * cell_h + cell_h / 2)
+            cx2 = int(area_x + col * cell_w + cell_w / 2)
+            cy2 = int(stars_top + row * cell_h + cell_h / 2)
             filled = i < stamps_current
-            _draw_star_with_depth(img, cx, cy, star_size, brand_rgb, filled, on_dark=on_dark)
-
-        # draw muss neu initialisiert werden nach alpha_composite Operationen
-        draw = ImageDraw.Draw(img)
+            _draw_star_with_depth(img, cx2, cy2, star_sz, brand, filled, on_dark=True)
 
         out = _io.BytesIO()
         img.save(out, format="PNG", optimize=True)
