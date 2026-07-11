@@ -210,7 +210,8 @@ function openShiftModal(shiftId, presetStaffId, presetDate) {
     const defaultStart = shift ? shift.start_time : '17:00';
     const defaultEnd = shift ? shift.end_time : '23:00';
     const defaultBreak = shift ? shift.break_minutes : 30;
-    const defaultRate = shift ? shift.hourly_rate : (presetStaffId ? (schichtplanStaff.find(s => s.id === presetStaffId) || {}).hourly_rate || 0) : 0);
+    const presetStaff = presetStaffId ? schichtplanStaff.find(s => s.id === presetStaffId) : null;
+    const defaultRate = shift ? shift.hourly_rate : (presetStaff ? presetStaff.hourly_rate : 0);
 
     const modalHtml = `
         <div id="shift-modal-overlay" class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='shift-modal-overlay')closeShiftModal()">
