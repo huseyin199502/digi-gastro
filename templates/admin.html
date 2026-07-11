@@ -32,7 +32,7 @@
     <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <script src="https://js.puter.com/v2/"></script>
+    <script src="https://js.puter.com/v2/" defer></script>
     <script src="/static/js/personal_inventory.js"></script>
 
     <!-- Custom Style System -->
@@ -14279,6 +14279,38 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             if (!productName) {
                 showToast("Bitte geben Sie zuerst einen Produktnamen ein.", "error");
                 return;
+            }
+            
+            // Check if Puter.js is loaded, if not try to load it dynamically
+            if (typeof puter === 'undefined') {
+                showToast("KI-Service wird geladen, bitte warte einen Moment...", "success");
+                try {
+                    await new Promise((resolve, reject) => {
+                        // Check if script already exists
+                        const existing = document.querySelector('script[src*="js.puter.com"]');
+                        if (existing) {
+                            existing.onload = resolve;
+                            existing.onerror = reject;
+                        } else {
+                            const s = document.createElement('script');
+                            s.src = 'https://js.puter.com/v2/';
+                            s.onload = resolve;
+                            s.onerror = reject;
+                            document.head.appendChild(s);
+                        }
+                        // Timeout after 15 seconds
+                        setTimeout(() => reject(new Error('Timeout')), 15000);
+                    });
+                } catch (e) {
+                    showToast("KI-Service konnte nicht geladen werden. Bitte später erneut versuchen oder Bild manuell hochladen.", "error");
+                    console.error("Puter.js load failed:", e);
+                    return;
+                }
+                // Check again
+                if (typeof puter === 'undefined') {
+                    showToast("KI-Service nicht verfügbar. Bitte Bild manuell hochladen.", "error");
+                    return;
+                }
             }
             
             const originalContent = btn.innerHTML;
