@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v9';
+        window.__DG_VERSION = '2026-07-12-v10';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14444,55 +14444,56 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 }
                 log('Resolved image src:', imgSrc.substring(0, 100) + (imgSrc.length > 100 ? '…' : ''));
                 
-                // ── Fetch the image as a Blob ──────────────────────────────
-                // blob: and data: URLs can be fetched directly. https: URLs to
-                // Puter's storage also work. If fetch fails for a blob: URL we
-                // fall back to drawing it onto a canvas (CORS-safe because the
-                // blob is same-origin).
+                // ── Convert image src to Blob ──────────────────────────────
+                // CRITICAL FIX: https:// URLs to Puter's storage fail with CORS
+                // when fetched from our domain. We must use the Image+canvas
+                // approach for ALL URL types (https:, blob:, data:).
                 let blob;
                 try {
-                    log('Fetching image src...');
-                    const resp = await fetch(imgSrc);
-                    if (!resp.ok) {
-                        throw new Error(`HTTP ${resp.status} ${resp.statusText} beim Laden des generierten Bildes`);
-                    }
-                    blob = await resp.blob();
-                    log('Fetched blob:', blob.size, 'bytes | type:', blob.type);
-                } catch (fetchErr) {
-                    logErr('fetch(imgSrc) failed:', fetchErr);
-                    // Fallback 1: data: URL → fetch again (sometimes first call races)
-                    if (imgSrc.startsWith('data:')) {
-                        log('Retrying data: URL via fetch...');
-                        const r2 = await fetch(imgSrc);
-                        blob = await r2.blob();
-                        log('data: URL retry OK — blob:', blob.size, 'bytes');
-                    }
-                    // Fallback 2: blob: URL → load via Image + canvas.toBlob()
-                    else if (imgSrc.startsWith('blob:')) {
-                        log('Trying blob: URL via Image+canvas fallback...');
-                        blob = await new Promise((resolve, reject) => {
-                            const img = new Image();
-                            img.onload = () => {
-                                try {
-                                    const canvas = document.createElement('canvas');
-                                    canvas.width = img.naturalWidth || img.width || 512;
-                                    canvas.height = img.naturalHeight || img.height || 512;
-                                    const ctx = canvas.getContext('2d');
-                                    ctx.drawImage(img, 0, 0);
-                                    canvas.toBlob(resolve, 'image/png');
-                                } catch (e) { reject(e); }
-                            };
-                            img.onerror = () => reject(new Error('Image.onload fehlgeschlagen für blob: URL'));
-                            img.src = imgSrc;
-                        });
-                        log('Canvas fallback OK — blob:', blob?.size, 'bytes');
-                    } else {
-                        throw fetchErr;
+                    log('Converting image to blob via Image+canvas...');
+                    blob = await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        // crossOrigin = 'anonymous' allows canvas.toBlob for cross-origin images
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => {
+                            try {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.naturalWidth || img.width || 1024;
+                                canvas.height = img.naturalHeight || img.height || 1024;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0);
+                                canvas.toBlob(resolve, 'image/png');
+                                log('Canvas conversion OK — size:', canvas.width, 'x', canvas.height);
+                            } catch (e) {
+                                logErr('Canvas conversion failed:', e);
+                                reject(e);
+                            }
+                        };
+                        img.onerror = (e) => {
+                            logErr('Image.onload failed for src:', imgSrc.substring(0, 100), e);
+                            reject(new Error('Bild konnte nicht geladen werden (CORS oder Netzwerk). src: ' + imgSrc.substring(0, 80)));
+                        };
+                        img.src = imgSrc;
+                    });
+                    log('Blob created via canvas:', blob?.size, 'bytes | type:', blob?.type);
+                } catch (canvasErr) {
+                    logErr('Canvas approach failed, trying direct fetch...', canvasErr);
+                    // Fallback: try direct fetch (works for blob: and data: URLs)
+                    try {
+                        const resp = await fetch(imgSrc);
+                        if (!resp.ok) {
+                            throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+                        }
+                        blob = await resp.blob();
+                        log('Direct fetch fallback OK — blob:', blob.size, 'bytes');
+                    } catch (fetchErr) {
+                        logErr('Both canvas and fetch failed:', fetchErr);
+                        throw new Error('Bild konnte nicht geladen werden. Puter hat das Bild generiert (siehe Puter Dashboard), aber der Transfer zu unserem Server ist fehlgeschlagen. Bitte erneut versuchen.');
                     }
                 }
                 
                 if (!blob || blob.size === 0) {
-                    logErr('Blob is empty after fetch. blob:', blob);
+                    logErr('Blob is empty after conversion. blob:', blob);
                     throw new Error('Generiertes Bild ist leer (0 Bytes) — Puter hat wahrscheinlich kein Bild geliefert.');
                 }
                 
