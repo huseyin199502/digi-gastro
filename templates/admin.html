@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v8';
+        window.__DG_VERSION = '2026-07-12-v9';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14321,17 +14321,33 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     showToast("Login-Popup öffnet sich. Bitte einloggen (kostenloser Puter-Account). Nach Login automatisch weiter.", "success");
                     try {
                         log('Calling puter.auth.signIn()...');
+                        // puter.auth.signIn() opens a popup and resolves when login completes.
+                        // NOTE: Puter.js internally logs a 401 "Unauthorized" error to console
+                        // BEFORE the user completes login — this is NORMAL and NOT an actual error.
+                        // The signIn() promise still resolves correctly after login.
+                        // We must NOT treat the 401 console log as a failure.
                         await puter.auth.signIn();
+                        // Wait a moment for auth state to propagate
+                        await new Promise(r => setTimeout(r, 500));
                         isSignedIn = puter.auth.isSignedIn();
                         log('After signIn → isSignedIn:', isSignedIn);
                         if (!isSignedIn) {
-                            throw new Error("Login abgebrochen oder fehlgeschlagen");
+                            // Don't throw — just inform user and let them click again
+                            btn.disabled = false;
+                            btn.innerHTML = originalContent;
+                            showToast("Bitte im Popup einloggen, dann erneut auf KI-Bild klicken.", "success");
+                            return;
                         }
                     } catch (signInErr) {
                         btn.disabled = false;
                         btn.innerHTML = originalContent;
                         logErr('Sign in error:', signInErr);
-                        showToast("Login abgebrochen. Bitte erneut klicken und im Popup einloggen.", "error");
+                        // Check if it's just the 401 that Puter logs internally
+                        if (signInErr?.status === 401) {
+                            showToast("Login-Popup ist offen. Bitte einloggen, dann erneut klicken.", "success");
+                        } else {
+                            showToast("Login abgebrochen. Bitte erneut klicken und im Popup einloggen.", "error");
+                        }
                         return;
                     }
                 }
