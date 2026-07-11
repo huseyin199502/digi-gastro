@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-11-v3';
+        window.__DG_VERSION = '2026-07-12-v4';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14283,12 +14283,22 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 return;
             }
             
+            // ── Detailed step-by-step logging for debugging ────────────────
+            // Each log line is prefixed with [KI-Bild <elapsed>ms] so we can
+            // see exactly where the flow stalls or fails in the user's console.
+            const t0 = performance.now();
+            const log = (msg, ...args) => console.log(`%c[KI-Bild ${(performance.now()-t0).toFixed(0)}ms] ${msg}`, 'color:#6366f1', ...args);
+            const logErr = (msg, ...args) => console.error(`[KI-Bild ${(performance.now()-t0).toFixed(0)}ms] ${msg}`, ...args);
+            
+            log('Start — version:', window.__DG_VERSION, '| product:', productName);
+            
             // Check if Puter.js is loaded (it's loaded synchronously in <head>)
             if (typeof puter === 'undefined') {
+                logErr('Puter.js NOT loaded. Script tag:', document.querySelector('script[src*="puter"]'));
                 showToast("KI-Service noch nicht bereit. Bitte lade die Seite neu und versuche es erneut.", "error");
-                console.error("Puter.js not loaded. Script tag:", document.querySelector('script[src*="puter"]'));
                 return;
             }
+            log('Puter.js loaded. puter.auth:', !!puter.auth, '| puter.ai:', !!puter.ai, '| puter.ai.txt2img:', typeof puter.ai?.txt2img);
             
             const originalContent = btn.innerHTML;
             btn.disabled = true;
@@ -14296,48 +14306,142 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             
             try {
                 const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
+                log('Prompt:', prompt);
                 
                 // Check if user is signed in to Puter first
                 let isSignedIn = false;
                 try {
                     isSignedIn = puter.auth.isSignedIn();
+                    log('puter.auth.isSignedIn() →', isSignedIn);
                 } catch (e) {
-                    console.log("isSignedIn check failed:", e);
+                    logErr('isSignedIn check threw:', e);
                 }
                 
                 if (!isSignedIn) {
                     showToast("Login-Popup öffnet sich. Bitte einloggen (kostenloser Puter-Account). Nach Login automatisch weiter.", "success");
                     try {
+                        log('Calling puter.auth.signIn()...');
                         await puter.auth.signIn();
-                        // Check again after sign-in
                         isSignedIn = puter.auth.isSignedIn();
+                        log('After signIn → isSignedIn:', isSignedIn);
                         if (!isSignedIn) {
                             throw new Error("Login abgebrochen oder fehlgeschlagen");
                         }
                     } catch (signInErr) {
                         btn.disabled = false;
                         btn.innerHTML = originalContent;
-                        console.error("Sign in error:", signInErr);
+                        logErr('Sign in error:', signInErr);
                         showToast("Login abgebrochen. Bitte erneut klicken und im Popup einloggen.", "error");
                         return;
                     }
                 }
                 
-                showToast("KI-Bild wird generiert...", "success");
+                showToast("KI-Bild wird generiert... (bis zu 60s)", "success");
                 
-                // Generate the image using Puter.js
-                const imgElement = await puter.ai.txt2img(prompt, { model: 'gpt-image-2' });
-                if (!imgElement || !imgElement.src) {
-                    throw new Error("Puter.js lieferte kein Bild-Element");
+                // ── Generate the image using Puter.js ──────────────────────
+                // NOTE: We intentionally do NOT pass `{ model: 'gpt-image-2' }`
+                // anymore — 'gpt-image-2' is not a recognised Puter model alias
+                // (only 'nano-banana' / 'nano-banana-pro' are aliased in
+                // puter.js) and OpenAI has no public 'gpt-image-2' model either.
+                // Using Puter's default driver ('ai-image') is the most reliable.
+                //
+                // We wrap the call in a 60-second timeout via Promise.race so
+                // the user gets a clear error message instead of an infinite
+                // spinner if the Puter backend hangs.
+                log('Calling puter.ai.txt2img(prompt) — default model, 60s timeout...');
+                let imgElement;
+                let timeoutId = null;
+                try {
+                    const txt2imgPromise = puter.ai.txt2img(prompt);
+                    const timeoutPromise = new Promise((_, reject) => {
+                        timeoutId = setTimeout(() => {
+                            reject(new Error('TIMEOUT: puter.ai.txt2img() hat nach 60 Sekunden nicht geantwortet. Vermutlich Netzwerk- oder Backend-Problem.'));
+                        }, 60000);
+                    });
+                    imgElement = await Promise.race([txt2imgPromise, timeoutPromise]);
+                } finally {
+                    if (timeoutId) clearTimeout(timeoutId);
+                }
+                log('txt2img returned. Type:', typeof imgElement,
+                    '| constructor:', imgElement?.constructor?.name,
+                    '| has src:', !!imgElement?.src,
+                    '| src preview:', imgElement?.src ? String(imgElement.src).substring(0, 80) : '(none)');
+                
+                // ── Normalise the result into a usable image src ───────────
+                // Puter.js may return:
+                //   • an HTMLImageElement with .src (blob: or https: URL)
+                //   • a plain object { src, toString, valueOf } (fallback when
+                //     no Image constructor is available)
+                //   • a string URL (rare, but the transform supports it)
+                let imgSrc = null;
+                if (typeof imgElement === 'string' && imgElement.length > 0) {
+                    imgSrc = imgElement;
+                } else if (imgElement && typeof imgElement === 'object') {
+                    imgSrc = imgElement.src || imgElement.url ||
+                             (typeof imgElement.toString === 'function'
+                              && imgElement.toString() !== '[object Object]'
+                              ? imgElement.toString() : null);
+                }
+                if (!imgSrc) {
+                    logErr('txt2img returned no usable src. Full return value:', imgElement);
+                    throw new Error('Puter.js lieferte kein Bild-Element (kein src gefunden). Rückgabewert: ' + JSON.stringify(imgElement)?.substring(0, 200));
+                }
+                log('Resolved image src:', imgSrc.substring(0, 100) + (imgSrc.length > 100 ? '…' : ''));
+                
+                // ── Fetch the image as a Blob ──────────────────────────────
+                // blob: and data: URLs can be fetched directly. https: URLs to
+                // Puter's storage also work. If fetch fails for a blob: URL we
+                // fall back to drawing it onto a canvas (CORS-safe because the
+                // blob is same-origin).
+                let blob;
+                try {
+                    log('Fetching image src...');
+                    const resp = await fetch(imgSrc);
+                    if (!resp.ok) {
+                        throw new Error(`HTTP ${resp.status} ${resp.statusText} beim Laden des generierten Bildes`);
+                    }
+                    blob = await resp.blob();
+                    log('Fetched blob:', blob.size, 'bytes | type:', blob.type);
+                } catch (fetchErr) {
+                    logErr('fetch(imgSrc) failed:', fetchErr);
+                    // Fallback 1: data: URL → fetch again (sometimes first call races)
+                    if (imgSrc.startsWith('data:')) {
+                        log('Retrying data: URL via fetch...');
+                        const r2 = await fetch(imgSrc);
+                        blob = await r2.blob();
+                        log('data: URL retry OK — blob:', blob.size, 'bytes');
+                    }
+                    // Fallback 2: blob: URL → load via Image + canvas.toBlob()
+                    else if (imgSrc.startsWith('blob:')) {
+                        log('Trying blob: URL via Image+canvas fallback...');
+                        blob = await new Promise((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                try {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = img.naturalWidth || img.width || 512;
+                                    canvas.height = img.naturalHeight || img.height || 512;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx.drawImage(img, 0, 0);
+                                    canvas.toBlob(resolve, 'image/png');
+                                } catch (e) { reject(e); }
+                            };
+                            img.onerror = () => reject(new Error('Image.onload fehlgeschlagen für blob: URL'));
+                            img.src = imgSrc;
+                        });
+                        log('Canvas fallback OK — blob:', blob?.size, 'bytes');
+                    } else {
+                        throw fetchErr;
+                    }
                 }
                 
-                const resp = await fetch(imgElement.src);
-                if (!resp.ok) {
-                    throw new Error("Laden des generierten Bildes fehlgeschlagen");
+                if (!blob || blob.size === 0) {
+                    logErr('Blob is empty after fetch. blob:', blob);
+                    throw new Error('Generiertes Bild ist leer (0 Bytes) — Puter hat wahrscheinlich kein Bild geliefert.');
                 }
-                const blob = await resp.blob();
                 
-                // Upload blob to server to process (remove background and trim)
+                // ── Upload blob to server (background removal + auto-trim) ──
+                log('Uploading blob to /api/products/process-generated-image — size:', blob.size, 'bytes');
                 const formData = new FormData();
                 formData.append('file', blob, 'ai-generated.jpg');
                 
@@ -14345,44 +14449,79 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     method: 'POST',
                     body: formData
                 });
+                log('Upload response status:', uploadResp.status, uploadResp.statusText);
                 
                 if (!uploadResp.ok) {
                     const errData = await uploadResp.json().catch(() => ({}));
-                    throw new Error(errData.detail || "Serverfehler " + uploadResp.status);
+                    logErr('Upload failed. Status:', uploadResp.status, '| body:', errData);
+                    throw new Error(errData.detail || `Serverfehler ${uploadResp.status} bei der Bildverarbeitung`);
                 }
                 
                 const data = await uploadResp.json();
+                log('Upload OK. Server response:', data);
                 
                 btn.disabled = false;
                 btn.innerHTML = originalContent;
                 if (data.success && data.image_url) {
                     document.getElementById(targetInputId).value = data.image_url;
                     showToast("KI-Bild erfolgreich generiert!", "success");
+                    log('SUCCESS — image_url:', data.image_url);
                 } else {
-                    showToast("Fehler beim Generieren des KI-Bildes.", "error");
+                    logErr('Server responded 2xx but no success/image_url:', data);
+                    showToast("Fehler beim Generieren des KI-Bildes (Serverantwort ungültig).", "error");
                 }
             } catch (err) {
                 btn.disabled = false;
                 btn.innerHTML = originalContent;
-                console.error("KI Bildfehler:", err);
                 
-                // Bessere Fehlermeldungen basierend auf Fehlertyp
-                let errorMsg = err.message || "Unbekannter Fehler";
+                // ── Comprehensive error logging ────────────────────────────
+                // Log the FULL error object so we can see message, status,
+                // code, stack — Puter.js errors often carry extra fields.
+                logErr('━━━ KI-Bild FEHLER ━━━');
+                logErr('Error object:', err);
+                logErr('  message :', err?.message);
+                logErr('  status  :', err?.status);
+                logErr('  code    :', err?.code);
+                logErr('  stack   :', err?.stack);
+                logErr('  JSON    :', (() => { try { return JSON.stringify(err); } catch { return '(not serialisable)'; } })());
+                logErr('━━━ /KI-Bild FEHLER ━━━');
                 
+                const actualMsg = (err?.message || String(err) || 'Unbekannter Fehler').toString();
+                let userMsg;
+                
+                // Timeout (our own 60s wrapper)
+                if (actualMsg.startsWith('TIMEOUT:')) {
+                    userMsg = 'Zeitüberschreitung: Die KI brauchte länger als 60 Sekunden. Bitte erneut versuchen.';
+                }
                 // Auth-Fehler
-                if (err.status === 401 || errorMsg.includes('Unauthorized') || errorMsg.includes('auth') || errorMsg.includes('login')) {
-                    errorMsg = "Puter-Login erforderlich. Bitte klicke erneut auf KI-Bild und schließe das Login-Popup ab (kostenloser Account).";
+                else if (err?.status === 401 || /unauthorized|not.*signed.*in|auth.*required|login.*required/i.test(actualMsg)) {
+                    userMsg = 'Puter-Login erforderlich. Bitte klicke erneut auf KI-Bild und schließe das Login-Popup ab (kostenloser Account).';
                 }
                 // Rate-Limit / Usage-Limit
-                else if (errorMsg.includes('usage') || errorMsg.includes('rate') || errorMsg.includes('limit')) {
-                    errorMsg = "Nutzungslimit erreicht. Bitte später erneut versuchen oder Puter-Account upgraden.";
+                else if (err?.status === 429 || /usage|rate.*limit|quota|limit.*reached|insufficient|exceeded/i.test(actualMsg)) {
+                    userMsg = 'Nutzungslimit erreicht. Bitte später erneut versuchen oder Puter-Account upgraden.';
                 }
-                // Load failed (net::ERR_FAILED etc.)
-                else if (errorMsg.includes('Load failed') || errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
-                    errorMsg = "Netzwerkfehler. Bitte Popup-Blocker deaktivieren, Internetverbindung prüfen und erneut versuchen.";
+                // Network errors (Safari: 'Load failed', Chrome: 'Failed to fetch')
+                else if (/Load failed|Failed to fetch|NetworkError|ERR_NETWORK|ERR_CONNECTION|ERR_INTERNET/i.test(actualMsg)) {
+                    userMsg = 'Netzwerkfehler. Bitte Popup-Blocker deaktivieren, Internetverbindung prüfen und erneut versuchen.';
+                }
+                // Invalid model (rare, but possible if Puter changes its API)
+                else if (/model.*not.*found|invalid.*model|unknown.*model|unsupported.*model/i.test(actualMsg)) {
+                    userMsg = 'Ungültiges KI-Modell. Bitte später erneut versuchen.';
+                }
+                // Login aborted (handled separately above, but just in case)
+                else if (/Login abgebrochen/i.test(actualMsg)) {
+                    userMsg = 'Login abgebrochen. Bitte erneut auf KI-Bild klicken und im Popup einloggen.';
+                }
+                // Default: show the ACTUAL error so the user can report it
+                else {
+                    userMsg = actualMsg;
                 }
                 
-                showToast("Fehler: " + errorMsg, "error");
+                // Always log the mapping so we can correlate user reports with
+                // the underlying error in the console.
+                logErr('User-facing message:', userMsg, '| Underlying:', actualMsg);
+                showToast('Fehler: ' + userMsg, 'error');
             }
         }
 
