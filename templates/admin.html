@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v7';
+        window.__DG_VERSION = '2026-07-12-v8';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14338,26 +14338,60 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 
                 showToast("KI-Bild wird generiert... (bis zu 60s)", "success");
                 
+                // ── Diagnostic: log current monthly AI usage before the call ──
+                // This helps diagnose the "new account with 0MB storage still
+                // gets upgrade popup" issue. Note: 0MB STORAGE ≠ 0 AI credits.
+                // Puter tracks AI usage separately from storage, and the free
+                // monthly AI allowance is small. Also, Puter applies IP-based
+                // anti-abuse rate limiting that can block even brand-new
+                // accounts if the IP has been used heavily.
+                try {
+                    if (typeof puter.auth?.getMonthlyUsage === 'function') {
+                        const usage = await puter.auth.getMonthlyUsage();
+                        log('Monthly usage (per Puter account):', usage);
+                    }
+                } catch (usageErr) {
+                    log('getMonthlyUsage() not available or failed:', usageErr);
+                }
+                
                 // ── Generate the image using Puter.js ──────────────────────
-                // NOTE: We intentionally do NOT pass `{ model: 'gpt-image-2' }`
-                // anymore — 'gpt-image-2' is not a recognised Puter model alias
-                // (only 'nano-banana' / 'nano-banana-pro' are aliased in
-                // puter.js) and OpenAI has no public 'gpt-image-2' model either.
-                // Using Puter's default driver ('ai-image') is the most reliable.
+                // CORRECTED 2026-11: gpt-image-2 IS officially supported by Puter
+                // and is in fact the recommended default model per Puter's own
+                // docs (https://docs.puter.com/AI/txt2img) and developer page
+                // (https://developer.puter.com/ai/gpt-image — "Start with GPT
+                // Image 2 as your default"). The previous comment claiming
+                // gpt-image-2 was unsupported was WRONG — it was based on a
+                // misreading of the minified puter.js bundle (which only
+                // remaps 'nano-banana'/'nano-banana-pro' aliases client-side
+                // and otherwise passes the model name straight through to the
+                // Puter backend).
+                //
+                // Model cost per image (Puter developer page, 2026):
+                //   gpt-image-1-mini : $0.005   (cheapest, lower quality)
+                //   gpt-image-2      : $0.0059  (recommended default)
+                //   gpt-image-1.5    : $0.009
+                //   gpt-image-1      : $0.011   (MOST EXPENSIVE — what we
+                //                                previously used by mistake)
+                //
+                // Quality tiers: 'low' (default, cheapest) | 'medium' | 'high' | 'auto' (gpt-image-2 only)
+                // We use 'medium' instead of 'high' to roughly halve credit
+                // burn per image — Puter's free monthly AI allowance is small
+                // and 'high' was burning through it ~2x faster than necessary.
                 //
                 // We wrap the call in a 60-second timeout via Promise.race so
                 // the user gets a clear error message instead of an infinite
                 // spinner if the Puter backend hangs.
-                log('Calling puter.ai.txt2img(prompt, {model: "gpt-image-1", quality: "high"}) — OpenAI GPT-Image 1, 60s timeout...');
+                log('Calling puter.ai.txt2img(prompt, {model: "gpt-image-2", quality: "medium"}) — OpenAI GPT-Image 2, 60s timeout...');
                 let imgElement;
                 let timeoutId = null;
                 try {
-                    // Use 'gpt-image-1' — OpenAI's current production image model (DALL-E successor)
-                    // gpt-image-1 is the stable, widely-available GPT-quality image model on Puter
-                    // quality: 'high' for professional food-photography quality
+                    // gpt-image-2: OpenAI's latest image model (released Apr 2026),
+                    // officially recommended by Puter, cheapest non-mini option.
+                    // quality: 'medium' balances quality vs. credit usage so the
+                    // user's small free monthly AI allowance lasts longer.
                     const txt2imgPromise = puter.ai.txt2img(prompt, {
-                        model: 'gpt-image-1',
-                        quality: 'high'
+                        model: 'gpt-image-2',
+                        quality: 'medium'
                     });
                     const timeoutPromise = new Promise((_, reject) => {
                         timeoutId = setTimeout(() => {
@@ -14503,17 +14537,33 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 else if (err?.status === 401 || /unauthorized|not.*signed.*in|auth.*required|login.*required/i.test(actualMsg)) {
                     userMsg = 'Puter-Login erforderlich. Bitte klicke erneut auf KI-Bild und schließe das Login-Popup ab (kostenloser Account).';
                 }
-                // Rate-Limit / Usage-Limit
-                else if (err?.status === 429 || /usage|rate.*limit|quota|limit.*reached|insufficient|exceeded/i.test(actualMsg)) {
-                    userMsg = 'Nutzungslimit erreicht. Bitte später erneut versuchen oder Puter-Account upgraden.';
+                // Rate-Limit / Usage-Limit / Insufficient funds (HTTP 402)
+                // IMPORTANT: Puter.js itself ALREADY shows an upgrade popup
+                // when the server returns HTTP 402, `insufficient_funds`, or
+                // `usage_limited` (see puter.js source — it calls
+                // puter.ui.requestUpgrade() automatically). So by the time we
+                // reach this catch block, the user has usually already seen
+                // Puter's own upgrade dialog. Our toast is just a backup.
+                //
+                // A common cause for new accounts seeing this is IP-based
+                // anti-abuse rate limiting (Puter temporarily blocks IPs that
+                // open many connections, even across different fresh accounts).
+                // So we tell the user to wait AND try a different network.
+                else if (err?.status === 402 || err?.status === 429 ||
+                         err?.code === 'insufficient_funds' ||
+                         err?.code === 'usage_limited' ||
+                         /usage|rate.*limit|quota|limit.*reached|insufficient|exceeded|not.*enough.*fund/i.test(actualMsg)) {
+                    userMsg = 'Puter-Nutzungslimit erreicht. Das kann am monatlichen Freikontingent liegen ODER an einer temporären IP-Sperre (zu viele Anfragen von dieser IP). Bitte 10–30 Min. warten, anderes WLAN/Netzwerk versuchen oder Puter-Account upgraden.';
                 }
                 // Network errors (Safari: 'Load failed', Chrome: 'Failed to fetch')
                 else if (/Load failed|Failed to fetch|NetworkError|ERR_NETWORK|ERR_CONNECTION|ERR_INTERNET/i.test(actualMsg)) {
                     userMsg = 'Netzwerkfehler. Bitte Popup-Blocker deaktivieren, Internetverbindung prüfen und erneut versuchen.';
                 }
-                // Invalid model (rare, but possible if Puter changes its API)
-                else if (/model.*not.*found|invalid.*model|unknown.*model|unsupported.*model/i.test(actualMsg)) {
-                    userMsg = 'Ungültiges KI-Modell. Bitte später erneut versuchen.';
+                // Invalid model (rare — gpt-image-2 IS valid per Puter docs).
+                // If we see this, Puter's backend is likely having a transient
+                // routing issue. Tell the user to retry and report the error.
+                else if (/model.*not.*found|invalid.*model|unknown.*model|unsupported.*model|no.*such.*model/i.test(actualMsg)) {
+                    userMsg = 'KI-Modell-Fehler (selten). Bitte in 1–2 Min. erneut versuchen. Wenn der Fehler bleibt, bitte Console-Log melden — gpt-image-2 ist laut Puter-Doku gültig.';
                 }
                 // Login aborted (handled separately above, but just in case)
                 else if (/Login abgebrochen/i.test(actualMsg)) {
