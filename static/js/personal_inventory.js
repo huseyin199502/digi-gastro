@@ -126,7 +126,7 @@ function renderSchichtplanGrid() {
         html += `
             <th class="border border-gray-200 dark:border-zinc-700 p-2 text-center bg-gray-50 dark:bg-zinc-900 ${isToday ? 'text-green-600' : ''}">
                 <div class="font-bold">${days[i]}</div>
-                <div class="text-[10px] text-zinc-500">${d.getDate()}.${d.getMonth() + 1}.</div>
+                <div class="text-[10px] text-zinc-500 dark:text-zinc-400">${d.getDate()}.${d.getMonth() + 1}.</div>
             </th>
         `;
     }
@@ -151,7 +151,7 @@ function renderSchichtplanGrid() {
                             <div class="w-2 h-2 rounded-full" style="background:${roleColor.bg}"></div>
                             <div>
                                 <div class="font-bold">${escapeHtml(staff.name)}</div>
-                                <div class="text-[10px] text-zinc-500">${roleColor.label}</div>
+                                <div class="text-[10px] text-zinc-500 dark:text-zinc-400">${roleColor.label}</div>
                             </div>
                         </div>
                     </td>
@@ -174,7 +174,7 @@ function renderSchichtplanGrid() {
                         </div>
                     `;
                 }
-                html += `<button onclick="openShiftModal(null, ${staff.id}, '${dateStr}')" class="text-[10px] text-zinc-400 hover:text-green-600 w-full text-center">+ Schicht</button>`;
+                html += `<button onclick="openShiftModal(null, ${staff.id}, '${dateStr}')" class="text-[10px] text-zinc-400 dark:text-zinc-500 hover:text-green-600 dark:hover:text-green-400 w-full text-center">+ Schicht</button>`;
                 html += `</td>`;
             }
             html += '</tr>';
@@ -217,8 +217,8 @@ function openShiftModal(shiftId, presetStaffId, presetDate) {
         <div id="shift-modal-overlay" class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='shift-modal-overlay')closeShiftModal()">
             <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-5 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
-                    <h3 class="font-extrabold text-base">${shift ? 'Schicht bearbeiten' : 'Neue Schicht'}</h3>
-                    <button onclick="closeShiftModal()" class="text-zinc-400 hover:text-zinc-600">
+                    <h3 class="font-extrabold text-base text-zinc-900 dark:text-zinc-100">${shift ? 'Schicht bearbeiten' : 'Neue Schicht'}</h3>
+                    <button onclick="closeShiftModal()" class="text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300">
                         <span class="material-symbols-outlined">close</span>
                     </button>
                 </div>
@@ -262,7 +262,7 @@ function openShiftModal(shiftId, presetStaffId, presetDate) {
                     <div id="shift-warnings" class="hidden p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-700 dark:text-amber-300"></div>
                 </div>
                 <div class="p-5 border-t border-gray-200 dark:border-zinc-700 flex gap-2">
-                    ${shift ? `<button onclick="deleteShift(${shift.id})" class="btn-secondary text-xs px-3 py-2 text-red-600">Löschen</button>` : ''}
+                    ${shift ? `<button onclick="deleteShift(${shift.id})" class="btn-secondary text-xs px-3 py-2 text-red-600 dark:text-red-400">Löschen</button>` : ''}
                     <button onclick="closeShiftModal()" class="btn-secondary text-xs px-3 py-2 flex-1">Abbrechen</button>
                     <button onclick="saveShift(${shiftId || 'null'})" class="btn-primary text-xs px-3 py-2 flex-1">Speichern</button>
                 </div>
@@ -369,15 +369,15 @@ function loadShiftStats() {
 function renderTimeOffList() {
     const list = document.getElementById('timeoff-list');
     if (schichtplanTimeOff.length === 0) {
-        list.innerHTML = '<div class="text-xs text-zinc-500 text-center py-4">Keine Urlaubsanträge</div>';
+        list.innerHTML = '<div class="text-xs text-zinc-500 dark:text-zinc-400 text-center py-4">Keine Urlaubsanträge</div>';
         return;
     }
 
     const typeLabels = { vacation: 'Urlaub', sick: 'Krankheit', personal: 'Privat', unpaid: 'Unbeahlt' };
     const statusColors = {
-        pending: 'bg-amber-100 text-amber-700',
-        approved: 'bg-green-100 text-green-700',
-        denied: 'bg-red-100 text-red-700',
+        pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+        approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+        denied: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     };
 
     list.innerHTML = schichtplanTimeOff.map(r => `
@@ -386,7 +386,7 @@ function renderTimeOffList() {
                 <div class="flex items-center gap-2">
                     <span class="font-bold text-sm">${escapeHtml(r.staff_name || 'Unbekannt')}</span>
                     <span class="text-[10px] px-2 py-0.5 rounded-full ${statusColors[r.status] || ''}">${r.status}</span>
-                    <span class="text-[10px] text-zinc-500">${typeLabels[r.request_type] || r.request_type}</span>
+                    <span class="text-[10px] text-zinc-500 dark:text-zinc-400">${typeLabels[r.request_type] || r.request_type}</span>
                 </div>
                 <div class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                     ${r.start_date} bis ${r.end_date}
@@ -396,7 +396,7 @@ function renderTimeOffList() {
             ${r.status === 'pending' ? `
                 <div class="flex gap-1">
                     <button onclick="approveTimeOff(${r.id})" class="btn-primary text-[10px] px-2 py-1 bg-green-600">✓ Genehmigen</button>
-                    <button onclick="denyTimeOff(${r.id})" class="btn-secondary text-[10px] px-2 py-1 text-red-600">✕ Ablehnen</button>
+                    <button onclick="denyTimeOff(${r.id})" class="btn-secondary text-[10px] px-2 py-1 text-red-600 dark:text-red-400">✕ Ablehnen</button>
                 </div>
             ` : ''}
         </div>
@@ -442,8 +442,8 @@ function loadLagerDashboard() {
             lowStockList.innerHTML = dashboard.low_stock_items.map(i => `
                 <div class="flex items-center justify-between p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <div>
-                        <span class="font-bold text-sm">${escapeHtml(i.name)}</span>
-                        <span class="text-xs text-red-600 ml-2">Bestand: ${i.current_stock} ${i.base_unit} (Min: ${i.min_stock})</span>
+                        <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">${escapeHtml(i.name)}</span>
+                        <span class="text-xs text-red-600 dark:text-red-400 ml-2">Bestand: ${i.current_stock} ${i.base_unit} (Min: ${i.min_stock})</span>
                     </div>
                     <button onclick="quickReorder(${i.id}, '${escapeHtml(i.name)}')" class="btn-primary text-[10px] px-2 py-1">
                         Nachbestellen (${i.reorder_qty} ${i.base_unit})
@@ -813,13 +813,13 @@ function openCountDetail(countId) {
             <div id="count-modal-overlay" class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='count-modal-overlay')closeCountDetail()">
                 <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div class="p-5 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between sticky top-0 bg-white dark:bg-zinc-800 z-10">
-                        <h3 class="font-extrabold text-base">Inventur: ${escapeHtml(data.count.name)}</h3>
-                        <button onclick="closeCountDetail()" class="text-zinc-400"><span class="material-symbols-outlined">close</span></button>
+                        <h3 class="font-extrabold text-base text-zinc-900 dark:text-zinc-100">Inventur: ${escapeHtml(data.count.name)}</h3>
+                        <button onclick="closeCountDetail()" class="text-zinc-400 dark:text-zinc-500"><span class="material-symbols-outlined">close</span></button>
                     </div>
                     <div class="p-5">
-                        ${data.count.status === 'completed' ? '<div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs text-green-700 mb-3">✓ Inventur abgeschlossen</div>' : ''}
+                        ${data.count.status === 'completed' ? '<div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs text-green-700 dark:text-green-300 mb-3">✓ Inventur abgeschlossen</div>' : ''}
                         <table class="w-full text-xs">
-                            <thead class="bg-gray-50 dark:bg-zinc-900 text-[10px] uppercase text-zinc-500">
+                            <thead class="bg-gray-50 dark:bg-zinc-900 text-[10px] uppercase text-zinc-600 dark:text-zinc-400">
                                 <tr>
                                     <th class="text-left p-2">Artikel</th>
                                     <th class="text-right p-2">Erwartet</th>
@@ -831,11 +831,11 @@ function openCountDetail(countId) {
                                 ${items.map(i => `
                                     <tr class="border-t border-gray-100 dark:border-zinc-700">
                                         <td class="p-2">${escapeHtml(i.stock_item_name || '')}</td>
-                                        <td class="p-2 text-right text-zinc-500">${i.expected_qty} ${i.base_unit || ''}</td>
+                                        <td class="p-2 text-right text-zinc-500 dark:text-zinc-400">${i.expected_qty} ${i.base_unit || ''}</td>
                                         <td class="p-2 text-right">
                                             ${i.counted_qty !== null ? i.counted_qty : `<input type="number" step="0.001" placeholder="—" class="form-field text-xs w-20 text-right" onblur="updateCountItem(${data.count.id}, ${i.id}, this.value)">`}
                                         </td>
-                                        <td class="p-2 text-right ${Math.abs(i.variance || 0) > 0.01 ? 'text-red-600 font-bold' : 'text-green-600'}">
+                                        <td class="p-2 text-right ${Math.abs(i.variance || 0) > 0.01 ? 'text-red-600 dark:text-red-400 font-bold' : 'text-green-600 dark:text-green-400'}">
                                             ${i.counted_qty !== null ? `${i.variance > 0 ? '+' : ''}${i.variance}` : '—'}
                                         </td>
                                     </tr>
