@@ -6875,14 +6875,9 @@
                     <label class="form-label">Bild-URL</label>
                     <div class="flex gap-2">
                         <input type="text" id="edit-product-image-url" class="form-field flex-1">
-                        <button type="button" id="ai-image-btn" onclick="checkAndGenerateImage(this, 'edit-product-image-url', 'edit-product-name', 'edit-product-type')" class="btn-secondary flex items-center gap-1 shrink-0 text-[10px] px-2.5">
+                        <button type="button" onclick="generateSingleImage(this, 'edit-product-image-url', 'edit-product-name', 'edit-product-type')" class="btn-secondary flex items-center gap-1 shrink-0 text-[10px] px-2.5">
                             <span class="material-symbols-outlined" style="font-size:12px;">auto_awesome</span> KI-Bild
                         </button>
-                    </div>
-                    <div id="ai-image-locked" class="hidden mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-700 dark:text-amber-300">
-                        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">lock</span>
-                        KI-Bild-Generierung ist ein <strong>Premium-Feature</strong>. 
-                        <a href="mailto:admin@digi-gastro.de?subject=Premium-Upgrade" class="underline font-bold">Jetzt upgraden →</a>
                     </div>
                 </div>
                 <div>
@@ -14276,71 +14271,6 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
             unmarkLandingUnsaved();
             return true;
-        }
-
-        // ═════════════════════════════════════════════════════════════════
-        // PREMIUM FEATURE GATING: KI-Bild-Generierung
-        // Prüft zuerst ob der Tenant das Feature nutzen darf, dann erst aufrufen
-        // ═════════════════════════════════════════════════════════════════
-        
-        // Cache für Feature-Checks (verhindert wiederholte API-Calls)
-        let _featureCache = {};
-        
-        async function checkFeatureAccess(featureName) {
-            // Cache prüfen (gültig für 5 Minuten)
-            if (_featureCache[featureName] && Date.now() - _featureCache[featureName].ts < 300000) {
-                return _featureCache[featureName].allowed;
-            }
-            
-            try {
-                const resp = await fetch(`/admin/api/feature-check/${featureName}`);
-                const data = await resp.json();
-                _featureCache[featureName] = { allowed: data.allowed, ts: Date.now() };
-                return data.allowed;
-            } catch (e) {
-                console.error('Feature check failed:', e);
-                return false; // Fail-closed: bei Fehler kein Zugang
-            }
-        }
-        
-        async function checkAndGenerateImage(btn, targetInputId, nameInputId, typeInputId) {
-            // Premium-Feature prüfen
-            const allowed = await checkFeatureAccess('ai_image');
-            
-            if (!allowed) {
-                // Locked-State anzeigen
-                const lockedDiv = document.getElementById('ai-image-locked');
-                const btnEl = document.getElementById('ai-image-btn');
-                if (lockedDiv) lockedDiv.classList.remove('hidden');
-                if (btnEl) {
-                    btnEl.classList.add('opacity-50', 'cursor-not-allowed');
-                    btnEl.disabled = true;
-                }
-                showToast("KI-Bild-Generierung ist ein Premium-Feature. Kontaktieren Sie uns für ein Upgrade.", "error");
-                return;
-            }
-            
-            // Feature freigeschaltet → normale Generierung
-            await generateSingleImage(btn, targetInputId, nameInputId, typeInputId);
-        }
-        
-        // Beim Öffnen des Produkt-Editors Feature-Status prüfen
-        async function refreshAiImageButtonState() {
-            const allowed = await checkFeatureAccess('ai_image');
-            const btn = document.getElementById('ai-image-btn');
-            const lockedDiv = document.getElementById('ai-image-locked');
-            
-            if (!btn) return; // Button nicht auf der Seite
-            
-            if (allowed) {
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                btn.disabled = false;
-                if (lockedDiv) lockedDiv.classList.add('hidden');
-            } else {
-                btn.classList.add('opacity-50', 'cursor-not-allowed');
-                btn.disabled = false; // Bleibt klickbar für Upgrade-Hinweis
-                if (lockedDiv) lockedDiv.classList.remove('hidden');
-            }
         }
 
         async function generateSingleImage(btn, targetInputId, nameInputId, typeInputId) {
