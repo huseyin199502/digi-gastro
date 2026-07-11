@@ -23,7 +23,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="https://js.puter.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -32,7 +31,7 @@
     <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <script src="https://js.puter.com/v2/" defer></script>
+    <script src="/static/js/puter.js"></script>
     <script src="/static/js/personal_inventory.js"></script>
 
     <!-- Custom Style System -->
@@ -14286,16 +14285,23 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 showToast("KI-Service wird geladen, bitte warte einen Moment...", "success");
                 try {
                     await new Promise((resolve, reject) => {
-                        // Check if script already exists
-                        const existing = document.querySelector('script[src*="js.puter.com"]');
+                        // Try loading from local static first, then CDN as fallback
+                        const existing = document.querySelector('script[src*="puter"]');
                         if (existing) {
                             existing.onload = resolve;
                             existing.onerror = reject;
                         } else {
                             const s = document.createElement('script');
-                            s.src = 'https://js.puter.com/v2/';
+                            s.src = '/static/js/puter.js';
                             s.onload = resolve;
-                            s.onerror = reject;
+                            s.onerror = () => {
+                                // Fallback to CDN if local fails
+                                const cdn = document.createElement('script');
+                                cdn.src = 'https://js.puter.com/v2/';
+                                cdn.onload = resolve;
+                                cdn.onerror = reject;
+                                document.head.appendChild(cdn);
+                            };
                             document.head.appendChild(s);
                         }
                         // Timeout after 15 seconds
