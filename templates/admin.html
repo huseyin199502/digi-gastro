@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v4';
+        window.__DG_VERSION = '2026-07-12-v5';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14348,11 +14348,13 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 // We wrap the call in a 60-second timeout via Promise.race so
                 // the user gets a clear error message instead of an infinite
                 // spinner if the Puter backend hangs.
-                log('Calling puter.ai.txt2img(prompt) — default model, 60s timeout...');
+                log('Calling puter.ai.txt2img(prompt, {model: "nano-banana"}) — Gemini image model, 60s timeout...');
                 let imgElement;
                 let timeoutId = null;
                 try {
-                    const txt2imgPromise = puter.ai.txt2img(prompt);
+                    // Use 'nano-banana' model (maps to gemini-2.5-flash-image-preview)
+                    // This is Puter's recommended free image generation model
+                    const txt2imgPromise = puter.ai.txt2img(prompt, { model: 'nano-banana' });
                     const timeoutPromise = new Promise((_, reject) => {
                         timeoutId = setTimeout(() => {
                             reject(new Error('TIMEOUT: puter.ai.txt2img() hat nach 60 Sekunden nicht geantwortet. Vermutlich Netzwerk- oder Backend-Problem.'));
