@@ -14280,50 +14280,16 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 return;
             }
             
-            // Check if Puter.js is loaded, if not try to load it dynamically
+            // Check if Puter.js is loaded (it's loaded synchronously in <head>)
             if (typeof puter === 'undefined') {
-                showToast("KI-Service wird geladen, bitte warte einen Moment...", "success");
-                try {
-                    await new Promise((resolve, reject) => {
-                        // Try loading from local static first, then CDN as fallback
-                        const existing = document.querySelector('script[src*="puter"]');
-                        if (existing) {
-                            existing.onload = resolve;
-                            existing.onerror = reject;
-                        } else {
-                            const s = document.createElement('script');
-                            s.src = '/static/js/puter.js';
-                            s.onload = resolve;
-                            s.onerror = () => {
-                                // Fallback to CDN if local fails
-                                const cdn = document.createElement('script');
-                                cdn.src = 'https://js.puter.com/v2/';
-                                cdn.onload = resolve;
-                                cdn.onerror = reject;
-                                document.head.appendChild(cdn);
-                            };
-                            document.head.appendChild(s);
-                        }
-                        // Timeout after 15 seconds
-                        setTimeout(() => reject(new Error('Timeout')), 15000);
-                    });
-                } catch (e) {
-                    showToast("KI-Service konnte nicht geladen werden. Bitte später erneut versuchen oder Bild manuell hochladen.", "error");
-                    console.error("Puter.js load failed:", e);
-                    return;
-                }
-                // Check again
-                if (typeof puter === 'undefined') {
-                    showToast("KI-Service nicht verfügbar. Bitte Bild manuell hochladen.", "error");
-                    return;
-                }
+                showToast("KI-Service noch nicht bereit. Bitte lade die Seite neu und versuche es erneut.", "error");
+                console.error("Puter.js not loaded. Script tag:", document.querySelector('script[src*="puter"]'));
+                return;
             }
             
             const originalContent = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = `<span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Laden...`;
-            
-            showToast("KI-Bild wird generiert... (Popup kann sich öffnen für Login)", "success");
             
             try {
                 const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
@@ -14337,7 +14303,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 }
                 
                 if (!isSignedIn) {
-                    showToast("Bitte im Popup einloggen oder kostenlosen Puter-Account erstellen, dann erneut klicken.", "success");
+                    showToast("Login-Popup öffnet sich. Bitte einloggen (kostenloser Puter-Account). Nach Login automatisch weiter.", "success");
                     try {
                         await puter.auth.signIn();
                         // Check again after sign-in
@@ -14346,9 +14312,15 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             throw new Error("Login abgebrochen oder fehlgeschlagen");
                         }
                     } catch (signInErr) {
-                        throw new Error("Puter-Login erforderlich. Bitte im Popup einloggen.");
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                        console.error("Sign in error:", signInErr);
+                        showToast("Login abgebrochen. Bitte erneut klicken und im Popup einloggen.", "error");
+                        return;
                     }
                 }
+                
+                showToast("KI-Bild wird generiert...", "success");
                 
                 // Generate the image using Puter.js
                 const imgElement = await puter.ai.txt2img(prompt, { model: 'gpt-image-2' });
