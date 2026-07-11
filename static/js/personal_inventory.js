@@ -482,21 +482,23 @@ function loadStockItems() {
 function renderStockItems(items) {
     const tbody = document.getElementById('lager-items-tbody');
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-zinc-500 p-4">Keine Artikel angelegt</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-zinc-500 dark:text-zinc-400 p-4">Keine Artikel angelegt</td></tr>';
         return;
     }
     tbody.innerHTML = items.map(i => {
-        const isLow = i.current_stock <= i.min_stock;
+        // Low stock only when min_stock > 0 AND current <= min
+        const isLow = i.min_stock > 0 && i.current_stock <= i.min_stock;
         return `
-            <tr class="border-t border-gray-100 dark:border-zinc-700 ${isLow ? 'bg-red-50 dark:bg-red-900/10' : ''}">
-                <td class="p-2 font-bold">${escapeHtml(i.name)}</td>
-                <td class="p-2 ${isLow ? 'text-red-600 font-bold' : ''}">${i.current_stock}</td>
-                <td class="p-2 text-zinc-500">${i.min_stock}</td>
-                <td class="p-2 text-zinc-500">${i.base_unit}</td>
-                <td class="p-2">${(i.avg_cost || 0).toFixed(2)} €</td>
-                <td class="p-2">${(i.stock_value || 0).toFixed(2)} €</td>
+            <tr class="border-t border-gray-100 dark:border-zinc-700 ${isLow ? 'bg-red-50 dark:bg-red-900/20' : ''}">
+                <td class="p-2 font-bold text-zinc-900 dark:text-zinc-100">${escapeHtml(i.name)}</td>
+                <td class="p-2 ${isLow ? 'text-red-600 dark:text-red-400 font-bold' : 'text-zinc-900 dark:text-zinc-100'}">${i.current_stock}</td>
+                <td class="p-2 text-zinc-600 dark:text-zinc-400">${i.min_stock}</td>
+                <td class="p-2 text-zinc-600 dark:text-zinc-400">${i.base_unit}</td>
+                <td class="p-2 text-zinc-900 dark:text-zinc-100">${(i.avg_cost || 0).toFixed(2)} €</td>
+                <td class="p-2 text-zinc-900 dark:text-zinc-100">${(i.stock_value || 0).toFixed(2)} €</td>
                 <td class="p-2 text-right">
-                    <button onclick="editStockItem(${i.id})" class="text-[10px] text-blue-600 hover:underline">Bearbeiten</button>
+                    <button onclick="editStockItem(${i.id})" class="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-bold">Bearbeiten</button>
+                    <button onclick="deleteStockItem(${i.id}, '${escapeHtml(i.name)}')" class="text-[10px] text-red-600 dark:text-red-400 hover:underline font-bold ml-1">Löschen</button>
                 </td>
             </tr>
         `;
@@ -506,19 +508,22 @@ function renderStockItems(items) {
 function renderSuppliers(suppliers) {
     const list = document.getElementById('lager-suppliers-list');
     if (suppliers.length === 0) {
-        list.innerHTML = '<div class="text-zinc-500 text-center py-4">Keine Lieferanten angelegt</div>';
+        list.innerHTML = '<div class="text-zinc-500 dark:text-zinc-400 text-center py-4">Keine Lieferanten angelegt</div>';
         return;
     }
     list.innerHTML = suppliers.map(s => `
         <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-zinc-900 rounded-lg">
             <div>
-                <div class="font-bold">${escapeHtml(s.name)}</div>
-                <div class="text-[10px] text-zinc-500">
+                <div class="font-bold text-zinc-900 dark:text-zinc-100">${escapeHtml(s.name)}</div>
+                <div class="text-[10px] text-zinc-600 dark:text-zinc-400">
                     ${s.phone ? `📞 ${escapeHtml(s.phone)}` : ''}
                     ${s.lead_time_days ? ` · ⏱ ${s.lead_time_days}T Lieferzeit` : ''}
                 </div>
             </div>
-            <button onclick="editSupplier(${s.id})" class="text-[10px] text-blue-600">Bearbeiten</button>
+            <div class="flex gap-1">
+                <button onclick="editSupplier(${s.id})" class="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-bold">Bearb.</button>
+                <button onclick="deleteSupplier(${s.id}, '${escapeHtml(s.name)}')" class="text-[10px] text-red-600 dark:text-red-400 hover:underline font-bold">Lösch.</button>
+            </div>
         </div>
     `).join('');
 }
@@ -526,19 +531,19 @@ function renderSuppliers(suppliers) {
 function renderStockCounts(counts) {
     const list = document.getElementById('lager-counts-list');
     if (counts.length === 0) {
-        list.innerHTML = '<div class="text-zinc-500 text-center py-4">Keine Inventuren</div>';
+        list.innerHTML = '<div class="text-zinc-500 dark:text-zinc-400 text-center py-4">Keine Inventuren</div>';
         return;
     }
     const statusColors = {
-        open: 'bg-amber-100 text-amber-700',
-        counting: 'bg-blue-100 text-blue-700',
-        completed: 'bg-green-100 text-green-700',
+        open: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+        counting: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+        completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
     };
     list.innerHTML = counts.map(c => `
         <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
             <div>
-                <div class="font-bold text-sm">${escapeHtml(c.name)}</div>
-                <div class="text-[10px] text-zinc-500">
+                <div class="font-bold text-sm text-zinc-900 dark:text-zinc-100">${escapeHtml(c.name)}</div>
+                <div class="text-[10px] text-zinc-600 dark:text-zinc-400">
                     ${c.count_date}
                     <span class="ml-2 px-2 py-0.5 rounded-full ${statusColors[c.status] || ''}">${c.status}</span>
                 </div>
@@ -584,31 +589,54 @@ function createStockTransaction() {
 }
 
 function openStockItemModal(itemId) {
-    // Vereinfachtes Modal für neuen Artikel
+    // Remove existing modal first
+    closeStockItemModal();
+    
+    // If editing, fetch item data first
+    if (itemId) {
+        fetch('/admin/api/lager/items')
+            .then(r => r.json())
+            .then(data => {
+                const item = (data.items || []).find(i => i.id === itemId);
+                if (item) {
+                    _showStockItemModal(item);
+                } else {
+                    showToast('Artikel nicht gefunden');
+                }
+            })
+            .catch(() => showToast('Fehler beim Laden'));
+    } else {
+        _showStockItemModal(null);
+    }
+}
+
+function _showStockItemModal(item) {
+    const isEdit = !!item;
     const modalHtml = `
         <div id="stockitem-modal-overlay" class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='stockitem-modal-overlay')closeStockItemModal()">
             <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-5 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
-                    <h3 class="font-extrabold text-base">Neuer Lagerartikel</h3>
-                    <button onclick="closeStockItemModal()" class="text-zinc-400"><span class="material-symbols-outlined">close</span></button>
+                    <h3 class="font-extrabold text-base text-zinc-900 dark:text-zinc-100">${isEdit ? 'Artikel bearbeiten' : 'Neuer Lagerartikel'}</h3>
+                    <button onclick="closeStockItemModal()" class="text-zinc-400 dark:text-zinc-500"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="p-5 space-y-3">
-                    <div><label class="text-xs font-bold block mb-1">Name *</label><input type="text" id="si-name" class="form-field text-sm w-full" placeholder="z.B. Cola 0,5L"></div>
-                    <div><label class="text-xs font-bold block mb-1">SKU (optional)</label><input type="text" id="si-sku" class="form-field text-sm w-full"></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Name *</label><input type="text" id="si-name" value="${item ? escapeHtml(item.name) : ''}" class="form-field text-sm w-full" placeholder="z.B. Cola 0,5L"></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">SKU (optional)</label><input type="text" id="si-sku" value="${item ? escapeHtml(item.sku || '') : ''}" class="form-field text-sm w-full"></div>
                     <div class="grid grid-cols-2 gap-2">
-                        <div><label class="text-xs font-bold block mb-1">Mindestbestand</label><input type="number" id="si-min" value="0" step="0.001" class="form-field text-sm w-full"></div>
-                        <div><label class="text-xs font-bold block mb-1">Maximalbestand</label><input type="number" id="si-max" value="0" step="0.001" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Mindestbestand</label><input type="number" id="si-min" value="${item ? item.min_stock : 0}" step="0.001" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Maximalbestand</label><input type="number" id="si-max" value="${item ? item.max_stock : 0}" step="0.001" class="form-field text-sm w-full"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <div><label class="text-xs font-bold block mb-1">Lagereinheit</label><input type="text" id="si-baseunit" value="Stk" class="form-field text-sm w-full"></div>
-                        <div><label class="text-xs font-bold block mb-1">Bestelleinheit</label><input type="text" id="si-purchaseunit" value="Kasten" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Lagereinheit</label><input type="text" id="si-baseunit" value="${item ? escapeHtml(item.base_unit || 'Stk') : 'Stk'}" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Bestelleinheit</label><input type="text" id="si-purchaseunit" value="${item ? escapeHtml(item.purchase_unit || 'Kasten') : 'Kasten'}" class="form-field text-sm w-full"></div>
                     </div>
-                    <div><label class="text-xs font-bold block mb-1">Faktor (Bestell→Lager)</label><input type="number" id="si-factor" value="24" step="0.0001" class="form-field text-sm w-full" placeholder="z.B. 24 (1 Kasten = 24 Stk)"></div>
-                    <div><label class="text-xs font-bold block mb-1">Nachbestellmenge</label><input type="number" id="si-reorder" value="0" step="0.001" class="form-field text-sm w-full"></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Faktor (Bestell→Lager)</label><input type="number" id="si-factor" value="${item ? item.purchase_to_base_factor : 24}" step="0.0001" class="form-field text-sm w-full" placeholder="z.B. 24 (1 Kasten = 24 Stk)"></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Nachbestellmenge</label><input type="number" id="si-reorder" value="${item ? item.reorder_qty : 0}" step="0.001" class="form-field text-sm w-full"></div>
                 </div>
                 <div class="p-5 border-t border-gray-200 dark:border-zinc-700 flex gap-2">
+                    ${isEdit ? `<button onclick="deleteStockItem(${item.id}, '${escapeHtml(item.name)}')" class="btn-secondary text-xs px-3 py-2 text-red-600 dark:text-red-400">Löschen</button>` : ''}
                     <button onclick="closeStockItemModal()" class="btn-secondary text-xs px-3 py-2 flex-1">Abbrechen</button>
-                    <button onclick="saveStockItem()" class="btn-primary text-xs px-3 py-2 flex-1">Speichern</button>
+                    <button onclick="saveStockItem(${item ? item.id : 'null'})" class="btn-primary text-xs px-3 py-2 flex-1">Speichern</button>
                 </div>
             </div>
         </div>
@@ -621,7 +649,7 @@ function closeStockItemModal() {
     if (m) m.remove();
 }
 
-function saveStockItem() {
+function saveStockItem(itemId) {
     const payload = {
         name: document.getElementById('si-name').value,
         sku: document.getElementById('si-sku').value || null,
@@ -634,46 +662,82 @@ function saveStockItem() {
     };
     if (!payload.name) { showToast('Name erforderlich'); return; }
 
-    fetch('/admin/api/lager/items', {
-        method: 'POST',
+    const method = itemId ? 'PUT' : 'POST';
+    const url = itemId ? `/admin/api/lager/items/${itemId}` : '/admin/api/lager/items';
+
+    fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
     }).then(r => r.json()).then(() => {
         closeStockItemModal();
         loadLagerDashboard();
-        showToast('Artikel erstellt');
+        showToast(itemId ? 'Artikel aktualisiert' : 'Artikel erstellt');
     }).catch(() => showToast('Fehler'));
 }
 
 function editStockItem(id) {
-    // Vereinfacht: nur öffnen mit vorausgefüllten Daten wäre hier
-    showToast('Artikel-Bearbeitung: Bald verfügbar');
+    openStockItemModal(id);
 }
 
-function openSupplierModal() {
+function deleteStockItem(id, name) {
+    if (!confirm(`Artikel "${name}" wirklich löschen? Alle Buchungen bleiben erhalten.`)) return;
+    fetch(`/admin/api/lager/items/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(() => {
+            closeStockItemModal();
+            loadLagerDashboard();
+            showToast('Artikel gelöscht');
+        })
+        .catch(() => showToast('Fehler beim Löschen'));
+}
+
+function openSupplierModal(supplierId) {
+    closeSupplierModal();
+    
+    if (supplierId) {
+        fetch('/admin/api/lager/suppliers')
+            .then(r => r.json())
+            .then(data => {
+                const supplier = (data.suppliers || []).find(s => s.id === supplierId);
+                if (supplier) {
+                    _showSupplierModal(supplier);
+                } else {
+                    showToast('Lieferant nicht gefunden');
+                }
+            })
+            .catch(() => showToast('Fehler beim Laden'));
+    } else {
+        _showSupplierModal(null);
+    }
+}
+
+function _showSupplierModal(supplier) {
+    const isEdit = !!supplier;
     const modalHtml = `
         <div id="supplier-modal-overlay" class="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='supplier-modal-overlay')closeSupplierModal()">
             <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl max-w-md w-full">
                 <div class="p-5 border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
-                    <h3 class="font-extrabold text-base">Neuer Lieferant</h3>
-                    <button onclick="closeSupplierModal()" class="text-zinc-400"><span class="material-symbols-outlined">close</span></button>
+                    <h3 class="font-extrabold text-base text-zinc-900 dark:text-zinc-100">${isEdit ? 'Lieferant bearbeiten' : 'Neuer Lieferant'}</h3>
+                    <button onclick="closeSupplierModal()" class="text-zinc-400 dark:text-zinc-500"><span class="material-symbols-outlined">close</span></button>
                 </div>
                 <div class="p-5 space-y-3">
-                    <div><label class="text-xs font-bold block mb-1">Name *</label><input type="text" id="sup-name" class="form-field text-sm w-full" placeholder="z.B. Metro GmbH"></div>
-                    <div><label class="text-xs font-bold block mb-1">Ansprechpartner</label><input type="text" id="sup-contact" class="form-field text-sm w-full"></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Name *</label><input type="text" id="sup-name" value="${supplier ? escapeHtml(supplier.name) : ''}" class="form-field text-sm w-full" placeholder="z.B. Metro GmbH"></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Ansprechpartner</label><input type="text" id="sup-contact" value="${supplier ? escapeHtml(supplier.contact_name || '') : ''}" class="form-field text-sm w-full"></div>
                     <div class="grid grid-cols-2 gap-2">
-                        <div><label class="text-xs font-bold block mb-1">Telefon</label><input type="text" id="sup-phone" class="form-field text-sm w-full"></div>
-                        <div><label class="text-xs font-bold block mb-1">Email</label><input type="email" id="sup-email" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Telefon</label><input type="text" id="sup-phone" value="${supplier ? escapeHtml(supplier.phone || '') : ''}" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Email</label><input type="email" id="sup-email" value="${supplier ? escapeHtml(supplier.email || '') : ''}" class="form-field text-sm w-full"></div>
                     </div>
-                    <div><label class="text-xs font-bold block mb-1">Adresse</label><textarea id="sup-address" rows="2" class="form-field text-sm w-full"></textarea></div>
+                    <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Adresse</label><textarea id="sup-address" rows="2" class="form-field text-sm w-full">${supplier ? escapeHtml(supplier.address || '') : ''}</textarea></div>
                     <div class="grid grid-cols-2 gap-2">
-                        <div><label class="text-xs font-bold block mb-1">Lieferzeit (Tage)</label><input type="number" id="sup-lead" value="2" min="0" class="form-field text-sm w-full"></div>
-                        <div><label class="text-xs font-bold block mb-1">Mindestbestellwert (€)</label><input type="number" id="sup-minorder" value="0" step="0.01" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Lieferzeit (Tage)</label><input type="number" id="sup-lead" value="${supplier ? supplier.lead_time_days : 2}" min="0" class="form-field text-sm w-full"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Mindestbestellwert (€)</label><input type="number" id="sup-minorder" value="${supplier ? supplier.min_order_value : 0}" step="0.01" class="form-field text-sm w-full"></div>
                     </div>
                 </div>
                 <div class="p-5 border-t border-gray-200 dark:border-zinc-700 flex gap-2">
+                    ${isEdit ? `<button onclick="deleteSupplier(${supplier.id}, '${escapeHtml(supplier.name)}')" class="btn-secondary text-xs px-3 py-2 text-red-600 dark:text-red-400">Löschen</button>` : ''}
                     <button onclick="closeSupplierModal()" class="btn-secondary text-xs px-3 py-2 flex-1">Abbrechen</button>
-                    <button onclick="saveSupplier()" class="btn-primary text-xs px-3 py-2 flex-1">Speichern</button>
+                    <button onclick="saveSupplier(${supplier ? supplier.id : 'null'})" class="btn-primary text-xs px-3 py-2 flex-1">Speichern</button>
                 </div>
             </div>
         </div>
@@ -686,7 +750,7 @@ function closeSupplierModal() {
     if (m) m.remove();
 }
 
-function saveSupplier() {
+function saveSupplier(supplierId) {
     const payload = {
         name: document.getElementById('sup-name').value,
         contact_name: document.getElementById('sup-contact').value || null,
@@ -698,19 +762,34 @@ function saveSupplier() {
     };
     if (!payload.name) { showToast('Name erforderlich'); return; }
 
-    fetch('/admin/api/lager/suppliers', {
-        method: 'POST',
+    const method = supplierId ? 'PUT' : 'POST';
+    const url = supplierId ? `/admin/api/lager/suppliers/${supplierId}` : '/admin/api/lager/suppliers';
+
+    fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
     }).then(r => r.json()).then(() => {
         closeSupplierModal();
         loadLagerDashboard();
-        showToast('Lieferant erstellt');
+        showToast(supplierId ? 'Lieferant aktualisiert' : 'Lieferant erstellt');
     }).catch(() => showToast('Fehler'));
 }
 
 function editSupplier(id) {
-    showToast('Lieferant-Bearbeitung: Bald verfügbar');
+    openSupplierModal(id);
+}
+
+function deleteSupplier(id, name) {
+    if (!confirm(`Lieferant "${name}" wirklich löschen?`)) return;
+    fetch(`/admin/api/lager/suppliers/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(() => {
+            closeSupplierModal();
+            loadLagerDashboard();
+            showToast('Lieferant gelöscht');
+        })
+        .catch(() => showToast('Fehler beim Löschen'));
 }
 
 function startInventoryCount() {

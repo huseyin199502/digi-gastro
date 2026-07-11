@@ -740,7 +740,10 @@ def register_routes(app, get_db, require_chef_user_flat):
         if search:
             query = query.filter(StockItem.name.ilike(f"%{search}%"))
         if low_stock_only:
-            query = query.filter(StockItem.current_stock <= StockItem.min_stock)
+            query = query.filter(
+                StockItem.min_stock > 0,
+                StockItem.current_stock <= StockItem.min_stock
+            )
         query = query.order_by(StockItem.name)
         items = query.all()
 
@@ -763,7 +766,7 @@ def register_routes(app, get_db, require_chef_user_flat):
                     "last_purchase_price": float(i.last_purchase_price or 0),
                     "product_id": i.product_id,
                     "active": i.active,
-                    "is_low_stock": float(i.current_stock or 0) <= float(i.min_stock or 0),
+                    "is_low_stock": float(i.min_stock or 0) > 0 and float(i.current_stock or 0) <= float(i.min_stock or 0),
                     "stock_value": float(i.current_stock or 0) * float(i.avg_cost or 0),
                 }
                 for i in items
@@ -917,7 +920,8 @@ def register_routes(app, get_db, require_chef_user_flat):
 
         items = db.query(StockItem).filter_by(tenant_slug=slug, active=True).all()
         total_value = sum(float(i.current_stock or 0) * float(i.avg_cost or 0) for i in items)
-        low_stock_items = [i for i in items if float(i.current_stock or 0) <= float(i.min_stock or 0)]
+        # Low stock only when min_stock > 0 AND current <= min (avoid alert for new items with 0/0)
+        low_stock_items = [i for i in items if float(i.min_stock or 0) > 0 and float(i.current_stock or 0) <= float(i.min_stock or 0)]
 
         # Letzte 10 Transaktionen
         recent_txns = db.query(StockTransaction).filter_by(tenant_slug=slug).order_by(
