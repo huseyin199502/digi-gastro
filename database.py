@@ -3,7 +3,7 @@ import json
 import copy
 import contextvars
 import sqlalchemy as sa
-from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, ForeignKey, Index
+from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, ForeignKey, Index, Date, Time, DateTime, Numeric, SmallInteger
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
@@ -250,6 +250,14 @@ class Staff(Base):
     role = Column(String, nullable=False)
     pin = Column(String, nullable=False)
     pin_code = Column(String, nullable=False)
+    # ── Erweiterung für Personal Planung (additive, nullable) ──
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    hourly_rate = Column(Numeric(8, 2), default=0)  # €/hour
+    weekly_target_hours = Column(Numeric(5, 1), default=0)  # für Überstunden-Berechnung
+    contract_type = Column(String, default='minijob')  # minijob|teilzeit|vollzeit
+    active = Column(Boolean, default=True)
+    color = Column(String, nullable=True)  # optional per-person color override
 
 class ServiceCall(Base):
     __tablename__ = 'service_calls'
@@ -576,6 +584,331 @@ class PasskitLog(Base):
     created_at = Column(String, nullable=False)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# MODULE: PERSONAL PLANUNG / SCHICHTPLANUNG
+# ═══════════════════════════════════════════════════════════════════════════
+# 6 neue Tabellen: shifts, shift_templates, time_off_requests, staff_availability,
+# shift_swaps, time_clock_entries
+# Staff-Tabelle wird um additive Spalten erweitert (email, phone, hourly_rate, etc.)
+
+class Shift(Base):
+    """Schicht — die atomare Planungseinheit."""
+    __tablename__ = 'shifts'
+    __table_args__ = (
+        Index('idx_shifts_tenant_date', 'tenant_slug', 'shift_date'),
+        Index('idx_shifts_tenant_staff', 'tenant_slug', 'staff_id', 'shift_date'),
+        Index('idx_shifts_tenant_status', 'tenant_slug', 'status', 'shift_date'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    staff_id = Column(Integer, ForeignKey('staff.id', ondelete='CASCADE'), nullable=False)
+    role = Column(String, nullable=False)  # 'chef'|'kellner'|'zubereiter'|'bar' (snapshot)
+    shift_date = Column(Date, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)  # < start_time = overnight
+    break_minutes = Column(Integer, default=0)
+    hourly_rate = Column(Numeric(8, 2), default=0)  # €/hour snapshot
+    status = Column(String, default='draft')  # draft|published|cancelled
+    position_label = Column(String, nullable=True)  # "Theke", "Außen", "Grill"
+    notes = Column(Text, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+    updated_at = Column(DateTime, default=sa.func.now(), onupdate=sa.func.now())
+
+
+class ShiftTemplate(Base):
+    """Schicht-Vorlage — wiederkehrende Schichtmuster."""
+    __tablename__ = 'shift_templates'
+    __table_args__ = (
+        Index('idx_tmpl_tenant_dow', 'tenant_slug', 'day_of_week'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    day_of_week = Column(SmallInteger, nullable=False)  # 0=Sun, 1=Mon, ..., 6=Sat
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    break_minutes = Column(Integer, default=0)
+    hourly_rate = Column(Numeric(8, 2), default=0)
+    recurrence = Column(String, default='weekly')  # weekly|biweekly|monthly
+    default_staff_id = Column(Integer, ForeignKey('staff.id', ondelete='SET NULL'), nullable=True)
+    position_label = Column(String, nullable=True)
+    valid_from = Column(Date, nullable=True)
+    valid_until = Column(Date, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+class TimeOffRequest(Base):
+    """Urlaubsantrag / Abwesenheitsanfrage."""
+    __tablename__ = 'time_off_requests'
+    __table_args__ = (
+        Index('idx_tor_tenant_staff', 'tenant_slug', 'staff_id', 'start_date'),
+        Index('idx_tor_tenant_status', 'tenant_slug', 'status', 'start_date'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    staff_id = Column(Integer, ForeignKey('staff.id', ondelete='CASCADE'), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)  # inclusive
+    request_type = Column(String, default='vacation')  # vacation|sick|personal|unpaid
+    reason = Column(Text, nullable=True)
+    status = Column(String, default='pending')  # pending|approved|denied
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+class StaffAvailability(Base):
+    """Verfügbarkeit — wiederkehrend (wöchentlich) oder Einzel-Override."""
+    __tablename__ = 'staff_availability'
+    __table_args__ = (
+        Index('idx_sa_tenant_staff', 'tenant_slug', 'staff_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    staff_id = Column(Integer, ForeignKey('staff.id', ondelete='CASCADE'), nullable=False)
+    kind = Column(String, nullable=False)  # 'recurring' | 'override'
+    day_of_week = Column(SmallInteger, nullable=True)  # 0-6 for recurring
+    specific_date = Column(Date, nullable=True)  # for override
+    start_time = Column(Time, nullable=True)  # NULL = all day
+    end_time = Column(Time, nullable=True)
+    available = Column(Boolean, default=True)  # TRUE=available, FALSE=blocked
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+class ShiftSwap(Base):
+    """Schicht-Tausch — Mitarbeiter bietet Schicht an, anderer nimmt, Chef genehmigt."""
+    __tablename__ = 'shift_swaps'
+    __table_args__ = (
+        Index('idx_swap_tenant_status', 'tenant_slug', 'status', 'created_at'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    shift_id = Column(Integer, ForeignKey('shifts.id', ondelete='CASCADE'), nullable=False)
+    requesting_staff_id = Column(Integer, ForeignKey('staff.id', ondelete='CASCADE'), nullable=False)
+    target_staff_id = Column(Integer, ForeignKey('staff.id', ondelete='SET NULL'), nullable=True)  # NULL=open
+    status = Column(String, default='open')  # open|accepted|approved|denied|cancelled
+    accepted_staff_id = Column(Integer, ForeignKey('staff.id', ondelete='SET NULL'), nullable=True)
+    accepted_at = Column(DateTime, nullable=True)
+    message = Column(Text, nullable=True)
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MODULE: LAGERVERWALTUNG / INVENTORY MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════
+# Event-sourced stock ledger: stock_transaction ist immutable, stock_item.current_stock ist cache
+
+class UnitOfMeasure(Base):
+    """Mengeneinheiten (Stk, kg, L, Pack, Kasten, ...). Tenant-übergreifend geteilt."""
+    __tablename__ = 'unit_of_measure'
+    __table_args__ = (
+        Index('idx_uom_name', 'name'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)  # 'Stk', 'kg', 'L', 'Pack'
+    short = Column(String, nullable=False)  # Abkürzung für UI
+    base_unit = Column(String, nullable=True)  # 'count'|'weight'|'volume'
+
+
+class StockCategory(Base):
+    """Lager-Kategorien (Lebensmittel, Tiefkühl, Getränke, Reinigung, Verpackung)."""
+    __tablename__ = 'stock_categories'
+    __table_args__ = (
+        Index('idx_stockcat_tenant', 'tenant_slug', 'position'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)
+    color = Column(String, default="#374151")
+    position = Column(Integer, default=0)
+
+
+class Supplier(Base):
+    """Lieferanten."""
+    __tablename__ = 'suppliers'
+    __table_args__ = (
+        Index('idx_supplier_tenant', 'tenant_slug', 'name'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)
+    contact_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    lead_time_days = Column(Integer, default=2)  # typische Lieferzeit
+    min_order_value = Column(Numeric(8, 2), default=0)
+    notes = Column(Text, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+class StockItem(Base):
+    """Warenartikel / Lager-Item."""
+    __tablename__ = 'stock_items'
+    __table_args__ = (
+        Index('idx_stockitem_tenant', 'tenant_slug'),
+        Index('idx_stockitem_tenant_cat', 'tenant_slug', 'category_id'),
+        Index('idx_stockitem_lowstock', 'tenant_slug'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)
+    sku = Column(String, nullable=True)  # optional Artikelnummer
+    category_id = Column(Integer, ForeignKey('stock_categories.id', ondelete='SET NULL'), nullable=True)
+    supplier_id = Column(Integer, ForeignKey('suppliers.id', ondelete='SET NULL'), nullable=True)
+
+    # Stock
+    current_stock = Column(Numeric(12, 3), default=0)  # cache von stock_transaction sum
+    min_stock = Column(Numeric(12, 3), default=0)  # Mindestbestand
+    max_stock = Column(Numeric(12, 3), default=0)  # Maximalbestand
+    reorder_qty = Column(Numeric(12, 3), default=0)  # Nachbestellmenge
+
+    # Units
+    base_unit = Column(String, nullable=False, default='Stk')  # Lager-Einheit
+    purchase_unit = Column(String, nullable=True)  # Bestell-Einheit (z.B. Kasten)
+    purchase_to_base_factor = Column(Numeric(12, 4), default=1)  # 1 Kasten = 24 Stk
+
+    # Costing (weighted average)
+    avg_cost = Column(Numeric(10, 4), default=0)  # durchschnittlicher Einstandspreis pro base_unit
+    last_purchase_price = Column(Numeric(10, 4), default=0)  # letzter Einkaufspreis pro purchase_unit
+
+    # Product link (optional — für Auto-Deduction bei Bestellung)
+    product_id = Column(Integer, ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+
+    active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+    updated_at = Column(DateTime, default=sa.func.now(), onupdate=sa.func.now())
+
+
+class PurchaseOrder(Base):
+    """Bestellung bei Lieferant."""
+    __tablename__ = 'purchase_orders'
+    __table_args__ = (
+        Index('idx_po_tenant_status', 'tenant_slug', 'status', 'order_date'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    supplier_id = Column(Integer, ForeignKey('suppliers.id', ondelete='SET NULL'), nullable=True)
+    order_number = Column(String, nullable=True)  # optional Bestellnummer
+    status = Column(String, default='draft')  # draft|ordered|partial|received|cancelled
+    order_date = Column(Date, nullable=False)
+    expected_delivery = Column(Date, nullable=True)
+    received_date = Column(Date, nullable=True)
+    total_value = Column(Numeric(10, 2), default=0)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+class PurchaseOrderItem(Base):
+    """Bestell-Position."""
+    __tablename__ = 'purchase_order_items'
+    __table_args__ = (
+        Index('idx_poitem_po', 'purchase_order_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    purchase_order_id = Column(Integer, ForeignKey('purchase_orders.id', ondelete='CASCADE'), nullable=False)
+    stock_item_id = Column(Integer, ForeignKey('stock_items.id', ondelete='CASCADE'), nullable=False)
+    quantity_ordered = Column(Numeric(12, 3), nullable=False)
+    quantity_received = Column(Numeric(12, 3), default=0)
+    unit_price = Column(Numeric(10, 4), default=0)  # pro purchase_unit
+    line_total = Column(Numeric(10, 2), default=0)
+
+
+class StockTransaction(Base):
+    """Immutable stock ledger — +in / -out / adjust / waste."""
+    __tablename__ = 'stock_transactions'
+    __table_args__ = (
+        Index('idx_stocktxn_tenant_item', 'tenant_slug', 'stock_item_id', 'created_at'),
+        Index('idx_stocktxn_tenant_type', 'tenant_slug', 'type', 'created_at'),
+        Index('idx_stocktxn_order', 'order_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    stock_item_id = Column(Integer, ForeignKey('stock_items.id', ondelete='CASCADE'), nullable=False)
+    type = Column(String, nullable=False)  # 'in'|'out'|'adjust'|'waste'|'count'
+    quantity = Column(Numeric(12, 3), nullable=False)  # signed: +in / -out
+    unit_cost = Column(Numeric(10, 4), default=0)  # für 'in' und costing
+    reason = Column(String, nullable=True)  # 'Lieferung', 'Verkauf', 'Schwund', 'Inventur'
+    order_id = Column(Integer, nullable=True)  # FK zu orders (soft, für Auto-Deduction)
+    purchase_order_id = Column(Integer, ForeignKey('purchase_orders.id', ondelete='SET NULL'), nullable=True)
+    stock_count_id = Column(Integer, nullable=True)  # FK zu stock_counts (soft)
+    staff_id = Column(Integer, ForeignKey('staff.id', ondelete='SET NULL'), nullable=True)  # wer hat's gemacht
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
+class StockCount(Base):
+    """Inventur-Zählung."""
+    __tablename__ = 'stock_counts'
+    __table_args__ = (
+        Index('idx_stockcount_tenant', 'tenant_slug', 'status', 'created_at'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    name = Column(String, nullable=False)  # "Inventur Juli 2025"
+    status = Column(String, default='open')  # open|counting|completed
+    count_date = Column(Date, nullable=False)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+    completed_at = Column(DateTime, nullable=True)
+
+
+class StockCountItem(Base):
+    """Einzelne Zähl-Position."""
+    __tablename__ = 'stock_count_items'
+    __table_args__ = (
+        Index('idx_stockcountitem_count', 'stock_count_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_count_id = Column(Integer, ForeignKey('stock_counts.id', ondelete='CASCADE'), nullable=False)
+    stock_item_id = Column(Integer, ForeignKey('stock_items.id', ondelete='CASCADE'), nullable=False)
+    expected_qty = Column(Numeric(12, 3), default=0)  # aus stock_item.current_stock
+    counted_qty = Column(Numeric(12, 3), nullable=True)  # NULL = noch nicht gezählt
+    variance = Column(Numeric(12, 3), default=0)  # counted - expected
+    notes = Column(Text, nullable=True)
+
+
+class Recipe(Base):
+    """Rezept / Stückliste — verlinkt Product mit StockItems + Mengen."""
+    __tablename__ = 'recipes'
+    __table_args__ = (
+        Index('idx_recipe_tenant_product', 'tenant_slug', 'product_id'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    stock_item_id = Column(Integer, ForeignKey('stock_items.id', ondelete='CASCADE'), nullable=False)
+    quantity = Column(Numeric(12, 4), nullable=False)  # pro 1 Portion Product
+    unit = Column(String, nullable=False)  # muss mit stock_item.base_unit kompatibel sein
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=sa.func.now())
+
+
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
@@ -661,6 +994,43 @@ def _migrate_database():
                 conn.execute(sa.text("UPDATE tenants SET price_mode = 'brutto' WHERE price_mode IS NULL OR price_mode = ''"))
     except Exception as e:
         print(f"[Migration] price_mode NULL-Bereinigung übersprungen: {e}")
+
+    # ── Personal Planung: Staff-Tabelle um additive Spalten erweitern ──
+    add_column_if_missing('staff', 'email', "VARCHAR(255)")
+    add_column_if_missing('staff', 'phone', "VARCHAR(40)")
+    add_column_if_missing('staff', 'hourly_rate', "NUMERIC(8,2) DEFAULT 0")
+    add_column_if_missing('staff', 'weekly_target_hours', "NUMERIC(5,1) DEFAULT 0")
+    add_column_if_missing('staff', 'contract_type', "VARCHAR(20) DEFAULT 'minijob'")
+    add_column_if_missing('staff', 'active', "BOOLEAN DEFAULT TRUE")
+    add_column_if_missing('staff', 'color', "VARCHAR(7)")
+
+    # ── Lagerverwaltung: UnitOfMeasure mit Standard-Einheiten seeden ──
+    try:
+        with engine.begin() as conn:
+            existing = conn.execute(sa.text("SELECT COUNT(*) FROM unit_of_measure")).scalar()
+            if existing == 0:
+                standard_uoms = [
+                    ('Stk', 'Stk', 'count'),
+                    ('kg', 'kg', 'weight'),
+                    ('g', 'g', 'weight'),
+                    ('L', 'L', 'volume'),
+                    ('ml', 'ml', 'volume'),
+                    ('Pack', 'Pack', 'count'),
+                    ('Kasten', 'Kasten', 'count'),
+                    ('Kiste', 'Kiste', 'count'),
+                    ('Box', 'Box', 'count'),
+                    ('Flasche', 'Flasche', 'count'),
+                    ('Portion', 'Port', 'count'),
+                    ('Bund', 'Bund', 'count'),
+                    ('m', 'm', 'count'),
+                ]
+                for name, short, base in standard_uoms:
+                    conn.execute(sa.text(
+                        "INSERT INTO unit_of_measure (name, short, base_unit) VALUES (:n, :s, :b)"
+                    ), {"n": name, "s": short, "b": base})
+                print(f"[DB Migration] {len(standard_uoms)} Standard-Mengeneinheiten hinzugefügt.")
+    except Exception as e:
+        print(f"[DB Migration] UnitOfMeasure seeding übersprungen: {e}")
 
 
     # Migrate 'tables' table

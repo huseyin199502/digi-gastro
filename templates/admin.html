@@ -33,6 +33,7 @@
     <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://js.puter.com/v2/"></script>
+    <script src="/static/js/personal_inventory.js"></script>
 
     <!-- Custom Style System -->
     <style>
@@ -4223,6 +4224,14 @@
                 <span class="material-symbols-outlined">group</span>
                 <span>Personal & Account</span>
             </button>
+            <button id="tab-btn-schichtplan" onclick="switchAdminTab('schichtplan')" class="nav-btn">
+                <span class="material-symbols-outlined">calendar_month</span>
+                <span>Schichtplan</span>
+            </button>
+            <button id="tab-btn-lager" onclick="switchAdminTab('lager')" class="nav-btn">
+                <span class="material-symbols-outlined">inventory_2</span>
+                <span>Lagerverwaltung</span>
+            </button>
             <button id="tab-btn-einstellungen" onclick="switchAdminTab('einstellungen')" class="nav-btn">
                 <span class="material-symbols-outlined">settings</span>
                 <span>Einstellungen</span>
@@ -6273,6 +6282,210 @@
                 </div>
             </div>
 
+            <!-- ══════════════════════════════════════════════════════
+                 TAB: SCHICHTPLAN (Personal Planung)
+            ═══════════════════════════════════════════════════════ -->
+            <div id="admin-tab-schichtplan" class="admin-tab-content">
+                <div class="cms-overview-header">
+                    <div>
+                        <div class="cms-overview-title">Schichtplan</div>
+                        <div class="cms-overview-subtitle">Mitarbeiter-Schichten planen, veröffentlichen und Urlaub verwalten</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="prevWeek()" class="btn-secondary text-xs px-2 py-1.5">
+                            <span class="material-symbols-outlined" style="font-size:14px;">chevron_left</span>
+                        </button>
+                        <span id="schichtplan-week-label" class="text-xs font-bold text-zinc-700 dark:text-zinc-300">KW —</span>
+                        <button onclick="nextWeek()" class="btn-secondary text-xs px-2 py-1.5">
+                            <span class="material-symbols-outlined" style="font-size:14px;">chevron_right</span>
+                        </button>
+                        <button onclick="todayWeek()" class="btn-secondary text-xs px-3 py-1.5">Heute</button>
+                        <button onclick="publishWeekAPI()" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
+                            <span class="material-symbols-outlined" style="font-size:14px;">publish</span> Woche veröffentlichen
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Schichten</div>
+                        <div id="schichtstat-count" class="text-xl font-black text-zinc-900 dark:text-white mt-1">0</div>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Stunden gesamt</div>
+                        <div id="schichtstat-hours" class="text-xl font-black text-zinc-900 dark:text-white mt-1">0 h</div>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Personalkosten</div>
+                        <div id="schichtstat-cost" class="text-xl font-black text-zinc-900 dark:text-white mt-1">0 €</div>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Urlaubsanträge</div>
+                        <div id="schichtstat-timeoff" class="text-xl font-black text-amber-600 mt-1">0 offen</div>
+                    </div>
+                </div>
+
+                <!-- Week Grid -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Wochenübersicht</h3>
+                        <button onclick="openShiftModal(null)" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
+                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Schicht hinzufügen
+                        </button>
+                    </div>
+                    <div class="section-card-body overflow-x-auto">
+                        <div id="schichtplan-grid" class="min-w-[800px]">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Off Requests -->
+                <div class="section-card mt-4">
+                    <div class="section-card-header">
+                        <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Urlaubs- & Abwesenheitsanträge</h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div id="timeoff-list" class="space-y-2">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════════════════
+                 TAB: LAGERVERWALTUNG (Inventory Management)
+            ═══════════════════════════════════════════════════════ -->
+            <div id="admin-tab-lager" class="admin-tab-content">
+                <div class="cms-overview-header">
+                    <div>
+                        <div class="cms-overview-title">Lagerverwaltung</div>
+                        <div class="cms-overview-subtitle">Warenbestand, Lieferanten, Bestellungen und Inventur verwalten</div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Stats -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Artikel gesamt</div>
+                        <div id="lagerstat-items" class="text-xl font-black text-zinc-900 dark:text-white mt-1">0</div>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Lagerwert</div>
+                        <div id="lagerstat-value" class="text-xl font-black text-zinc-900 dark:text-white mt-1">0 €</div>
+                    </div>
+                    <div class="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-700">
+                        <div class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase">⚠ Niedriger Bestand</div>
+                        <div id="lagerstat-lowstock" class="text-xl font-black text-red-600 mt-1">0</div>
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl border border-gray-200 dark:border-zinc-700">
+                        <div class="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase">Letzte Buchungen</div>
+                        <div id="lagerstat-recent" class="text-xl font-black text-zinc-900 dark:text-white mt-1">0</div>
+                    </div>
+                </div>
+
+                <!-- Low Stock Alerts -->
+                <div id="lager-lowstock-section" class="section-card mb-4" style="display:none;">
+                    <div class="section-card-header">
+                        <h3 class="font-extrabold text-sm text-red-600">⚠ Nachbestellen erforderlich</h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div id="lager-lowstock-list" class="space-y-2">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Items Table -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Warenartikel</h3>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="lager-search" placeholder="Suchen..." class="form-field text-xs w-48" oninput="loadStockItems()">
+                            <button onclick="openStockItemModal(null)" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
+                                <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neuer Artikel
+                            </button>
+                        </div>
+                    </div>
+                    <div class="section-card-body overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-50 dark:bg-zinc-900 text-[10px] uppercase text-zinc-500">
+                                <tr>
+                                    <th class="text-left p-2">Name</th>
+                                    <th class="text-left p-2">Bestand</th>
+                                    <th class="text-left p-2">Min</th>
+                                    <th class="text-left p-2">Einheit</th>
+                                    <th class="text-left p-2">Ø Preis</th>
+                                    <th class="text-left p-2">Wert</th>
+                                    <th class="text-right p-2">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lager-items-tbody">
+                                <!-- Wird von JS gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <!-- Stock Transaction Form -->
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Buchung erfassen</h3>
+                        </div>
+                        <div class="section-card-body space-y-2">
+                            <select id="txn-stock-item" class="form-field text-xs w-full">
+                                <option value="">Artikel wählen...</option>
+                            </select>
+                            <select id="txn-type" class="form-field text-xs w-full">
+                                <option value="in">Wareneingang (+)</option>
+                                <option value="out">Warenausgang (-)</option>
+                                <option value="waste">Schwund/Verderb (-)</option>
+                                <option value="adjust">Anpassung (±)</option>
+                            </select>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number" id="txn-qty" placeholder="Menge" class="form-field text-xs" step="0.001">
+                                <input type="number" id="txn-cost" placeholder="€/Einheit (bei Eingang)" class="form-field text-xs" step="0.01">
+                            </div>
+                            <input type="text" id="txn-reason" placeholder="Grund (optional)" class="form-field text-xs w-full">
+                            <button onclick="createStockTransaction()" class="btn-primary text-xs px-3 py-1.5 w-full">Buchung speichern</button>
+                        </div>
+                    </div>
+
+                    <!-- Suppliers -->
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Lieferanten</h3>
+                            <button onclick="openSupplierModal()" class="btn-secondary text-xs px-2 py-1">
+                                <span class="material-symbols-outlined" style="font-size:14px;">add</span>
+                            </button>
+                        </div>
+                        <div class="section-card-body">
+                            <div id="lager-suppliers-list" class="space-y-1 text-xs">
+                                <!-- Wird von JS gefüllt -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Count -->
+                <div class="section-card mt-4">
+                    <div class="section-card-header">
+                        <h3 class="font-extrabold text-sm text-zinc-800 dark:text-zinc-100">Inventur</h3>
+                        <button onclick="startInventoryCount()" class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
+                            <span class="material-symbols-outlined" style="font-size:14px;">add</span> Neue Inventur
+                        </button>
+                    </div>
+                    <div class="section-card-body">
+                        <div id="lager-counts-list" class="space-y-2">
+                            <!-- Wird von JS gefüllt -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -6943,7 +7156,7 @@
         function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
             // Validate tabId — only allow known tabs
-            const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen', 'loyalty'];
+            const validTabs = ['cms', 'live', 'finanzen', 'produkte', 'kategorien', 'happyhour', 'personal', 'landingpage', 'einstellungen', 'loyalty', 'schichtplan', 'lager'];
             if (!validTabs.includes(tabId)) tabId = 'live';
 
             // Rollen-basierte Zugriffskontrolle:
@@ -6972,7 +7185,9 @@
                 'personal': 'Personal & Account',
                 'landingpage': 'Landingpage',
                 'einstellungen': 'Einstellungen',
-                'loyalty': 'Loyalty & Newsletter'
+                'loyalty': 'Loyalty & Newsletter',
+                'schichtplan': 'Schichtplan',
+                'lager': 'Lagerverwaltung'
             };
             const breadcrumb = document.getElementById('breadcrumb-current');
             if (breadcrumb) {
@@ -7007,6 +7222,12 @@
             }
             if (tabId === 'loyalty') {
                 loadLoyaltyDashboard();
+            }
+            if (tabId === 'schichtplan') {
+                loadSchichtplan();
+            }
+            if (tabId === 'lager') {
+                loadLagerDashboard();
             }
 
             // Live-Badge nur auf operativen Tabs anzeigen

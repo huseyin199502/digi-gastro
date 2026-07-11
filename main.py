@@ -1249,6 +1249,22 @@ from database import (
     LoyaltyCampaign,
     LoyaltyPushLog,
     TenantGeofence,
+    # Personal Planung & Lagerverwaltung Tabellen
+    Shift,
+    ShiftTemplate,
+    TimeOffRequest,
+    StaffAvailability,
+    ShiftSwap,
+    UnitOfMeasure,
+    StockCategory,
+    Supplier,
+    StockItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    StockTransaction,
+    StockCount,
+    StockCountItem,
+    Recipe,
 )
 
 # ── Local-dev detection (für Cookie-Attribute) ──
@@ -15316,3 +15332,18 @@ def _maybe_award_loyalty_stamp(request: Request, slug: str, order_id: int, order
     except Exception as e:
         print(f"[Loyalty] Stamp award failed: {e}")
         return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MODULE REGISTRIERUNG: Personal Planung & Lagerverwaltung
+# ═══════════════════════════════════════════════════════════════════════════
+# Alle API-Endpoints für Schichtplanung und Lagerverwaltung werden aus dem
+# separaten Modul modules_personal_inventory.py registriert.
+try:
+    from modules_personal_inventory import register_routes as _register_pi_routes
+    _register_pi_routes(app, get_db, require_chef_user_flat)
+    print("[Module] Personal Planung & Lagerverwaltung Routen registriert ✓")
+except Exception as e:
+    print(f"[Module] FEHLER beim Registrieren von Personal/Inventory Routen: {e}")
+    import traceback
+    traceback.print_exc()
