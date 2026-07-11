@@ -4154,6 +4154,46 @@
                 transition: none !important;
             }
         }
+
+        /* ═════════════════════════════════════════════════════════════════
+           DARK MODE COLOR UTILITIES (für Lagerverwaltung & Schichtplan)
+           — Diese Klassen sind NICHT im pre-built Tailwind CSS enthalten
+           und werden hier manuell nachgerüstet.
+           ═════════════════════════════════════════════════════════════════ */
+
+        /* Red (Low Stock, Löschen, Differenz negativ) */
+        .dark .dark\:text-red-200 { color: #fecaca !important; }
+        .dark .dark\:text-red-300 { color: #fca5a5 !important; }
+        .dark .dark\:text-red-400 { color: #f87171 !important; }
+        .dark .dark\:bg-red-900\/20 { background-color: rgba(127, 29, 29, 0.2) !important; }
+        .dark .dark\:bg-red-900\/30 { background-color: rgba(127, 29, 29, 0.3) !important; }
+        .dark .dark\:bg-red-950\/40 { background-color: rgba(69, 10, 10, 0.4) !important; }
+        .dark .dark\:border-red-700 { border-color: #b91c1c !important; }
+        .dark .dark\:border-red-800 { border-color: #991b1b !important; }
+
+        /* Blue (Bearbeiten Links) */
+        .dark .dark\:text-blue-400 { color: #60a5fa !important; }
+        .dark .dark\:text-blue-300 { color: #93c5fd !important; }
+
+        /* Green (Genehmigt, Differenz positiv, Abgeschlossen) */
+        .dark .dark\:text-green-300 { color: #86efac !important; }
+        .dark .dark\:text-green-400 { color: #4ade80 !important; }
+        .dark .dark\:bg-green-900\/20 { background-color: rgba(20, 83, 45, 0.2) !important; }
+        .dark .dark\:bg-green-900\/30 { background-color: rgba(20, 83, 45, 0.3) !important; }
+
+        /* Amber (Urlaubsanträge, Pending) */
+        .dark .dark\:text-amber-200 { color: #fde68a !important; }
+        .dark .dark\:text-amber-300 { color: #fcd34d !important; }
+        .dark .dark\:bg-amber-900\/20 { background-color: rgba(120, 53, 15, 0.2) !important; }
+        .dark .dark\:bg-amber-900\/30 { background-color: rgba(120, 53, 15, 0.3) !important; }
+        .dark .dark\:bg-amber-950\/40 { background-color: rgba(69, 26, 3, 0.4) !important; }
+        .dark .dark\:border-amber-700 { border-color: #b45309 !important; }
+        .dark .dark\:border-amber-800 { border-color: #92400e !important; }
+
+        /* Hover States */
+        .dark .dark\:hover\:text-green-400:hover { color: #4ade80 !important; }
+        .dark .dark\:hover\:text-red-400:hover { color: #f87171 !important; }
+        .dark .dark\:hover\:text-zinc-300:hover { color: #d4d4d8 !important; }
     </style>
 </head>
 <body class="bg-gray-100" style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0);">
