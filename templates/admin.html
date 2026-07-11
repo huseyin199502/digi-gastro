@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v6';
+        window.__DG_VERSION = '2026-07-12-v7';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14348,13 +14348,17 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 // We wrap the call in a 60-second timeout via Promise.race so
                 // the user gets a clear error message instead of an infinite
                 // spinner if the Puter backend hangs.
-                log('Calling puter.ai.txt2img(prompt, {model: "dall-e-3"}) — OpenAI DALL-E 3, 60s timeout...');
+                log('Calling puter.ai.txt2img(prompt, {model: "gpt-image-1", quality: "high"}) — OpenAI GPT-Image 1, 60s timeout...');
                 let imgElement;
                 let timeoutId = null;
                 try {
-                    // Use 'dall-e-3' — OpenAI's high-quality image generation model
-                    // Available through Puter.js, produces professional food photography
-                    const txt2imgPromise = puter.ai.txt2img(prompt, { model: 'dall-e-3' });
+                    // Use 'gpt-image-1' — OpenAI's current production image model (DALL-E successor)
+                    // gpt-image-1 is the stable, widely-available GPT-quality image model on Puter
+                    // quality: 'high' for professional food-photography quality
+                    const txt2imgPromise = puter.ai.txt2img(prompt, {
+                        model: 'gpt-image-1',
+                        quality: 'high'
+                    });
                     const timeoutPromise = new Promise((_, reject) => {
                         timeoutId = setTimeout(() => {
                             reject(new Error('TIMEOUT: puter.ai.txt2img() hat nach 60 Sekunden nicht geantwortet. Vermutlich Netzwerk- oder Backend-Problem.'));
