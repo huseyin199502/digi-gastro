@@ -141,6 +141,15 @@ class Tenant(Base):
     # ohne price_mode-Angabe automatisch 'brutto' bekommen (nicht NULL).
     # default="brutto" greift nur bei SQLAlchemy-INSERTs.
     price_mode = Column(String, default="brutto", server_default="brutto")  # "brutto" or "netto"
+    
+    # ── Premium-Tier System ──
+    # "free" = Basis-Features (Bestellung, KDS, Sitzplan, Speisekarte, Loyalty)
+    # "pro" = + Schichtplan, Lagerverwaltung, KI-Bild-Generierung, erweiterte Analytics
+    # "enterprise" = + Multi-Location, White-Label, API Access, Priority Support
+    tier = Column(String, default="free", server_default="free")
+    # Feature-Flags für einzelne Module (JSON-Array als String)
+    # z.B. '["ai_image","schichtplan","lagerverwaltung"]'
+    enabled_features = Column(Text, default="[]")
 
 
 class SuperGroup(Base):
@@ -1003,6 +1012,10 @@ def _migrate_database():
     add_column_if_missing('staff', 'contract_type', "VARCHAR(20) DEFAULT 'minijob'")
     add_column_if_missing('staff', 'active', "BOOLEAN DEFAULT TRUE")
     add_column_if_missing('staff', 'color', "VARCHAR(7)")
+
+    # ── Premium-Tier System: Tenant um Tier und Feature-Flags erweitern ──
+    add_column_if_missing('tenants', 'tier', "VARCHAR DEFAULT 'free'")
+    add_column_if_missing('tenants', 'enabled_features', "TEXT DEFAULT '[]'")
 
     # ── Lagerverwaltung: UnitOfMeasure mit Standard-Einheiten seeden ──
     try:
