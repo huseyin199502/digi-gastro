@@ -7055,6 +7055,9 @@
 
     <!-- JAVASCRIPT INJECTION -->
     <script>
+        // Version stamp for cache-busting verification
+        window.__DG_VERSION = '2026-07-11-v3';
+        console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
         const currentUserRole = "{{ current_user.role if current_user else 'kellner' }}";
