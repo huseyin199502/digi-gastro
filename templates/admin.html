@@ -14393,12 +14393,34 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             btn.disabled = true;
             btn.innerHTML = `<span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Laden...`;
             
-            showToast("KI-Bild wird generiert...", "success");
+            showToast("KI-Bild wird generiert... (Popup kann sich öffnen für Login)", "success");
             
             try {
                 const prompt = `Professional studio food photography of ${productName} on a clean neutral background, centered, delicious`;
                 
-                // Generate the image using Puter.js (bypasses all key and server rate limits)
+                // Check if user is signed in to Puter first
+                let isSignedIn = false;
+                try {
+                    isSignedIn = puter.auth.isSignedIn();
+                } catch (e) {
+                    console.log("isSignedIn check failed:", e);
+                }
+                
+                if (!isSignedIn) {
+                    showToast("Bitte im Popup einloggen oder kostenlosen Puter-Account erstellen, dann erneut klicken.", "success");
+                    try {
+                        await puter.auth.signIn();
+                        // Check again after sign-in
+                        isSignedIn = puter.auth.isSignedIn();
+                        if (!isSignedIn) {
+                            throw new Error("Login abgebrochen oder fehlgeschlagen");
+                        }
+                    } catch (signInErr) {
+                        throw new Error("Puter-Login erforderlich. Bitte im Popup einloggen.");
+                    }
+                }
+                
+                // Generate the image using Puter.js
                 const imgElement = await puter.ai.txt2img(prompt, { model: 'gpt-image-2' });
                 if (!imgElement || !imgElement.src) {
                     throw new Error("Puter.js lieferte kein Bild-Element");
@@ -14438,7 +14460,24 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 btn.disabled = false;
                 btn.innerHTML = originalContent;
                 console.error("KI Bildfehler:", err);
-                showToast("Fehler: " + err.message, "error");
+                
+                // Bessere Fehlermeldungen basierend auf Fehlertyp
+                let errorMsg = err.message || "Unbekannter Fehler";
+                
+                // Auth-Fehler
+                if (err.status === 401 || errorMsg.includes('Unauthorized') || errorMsg.includes('auth') || errorMsg.includes('login')) {
+                    errorMsg = "Puter-Login erforderlich. Bitte klicke erneut auf KI-Bild und schließe das Login-Popup ab (kostenloser Account).";
+                }
+                // Rate-Limit / Usage-Limit
+                else if (errorMsg.includes('usage') || errorMsg.includes('rate') || errorMsg.includes('limit')) {
+                    errorMsg = "Nutzungslimit erreicht. Bitte später erneut versuchen oder Puter-Account upgraden.";
+                }
+                // Load failed (net::ERR_FAILED etc.)
+                else if (errorMsg.includes('Load failed') || errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+                    errorMsg = "Netzwerkfehler. Bitte Popup-Blocker deaktivieren, Internetverbindung prüfen und erneut versuchen.";
+                }
+                
+                showToast("Fehler: " + errorMsg, "error");
             }
         }
 
