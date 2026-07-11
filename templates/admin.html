@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v10';
+        window.__DG_VERSION = '2026-07-12-v11';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -14521,6 +14521,17 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 btn.innerHTML = originalContent;
                 if (data.success && data.image_url) {
                     document.getElementById(targetInputId).value = data.image_url;
+                    // Live-Vorschau aktualisieren
+                    if (typeof updateLivePreview === 'function') {
+                        updateLivePreview();
+                    }
+                    // Vorschau im Bilder-Tab aktualisieren
+                    const editPreview = document.getElementById('edit-product-preview-img');
+                    const editPreviewContainer = document.getElementById('edit-product-image-preview');
+                    if (editPreview) {
+                        editPreview.src = data.image_url;
+                        if (editPreviewContainer) editPreviewContainer.classList.remove('hidden');
+                    }
                     showToast("KI-Bild erfolgreich generiert!", "success");
                     log('SUCCESS — image_url:', data.image_url);
                 } else {
