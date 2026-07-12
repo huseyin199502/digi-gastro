@@ -2058,7 +2058,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                         db_combo_item = DBEventComboItem(
                             combo_id=db_combo.id,
                             product_id=int(product_id),
-                            category_name=None
+                            category_name=category_name
                         )
                         session.add(db_combo_item)
                     elif category_name:
@@ -10510,7 +10510,7 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
                     db_combo_item = DBEventComboItem(
                         combo_id=db_combo.id,
                         product_id=int(product_id),
-                        category_name=None
+                        category_name=category_name
                     )
                     db.add(db_combo_item)
                 elif category_name:
@@ -10605,7 +10605,7 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
                         db_combo_item = DBEventComboItem(
                             combo_id=db_combo.id,
                             product_id=int(product_id),
-                            category_name=None
+                            category_name=category_name
                         )
                         db.add(db_combo_item)
                     elif category_name:
