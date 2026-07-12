@@ -2850,12 +2850,13 @@
                 }
                 
                 _addComboItemsToCart(comboId, comboName, comboPrice, productIds) {
-                    // Verteile den Kombi-Preis proportional auf alle Produkte
-                    const allProducts = {{ products | map(attribute='price') | list | tojson }};
-                    const allProductIds = {{ products | map(attribute='id') | list | tojson }};
-                    const allProductNames = {{ products | map(attribute='name') | list | tojson }};
-                    const allProductNamesEn = {{ products | map(attribute='name_en') | list | tojson }};
-                    const allProductCategoryTypes = {{ products | map(attribute='category_type') | list | tojson }};
+                    // Verwende window._productsData statt {{ products | tojson }} (bereits gesetzt)
+                    const _allProds = window._productsData || [];
+                    const allProducts = _allProds.map(p => p.price);
+                    const allProductIds = _allProds.map(p => p.id);
+                    const allProductNames = _allProds.map(p => p.name);
+                    const allProductNamesEn = _allProds.map(p => p.name_en || p.name);
+                    const allProductCategoryTypes = _allProds.map(p => p.category_type || 'küche');
                     
                     let individualTotal = 0;
                     const comboProducts = [];
