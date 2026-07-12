@@ -705,34 +705,11 @@
                                 {% if not combo_time_ok %}
                                 <div class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-500/30 mb-1.5">Verfügbar ab {{ combo['start_time'] or ev.start_time }} Uhr</div>
                                 {% endif %}
-                                <div class="flex flex-wrap gap-1.5 mb-2">
-                                    {% for ci in combo['items'] %}
-                                        {% if ci['category_name'] and not ci['product_id'] %}
-                                        {# Ganze Kategorie: Kunde wählt 1 aus dieser Kategorie #}
-                                        <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-lg border border-teal-500/40">1x {{ ci['category_name'] }} (deine Wahl)</span>
-                                        {% elif ci['category_name'] and ci['product_id'] %}
-                                        {# Einzelnes Produkt in Gruppe: Kunde wählt 1 aus diesen Produkten #}
-                                        {% for p in products %}
-                                            {% if p.id == ci['product_id'] %}
-                                            <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-lg border border-teal-500/40">{{ p.name }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                        {% else %}
-                                        {# Feste Produkte: alle im Warenkorb #}
-                                        {% for p in products %}
-                                            {% if p.id == ci['product_id'] %}
-                                            <span class="text-[10px] font-medium bg-white/10 text-white/80 px-2 py-0.5 rounded-lg">{{ p.name }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                                <div class="flex items-center gap-3">
+                                {# KEINE Produkt-Liste mehr — zu unübersichtlich
+                                   Kunde sieht nur: Name, Event, Zeit, Preis, [+] Button
+                                   Produkte wählt der Kunde im Picker-Modal aus #}
+                                <div class="flex items-center gap-3 mt-1">
                                     <span class="text-lg font-black text-teal-200">{{ "%.2f" | format(combo['combo_price']) | replace('.', ',') }} €</span>
-                                    {% if individual_total.value > combo['combo_price'] %}
-                                    <span class="text-xs line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
-                                    <span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo['combo_price']) | replace('.', ',') }} €</span>
-                                    {% endif %}
                                 </div>
                             </div>
                             {% if not is_readonly and table and not token_error and combo_time_ok %}
@@ -844,10 +821,6 @@
                                 {% endif %}
                                 <div class="flex items-center gap-2 mt-0.5">
                                     <span class="text-sm font-black text-teal-200">{{ "%.2f" | format(combo['combo_price']) | replace('.', ',') }} €</span>
-                                    {% if individual_total.value > combo['combo_price'] %}
-                                    <span class="text-xs line-through text-white/40">{{ "%.2f" | format(individual_total.value) | replace('.', ',') }} €</span>
-                                    <span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full">Spare {{ "%.2f" | format(individual_total.value - combo['combo_price']) | replace('.', ',') }} €</span>
-                                    {% endif %}
                                 </div>
                             </div>
                             {% if not is_readonly and table and not token_error and combo_time_ok %}
