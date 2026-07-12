@@ -2766,8 +2766,8 @@
                 }
                 
                 openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems) {
-                    // Erstelle Modal für Kategorie-Auswahl
-                    const allProducts = {{ products | tojson }};
+                    // Verwende window._productsData statt {{ products | tojson }} (bereits gesetzt)
+                    const allProducts = window._productsData || [];
                     const allProductIds = allProducts.map(p => p.id);
                     
                     // Sammle Produkte für jede Kategorie
