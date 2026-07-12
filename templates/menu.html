@@ -2799,36 +2799,59 @@
                     this._addComboItemsToCart(comboId, comboName, comboPrice, fixedItems.map(i => i.product_id));
                 },
                 
+                // Global function for combo picker selection highlight
+                window.updateComboPickerSelection = function(radio) {
+                    const name = radio.name;
+                    // Reset all labels in this group
+                    document.querySelectorAll(`label[data-radio-name="${name}"]`).forEach(label => {
+                        const r = label.querySelector('input[type=radio]');
+                        const dot = label.querySelector('.picker-dot');
+                        label.style.borderColor = 'transparent';
+                        label.style.background = '#27272a';
+                        if (r) r.style.borderColor = '#52525b';
+                    });
+                    // Highlight selected label
+                    const selectedLabel = radio.closest('label');
+                    if (selectedLabel) {
+                        selectedLabel.style.borderColor = '#14b8a6';
+                        selectedLabel.style.background = 'rgba(20, 184, 166, 0.15)';
+                        radio.style.borderColor = '#14b8a6';
+                        // Add checkmark dot
+                        radio.style.background = '#14b8a6';
+                        radio.style.boxShadow = 'inset 0 0 0 4px #18181b';
+                    }
+                };
+                
                 openComboPickerModal(comboId, comboName, comboPrice, fixedItems, groups) {
                     // groups ist ein Object: { "Softdrinks": [product1, product2, ...], "Shishas": [...] }
                     // fixedItems ist ein Array von {product_id: X} für feste Produkte
                     
-                    // Modal HTML
+                    // Modal HTML — iPhone Safari optimiert
                     let modalHtml = `
-                    <div id="combo-picker-overlay" class="fixed inset-0 bg-black/80 flex items-center justify-center p-3 sm:p-4" onclick="if(event.target.id==='combo-picker-overlay')this.remove()" style="z-index: 9999; padding-bottom: env(safe-area-inset-bottom, 0px);">
-                        <div class="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto" style="max-width: 28rem;">
-                            <div class="p-4 border-b border-zinc-700 flex items-center justify-between sticky top-0 bg-zinc-900 z-10">
-                                <h3 class="font-bold text-white text-sm">${comboName} — ${comboPrice.toFixed(2).replace('.', ',')} €</h3>
-                                <button onclick="document.getElementById('combo-picker-overlay').remove()" class="text-zinc-400">
-                                    <span class="material-symbols-outlined">close</span>
+                    <div id="combo-picker-overlay" class="fixed inset-0 flex items-end sm:items-center justify-center" onclick="if(event.target.id==='combo-picker-overlay')this.remove()" style="z-index: 9999; background: rgba(0,0,0,0.85); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); padding-bottom: env(safe-area-inset-bottom, 0px);">
+                        <div style="background: #18181b; border-radius: 20px 20px 0 0; width: 100%; max-width: 28rem; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; box-shadow: 0 -4px 40px rgba(0,0,0,0.5);">
+                            <div style="position: sticky; top: 0; background: #18181b; z-index: 10; padding: 16px; border-bottom: 1px solid #3f3f46; display: flex; align-items: center; justify-content: space-between;">
+                                <h3 style="font-weight: 700; color: white; font-size: 15px; margin: 0;">${comboName} — ${comboPrice.toFixed(2).replace('.', ',')} €</h3>
+                                <button onclick="document.getElementById('combo-picker-overlay').remove()" style="color: #71717a; background: none; border: none; padding: 8px; -webkit-tap-highlight-color: transparent; cursor: pointer; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+                                    <span class="material-symbols-outlined" style="font-size: 22px;">close</span>
                                 </button>
                             </div>
-                            <div class="p-4 space-y-4">
+                            <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
                     `;
                     
                     // Für jede Gruppe: Produktauswahl
                     for (const [categoryName, prods] of Object.entries(groups)) {
                         modalHtml += `
                             <div>
-                                <div class="text-xs font-bold text-teal-300 mb-2">Wähle 1 aus: ${categoryName}</div>
-                                <div class="space-y-1.5" data-category="${categoryName}">
+                                <div style="font-size: 12px; font-weight: 700; color: #5eead4; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Wähle 1 aus: ${categoryName}</div>
+                                <div style="display: flex; flex-direction: column; gap: 6px;" data-category="${categoryName}">
                         `;
                         for (const p of prods) {
                             modalHtml += `
-                                    <label class="flex items-center gap-3 p-3 bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-700 active:bg-zinc-600 transition-colors combo-pick-option min-h-[48px]">
-                                        <input type="radio" name="cat_${categoryName}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" class="text-teal-500 w-5 h-5 shrink-0">
-                                        <span class="text-sm text-white flex-1">${p.name}</span>
-                                        <span class="text-xs text-zinc-400 shrink-0">${parseFloat(p.price).toFixed(2)} €</span>
+                                    <label class="combo-pick-option" style="display: flex; align-items: center; gap: 12px; padding: 14px 12px; background: #27272a; border: 2px solid transparent; border-radius: 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all 0.15s ease; min-height: 52px;" data-radio-name="cat_${categoryName}">
+                                        <input type="radio" name="cat_${categoryName}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" style="appearance: none; -webkit-appearance: none; width: 22px; height: 22px; border: 2px solid #52525b; border-radius: 50%; background: #18181b; cursor: pointer; flex-shrink: 0; position: relative; transition: all 0.15s ease;" onchange="updateComboPickerSelection(this)">
+                                        <span style="font-size: 14px; color: white; flex: 1; font-weight: 500;">${p.name}</span>
+                                        <span style="font-size: 12px; color: #a1a1aa; flex-shrink: 0; font-weight: 600;">${parseFloat(p.price).toFixed(2)} €</span>
                                     </label>
                             `;
                         }
@@ -2837,8 +2860,8 @@
                     
                     modalHtml += `
                             </div>
-                            <div class="p-4 border-t border-zinc-700 sticky bottom-0 bg-zinc-900">
-                                <button id="combo-picker-confirm" class="w-full bg-teal-500 text-black font-bold py-3.5 rounded-xl hover:bg-teal-400 active:bg-teal-600 transition-colors min-h-[52px] text-sm">
+                            <div style="position: sticky; bottom: 0; background: #18181b; padding: 16px; border-top: 1px solid #3f3f46;">
+                                <button id="combo-picker-confirm" style="width: 100%; background: #14b8a6; color: #000; font-weight: 700; padding: 14px; border-radius: 14px; border: none; font-size: 15px; min-height: 52px; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#0d9488'" onmouseout="this.style.background='#14b8a6'" ontouchstart="this.style.background='#0d9488'" ontouchend="this.style.background='#14b8a6'">
                                     Zur Kombi hinzufügen — ${comboPrice.toFixed(2).replace('.', ',')} €
                                 </button>
                             </div>
@@ -2847,6 +2870,22 @@
                     `;
                     
                     document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // iPhone Safari: Prevent body scroll
+                    document.body.style.overflow = 'hidden';
+                    
+                    // Restore body scroll when modal is closed
+                    const overlay = document.getElementById('combo-picker-overlay');
+                    if (overlay) {
+                        const originalDisplay = overlay.style.display;
+                        const observer = new MutationObserver(() => {
+                            if (!document.getElementById('combo-picker-overlay')) {
+                                document.body.style.overflow = '';
+                                observer.disconnect();
+                            }
+                        });
+                        observer.observe(document.body, { childList: true });
+                    }
                     
                     // Confirm Button Handler
                     const confirmBtn = document.getElementById('combo-picker-confirm');
