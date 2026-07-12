@@ -1090,6 +1090,18 @@ def _migrate_database():
     add_column_if_missing('event_combo_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
     # NEU: Kategorie-Auswahl für Kombi-Items — Kunde wählt 1 Produkt aus dieser Kategorie
     add_column_if_missing('event_combo_items', 'category_name', "VARCHAR")
+    
+    # FIX: product_id auf NULLABLE setzen (für Kategorie-Auswahl wo product_id=NULL)
+    try:
+        with engine.begin() as conn:
+            if _IS_POSTGRES:
+                conn.execute(sa.text("ALTER TABLE event_combo_items ALTER COLUMN product_id DROP NOT NULL"))
+            else:
+                # SQLite unterstützt DROP NOT NULL via Neuanlage
+                pass
+            print("[DB Migration] event_combo_items.product_id ist jetzt nullable")
+    except Exception as e:
+        print(f"[DB Migration] product_id nullable gesetzt (evtl. schon passiert): {e}")
 
     # Migrate 'orders' table — original_total sichert den echten Warenwert gegen 0€-Bug bei Teilzahlung/Storno/Transfer
     add_column_if_missing('orders', 'original_total', "FLOAT DEFAULT 0.0")
