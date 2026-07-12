@@ -1482,7 +1482,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
                 "days": json.loads(combo.days) if combo.days else None,
                 "start_time": combo.start_time,
                 "end_time": combo.end_time,
-                "items": [{"product_id": ci.product_id} for ci in combo_items]
+                "items": [{"product_id": ci.product_id, "category_name": ci.category_name} for ci in combo_items]
             })
         events.append({
             "id": ev.id,
@@ -2051,10 +2051,22 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 session.add(db_combo)
                 session.flush()
                 for ci in combo.get("items", []):
-                    if ci.get("product_id"):
+                    # NEU: Unterstütze sowohl feste Produkte als auch Kategorie-Auswahl
+                    product_id = ci.get("product_id")
+                    category_name = ci.get("category_name")
+                    if product_id:
                         db_combo_item = DBEventComboItem(
                             combo_id=db_combo.id,
-                            product_id=int(ci["product_id"])
+                            product_id=int(product_id),
+                            category_name=None
+                        )
+                        session.add(db_combo_item)
+                    elif category_name:
+                        # Kategorie-Auswahl: Kunde wählt 1 Produkt aus dieser Kategorie
+                        db_combo_item = DBEventComboItem(
+                            combo_id=db_combo.id,
+                            product_id=None,
+                            category_name=category_name
                         )
                         session.add(db_combo_item)
     

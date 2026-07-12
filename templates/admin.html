@@ -13637,7 +13637,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 days: (c.days && c.days.length > 0) ? c.days : null,
                 start_time: c.start_time || null,
                 end_time: c.end_time || null,
-                items: (c.items || []).map(ci => ({ product_id: ci.product_id }))
+                items: (c.items || []).map(ci => ({
+                    product_id: ci.product_id || null,
+                    category_name: ci.category_name || null
+                }))
             }));
 
             return {
@@ -13815,19 +13818,16 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             if (!combo) return;
             if (!combo.items) combo.items = [];
 
-            const products = (window._productsData || []).filter(p => p.is_available !== false && p.category === categoryName);
-
             if (isChecked) {
-                // Add all products from this category that aren't already selected
-                for (const p of products) {
-                    if (!combo.items.find(i => i.product_id === p.id)) {
-                        combo.items.push({ product_id: p.id });
-                    }
+                // NEU: Kategorie als "Kunde wählt 1" speichern, NICHT alle Produkte
+                // Statt alle Produkte einzeln hinzuzufügen, speichern wir nur den Kategorienamen
+                // Der Kunde wählt dann im Menü ein Produkt aus dieser Kategorie
+                if (!combo.items.find(i => i.category_name === categoryName)) {
+                    combo.items.push({ category_name: categoryName, product_id: null });
                 }
             } else {
-                // Remove all products from this category
-                const catProductIds = new Set(products.map(p => p.id));
-                combo.items = combo.items.filter(i => !catProductIds.has(i.product_id));
+                // Kategorie-Auswahl entfernen
+                combo.items = combo.items.filter(i => i.category_name !== categoryName);
             }
             renderCombosList();
         }
@@ -13861,7 +13861,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             }
 
             container.innerHTML = eventCombosData.map(combo => {
-                const selectedIds = (combo.items || []).map(i => i.product_id);
+                // NEU: selectedIds nur für feste Produkte (category_items haben product_id=null)
+                const selectedIds = (combo.items || []).filter(i => i.product_id).map(i => i.product_id);
+                const selectedCategories = (combo.items || []).filter(i => i.category_name).map(i => i.category_name);
                 const individualSum = selectedIds.reduce((sum, pid) => {
                     const p = products.find(x => x.id === pid);
                     return sum + (p ? parseFloat(p.price) : 0);
@@ -13871,11 +13873,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 const hasOwnDays = Array.isArray(combo.days) && combo.days.length > 0;
                 const hasOwnTime = !!(combo.start_time && combo.end_time);
 
-                // Determine which categories are fully/partially selected
+                // Determine which categories are selected (as category pick or individual products)
                 const categoryStates = categories.map(cat => {
                     const catProducts = products.filter(p => p.is_available !== false && p.category === cat);
                     const catSelectedCount = catProducts.filter(p => selectedIds.includes(p.id)).length;
-                    return { name: cat, total: catProducts.length, selected: catSelectedCount };
+                    const isCategoryPick = selectedCategories.includes(cat);
+                    return { name: cat, total: catProducts.length, selected: catSelectedCount, isCategoryPick };
                 });
 
                 return `
@@ -13945,7 +13948,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             ${categoryStates.map(cs => {
                                 const allSelected = cs.total > 0 && cs.selected === cs.total;
                                 const someSelected = cs.selected > 0 && cs.selected < cs.total;
-                                const stateClass = allSelected
+                                const isCatPick = cs.isCategoryPick;
+                                const stateClass = (isCatPick || allSelected)
                                     ? 'bg-teal-200 border-teal-400 text-teal-800 dark:bg-teal-600 dark:border-teal-400 dark:text-white'
                                     : someSelected
                                         ? 'bg-teal-100 border-teal-300 text-teal-700 dark:bg-teal-700/60 dark:border-teal-500 dark:text-teal-200'
@@ -13953,10 +13957,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 return `
                                 <label class="flex items-center gap-1 ${stateClass} px-2 py-1 rounded-lg text-[9px] font-bold cursor-pointer select-none transition-colors hover:border-teal-400 border">
                                     <input type="checkbox" class="combo-cat-toggle rounded text-teal-700 focus:ring-0"
-                                           data-combo-temp-id="${combo._tempId}" value="${cs.name}" ${allSelected ? 'checked' : ''} ${someSelected ? 'style="opacity:0.5"' : ''}
+                                           data-combo-temp-id="${combo._tempId}" value="${cs.name}" ${(isCatPick || allSelected) ? 'checked' : ''} ${someSelected ? 'style="opacity:0.5"' : ''}
                                            onchange="toggleComboCategory(${combo._tempId}, '${cs.name.replace(/'/g, "\\'")}', this.checked)">
                                     <span>${cs.name}</span>
-                                    <span class="text-[8px] opacity-70">(${cs.selected}/${cs.total})</span>
+                                    <span class="text-[8px] opacity-70">${isCatPick ? '(Kunde wählt)' : '(' + cs.selected + '/' + cs.total + ')'}</span>
                                 </label>`;
                             }).join('')}
                         </div>

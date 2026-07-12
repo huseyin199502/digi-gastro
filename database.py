@@ -370,7 +370,8 @@ class EventComboItem(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     combo_id = Column(Integer, ForeignKey('event_combos.id', ondelete='CASCADE'), nullable=False, index=True)
     tenant_slug = Column(String, ForeignKey('tenants.slug', ondelete='CASCADE'), nullable=True, index=True)  # Backfilled from parent combo
-    product_id = Column(Integer, nullable=False)
+    product_id = Column(Integer, nullable=True)  # nullable: bei Kategorie-Auswahl NULL
+    category_name = Column(String, nullable=True)  # NEU: Für "Kunde wählt 1 aus dieser Kategorie"
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1087,6 +1088,8 @@ def _migrate_database():
     add_column_if_missing('event_products', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
     add_column_if_missing('event_combos', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
     add_column_if_missing('event_combo_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
+    # NEU: Kategorie-Auswahl für Kombi-Items — Kunde wählt 1 Produkt aus dieser Kategorie
+    add_column_if_missing('event_combo_items', 'category_name', "VARCHAR")
 
     # Migrate 'orders' table — original_total sichert den echten Warenwert gegen 0€-Bug bei Teilzahlung/Storno/Transfer
     add_column_if_missing('orders', 'original_total', "FLOAT DEFAULT 0.0")

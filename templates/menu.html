@@ -663,12 +663,14 @@
                     {% set combo_product_ids = [] %}
                     {% set individual_total = namespace(value=0) %}
                     {% for ci in combo['items'] %}
+                        {% if ci['product_id'] %}
                         {% if combo_product_ids.append(ci['product_id']) %}{% endif %}
                         {% for p in products %}
                             {% if p.id == ci['product_id'] %}
                                 {% set individual_total.value = individual_total.value + p.price %}
                             {% endif %}
                         {% endfor %}
+                        {% endif %}
                     {% endfor %}
                     {% set combo_has_own_time = combo['start_time'] is defined and combo['start_time'] and combo['end_time'] is defined and combo['end_time'] %}
                     {% set combo_time_ok = true %}
@@ -705,11 +707,16 @@
                                 {% endif %}
                                 <div class="flex flex-wrap gap-1.5 mb-2">
                                     {% for ci in combo['items'] %}
+                                        {% if ci['category_name'] %}
+                                        {# Kategorie-Auswahl: Kunde wählt 1 Produkt aus dieser Kategorie #}
+                                        <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-lg border border-teal-500/40">1x {{ ci['category_name'] }} (deine Wahl)</span>
+                                        {% else %}
                                         {% for p in products %}
                                             {% if p.id == ci['product_id'] %}
                                             <span class="text-[10px] font-medium bg-white/10 text-white/80 px-2 py-0.5 rounded-lg">{{ p.name }}</span>
                                             {% endif %}
                                         {% endfor %}
+                                        {% endif %}
                                     {% endfor %}
                                 </div>
                                 <div class="flex items-center gap-3">
@@ -721,7 +728,7 @@
                                 </div>
                             </div>
                             {% if not is_readonly and table and not token_error and combo_time_ok %}
-                            <button onclick="addComboToCart({{ combo['id'] }}, '{{ combo["name"] | replace("'", "\\'") }}', {{ combo['combo_price'] }}, {{ combo_product_ids | join(',') }})" 
+                            <button onclick="addComboToCart({{ combo['id'] }}, '{{ combo["name"] | replace("'", "\\'") }}', {{ combo['combo_price'] }}, '{{ combo["items"] | tojson }}')" 
                                     class="w-11 h-11 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
                                 <span class="material-symbols-outlined font-black text-lg">add</span>
                             </button>
@@ -786,12 +793,14 @@
                     {% set combo_product_ids = [] %}
                     {% set individual_total = namespace(value=0) %}
                     {% for ci in combo['items'] %}
+                        {% if ci['product_id'] %}
                         {% if combo_product_ids.append(ci['product_id']) %}{% endif %}
                         {% for p in products %}
                             {% if p.id == ci['product_id'] %}
                                 {% set individual_total.value = individual_total.value + p.price %}
                             {% endif %}
                         {% endfor %}
+                        {% endif %}
                     {% endfor %}
                     {% set combo_has_own_time = combo['start_time'] is defined and combo['start_time'] and combo['end_time'] is defined and combo['end_time'] %}
                     {% set combo_time_ok = true %}
@@ -834,7 +843,7 @@
                                 </div>
                             </div>
                             {% if not is_readonly and table and not token_error and combo_time_ok %}
-                            <button onclick="addComboToCart({{ combo['id'] }}, '{{ combo["name"] | replace("'", "\\'") }}', {{ combo['combo_price'] }}, {{ combo_product_ids | join(',') }})" 
+                            <button onclick="addComboToCart({{ combo['id'] }}, '{{ combo["name"] | replace("'", "\\'") }}', {{ combo['combo_price'] }}, '{{ combo["items"] | tojson }}')" 
                                     class="w-11 h-11 rounded-full bg-teal-500 text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-teal-500/20 flex-shrink-0">
                                 <span class="material-symbols-outlined font-black text-sm">add</span>
                             </button>
@@ -2105,7 +2114,7 @@
                 init() {
                     // Expose functions on the window object for 100% legacy/DOM event compatibility
                     window.addToCart = (id, nameDe, nameEn, price, categoryType, btnElement) => this.addToCart(id, nameDe, nameEn, price, categoryType, btnElement);
-                    window.addComboToCart = (comboId, comboName, comboPrice, productIds) => this.addComboToCart(comboId, comboName, comboPrice, productIds);
+                    window.addComboToCart = (comboId, comboName, comboPrice, itemsData) => this.addComboToCart(comboId, comboName, comboPrice, itemsData);
                     window.openCartModal = () => this.openCartModal();
                     window.closeCartModal = () => this.closeCartModal();
                     window.openServiceModal = () => this.openServiceModal();
@@ -2725,21 +2734,129 @@
                     }
                 },
 
-                addComboToCart(comboId, comboName, comboPrice, productIdsStr) {
-                    // Add all products of the combo to cart with combo pricing
-                    // productIdsStr is a comma-separated string of product IDs
-                    const productIds = String(productIdsStr).split(',').map(Number).filter(Boolean);
+                addComboToCart(comboId, comboName, comboPrice, itemsData) {
+                    // itemsData kann ein JSON-String (combo items) oder comma-separated product IDs sein
+                    let items = [];
+                    if (typeof itemsData === 'string') {
+                        try {
+                            items = JSON.parse(itemsData);
+                        } catch (e) {
+                            // Fallback: alte comma-separated Format
+                            const productIds = itemsData.split(',').map(Number).filter(Boolean);
+                            items = productIds.map(pid => ({ product_id: pid }));
+                        }
+                    } else if (Array.isArray(itemsData)) {
+                        items = itemsData;
+                    }
                     
-                    if (productIds.length === 0) return;
+                    if (items.length === 0) return;
                     
-                    // Distribute the combo price across products proportionally
+                    // Trenne feste Produkte von Kategorie-Auswahl
+                    const fixedItems = items.filter(i => i.product_id);
+                    const categoryItems = items.filter(i => i.category_name);
+                    
+                    if (categoryItems.length > 0) {
+                        // Kategorie-Auswahl: Modal öffnen für Produktauswahl
+                        this.openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems);
+                        return;
+                    }
+                    
+                    // Nur feste Produkte: direkt in den Warenkorb (alte Logik)
+                    this._addComboItemsToCart(comboId, comboName, comboPrice, fixedItems.map(i => i.product_id));
+                }
+                
+                openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems) {
+                    // Erstelle Modal für Kategorie-Auswahl
+                    const allProducts = {{ products | tojson }};
+                    const allProductIds = allProducts.map(p => p.id);
+                    
+                    // Sammle Produkte für jede Kategorie
+                    const categoryProducts = {};
+                    for (const ci of categoryItems) {
+                        categoryProducts[ci.category_name] = allProducts.filter(p => p.category === ci.category_name && p.is_available !== false);
+                    }
+                    
+                    // Modal HTML
+                    let modalHtml = `
+                    <div id="combo-picker-overlay" class="fixed inset-0 bg-black/70 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='combo-picker-overlay')this.remove()">
+                        <div class="bg-zinc-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+                            <div class="p-4 border-b border-zinc-700 flex items-center justify-between sticky top-0 bg-zinc-900 z-10">
+                                <h3 class="font-bold text-white text-sm">${comboName} — ${comboPrice.toFixed(2).replace('.', ',')} €</h3>
+                                <button onclick="document.getElementById('combo-picker-overlay').remove()" class="text-zinc-400">
+                                    <span class="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+                            <div class="p-4 space-y-4">
+                    `;
+                    
+                    // Für jede Kategorie: Produktauswahl
+                    for (const ci of categoryItems) {
+                        const prods = categoryProducts[ci.category_name] || [];
+                        modalHtml += `
+                            <div>
+                                <div class="text-xs font-bold text-teal-300 mb-2">Wähle 1 aus: ${ci.category_name}</div>
+                                <div class="space-y-1.5" data-category="${ci.category_name}">
+                        `;
+                        for (const p of prods) {
+                            modalHtml += `
+                                    <label class="flex items-center gap-2 p-2 bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-700 transition-colors combo-pick-option">
+                                        <input type="radio" name="cat_${ci.category_name}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" class="text-teal-500">
+                                        <span class="text-sm text-white flex-1">${p.name}</span>
+                                        <span class="text-xs text-zinc-400">${parseFloat(p.price).toFixed(2)} €</span>
+                                    </label>
+                            `;
+                        }
+                        modalHtml += `</div></div>`;
+                    }
+                    
+                    modalHtml += `
+                            </div>
+                            <div class="p-4 border-t border-zinc-700 sticky bottom-0 bg-zinc-900">
+                                <button id="combo-picker-confirm" class="w-full bg-teal-500 text-black font-bold py-3 rounded-xl hover:bg-teal-400 transition-colors">
+                                    Zur Kombi hinzufügen — ${comboPrice.toFixed(2).replace('.', ',')} €
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                    
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // Confirm Button Handler
+                    const confirmBtn = document.getElementById('combo-picker-confirm');
+                    if (confirmBtn) {
+                        confirmBtn.onclick = () => {
+                            // Sammle ausgewählte Produkte aus Kategorien
+                            const selectedProductIds = [];
+                            for (const ci of categoryItems) {
+                                const radio = document.querySelector(`input[name="cat_${ci.category_name}"]:checked`);
+                                if (!radio) {
+                                    showToast(`Bitte wähle ein Produkt aus: ${ci.category_name}`, 'error');
+                                    return;
+                                }
+                                selectedProductIds.push(parseInt(radio.value));
+                            }
+                            
+                            // Feste Produkte + ausgewählte Kategorie-Produkte
+                            const allProductIds = [...fixedItems.map(i => i.product_id), ...selectedProductIds];
+                            
+                            // Modal schließen
+                            document.getElementById('combo-picker-overlay').remove();
+                            
+                            // In Warenkorb legen
+                            this._addComboItemsToCart(comboId, comboName, comboPrice, allProductIds);
+                        };
+                    }
+                }
+                
+                _addComboItemsToCart(comboId, comboName, comboPrice, productIds) {
+                    // Verteile den Kombi-Preis proportional auf alle Produkte
                     const allProducts = {{ products | map(attribute='price') | list | tojson }};
                     const allProductIds = {{ products | map(attribute='id') | list | tojson }};
                     const allProductNames = {{ products | map(attribute='name') | list | tojson }};
                     const allProductNamesEn = {{ products | map(attribute='name_en') | list | tojson }};
                     const allProductCategoryTypes = {{ products | map(attribute='category_type') | list | tojson }};
                     
-                    // Calculate individual prices for proportional distribution
                     let individualTotal = 0;
                     const comboProducts = [];
                     for (const pid of productIds) {
@@ -2753,7 +2870,6 @@
                     
                     if (comboProducts.length === 0) return;
                     
-                    // Add each product to cart with proportionally adjusted price
                     for (const p of comboProducts) {
                         const proportion = p.price / individualTotal;
                         const adjustedPrice = Math.round(comboPrice * proportion * 100) / 100;
@@ -2777,7 +2893,6 @@
                     const addedMsg = translations[this.currentLang].toast_added || "hinzugefügt";
                     showToast(comboName + " " + addedMsg, "success");
 
-                    // Bounce animation on floating cart bar
                     const floatingBar = document.getElementById("cart-floating-bar");
                     if (floatingBar) {
                         floatingBar.classList.remove("animate-cart-pulse");
