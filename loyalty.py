@@ -316,11 +316,15 @@ def _generate_apple_pass_json(
             ]
         },
         # ── Push Notification Settings ──
-        # relevantDate = jetzt → iOS behandelt Pass als "aktuell" → kann auf Sperrbildschirm erscheinen
+        # relevantDate NICHT auf NOW setzen — das ändert sich bei jedem Pass-Update
+        # und verursacht Coalescing (iOS zeigt "Kundenkarte geändert" statt changeMessage).
+        # Stattdessen: fester Datumswert (heute um Mitternacht) → ändert sich nur 1x/Tag.
         # WICHTIG: relevantText ist KEIN gültiger Top-Level Key (nur in locations[]/beacons[])!
         # Top-level relevantText wird von iOS ignoriert. Für Push-Notifications ist
         # changeMessage in backFields zuständig (nicht relevantText).
-        "relevantDate": _now_iso().replace("Z", "+00:00"),
+        from datetime import datetime as _dt
+        _today_midnight = _dt.utcnow().strftime("%Y-%m-%dT00:00:00+00:00")
+        "relevantDate": _today_midnight,
         "userInfo": {
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
