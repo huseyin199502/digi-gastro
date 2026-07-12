@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v11';
+        window.__DG_VERSION = '2026-07-12-v12';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -13659,8 +13659,28 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         function saveEvent() {
             const data = collectEventData();
 
+            // ── FIX: Combo-Tage als Event-Tage übernehmen ──
+            // Wenn User Combo-Tage ausgewählt hat aber keine Event-Tage,
+            // übernehme die Combo-Tage als Event-Tage (das Event muss ja
+            // an diesen Tagen aktiv sein, damit die Combo verfügbar ist).
+            if (data.days.length === 0 && data.combos && data.combos.length > 0) {
+                const comboDays = data.combos
+                    .filter(c => c.days && c.days.length > 0)
+                    .flatMap(c => c.days);
+                const uniqueComboDays = [...new Set(comboDays)];
+                if (uniqueComboDays.length > 0) {
+                    data.days = uniqueComboDays;
+                    // Event-Day-Checkboxes ebenfalls setzen für visuelle Konsistenz
+                    uniqueComboDays.forEach(day => {
+                        const cb = document.querySelector(`.event-day-check[value="${day}"]`);
+                        if (cb) cb.checked = true;
+                    });
+                    showToast(`Event-Tage automatisch von Kombi übernommen: ${uniqueComboDays.map(d => d.substring(0,2)).join(', ')}`, 'success');
+                }
+            }
+
             if (data.days.length === 0) {
-                showToast('Bitte wähle mindestens einen Tag aus', 'error');
+                showToast('Bitte wähle mindestens einen Tag aus (entweder Event-Tage oder Kombi-Tage)', 'error');
                 return;
             }
 
