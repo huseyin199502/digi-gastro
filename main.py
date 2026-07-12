@@ -5585,7 +5585,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             if combo_is_active:
                 combo_lookup[combo["id"]] = {
                     "combo_price": combo["combo_price"],
-                    "product_ids": [ci["product_id"] for ci in combo.get("items", [])],
+                    "product_ids": [ci["product_id"] for ci in combo.get("items", []) if ci.get("product_id")],
                     "event_name": ev.get("display_name", ev.get("name", "Event"))
                 }
     
@@ -5647,14 +5647,17 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                 combo_items_in_order[combo_id] = []
             combo_items_in_order[combo_id].append(item)
     
-    # For each combo, verify all required products are present and apply combo pricing
+    # For each combo, verify and apply combo pricing
     for combo_id, combo_items in combo_items_in_order.items():
         combo_info = combo_lookup[combo_id]
         required_ids = set(combo_info["product_ids"])
         present_ids = set(item.product_id for item in combo_items)
         
-        # Only apply combo pricing if ALL required products are in the order
-        if required_ids.issubset(present_ids) or present_ids.issubset(required_ids):
+        # Apply combo pricing if:
+        # - All required products are present (fixed products), OR
+        # - Present products are a subset of required (category selection), OR
+        # - required_ids is empty (all items are category-based, no fixed product_ids)
+        if required_ids.issubset(present_ids) or present_ids.issubset(required_ids) or len(required_ids) == 0:
             # Calculate proportional pricing
             combo_price = combo_info["combo_price"]
             individual_total = sum(products_map.get(item.product_id, {}).get("price", 0) for item in combo_items)
