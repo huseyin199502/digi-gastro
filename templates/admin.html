@@ -13803,9 +13803,16 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             if (!combo) return;
             if (!combo.items) combo.items = [];
 
+            // Finde die Kategorie des Produkts
+            const products = window._productsData || [];
+            const product = products.find(p => p.id === productId);
+            const categoryName = product ? product.category : 'Produkte';
+
             if (isChecked) {
                 if (!combo.items.find(i => i.product_id === productId)) {
-                    combo.items.push({ product_id: productId });
+                    // NEU: Speichere product_id UND category_name als Gruppe
+                    // Der Kunde wählt dann 1 aus allen Produkten derselben Kategorie
+                    combo.items.push({ product_id: productId, category_name: categoryName });
                 }
             } else {
                 combo.items = combo.items.filter(i => i.product_id !== productId);

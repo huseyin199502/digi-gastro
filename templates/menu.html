@@ -707,10 +707,18 @@
                                 {% endif %}
                                 <div class="flex flex-wrap gap-1.5 mb-2">
                                     {% for ci in combo['items'] %}
-                                        {% if ci['category_name'] %}
-                                        {# Kategorie-Auswahl: Kunde wählt 1 Produkt aus dieser Kategorie #}
+                                        {% if ci['category_name'] and not ci['product_id'] %}
+                                        {# Ganze Kategorie: Kunde wählt 1 aus dieser Kategorie #}
                                         <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-lg border border-teal-500/40">1x {{ ci['category_name'] }} (deine Wahl)</span>
+                                        {% elif ci['category_name'] and ci['product_id'] %}
+                                        {# Einzelnes Produkt in Gruppe: Kunde wählt 1 aus diesen Produkten #}
+                                        {% for p in products %}
+                                            {% if p.id == ci['product_id'] %}
+                                            <span class="text-[10px] font-bold bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-lg border border-teal-500/40">{{ p.name }}</span>
+                                            {% endif %}
+                                        {% endfor %}
                                         {% else %}
+                                        {# Feste Produkte: alle im Warenkorb #}
                                         {% for p in products %}
                                             {% if p.id == ci['product_id'] %}
                                             <span class="text-[10px] font-medium bg-white/10 text-white/80 px-2 py-0.5 rounded-lg">{{ p.name }}</span>
@@ -2751,30 +2759,49 @@
                     
                     if (items.length === 0) return;
                     
-                    // Trenne feste Produkte von Kategorie-Auswahl
-                    const fixedItems = items.filter(i => i.product_id);
-                    const categoryItems = items.filter(i => i.category_name);
+                    // NEUE LOGIK: Gruppiere Items nach category_name
+                    // - Items mit product_id UND category_name = einzelne Produkte in einer Gruppe (Kunde wählt 1)
+                    // - Items mit nur category_name (product_id=null) = ganze Kategorie (Kunde wählt 1)
+                    // - Items mit nur product_id (category_name=null) = feste Produkte (alle in Warenkorb)
                     
-                    if (categoryItems.length > 0) {
-                        // Kategorie-Auswahl: Modal öffnen für Produktauswahl
-                        this.openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems);
+                    const allProducts = window._productsData || [];
+                    
+                    // Gruppe 1: Feste Produkte (ohne category_name) → alle in Warenkorb
+                    const fixedItems = items.filter(i => i.product_id && !i.category_name);
+                    
+                    // Gruppe 2: Produkte mit category_name → nach Kategorie gruppieren, Kunde wählt 1 pro Gruppe
+                    const groupedItems = items.filter(i => i.category_name);
+                    
+                    // Gruppiere nach category_name
+                    const groups = {};
+                    for (const item of groupedItems) {
+                        const cat = item.category_name;
+                        if (!groups[cat]) groups[cat] = [];
+                        if (item.product_id) {
+                            // Einzelnes Produkt in Gruppe
+                            const p = allProducts.find(x => x.id === item.product_id);
+                            if (p) groups[cat].push(p);
+                        } else {
+                            // Ganze Kategorie → alle Produkte der Kategorie hinzufügen
+                            const catProducts = allProducts.filter(p => p.category === cat && p.is_available !== false);
+                            groups[cat] = groups[cat].concat(catProducts);
+                        }
+                    }
+                    
+                    // Wenn es Gruppen gibt → Picker Modal öffnen
+                    const groupCount = Object.keys(groups).length;
+                    if (groupCount > 0) {
+                        this.openComboPickerModal(comboId, comboName, comboPrice, fixedItems, groups);
                         return;
                     }
                     
-                    // Nur feste Produkte: direkt in den Warenkorb (alte Logik)
+                    // Nur feste Produkte: direkt in den Warenkorb
                     this._addComboItemsToCart(comboId, comboName, comboPrice, fixedItems.map(i => i.product_id));
                 },
                 
-                openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems) {
-                    // Verwende window._productsData (bereits in init() gesetzt)
-                    const allProducts = window._productsData || [];
-                    const allProductIds = allProducts.map(p => p.id);
-                    
-                    // Sammle Produkte für jede Kategorie
-                    const categoryProducts = {};
-                    for (const ci of categoryItems) {
-                        categoryProducts[ci.category_name] = allProducts.filter(p => p.category === ci.category_name && p.is_available !== false);
-                    }
+                openComboPickerModal(comboId, comboName, comboPrice, fixedItems, groups) {
+                    // groups ist ein Object: { "Softdrinks": [product1, product2, ...], "Shishas": [...] }
+                    // fixedItems ist ein Array von {product_id: X} für feste Produkte
                     
                     // Modal HTML
                     let modalHtml = `
@@ -2789,18 +2816,17 @@
                             <div class="p-4 space-y-4">
                     `;
                     
-                    // Für jede Kategorie: Produktauswahl
-                    for (const ci of categoryItems) {
-                        const prods = categoryProducts[ci.category_name] || [];
+                    // Für jede Gruppe: Produktauswahl
+                    for (const [categoryName, prods] of Object.entries(groups)) {
                         modalHtml += `
                             <div>
-                                <div class="text-xs font-bold text-teal-300 mb-2">Wähle 1 aus: ${ci.category_name}</div>
-                                <div class="space-y-1.5" data-category="${ci.category_name}">
+                                <div class="text-xs font-bold text-teal-300 mb-2">Wähle 1 aus: ${categoryName}</div>
+                                <div class="space-y-1.5" data-category="${categoryName}">
                         `;
                         for (const p of prods) {
                             modalHtml += `
                                     <label class="flex items-center gap-3 p-3 bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-700 active:bg-zinc-600 transition-colors combo-pick-option min-h-[48px]">
-                                        <input type="radio" name="cat_${ci.category_name}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" class="text-teal-500 w-5 h-5 shrink-0">
+                                        <input type="radio" name="cat_${categoryName}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" class="text-teal-500 w-5 h-5 shrink-0">
                                         <span class="text-sm text-white flex-1">${p.name}</span>
                                         <span class="text-xs text-zinc-400 shrink-0">${parseFloat(p.price).toFixed(2)} €</span>
                                     </label>
@@ -2826,18 +2852,18 @@
                     const confirmBtn = document.getElementById('combo-picker-confirm');
                     if (confirmBtn) {
                         confirmBtn.onclick = () => {
-                            // Sammle ausgewählte Produkte aus Kategorien
+                            // Sammle ausgewählte Produkte aus Gruppen
                             const selectedProductIds = [];
-                            for (const ci of categoryItems) {
-                                const radio = document.querySelector(`input[name="cat_${ci.category_name}"]:checked`);
+                            for (const categoryName of Object.keys(groups)) {
+                                const radio = document.querySelector(`input[name="cat_${categoryName}"]:checked`);
                                 if (!radio) {
-                                    showToast(`Bitte wähle ein Produkt aus: ${ci.category_name}`, 'error');
+                                    showToast(`Bitte wähle ein Produkt aus: ${categoryName}`, 'error');
                                     return;
                                 }
                                 selectedProductIds.push(parseInt(radio.value));
                             }
                             
-                            // Feste Produkte + ausgewählte Kategorie-Produkte
+                            // Feste Produkte + ausgewählte Gruppe-Produkte
                             const allProductIds = [...fixedItems.map(i => i.product_id), ...selectedProductIds];
                             
                             // Modal schließen
