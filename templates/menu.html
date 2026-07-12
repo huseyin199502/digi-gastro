@@ -3274,6 +3274,14 @@
                             note: i.note || null,
                             combo_id: i.combo_id || null
                         })),
+                        // Idempotency-Key: Einmalige ID pro Bestell-Vorgang.
+                        // Server lehnt doppelte Requests mit gleicher Key ab (innerhalb 60s).
+                        // Verhindert Doppelbestellungen bei Race Conditions.
+                        idempotency_key: (crypto.randomUUID ? crypto.randomUUID() : 
+                                          'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                                              const r = Math.random() * 16 | 0;
+                                              return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                                          }))
                     };
 
                     const roleForBypass = (this.role === 'admin' || this.role === 'waiter') ? this.role : '';

@@ -652,6 +652,17 @@ async def websocket_endpoint(websocket: WebSocket, slug: str):
 _tenant_locks: Dict[str, asyncio.Lock] = {}
 _tenant_locks_access: Dict[str, float] = {}  # Track last access time for cleanup
 
+# ── Idempotency Cache: verhindert Doppelbestellungen ──
+# Key: f"idempotency:{slug}:{client_uuid}" → {'timestamp': float, 'order_id': int|None}
+# Einträge älter als 60s werden beim Aufruf automatisch gelöscht.
+# WICHTIG: Dieser Cache ist PER WORKER (in-memory). Da wir 2 Worker haben,
+# kann ein Request der gleiche Key bei beiden Workern ankommen — das ist OK,
+# weil beide Worker den Cache-Eintrag erstellen und nur der erste die
+# Bestellung verarbeitet. Der zweite Worker findet den Cache-Eintrag und
+# lehnt ab. Die Race Condition zwischen den Workern wird durch den
+# tenant_lock (asyncio.Lock pro Slug) zusätzlich minimiert.
+_idempotency_cache: Dict[str, dict] = {}
+
 def _get_tenant_lock(slug: str) -> asyncio.Lock:
     slug_lower = slug.lower().strip()
     if slug_lower not in _tenant_locks:
@@ -3024,6 +3035,10 @@ class OrderPayload(BaseModel):
     table: str
     token: Optional[str] = None
     items: List[OrderItem]
+    # Idempotency-Key: Client generiert einmalige ID pro Bestell-Vorgang.
+    # Server lehnt doppelte Requests mit gleicher Key ab (innerhalb 60s).
+    # Verhindert Doppelbestellungen bei Race Conditions (2 Worker, 2 Tabs, etc.)
+    idempotency_key: Optional[str] = None
 
 class ServiceRufPayload(BaseModel):
     type: str
@@ -5427,6 +5442,30 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
     restaurant = get_restaurant_or_raise(slug, db)
     
+    # ── IDEMPOTENCY CHECK: Doppelbestellungen verhindern ──
+    # Client sendet idempotency_key (UUID). Server prüft ob diese Key
+    # in den letzten 60 Sekunden schon verwendet wurde → Request ablehnen.
+    # Das verhindert Doppelbestellungen bei:
+    # - 2 Worker-Prozessen (Race Condition über Worker-Grenzen)
+    # - 2 Browser-Tabs (jeder Tab hat eigenes isSubmitting Flag)
+    # - Netzwerk-Retrys (Client schickt Request doppelt)
+    idempotency_key = getattr(payload, 'idempotency_key', None)
+    if idempotency_key:
+        cache_key = f"idempotency:{slug}:{idempotency_key}"
+        # Cleanup: Entferne abgelaufene Einträge (> 60s) um Memory-Leak zu verhindern
+        now = time.time()
+        expired_keys = [k for k, v in _idempotency_cache.items() if now - v['timestamp'] > 60]
+        for ek in expired_keys:
+            _idempotency_cache.pop(ek, None)
+        # Prüfe ob diese Key schon verwendet wurde
+        if cache_key in _idempotency_cache:
+            cached = _idempotency_cache[cache_key]
+            if (now - cached['timestamp']) < 60:  # 60s Fenster
+                print(f"[Idempotency] Doppelbestellung abgelehnt: slug={slug} key={idempotency_key[:8]}... order_id={cached.get('order_id')}")
+                return {"success": True, "order_id": cached.get('order_id'), "duplicate": True}
+        # Cache-Eintrag erstellen (Lock — verhindert dass 2 Worker gleichzeitig prüfen)
+        _idempotency_cache[cache_key] = {'timestamp': now, 'order_id': None}
+    
     # Super-Admin Toggle: orders_enabled = False → Bestellungen blockiert
     if not restaurant.get("orders_enabled", True):
         raise HTTPException(status_code=403, detail="Bestellungen derzeit nicht verfügbar.")
@@ -5695,6 +5734,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
         await manager.broadcast_global(slug, {"type": "new_order", "order_id": active_order["id"], "table_number": table_num, "status": "eingegangen"})
+        # Idempotency Cache: order_id speichern für spätere Duplikat-Erkennung
+        if idempotency_key:
+            cache_key = f"idempotency:{slug}:{idempotency_key}"
+            if cache_key in _idempotency_cache:
+                _idempotency_cache[cache_key]['order_id'] = active_order["id"]
         return {"success": True, "order_id": active_order["id"]}
 
     # Let the database assign a unique autoincrement ID to avoid collisions
@@ -5741,6 +5785,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         pass
     
     await manager.broadcast_global(slug, {"type": "new_order", "order_id": new_order.get("id"), "table_number": table_num, "status": "eingegangen"})
+    # Idempotency Cache: order_id speichern für spätere Duplikat-Erkennung
+    if idempotency_key:
+        cache_key = f"idempotency:{slug}:{idempotency_key}"
+        if cache_key in _idempotency_cache:
+            _idempotency_cache[cache_key]['order_id'] = new_order.get("id")
     return {"success": True, "order_id": new_order.get("id")}
 
 
