@@ -5607,9 +5607,13 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         cat_type = prod.get("category_type", "küche").lower()
         mwst_rate = 0.19 if cat_type == "bar" else 0.07
         
+        # FIX: Bei netto-Modus ist der DB-Preis bereits der Anzeigepreis (brutto).
+        # Keine MwSt-Umrechnung nötig! Nur bei brutto-Modus (DB=netto) umrechnen.
         if price_mode == "brutto":
+            # DB-Preis ist netto → MwSt draufrechnen für Anzeige/Bestellung
             item.price = round(prod["price"] * (1 + mwst_rate), 2)
         else:
+            # DB-Preis ist bereits brutto (netto-Modus = Preis direkt anzeigen)
             item.price = prod["price"]
         
         item.name = prod["name"]
@@ -5674,10 +5678,18 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                     remaining -= adjusted
             print(f"[Combo] Applied combo pricing: combo_id={combo_id}, "
                   f"items={len(combo_items)}, combo_price={combo_price}, "
-                  f"individual_total={individual_total}")
+                  f"individual_total={individual_total}, price_mode={price_mode}")
+            for item in combo_items:
+                print(f"[Combo]   item: id={item.product_id} name={item.name} price={item.price}")
         else:
             print(f"[Combo] WARNING: could not apply combo pricing: combo_id={combo_id}, "
                   f"items={len(combo_items)}, individual_total={individual_total}")
+    
+    # Log non-combo items for debugging
+    for item in payload.items:
+        combo_id = getattr(item, 'combo_id', None)
+        if not combo_id:
+            print(f"[Order] Non-combo item: id={item.product_id} name={item.name} price={item.price}")
     
     # Clean up temporary flags
     for ev in events:
