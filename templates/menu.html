@@ -2766,7 +2766,7 @@
                 }
                 
                 openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems) {
-                    // Verwende window._productsData statt {{ products | tojson }} (bereits gesetzt)
+                    // Verwende window._productsData (bereits in init() gesetzt)
                     const allProducts = window._productsData || [];
                     const allProductIds = allProducts.map(p => p.id);
                     
@@ -2850,7 +2850,7 @@
                 }
                 
                 _addComboItemsToCart(comboId, comboName, comboPrice, productIds) {
-                    // Verwende window._productsData statt {{ products | tojson }} (bereits gesetzt)
+                    // Verwende window._productsData (bereits in init() gesetzt)
                     const _allProds = window._productsData || [];
                     const allProducts = _allProds.map(p => p.price);
                     const allProductIds = _allProds.map(p => p.id);
