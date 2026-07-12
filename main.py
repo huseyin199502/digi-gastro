@@ -1876,7 +1876,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 quantity=item.get("quantity"),
                 category_type=item.get("category_type", "küche"),
                 note=item.get("note"),
-                item_status=item.get("item_status", "pending")
+                item_status=item.get("item_status", "pending"),
+                combo_id=item.get("combo_id")
             )
             session.add(db_item)
             
@@ -6391,7 +6392,8 @@ def merge_duplicate_order_items(order):
             (m for m in merged 
              if m.get("product_id") == pid 
              and (m.get("note") or "").strip() == note 
-             and (m.get("item_status") or "pending") == status),
+             and (m.get("item_status") or "pending") == status
+             and m.get("combo_id") == item.get("combo_id")),
             None
         )
         if existing:
@@ -13471,12 +13473,13 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
                 # Decrement quantity by 1
                 matched_item["quantity"] -= 1
                 
-                # Check for existing delivered item
+                # Check for existing delivered item (combo_id MUST match!)
                 delivered_item = None
                 for it in order.get("items", []):
                     if (it.get("product_id") == matched_item.get("product_id") and 
                         (it.get("note") or "").strip() == (matched_item.get("note") or "").strip() and 
-                        (it.get("item_status") or "pending") == "delivered"):
+                        (it.get("item_status") or "pending") == "delivered" and
+                        it.get("combo_id") == matched_item.get("combo_id")):
                         delivered_item = it
                         break
                 
@@ -13491,13 +13494,14 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
                 # Just change status to delivered
                 matched_item["item_status"] = "delivered"
                 
-                # Merge with any existing delivered item of the same product/note if it exists
+                # Merge with any existing delivered item (combo_id MUST match!)
                 delivered_item = None
                 for it in order.get("items", []):
                     if (it is not matched_item and 
                         it.get("product_id") == matched_item.get("product_id") and 
                         (it.get("note") or "").strip() == (matched_item.get("note") or "").strip() and 
-                        (it.get("item_status") or "pending") == "delivered"):
+                        (it.get("item_status") or "pending") == "delivered" and
+                        it.get("combo_id") == matched_item.get("combo_id")):
                         delivered_item = it
                         break
                 if delivered_item:
@@ -13966,11 +13970,13 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
     
     if active_order:
         # Merge if item with same product_id and no note and status 'pending' already exists
+        # combo_id MUST match — don't merge standalone into combo items!
         existing_item = next(
             (i for i in active_order["items"]
              if i.get("product_id") == product["id"]
              and not i.get("note")
-             and i.get("item_status") == "pending"),
+             and i.get("item_status") == "pending"
+             and not i.get("combo_id")),  # Only merge with non-combo items
             None
         )
         if existing_item:
