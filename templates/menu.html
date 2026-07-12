@@ -2778,8 +2778,8 @@
                     
                     // Modal HTML
                     let modalHtml = `
-                    <div id="combo-picker-overlay" class="fixed inset-0 bg-black/70 z-[1000] flex items-center justify-center p-4" onclick="if(event.target.id==='combo-picker-overlay')this.remove()">
-                        <div class="bg-zinc-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+                    <div id="combo-picker-overlay" class="fixed inset-0 bg-black/80 z-[2000] flex items-center justify-center p-3 sm:p-4" onclick="if(event.target.id==='combo-picker-overlay')this.remove()" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
+                        <div class="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto" style="max-width: 28rem;">
                             <div class="p-4 border-b border-zinc-700 flex items-center justify-between sticky top-0 bg-zinc-900 z-10">
                                 <h3 class="font-bold text-white text-sm">${comboName} — ${comboPrice.toFixed(2).replace('.', ',')} €</h3>
                                 <button onclick="document.getElementById('combo-picker-overlay').remove()" class="text-zinc-400">
@@ -2799,10 +2799,10 @@
                         `;
                         for (const p of prods) {
                             modalHtml += `
-                                    <label class="flex items-center gap-2 p-2 bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-700 transition-colors combo-pick-option">
-                                        <input type="radio" name="cat_${ci.category_name}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" class="text-teal-500">
+                                    <label class="flex items-center gap-3 p-3 bg-zinc-800 rounded-lg cursor-pointer hover:bg-zinc-700 active:bg-zinc-600 transition-colors combo-pick-option min-h-[48px]">
+                                        <input type="radio" name="cat_${ci.category_name}" value="${p.id}" data-name="${p.name}" data-price="${p.price}" class="text-teal-500 w-5 h-5 shrink-0">
                                         <span class="text-sm text-white flex-1">${p.name}</span>
-                                        <span class="text-xs text-zinc-400">${parseFloat(p.price).toFixed(2)} €</span>
+                                        <span class="text-xs text-zinc-400 shrink-0">${parseFloat(p.price).toFixed(2)} €</span>
                                     </label>
                             `;
                         }
@@ -2812,7 +2812,7 @@
                     modalHtml += `
                             </div>
                             <div class="p-4 border-t border-zinc-700 sticky bottom-0 bg-zinc-900">
-                                <button id="combo-picker-confirm" class="w-full bg-teal-500 text-black font-bold py-3 rounded-xl hover:bg-teal-400 transition-colors">
+                                <button id="combo-picker-confirm" class="w-full bg-teal-500 text-black font-bold py-3.5 rounded-xl hover:bg-teal-400 active:bg-teal-600 transition-colors min-h-[52px] text-sm">
                                     Zur Kombi hinzufügen — ${comboPrice.toFixed(2).replace('.', ',')} €
                                 </button>
                             </div>
