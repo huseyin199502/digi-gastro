@@ -7056,7 +7056,7 @@
     <!-- JAVASCRIPT INJECTION -->
     <script>
         // Version stamp for cache-busting verification
-        window.__DG_VERSION = '2026-07-12-v12';
+        window.__DG_VERSION = '2026-07-12-v13';
         console.log('[digi-gastro] JS Version:', window.__DG_VERSION);
         
         const slug = "{{ slug }}";
@@ -13685,8 +13685,13 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             }
 
             if (data.mode === 'selected' && data.products.length === 0) {
-                showToast('Bitte wähle mindestens ein Produkt mit Eventpreis aus', 'error');
-                return;
+                // FIX: Wenn Kombis mit Produkten vorhanden sind, ist das OK
+                // — Kombi-Preise sind eine Alternative zu einzelnen Eventpreisen
+                const hasValidCombos = data.combos && data.combos.length > 0;
+                if (!hasValidCombos) {
+                    showToast('Bitte wähle mindestens ein Produkt mit Eventpreis ODER erstelle ein Kombi-Angebot', 'error');
+                    return;
+                }
             }
 
             const isEdit = data.editId !== null;
