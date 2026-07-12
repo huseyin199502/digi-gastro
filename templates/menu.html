@@ -2801,22 +2801,21 @@
                 
                 // Global function for combo picker selection highlight
                 window.updateComboPickerSelection = function(radio) {
-                    const name = radio.name;
+                    var name = radio.name;
                     // Reset all labels in this group
-                    document.querySelectorAll(`label[data-radio-name="${name}"]`).forEach(label => {
-                        const r = label.querySelector('input[type=radio]');
-                        const dot = label.querySelector('.picker-dot');
+                    var labels = document.querySelectorAll('label[data-radio-name="' + name + '"]');
+                    labels.forEach(function(label) {
+                        var r = label.querySelector('input[type=radio]');
                         label.style.borderColor = 'transparent';
                         label.style.background = '#27272a';
                         if (r) r.style.borderColor = '#52525b';
                     });
                     // Highlight selected label
-                    const selectedLabel = radio.closest('label');
+                    var selectedLabel = radio.closest('label');
                     if (selectedLabel) {
                         selectedLabel.style.borderColor = '#14b8a6';
                         selectedLabel.style.background = 'rgba(20, 184, 166, 0.15)';
                         radio.style.borderColor = '#14b8a6';
-                        // Add checkmark dot
                         radio.style.background = '#14b8a6';
                         radio.style.boxShadow = 'inset 0 0 0 4px #18181b';
                     }
