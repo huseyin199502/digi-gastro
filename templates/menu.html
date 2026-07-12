@@ -2697,7 +2697,8 @@
                         return;
                     }
                     const name = this.currentLang === 'en' ? nameEn : nameDe;
-                    const existing = this.cart.find(i => i.id === id && (!i.note || i.note.trim() === ''));
+                    // FIX: Nur Items ohne combo_id mergen — Combo-Items haben eigenen Preis
+                    const existing = this.cart.find(i => i.id === id && (!i.note || i.note.trim() === '') && !i.combo_id);
                     if (existing) {
                         existing.quantity++;
                     } else {
