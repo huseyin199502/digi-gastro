@@ -5292,7 +5292,7 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         if is_active_now:
             any_event_active = True
             active_events_info.append(ev)
-        if is_today and ev.get("combos"):
+        if is_active_now and ev.get("combos"):
             today_events_info.append(ev)
     
     processed_products = []
