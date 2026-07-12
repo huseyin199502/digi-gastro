@@ -10504,10 +10504,20 @@ async def create_event(request: Request, chef_data: tuple = Depends(require_chef
             db.add(db_combo)
             db.flush()  # Get combo ID
             for ci in combo.get("items", []):
-                if ci.get("product_id"):
+                product_id = ci.get("product_id")
+                category_name = ci.get("category_name")
+                if product_id:
                     db_combo_item = DBEventComboItem(
                         combo_id=db_combo.id,
-                        product_id=int(ci["product_id"])
+                        product_id=int(product_id),
+                        category_name=None
+                    )
+                    db.add(db_combo_item)
+                elif category_name:
+                    db_combo_item = DBEventComboItem(
+                        combo_id=db_combo.id,
+                        product_id=None,
+                        category_name=category_name
                     )
                     db.add(db_combo_item)
     
@@ -10589,10 +10599,20 @@ async def update_event(event_id: int, request: Request, chef_data: tuple = Depen
                 db.add(db_combo)
                 db.flush()
                 for ci in combo.get("items", []):
-                    if ci.get("product_id"):
+                    product_id = ci.get("product_id")
+                    category_name = ci.get("category_name")
+                    if product_id:
                         db_combo_item = DBEventComboItem(
                             combo_id=db_combo.id,
-                            product_id=int(ci["product_id"])
+                            product_id=int(product_id),
+                            category_name=None
+                        )
+                        db.add(db_combo_item)
+                    elif category_name:
+                        db_combo_item = DBEventComboItem(
+                            combo_id=db_combo.id,
+                            product_id=None,
+                            category_name=category_name
                         )
                         db.add(db_combo_item)
     
