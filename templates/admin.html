@@ -13950,7 +13950,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
                     <!-- Category Quick-Select -->
                     <div>
-                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Kategorie auswählen:</label>
+                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Ganze Kategorie auswählen <span class="text-teal-600 dark:text-teal-400">(Kunde wählt 1 aus aller Produkte)</span></label>
                         <div class="flex flex-wrap gap-1.5 mb-2">
                             ${categoryStates.map(cs => {
                                 const allSelected = cs.total > 0 && cs.selected === cs.total;
@@ -13975,7 +13975,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
                     <!-- Individual Products -->
                     <div>
-                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Produkte in dieser Kombi:</label>
+                        <label class="text-[10px] font-bold text-zinc-600 dark:text-zinc-200 mb-1.5 block">Einzelne Produkte auswählen <span class="text-teal-600 dark:text-teal-400">(Kunde wählt 1 pro Kategorie)</span></label>
                         <div class="space-y-1 max-h-[200px] overflow-y-auto">
                             ${products.filter(p => p.is_available !== false).map(p => {
                                 const isSelected = selectedIds.includes(p.id);
