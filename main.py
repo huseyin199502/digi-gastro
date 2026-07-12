@@ -5736,7 +5736,8 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                 (item for item in active_order["items"]
                  if item.get("product_id") == new_item.product_id
                  and (item.get("note") or "").strip() == new_note
-                 and (item.get("item_status", "pending") or "pending") == "pending"),
+                 and (item.get("item_status", "pending") or "pending") == "pending"
+                 and item.get("combo_id") == getattr(new_item, 'combo_id', None)),
                 None
             )
             if existing_item:
