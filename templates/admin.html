@@ -13472,7 +13472,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 days: c.days || null,
                 start_time: c.start_time || '',
                 end_time: c.end_time || '',
-                items: (c.items || []).map(ci => ({ product_id: ci.product_id }))
+                items: (c.items || []).map(ci => ({ product_id: ci.product_id || null, category_name: ci.category_name || null }))
             }));
             renderCombosList();
 
