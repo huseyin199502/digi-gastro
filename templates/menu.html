@@ -2801,6 +2801,16 @@
                     
                     // Gruppiere nach category_name
                     const groups = {};
+                    // Sammle erst alle individuellen product_ids pro Kategorie
+                    const individualProductIdsByCat = {};
+                    for (const item of groupedItems) {
+                        const cat = item.category_name;
+                        if (item.product_id) {
+                            if (!individualProductIdsByCat[cat]) individualProductIdsByCat[cat] = [];
+                            individualProductIdsByCat[cat].push(item.product_id);
+                        }
+                    }
+                    
                     for (const item of groupedItems) {
                         const cat = item.category_name;
                         if (!groups[cat]) groups[cat] = [];
@@ -2809,9 +2819,14 @@
                             const p = allProducts.find(x => x.id === item.product_id);
                             if (p) groups[cat].push(p);
                         } else {
-                            // Ganze Kategorie → alle Produkte der Kategorie hinzufügen
-                            const catProducts = allProducts.filter(p => p.category === cat && p.is_available !== false);
-                            groups[cat] = groups[cat].concat(catProducts);
+                            // Ganze Kategorie → aber NUR wenn keine einzelnen Produkte
+                            // für diese Kategorie ausgewählt wurden!
+                            if (!individualProductIdsByCat[cat] || individualProductIdsByCat[cat].length === 0) {
+                                const catProducts = allProducts.filter(p => p.category === cat && p.is_available !== false);
+                                groups[cat] = groups[cat].concat(catProducts);
+                            }
+                            // Wenn einzelne Produkte existieren, ignoriere die Kategorie-Auswahl
+                            // → nur die einzelnen Produkte sind in der Gruppe
                         }
                     }
                     
@@ -2940,9 +2955,26 @@
                     
                     if (comboProducts.length === 0) return;
                     
-                    for (const p of comboProducts) {
+                    // FIX: Proportionale Preisverteilung mit Rest-Korrektur
+                    // Verhindert 16.98€ statt 17.00€ durch Rundungsfehler
+                    let distributedTotal = 0;
+                    const adjustedPrices = [];
+                    for (let i = 0; i < comboProducts.length; i++) {
+                        const p = comboProducts[i];
                         const proportion = p.price / individualTotal;
-                        const adjustedPrice = Math.round(comboPrice * proportion * 100) / 100;
+                        let adjustedPrice = Math.round(comboPrice * proportion * 100) / 100;
+                        adjustedPrices.push(adjustedPrice);
+                        distributedTotal += adjustedPrice;
+                    }
+                    // Letztes Produkt bekommt den Rest (korrigiert Rundungsfehler)
+                    const remainder = Math.round((comboPrice - distributedTotal) * 100) / 100;
+                    if (adjustedPrices.length > 0) {
+                        adjustedPrices[adjustedPrices.length - 1] = Math.round((adjustedPrices[adjustedPrices.length - 1] + remainder) * 100) / 100;
+                    }
+                    
+                    for (let i = 0; i < comboProducts.length; i++) {
+                        const p = comboProducts[i];
+                        const adjustedPrice = adjustedPrices[i];
                         
                         const newCartId = p.id + '_combo_' + comboId + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                         this.cart.push({
