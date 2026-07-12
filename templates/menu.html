@@ -1050,6 +1050,33 @@
     </div>
 
     <script>
+        // ═══ COMBO PICKER SELECTION HIGHLIGHT ═══
+        // Global function — called by radio onchange in combo picker modal
+        function updateComboPickerSelection(radio) {
+            var name = radio.name;
+            // Reset all labels in this group
+            var labels = document.querySelectorAll('label[data-radio-name="' + name + '"]');
+            for (var i = 0; i < labels.length; i++) {
+                var r = labels[i].querySelector('input[type=radio]');
+                labels[i].style.borderColor = 'transparent';
+                labels[i].style.background = '#27272a';
+                if (r) {
+                    r.style.borderColor = '#52525b';
+                    r.style.background = '#18181b';
+                    r.style.boxShadow = 'none';
+                }
+            }
+            // Highlight selected label
+            var selectedLabel = radio.closest('label');
+            if (selectedLabel) {
+                selectedLabel.style.borderColor = '#14b8a6';
+                selectedLabel.style.background = 'rgba(20, 184, 166, 0.15)';
+                radio.style.borderColor = '#14b8a6';
+                radio.style.background = '#14b8a6';
+                radio.style.boxShadow = 'inset 0 0 0 4px #18181b';
+            }
+        }
+
         // ═══ LOYALTY POPUP LOGIC ═══
         // Smart-Erkennung: Zeigt Popup nur wenn Kunde noch keine Stempelkarte hat.
         // Unterscheidet Erstbesuch vs. Wiederbesuch (verschiedene Texte).
@@ -2798,28 +2825,6 @@
                     // Nur feste Produkte: direkt in den Warenkorb
                     this._addComboItemsToCart(comboId, comboName, comboPrice, fixedItems.map(i => i.product_id));
                 },
-                
-                // Global function for combo picker selection highlight
-                window.updateComboPickerSelection = function(radio) {
-                    var name = radio.name;
-                    // Reset all labels in this group
-                    var labels = document.querySelectorAll('label[data-radio-name="' + name + '"]');
-                    labels.forEach(function(label) {
-                        var r = label.querySelector('input[type=radio]');
-                        label.style.borderColor = 'transparent';
-                        label.style.background = '#27272a';
-                        if (r) r.style.borderColor = '#52525b';
-                    });
-                    // Highlight selected label
-                    var selectedLabel = radio.closest('label');
-                    if (selectedLabel) {
-                        selectedLabel.style.borderColor = '#14b8a6';
-                        selectedLabel.style.background = 'rgba(20, 184, 166, 0.15)';
-                        radio.style.borderColor = '#14b8a6';
-                        radio.style.background = '#14b8a6';
-                        radio.style.boxShadow = 'inset 0 0 0 4px #18181b';
-                    }
-                };
                 
                 openComboPickerModal(comboId, comboName, comboPrice, fixedItems, groups) {
                     // groups ist ein Object: { "Softdrinks": [product1, product2, ...], "Shishas": [...] }
