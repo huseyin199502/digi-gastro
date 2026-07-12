@@ -322,9 +322,7 @@ def _generate_apple_pass_json(
         # WICHTIG: relevantText ist KEIN gültiger Top-Level Key (nur in locations[]/beacons[])!
         # Top-level relevantText wird von iOS ignoriert. Für Push-Notifications ist
         # changeMessage in backFields zuständig (nicht relevantText).
-        from datetime import datetime as _dt
-        _today_midnight = _dt.utcnow().strftime("%Y-%m-%dT00:00:00+00:00")
-        "relevantDate": _today_midnight,
+        "relevantDate": datetime.utcnow().strftime("%Y-%m-%dT00:00:00+00:00"),
         "userInfo": {
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
