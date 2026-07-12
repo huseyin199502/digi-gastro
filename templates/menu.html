@@ -2763,7 +2763,7 @@
                     
                     // Nur feste Produkte: direkt in den Warenkorb (alte Logik)
                     this._addComboItemsToCart(comboId, comboName, comboPrice, fixedItems.map(i => i.product_id));
-                }
+                },
                 
                 openComboPickerModal(comboId, comboName, comboPrice, fixedItems, categoryItems) {
                     // Verwende window._productsData (bereits in init() gesetzt)
@@ -2847,7 +2847,7 @@
                             this._addComboItemsToCart(comboId, comboName, comboPrice, allProductIds);
                         };
                     }
-                }
+                },
                 
                 _addComboItemsToCart(comboId, comboName, comboPrice, productIds) {
                     // Verwende window._productsData (bereits in init() gesetzt)
