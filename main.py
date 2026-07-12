@@ -1371,7 +1371,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "quantity": item.quantity,
             "category_type": item.category_type,
             "note": item.note,
-            "item_status": getattr(item, "item_status", "pending") or "pending"
+            "item_status": getattr(item, "item_status", "pending") or "pending",
+                "combo_id": getattr(item, "combo_id", None),
+            "combo_id": getattr(item, "combo_id", None)
         } for item in db_items]
         orders.append({
             "id": o.id,
@@ -1648,6 +1650,7 @@ def append_order_to_db(slug: str, order_data: dict, session):
             category_type=item.get("category_type", "küche"),
             note=item.get("note"),
             item_status=item.get("item_status", "pending"),
+            combo_id=item.get("combo_id"),  # NEU: Kombi-Zugehörigkeit speichern
         )
         session.add(db_item)
     
@@ -9030,7 +9033,8 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
                 "quantity": item.quantity,
                 "category_type": item.category_type,
                 "note": item.note,
-                "item_status": getattr(item, "item_status", "pending") or "pending"
+                "item_status": getattr(item, "item_status", "pending") or "pending",
+                "combo_id": getattr(item, "combo_id", None)
             })
 
     active_orders = []
@@ -10421,7 +10425,8 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
                 "price": item.price,
                 "quantity": item.quantity,
                 "note": item.note,
-                "item_status": getattr(item, "item_status", "pending") or "pending"
+                "item_status": getattr(item, "item_status", "pending") or "pending",
+                "combo_id": getattr(item, "combo_id", None)
             })
             
     pending = []

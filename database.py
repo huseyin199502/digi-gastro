@@ -245,6 +245,7 @@ class OrderItem(Base):
     category_type = Column(String, default="küche")
     note = Column(String, nullable=True)
     item_status = Column(String, nullable=True, default="pending")
+    combo_id = Column(Integer, nullable=True)  # NEU: Kombi-Zugehörigkeit für korrekte Preisanzeige
 
 class Staff(Base):
     __tablename__ = 'staff'
@@ -1081,6 +1082,7 @@ def _migrate_database():
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
     add_column_if_missing('order_items', 'note', "TEXT")
+    add_column_if_missing('order_items', 'combo_id', "INTEGER")  # NEU: Kombi-Zugehörigkeit
     # Multi-Tenant: tenant_slug auf order_items für Tenant-Isolation
     add_column_if_missing('order_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
 
