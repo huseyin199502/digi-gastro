@@ -1232,6 +1232,168 @@ async def tenant_suspended_handler(request: Request, exc: TenantSuspendedExcepti
         status_code=403
     )
 
+
+# ──────────────────────────────────────────────────────────────────
+# WARTUNGS-SEITE — Schöne Anzeige bei 500/502/503 (während Deploy)
+# Verhindert hässliche "Internal Server Error" Meldungen während
+# Coolify Auto-Deploy den Container neu startet.
+# ──────────────────────────────────────────────────────────────────
+MAINTENANCE_HTML = """
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kurze Pause - Wir sind gleich zurück</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .container {
+            text-align: center;
+            max-width: 500px;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #c9a84c 0%, #e8c875 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        p {
+            font-size: 1.1rem;
+            color: #b0b0b0;
+            margin-bottom: 0.5rem;
+            line-height: 1.6;
+        }
+        .spinner {
+            margin: 2rem auto;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(201, 168, 76, 0.2);
+            border-top-color: #c9a84c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .refresh-btn {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: 0.75rem 2rem;
+            background: #c9a84c;
+            color: #1a1a1a;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(201, 168, 76, 0.4);
+        }
+        .footer {
+            margin-top: 3rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        @media (max-width: 480px) {
+            h1 { font-size: 1.5rem; }
+            p { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍽️</div>
+        <h1>Kurze Pause!</h1>
+        <p>Wir aktualisieren gerade unser System für dich.</p>
+        <p>Das dauert nur wenige Sekunden — bitte habe etwas Geduld.</p>
+        <div class="spinner"></div>
+        <a href="javascript:window.location.reload()" class="refresh-btn">Erneut versuchen</a>
+        <div class="footer">
+            © 2026 digi-gastro — Powered by gastronomy OS
+        </div>
+    </div>
+    <script>
+        // Auto-Reload nach 10 Sekunden
+        setTimeout(function() {
+            window.location.reload();
+        }, 10000);
+    </script>
+</body>
+</html>
+"""
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Fängt alle unbehandelten Exceptions ab und zeigt schöne Wartungs-Seite.
+    Verhindert hässliche 'Internal Server Error' Meldungen."""
+    import logging
+    logging.getLogger("uvicorn.error").error(
+        f"Unhandled exception on {request.method} {request.url.path}: {exc}",
+        exc_info=True
+    )
+    # API-Requests bekommen JSON, HTML-Requests bekommen schöne Seite
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept or request.url.path.startswith("/api/"):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "System wird gerade aktualisiert. Bitte in wenigen Sekunden erneut versuchen.",
+                "status": "maintenance",
+                "retry_after": 10
+            }
+        )
+    return HTMLResponse(content=MAINTENANCE_HTML, status_code=503)
+
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    """Auch HTTP 500 wird zur Wartungs-Seite, 404/403 bleiben normal."""
+    if exc.status_code >= 500:
+        accept = request.headers.get("accept", "")
+        if "application/json" in accept or request.url.path.startswith("/api/"):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "System wird gerade aktualisiert. Bitte in wenigen Sekunden erneut versuchen.",
+                    "status": "maintenance",
+                    "retry_after": 10
+                }
+            )
+        return HTMLResponse(content=MAINTENANCE_HTML, status_code=503)
+    # Für 4xx Errors: Standard-Verhalten beibehalten
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None)
+    )
+
 # ----------------------------------------------------
 # DATABASE INTEGRATION
 # ----------------------------------------------------
