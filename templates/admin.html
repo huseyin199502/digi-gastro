@@ -11080,8 +11080,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             } else {
                 let inner = '';
 
-                
-                const revenueText = order ? `${order.total.toFixed(2).replace('.', ',')} €` : '';
+                // FIX: Summe ALLER Bestellungen für diesen Tisch, nicht nur die erste!
+                // Vorher: order.total (nur erste Bestellung) → 15,00€ statt 28,00€
+                // Jetzt: Summe aller orders → korrekte Gesamtsumme
+                const tableTotal = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+                const revenueText = orders.length > 0 ? `${tableTotal.toFixed(2).replace('.', ',')} €` : '';
 
                 if (activeCall) {
                     let callIcon = '🔔';
