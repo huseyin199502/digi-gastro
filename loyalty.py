@@ -1816,6 +1816,7 @@ def award_stamp_for_order(
 
     # Customer aktualisieren
     customer.current_stamps += 1
+    customer.updated_at = _now_iso()
     customer.total_stamps_earned += 1
     customer.last_visit_at = now
     if not customer.first_visit_at:
@@ -1827,6 +1828,7 @@ def award_stamp_for_order(
     if customer.current_stamps >= card.stamps_required:
         # Reset Stempel + Reward loggen
         customer.current_stamps = 0
+        customer.updated_at = _now_iso()
         customer.rewards_redeemed += 1
         reward_triggered = True
         # Alle Stempel als redeemed markieren
@@ -1928,7 +1930,9 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
             # User-Wunsch: Nur Nachricht (ohne Titel-Präfix) in Push-Notification
             full_msg = campaign.message
             customer.last_message = full_msg[:200]
+            customer.updated_at = _now_iso()
             customer.msg_nonce = (customer.msg_nonce or 0) + 1
+            customer.updated_at = _now_iso()
             db_session.commit()  # ← VOR dem Push committen!
 
             # Push senden (via Pass-Update)
@@ -2292,6 +2296,7 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
 
     # Stempel vergeben
     customer.current_stamps += 1
+    customer.updated_at = _now_iso()
     customer.total_stamps_earned += 1
     customer.last_visit_at = _now_iso()
     customer.pass_needs_update = True

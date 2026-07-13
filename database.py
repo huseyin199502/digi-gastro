@@ -461,6 +461,8 @@ class LoyaltyCustomer(Base):
     created_at = Column(String, nullable=False)
     # Wallet-Pass-Update nötig? (z.B. nach Stempel-Vergabe)
     pass_needs_update = Column(Boolean, default=True)
+    # NEU: Timestamp der letzten Änderung (für If-Modified-Since Header)
+    updated_at = Column(String, nullable=True)
     # Opt-out von Push-Kampagnien (DSGVO: jederzeit widerrufbar)
     push_opt_out = Column(Boolean, default=False)
     # ── PHASE 1: Short-Code für manuelle Stempel-Vergabe ──
@@ -989,6 +991,7 @@ def _migrate_database():
     # Drei-Kanal-Server-Lookup (DSGVO-konforme Geräteerkennung)
     add_column_if_missing('loyalty_customers', 'anonymous_id', "VARCHAR")
     add_column_if_missing('loyalty_customers', 'pass_downloaded_at', "VARCHAR")
+    add_column_if_missing('loyalty_customers', 'updated_at', "VARCHAR")  # NEU: für If-Modified-Since
     # Wallet-Banner-Foto für LoyaltyCard (Tenant kann Foto hochladen)
     add_column_if_missing('loyalty_cards', 'wallet_banner_path', "VARCHAR")
     add_column_if_missing('loyalty_cards', 'wallet_banner_mode', "VARCHAR DEFAULT 'full'")

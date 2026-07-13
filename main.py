@@ -14632,13 +14632,42 @@ async def passkit_get_pass(
     if not pkpass_bytes:
         raise HTTPException(status_code=500, detail="Pass generation failed")
 
+    # FIX: If-Modified-Since Header korrekt behandeln
+    # iOS sendet If-Modified-Since mit dem Last-Modified vom letzten Abruf.
+    # Wenn sich der Pass nicht geändert hat → 304 Not Modified zurückgeben.
+    # Das verhindert "Server ignored if-modified-since" Fehler und unnötige Datenübertragung.
+    if_modified_since = request.headers.get("if-modified-since")
+    if if_modified_since:
+        try:
+            # Parse das Datum aus dem Header
+            from email.utils import parsedate_to_datetime
+            header_date = parsedate_to_datetime(if_modified_since)
+            # Letzte Änderung des Customers = letzte msg_nonce Änderung oder stamp Änderung
+            # Wir verwenden customer.updated_at oder den timestamp der letzten Push
+            last_change = getattr(customer, 'updated_at', None) or customer.last_push_at
+            if last_change:
+                try:
+                    change_date = datetime.fromisoformat(last_change.replace("Z", "+00:00"))
+                    if change_date <= header_date:
+                        # Pass hat sich nicht geändert → 304 zurückgeben
+                        print(f"[PassKit] 304 Not Modified for {serial_number[:8]}... (pass unchanged since {if_modified_since})")
+                        return Response(status_code=304, headers={"Last-Modified": last_change})
+                except Exception:
+                    pass  # Bei Parse-Fehlern: normalen 200 zurückgeben
+        except Exception:
+            pass  # Bei Header-Parse-Fehlern: normalen 200 zurückgeben
+
+    # Bestimme das echte Last-Modified Datum (nicht JETZT!)
+    # = Zeitpunkt der letzten Änderung am Customer (stamps oder message)
+    real_last_modified = getattr(customer, 'updated_at', None) or customer.last_push_at or _now_iso()
+
     print(f"[PassKit] ✅ Pass served for {serial_number[:8]}... (stamps: {customer.current_stamps}/{card.stamps_required})")
     return Response(
         content=pkpass_bytes,
         media_type="application/vnd.apple.pkpass",
         headers={
             "Content-Disposition": f'attachment; filename="{customer.tenant_slug}-stempelkarte.pkpass"',
-            "Last-Modified": _now_iso(),
+            "Last-Modified": real_last_modified,
         }
     )
 
@@ -15119,7 +15148,9 @@ async def loyalty_quick_send(
         # → Notification erscheint immer, auch bei gleicher Nachricht
         # → Uhrzeit ist NICHT sichtbar (hidden Field im Pass)
         customer.last_message = full_msg[:200]
+        customer.updated_at = _now_iso()
         customer.msg_nonce = (customer.msg_nonce or 0) + 1
+        customer.updated_at = _now_iso()
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, title, message)
@@ -15182,6 +15213,7 @@ def loyalty_redeem_reward(
     # Nur stamps ändern → stamps-changeMessage triggert mit korrektem Text.
     old_stamps = customer.current_stamps
     customer.current_stamps = 0
+    customer.updated_at = _now_iso()
     db.commit()
 
     # Pass-Update Push → Kunde sieht 0/10 + "Neue Runde"
@@ -15250,7 +15282,9 @@ def loyalty_broadcast_push(
         # User-Wunsch: Nur Nachricht (ohne Titel-Präfix) in Push-Notification
         full_msg = campaign.message
         customer.last_message = full_msg[:200]
+        customer.updated_at = _now_iso()
         customer.msg_nonce = (customer.msg_nonce or 0) + 1
+        customer.updated_at = _now_iso()
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, campaign.title, campaign.message)
