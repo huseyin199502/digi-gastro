@@ -1386,7 +1386,9 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "timestamp": o.timestamp,
             "mwst_rate": o.mwst_rate,
             "waiter_id": o.waiter_id,
-            "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None
+            "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None,
+            "daily_bon_number": getattr(o, "daily_bon_number", None),
+            "bon_date": getattr(o, "bon_date", None)
         })
         
     db_staff = session.query(Staff).filter_by(tenant_slug=slug).order_by(Staff.id).all()
@@ -1631,6 +1633,8 @@ def append_order_to_db(slug: str, order_data: dict, session):
         timestamp=order_data.get("timestamp", ""),
         mwst_rate=order_data.get("mwst_rate", 19),
         waiter_id=order_data.get("waiter_id"),
+        daily_bon_number=order_data.get("daily_bon_number"),
+        bon_date=order_data.get("bon_date"),
     )
     session.add(db_order)
     session.flush()  # Get the auto-generated ID without committing
@@ -1860,6 +1864,12 @@ def save_restaurant_to_db(slug: str, r: dict, session):
             db_o.original_total = float(_ot)
         except Exception:
             db_o.original_total = 0.0
+        
+        # NEU: Tägliche Bon-Nummer speichern
+        if o.get("daily_bon_number") is not None:
+            db_o.daily_bon_number = o.get("daily_bon_number")
+        if o.get("bon_date") is not None:
+            db_o.bon_date = o.get("bon_date")
         
         if db_o.id is None:
             session.flush()
@@ -5778,6 +5788,17 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
 
     # Let the database assign a unique autoincrement ID to avoid collisions
     # in multi-worker setups where len(orders)+1 can duplicate existing IDs.
+    
+    # NEU: Tägliche Bon-Nummer pro Tenant berechnen
+    # #1, #2, #3... pro Tenant pro Tag — resetet täglich automatisch
+    from datetime import date as _date
+    _today_str = _date.today().isoformat()  # "2026-07-13"
+    _max_daily_bon = db.query(Order).filter(
+        Order.tenant_slug == slug,
+        Order.bon_date == _today_str
+    ).count()
+    _daily_bon_number = _max_daily_bon + 1
+    
     new_order = {
         "id": None,   # will be filled in by save_restaurant_to_db after DB flush
         "table": order_table_name,
@@ -5794,7 +5815,9 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         "status": "eingegangen",
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "mwst_rate": 19,
-        "waiter_id": None
+        "waiter_id": None,
+        "daily_bon_number": _daily_bon_number,  # #1, #2, #3... pro Tag
+        "bon_date": _today_str,  # "2026-07-13"
     }
     
     restaurant["orders"].append(new_order)
@@ -5806,6 +5829,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
+    
+    # CRITICAL FIX: Cache invalidieren nach neuer Bestellung!
+    # Ohne das liefert /api/tablet-status noch die alte gecachte Response
+    # → Admin sieht neue Bestellung nicht (bis 2s TTL abläuft)
+    invalidate_restaurant_cache_sync(slug)
     
     # Loyalty: Stempel vergeben falls Kunde erkannt (via Cookie)
     try:
@@ -9052,7 +9080,9 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
             "timestamp": o.timestamp,
             "mwst_rate": o.mwst_rate,
             "waiter_id": o.waiter_id,
-            "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None
+            "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None,
+            "daily_bon_number": getattr(o, "daily_bon_number", None),
+            "bon_date": getattr(o, "bon_date", None)
         })
 
     # 2. Tables (klein, kann komplett geladen werden)
@@ -9762,6 +9792,7 @@ async def send_order_to_pos(slug: str, order: dict, restaurant: dict):
         "event": "order_paid",
         "tenant": slug,
         "order_id": order.get("id"),
+        "daily_bon_number": order.get("daily_bon_number"),
         "table": order.get("table", ""),
         "total": float(order.get("total", 0) or 0),
         "tip": float(order.get("tip_amount", 0) or 0),
@@ -9814,6 +9845,7 @@ async def send_bon_to_printer(slug: str, order: dict, restaurant: dict, bon_type
         "event": f"bon_{bon_type}",
         "tenant": slug,
         "order_id": order.get("id"),
+        "daily_bon_number": order.get("daily_bon_number"),
         "table": order.get("table", ""),
         "timestamp": order.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         "waiter": order.get("waiter_id", ""),
@@ -11945,6 +11977,8 @@ def _load_all_orders_for_export(slug: str, db) -> list:
             "items": items_by_order.get(o.id, []),
             "total": o.total,
             "original_total": getattr(o, "original_total", None),
+            "daily_bon_number": getattr(o, "daily_bon_number", None),
+            "bon_date": getattr(o, "bon_date", None),
             "status": o.status,
             "timestamp": o.timestamp,
             "waiter": getattr(o, "waiter", None) or "",

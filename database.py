@@ -215,6 +215,7 @@ class Order(Base):
     __table_args__ = (
         Index('idx_order_tenant_id', 'tenant_slug', 'id'),
         Index('idx_order_tenant_slug', 'tenant_slug'),
+        Index('idx_order_tenant_daily_bon', 'tenant_slug', 'bon_date', 'daily_bon_number'),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -228,6 +229,9 @@ class Order(Base):
     mwst_rate = Column(Integer, default=19)
     waiter_id = Column(String, nullable=True)
     original_total = Column(Float, default=0.0)  # Nie wieder 0€: echter Warenwert, wird beim Anlegen gesetzt und nie reduziert
+    # NEU: Tägliche Bon-Nummer pro Tenant (resetet täglich)
+    daily_bon_number = Column(Integer, nullable=True)  # #1, #2, #3... pro Tenant pro Tag
+    bon_date = Column(String, nullable=True)  # "2026-07-13" — für Reset-Logik
 
 class OrderItem(Base):
     __tablename__ = 'order_items'
@@ -1107,6 +1111,9 @@ def _migrate_database():
 
     # Migrate 'orders' table — original_total sichert den echten Warenwert gegen 0€-Bug bei Teilzahlung/Storno/Transfer
     add_column_if_missing('orders', 'original_total', "FLOAT DEFAULT 0.0")
+    # NEU: Tägliche Bon-Nummer pro Tenant
+    add_column_if_missing('orders', 'daily_bon_number', "INTEGER")
+    add_column_if_missing('orders', 'bon_date', "VARCHAR")
 
     # Ensure events and event_products tables exist
     try:

@@ -7949,7 +7949,7 @@
                     const mwstCell = (PRICE_MODE === 'netto') ? '' : `<td class="text-zinc-500">${mwst}%</td>`;
                     
                     return `<tr onclick="openBonDetail(${o.id})" class="bon-row">
-                        <td class="font-bold text-zinc-800">Bon #${o.id}</td>
+                        <td class="font-bold text-zinc-800">Bon #${o.daily_bon_number || o.id}</td>
                         <td class="font-extrabold">${displayTable}</td>
                         <td class="text-zinc-500 font-mono">${timestamp}</td>
                         <td class="font-extrabold text-zinc-900 font-mono">${totalHtml}</td>
@@ -8194,7 +8194,7 @@
             const bodyEl = document.getElementById('bon-detail-body');
             if (!modal || !titleEl || !bodyEl) return;
 
-            titleEl.textContent = `Bon #${order.id}`;
+            titleEl.textContent = `Bon #${order.daily_bon_number || order.id}`;
 
             const oStatus = (order.status || '').toLowerCase();
             let statusLabel = 'Aktiv';
@@ -9247,7 +9247,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-700">
                         <div class="flex items-center gap-2">
                             <div class="w-1.5 h-6 rounded-full ${bonAccent}"></div>
-                            <span class="text-[10px] font-black text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Bon #${od.id}</span>
+                            <span class="text-[10px] font-black text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">Bon #${od.daily_bon_number || od.id}</span>
                             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-${statusColor}-100 dark:bg-${statusColor}-900/30 text-${statusColor}-700 dark:text-${statusColor}-400 border border-${statusColor}-200 dark:border-${statusColor}-800/30">${statusLabel}</span>
                         </div>
                         <span class="font-black text-sm text-zinc-800 dark:text-zinc-200 font-mono">${od.total.toFixed(2).replace('.', ',')} €</span>
@@ -10135,7 +10135,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                         return `
                                             <div class="flex flex-col gap-1 border-b border-outline-variant/40 pb-3 text-xs">
                                                 <div class="flex justify-between items-center">
-                                                    <span class="font-bold text-white">💰 ${p.table} (Bon #${p.id})</span>
+                                                    <span class="font-bold text-white">💰 ${p.table} (Bon #${p.daily_bon_number || p.id})</span>
                                                     <span class="font-mono text-zinc-500">${timeStr} Uhr</span>
                                                 </div>
                                                 <div class="flex justify-between items-center text-[11px] mt-0.5">
@@ -11366,7 +11366,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             const elTableName = document.getElementById('popup-table-name');
             if (elTableName) elTableName.textContent = order.table;
             const elBonId = document.getElementById('popup-bon-id');
-            if (elBonId) elBonId.textContent = `Bon #${order.id}`;
+            if (elBonId) elBonId.textContent = `Bon #${order.daily_bon_number || order.id}`;
             const elTotal = document.getElementById('popup-total');
             if (elTotal) elTotal.textContent = order.total.toFixed(2).replace('.', ',') + ' €';
 
