@@ -72,12 +72,14 @@ def register_routes(app, get_db, require_chef_user_flat):
         sku: Optional[str] = None
         category_id: Optional[int] = None
         supplier_id: Optional[int] = None
+        current_stock: float = 0  # NEU: Initialer Bestand beim Anlegen
         min_stock: float = 0
         max_stock: float = 0
         reorder_qty: float = 0
         base_unit: str = "Stk"
         purchase_unit: Optional[str] = None
         purchase_to_base_factor: float = 1
+        cost_per_unit: float = 0  # NEU: Einstandspreis beim Anlegen
         product_id: Optional[int] = None
         notes: Optional[str] = None
 
@@ -777,7 +779,8 @@ def register_routes(app, get_db, require_chef_user_flat):
     def create_stock_item(payload: StockItemCreate,
                           chef_data: tuple = Depends(require_chef_user_flat),
                           db: Session = Depends(get_db)):
-        """Lagerartikel erstellen."""
+        """Lagerartikel erstellen. Bei current_stock > 0 wird automatisch
+        eine Initial-Buchung (type='in') für den Audit-Trail erstellt."""
         user, slug, restaurant = chef_data
         item = StockItem(
             tenant_slug=slug,
@@ -785,18 +788,36 @@ def register_routes(app, get_db, require_chef_user_flat):
             sku=payload.sku,
             category_id=payload.category_id,
             supplier_id=payload.supplier_id,
+            current_stock=float(payload.current_stock or 0),  # NEU
             min_stock=payload.min_stock,
             max_stock=payload.max_stock,
             reorder_qty=payload.reorder_qty,
             base_unit=payload.base_unit,
             purchase_unit=payload.purchase_unit,
             purchase_to_base_factor=payload.purchase_to_base_factor,
+            avg_cost=float(payload.cost_per_unit or 0),  # NEU
+            last_purchase_price=float(payload.cost_per_unit or 0),  # NEU
             product_id=payload.product_id,
             notes=payload.notes,
         )
         db.add(item)
         db.commit()
         db.refresh(item)
+
+        # NEU: Automatische Initial-Buchung für Audit-Trail, falls Bestand > 0
+        if payload.current_stock and float(payload.current_stock) > 0:
+            txn = StockTransaction(
+                tenant_slug=slug,
+                stock_item_id=item.id,
+                type='in',
+                quantity=float(payload.current_stock),
+                unit_cost=float(payload.cost_per_unit or 0),
+                reason='Initialbestand bei Anlage',
+                notes='Automatisch beim Erstellen des Artikels gebucht',
+            )
+            db.add(txn)
+            db.commit()
+
         return {"success": True, "id": item.id}
 
     @app.put("/admin/api/lager/items/{item_id}")

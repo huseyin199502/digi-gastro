@@ -622,6 +622,18 @@ function _showStockItemModal(item) {
                 <div class="p-5 space-y-3">
                     <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Name *</label><input type="text" id="si-name" value="${item ? escapeHtml(item.name) : ''}" class="form-field text-sm w-full" placeholder="z.B. Cola 0,5L"></div>
                     <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">SKU (optional)</label><input type="text" id="si-sku" value="${item ? escapeHtml(item.sku || '') : ''}" class="form-field text-sm w-full"></div>
+                    ${!isEdit ? `
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Initialer Bestand</label><input type="number" id="si-initialstock" value="0" step="0.001" class="form-field text-sm w-full" placeholder="z.B. 24"></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Einstandspreis (€)</label><input type="number" id="si-cost" value="0" step="0.01" class="form-field text-sm w-full" placeholder="z.B. 1.20"></div>
+                    </div>
+                    <p class="text-[10px] text-zinc-500 dark:text-zinc-400">Initialer Bestand wird als "Initialbestand bei Anlage"-Buchung im Audit-Trail gespeichert.</p>
+                    ` : `
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Aktueller Bestand</label><input type="number" value="${item.current_stock}" step="0.001" class="form-field text-sm w-full bg-gray-100 dark:bg-zinc-700 cursor-not-allowed" disabled><p class="text-[10px] text-zinc-500 mt-0.5">Über Buchungen ändern</p></div>
+                        <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Einstandspreis (€)</label><input type="number" value="${item.avg_cost || 0}" step="0.01" class="form-field text-sm w-full bg-gray-100 dark:bg-zinc-700 cursor-not-allowed" disabled><p class="text-[10px] text-zinc-500 mt-0.5">Wird automatisch berechnet</p></div>
+                    </div>
+                    `}
                     <div class="grid grid-cols-2 gap-2">
                         <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Mindestbestand</label><input type="number" id="si-min" value="${item ? item.min_stock : 0}" step="0.001" class="form-field text-sm w-full"></div>
                         <div><label class="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">Maximalbestand</label><input type="number" id="si-max" value="${item ? item.max_stock : 0}" step="0.001" class="form-field text-sm w-full"></div>
@@ -660,6 +672,15 @@ function saveStockItem(itemId) {
         purchase_to_base_factor: parseFloat(document.getElementById('si-factor').value) || 1,
         reorder_qty: parseFloat(document.getElementById('si-reorder').value) || 0,
     };
+
+    // NEU: Nur bei Erstellung (POST) — initialer Bestand + Einstandspreis
+    if (!itemId) {
+        const initStockEl = document.getElementById('si-initialstock');
+        const costEl = document.getElementById('si-cost');
+        if (initStockEl) payload.current_stock = parseFloat(initStockEl.value) || 0;
+        if (costEl) payload.cost_per_unit = parseFloat(costEl.value) || 0;
+    }
+
     if (!payload.name) { showToast('Name erforderlich'); return; }
 
     const method = itemId ? 'PUT' : 'POST';
