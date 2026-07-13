@@ -84,6 +84,14 @@ services:
       WORKERS: "6"
       TZ: Europe/Berlin
       REDIS_URL: redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
     volumes:
       - uploads:/app/data
       - /etc/timezone:/etc/timezone:ro
