@@ -57,10 +57,12 @@
            Siehe: https://stackoverflow.com/q/79753701 */
         @media (max-width: 1024px) {
             html {
+                height: 100vh;
                 height: 100dvh;
                 overflow: hidden;
             }
             body {
+                height: 100vh;
                 height: 100dvh;
                 overscroll-behavior: contain;
                 overflow-y: auto;
@@ -283,7 +285,7 @@
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body x-data="menuState()" class="flex flex-col min-h-[100dvh] bg-background no-image-save {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}"
+<body x-data="menuState()" class="flex flex-col min-h-screen bg-background" style="min-height:100vh;min-height:100dvh" no-image-save {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}"
       oncontextmenu="return false;"
       ondragstart="return false;"
       oncopy="return false;"
