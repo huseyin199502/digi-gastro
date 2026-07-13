@@ -12,11 +12,11 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
     command: >
       postgres
-      -c max_connections=200
-      -c shared_buffers=256MB
+      -c max_connections=300
+      -c shared_buffers=512MB
       -c work_mem=4MB
-      -c effective_cache_size=512MB
-      -c maintenance_work_mem=64MB
+      -c effective_cache_size=1536MB
+      -c maintenance_work_mem=128MB
       -c log_min_duration_statement=1000
       -c log_connections=off
       -c log_disconnections=off
@@ -81,7 +81,7 @@ services:
       UPLOAD_DIR: /app/data/uploads
       PYTHONUNBUFFERED: "1"
       PORT: "8000"
-      WORKERS: "4"
+      WORKERS: "6"
       TZ: Europe/Berlin
       REDIS_URL: redis://redis:6379/0
     volumes:
