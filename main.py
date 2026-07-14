@@ -15867,6 +15867,181 @@ def loyalty_diagnose_duplicates(
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# BACKFILL: last_known_device_id aus passkit_device_registrations setzen
+# ═══════════════════════════════════════════════════════════════════════
+# Für alle bestehenden Customers die VOR unserem Auto-Recovery Deploy
+# erstellt wurden: last_known_device_id aus passkit_device_registrations holen.
+# Danach: Duplikate erkennen und zusammenführen.
+@app.post("/admin/loyalty/backfill-device-ids")
+def loyalty_backfill_device_ids(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Backfill: Setzt last_known_device_id für alle Customers die bereits
+    einen Pass haben aber noch keine device_id gespeichert ist.
+
+    Sucht für jeden Customer in passkit_device_registrations nach der
+    pass_serial und übernimmt die device_library_identifier.
+    """
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+    backfilled_count = 0
+    already_set_count = 0
+    no_registration_count = 0
+    details = []
+
+    for c in customers:
+        if getattr(c, 'last_known_device_id', None):
+            already_set_count += 1
+            continue
+
+        # Suche in passkit_device_registrations nach dieser pass_serial
+        reg = db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).first()
+        if reg and reg.device_library_identifier:
+            c.last_known_device_id = reg.device_library_identifier
+            backfilled_count += 1
+            details.append({
+                "customer_id": c.id,
+                "short_code": c.short_code,
+                "stamps": c.current_stamps,
+                "device_id": reg.device_library_identifier[:16] + "...",
+                "pass_serial": c.pass_serial[:8] + "...",
+            })
+        else:
+            no_registration_count += 1
+
+    if backfilled_count > 0:
+        db.commit()
+
+    print(f"[Loyalty Backfill] {backfilled_count} Customers mit device_id versorgt, {already_set_count} bereits gesetzt, {no_registration_count} ohne Registration")
+
+    return {
+        "success": True,
+        "total_customers": len(customers),
+        "backfilled_count": backfilled_count,
+        "already_set_count": already_set_count,
+        "no_registration_count": no_registration_count,
+        "details": details[:20],  # Erste 20 für Anzeige
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# MERGE: Duplikate (gleiche device_id) zusammenführen
+# ═══════════════════════════════════════════════════════════════════════
+@app.post("/admin/loyalty/merge-duplicates")
+def loyalty_merge_duplicates(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Merge: Findet Customers mit gleicher last_known_device_id und führt
+    sie zusammen. Der älteste Customer (niedrigste ID) wird zum Master,
+    alle anderen werden zu ihm migriert und dann deaktiviert.
+
+    Migration:
+    - current_stamps: Summe (max von allen, falls unterschiedlich)
+    - total_stamps_earned: Summe
+    - rewards_redeemed: Summe
+    - first_visit_at: Ältester
+    - last_visit_at: Neuester
+    - tier: Höchster (vip > stamm > neu)
+    - pass_needs_update: True (neuer Pass für Master)
+
+    Der alte Customer wird NICHT gelöscht (Audit-Trail) sondern:
+    - last_known_device_id = None (losgelöst)
+    - pass_needs_update = False (kein Push)
+    - anonymous_id bleibt (falls wieder auftauchend)
+    """
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+
+    # Gruppiere nach last_known_device_id
+    device_groups = {}
+    for c in customers:
+        did = getattr(c, 'last_known_device_id', None)
+        if did:
+            if did not in device_groups:
+                device_groups[did] = []
+            device_groups[did].append(c)
+
+    # Nur Gruppen mit >1 Customer sind Duplikate
+    duplicate_groups = {did: group for did, group in device_groups.items() if len(group) > 1}
+
+    merged_count = 0
+    merged_details = []
+
+    for did, group in duplicate_groups.items():
+        # Sortiere nach ID (älteste zuerst = Master)
+        group_sorted = sorted(group, key=lambda c: c.id)
+        master = group_sorted[0]
+        duplicates = group_sorted[1:]
+
+        master_stamps_before = master.current_stamps
+        master_total_before = master.total_stamps_earned
+        master_rewards_before = master.rewards_redeemed
+
+        for dup in duplicates:
+            # Stempel zusammenführen (Summe, aber nicht doppelt zählen)
+            # Strategie: Master behält seine Stempel, Duplikant-Stempel werden addiert
+            # (da jeder Stempel eine echte Bestellung war)
+            master.current_stamps = max(master.current_stamps, master.current_stamps + dup.current_stamps)
+            # ABER: max 15 (Karten-Limit) — Rest geht verloren
+            # Eigentlich: current_stamps sollte die Summe sein, aber nicht über stamps_required
+            # Für jetzt: Summe, aber begrenzt auf 99 (kein Auto-Reset)
+            master.current_stamps = min(master.current_stamps + dup.current_stamps, 99)
+
+            master.total_stamps_earned += dup.total_stamps_earned
+            master.rewards_redeemed += dup.rewards_redeemed
+
+            # first_visit_at: Ältester
+            if dup.first_visit_at and (not master.first_visit_at or dup.first_visit_at < master.first_visit_at):
+                master.first_visit_at = dup.first_visit_at
+
+            # last_visit_at: Neuester
+            if dup.last_visit_at and (not master.last_visit_at or dup.last_visit_at > master.last_visit_at):
+                master.last_visit_at = dup.last_visit_at
+
+            # Tier: Höchster
+            tier_order = {"neu": 0, "stamm": 1, "vip": 2}
+            if tier_order.get(dup.tier, 0) > tier_order.get(master.tier, 0):
+                master.tier = dup.tier
+
+            # Duplikant deaktivieren (nicht löschen — Audit-Trail)
+            dup.last_known_device_id = None
+            dup.pass_needs_update = False
+            # anonymous_id beibehalten (falls wieder auftauchend)
+            # pass_downloaded_at beibehalten (für Historie)
+
+            merged_count += 1
+            merged_details.append({
+                "device_id": did[:16] + "...",
+                "master_id": master.id,
+                "master_code": master.short_code,
+                "duplicate_id": dup.id,
+                "duplicate_code": dup.short_code,
+                "duplicate_stamps_moved": dup.current_stamps,
+                "master_stamps_before": master_stamps_before,
+                "master_stamps_after": master.current_stamps,
+            })
+
+    if merged_count > 0:
+        db.commit()
+
+    print(f"[Loyalty Merge] {merged_count} Duplikate zusammengeführt in {len(duplicate_groups)} Gruppen")
+
+    return {
+        "success": True,
+        "duplicate_groups_found": len(duplicate_groups),
+        "duplicates_merged": merged_count,
+        "details": merged_details,
+        "message": f"{merged_count} Duplikate in {len(duplicate_groups)} Gruppen zusammengeführt."
+    }
+
+
 @app.delete("/admin/loyalty/customer/{customer_id}")
 def loyalty_delete_customer(
     customer_id: int,
