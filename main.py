@@ -15326,6 +15326,8 @@ def loyalty_customers_list(
             "first_visit_at": c.first_visit_at,
             "last_visit_at": c.last_visit_at,
             "push_opt_out": c.push_opt_out,
+            "pass_downloaded_at": c.pass_downloaded_at,
+            "has_device_registration": db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).count() > 0,
         } for c in customers],
         "pagination": {
             "page": page,
@@ -15333,6 +15335,81 @@ def loyalty_customers_list(
             "total": total,
             "total_pages": total_pages,
         }
+    }
+
+
+@app.post("/admin/loyalty/customer/{customer_id}/reset-pass")
+def loyalty_reset_customer_pass(
+    customer_id: int,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Admin: Setzt pass_downloaded_at zurück, sodass User das Loyalty-Popup
+    wieder sieht. Nützlich wenn User den Pass aus dem Wallet gelöscht hat
+    aber das DELETE von iOS nicht (richtig) verarbeitet wurde."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+    customer = db.query(LoyaltyCustomer).filter_by(
+        id=customer_id, tenant_slug=slug_lower
+    ).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer nicht gefunden")
+
+    old_value = customer.pass_downloaded_at
+    customer.pass_downloaded_at = None
+    customer.pass_needs_update = False
+    db.commit()
+    print(f"[Loyalty] Admin reset pass_downloaded_at for customer {customer_id} (was: {old_value})")
+    return {
+        "success": True,
+        "customer_id": customer_id,
+        "old_pass_downloaded_at": old_value,
+        "new_pass_downloaded_at": None,
+        "message": "Customer wird das Loyalty-Popup wieder sehen beim nächsten Speisekarten-Besuch"
+    }
+
+
+@app.post("/admin/loyalty/sync-pass-status")
+def loyalty_sync_pass_status(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Admin: Sync pass_downloaded_at für alle Kunden.
+    Setzt pass_downloaded_at=NULL für Kunden die keine Device-Registration mehr haben.
+    Nützlich um nach einem Fix alle kaputten Kunden zu reparieren."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+    fixed_count = 0
+    fixed_customers = []
+    for c in customers:
+        if not c.pass_downloaded_at:
+            continue
+        # Hat dieser Customer noch eine Device-Registration?
+        reg_count = db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).count()
+        if reg_count == 0:
+            # Pass wurde aus allen Wallets gelöscht, aber pass_downloaded_at noch gesetzt
+            old_val = c.pass_downloaded_at
+            c.pass_downloaded_at = None
+            c.pass_needs_update = False
+            fixed_count += 1
+            fixed_customers.append({
+                "id": c.id,
+                "short_code": c.short_code,
+                "old_pass_downloaded_at": old_val,
+            })
+
+    if fixed_count > 0:
+        db.commit()
+
+    print(f"[Loyalty] Sync pass-status: {fixed_count} customers fixed")
+    return {
+        "success": True,
+        "total_customers": len(customers),
+        "fixed_count": fixed_count,
+        "fixed_customers": fixed_customers,
+        "message": f"{fixed_count} Kunden hatten pass_downloaded_at gesetzt obwohl kein Device registriert. Reset done."
     }
 
 
