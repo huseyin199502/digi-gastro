@@ -454,6 +454,16 @@
                         </a>
                     </div>
 
+                    <!-- Stempelkarte Button (NEU - ersetzt das Popup) -->
+                    {% if restaurant.loyalty_card %}
+                    <div class="w-full">
+                        <a href="/{{ slug }}/loyalty/pass/apple" class="btn-premium btn-premium-primary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95 shadow-lg shadow-primary/20">
+                            <span class="material-symbols-outlined" style="font-size:18px;">loyalty</span>
+                            <span>Stempelkarte</span>
+                        </a>
+                    </div>
+                    {% endif %}
+
                     <!-- Social Media Links (moved from footer, larger design) -->
                     {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
                     <div class="flex justify-center items-center gap-5" style="margin-top: 4px;">
@@ -3319,97 +3329,19 @@
                 // Prüft: Hat Tenant aktive Stempelkarte? Hat Kunde schon Wallet? Hat Kunde übersprungen?
                 // Fallback: Falls Loyalty nicht aktiv → direkt zur Speisekarte.
                 handleSpeisekarteClick() {
-                    // Admin/Kellner: NIEMALS Loyalty Popup zeigen
-                    if (this.role === 'admin' || this.role === 'waiter' || this.role === 'kellner') {
-                        this.currentView = 'speisekarte';
-                        return;
-                    }
-                    // Falls keine Loyalty-Karte aktiv → direkt zur Speisekarte
-                    // WICHTIG: Tenant ohne Stempelkarte → KEIN Popup, normaler Ablauf
-                    // ABER: checkLoyaltyAvailability ist async — wenn User schnell klickt
-                    // ist _loyaltyCardActive noch false. Wir warten bis zu 2 Sekunden.
-                    if (!_loyaltyCardActive) {
-                        // Warte kurz ob Loyalty noch geladen wird (max 2 Sekunden)
-                        let waitCount = 0;
-                        const waitInterval = setInterval(() => {
-                            waitCount++;
-                            if (_loyaltyCardActive) {
-                                clearInterval(waitInterval);
-                                this._showLoyaltyPopupOrMenu();
-                            } else if (waitCount > 20) {
-                                // Nach 2 Sekunden aufgeben → direkt zur Speisekarte
-                                clearInterval(waitInterval);
-                                this.currentView = 'speisekarte';
-                            }
-                        }, 100);
-                        return;
-                    }
-                    this._showLoyaltyPopupOrMenu();
+                    // POPUP ENTFERNT — immer direkt zur Speisekarte
+                    // Stempelkarte ist jetzt ein Button auf der Landing-Page
+                    this.currentView = 'speisekarte';
                 },
 
                 _showLoyaltyPopupOrMenu() {
-
-                    // ── Popup-Suppression Logik (Drei-Kanal-Server-Lookup) ──
-                    // 1. Tenant-Test-Override: ?no_loyalty_popup=1 → Popup dauerhaft unterdrücken
-                    // 2. Server-Lookup (_loyaltyHasPass): Server hat pass_downloaded_at in DB → verlässlich
-                    // 3. Cookie/LS Fallback: falls Server-Lookup nicht stattfand
-                    // 4. URL-Param ?reset_loyalty=1 → alles löschen, Popup anzeigen
-
-                    // Reset via URL-Param (z.B. /memo?reset_loyalty=1)
-                    const urlParams = new URLSearchParams(window.location.search);
-                    if (urlParams.get('reset_loyalty') === '1') {
-                        // Cookies löschen
-                        document.cookie = `loyalty_{{ slug }}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-                        document.cookie = `loyalty_{{ slug }}_aid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-                        localStorage.removeItem(`loyalty_saved_{{ slug }}`);
-                        localStorage.removeItem(`loyalty_skipped_{{ slug }}`);
-                        localStorage.removeItem(`dg_aid_{{ slug }}`);
-                        localStorage.removeItem(`dg_skip_popup_{{ slug }}`);
-                        // URL-Param entfernen
-                        urlParams.delete('reset_loyalty');
-                        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-                        window.history.replaceState({}, document.title, newUrl);
-                        // Seite neu laden damit Server-Lookup neu startet
-                        window.location.reload();
-                        return;
-                    }
-
-                    // Tenant-Test-Override
-                    if (_checkTenantOverride()) {
-                        this.currentView = 'speisekarte';
-                        return;
-                    }
-
-                    const hasLoyaltyCookie = document.cookie.includes('loyalty_{{ slug }}=saved');
-                    const hasLoyaltyLS = localStorage.getItem('loyalty_saved_{{ slug }}') === 'true';
-                    const skipKey = `loyalty_skipped_{{ slug }}`;
-                    const hasSkippedBefore = localStorage.getItem(skipKey) === 'true';
-
-                    // Drei-Kanal-Server-Lookup: Server hat verlässlich geprüft ob Kunde Pass hat
-                    // Hat Vorrang vor Cookie/LS (die client-seitig sind und nicht trustable).
-                    if (_loyaltyHasPass || hasLoyaltyCookie || hasLoyaltyLS) {
-                        this.currentView = 'speisekarte';
-                        return;
-                    }
-
-                    // Popup zeigen — Texte je nach Erst- oder Wiederbesuch
-                    if (hasSkippedBefore) {
-                        document.getElementById('loyalty-popup-title').textContent = 'Schön, dass du wieder da bist!';
-                        document.getElementById('loyalty-popup-subtitle').textContent = 'Als Stammgast profitierst du doppelt — sichere dir jetzt deine Stempelkarte';
-                    } else {
-                        document.getElementById('loyalty-popup-title').textContent = 'Unsere digitale Stempelkarte';
-                        document.getElementById('loyalty-popup-subtitle').textContent = 'Jetzt speichern und bei jeder Bestellung profitieren';
-                    }
-
-                    // ── CRITICAL: Device Detection JEDS MAL beim Öffnen ausführen ──
-                    applyDeviceDetection();
-
-                    // Popup anzeigen
-                    const popup = document.getElementById('loyalty-popup');
-                    if (popup) {
-                        popup.classList.remove('hidden');
-                        document.body.style.overflow = 'hidden';
-                    }
+                    // ═══════════════════════════════════════════════════════════
+                    // POPUP ENTFERNT — User-Wunsch
+                    // Stempelkarte ist jetzt ein Button auf der Landing-Page
+                    // (neben Google Review). Kein aufdringliches Popup mehr.
+                    // Kunde entscheidet SELBST ob er Stempelkarte laden will.
+                    // ═══════════════════════════════════════════════════════════
+                    this.currentView = 'speisekarte';
                 },
 
                 closeLoyaltyPopupAndGoToMenu() {

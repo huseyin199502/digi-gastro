@@ -14333,7 +14333,10 @@ def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)
                 customer = None
 
     has_pass = bool(customer and customer.pass_downloaded_at)
-    show_popup = not has_pass
+    # POPUP ENTFERNT — show_popup immer False
+    # Stempelkarte ist jetzt ein Button auf der Landing-Page (neben Google Review)
+    # Kein aufdringliches Popup mehr. Kunde entscheidet selbst.
+    show_popup = False
 
     # CRITICAL: Für Apple User — verifiziere dass der Pass WIRKLICH noch im Wallet ist
     # Apple gibt uns einen Callback beim Löschen (DELETE /v1/devices/.../registrations/...)
