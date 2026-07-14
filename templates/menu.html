@@ -937,9 +937,10 @@
 
     <!-- Slender Legal Footer inside clean container -->
     <!-- iOS BOUNCE FIX: padding-bottom muss Bottom-Nav-Bar (3.25rem) + safe-area + extra Platz abdecken
-         Sonst bounced iOS Safari zurück und Nav-Bar verdeckt Impressum/Datenschutz -->
+         Sonst bounced iOS Safari zurück und Nav-Bar verdeckt Impressum/Datenschutz UND Copyright-Text.
+         8rem = 3.25rem (Nav-Bar) + 1rem (Abstand) + 2rem (Copyright-Höhe) + 1.75rem Puffer -->
     <footer class="py-8 bg-surface border-t border-outline-variant text-center text-sm text-on-surface-variant space-y-3"
-            style="padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));">
+            style="padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));">
         <div class="flex justify-center space-x-4">
             <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline py-1" data-translate="impressum">Impressum</button>
             <span>&bull;</span>
