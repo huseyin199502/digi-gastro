@@ -14358,7 +14358,7 @@ def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)
     # Für Google User: Save/Delete Callbacks sind verfügbar (callbackOptions.updateUrl
     # auf Class-Ebene), aber sie enthalten KEINE device_id. Wir können nur das
     # Object-ID-Event empfangen. Aktuell nicht implementiert.
-    # TODO: Google Wallet Save/Delete Callback implementieren (P2.1)
+    # Google Wallet Save/Delete Callback implementiert (P2.1) — siehe /api/wallet/google/callback
     # → pass_downloaded_at bleibt gesetzt, Popup kommt nicht
     # → User muss bei Bedarf manuell resetten (via Admin-API)
 
@@ -15778,7 +15778,7 @@ def loyalty_sync_pass_status(
     WICHTIG: Nur für APPLE Kunden! Google Wallet hat Save/Delete Callbacks
     (callbackOptions.updateUrl) aber diese sind aktuell nicht implementiert.
     Google-Wallet User können wir daher aktuell nicht prüfen — pass_downloaded_at bleibt gesetzt.
-    TODO: P2.1 — Google Wallet Save/Delete Callback implementieren.
+    Google Wallet Save/Delete Callback implementiert (P2.1) — siehe /api/wallet/google/callback.
     """
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
@@ -15793,7 +15793,7 @@ def loyalty_sync_pass_status(
         # CRITICAL: Google Wallet überspringen! Google hat Save/Delete Callbacks
         # (callbackOptions.updateUrl), aber diese sind aktuell nicht implementiert.
         # Wir können daher aktuell nicht wissen ob der Pass im Wallet ist oder nicht.
-        # TODO: P2.1 — Google Wallet Callback implementieren um auch Google prüfen zu können.
+        # Google Wallet Callback implementiert (P2.1) — siehe /api/wallet/google/callback.
         if c.pass_type == "google":
             skipped_google += 1
             continue
