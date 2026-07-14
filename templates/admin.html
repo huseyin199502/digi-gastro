@@ -1419,6 +1419,19 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            background: linear-gradient(180deg, rgba(201, 168, 76, 0.04), transparent);
+            position: relative;
+        }
+        .sidebar-header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2.5rem;
+            height: 2px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, transparent, #c9a84c, transparent);
         }
 
         .profile-card {
@@ -1431,6 +1444,7 @@
             text-align: center;
             position: relative;
             overflow: hidden;
+            border-bottom: 1px solid rgba(201, 168, 76, 0.1);
         }
         .profile-card::after {
             content: '';
@@ -1441,8 +1455,15 @@
             width: 3rem;
             height: 3px;
             border-radius: 3px;
-            background: var(--gastro-primary);
+            background: #c9a84c;
             opacity: 0.6;
+        }
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at top, rgba(201, 168, 76, 0.08) 0%, transparent 70%);
+            pointer-events: none;
         }
 
         .avatar {
@@ -2230,12 +2251,12 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            padding: 0.7rem 1.25rem;
+            padding: 0.75rem 1.25rem;
             color: var(--gastro-text-muted);
             font-weight: 600;
             font-size: 0.85rem;
             border-left: 3px solid transparent;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             background: none;
             border-top: none;
             border-right: none;
@@ -2247,24 +2268,24 @@
         }
 
         nav .nav-btn:hover {
-            background-color: rgba(0, 153, 0, 0.04);
+            background-color: rgba(201, 168, 76, 0.06);
             color: var(--gastro-text-main);
             padding-left: 1.5rem;
         }
         html.dark nav .nav-btn:hover {
-            background-color: rgba(34, 197, 94, 0.06);
+            background-color: rgba(201, 168, 76, 0.08);
         }
 
         nav .nav-btn.active {
-            background: linear-gradient(90deg, rgba(0, 153, 0, 0.08), rgba(0, 153, 0, 0.02));
-            color: var(--gastro-primary);
-            border-left-color: var(--gastro-primary);
+            background: linear-gradient(90deg, rgba(201, 168, 76, 0.12), rgba(201, 168, 76, 0.02));
+            color: #c9a84c;
+            border-left-color: #c9a84c;
             font-weight: 700;
         }
         html.dark nav .nav-btn.active {
-            background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03));
-            color: #22c55e;
-            border-left-color: #22c55e;
+            background: linear-gradient(90deg, rgba(201, 168, 76, 0.18), rgba(201, 168, 76, 0.04));
+            color: #e8c875;
+            border-left-color: #e8c875;
         }
 
         nav .nav-btn .material-symbols-outlined {
@@ -2273,6 +2294,73 @@
         }
         nav .nav-btn:hover .material-symbols-outlined {
             transform: scale(1.1);
+        }
+
+        /* Sub-Nav Buttons (Unterpunkte) — noch dezent als eingerückte Items */
+        nav .nav-sub-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 1.25rem 0.55rem 2.5rem;
+            color: var(--gastro-text-muted);
+            font-weight: 500;
+            font-size: 0.78rem;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+            background: none;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 0;
+        }
+        nav .nav-sub-btn:hover {
+            background-color: rgba(201, 168, 76, 0.05);
+            color: var(--gastro-text-main);
+            border-left-color: rgba(201, 168, 76, 0.4);
+        }
+        html.dark nav .nav-sub-btn:hover {
+            background-color: rgba(201, 168, 76, 0.07);
+        }
+        nav .nav-sub-btn.active {
+            background: linear-gradient(90deg, rgba(201, 168, 76, 0.10), rgba(201, 168, 76, 0.02));
+            color: #c9a84c;
+            border-left-color: #c9a84c;
+            font-weight: 600;
+        }
+        html.dark nav .nav-sub-btn.active {
+            color: #e8c875;
+            border-left-color: #e8c875;
+        }
+        nav .nav-sub-btn .material-symbols-outlined {
+            font-size: 18px;
+            opacity: 0.85;
+        }
+
+        /* Nav-Group-Labels — dezentere Premium-Optik */
+        .nav-group-label {
+            padding: 0.85rem 1.25rem 0.4rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(201, 168, 76, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-group-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, rgba(201, 168, 76, 0.2), transparent);
+        }
+        .nav-divider {
+            margin: 0.5rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+            opacity: 0.5;
         }
 
         .sidebar-logout {
@@ -4327,21 +4415,21 @@
                 <span class="material-symbols-outlined">group</span>
                 <span>Personal & Account</span>
             </button>
-            <button id="tab-btn-schichtplan" onclick="switchAdminTab('schichtplan')" class="nav-btn">
-                <span class="material-symbols-outlined">calendar_month</span>
+            <button id="tab-btn-schichtplan" onclick="switchAdminTab('schichtplan')" class="nav-sub-btn">
+                <span class="material-symbols-outlined" style="font-size:18px;">calendar_month</span>
                 <span>Schichtplan</span>
             </button>
-            <button id="tab-btn-lager" onclick="switchAdminTab('lager')" class="nav-btn">
-                <span class="material-symbols-outlined">inventory_2</span>
+            <button id="tab-btn-lager" onclick="switchAdminTab('lager')" class="nav-sub-btn">
+                <span class="material-symbols-outlined" style="font-size:18px;">inventory_2</span>
                 <span>Lagerverwaltung</span>
-            </button>
-            <button id="tab-btn-einstellungen" onclick="switchAdminTab('einstellungen')" class="nav-btn">
-                <span class="material-symbols-outlined">settings</span>
-                <span>Einstellungen</span>
             </button>
             <button id="tab-btn-loyalty" onclick="switchAdminTab('loyalty')" class="nav-btn">
                 <span class="material-symbols-outlined">loyalty</span>
                 <span>Loyalty & Newsletter</span>
+            </button>
+            <button id="tab-btn-einstellungen" onclick="switchAdminTab('einstellungen')" class="nav-btn">
+                <span class="material-symbols-outlined">settings</span>
+                <span>Einstellungen</span>
             </button>
             {% else %}
             {# Kellner: Sitzplan + Bestellungen (für Bon-Druck) + Produkte #}
