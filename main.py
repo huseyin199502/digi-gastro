@@ -14702,7 +14702,20 @@ async def passkit_unregister_device(
     db: Session = Depends(get_db),
 ):
     """Apple PassKit: Entfernt ein Device von einem Pass.
-    iOS ruft diesen Endpoint auf wenn der Pass aus dem Wallet gelöscht wird."""
+    iOS ruft diesen Endpoint auf wenn der Pass aus dem Wallet gelöscht wird.
+
+    CRITICAL FIX: Wenn das das LETZTE Device für diesen Pass war, müssen wir
+    customer.pass_downloaded_at zurücksetzen! Sonst:
+    - User löscht Pass aus Wallet
+    - Apple sendet DELETE
+    - Server löscht device_registration
+    - ABER customer.pass_downloaded_at bleibt gesetzt
+    - User öffnet Speisekarte → /loyalty/state → has_pass=true → show_popup=false
+    - USER SIEHT DAS POPUP NICHT MEHR obwohl der Pass gelöscht wurde!
+
+    Jetzt: Wenn keine device_registrations mehr für diese Serial existieren,
+    setze pass_downloaded_at=NULL → Popup erscheint wieder.
+    """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("ApplePass "):
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -14716,6 +14729,20 @@ async def passkit_unregister_device(
         db.delete(reg)
         db.commit()
         print(f"[PassKit] Device unregistered: {device_library_id[:16]}... → pass {serial_number[:8]}...")
+
+    # CRITICAL FIX: Prüfe ob noch irgendwelche Device-Registrations für diese Serial existieren
+    # Wenn nicht → Pass ist aus ALLEN Wallets verschwunden → pass_downloaded_at zurücksetzen
+    remaining_regs = db.query(DBPasskitReg).filter_by(pass_serial=serial_number).count()
+    if remaining_regs == 0:
+        customer = db.query(LoyaltyCustomer).filter_by(pass_serial=serial_number).first()
+        if customer and customer.pass_downloaded_at:
+            customer.pass_downloaded_at = None
+            # pass_needs_update zurücksetzen — wenn User später Pass neu herunterlädt,
+            # wird es wieder gesetzt
+            customer.pass_needs_update = False
+            db.commit()
+            print(f"[PassKit] ⚠️  Last device removed for {serial_number[:8]}... → pass_downloaded_at reset to None")
+            print(f"  Customer {customer.id} will see loyalty popup again on next menu visit")
 
     return Response(status_code=200)
 
