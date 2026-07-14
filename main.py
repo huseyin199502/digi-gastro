@@ -14731,11 +14731,18 @@ async def passkit_get_pass(
     iOS ruft diesen Endpoint auf wenn es einen Push bekommt → will aktualisierten Pass.
     Response: Updated .pkpass file.
 
-    CRITICAL FIX: If-Modified-Since Header respektieren!
+    CRITICAL FIX 1: If-Modified-Since Header respektieren!
     - Vorher: Immer 200 + Last-Modified: NOW() → iOS denkt immer "Pass hat sich geändert"
     - Nachher: Wenn pass_needs_update=False → 304 Not Modified → iOS aktualisiert nicht
     - Last-Modified = customer.last_visit_at oder created_at (nicht NOW())
     - Nach erfolgreichem Update: pass_needs_update=False setzen
+
+    CRITICAL FIX 2: 404 verboten! Customer nicht gefunden → 304 statt 404
+    - Vorher: Customer gelöscht/neu erstellt → 404 'Pass not found' → iOS löscht Pass aus Wallet!
+    - Nachher: 304 Not Modified → iOS behält alten Pass, kein stale-Marking
+    - Grund: Kunden bekommen neue anonymous_id (Safari ITP, Incognito, etc.)
+      → neuer Customer → alte pass_serial existiert nicht mehr
+      → iOS fragt nach Updates → 404 → Pass verschwindet aus Wallet
     """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("ApplePass "):
@@ -14743,8 +14750,39 @@ async def passkit_get_pass(
 
     # Customer finden
     customer = db.query(LoyaltyCustomer).filter_by(pass_serial=serial_number).first()
+
+    # CRITICAL FIX 2: Customer nicht gefunden → 304 statt 404!
+    # iOS würde bei 404 den Pass als 'stale' markieren und aus dem Wallet entfernen.
+    # Das passiert wenn:
+    #   - Customer wurde durch delete-all-customers gelöscht (admin cleanup)
+    #   - Customer hat neue anonymous_id bekommen (Safari ITP, Incognito, Cookie gelöscht)
+    #   - Customer hat neues Gerät → neue UUID → Server erstellt neuen Customer
+    #   - DB-Migration / Restart hat Customer verloren
+    # In all diesen Fällen: Pass im Wallet ist NICHT weg, nur Customer-Record ist weg.
+    # → 304 senden, iOS behält den alten Pass.
     if not customer:
-        raise HTTPException(status_code=404, detail="Pass not found")
+        print(f"[PassKit] ⚠️  Customer not found for serial {serial_number[:8]}... → 304 (NOT 404!)")
+        # Prüfe ob die Serial wenigstens in passkit_device_registrations existiert
+        # (d.h. der Pass wurde mal heruntergeladen und registriert)
+        reg = db.query(DBPasskitReg).filter_by(pass_serial=serial_number).first()
+        if reg:
+            # Serial ist registriert aber Customer fehlt → 304 mit letztem bekannten Stand
+            print(f"  → Serial found in device_registrations (tenant={reg.tenant_slug})")
+            return Response(
+                status_code=304,
+                headers={
+                    "Last-Modified": reg.created_at or _now_iso(),
+                }
+            )
+        # Weder Customer noch Registration → 304 mit aktuellem Datum als Fallback
+        # (404 würde Pass löschen, 304 lässt iOS es später erneut versuchen)
+        print(f"  → Serial not in device_registrations either → 304 fallback")
+        return Response(
+            status_code=304,
+            headers={
+                "Last-Modified": _now_iso(),
+            }
+        )
 
     # CRITICAL: Wenn pass_needs_update=False → 304 Not Modified
     # iOS aktualisiert den Pass nicht → kein Risiko eines Fehlers
