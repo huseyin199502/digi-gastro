@@ -15413,6 +15413,110 @@ def loyalty_sync_pass_status(
     }
 
 
+@app.get("/admin/loyalty/diagnose")
+def loyalty_diagnose_duplicates(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Admin: Diagnose von Duplikaten und kaputten Daten.
+
+    Findet:
+    1. Customers mit gleicher anonymous_id (Duplikate durch Cookie-Reset)
+    2. Customers ohne anonymous_id (Legacy/leer)
+    3. Device-Registrations ohne Customer (verwaist)
+    4. Customers mit mehreren Device-Registrations (mehrere Geräte)
+    5. Statistik über Gesamtdaten
+    """
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+    registrations = db.query(DBPasskitReg).filter_by(tenant_slug=slug_lower).all()
+
+    # 1. Duplikate nach anonymous_id
+    aid_groups = {}
+    for c in customers:
+        aid = c.anonymous_id or "NULL"
+        if aid not in aid_groups:
+            aid_groups[aid] = []
+        aid_groups[aid].append(c)
+
+    duplicate_groups = {
+        aid: [{
+            "id": c.id,
+            "short_code": c.short_code,
+            "pass_serial": c.pass_serial[:8] + "...",
+            "current_stamps": c.current_stamps,
+            "pass_downloaded_at": c.pass_downloaded_at,
+            "first_visit_at": c.first_visit_at,
+            "pass_type": c.pass_type,
+        } for c in group]
+        for aid, group in aid_groups.items()
+        if len(group) > 1 and aid != "NULL"
+    }
+
+    # 2. Customers ohne anonymous_id
+    no_aid = [{
+        "id": c.id,
+        "short_code": c.short_code,
+        "pass_serial": c.pass_serial[:8] + "...",
+    } for c in customers if not c.anonymous_id]
+
+    # 3. Verwaiste Device-Registrations (ohne Customer)
+    customer_serials = {c.pass_serial for c in customers}
+    orphan_regs = [{
+        "device_id": r.device_library_identifier[:16] + "...",
+        "pass_serial": r.pass_serial[:8] + "...",
+        "created_at": r.created_at,
+    } for r in registrations if r.pass_serial not in customer_serials]
+
+    # 4. Customers mit mehreren Geräten
+    reg_by_serial = {}
+    for r in registrations:
+        if r.pass_serial not in reg_by_serial:
+            reg_by_serial[r.pass_serial] = 0
+        reg_by_serial[r.pass_serial] += 1
+
+    multi_device = [{
+        "customer_id": next((c.id for c in customers if c.pass_serial == serial), None),
+        "short_code": next((c.short_code for c in customers if c.pass_serial == serial), "?"),
+        "device_count": count,
+    } for serial, count in reg_by_serial.items() if count > 1]
+
+    # 5. Statistik
+    total_stamps = sum(c.current_stamps or 0 for c in customers)
+    total_rewards = sum(c.rewards_redeemed or 0 for c in customers)
+    customers_with_pass = sum(1 for c in customers if c.pass_downloaded_at)
+    customers_with_stamps = sum(1 for c in customers if c.current_stamps > 0)
+
+    return {
+        "stats": {
+            "total_customers": len(customers),
+            "total_device_registrations": len(registrations),
+            "customers_with_pass": customers_with_pass,
+            "customers_with_stamps": customers_with_stamps,
+            "total_stamps_active": total_stamps,
+            "total_rewards_redeemed": total_rewards,
+        },
+        "duplicate_anonymous_ids": {
+            "count": len(duplicate_groups),
+            "groups": duplicate_groups,
+        },
+        "customers_without_anonymous_id": {
+            "count": len(no_aid),
+            "customers": no_aid,
+        },
+        "orphan_device_registrations": {
+            "count": len(orphan_regs),
+            "registrations": orphan_regs,
+        },
+        "multi_device_customers": {
+            "count": len(multi_device),
+            "customers": multi_device,
+        },
+    }
+
+
 @app.delete("/admin/loyalty/customer/{customer_id}")
 def loyalty_delete_customer(
     customer_id: int,
