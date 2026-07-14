@@ -16042,6 +16042,50 @@ def loyalty_merge_duplicates(
     }
 
 
+@app.put("/admin/loyalty/customer/{customer_id}/stamps")
+def loyalty_set_customer_stamps(
+    customer_id: int,
+    request: Request,
+    chef_data: tuple = Depends(require_chief_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Admin: Setzt die Stempel-Anzahl eines Customers auf einen bestimmten Wert.
+    Wird verwendet um Merge-Fehler zu korrigieren oder manuell Stempel zu setzen."""
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    customer = db.query(LoyaltyCustomer).filter_by(
+        id=customer_id, tenant_slug=slug_lower
+    ).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden.")
+
+    import json as _json
+    body = _json.loads(request.headers.get("X-Body", "{}") or "{}")
+    # Alternative: Body aus Request lesen
+    try:
+        body = request.json() if request.method == "PUT" else {}
+    except Exception:
+        body = {}
+
+    new_stamps = body.get("current_stamps")
+    if new_stamps is None:
+        raise HTTPException(status_code=400, detail="current_stamps fehlt")
+
+    old_stamps = customer.current_stamps
+    customer.current_stamps = int(new_stamps)
+    customer.pass_needs_update = True
+    db.commit()
+
+    print(f"[Loyalty] Admin set stamps for customer {customer_id}: {old_stamps} → {new_stamps}")
+    return {
+        "success": True,
+        "customer_id": customer_id,
+        "old_stamps": old_stamps,
+        "new_stamps": customer.current_stamps,
+    }
+
+
 @app.delete("/admin/loyalty/customer/{customer_id}")
 def loyalty_delete_customer(
     customer_id: int,
