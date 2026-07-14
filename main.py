@@ -1235,8 +1235,6 @@ async def tenant_suspended_handler(request: Request, exc: TenantSuspendedExcepti
 
 # ──────────────────────────────────────────────────────────────────
 # WARTUNGS-SEITE — Schöne Anzeige bei 500/502/503 (während Deploy)
-# Verhindert hässliche "Internal Server Error" Meldungen während
-# Coolify Auto-Deploy den Container neu startet.
 # ──────────────────────────────────────────────────────────────────
 MAINTENANCE_HTML = """
 <!DOCTYPE html>
@@ -1257,73 +1255,31 @@ MAINTENANCE_HTML = """
             justify-content: center;
             padding: 1rem;
         }
-        .container {
-            text-align: center;
-            max-width: 500px;
-        }
+        .container { text-align: center; max-width: 500px; }
         .logo {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 2rem;
+            width: 80px; height: 80px; margin: 0 auto 2rem;
             background: linear-gradient(135deg, #c9a84c 0%, #e8c875 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            animation: pulse 2s ease-in-out infinite;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; animation: pulse 2s ease-in-out infinite;
         }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.9; }
-        }
-        h1 {
-            font-size: 1.75rem;
-            margin-bottom: 1rem;
-            font-weight: 700;
-        }
-        p {
-            font-size: 1.1rem;
-            color: #b0b0b0;
-            margin-bottom: 0.5rem;
-            line-height: 1.6;
-        }
+        @keyframes pulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.05);opacity:0.9;} }
+        h1 { font-size: 1.75rem; margin-bottom: 1rem; font-weight: 700; }
+        p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 0.5rem; line-height: 1.6; }
         .spinner {
-            margin: 2rem auto;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(201, 168, 76, 0.2);
-            border-top-color: #c9a84c;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+            margin: 2rem auto; width: 40px; height: 40px;
+            border: 3px solid rgba(201, 168, 76, 0.2); border-top-color: #c9a84c;
+            border-radius: 50%; animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .refresh-btn {
-            display: inline-block;
-            margin-top: 1.5rem;
-            padding: 0.75rem 2rem;
-            background: #c9a84c;
-            color: #1a1a1a;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
+            display: inline-block; margin-top: 1.5rem; padding: 0.75rem 2rem;
+            background: #c9a84c; color: #1a1a1a; text-decoration: none;
+            border-radius: 8px; font-weight: 600;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        .refresh-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(201, 168, 76, 0.4);
-        }
-        .footer {
-            margin-top: 3rem;
-            font-size: 0.85rem;
-            color: #666;
-        }
-        @media (max-width: 480px) {
-            h1 { font-size: 1.5rem; }
-            p { font-size: 1rem; }
-        }
+        .refresh-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(201, 168, 76, 0.4); }
+        .footer { margin-top: 3rem; font-size: 0.85rem; color: #666; }
+        @media (max-width: 480px) { h1 { font-size: 1.5rem; } p { font-size: 1rem; } }
     </style>
 </head>
 <body>
@@ -1334,16 +1290,9 @@ MAINTENANCE_HTML = """
         <p>Das dauert nur wenige Sekunden — bitte habe etwas Geduld.</p>
         <div class="spinner"></div>
         <a href="javascript:window.location.reload()" class="refresh-btn">Erneut versuchen</a>
-        <div class="footer">
-            © 2026 digi-gastro — Powered by gastronomy OS
-        </div>
+        <div class="footer">© 2026 digi-gastro — Powered by gastronomy OS</div>
     </div>
-    <script>
-        // Auto-Reload nach 10 Sekunden
-        setTimeout(function() {
-            window.location.reload();
-        }, 10000);
-    </script>
+    <script>setTimeout(function(){ window.location.reload(); }, 10000);</script>
 </body>
 </html>
 """
@@ -1352,15 +1301,30 @@ MAINTENANCE_HTML = """
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Fängt alle unbehandelten Exceptions ab und zeigt schöne Wartungs-Seite.
-    Verhindert hässliche 'Internal Server Error' Meldungen."""
+
+    CRITICAL: Apple PassKit Endpoints (/api/wallet/apple/) brauchen saubere
+    HTTP Status Codes! Wenn wir hier 503 zurückgeben, löscht iOS den Pass aus
+    dem Wallet. Daher: PassKit-Endpoints bekommen 500 (Apple versucht es später
+    erneut, löscht aber nicht den Pass). Andere Endpoints bekommen 503.
+    """
     import logging
+    path = request.url.path
     logging.getLogger("uvicorn.error").error(
-        f"Unhandled exception on {request.method} {request.url.path}: {exc}",
+        f"Unhandled exception on {request.method} {path}: {exc}",
         exc_info=True
     )
+
+    # AUSNAHME: Apple/Google PassKit Endpoints nicht zur Wartungs-Seite machen!
+    # Apple löscht den Pass bei 503 — 500 ist sicherer (iOS retry, kein Löschen)
+    if path.startswith("/api/wallet/apple/") or path.startswith("/api/wallet/google/"):
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
+
     # API-Requests bekommen JSON, HTML-Requests bekommen schöne Seite
     accept = request.headers.get("accept", "")
-    if "application/json" in accept or request.url.path.startswith("/api/"):
+    if "application/json" in accept or path.startswith("/api/"):
         return JSONResponse(
             status_code=503,
             content={
@@ -1374,10 +1338,14 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    """Auch HTTP 500 wird zur Wartungs-Seite, 404/403 bleiben normal."""
-    if exc.status_code >= 500:
+    """HTTP 500 wird zur Wartungs-Seite, 4xx bleibt normal.
+    ABER: PassKit-Endpoints bekommen saubere HTTP-Codes (keine 503!)."""
+    path = request.url.path
+    is_passkit = path.startswith("/api/wallet/apple/") or path.startswith("/api/wallet/google/")
+
+    if exc.status_code >= 500 and not is_passkit:
         accept = request.headers.get("accept", "")
-        if "application/json" in accept or request.url.path.startswith("/api/"):
+        if "application/json" in accept or path.startswith("/api/"):
             return JSONResponse(
                 status_code=503,
                 content={
@@ -1387,7 +1355,8 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
                 }
             )
         return HTMLResponse(content=MAINTENANCE_HTML, status_code=503)
-    # Für 4xx Errors: Standard-Verhalten beibehalten
+
+    # Für 4xx Errors oder PassKit: Standard-JSON-Response
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
@@ -14671,13 +14640,20 @@ async def passkit_get_registrations(
 ):
     """Apple PassKit: Listet alle Passes die auf diesem Device registriert sind.
 
-    WICHTIG: Apple's 'Get serial #s task' (background check nach APNs Push)
-    ruft diesen Endpoint auf. Wenn wir 204 zurückgeben, denkt iOS 'nichts zu
-    tun' → ruft nicht GET /passes/... auf → Pass aktualisiert sich nicht.
+    Apple's 'Get serial #s task' (background check nach APNs Push) ruft diesen
+    Endpoint auf. Laut Apple PassKit Spec:
+    - 200 + serialNumbers + lastUpdated → iOS ruft GET /passes/... auf,
+      ABER nur wenn sich lastUpdated geändert hat!
+    - 204 → "nichts zu tun" → iOS ruft NICHT GET /passes/... auf
 
-    Fix: IMMER 200 mit serialNumbers zurückgeben wenn Registrierungen
-    existieren (ohne Auth-Validierung). Apple's Spec ist hier ambivalent —
-    die Praxis zeigt: 204 = 'nichts zu tun' = Pass wird nie aktualisiert.
+    CRITICAL FIX: lastUpdated darf sich NUR ändern wenn sich ein Pass wirklich
+    geändert hat (pass_needs_update=True). Vorher wurde immer NOW() gesendet,
+    was iOS zwang, ständig GET /passes/... aufzurufen. Wenn dabei die Pass-
+    Generierung fehlschlug (Logo fehlt, Exception), bekam iOS einen Fehler
+    und ENTFERNTE DEN PASS AUS DEM WALLET!
+
+    Jetzt: lastUpdated = max(updated_at) aller registrierten Pässe.
+    Wenn kein Pass pass_needs_update=True hat, geben wir 204 zurück.
     """
     regs = db.query(DBPasskitReg).filter_by(
         device_library_identifier=device_library_id,
@@ -14687,10 +14663,33 @@ async def passkit_get_registrations(
     if not regs:
         return Response(status_code=204)
 
-    # 200 + serialNumbers → iOS ruft GET /passes/... für jeden serial auf
+    # Sammle alle serial_numbers
+    serials = [r.pass_serial for r in regs]
+
+    # Prüfe ob irgend ein Pass ein Update braucht
+    customers = db.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.pass_serial.in_(serials)
+    ).all()
+
+    # Finde Pässe die ein Update brauchen (pass_needs_update=True)
+    needs_update_serials = [c.pass_serial for c in customers if c.pass_needs_update]
+
+    if not needs_update_serials:
+        # Kein Pass braucht ein Update → 204 = "nichts zu tun"
+        # iOS ruft NICHT GET /passes/... auf → kein Risiko eines 500ers
+        return Response(status_code=204)
+
+    # Es gibt Pässe die ein Update brauchen → 200 mit nur diesen Serials
+    # lastUpdated = letztes Update-Datum (nicht NOW!), damit iOS erkennt
+    # ob sich seit dem letzten Check etwas geändert hat
+    latest_update = max(
+        (c.last_visit_at or c.created_at for c in customers if c.pass_needs_update),
+        default=_now_iso()
+    )
+
     return {
-        "lastUpdated": _now_iso(),
-        "serialNumbers": [r.pass_serial for r in regs]
+        "lastUpdated": latest_update,
+        "serialNumbers": needs_update_serials
     }
 
 
@@ -14730,7 +14729,14 @@ async def passkit_get_pass(
 ):
     """Apple PassKit: Liefert den aktuellsten Pass-Status.
     iOS ruft diesen Endpoint auf wenn es einen Push bekommt → will aktualisierten Pass.
-    Response: Updated .pkpass file."""
+    Response: Updated .pkpass file.
+
+    CRITICAL FIX: If-Modified-Since Header respektieren!
+    - Vorher: Immer 200 + Last-Modified: NOW() → iOS denkt immer "Pass hat sich geändert"
+    - Nachher: Wenn pass_needs_update=False → 304 Not Modified → iOS aktualisiert nicht
+    - Last-Modified = customer.last_visit_at oder created_at (nicht NOW())
+    - Nach erfolgreichem Update: pass_needs_update=False setzen
+    """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("ApplePass "):
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -14739,6 +14745,18 @@ async def passkit_get_pass(
     customer = db.query(LoyaltyCustomer).filter_by(pass_serial=serial_number).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Pass not found")
+
+    # CRITICAL: Wenn pass_needs_update=False → 304 Not Modified
+    # iOS aktualisiert den Pass nicht → kein Risiko eines Fehlers
+    if not customer.pass_needs_update:
+        print(f"[PassKit] ⏭️  304 Not Modified for {serial_number[:8]}... (no update needed)")
+        last_mod = customer.last_visit_at or customer.created_at or _now_iso()
+        return Response(
+            status_code=304,
+            headers={
+                "Last-Modified": last_mod,
+            }
+        )
 
     # Aktuelle Karte laden
     card = db.query(LoyaltyCard).filter_by(id=customer.card_id).first()
@@ -14785,14 +14803,43 @@ async def passkit_get_pass(
                 logo_path_update = p
                 break
 
-    pkpass_bytes = generate_apple_pkpass(
-        customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict,
-        logo_path=logo_path_update,
-        notification_icon_path=_resolve_notification_icon(tenant, UPLOAD_DIR),
-    )
+    # CRITICAL: Try/except um Pass-Generierung — bei Fehler NICHT 500/503 senden!
+    # Apple löscht den Pass aus dem Wallet bei 500/503. Besser: 304 zurückgeben
+    # und später erneut versuchen. Logging bleibt erhalten für Debugging.
+    try:
+        pkpass_bytes = generate_apple_pkpass(
+            customer.tenant_slug, tenant.name, card_dict, customer_dict, geofence_dict,
+            logo_path=logo_path_update,
+            notification_icon_path=_resolve_notification_icon(tenant, UPLOAD_DIR),
+        )
+    except Exception as e:
+        print(f"[PassKit] ❌ Pass generation FAILED for {serial_number[:8]}...: {e}")
+        # NICHT 500/503 senden — das würde iOS veranlassen den Pass zu löschen!
+        # Stattdessen 304 → iOS behält den alten Pass und versucht es später erneut
+        import logging
+        logging.getLogger("uvicorn.error").error(
+            f"Pass generation failed for {serial_number}: {e}", exc_info=True
+        )
+        return Response(
+            status_code=304,
+            headers={
+                "Last-Modified": customer.last_visit_at or customer.created_at or _now_iso(),
+            }
+        )
 
     if not pkpass_bytes:
-        raise HTTPException(status_code=500, detail="Pass generation failed")
+        print(f"[PassKit] ❌ Pass generation returned None for {serial_number[:8]}...")
+        # Gleiches Verhalten: 304 statt 500
+        return Response(
+            status_code=304,
+            headers={
+                "Last-Modified": customer.last_visit_at or customer.created_at or _now_iso(),
+            }
+        )
+
+    # Pass erfolgreich generiert → pass_needs_update zurücksetzen
+    customer.pass_needs_update = False
+    db.commit()
 
     # FIX: If-Modified-Since Header korrekt behandeln
     # iOS sendet If-Modified-Since mit dem Last-Modified vom letzten Abruf.
@@ -14824,12 +14871,14 @@ async def passkit_get_pass(
     real_last_modified = getattr(customer, 'updated_at', None) or customer.last_push_at or _now_iso()
 
     print(f"[PassKit] ✅ Pass served for {serial_number[:8]}... (stamps: {customer.current_stamps}/{card.stamps_required})")
+    # Last-Modified = letzter Besuch oder Erstellung (nicht NOW()!)
+    last_mod = customer.last_visit_at or customer.created_at or _now_iso()
     return Response(
         content=pkpass_bytes,
         media_type="application/vnd.apple.pkpass",
         headers={
             "Content-Disposition": f'attachment; filename="{customer.tenant_slug}-stempelkarte.pkpass"',
-            "Last-Modified": real_last_modified,
+            "Last-Modified": last_mod,
         }
     )
 
