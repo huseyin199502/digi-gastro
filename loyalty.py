@@ -1690,6 +1690,15 @@ def _generate_google_class_payload(
         "reviewStatus": "UNDER_REVIEW",
         "countryCode": "DE",
         "localizedIssuerName": {"defaultValue": {"language": "de", "value": tenant_name or "digi-gastro"}},
+        # NEU P2.1: Save/Delete Callback — Google Wallet ruft diese URL auf
+        # wenn ein User den Pass speichert (save) oder löscht (del).
+        # Payload: {classId, objectId, eventType, nonce, expTimeMillis} signiert mit ECv2.
+        # WICHTIG: Enthält KEINE device_id, nur das Object-ID-Event.
+        # Wir können damit immerhin feststellen ob der Pass noch im Wallet ist.
+        "callbackOptions": {
+            "updateUrl": f"https://digi-gastro.de/api/wallet/google/callback",
+            "urlContext": "eyJ2ZXJzaW9uIjogMSwgInJlZ2lzdHJhdGlvblR5cGUiOiAiU0FGRSJ9"  # base64 JSON {version:1,registrationType:SAFE}
+        },
     }
 
     # Logo nur hinzufügen wenn URL gültig ist (kein 404!)

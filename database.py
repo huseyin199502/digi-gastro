@@ -485,6 +485,12 @@ class LoyaltyCustomer(Base):
     # Verhindert Customer-Duplikate bei Cookielöschung / Inkognito-Modus.
     anonymous_id = Column(String, nullable=True)          # UUID4, unique pro Gerät+Tenant
     pass_downloaded_at = Column(String, nullable=True)    # ISO-Datum: wann wurde Pass heruntergeladen?
+    # ── NEU: last_known_device_id — echte iOS-Geräte-ID aus PassKit ──
+    # Wird beim POST /v1/devices/.../registrations/... von iOS gesetzt.
+    # Stabil über Safari ITP, Cookie-Löschung, Incognito hinaus.
+    # Auto-Recovery: Wenn Kunde ohne anonymous_id kommt (Safari ITP), aber
+    # device_id zu einem bekannten Customer passt → Customer gefunden statt neu erstellt.
+    last_known_device_id = Column(String, nullable=True)  # Apple PassKit device_library_identifier
 
 class LoyaltyStamp(Base):
     """Ein einzelner Stempel — wird bei Bestellung automatisch vergeben.
@@ -992,6 +998,16 @@ def _migrate_database():
     add_column_if_missing('loyalty_customers', 'anonymous_id', "VARCHAR")
     add_column_if_missing('loyalty_customers', 'pass_downloaded_at', "VARCHAR")
     add_column_if_missing('loyalty_customers', 'updated_at', "VARCHAR")  # NEU: für If-Modified-Since
+    # NEU: last_known_device_id — echte iOS-Geräte-ID aus PassKit
+    # Auto-Recovery gegen Safari ITP / Cookie-Verlust
+    add_column_if_missing('loyalty_customers', 'last_known_device_id', "VARCHAR")
+    # Index für schnelle Lookup pro Tenant (Auto-Recovery Performance)
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_loyalty_customer_tenant_device ON loyalty_customers (tenant_slug, last_known_device_id)"))
+        print("[DB Migration] Index idx_loyalty_customer_tenant_device erstellt/ok")
+    except Exception as _e:
+        print(f"[DB Migration] Index idx_loyalty_customer_tenant_device: {_e}")
     # Wallet-Banner-Foto für LoyaltyCard (Tenant kann Foto hochladen)
     add_column_if_missing('loyalty_cards', 'wallet_banner_path', "VARCHAR")
     add_column_if_missing('loyalty_cards', 'wallet_banner_mode', "VARCHAR DEFAULT 'full'")

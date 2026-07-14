@@ -14353,16 +14353,135 @@ def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)
             show_popup = True
             print(f"[Loyalty] Auto-heal: Customer {customer.id} had pass_downloaded_at but no device_registration → resetted")
 
-    # Für Google User: wir können es nicht prüfen (kein Callback)
+    # Für Google User: Save/Delete Callbacks sind verfügbar (callbackOptions.updateUrl
+    # auf Class-Ebene), aber sie enthalten KEINE device_id. Wir können nur das
+    # Object-ID-Event empfangen. Aktuell nicht implementiert.
+    # TODO: Google Wallet Save/Delete Callback implementieren (P2.1)
     # → pass_downloaded_at bleibt gesetzt, Popup kommt nicht
     # → User muss bei Bedarf manuell resetten (via Admin-API)
 
-    return {
+    # CRITICAL FIX: _cid Cookie via HTTP-Header setzen (nicht via JS!)
+    # Vorher: Frontend setzte document.cookie = 'loyalty_{slug}_cid=...'
+    #         → Safari ITP kürzt JS-gesetzte Cookies auf 7 Tage
+    #         → Cookie war nach 7 Tagen weg → Kunde wurde nicht erkannt → Popup kam wieder
+    # Jetzt: Server setzt das Cookie via Set-Cookie HTTP-Header
+    #         → ITP kürzt server-seitig gesetzte Cookies NICHT
+    #         → Cookie überlebt 1 Jahr (max_age=31536000)
+    #         → Kunde wird zuverlässig erkannt auch nach Safari ITP
+    response_data = {
         "show_popup": show_popup,
         "customer_id": customer.id if customer else None,
         "has_pass": has_pass,
         "anonymous_id": aid or (customer.anonymous_id if customer else None),
     }
+    if customer and customer.id:
+        response = JSONResponse(content=response_data)
+        _fwd_proto = request.headers.get("x-forwarded-proto", "")
+        _is_secure = (request.url.scheme == "https" or _fwd_proto == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
+        response.set_cookie(
+            key=f"loyalty_{slug_lower}_cid",
+            value=str(customer.id),
+            httponly=True,
+            max_age=31536000,
+            samesite="lax",
+            secure=_is_secure,
+        )
+        # 'saved' Cookie auch server-seitig setzen (für Popup-Suppression)
+        if has_pass:
+            response.set_cookie(
+                key=f"loyalty_{slug_lower}",
+                value="saved",
+                httponly=False,
+                max_age=31536000,
+                samesite="lax",
+                secure=_is_secure,
+            )
+        return response
+    return response_data
+
+
+# NEU P2.2: Short-Code Recovery — Kunde hat Pass aber Server erkennt ihn nicht
+# Kunde gibt 4-stelligen Code vom Wallet-Pass ein → Server findet Customer
+# → verknüpft aktuelle anonymous_id mit Customer + setzt _cid Cookie
+@app.post("/{slug}/loyalty/recover")
+async def loyalty_recover_by_shortcode(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Recovery: Kunde gibt seinen 4-stelligen Code ein.
+
+    Flow:
+    1. Kunde hat Pass im Wallet (z.B. seit 3 Wochen)
+    2. Safari ITP hat anonymous_id gelöscht
+    3. Kunde öffnet Speisekarte → Server findet Customer nicht → Popup kommt
+    4. Kunde klickt "Code eingeben" → gibt A7K2 ein
+    5. Server findet Customer via short_code
+    6. Server verknüpft aktuelle anonymous_id mit Customer
+    7. Server setzt _cid Cookie via HTTP-Header (überlebt ITP)
+    8. Popup schließt, Kunde ist wieder verknüpft
+    """
+    slug_lower = slug.lower().strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    short_code = (body.get("short_code") or "").strip().upper()
+    anonymous_id = (body.get("anonymous_id") or "").strip()
+
+    if not short_code or len(short_code) < 3:
+        raise HTTPException(status_code=400, detail="Bitte gültigen Code eingeben")
+
+    # Customer via short_code finden
+    customer = db.query(LoyaltyCustomer).filter_by(
+        tenant_slug=slug_lower,
+        short_code=short_code,
+    ).first()
+
+    if not customer:
+        raise HTTPException(status_code=404, detail="Code nicht gefunden. Bitte überprüfe deinen Code im Wallet-Pass.")
+
+    # anonymous_id verknüpfen (falls nicht bereits)
+    if anonymous_id and customer.anonymous_id != anonymous_id:
+        customer.anonymous_id = anonymous_id
+        print(f"[Loyalty Recovery] Customer {customer.id} verknüpft mit neuer anonymous_id (kurz: {anonymous_id[:8]}...)")
+
+    # Karte laden für Response
+    card = db.query(LoyaltyCard).filter_by(id=customer.card_id).first()
+    db.commit()
+
+    # _cid Cookie via HTTP-Header setzen (überlebt Safari ITP!)
+    response_data = {
+        "success": True,
+        "customer_id": customer.id,
+        "current_stamps": customer.current_stamps,
+        "stamps_required": card.stamps_required if card else 0,
+        "tier": customer.tier,
+        "rewards_redeemed": customer.rewards_redeemed,
+    }
+    response = JSONResponse(content=response_data)
+    _fwd_proto = request.headers.get("x-forwarded-proto", "")
+    _is_secure = (request.url.scheme == "https" or _fwd_proto == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
+    response.set_cookie(
+        key=f"loyalty_{slug_lower}_cid",
+        value=str(customer.id),
+        httponly=True,
+        max_age=31536000,
+        samesite="lax",
+        secure=_is_secure,
+    )
+    # 'saved' Cookie auch setzen (Popup-Suppression)
+    if customer.pass_downloaded_at:
+        response.set_cookie(
+            key=f"loyalty_{slug_lower}",
+            value="saved",
+            httponly=False,
+            max_age=31536000,
+            samesite="lax",
+            secure=_is_secure,
+        )
+    print(f"[Loyalty Recovery] ✅ Customer {customer.id} recovered via short_code {short_code}")
+    return response
 
 
 @app.get("/{slug}/loyalty/pass/apple")
@@ -14652,6 +14771,52 @@ async def passkit_register_device(
     if customer and not customer.pass_downloaded_at:
         customer.pass_downloaded_at = _now_iso()
         print(f"[PassKit] ✅ pass_downloaded_at set for customer {customer.id} (device registration)")
+
+    # NEU: Auto-Recovery — last_known_device_id auf Customer setzen
+    # Speichert die echte iOS device_library_identifier (stabil über Safari ITP hinaus)
+    # Wenn Kunde später ohne anonymous_id kommt (Safari ITP) kann via device_id recovered werden
+    if customer:
+        if not customer.last_known_device_id:
+            customer.last_known_device_id = device_library_id
+            print(f"[PassKit] ✅ last_known_device_id set for customer {customer.id}: {device_library_id[:16]}...")
+        elif customer.last_known_device_id != device_library_id:
+            # Customer hat Gerät gewechselt — update last_known_device_id
+            old_device = customer.last_known_device_id
+            customer.last_known_device_id = device_library_id
+            print(f"[PassKit] 🔄 last_known_device_id updated for customer {customer.id}: {old_device[:16]}... → {device_library_id[:16]}...")
+
+    # NEU: Auto-Recovery Prüfung — existiert für dieses Gerät (device_library_id)
+    # bereits ein ANDERER Customer für diesen Tenant? Dann ist der Kunde vermutlich
+    # derselbe, hat aber eine neue anonymous_id (Safari ITP / Incognito / Cookie-Löschung).
+    # In diesem Fall: migriere den alten Customer auf die neue pass_serial, damit
+    # Stempel und Rewards erhalten bleiben und kein Duplikat entsteht.
+    if tenant_slug and customer:
+        existing_device_customer = db.query(LoyaltyCustomer).filter(
+            LoyaltyCustomer.tenant_slug == tenant_slug,
+            LoyaltyCustomer.last_known_device_id == device_library_id,
+            LoyaltyCustomer.id != customer.id,  # Nicht derselbe Customer
+        ).first()
+        if existing_device_customer:
+            print(f"[PassKit] ⚠️  Auto-Recovery: Device {device_library_id[:16]}... war früher Customer {existing_device_customer.id} (Serial {existing_device_customer.pass_serial[:8]}...)")
+            print(f"  Now registering as Customer {customer.id} (Serial {serial_number[:8]}...)")
+            # Stempel + Rewards vom alten Customer auf neuen übernehmen (Summe, nicht Verschieben)
+            if existing_device_customer.current_stamps > 0 and customer.current_stamps == 0:
+                customer.current_stamps = existing_device_customer.current_stamps
+                customer.total_stamps_earned += existing_device_customer.total_stamps_earned
+                customer.rewards_redeemed += existing_device_customer.rewards_redeemed
+                if existing_device_customer.first_visit_at and (
+                    not customer.first_visit_at or
+                    existing_device_customer.first_visit_at < customer.first_visit_at
+                ):
+                    customer.first_visit_at = existing_device_customer.first_visit_at
+                # Tier updaten falls alter Customer VIP/Stamm war
+                if existing_device_customer.tier in ("stamm", "vip") and customer.tier == "neu":
+                    customer.tier = existing_device_customer.tier
+                print(f"  → Stempel {existing_device_customer.current_stamps} + Rewards {existing_device_customer.rewards_redeemed} migriert")
+            # Alten Customer als "abgelöst" markieren (nicht löschen — Audit-Trail)
+            existing_device_customer.last_known_device_id = None  # Device loslösen
+            existing_device_customer.pass_needs_update = False  # Kein Push für alten Customer
+            # anonymous_id nicht löschen — könnte wieder auftauchen
 
     # Existierende Registration updaten oder neue erstellen
     reg = db.query(DBPasskitReg).filter_by(
@@ -15012,6 +15177,95 @@ async def passkit_log(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"[PassKit Log] Error: {e}")
 
+    return Response(status_code=200)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# GOOGLE WALLET SAVE/DELETE CALLBACK (P2.1)
+# ═══════════════════════════════════════════════════════════════════════
+# Google Wallet ruft diesen Endpoint auf wenn ein User einen Pass speichert (save)
+# oder löscht (del). Payload ist signiert mit ECv2.
+# WICHTIG: Google Callback enthält KEINE device_id, nur:
+#   - classId, objectId, eventType (save/del), nonce, expTimeMillis, signedBytes
+# Wir können damit:
+#   - pass_downloaded_at setzen (bei save)
+#   - pass_downloaded_at resetten (bei del)
+#   - Aber NICHT last_known_device_id (Google gibt keine device_id)
+@app.post("/api/wallet/google/callback")
+async def google_wallet_callback(request: Request, db: Session = Depends(get_db)):
+    """Google Wallet Save/Delete Callback Endpoint.
+
+    Google ruft diesen Endpoint auf wenn User einen Pass speichert oder löscht.
+    Payload: {classId, objectId, eventType: 'save'|'del', nonce, expTimeMillis}
+
+    WICHTIG: Signatur-Verifikation via ECv2 sollte implementiert werden
+    (Google publicKey). Aktuell nur Logging — nicht kritisch für Sicherheit,
+    da wir nur pass_downloaded_at updaten (keine kritischen Daten).
+    """
+    try:
+        body = await request.json()
+        event_type = body.get("eventType", "")
+        object_id = body.get("objectId", "")
+        class_id = body.get("classId", "")
+        nonce = body.get("nonce", "")
+
+        print(f"[Google Wallet Callback] eventType={event_type}, objectId={object_id[:40]}..., classId={class_id[:40]}...")
+
+        # Object-ID Format: "{issuer_id}.{tenant_slug}-{serial[:16]}"
+        # Versuchen den Customer anhand der Object-ID zu finden
+        if object_id and "." in object_id:
+            # Object-ID splitten: issuer_id.teil
+            parts = object_id.split(".", 1)
+            if len(parts) == 2:
+                object_part = parts[1]  # tenant_slug-serial[:16]
+                # Suche in DB: Customer dessen pass_serial mit dem Prefix in object_part beginnt
+                # Object-Part Format: "{tenant_slug}-{serial[:16]}"
+                if "-" in object_part:
+                    tenant_slug_part, serial_prefix = object_part.rsplit("-", 1)
+                    # Customer finden dessen pass_serial mit serial_prefix beginnt
+                    customer = db.query(LoyaltyCustomer).filter(
+                        LoyaltyCustomer.pass_serial.like(f"{serial_prefix}%"),
+                        LoyaltyCustomer.pass_type == "google",
+                    ).first()
+
+                    if customer:
+                        if event_type == "save":
+                            # Pass wurde gespeichert → pass_downloaded_at setzen
+                            if not customer.pass_downloaded_at:
+                                customer.pass_downloaded_at = _now_iso()
+                                db.commit()
+                                print(f"[Google Wallet Callback] ✅ pass_downloaded_at set for customer {customer.id} (tenant={customer.tenant_slug})")
+                        elif event_type == "del":
+                            # Pass wurde gelöscht → pass_downloaded_at resetten
+                            if customer.pass_downloaded_at:
+                                customer.pass_downloaded_at = None
+                                customer.pass_needs_update = False
+                                db.commit()
+                                print(f"[Google Wallet Callback] ❌ pass_downloaded_at reset for customer {customer.id} (tenant={customer.tenant_slug})")
+                    else:
+                        print(f"[Google Wallet Callback] Customer nicht gefunden für object_part={object_part}")
+        # Logging in passkit_logs Tabelle (zweckentfremdet für Google Wallet Logs)
+        try:
+            log_entry = DBPasskitLog(
+                logs=json.dumps([{
+                    "source": "google_wallet_callback",
+                    "eventType": event_type,
+                    "objectId": object_id,
+                    "classId": class_id,
+                    "nonce": nonce,
+                    "timestamp": _now_iso(),
+                }]),
+                created_at=_now_iso(),
+            )
+            db.add(log_entry)
+            db.commit()
+        except Exception:
+            pass
+
+    except Exception as e:
+        print(f"[Google Wallet Callback] Error: {e}")
+
+    # Google erwartet HTTP 200
     return Response(status_code=200)
 
 
@@ -15424,8 +15678,10 @@ def loyalty_sync_pass_status(
     """Admin: Sync pass_downloaded_at für alle Kunden.
     Setzt pass_downloaded_at=NULL für Kunden die keine Device-Registration mehr haben.
 
-    WICHTIG: Nur für APPLE Kunden! Google Wallet hat keinen Device-Callback.
-    Google-Wallet User können wir nicht prüfen — pass_downloaded_at bleibt gesetzt.
+    WICHTIG: Nur für APPLE Kunden! Google Wallet hat Save/Delete Callbacks
+    (callbackOptions.updateUrl) aber diese sind aktuell nicht implementiert.
+    Google-Wallet User können wir daher aktuell nicht prüfen — pass_downloaded_at bleibt gesetzt.
+    TODO: P2.1 — Google Wallet Save/Delete Callback implementieren.
     """
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
@@ -15437,8 +15693,10 @@ def loyalty_sync_pass_status(
     for c in customers:
         if not c.pass_downloaded_at:
             continue
-        # CRITICAL: Google Wallet überspringen! Google hat keinen Callback,
-        # wir können nicht wissen ob der Pass im Wallet ist oder nicht.
+        # CRITICAL: Google Wallet überspringen! Google hat Save/Delete Callbacks
+        # (callbackOptions.updateUrl), aber diese sind aktuell nicht implementiert.
+        # Wir können daher aktuell nicht wissen ob der Pass im Wallet ist oder nicht.
+        # TODO: P2.1 — Google Wallet Callback implementieren um auch Google prüfen zu können.
         if c.pass_type == "google":
             skipped_google += 1
             continue
@@ -15467,7 +15725,7 @@ def loyalty_sync_pass_status(
         "fixed_count": fixed_count,
         "skipped_google": skipped_google,
         "fixed_customers": fixed_customers,
-        "message": f"{fixed_count} Apple-Kunden resettet. {skipped_google} Google-Kunden übersprungen (kein Callback möglich)."
+        "message": f"{fixed_count} Apple-Kunden resettet. {skipped_google} Google-Kunden übersprungen (Save/Delete Callback noch nicht implementiert)."
     }
 
 

@@ -1031,6 +1031,39 @@
                 <button @click="closeLoyaltyPopupAndGoToMenu()" class="w-full py-1.5 text-on-surface-variant text-[11px] font-bold hover:text-on-surface transition-colors" id="loyalty-skip-btn">
                     Vielleicht später
                 </button>
+
+                <!-- NEU P2.2: Short-Code Recovery — Kunde hat schon Pass aber Server erkennt ihn nicht -->
+                <!-- (z.B. Safari ITP hat anonymous_id gelöscht, Private Mode, Gerätewechsel) -->
+                <!-- Kunde kann seinen 4-stelligen Code vom Pass eingeben → Server findet Customer -->
+                <div class="mt-2 pt-2 border-t border-outline-variant/40">
+                    <button onclick="document.getElementById('shortcode-recovery-form').classList.toggle('hidden')"
+                            class="w-full text-[10px] text-on-surface-variant hover:text-primary font-bold transition-colors">
+                        Hast du schon eine Stempelkarte? Code eingeben
+                    </button>
+                    <div id="shortcode-recovery-form" class="hidden mt-2 flex gap-1.5">
+                        <input type="text"
+                               id="shortcode-recovery-input"
+                               placeholder="z.B. A7K2"
+                               maxlength="4"
+                               class="flex-1 bg-background border border-outline-variant text-on-surface text-xs rounded-lg px-2 py-1.5 uppercase tracking-wider focus:outline-none focus:border-primary transition-colors"
+                               oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')">
+                        <button onclick="recoverLoyaltyByShortCode()"
+                                class="px-3 py-1.5 bg-primary text-black text-xs font-bold rounded-lg hover:bg-primary-hover transition-colors">
+                            Wiederherstellen
+                        </button>
+                    </div>
+                    <p id="shortcode-recovery-msg" class="hidden text-[10px] mt-1.5 font-bold"></p>
+
+                    <!-- NEU P2.3: PWA "Zum Home Screen" Tipp — ITP-exempt Storage -->
+                    <!-- Wenn Kunde die Speisekarte als App installiert → localStorage überlebt dauerhaft -->
+                    <div id="pwa-homescreen-tip" class="hidden mt-2 pt-2 border-t border-outline-variant/40">
+                        <p class="text-[10px] text-on-surface-variant leading-relaxed text-center">
+                            <span class="font-bold text-primary">💡 Tipp:</span>
+                            Tippe auf Teilen → "Zum Home Screen" — dann bleibt deine Stempelkarte
+                            dauerhaft erhalten (auch nach 7 Tagen).
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1085,13 +1118,20 @@
         async function _getOrCreateAid() {
             const slug = '{{ slug }}';
             const lsKey = `dg_aid_${slug}`;
+            // SAFARI PRIVATE MODE FIX: localStorage.setItem wirft QuotaExceededError
+            // im Safari Private Mode. Wir müssen alle Zugriffe in try/catch wrappen,
+            // sonst bricht die gesamte Funktion ab und _dgAid wird nie gesetzt.
+            // → 1-5% der User sehen immer Popup weil Aid nie generiert wird.
+            const _lsGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
+            const _lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch(e) { return false; } };
+
             // 1. Versuche localStorage
-            let aid = localStorage.getItem(lsKey);
+            let aid = _lsGet(lsKey);
             if (aid && aid.length === 36) { _dgAid = aid; _persistAidCookie(aid); return aid; }
             // 2. Versuche Cookie (Backup)
             const cookieMatch = document.cookie.match(new RegExp(`loyalty_${slug}_aid=([a-f0-9-]+)`));
             if (cookieMatch && cookieMatch[1].length === 36) {
-                localStorage.setItem(lsKey, cookieMatch[1]);
+                _lsSet(lsKey, cookieMatch[1]);  // Versuchen in LS zu schreiben (kann fehlschlagen im Private Mode)
                 _dgAid = cookieMatch[1];
                 return cookieMatch[1];
             }
@@ -1099,7 +1139,7 @@
             try {
                 const idbAid = await _idbGetAid(slug);
                 if (idbAid && idbAid.length === 36) {
-                    localStorage.setItem(lsKey, idbAid);
+                    _lsSet(lsKey, idbAid);  // Versuchen in LS zu schreiben
                     _dgAid = idbAid;
                     _persistAidCookie(idbAid);
                     return idbAid;
@@ -1107,7 +1147,7 @@
             } catch (e) { /* IDB evtl. nicht verfügbar */ }
             // 4. Neue UUID generieren + in alle 3 Kanäle speichern
             aid = (crypto.randomUUID ? crypto.randomUUID() : _genUuidFallback());
-            localStorage.setItem(lsKey, aid);
+            _lsSet(lsKey, aid);  // Versuchen in LS zu schreiben (Private Mode: schlägt fehl, aber Aid trotzdem nutzen)
             _persistAidCookie(aid);
             try { await _idbSetAid(slug, aid); } catch (e) {}
             _dgAid = aid;
@@ -1206,10 +1246,11 @@
                         if (stateRes.ok) {
                             const state = await stateRes.json();
                             _loyaltyHasPass = !!state.has_pass;
-                            // Customer-ID als Cookie persistieren (für Auto-Stempel nach Bestellung)
-                            if (state.customer_id) {
-                                document.cookie = `loyalty_{{ slug }}_cid=${state.customer_id}; max-age=31536000; path=/; SameSite=Lax; Secure`;
-                            }
+                            // CRITICAL FIX: _cid Cookie wird jetzt vom SERVER via Set-Cookie
+                            // HTTP-Header gesetzt (in /loyalty/state Response).
+                            // Vorher: document.cookie = '...' → Safari ITP kürzt auf 7 Tage.
+                            // Jetzt: Server-set Cookie überlebt 1 Jahr (ITP-exempt).
+                            // Wir müssen hier NICHTS mehr setzen — Server übernimmt das.
                             // Bestehendes "saved"-Cookie synchronisieren (falls Server sagt: hat Pass)
                             if (state.has_pass) {
                                 _setLoyaltySavedCookie();
@@ -1928,6 +1969,84 @@
                 rate_us: "Rate us on Google"
             }
         };
+
+        // NEU P2.3: PWA "Zum Home Screen" Tipp nur auf iOS Safari anzeigen
+        // (nur dort ist ITP ein Problem, das durch PWA-Installation gelöst wird)
+        function _showPwaHomeScreenTipIfApplicable() {
+            const tip = document.getElementById('pwa-homescreen-tip');
+            if (!tip) return;
+            // Prüfen: iOS Safari (nicht in standalone mode = noch nicht installiert)
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+            if (isIOS && !isStandalone) {
+                tip.classList.remove('hidden');
+            }
+        }
+        // Aufruf wenn Popup geöffnet wird
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial prüfen (falls Popup direkt beim Page-Load geöffnet wird)
+            setTimeout(_showPwaHomeScreenTipIfApplicable, 1000);
+        });
+
+        // NEU P2.2: Short-Code Recovery — Kunde hat Pass aber Server erkennt ihn nicht
+        // (Safari ITP hat anonymous_id gelöscht, Private Mode, Gerätewechsel)
+        // Kunde kann seinen 4-stelligen Code vom Wallet-Pass eingeben → Server findet Customer
+        // → Server setzt _cid Cookie + verknüpft aktuelle anonymous_id mit Customer
+        async function recoverLoyaltyByShortCode() {
+            const input = document.getElementById('shortcode-recovery-input');
+            const msgEl = document.getElementById('shortcode-recovery-msg');
+            if (!input || !msgEl) return;
+
+            const code = input.value.trim().toUpperCase();
+            if (code.length < 4) {
+                msgEl.textContent = 'Bitte 4-stelligen Code eingeben';
+                msgEl.className = 'text-[10px] mt-1.5 font-bold text-rose-500';
+                msgEl.classList.remove('hidden');
+                return;
+            }
+
+            // Aktuelle anonymous_id mitsenden → Server kann Customer verknüpfen
+            const aid = await _getOrCreateAid();
+
+            try {
+                const res = await fetch(`/{{ slug }}/loyalty/recover`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ short_code: code, anonymous_id: aid }),
+                });
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    msgEl.textContent = `✓ Willkommen zurück! ${data.current_stamps}/${data.stamps_required} Stempel`;
+                    msgEl.className = 'text-[10px] mt-1.5 font-bold text-emerald-500';
+                    msgEl.classList.remove('hidden');
+
+                    // Popup nach 2 Sekunden schließen + zur Speisekarte
+                    setTimeout(() => {
+                        const popup = document.getElementById('loyalty-popup');
+                        if (popup) {
+                            popup.classList.add('hidden');
+                            document.body.style.overflow = '';
+                        }
+                        // Alpine store updaten
+                        const root = document.querySelector('[x-data]');
+                        if (root && Alpine.\$data(root)) {
+                            Alpine.\$data(root)._loyaltyHasPass = true;
+                            Alpine.\$data(root).currentView = 'speisekarte';
+                        }
+                        showToast('Stempelkarte wiederhergestellt!', 'success');
+                    }, 2000);
+                } else {
+                    msgEl.textContent = data.detail || 'Code nicht gefunden';
+                    msgEl.className = 'text-[10px] mt-1.5 font-bold text-rose-500';
+                    msgEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                msgEl.textContent = 'Verbindungsfehler';
+                msgEl.className = 'text-[10px] mt-1.5 font-bold text-rose-500';
+                msgEl.classList.remove('hidden');
+            }
+        }
 
         // Beautiful glassmorphic Toast-Notification helper
         function showToast(message, type = 'info') {
