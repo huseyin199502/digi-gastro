@@ -14903,6 +14903,29 @@ async def passkit_log(request: Request, db: Session = Depends(get_db)):
     return Response(status_code=200)
 
 
+@app.get("/admin/passkit/logs")
+def admin_passkit_logs(
+    limit: int = 50,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Admin: Zeigt die letzten PassKit-Logs die iOS geschickt hat.
+    Hilfreich für Debugging wenn Pässe verschwinden."""
+    user, slug, restaurant = chef_data
+    logs = db.query(DBPasskitLog).order_by(DBPasskitLog.id.desc()).limit(min(limit, 200)).all()
+    return {
+        "total": len(logs),
+        "logs": [
+            {
+                "id": l.id,
+                "created_at": l.created_at,
+                "logs": json.loads(l.logs) if l.logs else [],
+            }
+            for l in logs
+        ],
+    }
+
+
 @app.post("/{slug}/loyalty/opt-out")
 def loyalty_opt_out(slug: str, request: Request, db: Session = Depends(get_db)):
     """DSGVO-Opt-out von Push-Kampagnien.
