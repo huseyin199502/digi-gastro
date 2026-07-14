@@ -14485,7 +14485,13 @@ async def loyalty_recover_by_shortcode(
 
 @app.get("/{slug}/loyalty/pass/apple")
 def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db)):
-    """Generiert .pkpass-File für Apple Wallet."""
+    """Generiert .pkpass-File für Apple Wallet.
+
+    CRITICAL: Verhindert Duplikate bei Private Mode / Safari ITP.
+    Wenn Kunde nicht identifizierbar ist (kein Cookie, keine anonymous_id)
+    ABER für diesen Tenant bereits Kunden mit Pass existieren → leite zur
+    Code-Eingabe-Seite um statt neuen Customer zu erstellen.
+    """
     slug_lower = slug.lower().strip()
     card = db.query(LoyaltyCard).filter_by(tenant_slug=slug_lower, is_active=True).first()
     if not card:
@@ -14495,8 +14501,6 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Restaurant nicht gefunden.")
 
     # CRITICAL FIX: customer_id Cookie heißt jetzt 'loyalty_{slug}_cid'
-    # Vorher hieß er 'loyalty_{slug}' = wurde von 'loyalty_{slug}=saved' überschrieben!
-    # → customer_id verloren → jeder Download = neuer Customer (9 statt 3 Kunden!)
     cid_cookie_name = f"loyalty_{slug_lower}_cid"
     customer_id = request.cookies.get(cid_cookie_name) or request.cookies.get(f"loyalty_{slug_lower}")
     customer = None
@@ -14514,6 +14518,97 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
         customer = db.query(LoyaltyCustomer).filter_by(
             tenant_slug=slug_lower, anonymous_id=aid
         ).first()
+
+    # ═══════════════════════════════════════════════════════════════
+    # DUPLIKAT-SCHUTZ: Wenn Kunde nicht identifizierbar ist (Private Mode,
+    # Safari ITP, Inkognito) ABER für diesen Tenant bereits Kunden mit
+    # aktivem Pass existieren → zeige Code-Eingabe-Seite statt neuen
+    # Customer zu erstellen.
+    #
+    # Das verhindert dass Kunden die schon einen Pass haben einen NEUEN
+    # Code bekommen und ein Duplikat entsteht.
+    # ═══════════════════════════════════════════════════════════════
+    if not customer:
+        # Prüfe: gibt es für diesen Tenant bereits Kunden mit Pass?
+        existing_pass_count = db.query(LoyaltyCustomer).filter(
+            LoyaltyCustomer.tenant_slug == slug_lower,
+            LoyaltyCustomer.pass_downloaded_at.isnot(None),
+        ).count()
+
+        if existing_pass_count > 0:
+            # Kunde nicht identifizierbar ABER Tenant hat bereits Pass-Kunden
+            # → Kunde hat vermutlich schon einen Pass (Private Mode / ITP)
+            # → Zeige Code-Eingabe-Seite statt neuen Customer zu erstellen
+            print(f"[Loyalty] Duplikat-Schutz aktiv: Kunde nicht identifizierbar, aber {existing_pass_count} Kunden mit Pass für '{slug_lower}' → Code-Eingabe erforderlich")
+
+            # Schöne HTML-Seite mit Code-Eingabe
+            html = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stempelkarte - Code eingeben</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/tailwind-built.css?v=4">
+<style>
+body {{ font-family: 'Inter', sans-serif; background: #050507; color: #fafafa; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }}
+.card {{ background: #18181b; border: 1px solid #27272a; border-radius: 1.5rem; padding: 2rem; max-width: 420px; width: 100%; text-align: center; }}
+.logo {{ width: 64px; height: 64px; margin: 0 auto 1.5rem; background: linear-gradient(135deg, #c9a84c 0%, #e8c875 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; }}
+h1 {{ font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }}
+p {{ color: #a1a1aa; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }}
+input {{ width: 100%; padding: 1rem; font-size: 1.5rem; font-weight: 800; text-align: center; letter-spacing: 0.5em; text-transform: uppercase; background: #09090b; border: 2px solid #27272a; border-radius: 0.75rem; color: #fafafa; outline: none; margin-bottom: 1rem; }}
+input:focus {{ border-color: #c9a84c; }}
+button {{ width: 100%; padding: 1rem; background: linear-gradient(135deg, #c9a84c 0%, #b8964a 100%); color: #0a0a0a; font-weight: 700; border: none; border-radius: 0.75rem; cursor: pointer; font-size: 1rem; }}
+button:hover {{ background: linear-gradient(135deg, #e8c875 0%, #c9a84c 100%); }}
+.msg {{ margin-top: 1rem; font-size: 0.85rem; font-weight: 600; }}
+.msg.ok {{ color: #10b981; }}
+.msg.err {{ color: #ef4444; }}
+.hint {{ margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #27272a; font-size: 0.75rem; color: #71717a; line-height: 1.4; }}
+.hint a {{ color: #c9a84c; text-decoration: underline; cursor: pointer; }}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo">🎟️</div>
+<h1>Hast du schon eine Stempelkarte?</h1>
+<p>Wir sehen dass für {tenant.name} bereits Stempelkarten existieren. Gib deinen 4-stelligen Code ein um deine Karte wiederherzustellen — ohne neuen Code.</p>
+<input type="text" id="code" placeholder="A7K2" maxlength="4" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+<button onclick="recover()">Stempelkarte wiederherstellen</button>
+<p class="msg" id="msg"></p>
+<div class="hint">
+Du hast noch keine Stempelkarte? <a onclick="location.href='/{slug_lower}/loyalty/pass/apple?aid={aid or ''}&force_new=1'">Neue Karte erstellen</a>
+</div>
+</div>
+<script>
+async function recover() {{
+  const code = document.getElementById('code').value.trim();
+  const msg = document.getElementById('msg');
+  if (code.length < 4) {{ msg.className='msg err'; msg.textContent='Bitte 4-stelligen Code eingeben'; return; }}
+  msg.className='msg'; msg.textContent='Suche...';
+  try {{
+    const res = await fetch('/{slug_lower}/loyalty/recover', {{
+      method: 'POST',
+      headers: {{'Content-Type':'application/json'}},
+      body: JSON.stringify({{ short_code: code, anonymous_id: '{aid or ""}' }})
+    }});
+    const data = await res.json();
+    if (res.ok && data.success) {{
+      msg.className='msg ok';
+      msg.textContent='✓ Willkommen zurück! ' + data.current_stamps + '/' + data.stamps_required + ' Stempel';
+      setTimeout(() => window.location.href = '/{slug_lower}/loyalty/pass/apple?aid={aid or ""}&recovered=1', 1500);
+    }} else {{
+      msg.className='msg err';
+      msg.textContent = data.detail || 'Code nicht gefunden';
+    }}
+  }} catch(e) {{ msg.className='msg err'; msg.textContent='Fehler'; }}
+}}
+</script>
+</body>
+</html>"""
+            return HTMLResponse(content=html, status_code=200)
+
+    # Kunde identifizierbar ODER kein bestehender Pass-Kunde → normal weiter
     if not customer:
         customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple", anonymous_id=aid or None)
 
