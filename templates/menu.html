@@ -2486,8 +2486,16 @@
                 // Upsell-Item zum Warenkorb hinzufügen
                 addUpsellItem(product) {
                     if (!product) return;
-                    this.addToCart(product);
-                    showToast('"' + product.name + '" hinzugefügt!', 'success');
+                    // CRITICAL FIX: Vorher wurde this.addToCart(product) aufgerufen.
+                    // addToCart erwartet aber (id, nameDe, nameEn, price, categoryType, btnElement).
+                    // → product-Objekt wurde als 'id' interpretiert → name undefined → leer im Warenkorb!
+                    // Jetzt: korrekte Argumente übergeben.
+                    const nameDe = product.name || product.name_de || '';
+                    const nameEn = product.name_en || nameDe;
+                    const price = product.display_price || product.price || 0;
+                    const categoryType = product.category_type || 'küche';
+                    this.addToCart(product.id, nameDe, nameEn, price, categoryType, null);
+                    showToast('"' + nameDe + '" hinzugefügt!', 'success');
                 },
 
                 setLanguage(lang) {
