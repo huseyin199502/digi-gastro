@@ -2030,9 +2030,9 @@
                         }
                         // Alpine store updaten
                         const root = document.querySelector('[x-data]');
-                        if (root && Alpine.\$data(root)) {
-                            Alpine.\$data(root)._loyaltyHasPass = true;
-                            Alpine.\$data(root).currentView = 'speisekarte';
+                        if (root && Alpine.$data(root)) {
+                            Alpine.$data(root)._loyaltyHasPass = true;
+                            Alpine.$data(root).currentView = 'speisekarte';
                         }
                         showToast('Stempelkarte wiederhergestellt!', 'success');
                     }, 2000);
