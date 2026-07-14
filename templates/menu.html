@@ -455,14 +455,13 @@
                     </div>
 
                     <!-- Stempelkarte Button (NEU - ersetzt das Popup) -->
-                    {% if restaurant.loyalty_card %}
-                    <div class="w-full">
+                    <!-- x-show: nur sichtbar wenn Loyalty-Karte aktiv (via JS checkLoyaltyAvailability) -->
+                    <div class="w-full" x-show="window._loyaltyCardActive" x-cloak>
                         <a href="/{{ slug }}/loyalty/pass/apple" class="btn-premium btn-premium-primary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95 shadow-lg shadow-primary/20">
                             <span class="material-symbols-outlined" style="font-size:18px;">loyalty</span>
                             <span>Stempelkarte</span>
                         </a>
                     </div>
-                    {% endif %}
 
                     <!-- Social Media Links (moved from footer, larger design) -->
                     {% if restaurant.branding and (restaurant.branding.instagram or restaurant.branding.facebook or restaurant.branding.tiktok) %}
