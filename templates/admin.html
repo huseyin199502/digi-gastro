@@ -12953,10 +12953,17 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
 
-                // Replace desktop product table body
+                // Replace desktop product table body (Listen-Ansicht)
                 const newTbody = doc.querySelector('tbody.product-sortable-list');
                 const oldTbody = document.querySelector('tbody.product-sortable-list');
                 if (newTbody && oldTbody) oldTbody.innerHTML = newTbody.innerHTML;
+
+                // BUG FIX: Auch Grid-Ansicht aktualisieren (vorher fehlt das!)
+                // Wenn User in Grid-Ansicht war und ein Produkt löschte,
+                // blieb es im Grid sichtbar obwohl es in DB weg war.
+                const newGrid = doc.querySelector('#product-grid-view');
+                const oldGrid = document.querySelector('#product-grid-view');
+                if (newGrid && oldGrid) oldGrid.innerHTML = newGrid.innerHTML;
 
                 // (LOW-1 Cleanup) Alte .product-card-view Referenz entfernt — Klasse wurde gelöscht
 
@@ -13378,9 +13385,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
             row.classList.remove('hidden');
             container.innerHTML = pills.map(p => `
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200 dark:border-amber-800">
                     ${escapeHtml(p.label)}
-                    <button onclick="removeFilterPill('${p.type}')" class="hover:text-emerald-900 dark:hover:text-emerald-100 ml-0.5">
+                    <button onclick="removeFilterPill('${p.type}')" class="hover:text-amber-900 dark:hover:text-amber-100 ml-0.5">
                         <span class="material-symbols-outlined" style="font-size:11px;">close</span>
                     </button>
                 </span>
@@ -13542,7 +13549,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         // ── Pagination: zeigt nur die ersten _productShownCount sichtbaren Items ──
         function applyProductPagination() {
-            const items = document.querySelectorAll('#product-grid-view .product-tile');
+            // BUG FIX: Vorher wurde NUR #product-grid-view .product-tile ausgewählt.
+            // → In Listen-Ansicht (Table) wurden Filter nicht angewendet — alle Rows blieben sichtbar!
+            // Jetzt: beide Views (Grid + Table) behandeln.
+            const items = document.querySelectorAll('#product-grid-view .product-tile, #product-table-container .product-row');
             let shownSoFar = 0;
             items.forEach(item => {
                 if (item.dataset.matchesFilter !== 'true') {
@@ -13613,7 +13623,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             _productShownCount = PRODUCTS_PER_PAGE;
             // Verzögert, damit die Tiles gerendert sind
             setTimeout(() => {
-                const items = document.querySelectorAll('#product-grid-view .product-tile');
+                // BUG FIX: Vorher wurden NUR Grid-Tiles initialisiert.
+                // → Table-Rows hatten kein matchesFilter=true → alle versteckt beim Wechsel zu Table.
+                // Jetzt: beide Views initialisieren.
+                const items = document.querySelectorAll('#product-grid-view .product-tile, #product-table-container .product-row');
                 items.forEach(item => item.dataset.matchesFilter = 'true');
                 _productVisibleCount = items.length;
                 applyProductPagination();
@@ -13668,6 +13681,13 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             if (typeof initProductSortable === 'function') {
                 setTimeout(initProductSortable, 50);
             }
+            // BUG FIX: Filter/Pagination neu anwenden — sonst werden beim View-Wechsel
+            // aktive Filter nicht auf die neu sichtbare View angewendet.
+            setTimeout(() => {
+                if (typeof applyProductFilters === 'function') {
+                    applyProductFilters();
+                }
+            }, 60);
         }
 
         // Restore last view preference
@@ -13751,8 +13771,19 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         }
 
         function toggleSelectAllProducts(checked) {
+            // BUG FIX: Vorher wurden ALLE Checkboxen (auch unsichtbare) ausgewählt.
+            // → Wenn Filter aktiv war, wurden auch ausgeblendete Produkte beim Bulk-Delete erfasst.
+            // Jetzt: Nur sichtbare (display !== 'none') Checkboxen toggeln.
             document.querySelectorAll('.product-checkbox').forEach(cb => {
-                cb.checked = checked;
+                const item = cb.closest('.product-tile, .product-row');
+                if (!item) {
+                    cb.checked = checked;
+                    return;
+                }
+                // Nur wenn das Item sichtbar ist
+                if (item.style.display !== 'none') {
+                    cb.checked = checked;
+                }
             });
             updateBulkActionBar();
         }
