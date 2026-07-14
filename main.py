@@ -14607,7 +14607,15 @@ async def passkit_register_device(
 ):
     """Apple PassKit: Registriert ein Device für einen Pass.
     iOS ruft diesen Endpoint auf wenn der Pass zum Wallet hinzugefügt wird.
-    Body: {"pushToken": "<hex>"}"""
+    Body: {"pushToken": "<hex>"}
+
+    CRITICAL FIX: Setzt customer.pass_downloaded_at beim Registrieren!
+    - Vorher: pass_downloaded_at wurde NUR im /loyalty/pass/apple Endpoint gesetzt
+    - Wenn der Endpoint-Aufruf fehlschlug (Netzwerk, etc.) → pass_downloaded_at=NULL
+    - Aber iOS hat den Pass TROTZDEM zum Wallet hinzugefügt (Device registriert)
+    - → Server dachte fälschlicherweise "User hat keinen Pass" → Popup kommt wieder
+    - Jetzt: Registration = definitiver Beweis dass Pass im Wallet ist → pass_downloaded_at setzen
+    """
     # Auth: ApplePass <token>
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("ApplePass "):
@@ -14626,6 +14634,12 @@ async def passkit_register_device(
     # Customer finden für tenant_slug
     customer = db.query(LoyaltyCustomer).filter_by(pass_serial=serial_number).first()
     tenant_slug = customer.tenant_slug if customer else None
+
+    # CRITICAL FIX: Wenn Customer existiert, setze pass_downloaded_at beim Registrieren
+    # Das ist der absolute Beweis: iOS hat den Pass erfolgreich zum Wallet hinzugefügt
+    if customer and not customer.pass_downloaded_at:
+        customer.pass_downloaded_at = _now_iso()
+        print(f"[PassKit] ✅ pass_downloaded_at set for customer {customer.id} (device registration)")
 
     # Existierende Registration updaten oder neue erstellen
     reg = db.query(DBPasskitReg).filter_by(

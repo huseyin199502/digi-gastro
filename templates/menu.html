@@ -47,6 +47,13 @@
         html {
             overscroll-behavior: none;
         }
+        /* iOS BOUNCE FIX: Verhindert dass iOS Safari am Seitenende zurück-"bounced"
+           und die fixed Bottom-Nav-Bar über den Footer legt.
+           padding-bottom auf body = Platz für Bottom-Nav + Safe-Area + Extra-Puffer.
+           margin-bottom auf footer = zusätzliche Garantie dass Footer sichtbar bleibt. */
+        body {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
 
         /* ── iOS 26 Safari Fixed/Sticky-Bug Workaround ──
            Auf iOS 26 wandern position:fixed Elemente (Bottom-Nav, Cart-Bar)
@@ -929,13 +936,16 @@
     {% endif %}
 
     <!-- Slender Legal Footer inside clean container -->
-    <footer class="py-8 bg-surface border-t border-outline-variant text-center text-sm text-on-surface-variant space-y-3">
+    <!-- iOS BOUNCE FIX: padding-bottom muss Bottom-Nav-Bar (3.25rem) + safe-area + extra Platz abdecken
+         Sonst bounced iOS Safari zurück und Nav-Bar verdeckt Impressum/Datenschutz -->
+    <footer class="py-8 bg-surface border-t border-outline-variant text-center text-sm text-on-surface-variant space-y-3"
+            style="padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));">
         <div class="flex justify-center space-x-4">
             <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline py-1" data-translate="impressum">Impressum</button>
             <span>&bull;</span>
             <button onclick="openLegalModal('datenschutz')" class="hover:text-primary transition underline py-1" data-translate="datenschutz">Datenschutz</button>
         </div>
-        
+
         <p>&copy; 2026 {{ restaurant.name }} - Powered by digi-gastro gastronomy OS</p>
     </footer>
 
