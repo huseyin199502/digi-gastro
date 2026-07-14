@@ -1841,6 +1841,23 @@ def award_stamp_for_order(
 
     db_session.commit()
 
+    # CRITICAL FIX: Push-Notification an iOS senden!
+    # Vorher: pass_needs_update=True wurde nur gesetzt, aber kein Push gesendet
+    # → iOS wusste nicht dass es ein Update gibt
+    # → Kunde hat keine Notification "Stempel erhalten" bekommen
+    # → Erst bei nächstem Speisekarten-Öffnen wurde Pass aktualisiert
+    # Jetzt: Push via APNs → iOS holt Pass → changeMessage als Notification
+    try:
+        if reward_triggered:
+            push_msg = f"🎉 {card.reward_name} freigeschaltet! Nächste Shisha gratis."
+        else:
+            push_msg = f"✅ Stempel erhalten! {customer.current_stamps}/{card.stamps_required}"
+        _trigger_pass_update_push(db_session, customer, card.name, push_msg)
+        print(f"[Loyalty] Push sent for stamp award: customer={customer.id}, stamps={customer.current_stamps}/{card.stamps_required}")
+    except Exception as e:
+        print(f"[Loyalty] Push failed for stamp award (customer {customer.id}): {e}")
+        # Push-Fehler darf den Stempel nicht rückgängig machen
+
     return {
         "success": True,
         "card_id": card.id,

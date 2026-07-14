@@ -15740,6 +15740,7 @@ def loyalty_redeem_reward(
     old_stamps = customer.current_stamps
     customer.current_stamps = 0
     customer.updated_at = _now_iso()
+    customer.pass_needs_update = True  # CRITICAL: Pass-Update flag setzen
     db.commit()
 
     # Pass-Update Push → Kunde sieht 0/10 + "Neue Runde"
