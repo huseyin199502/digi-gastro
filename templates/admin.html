@@ -13540,19 +13540,29 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             });
             // Phase 2: Pagination anwenden — nur die ersten N sichtbar machen
             applyProductPagination();
-            // Update count
-            const visibleCount = Array.from(items).filter(i => i.dataset.matchesFilter === 'true').length;
-            _productVisibleCount = visibleCount;
+            // BUG FIX: Update count - VORHER wurden Grid-Tiles UND Table-Rows gezählt (502 statt 251)
+            // Jetzt: nur die Items der aktuell sichtbaren View zählen
+            const gridContainer = document.getElementById('product-grid-container');
+            const isGridView = gridContainer && gridContainer.style.display !== 'none';
+            const visibleItems = isGridView
+                ? document.querySelectorAll('#product-grid-view .product-tile[data-matches-filter="true"]')
+                : document.querySelectorAll('#product-table-container .product-row[data-matches-filter="true"]');
+            _productVisibleCount = visibleItems.length;
             const totalEl = document.getElementById('product-filter-result-count');
-            if (totalEl) totalEl.textContent = visibleCount;
+            if (totalEl) totalEl.textContent = _productVisibleCount;
         }
 
         // ── Pagination: zeigt nur die ersten _productShownCount sichtbaren Items ──
         function applyProductPagination() {
-            // BUG FIX: Vorher wurde NUR #product-grid-view .product-tile ausgewählt.
-            // → In Listen-Ansicht (Table) wurden Filter nicht angewendet — alle Rows blieben sichtbar!
-            // Jetzt: beide Views (Grid + Table) behandeln.
-            const items = document.querySelectorAll('#product-grid-view .product-tile, #product-table-container .product-row');
+            // BUG FIX: Pagination muss NUR für die aktuell sichtbare View gelten.
+            // Vorher: beide Views wurden iteriert → 502 Items → 25 angezeigt (aber in
+            // verstecktem Grid). Table-Rows bekamen display:none weil Counter bei 25 voll war.
+            // Jetzt: nur Items der sichtbaren View behandeln.
+            const gridContainer = document.getElementById('product-grid-container');
+            const isGridView = gridContainer && gridContainer.style.display !== 'none';
+            const items = isGridView
+                ? document.querySelectorAll('#product-grid-view .product-tile')
+                : document.querySelectorAll('#product-table-container .product-row');
             let shownSoFar = 0;
             items.forEach(item => {
                 if (item.dataset.matchesFilter !== 'true') {
@@ -13566,6 +13576,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     item.style.display = 'none';
                 }
             });
+            // Versteckte View auch verstecken (Sicherheit)
+            if (isGridView) {
+                document.querySelectorAll('#product-table-container .product-row').forEach(r => r.style.display = 'none');
+            } else {
+                document.querySelectorAll('#product-grid-view .product-tile').forEach(t => t.style.display = 'none');
+            }
             // Load-More Bar aktualisieren
             updateLoadMoreBar();
         }
