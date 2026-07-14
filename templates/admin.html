@@ -3828,25 +3828,33 @@
 
         /* ===== PRODUCT TABLE ===== */
         .product-table th {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #71717a;
+            letter-spacing: 0.08em;
+            color: var(--gastro-text-muted, #71717a);
             padding: 12px 8px;
             text-align: left;
-            border-bottom: 1px solid var(--gastro-border);
+            border-bottom: 2px solid var(--gastro-border, #e5e7eb);
+            background: var(--gastro-bg, #fafafa);
+        }
+        html.dark .product-table th {
+            background: #0a0a0a;
+            color: #a1a1aa;
+            border-bottom-color: #27272a;
         }
         .product-table td {
-            padding: 10px 8px;
+            padding: 12px 8px;
             font-size: 13px;
             vertical-align: middle;
+            border-bottom: 1px solid var(--gastro-border, #f4f4f5);
         }
+        html.dark .product-table td { border-bottom-color: #1f1f23; }
         .product-table tr:hover {
-            background-color: rgba(0, 153, 0, 0.03);
+            background-color: rgba(201, 168, 76, 0.04);
         }
         html.dark .product-table tr:hover {
-            background-color: rgba(34, 197, 94, 0.04);
+            background-color: rgba(201, 168, 76, 0.06);
         }
 
         /* Product card view for mobile */
@@ -3859,10 +3867,10 @@
             transition: background-color 0.15s;
         }
         .product-card:hover {
-            background-color: rgba(0, 153, 0, 0.03);
+            background-color: rgba(201, 168, 76, 0.04);
         }
         html.dark .product-card:hover {
-            background-color: rgba(34, 197, 94, 0.04);
+            background-color: rgba(201, 168, 76, 0.06);
         }
         .product-card .drag-handle {
             opacity: 0.3;
@@ -4813,164 +4821,554 @@
 
             <!-- 🍽️ TAB: PRODUKTE (produkte) -->
             <div id="admin-tab-produkte" class="admin-tab-content">
-                <!-- ═══ UNIFIED STICKY TOOLBAR ═══
-                     Alle Produkt-Aktionen in EINER Bar (vorher: 3 gestapelte Bars verschwendeten ~180px Viewport).
-                     Sticky = bleibt beim Scrollen sichtbar. Compact = mehr Platz für Inhalte. -->
-                <div class="produkte-toolbar">
-                    <!-- Linke Seite: Aktionen + Suche -->
-                    <div class="produkte-toolbar-left">
-                        <button onclick="openQuickCreateModal()" class="btn-primary flex items-center gap-1.5 text-xs" title="Neues Produkt">
-                            <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span>
-                            <span class="hidden sm:inline">Produkt erstellen</span>
+                <!-- ═══ PREMIUM UNIFIED TOOLBAR ═══
+                     Eine kompakte Bar mit allen Aktionen + Suchfeld + View-Toggle.
+                     Filter sind in einem Collapsible-Dropdown (_standardmäßig zu).
+                     Vorher: 2 Boxen mit 248px Höhe → jetzt: 56px Toolbar + optionales Dropdown. -->
+                <div class="produkte-toolbar-premium">
+                    <!-- Linke Seite: primäre Aktion + Suche -->
+                    <div class="produkte-toolbar-main">
+                        <button onclick="openQuickCreateModal()" class="btn-produkt-neu" title="Neues Produkt">
+                            <span class="material-symbols-outlined">add_circle</span>
+                            <span class="btn-label">Produkt erstellen</span>
                         </button>
-                        <div class="toolbar-divider"></div>
-                        <div class="relative flex-1 min-w-[120px]">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" style="font-size:16px;">search</span>
-                            <input type="text" id="product-search" placeholder="Suchen..." oninput="filterProducts(this.value)" class="form-field pl-8 py-2 text-xs">
+                        <div class="produkte-search-wrap">
+                            <span class="material-symbols-outlined produkte-search-icon">search</span>
+                            <input type="text" id="product-search" placeholder="Produkt suchen..." oninput="filterProducts(this.value)" class="produkte-search-input">
                         </div>
-                        <div class="toolbar-divider"></div>
-                        <!-- View Toggle -->
-                        <div class="view-toggle compact" id="product-view-toggle">
-                            <button id="view-btn-grid" class="active" onclick="setProductView('grid')" title="Kacheln">
-                                <span class="material-symbols-outlined" style="font-size:14px;">grid_view</span>
-                            </button>
-                            <button id="view-btn-table" onclick="setProductView('table')" title="Tabelle">
-                                <span class="material-symbols-outlined" style="font-size:14px;">view_list</span>
-                            </button>
-                        </div>
+                        <button onclick="toggleFilterPanel()" class="btn-filter-toggle" id="filter-toggle-btn" title="Filter anzeigen">
+                            <span class="material-symbols-outlined">tune</span>
+                            <span class="btn-label">Filter</span>
+                            <span class="filter-active-count hidden" id="filter-active-badge">0</span>
+                        </button>
                     </div>
-                    <!-- Rechte Seite: Import/Export + Counter -->
-                    <div class="produkte-toolbar-right">
-                        <a href="/admin/products/export-csv" class="btn-secondary flex items-center gap-1 text-[10px] px-2 py-1.5" title="CSV Export">
-                            <span class="material-symbols-outlined" style="font-size:12px;">download</span>
-                            <span class="hidden md:inline">Export</span>
-                        </a>
-                        <button onclick="openCsvImportModal()" class="btn-secondary flex items-center gap-1 text-[10px] px-2 py-1.5" title="CSV Import">
-                            <span class="material-symbols-outlined" style="font-size:12px;">upload</span>
-                            <span class="hidden md:inline">Import</span>
+                    <!-- Rechte Seite: View-Toggle + Import/Export -->
+                    <div class="produkte-toolbar-side">
+                        <div class="view-toggle-premium" id="product-view-toggle">
+                            <button id="view-btn-grid" class="active" onclick="setProductView('grid')" title="Kacheln-Ansicht">
+                                <span class="material-symbols-outlined">grid_view</span>
+                            </button>
+                            <button id="view-btn-table" onclick="setProductView('table')" title="Listen-Ansicht">
+                                <span class="material-symbols-outlined">view_list</span>
+                            </button>
+                        </div>
+                        <div class="toolbar-divider-v"></div>
+                        <button onclick="openCsvImportModal()" class="btn-icon-action" title="CSV Import">
+                            <span class="material-symbols-outlined">upload</span>
                         </button>
-                        <div class="toolbar-divider"></div>
-                        <span class="text-[10px] font-bold text-zinc-500 whitespace-nowrap">
-                            <span id="product-filter-result-count">{{ restaurant.products|length }}</span> Produkte
+                        <a href="/admin/products/export-csv" class="btn-icon-action" title="CSV Export">
+                            <span class="material-symbols-outlined">download</span>
+                        </a>
+                        <div class="toolbar-divider-v"></div>
+                        <span class="produkte-counter">
+                            <span id="product-filter-result-count">{{ restaurant.products|length }}</span>
+                            <span class="counter-label">Produkte</span>
                         </span>
                     </div>
                 </div>
 
-                <!-- Filter Chips (kompakt, nur eine Zeile falls möglich) -->
-                <div class="produkte-filter-bar">
-                    <div class="flex flex-wrap gap-1.5 items-center">
-                        <span class="text-[10px] font-bold text-zinc-500 uppercase mr-1">Status:</span>
-                        <button class="filter-chip active" data-filter-type="status" data-filter-value="all" onclick="setProductFilter('status','all', this)">Alle <span class="count" id="count-status-all">0</span></button>
-                        <button class="filter-chip" data-filter-type="status" data-filter-value="true" onclick="setProductFilter('status','true', this)">Aktiv <span class="count" id="count-status-true">0</span></button>
-                        <button class="filter-chip" data-filter-type="status" data-filter-value="false" onclick="setProductFilter('status','false', this)">Ausverkauft <span class="count" id="count-status-false">0</span></button>
+                <!-- ═══ COLLAPSIBLE FILTER PANEL ═══
+                     Standardmäßig versteckt, öffnet sich bei Klick auf "Filter".
+                     Alle Filter in einer kompakten Matrix, nicht 3 getrennten Zeilen. -->
+                <div id="produkte-filter-panel" class="produkte-filter-panel hidden">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <span class="filter-group-label">Status</span>
+                            <div class="filter-chips">
+                                <button class="filter-chip active" data-filter-type="status" data-filter-value="all" onclick="setProductFilter('status','all', this)">Alle <span class="count" id="count-status-all">0</span></button>
+                                <button class="filter-chip" data-filter-type="status" data-filter-value="true" onclick="setProductFilter('status','true', this)">Aktiv <span class="count" id="count-status-true">0</span></button>
+                                <button class="filter-chip" data-filter-type="status" data-filter-value="false" onclick="setProductFilter('status','false', this)">Ausverkauft <span class="count" id="count-status-false">0</span></button>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-group-label">Aktion</span>
+                            <div class="filter-chips">
+                                <button class="filter-chip active" data-filter-type="hh" data-filter-value="all" onclick="setProductFilter('hh','all', this)">Alle</button>
+                                <button class="filter-chip" data-filter-type="hh" data-filter-value="true" onclick="setProductFilter('hh','true', this)">Mit Aktion</button>
+                                <button class="filter-chip" data-filter-type="hh" data-filter-value="false" onclick="setProductFilter('hh','false', this)">Ohne Aktion</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex flex-wrap gap-1.5 items-center">
-                        <span class="text-[10px] font-bold text-zinc-500 uppercase mr-1">Aktion:</span>
-                        <button class="filter-chip active" data-filter-type="hh" data-filter-value="all" onclick="setProductFilter('hh','all', this)">Alle</button>
-                        <button class="filter-chip" data-filter-type="hh" data-filter-value="true" onclick="setProductFilter('hh','true', this)">Mit Aktion</button>
-                        <button class="filter-chip" data-filter-type="hh" data-filter-value="false" onclick="setProductFilter('hh','false', this)">Ohne Aktion</button>
+                    <div class="filter-row">
+                        <div class="filter-group filter-group-wide">
+                            <span class="filter-group-label">Kategorie</span>
+                            <div class="filter-chips" id="category-chips-row">
+                                <button class="filter-chip active" data-filter-type="cat" data-filter-value="all" onclick="setProductFilter('cat','all', this)">Alle</button>
+                                {% for cat in restaurant.categories %}
+                                <button class="filter-chip" data-filter-type="cat" data-filter-value="{{ cat }}" onclick="setProductFilter('cat','{{ cat | replace("'", "\\'") }}', this)">{{ cat }}</button>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex flex-wrap gap-1.5 items-center" id="category-chips-row">
-                        <span class="text-[10px] font-bold text-zinc-500 uppercase mr-1">Kategorie:</span>
-                        <button class="filter-chip active" data-filter-type="cat" data-filter-value="all" onclick="setProductFilter('cat','all', this)">Alle</button>
-                        {% for cat in restaurant.categories %}
-                        <button class="filter-chip" data-filter-type="cat" data-filter-value="{{ cat }}" onclick="setProductFilter('cat','{{ cat | replace("'", "\\'") }}', this)">{{ cat }}</button>
-                        {% endfor %}
-                    </div>
-
-                    <!-- ═══ PHASE 4: Aktive Filter Pills + Saved Views ═══ -->
-                    <div id="active-filters-row" class="hidden flex-wrap gap-1.5 items-center pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                        <span class="text-[10px] font-bold text-zinc-500 uppercase">Aktiv:</span>
-                        <div id="active-filter-pills" class="flex flex-wrap gap-1.5"></div>
-                        <button onclick="clearAllProductFilters()" class="text-[10px] text-red-600 hover:text-red-700 font-bold underline ml-2">Alle zurücksetzen</button>
-                    </div>
-
-                    <!-- Saved Views (Notion-Stil) -->
-                    <div class="flex flex-wrap gap-1.5 items-center pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                        <span class="text-[10px] font-bold text-zinc-500 uppercase">Ansicht:</span>
-                        <select id="saved-views-select" onchange="loadSavedView(this.value)" class="text-[10px] border border-zinc-200 dark:border-zinc-700 rounded-md px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                            <option value="">— Gespeicherte Ansicht —</option>
-                        </select>
-                        <button onclick="saveCurrentView()" class="text-[10px] font-bold px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                            <span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;">bookmark_add</span> Speichern
-                        </button>
-                        <button onclick="deleteSavedView()" class="text-[10px] text-red-600 hover:text-red-700 font-bold px-2 py-1 hidden" id="delete-view-btn">
-                            <span class="material-symbols-outlined" style="font-size:11px;vertical-align:middle;">delete</span>
-                        </button>
+                    <!-- Aktive Filter Pills + Saved Views (in einer Zeile) -->
+                    <div class="filter-row filter-row-meta">
+                        <div id="active-filters-row" class="hidden flex-wrap gap-1.5 items-center">
+                            <span class="filter-group-label">Aktiv</span>
+                            <div id="active-filter-pills" class="flex flex-wrap gap-1.5"></div>
+                            <button onclick="clearAllProductFilters()" class="btn-clear-filters">
+                                <span class="material-symbols-outlined" style="font-size:11px;">close</span> Alle zurücksetzen
+                            </button>
+                        </div>
+                        <div class="saved-views-row">
+                            <span class="filter-group-label">Ansicht</span>
+                            <select id="saved-views-select" onchange="loadSavedView(this.value)" class="saved-views-select">
+                                <option value="">— Gespeicherte Ansicht —</option>
+                            </select>
+                            <button onclick="saveCurrentView()" class="btn-saved-view" title="Aktuelle Ansicht speichern">
+                                <span class="material-symbols-outlined">bookmark_add</span>
+                            </button>
+                            <button onclick="deleteSavedView()" class="btn-saved-view hidden" id="delete-view-btn" title="Ansicht löschen">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <style>
-                    /* ═══ STICKY UNIFIED TOOLBAR ═══ */
-                    .produkte-toolbar {
+                    /* ═══ PREMIUM PRODUKTE TOOLBAR ═══ */
+                    .produkte-toolbar-premium {
                         position: sticky;
                         top: 0;
                         z-index: 30;
                         background: var(--gastro-card-bg, #ffffff);
                         border: 1px solid var(--gastro-border, #e5e7eb);
-                        border-radius: 12px;
+                        border-radius: 14px;
                         padding: 8px 12px;
-                        margin-bottom: 12px;
+                        margin-bottom: 10px;
                         display: flex;
                         align-items: center;
                         justify-content: space-between;
-                        gap: 8px;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-                        flex-wrap: wrap;
+                        gap: 10px;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
                     }
-                    .produkte-toolbar-left, .produkte-toolbar-right {
+                    html.dark .produkte-toolbar-premium {
+                        background: rgba(24, 24, 27, 0.92);
+                        border-color: #27272a;
+                        box-shadow: 0 4px 16px -4px rgba(0,0,0,0.4);
+                    }
+                    .produkte-toolbar-main, .produkte-toolbar-side {
                         display: flex;
                         align-items: center;
                         gap: 8px;
-                        flex-wrap: wrap;
+                        flex: 1;
+                        min-width: 0;
                     }
-                    .produkte-toolbar .form-field {
-                        min-height: 36px;
+                    .produkte-toolbar-side {
+                        flex: 0 0 auto;
+                        justify-content: flex-end;
+                    }
+
+                    /* Premium "Produkt erstellen" Button (Gold) */
+                    .btn-produkt-neu {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        padding: 8px 14px;
+                        background: linear-gradient(135deg, #c9a84c 0%, #b8964a 100%);
+                        color: #0a0a0a;
                         font-size: 12px;
+                        font-weight: 700;
+                        border-radius: 10px;
+                        border: none;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        white-space: nowrap;
+                        box-shadow: 0 1px 3px rgba(201, 168, 76, 0.3);
+                        min-height: 36px;
                     }
-                    .produkte-toolbar .view-toggle.compact button {
-                        padding: 6px 8px;
-                        min-height: 32px;
-                        min-width: 32px;
+                    .btn-produkt-neu:hover {
+                        background: linear-gradient(135deg, #e8c875 0%, #c9a84c 100%);
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(201, 168, 76, 0.4);
                     }
-                    .toolbar-divider {
-                        width: 1px;
-                        height: 24px;
-                        background: var(--gastro-border, #e5e7eb);
-                        margin: 0 2px;
+                    .btn-produkt-neu:active { transform: translateY(0); }
+                    .btn-produkt-neu .material-symbols-outlined { font-size: 16px; }
+
+                    /* Premium Search Input */
+                    .produkte-search-wrap {
+                        position: relative;
+                        flex: 1;
+                        min-width: 100px;
+                        max-width: 320px;
                     }
-                    .produkte-filter-bar {
-                        display: flex;
-                        flex-direction: column;
+                    .produkte-search-icon {
+                        position: absolute;
+                        left: 10px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        font-size: 16px;
+                        color: var(--gastro-text-muted, #71717a);
+                        pointer-events: none;
+                    }
+                    .produkte-search-input {
+                        width: 100%;
+                        padding: 8px 10px 8px 32px;
+                        font-size: 12px;
+                        background: var(--gastro-bg, #f4f4f5);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 10px;
+                        color: var(--gastro-text-main, #18181b);
+                        outline: none;
+                        transition: all 0.2s ease;
+                        min-height: 36px;
+                    }
+                    .produkte-search-input:focus {
+                        border-color: #c9a84c;
+                        background: var(--gastro-card-bg, #ffffff);
+                        box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.12);
+                    }
+                    html.dark .produkte-search-input {
+                        background: #18181b;
+                        border-color: #27272a;
+                        color: #fafafa;
+                    }
+                    html.dark .produkte-search-input:focus {
+                        background: #0a0a0a;
+                    }
+
+                    /* Filter Toggle Button */
+                    .btn-filter-toggle {
+                        display: inline-flex;
+                        align-items: center;
                         gap: 6px;
                         padding: 8px 12px;
-                        background: var(--gastro-card-bg, #ffffff);
+                        background: transparent;
+                        color: var(--gastro-text-muted, #71717a);
+                        font-size: 12px;
+                        font-weight: 600;
                         border: 1px solid var(--gastro-border, #e5e7eb);
-                        border-radius: 12px;
-                        margin-bottom: 16px;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        min-height: 36px;
+                        position: relative;
                     }
-                    .produkte-filter-bar .filter-chip {
-                        padding: 4px 10px;
+                    .btn-filter-toggle:hover {
+                        border-color: #c9a84c;
+                        color: #c9a84c;
+                        background: rgba(201, 168, 76, 0.05);
+                    }
+                    .btn-filter-toggle .material-symbols-outlined { font-size: 16px; }
+                    .btn-filter-toggle.active {
+                        background: rgba(201, 168, 76, 0.1);
+                        border-color: #c9a84c;
+                        color: #c9a84c;
+                    }
+                    .filter-active-count {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-width: 18px;
+                        height: 18px;
+                        padding: 0 5px;
+                        background: #c9a84c;
+                        color: #0a0a0a;
                         font-size: 10px;
+                        font-weight: 800;
+                        border-radius: 9px;
+                        margin-left: 4px;
                     }
-                    html.dark .produkte-toolbar,
-                    html.dark .produkte-filter-bar {
+                    .filter-active-count.hidden { display: none; }
+
+                    /* Premium View Toggle */
+                    .view-toggle-premium {
+                        display: inline-flex;
+                        background: var(--gastro-bg, #f4f4f5);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 10px;
+                        padding: 2px;
+                    }
+                    html.dark .view-toggle-premium {
                         background: #18181b;
                         border-color: #27272a;
                     }
-                    html.dark .toolbar-divider {
-                        background: #27272a;
+                    .view-toggle-premium button {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 6px 8px;
+                        background: transparent;
+                        color: var(--gastro-text-muted, #71717a);
+                        border: none;
+                        cursor: pointer;
+                        border-radius: 8px;
+                        transition: all 0.2s ease;
+                        min-width: 32px;
+                        min-height: 32px;
                     }
+                    .view-toggle-premium button:hover { color: var(--gastro-text-main, #18181b); }
+                    .view-toggle-premium button.active {
+                        background: var(--gastro-card-bg, #ffffff);
+                        color: #c9a84c;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+                    }
+                    html.dark .view-toggle-premium button.active {
+                        background: #0a0a0a;
+                        color: #e8c875;
+                    }
+                    .view-toggle-premium button .material-symbols-outlined { font-size: 16px; }
+
+                    /* Icon-only action buttons */
+                    .btn-icon-action {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 36px;
+                        height: 36px;
+                        background: transparent;
+                        color: var(--gastro-text-muted, #71717a);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 10px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    }
+                    .btn-icon-action:hover {
+                        border-color: #c9a84c;
+                        color: #c9a84c;
+                        background: rgba(201, 168, 76, 0.05);
+                    }
+                    .btn-icon-action .material-symbols-outlined { font-size: 16px; }
+
+                    .toolbar-divider-v {
+                        width: 1px;
+                        height: 22px;
+                        background: var(--gastro-border, #e5e7eb);
+                        margin: 0 2px;
+                    }
+                    html.dark .toolbar-divider-v { background: #27272a; }
+
+                    /* Counter */
+                    .produkte-counter {
+                        display: inline-flex;
+                        align-items: baseline;
+                        gap: 4px;
+                        padding: 4px 10px;
+                        background: rgba(201, 168, 76, 0.06);
+                        border: 1px solid rgba(201, 168, 76, 0.2);
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #c9a84c;
+                        white-space: nowrap;
+                    }
+                    html.dark .produkte-counter {
+                        background: rgba(201, 168, 76, 0.1);
+                        border-color: rgba(201, 168, 76, 0.25);
+                        color: #e8c875;
+                    }
+                    .produkte-counter .counter-label {
+                        font-size: 10px;
+                        font-weight: 600;
+                        opacity: 0.7;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }
+
+                    /* ═══ COLLAPSIBLE FILTER PANEL ═══ */
+                    .produkte-filter-panel {
+                        background: var(--gastro-card-bg, #ffffff);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 14px;
+                        padding: 14px 16px;
+                        margin-bottom: 10px;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                        animation: slideDown 0.2s ease-out;
+                    }
+                    html.dark .produkte-filter-panel {
+                        background: #18181b;
+                        border-color: #27272a;
+                    }
+                    .produkte-filter-panel.hidden {
+                        display: none;
+                    }
+                    @keyframes slideDown {
+                        from { opacity: 0; transform: translateY(-8px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    .filter-row {
+                        display: flex;
+                        gap: 16px;
+                        margin-bottom: 12px;
+                        flex-wrap: wrap;
+                    }
+                    .filter-row:last-child { margin-bottom: 0; }
+                    .filter-row-meta {
+                        padding-top: 12px;
+                        border-top: 1px solid var(--gastro-border, #e5e7eb);
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    html.dark .filter-row-meta { border-top-color: #27272a; }
+                    .filter-group {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 6px;
+                        min-width: 0;
+                    }
+                    .filter-group-wide { flex: 1; min-width: 200px; }
+                    .filter-group-label {
+                        font-size: 10px;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                        color: var(--gastro-text-muted, #71717a);
+                    }
+                    .filter-chips {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 6px;
+                        align-items: center;
+                    }
+                    .produkte-filter-panel .filter-chip {
+                        padding: 5px 11px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        border-radius: 8px;
+                        background: var(--gastro-bg, #f4f4f5);
+                        color: var(--gastro-text-muted, #71717a);
+                        border: 1px solid transparent;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                        white-space: nowrap;
+                    }
+                    .produkte-filter-panel .filter-chip:hover {
+                        background: rgba(201, 168, 76, 0.08);
+                        color: #c9a84c;
+                    }
+                    .produkte-filter-panel .filter-chip.active {
+                        background: rgba(201, 168, 76, 0.12);
+                        color: #c9a84c;
+                        border-color: rgba(201, 168, 76, 0.3);
+                    }
+                    html.dark .produkte-filter-panel .filter-chip {
+                        background: #0a0a0a;
+                        color: #a1a1aa;
+                    }
+                    html.dark .produkte-filter-panel .filter-chip.active {
+                        background: rgba(201, 168, 76, 0.15);
+                        color: #e8c875;
+                        border-color: rgba(201, 168, 76, 0.35);
+                    }
+                    .btn-clear-filters {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 4px;
+                        padding: 4px 10px;
+                        background: rgba(239, 68, 68, 0.08);
+                        color: #ef4444;
+                        border: 1px solid rgba(239, 68, 68, 0.2);
+                        border-radius: 8px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                    }
+                    .btn-clear-filters:hover { background: rgba(239, 68, 68, 0.12); }
+                    .saved-views-row {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        margin-left: auto;
+                    }
+                    .saved-views-select {
+                        font-size: 11px;
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 8px;
+                        padding: 5px 8px;
+                        background: var(--gastro-card-bg, #ffffff);
+                        color: var(--gastro-text-main, #18181b);
+                        outline: none;
+                        cursor: pointer;
+                    }
+                    html.dark .saved-views-select {
+                        background: #0a0a0a;
+                        border-color: #27272a;
+                        color: #fafafa;
+                    }
+                    .btn-saved-view {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 28px;
+                        height: 28px;
+                        background: transparent;
+                        color: var(--gastro-text-muted, #71717a);
+                        border: 1px solid var(--gastro-border, #e5e7eb);
+                        border-radius: 7px;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                    }
+                    .btn-saved-view:hover {
+                        color: #c9a84c;
+                        border-color: #c9a84c;
+                    }
+                    .btn-saved-view .material-symbols-outlined { font-size: 14px; }
+                    .btn-saved-view.hidden { display: none; }
+
+                    /* ═══ MOBILE LAYOUT ═══ */
                     @media (max-width: 640px) {
-                        .produkte-toolbar {
+                        .produkte-toolbar-premium {
                             position: static;
+                            flex-wrap: wrap;
+                            padding: 8px;
                         }
-                        .produkte-toolbar-left, .produkte-toolbar-right {
+                        .produkte-toolbar-main {
+                            width: 100%;
+                            flex-wrap: wrap;
+                        }
+                        .btn-produkt-neu { flex: 1; justify-content: center; }
+                        .btn-produkt-neu .btn-label,
+                        .btn-filter-toggle .btn-label { display: inline; }
+                        .produkte-search-wrap {
+                            max-width: 100%;
+                            flex: 1 1 100%;
+                            order: 3;
+                        }
+                        .produkte-toolbar-side {
                             width: 100%;
                             justify-content: space-between;
+                            margin-top: 4px;
                         }
                     }
+                    @media (max-width: 480px) {
+                        .btn-produkt-neu .btn-label,
+                        .btn-filter-toggle .btn-label { display: none; }
+                        .produkte-counter .counter-label { display: none; }
+                    }
                 </style>
+
+                <!-- JavaScript für Filter-Toggle -->
+                <script>
+                    function toggleFilterPanel() {
+                        const panel = document.getElementById('produkte-filter-panel');
+                        const btn = document.getElementById('filter-toggle-btn');
+                        if (!panel || !btn) return;
+                        panel.classList.toggle('hidden');
+                        btn.classList.toggle('active');
+                    }
+                    // Update Filter-Counter wenn Filter aktiv sind
+                    function updateFilterBadge() {
+                        const active = document.querySelectorAll('#active-filter-pills .active-filter-pill').length;
+                        const badge = document.getElementById('filter-active-badge');
+                        if (!badge) return;
+                        if (active > 0) {
+                            badge.textContent = active;
+                            badge.classList.remove('hidden');
+                        } else {
+                            badge.classList.add('hidden');
+                        }
+                    }
+                    // Hook in clearAllProductFilters um Badge zu aktualisieren
+                    const _origClearAllProductFilters = window.clearAllProductFilters;
+                    if (typeof _origClearAllProductFilters === 'function') {
+                        window.clearAllProductFilters = function() {
+                            _origClearAllProductFilters();
+                            updateFilterBadge();
+                        };
+                    }
+                </script>
 
                 <!-- GRID VIEW (Default) -->
                 <div class="section-card" id="product-grid-container">
