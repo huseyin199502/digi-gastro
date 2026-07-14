@@ -5059,7 +5059,6 @@ def post_tenant_cleanup_orders(
         )
 
     # ── Backup in JSON-Datei schreiben ──
-    import json as _json
     import os as _os
     backup_dir = _os.environ.get("BACKUP_DIR", "/app/data/backups")
     if not _os.path.isabs(backup_dir):
@@ -16043,7 +16042,7 @@ def loyalty_merge_duplicates(
 
 
 @app.put("/admin/loyalty/customer/{customer_id}/stamps")
-def loyalty_set_customer_stamps(
+async def loyalty_set_customer_stamps(
     customer_id: int,
     request: Request,
     chef_data: tuple = Depends(require_chief_user_flat),
@@ -16060,11 +16059,9 @@ def loyalty_set_customer_stamps(
     if not customer:
         raise HTTPException(status_code=404, detail="Kunde nicht gefunden.")
 
-    import json as _json
-    body = _json.loads(request.headers.get("X-Body", "{}") or "{}")
-    # Alternative: Body aus Request lesen
+    
     try:
-        body = request.json() if request.method == "PUT" else {}
+        body = await request.json()
     except Exception:
         body = {}
 
