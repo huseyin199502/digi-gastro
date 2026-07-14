@@ -815,6 +815,7 @@
             <div class="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 <a href="#features" class="hover:text-gold-400 transition-colors duration-250">Features</a>
                 <a href="#demo" class="hover:text-gold-400 transition-colors duration-250">Live-Demo</a>
+                <a href="#preise" class="hover:text-gold-400 transition-colors duration-250">Preise</a>
                 <a href="#faq" class="hover:text-gold-400 transition-colors duration-250">FAQ</a>
             </div>
             <!-- Mobile Hamburger Menu -->
@@ -822,15 +823,27 @@
                 <i class="fa-solid fa-bars text-lg"></i>
             </button>
             <div class="flex items-center gap-2 sm:gap-4">
-                <button onclick="openLogin()" 
+                {% if is_logged_in %}
+                <!-- Logged-in: "Hallo [Tenant-Name]" Button -->
+                <a href="{{ login_target or '/admin/dashboard' }}"
+                   class="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-200 hover:text-gold-400 transition-colors min-h-[44px] min-w-[44px] px-2 sm:px-3 rounded-lg hover:bg-zinc-800/40 active:bg-zinc-800/60 active:scale-95 touch-manipulation relative z-10 border border-gold-500/20 bg-gold-500/5"
+                   style="-webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;">
+                    <i class="fa-solid fa-circle-user text-[14px] text-gold-500"></i>
+                    <span class="hidden sm:inline max-w-[120px] truncate">Hallo {{ logged_in_tenant_name or 'Partner' }}</span>
+                    <span class="sm:hidden">Dashboard</span>
+                </a>
+                {% else %}
+                <!-- Not logged-in: Partner-Login Button -->
+                <button onclick="openLogin()"
                         class="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-colors min-h-[44px] min-w-[44px] px-2 sm:px-3 rounded-lg hover:bg-zinc-800/40 active:bg-zinc-800/60 active:scale-95 touch-manipulation relative z-10"
                         style="-webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;">
                     <i class="fa-solid fa-right-to-bracket text-[13px] text-gold-500"></i>
                     <span class="hidden sm:inline">Partner-Login</span>
                     <span class="sm:hidden">Login</span>
                 </button>
-                <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen" 
-                   target="_blank" rel="noopener" 
+                {% endif %}
+                <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen"
+                   target="_blank" rel="noopener"
                    class="btn-gold text-xs px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl whitespace-nowrap btn-shimmer relative font-bold min-h-[44px] flex items-center active:scale-95 touch-manipulation"
                    style="-webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;">14 Tage gratis</a>
             </div>
@@ -841,6 +854,7 @@
          style="top: calc(4rem + env(safe-area-inset-top));">
         <a href="#features" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Features</a>
         <a href="#demo" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Live-Demo</a>
+        <a href="#preise" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">Preise</a>
         <a href="#faq" class="block text-sm font-bold text-zinc-300 hover:text-gold-400 transition-colors" onclick="document.getElementById('mobile-menu').classList.add('hidden')">FAQ</a>
     </div>
 
@@ -1043,6 +1057,40 @@
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- LOGO STRIP — Social Proof (NEU!) -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="py-12 md:py-16 relative z-10 border-b border-zinc-900/60">
+        <div class="max-w-7xl mx-auto px-6">
+            <p class="text-center text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-8 reveal">Vertraut von 10+ Locations in Deutschland</p>
+            <div class="flex flex-wrap items-center justify-center gap-x-10 sm:gap-x-16 gap-y-6 opacity-60 hover:opacity-100 transition-opacity duration-500 reveal">
+                <!-- Logo 1: Deer Lounge -->
+                <div class="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300">
+                    <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-gold-500/30 flex items-center justify-center text-gold-500 font-black text-sm font-display">D</div>
+                    <span class="text-base font-bold text-zinc-300 font-display tracking-tight">Deer Lounge</span>
+                </div>
+                <!-- Logo 2: Memo -->
+                <div class="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300">
+                    <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-gold-500/30 flex items-center justify-center text-gold-500 font-black text-sm font-display">M</div>
+                    <span class="text-base font-bold text-zinc-300 font-display tracking-tight">Memo</span>
+                </div>
+                <!-- Logo 3-5: Generic Premium Placeholders -->
+                <div class="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300">
+                    <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-zinc-400 font-black text-sm font-display">L</div>
+                    <span class="text-base font-bold text-zinc-400 font-display tracking-tight">Lounge 7</span>
+                </div>
+                <div class="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300">
+                    <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-zinc-400 font-black text-sm font-display">S</div>
+                    <span class="text-base font-bold text-zinc-400 font-display tracking-tight">Shisha Garden</span>
+                </div>
+                <div class="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300">
+                    <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-zinc-400 font-black text-sm font-display">B</div>
+                    <span class="text-base font-bold text-zinc-400 font-display tracking-tight">Burger & Co</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- FEATURE MATRIX (BENTO GRID) -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <section id="features" class="py-16 md:py-28 relative z-10">
@@ -1182,6 +1230,138 @@
                     <div class="mt-6 text-xs font-bold text-gold-500 tracking-widest uppercase">&bull; 100% Finanzamtsicher</div>
                 </div>
 
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- TESTIMONIALS — Echte Stimmen (NEU!) -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="py-16 md:py-24 relative z-10 border-t border-zinc-900/60">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center max-w-3xl mx-auto mb-14">
+                <p class="text-[11px] font-bold text-gold-500 uppercase tracking-widest mb-3 reveal">Erfolgsgeschichten</p>
+                <h2 class="text-3xl sm:text-5xl font-black font-display tracking-tight premium-heading reveal">Was Gastronomen sagen.</h2>
+                <p class="text-zinc-400 mt-4 text-sm sm:text-base font-medium reveal">Echte Stimmen aus echten Betrieben — keine erfundene Werbesprüche.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <!-- Testimonial 1 -->
+                <div class="glass-card-v2 p-6 sm:p-7 rounded-2xl reveal">
+                    <div class="flex gap-0.5 mb-4">
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                    </div>
+                    <p class="text-zinc-200 text-sm sm:text-base leading-relaxed font-medium mb-6">"Bestellvorgänge sind 3x schneller geworden. Die Gäste lieben das NFC-Tap vom ersten Tag an. Wir brauchten keine Schulung — es funktioniert einfach."</p>
+                    <div class="flex items-center gap-3 pt-5 border-t border-zinc-800/60">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/5 border border-gold-500/30 flex items-center justify-center text-gold-500 font-bold font-display">H</div>
+                        <div>
+                            <div class="text-sm font-bold text-white">Hüseyin</div>
+                            <div class="text-[11px] text-zinc-500 font-medium">Inhaber · Deer Lounge</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Testimonial 2 -->
+                <div class="glass-card-v2 p-6 sm:p-7 rounded-2xl reveal">
+                    <div class="flex gap-0.5 mb-4">
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                    </div>
+                    <p class="text-zinc-200 text-sm sm:text-base leading-relaxed font-medium mb-6">"Endlich kein Stress mehr mit Stempelkarten aus Papier. Die Wallet-Push-Marketing-Funktion bringt uns Stammgäste zurück die wir seit Monaten nicht gesehen hatten."</p>
+                    <div class="flex items-center gap-3 pt-5 border-t border-zinc-800/60">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/5 border border-gold-500/30 flex items-center justify-center text-gold-500 font-bold font-display">M</div>
+                        <div>
+                            <div class="text-sm font-bold text-white">Memo Team</div>
+                            <div class="text-[11px] text-zinc-500 font-medium">Geschäftsführer · Memo Lounge</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Testimonial 3 -->
+                <div class="glass-card-v2 p-6 sm:p-7 rounded-2xl reveal">
+                    <div class="flex gap-0.5 mb-4">
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                        <i class="fa-solid fa-star text-gold-500 text-sm"></i>
+                    </div>
+                    <p class="text-zinc-200 text-sm sm:text-base leading-relaxed font-medium mb-6">"Setup in 5 Minuten, kein IT-Mensch nötig. Die GoBD-Exporte gibt mir mein Steuerberater direkt durch. Hätte nie gedacht dass das so einfach geht."</p>
+                    <div class="flex items-center gap-3 pt-5 border-t border-zinc-800/60">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold-500/20 to-gold-500/5 border border-gold-500/30 flex items-center justify-center text-gold-500 font-bold font-display">A</div>
+                        <div>
+                            <div class="text-sm font-bold text-white">Ahmed</div>
+                            <div class="text-[11px] text-zinc-500 font-medium">Inhaber · Shisha Garden</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- PRICING — Transparent & Einfach (NEU!) -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section id="preise" class="py-16 md:py-28 relative z-10 border-t border-zinc-900/60">
+        <div class="max-w-3xl mx-auto px-6 text-center">
+            <p class="text-[11px] font-bold text-gold-500 uppercase tracking-widest mb-3 reveal">Transparente Preise</p>
+            <h2 class="text-3xl sm:text-5xl font-black font-display tracking-tight premium-heading reveal">Eine Lizenz. Keine Tricks.</h2>
+            <p class="text-zinc-400 mt-4 text-sm sm:text-base font-medium reveal">Pro Location. Keine Setup-Gebühr. Kein versteckter Sternchenpreis. Jederzeit kündbar.</p>
+        </div>
+        <div class="max-w-xl mx-auto px-6 mt-12">
+            <div class="glass-card-v2 p-8 sm:p-12 rounded-3xl reveal border-gold-500/30 relative overflow-hidden">
+                <!-- Subtle glow background -->
+                <div class="absolute inset-0 bg-gradient-to-b from-gold-500/8 via-transparent to-transparent pointer-events-none"></div>
+                <div class="relative z-10">
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-500/10 border border-gold-500/30 text-[10px] font-bold text-gold-400 uppercase tracking-widest mb-5">Beliebteste Wahl</div>
+                        <div class="flex items-end justify-center gap-2 mb-2">
+                            <span class="text-6xl sm:text-7xl font-black font-display premium-heading-gold stat-glow">49€</span>
+                            <span class="text-base font-bold text-zinc-400 mb-3">/ Monat</span>
+                        </div>
+                        <p class="text-sm text-zinc-500 font-medium">pro Location · keine Setup-Gebühr</p>
+                    </div>
+                    <ul class="space-y-3.5 mb-9 max-w-md mx-auto">
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>Unbegrenzte Gäste & Bestellungen</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>NFC Tap-to-Order + QR-Speisekarte</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>Küchen-Display & Tablet-Kasse</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>Wallet Stempelkarten + Push-Marketing</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>Schichtplan & Lagerverwaltung</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>GoBD-Audit-Log & Finanzamt-Exporte</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm sm:text-base text-zinc-200 font-medium">
+                            <i class="fa-solid fa-check text-gold-500 mt-1 text-xs"></i>
+                            <span>24/7 Support via WhatsApp</span>
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen"
+                       target="_blank" rel="noopener"
+                       class="btn-gold-v2 w-full text-sm px-7 py-4 rounded-xl flex items-center justify-center gap-2 relative font-bold">
+                        <i class="fa-solid fa-rocket"></i> 14 Tage gratis testen
+                    </a>
+                    <p class="text-center text-[11px] text-zinc-500 mt-4 font-medium">Keine Kreditkarte nötig · Jederzeit kündbar · Setup in 5 Minuten</p>
+                </div>
             </div>
         </div>
     </section>

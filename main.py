@@ -3270,6 +3270,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
         
     is_logged_in = False
     login_target = None
+    logged_in_tenant_name = None
+    logged_in_user_name = None
         
     res = get_current_user_and_slug(request)
     if res:
@@ -3278,6 +3280,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
         if tenant and user["role"] == "chef":
             is_logged_in = True
             login_target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+            logged_in_tenant_name = tenant.name
+            logged_in_user_name = user.get("name")
 
     if not is_logged_in:
         for cookie_key, cookie_val in request.cookies.items():
@@ -3292,14 +3296,22 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                             if role == "chef":
                                 is_logged_in = True
                                 login_target = "/admin/setup" if not tenant.is_setup_completed else "/admin/dashboard"
+                                logged_in_tenant_name = tenant.name
+                                logged_in_user_name = parts[0] if len(parts) > 0 else None
                                 break
                     except Exception:
                         pass
-                        
+
     response = templates.TemplateResponse(
         request=request, 
         name="landing.html", 
-        context={"request": request, "is_logged_in": is_logged_in, "login_target": login_target}
+        context={
+            "request": request, 
+            "is_logged_in": is_logged_in, 
+            "login_target": login_target,
+            "logged_in_tenant_name": logged_in_tenant_name,
+            "logged_in_user_name": logged_in_user_name,
+        }
     )
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
