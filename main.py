@@ -15805,6 +15805,32 @@ def loyalty_diagnose_duplicates(
     customers_with_pass = sum(1 for c in customers if c.pass_downloaded_at)
     customers_with_stamps = sum(1 for c in customers if c.current_stamps > 0)
 
+    # NEU: last_known_device_id Analyse
+    customers_with_device_id = [c for c in customers if getattr(c, 'last_known_device_id', None)]
+    customers_without_device_id = [c for c in customers if not getattr(c, 'last_known_device_id', None)]
+
+    # Duplikate nach last_known_device_id finden
+    device_id_groups = {}
+    for c in customers:
+        did = getattr(c, 'last_known_device_id', None)
+        if did:
+            if did not in device_id_groups:
+                device_id_groups[did] = []
+            device_id_groups[did].append({
+                "id": c.id,
+                "short_code": c.short_code,
+                "pass_serial": c.pass_serial[:8] + "...",
+                "current_stamps": c.current_stamps,
+                "pass_downloaded_at": c.pass_downloaded_at,
+                "first_visit_at": c.first_visit_at,
+                "anonymous_id": (c.anonymous_id or "")[:8] + "...",
+            })
+
+    duplicate_device_ids = {
+        did: group for did, group in device_id_groups.items()
+        if len(group) > 1
+    }
+
     return {
         "stats": {
             "total_customers": len(customers),
@@ -15813,6 +15839,8 @@ def loyalty_diagnose_duplicates(
             "customers_with_stamps": customers_with_stamps,
             "total_stamps_active": total_stamps,
             "total_rewards_redeemed": total_rewards,
+            "customers_with_device_id": len(customers_with_device_id),
+            "customers_without_device_id": len(customers_without_device_id),
         },
         "duplicate_anonymous_ids": {
             "count": len(duplicate_groups),
@@ -15829,6 +15857,12 @@ def loyalty_diagnose_duplicates(
         "multi_device_customers": {
             "count": len(multi_device),
             "customers": multi_device,
+        },
+        "device_id_analysis": {
+            "customers_with_device_id": len(customers_with_device_id),
+            "customers_without_device_id": len(customers_without_device_id),
+            "duplicate_device_ids_count": len(duplicate_device_ids),
+            "duplicate_device_ids": duplicate_device_ids,
         },
     }
 
