@@ -14324,6 +14324,27 @@ def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)
     has_pass = bool(customer and customer.pass_downloaded_at)
     show_popup = not has_pass
 
+    # CRITICAL: Für Apple User — verifiziere dass der Pass WIRKLICH noch im Wallet ist
+    # Apple gibt uns einen Callback beim Löschen (DELETE /v1/devices/.../registrations/...)
+    # Wenn keine Device-Registration mehr existiert, ist der Pass weg
+    # → pass_downloaded_at war evtl. nicht resettet (vor unserem Fix)
+    # → wir müssen es hier tun, sonst kommt das Popup nie wieder
+    if customer and customer.pass_downloaded_at and customer.pass_type == "apple":
+        reg_count = db.query(DBPasskitReg).filter_by(pass_serial=customer.pass_serial).count()
+        if reg_count == 0:
+            # Apple: Pass wurde gelöscht, aber pass_downloaded_at nicht resettet
+            # → Reset hier machen (auto-heal)
+            customer.pass_downloaded_at = None
+            customer.pass_needs_update = False
+            db.commit()
+            has_pass = False
+            show_popup = True
+            print(f"[Loyalty] Auto-heal: Customer {customer.id} had pass_downloaded_at but no device_registration → resetted")
+
+    # Für Google User: wir können es nicht prüfen (kein Callback)
+    # → pass_downloaded_at bleibt gesetzt, Popup kommt nicht
+    # → User muss bei Bedarf manuell resetten (via Admin-API)
+
     return {
         "show_popup": show_popup,
         "customer_id": customer.id if customer else None,
@@ -15376,17 +15397,26 @@ def loyalty_sync_pass_status(
 ):
     """Admin: Sync pass_downloaded_at für alle Kunden.
     Setzt pass_downloaded_at=NULL für Kunden die keine Device-Registration mehr haben.
-    Nützlich um nach einem Fix alle kaputten Kunden zu reparieren."""
+
+    WICHTIG: Nur für APPLE Kunden! Google Wallet hat keinen Device-Callback.
+    Google-Wallet User können wir nicht prüfen — pass_downloaded_at bleibt gesetzt.
+    """
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
 
     customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
     fixed_count = 0
+    skipped_google = 0
     fixed_customers = []
     for c in customers:
         if not c.pass_downloaded_at:
             continue
-        # Hat dieser Customer noch eine Device-Registration?
+        # CRITICAL: Google Wallet überspringen! Google hat keinen Callback,
+        # wir können nicht wissen ob der Pass im Wallet ist oder nicht.
+        if c.pass_type == "google":
+            skipped_google += 1
+            continue
+        # Nur Apple prüfen
         reg_count = db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).count()
         if reg_count == 0:
             # Pass wurde aus allen Wallets gelöscht, aber pass_downloaded_at noch gesetzt
@@ -15397,19 +15427,21 @@ def loyalty_sync_pass_status(
             fixed_customers.append({
                 "id": c.id,
                 "short_code": c.short_code,
+                "pass_type": c.pass_type,
                 "old_pass_downloaded_at": old_val,
             })
 
     if fixed_count > 0:
         db.commit()
 
-    print(f"[Loyalty] Sync pass-status: {fixed_count} customers fixed")
+    print(f"[Loyalty] Sync pass-status: {fixed_count} apple customers fixed, {skipped_google} google customers skipped")
     return {
         "success": True,
         "total_customers": len(customers),
         "fixed_count": fixed_count,
+        "skipped_google": skipped_google,
         "fixed_customers": fixed_customers,
-        "message": f"{fixed_count} Kunden hatten pass_downloaded_at gesetzt obwohl kein Device registriert. Reset done."
+        "message": f"{fixed_count} Apple-Kunden resettet. {skipped_google} Google-Kunden übersprungen (kein Callback möglich)."
     }
 
 
