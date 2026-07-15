@@ -15141,7 +15141,7 @@ async def passkit_get_pass(
     # iOS aktualisiert den Pass nicht → kein Risiko eines Fehlers
     if not customer.pass_needs_update:
         print(f"[PassKit] ⏭️  304 Not Modified for {serial_number[:8]}... (no update needed)")
-        last_mod = customer.last_visit_at or customer.created_at or _now_iso()
+        last_mod = getattr(customer, "pass_updated_at", None) or customer.created_at or _now_iso()
         return Response(
             status_code=304,
             headers={
@@ -15214,7 +15214,7 @@ async def passkit_get_pass(
         return Response(
             status_code=304,
             headers={
-                "Last-Modified": customer.last_visit_at or customer.created_at or _now_iso(),
+                "Last-Modified": getattr(customer, "pass_updated_at", None) or customer.created_at or _now_iso(),
             }
         )
 
@@ -15224,7 +15224,7 @@ async def passkit_get_pass(
         return Response(
             status_code=304,
             headers={
-                "Last-Modified": customer.last_visit_at or customer.created_at or _now_iso(),
+                "Last-Modified": getattr(customer, "pass_updated_at", None) or customer.created_at or _now_iso(),
             }
         )
 
@@ -15245,7 +15245,7 @@ async def passkit_get_pass(
             header_date = parsedate_to_datetime(if_modified_since)
             # Letzte Änderung des Customers = letzte msg_nonce Änderung oder stamp Änderung
             # Wir verwenden customer.updated_at oder den timestamp der letzten Push
-            last_change = getattr(customer, 'updated_at', None) or customer.last_push_at
+            last_change = getattr(customer, 'pass_updated_at', None) or customer.created_at
             if last_change:
                 try:
                     change_date = datetime.fromisoformat(last_change.replace("Z", "+00:00"))
@@ -15264,7 +15264,7 @@ async def passkit_get_pass(
 
     print(f"[PassKit] ✅ Pass served for {serial_number[:8]}... (stamps: {customer.current_stamps}/{card.stamps_required})")
     # Last-Modified = letzter Besuch oder Erstellung (nicht NOW()!)
-    last_mod = customer.last_visit_at or customer.created_at or _now_iso()
+    last_mod = getattr(customer, "pass_updated_at", None) or customer.created_at or _now_iso()
     return Response(
         content=pkpass_bytes,
         media_type="application/vnd.apple.pkpass",
