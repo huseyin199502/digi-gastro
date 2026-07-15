@@ -491,6 +491,10 @@ class LoyaltyCustomer(Base):
     # Auto-Recovery: Wenn Kunde ohne anonymous_id kommt (Safari ITP), aber
     # device_id zu einem bekannten Customer passt → Customer gefunden statt neu erstellt.
     last_known_device_id = Column(String, nullable=True)  # Apple PassKit device_library_identifier
+    # Echter Pass-Update-Zeitpunkt — wird gesetzt wenn Pass generiert/aktualisiert wurde
+    # WICHTIG: Unterschied zu last_visit_at (Besuch) und updated_at (DB-Änderung)
+    # Apple PassKit nutzt diesen Wert für lastUpdated in /registrations Response
+    pass_updated_at = Column(String, nullable=True)  # ISO-Datum: wann wurde Pass zuletzt generiert?
 
 class LoyaltyStamp(Base):
     """Ein einzelner Stempel — wird bei Bestellung automatisch vergeben.
@@ -1001,6 +1005,7 @@ def _migrate_database():
     # NEU: last_known_device_id — echte iOS-Geräte-ID aus PassKit
     # Auto-Recovery gegen Safari ITP / Cookie-Verlust
     add_column_if_missing('loyalty_customers', 'last_known_device_id', "VARCHAR")
+    add_column_if_missing('loyalty_customers', 'pass_updated_at', "VARCHAR")
     # Index für schnelle Lookup pro Tenant (Auto-Recovery Performance)
     try:
         with engine.begin() as _conn:

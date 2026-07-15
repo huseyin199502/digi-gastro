@@ -14678,6 +14678,8 @@ async function recover() {{
     # Customer einen Pass hat → /loyalty/state liefert show_popup=False
     if not customer.pass_downloaded_at:
         customer.pass_downloaded_at = _now_iso()
+        customer.pass_downloaded_at = _now_iso()
+        customer.pass_updated_at = _now_iso()
     # anonymous_id sicherheitshalber setzen (falls Customer älter ist als das Feld)
     if not customer.anonymous_id:
         customer.anonymous_id = aid or str(uuid.uuid4())
@@ -14776,6 +14778,8 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
     customer.pass_needs_update = False
     if not customer.pass_downloaded_at:
         customer.pass_downloaded_at = _now_iso()
+        customer.pass_downloaded_at = _now_iso()
+        customer.pass_updated_at = _now_iso()
     if not customer.anonymous_id:
         customer.anonymous_id = aid or str(uuid.uuid4())
     db.commit()
@@ -14867,6 +14871,8 @@ async def passkit_register_device(
     # Das ist der absolute Beweis: iOS hat den Pass erfolgreich zum Wallet hinzugefügt
     if customer and not customer.pass_downloaded_at:
         customer.pass_downloaded_at = _now_iso()
+        customer.pass_downloaded_at = _now_iso()
+        customer.pass_updated_at = _now_iso()
         print(f"[PassKit] ✅ pass_downloaded_at set for customer {customer.id} (device registration)")
 
     # NEU: Auto-Recovery — last_known_device_id auf Customer setzen
@@ -14949,21 +14955,22 @@ async def passkit_get_registrations(
 ):
     """Apple PassKit: Listet alle Passes die auf diesem Device registriert sind.
 
-    Apple's 'Get serial #s task' (background check nach APNs Push) ruft diesen
-    Endpoint auf. Laut Apple PassKit Spec:
-    - 200 + serialNumbers + lastUpdated → iOS ruft GET /passes/... auf,
-      ABER nur wenn sich lastUpdated geändert hat!
-    - 204 → "nichts zu tun" → iOS ruft NICHT GET /passes/... auf
+    Apple PassKit Spec für GET /v1/devices/{device}/registrations/{pass_type}:
+    - Query-Param: passesUpdatedSince (optional, ISO-Datum)
+    - Wenn passesUpdatedSince vorhanden: nur Pässe zurückgeben die sich SEIT diesem Datum geändert haben
+    - Wenn lastUpdated == passesUpdatedSince: 204 (nichts neues)
+    - Wenn lastUpdated > passesUpdatedSince: 200 mit serialNumbers + neuem lastUpdated
+    - Wenn kein passesUpdatedSince: 200 mit allen serialNumbers + lastUpdated
 
-    CRITICAL FIX: lastUpdated darf sich NUR ändern wenn sich ein Pass wirklich
-    geändert hat (pass_needs_update=True). Vorher wurde immer NOW() gesendet,
-    was iOS zwang, ständig GET /passes/... aufzurufen. Wenn dabei die Pass-
-    Generierung fehlschlug (Logo fehlt, Exception), bekam iOS einen Fehler
-    und ENTFERNTE DEN PASS AUS DEM WALLET!
-
-    Jetzt: lastUpdated = max(updated_at) aller registrierten Pässe.
-    Wenn kein Pass pass_needs_update=True hat, geben wir 204 zurück.
+    CRITICAL FIX (spurious push bug):
+    - Vorher: passesUpdatedSince wurde IGNORIERT → "spurious push" Fehler
+    - Vorher: lastUpdated = customer.last_visit_at (falsch! Besuchszeitpunkt ≠ Pass-Update)
+    - Jetzt: lastUpdated = customer.pass_updated_at (echter Pass-Update-Zeitpunkt)
+    - Jetzt: passesUpdatedSince wird korrekt verglichen
     """
+    # passesUpdatedSince Query-Parameter holen
+    passes_updated_since = request.query_params.get("passesUpdatedSince", "").strip()
+
     regs = db.query(DBPasskitReg).filter_by(
         device_library_identifier=device_library_id,
         pass_type_identifier=pass_type_id
@@ -14975,27 +14982,37 @@ async def passkit_get_registrations(
     # Sammle alle serial_numbers
     serials = [r.pass_serial for r in regs]
 
-    # Prüfe ob irgend ein Pass ein Update braucht
+    # Customers für diese Serials laden
     customers = db.query(LoyaltyCustomer).filter(
         LoyaltyCustomer.pass_serial.in_(serials)
     ).all()
 
-    # Finde Pässe die ein Update brauchen (pass_needs_update=True)
+    # lastUpdated = neuester pass_updated_at aller Customers
+    # WICHTIG: pass_updated_at ist der echte Pass-Update-Zeitpunkt (nicht last_visit_at!)
+    all_pass_updates = [getattr(c, 'pass_updated_at', None) or c.created_at for c in customers if c]
+    latest_update = max(all_pass_updates, default=_now_iso())
+
+    # Wenn passesUpdatedSince vorhanden: vergleichen
+    if passes_updated_since:
+        # Wenn latest_update <= passesUpdatedSince → nichts neues → 204
+        if latest_update <= passes_updated_since:
+            return Response(status_code=204)
+
+    # Pässe die ein Update brauchen (pass_needs_update=True)
     needs_update_serials = [c.pass_serial for c in customers if c.pass_needs_update]
 
     if not needs_update_serials:
-        # Kein Pass braucht ein Update → 204 = "nichts zu tun"
-        # iOS ruft NICHT GET /passes/... auf → kein Risiko eines 500ers
+        # Kein Pass braucht ein Update
+        # ABER: wenn passesUpdatedSince fehlt (erster Check), sende alle Serials
+        if not passes_updated_since:
+            return {
+                "lastUpdated": latest_update,
+                "serialNumbers": serials
+            }
+        # Sonst: 204 (nichts neues seit letztem Check)
         return Response(status_code=204)
 
-    # Es gibt Pässe die ein Update brauchen → 200 mit nur diesen Serials
-    # lastUpdated = letztes Update-Datum (nicht NOW!), damit iOS erkennt
-    # ob sich seit dem letzten Check etwas geändert hat
-    latest_update = max(
-        (c.last_visit_at or c.created_at for c in customers if c.pass_needs_update),
-        default=_now_iso()
-    )
-
+    # Es gibt Pässe die ein Update brauchen → 200 mit diesen Serials
     return {
         "lastUpdated": latest_update,
         "serialNumbers": needs_update_serials
@@ -15211,8 +15228,9 @@ async def passkit_get_pass(
             }
         )
 
-    # Pass erfolgreich generiert → pass_needs_update zurücksetzen
+    # Pass erfolgreich generiert → pass_needs_update zurücksetzen + pass_updated_at setzen
     customer.pass_needs_update = False
+    customer.pass_updated_at = _now_iso()  # NEU: echter Pass-Update-Zeitpunkt
     db.commit()
 
     # FIX: If-Modified-Since Header korrekt behandeln
@@ -15330,6 +15348,7 @@ async def google_wallet_callback(request: Request, db: Session = Depends(get_db)
                             # Pass wurde gespeichert → pass_downloaded_at setzen
                             if not customer.pass_downloaded_at:
                                 customer.pass_downloaded_at = _now_iso()
+                                customer.pass_updated_at = _now_iso()
                                 db.commit()
                                 print(f"[Google Wallet Callback] ✅ pass_downloaded_at set for customer {customer.id} (tenant={customer.tenant_slug})")
                         elif event_type == "del":
