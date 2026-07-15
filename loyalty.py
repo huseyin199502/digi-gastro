@@ -185,7 +185,10 @@ def _generate_apple_pass_json(
         r, g, b = int(hex_clean[0:2], 16), int(hex_clean[2:4], 16), int(hex_clean[4:6], 16)
         rgb_color = f"rgb({r},{g},{b})"
     except Exception:
-        rgb_color = "rgb(201,168,76)"
+        # BUG FIX: bei ungültigem Hex-Wert Fallback setzen (r,g,b waren vorher undefiniert!)
+        # → brightness-Berechnung in Zeile 214 crashte mit UnboundLocalError
+        r, g, b = 201, 168, 76  # Fallback: digi-gastro Gold
+        rgb_color = f"rgb({r},{g},{b})"
 
     # ── Stempel-Visualisierung ──
     # WICHTIG: Apple Wallet unterstützt KEINE Emoji-Icons in Feld-Werten!
@@ -1791,15 +1794,21 @@ def award_stamp_for_order(
     - Setzt pass_needs_update=True (für Pass-Update bei nächstem Refresh)
 
     Returns: Dict mit Stempel-Ergebnis (für Notification/Log)
+
+    BUG FIX (Race Condition): Atomares UPDATE (current_stamps = current_stamps + 1)
+    + SELECT FOR UPDATE in PostgreSQL. Siehe award_manual_stamp für Details.
+    Verhindert dass 2 parallele Bestellungen den gleichen current_stamps
+    überschreiben.
     """
     _ensure_db_models()
 
     now = _now_iso()
 
-    # Kunde laden
+    # BUG FIX: SELECT FOR UPDATE — Customer-Row locken bis Commit
+    # Verhindert Race Condition bei schnellem doppeltem Stempeln.
     customer = db_session.query(LoyaltyCustomer).filter_by(
         tenant_slug=tenant_slug, id=customer_id
-    ).first()
+    ).with_for_update().first()
     if not customer:
         return {"success": False, "error": "customer_not_found"}
 
@@ -1823,22 +1832,33 @@ def award_stamp_for_order(
     )
     db_session.add(stamp)
 
-    # Customer aktualisieren
-    customer.current_stamps += 1
-    customer.updated_at = _now_iso()
-    customer.total_stamps_earned += 1
-    customer.last_visit_at = now
+    # BUG FIX: Atomares UPDATE — current_stamps = current_stamps + 1
+    # Verhindert Race Condition in SQLite (kein row lock nötig) und PostgreSQL.
+    from sqlalchemy import update as sa_update
+    db_session.execute(
+        sa_update(LoyaltyCustomer)
+        .where(LoyaltyCustomer.id == customer.id)
+        .values(
+            current_stamps=LoyaltyCustomer.current_stamps + 1,
+            total_stamps_earned=LoyaltyCustomer.total_stamps_earned + 1,
+            updated_at=now,
+            last_visit_at=now,
+            pass_needs_update=True,
+            pass_updated_at=now,
+        )
+    )
+    # Customer neu laden um den tatsächlichen neuen current_stamps zu bekommen
+    db_session.expire(customer)
+    customer = db_session.query(LoyaltyCustomer).filter_by(id=customer.id).first()
     if not customer.first_visit_at:
         customer.first_visit_at = now
-    customer.pass_needs_update = True
-    customer.pass_updated_at = _now_iso()
 
     # Reward auslösen wenn Limit erreicht?
     reward_triggered = False
     if customer.current_stamps >= card.stamps_required:
         # Reset Stempel + Reward loggen
         customer.current_stamps = 0
-        customer.updated_at = _now_iso()
+        customer.updated_at = now
         customer.rewards_redeemed += 1
         reward_triggered = True
         # Alle Stempel als redeemed markieren
@@ -2294,9 +2314,36 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
 
     Wird vom Scanner-Modus im Admin-Panel aufgerufen.
     Returns: dict mit success/Fehler-Info.
+
+    BUG FIX (Race Condition): Wenn 2 Kellner in Sekunden-Abstand Stempel an den
+    gleichen Kunden vergeben, wurde customer.current_stamps von beiden Requests
+    auf den gleichen Wert gesetzt (14+1=15 von Request 1, 14+1=15 von Request 2
+    der customer aus Request 1 überschreibt). Ergebnis: 2 Stempel vergeben aber
+    current_stamps nur +1, total_stamps_earned aber +2 → Diskrepanz zwischen
+    Dashboard (total) und Wallet (current).
+
+    FIX: Atomares UPDATE statement (current_stamps = current_stamps + 1)
+    funktioniert in PostgreSQL UND SQLite ohne row lock. Danach customer neu
+    laden um den tatsächlichen neuen Wert zu bekommen.
+
+    Zusätzlich: SELECT FOR UPDATE als erste Zeile (PostgreSQL-only) für
+    weitere Felder die sich ändern (tier, pass_needs_update, etc.). In SQLite
+    wird with_for_update() ignoriert — aber das atomare UPDATE macht es trotzdem
+    thread-safe.
     """
     _ensure_db_models()
-    customer = find_customer_by_short_code(db_session, tenant_slug, short_code)
+
+    # Normalisierung wie find_customer_by_short_code:
+    code = short_code.upper().strip()
+    code = code.replace("0", "Q").replace("O", "Q").replace("1", "J").replace("I", "J")
+    tenant_slug = tenant_slug.lower().strip()
+
+    # 1. Customer finden (FOR UPDATE für PostgreSQL)
+    customer = db_session.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.tenant_slug == tenant_slug,
+        LoyaltyCustomer.short_code == code
+    ).with_for_update().first()
+
     if not customer:
         return {"success": False, "error": "Kein Kunde mit diesem Code gefunden."}
 
@@ -2305,13 +2352,26 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
     if not card:
         return {"success": False, "error": "Stempelkarte existiert nicht mehr."}
 
-    # Stempel vergeben
-    customer.current_stamps += 1
-    customer.updated_at = _now_iso()
-    customer.total_stamps_earned += 1
-    customer.last_visit_at = _now_iso()
-    customer.pass_needs_update = True
-    customer.pass_updated_at = _now_iso()
+    # 2. BUG FIX: Atomares UPDATE — current_stamps = current_stamps + 1
+    # Verhindert Race Condition in SQLite (kein row lock nötig) und PostgreSQL.
+    # Beide parallele Requests incrementieren korrekt (+2 statt +1).
+    from sqlalchemy import update as sa_update, text as sa_text
+    now_iso = _now_iso()
+    db_session.execute(
+        sa_update(LoyaltyCustomer)
+        .where(LoyaltyCustomer.id == customer.id)
+        .values(
+            current_stamps=LoyaltyCustomer.current_stamps + 1,
+            total_stamps_earned=LoyaltyCustomer.total_stamps_earned + 1,
+            updated_at=now_iso,
+            last_visit_at=now_iso,
+            pass_needs_update=True,
+            pass_updated_at=now_iso,
+        )
+    )
+    # Customer neu laden um den tatsächlichen neuen current_stamps zu bekommen
+    db_session.expire(customer)
+    customer = db_session.query(LoyaltyCustomer).filter_by(id=customer.id).first()
 
     # Tier updaten (PHASE B)
     total = customer.total_stamps_earned
@@ -2324,26 +2384,26 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
 
     # Stamp-Log-Eintrag
     stamp = LoyaltyStamp(
-        tenant_slug=tenant_slug.lower().strip(),
+        tenant_slug=tenant_slug,
         customer_id=customer.id,
         card_id=customer.card_id,
         order_id=None,
         order_total=0.0,
         stamp_type="manual",
         is_redeemed=False,
-        created_at=_now_iso(),
+        created_at=now_iso,
     )
     db_session.add(stamp)
 
     # Reward prüfen
-    # WICHTIG: Bei 10/10 wird NICHT sofort auf 0 gesetzt!
-    # Der Kunde soll 10/10 mit "PRÄMIE BEREIT!" sehen.
+    # WICHTIG: Bei stamps_required/stamps_required wird NICHT sofort auf 0 gesetzt!
+    # Der Kunde soll stamps_required/stamps_required mit "PRÄMIE BEREIT!" sehen.
     # Erst wenn der Kellner den Reward einlöst (separater Button/API),
     # wird auf 0 resettet. So sieht der Kunde seinen Erfolg im Wallet.
     reward_redeemed = False
     if customer.current_stamps >= card.stamps_required:
-        # 10/10 erreicht — aber NICHT resetten!
-        # current_stamps bleibt bei 10/10 → Pass zeigt "PRÄMIE BEREIT!"
+        # stamps_required erreicht — aber NICHT resetten!
+        # current_stamps bleibt bei stamps_required → Pass zeigt "PRÄMIE BEREIT!"
         customer.rewards_redeemed += 1
         reward_redeemed = True
         # Stempel als redeemed markieren
@@ -2352,7 +2412,7 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
         ).all()
         for s in unredeemed:
             s.is_redeemed = True
-            s.redeemed_at = _now_iso()
+            s.redeemed_at = now_iso
         # WICHTIG: current_stamps bleibt bei stamps_required (z.B. 10)
         # Pass zeigt: "10 / 10 ✓" + "🎉 PRÄMIE BEREIT!"
         # Reset erfolgt erst via reward_redeem API (Kellner löst ein)
@@ -2362,8 +2422,6 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
     # Wenn lastmsg (backFields) sich GLEICHZEITIG ändert, fasst iOS die
     # changeMessages zusammen → zeigt nur "Karte aktualisiert" statt
     # "🎉 Neuer Stempel! 4/10".
-    # Bei Stempel-Push: nur stamps ändert sich → stamps-changeMessage triggert.
-    # Bei Nachrichten-Push (quick_send/broadcast): nur lastmsg ändert sich → lastmsg-changeMessage triggert.
 
     db_session.commit()
 

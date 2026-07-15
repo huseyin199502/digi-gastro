@@ -15779,6 +15779,14 @@ def loyalty_customers_list(
         .all()
     )
 
+    # BUG FIX: Cards für alle customers in EINER Query laden (statt N+1)
+    # Spart DB-Queries bei 25 Kunden pro Seite (25 Queries → 1 Query)
+    card_ids = set(c.card_id for c in customers if c.card_id)
+    cards_map = {}
+    if card_ids:
+        for card in db.query(LoyaltyCard).filter(LoyaltyCard.id.in_(card_ids)).all():
+            cards_map[card.id] = card
+
     return {
         "customers": [{
             "id": c.id,
@@ -15796,6 +15804,11 @@ def loyalty_customers_list(
             "push_opt_out": c.push_opt_out,
             "pass_downloaded_at": c.pass_downloaded_at,
             "has_device_registration": db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).count() > 0,
+            # BUG FIX: stamps_required pro Customer zurückgeben (vorher hartcodiert 10 im Frontend!)
+            # Sonst: Tenant mit 15-Stempel-Karte → "Prämie einlösen" Button erscheint schon ab 10 Stempeln
+            "stamps_required": getattr(cards_map.get(c.card_id), 'stamps_required', 10) or 10,
+            "card_name": getattr(cards_map.get(c.card_id), 'name', 'Stempelkarte'),
+            "reward_name": getattr(cards_map.get(c.card_id), 'reward_name', 'Belohnung'),
         } for c in customers],
         "pagination": {
             "page": page,
