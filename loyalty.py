@@ -1831,6 +1831,7 @@ def award_stamp_for_order(
     if not customer.first_visit_at:
         customer.first_visit_at = now
     customer.pass_needs_update = True
+    customer.pass_updated_at = _now_iso()
 
     # Reward auslösen wenn Limit erreicht?
     reward_triggered = False
@@ -1964,6 +1965,7 @@ def run_inactivity_cron(db_session, tenant_slug: str = None) -> Dict[str, Any]:
                 db_session.add(log)
                 customer.last_push_at = _now_iso()
                 customer.pass_needs_update = True
+                customer.pass_updated_at = _now_iso()
                 stats["pushs_sent"] += 1
             else:
                 # Log failed
@@ -2309,6 +2311,7 @@ def award_manual_stamp(db_session, tenant_slug: str, short_code: str, awarded_by
     customer.total_stamps_earned += 1
     customer.last_visit_at = _now_iso()
     customer.pass_needs_update = True
+    customer.pass_updated_at = _now_iso()
 
     # Tier updaten (PHASE B)
     total = customer.total_stamps_earned

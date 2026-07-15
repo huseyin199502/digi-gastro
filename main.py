@@ -15527,6 +15527,9 @@ async def loyalty_upload_notification_icon(
         customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
         for cust in customers:
             try:
+                cust.pass_needs_update = True
+                cust.pass_updated_at = _now_iso()
+                db.commit()
                 _trigger_pass_update_push(db, cust, "Icon aktualisiert", "Icon aktualisiert")
             except Exception:
                 pass
@@ -16451,6 +16454,8 @@ async def loyalty_quick_send(
         customer.updated_at = _now_iso()
         customer.msg_nonce = (customer.msg_nonce or 0) + 1
         customer.updated_at = _now_iso()
+        customer.pass_needs_update = True
+        customer.pass_updated_at = _now_iso()
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, title, message)
@@ -16514,6 +16519,8 @@ def loyalty_redeem_reward(
     old_stamps = customer.current_stamps
     customer.current_stamps = 0
     customer.updated_at = _now_iso()
+    customer.pass_needs_update = True
+    customer.pass_updated_at = _now_iso()
     db.commit()
 
     # Pass-Update Push → Kunde sieht 0/10 + "Neue Runde"
@@ -16585,6 +16592,8 @@ def loyalty_broadcast_push(
         customer.updated_at = _now_iso()
         customer.msg_nonce = (customer.msg_nonce or 0) + 1
         customer.updated_at = _now_iso()
+        customer.pass_needs_update = True
+        customer.pass_updated_at = _now_iso()
         db.commit()  # ← VOR dem Push committen!
 
         success = _trigger_pass_update_push(db, customer, campaign.title, campaign.message)
