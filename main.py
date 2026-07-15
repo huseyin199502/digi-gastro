@@ -5752,51 +5752,59 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     for item_idx, item in enumerate(payload.items):
         prod = products_map.get(item.product_id)
         # SECURITY FIX (Audit Issue 3.3): Reject unknown product_ids explicitly.
-        # Without this, the `if prod:` block was skipped and fake items with
-        # manipulated price/name were persisted into the order. Raising here
-        # closes the "fake item with manipulated price" attack vector.
         if not prod:
             raise HTTPException(status_code=400, detail=f"Unbekanntes Produkt: {item.product_id}")
-        # SECURITY: Always use the server-side price from DB, never trust client-submitted price
-        # Der Preis in der DB ist netto → bei brutto muss MwSt draufgerechnet werden
-        price_mode = restaurant.get("price_mode", "brutto")
-        cat_type = prod.get("category_type", "küche").lower()
-        mwst_rate = 0.19 if cat_type == "bar" else 0.07
+
+        combo_id = getattr(item, 'combo_id', None)
         
-        # FIX: Bei netto-Modus ist der DB-Preis bereits der Anzeigepreis (brutto).
-        # Keine MwSt-Umrechnung nötig! Nur bei brutto-Modus (DB=netto) umrechnen.
-        if price_mode == "brutto":
-            # DB-Preis ist netto → MwSt draufrechnen für Anzeige/Bestellung
-            item.price = round(prod["price"] * (1 + mwst_rate), 2)
+        # CRITICAL FIX: Kombi-Items NICHT mit Normalpreis überschreiben!
+        # Vorher: Zeile 5770 überschrieb item.price mit prod["price"] * (1+mwst)
+        # → Kombi-Preise (13.78€) wurden mit Normalpreisen (15€) überschrieben
+        # → 3x Kombi = 55.50€ statt 51€!
+        # Jetzt: Kombi-Items behalten ihren Frontend-Preis (der vom Frontend
+        # korrekt pro Kombi verteilt wurde). Nur Non-Kombi-Items bekommen
+        # den Server-Preis aus der DB.
+        if combo_id and combo_id in combo_lookup:
+            # Kombi-Item: Frontend-Preis behalten (wurde von _addComboItemsToCart korrekt gesetzt)
+            # Nur Name aus DB überschreiben (Security)
+            item.name = prod["name"]
+            print(f"[Order] Combo item (keeping frontend price): id={item.product_id} name={item.name} price={item.price} combo_id={combo_id}")
         else:
-            # DB-Preis ist bereits brutto (netto-Modus = Preis direkt anzeigen)
-            item.price = prod["price"]
+            # Non-Kombi-Item: Server-Preis aus DB verwenden (Security)
+            # SECURITY: Always use the server-side price from DB, never trust client-submitted price
+            price_mode = restaurant.get("price_mode", "brutto")
+            cat_type = prod.get("category_type", "küche").lower()
+            mwst_rate = 0.19 if cat_type == "bar" else 0.07
+            
+            if price_mode == "brutto":
+                item.price = round(prod["price"] * (1 + mwst_rate), 2)
+            else:
+                item.price = prod["price"]
+            
+            item.name = prod["name"]
+            is_event_price_applied = False
+            # Check each active event for this product
+            for ev in events:
+                if not ev.get("_is_currently_active", False):
+                    continue
+                event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
+                if event_product and event_product.get("event_price"):
+                    ep_val = event_product["event_price"]
+                    if price_mode == "brutto":
+                        ep_val = round(ep_val * (1 + mwst_rate), 2)
+                    item.price = ep_val
+                    is_event_price_applied = True
+                    break
+                elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
+                    discount_factor = (100 - ev["discount"]) / 100.0
+                    discounted = prod["price"] * discount_factor
+                    if price_mode == "brutto":
+                        item.price = round(discounted * (1 + mwst_rate), 2)
+                    else:
+                        item.price = round(discounted, 2)
+                    is_event_price_applied = True
+                    break
         
-        item.name = prod["name"]
-        is_event_price_applied = False
-        # Check each active event for this product
-        for ev in events:
-            if not ev.get("_is_currently_active", False):
-                continue
-            event_product = next((ep for ep in ev.get("products", []) if ep.get("product_id") == prod["id"]), None)
-            if event_product and event_product.get("event_price"):
-                # Event-Preis ist netto → bei brutto konvertieren
-                ep_val = event_product["event_price"]
-                if price_mode == "brutto":
-                    ep_val = round(ep_val * (1 + mwst_rate), 2)
-                item.price = ep_val
-                is_event_price_applied = True
-                break
-            elif ev.get("mode") == "discount" and ev.get("discount", 0) > 0:
-                discount_factor = (100 - ev["discount"]) / 100.0
-                discounted = prod["price"] * discount_factor
-                if price_mode == "brutto":
-                    item.price = round(discounted * (1 + mwst_rate), 2)
-                else:
-                    item.price = round(discounted, 2)
-                is_event_price_applied = True
-                break
-    
     # Validate and apply combo prices
     # Find items that are marked as combo items in the payload
     for item in payload.items:
