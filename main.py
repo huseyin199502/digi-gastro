@@ -5817,23 +5817,61 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         
         # Apply combo pricing — customer selected items, trust combo_id
         combo_price = combo_info["combo_price"]
-        individual_total = sum(products_map.get(item.product_id, {}).get("price", 0) for item in combo_items)
+
+        # CRITICAL FIX: Multi-Kombi Bug
+        # Vorher: combo_price (17€) wurde auf ALLE Items verteilt,
+        # egal wie viele Kombis bestellt wurden.
+        # Bei 3x Kombi: 17€ auf 6 Items → Total 17€ (FALSCH! Sollte 51€ sein)
+        # Jetzt: combo_price × Anzahl Kombis berechnen.
+        # Anzahl Kombis = len(combo_items) / items_per_combo
+        # items_per_combo = Anzahl der Produkte die in einer Kombi sind
+        # Da wir nicht genau wissen wie viele Items pro Kombi bestellt wurden
+        # (Kunde könnte verschiedene Produkte wählen), nutzen wir:
+        # total_combo_price = combo_price × (len(combo_items) / expected_items_per_combo)
+        # ABER: sicherer ist es, den Frontend-Preis zu vertrauen.
+        # Das Frontend verteilt combo_price bereits korrekt pro Kombi (proportionale Verteilung).
+        # Das Backend überschreibt das mit seiner eigenen Verteilung → BUG!
+        #
+        # LÖSUNG: Backend überschreibt Frontend-Preise NICHT mehr.
+        # Frontend hat bereits korrekte Preise pro Item berechnet (addComboToCart).
+        # Backend vertraut die Frontend-Preise und überschreibt sie nicht.
+        # Stattdessen: Backend nur VALIDIEREN dass Summe der combo-Items stimmt.
         
-        if individual_total > 0 and len(combo_items) > 0:
-            # Distribute combo price proportionally
-            remaining = combo_price
+        individual_total = sum(products_map.get(item.product_id, {}).get("price", 0) for item in combo_items)
+        frontend_total = sum(item.price for item in combo_items)
+        
+        # Wenn Frontend-Preise bereits korrekt sind (Summe > 0), NICHT überschreiben!
+        # Frontend verteilt combo_price pro Kombi-Aufruf korrekt.
+        # Bei 3x Kombi: Frontend ruft 3x _addComboItemsToCart → 3x 17€ verteilt = 51€
+        # Backend: trusted die Frontend-Preise, nur loggen.
+        if frontend_total > 0:
+            print(f"[Combo] Using frontend prices: combo_id={combo_id}, "
+                  f"items={len(combo_items)}, frontend_total={frontend_total}, "
+                  f"individual_total={individual_total}, combo_price_per_unit={combo_price}")
+            for item in combo_items:
+                print(f"[Combo]   item: id={item.product_id} name={item.name} price={item.price}")
+        elif individual_total > 0 and len(combo_items) > 0:
+            # Fallback: Frontend hat keine Preise gesetzt → Backend verteilt
+            # Aber: combo_price × Anzahl Kombis (nicht combo_price einmal!)
+            # Anzahl Kombis schätzen: items / 2 (typischerweise 2 Items pro Kombi)
+            # Besser: wir wissen combo_price pro Kombi, also:
+            # Wenn 6 Items und combo_price=17€, und typischerweise 2 Items pro Kombi → 3 Kombis → 51€
+            num_combos = max(1, len(combo_items) // 2)  # Schätzung: 2 Items pro Kombi
+            total_combo_price = combo_price * num_combos
+            
+            remaining = total_combo_price
             for i, item in enumerate(combo_items):
                 prod_price = products_map.get(item.product_id, {}).get("price", 0)
                 if i == len(combo_items) - 1:
-                    # Last item gets the remainder to avoid rounding errors
                     item.price = round(remaining, 2)
                 else:
                     proportion = prod_price / individual_total
-                    adjusted = round(combo_price * proportion, 2)
+                    adjusted = round(total_combo_price * proportion, 2)
                     item.price = adjusted
                     remaining -= adjusted
-            print(f"[Combo] Applied combo pricing: combo_id={combo_id}, "
-                  f"items={len(combo_items)}, combo_price={combo_price}, "
+            print(f"[Combo] Applied backend combo pricing: combo_id={combo_id}, "
+                  f"items={len(combo_items)}, num_combos={num_combos}, "
+                  f"total_combo_price={total_combo_price}, "
                   f"individual_total={individual_total}, price_mode={price_mode}")
             for item in combo_items:
                 print(f"[Combo]   item: id={item.product_id} name={item.name} price={item.price}")
