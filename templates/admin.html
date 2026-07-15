@@ -9374,7 +9374,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         order.items.forEach(item => {
                             const status = item.item_status || 'pending';
                             const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                            const key = `${item.product_id}_${noteSlug}_${status}`;
+                            const comboId = item.combo_id || '';
+                            const key = `${item.product_id}_${noteSlug}_${status}_${comboId}`;
                             const statusLabel = status === 'pending' ? 'Ausstehend' : status === 'confirmed' ? 'Zubereitung' : 'Serviert';
                             const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-700 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-200 border border-zinc-600';
                             
@@ -9886,7 +9887,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     const matchedItem = o.items.find(i => {
                         const noteSlug = (i.note || '').replace(/\s+/g, '_');
                         const status = i.item_status || 'pending';
-                        return `${i.product_id}_${noteSlug}_${status}` === cleanKey;
+                        const iComboId = i.combo_id || '';
+                        return `${i.product_id}_${noteSlug}_${status}_${iComboId}` === cleanKey;
                     });
                     if (matchedItem) {
                         if (matchedItem.quantity > 1) {
@@ -10015,7 +10017,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 const matchedItem = o.items.find(i => {
                     const noteSlug = (i.note || '').replace(/\s+/g, '_');
                     const status = i.item_status || 'pending';
-                    return `${i.product_id}_${noteSlug}_${status}` === cleanKey;
+                    const iComboId2 = i.combo_id || '';
+                    return `${i.product_id}_${noteSlug}_${status}_${iComboId2}` === cleanKey;
                 });
                 if (!matchedItem) return;
                 matchedItem.quantity = Math.max(0, matchedItem.quantity - qty);
@@ -11925,7 +11928,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 group.items.forEach(item => {
                     const itemStatus = item.item_status || 'pending';
                     const noteSlug = (item.note || '').replace(/\s+/g, '_');
-                    const key = `${item.product_id}_${noteSlug}_${itemStatus}`;
+                    // FIX: combo_id in key aufnehmen — sonst haben alle Kombi-Items
+                    // mit derselben product_id denselben key und der Kellner kann
+                    // nicht einzelne Kombi-Items für Teilzahlung auswählen!
+                    const comboId = item.combo_id || '';
+                    const key = `${item.product_id}_${noteSlug}_${itemStatus}_${comboId}`;
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {

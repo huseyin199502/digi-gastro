@@ -14576,8 +14576,10 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
     #
     # Das verhindert dass Kunden die schon einen Pass haben einen NEUEN
     # Code bekommen und ein Duplikat entsteht.
+    # ABER: force_new=1 Parameter überspringt den Schutz für echte Neukunden!
     # ═══════════════════════════════════════════════════════════════
-    if not customer:
+    force_new = request.query_params.get("force_new", "0") == "1"
+    if not customer and not force_new:
         # Prüfe: gibt es für diesen Tenant bereits Kunden mit Pass?
         existing_pass_count = db.query(LoyaltyCustomer).filter(
             LoyaltyCustomer.tenant_slug == slug_lower,
