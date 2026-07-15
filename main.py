@@ -16045,6 +16045,151 @@ def loyalty_backfill_device_ids(
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# AUTO-HEAL: Automatische Prüfung + Reparatur (für Cron-Dienste)
+# ═══════════════════════════════════════════════════════════════════════
+# Wird alle 5 Minuten von cron-job.org oder Coolify aufgerufen.
+# Token-basiert (kein Login nötig, aber Secret erforderlich).
+@app.get("/api/auto-heal")
+def auto_heal_endpoint(token: str = "", request: Request = None, db: Session = Depends(get_db)):
+    """Auto-Heal: Prüft und repariert automatisch PassKit/Wallet Probleme.
+    
+    Wird alle 5 Minuten von externem Cron-Dienst aufgerufen.
+    Token: AUTOHEAL_TOKEN env variable (falls nicht gesetzt, deaktiviert).
+    
+    Checks:
+    1. Stuck pass_needs_update (>1h) → reset
+    2. pass_downloaded_at vs device_registrations mismatch → reset
+    3. Duplikate nach device_id → merge
+    4. pass_updated_at backfill
+    5. iOS Logs Fehler-Check
+    """
+    import os as _os
+    expected_token = _os.environ.get("AUTOHEAL_TOKEN", "")
+    if not expected_token:
+        return JSONResponse({"status": "disabled", "message": "AUTOHEAL_TOKEN nicht gesetzt"}, status_code=404)
+    if token != expected_token:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    from datetime import datetime as _dt, timedelta as _td
+    now = _dt.utcnow()
+    one_hour_ago = now - _td(hours=1)
+    thirty_min_ago = now - _td(minutes=30)
+    
+    results = {"checks": [], "fixes": 0, "alerts": 0}
+    
+    # CHECK 1: Stuck pass_needs_update (>1h alt)
+    stuck_customers = db.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.pass_needs_update == True,
+        LoyaltyCustomer.pass_downloaded_at.isnot(None),
+    ).all()
+    stuck_fixed = 0
+    for c in stuck_customers:
+        pass_updated = getattr(c, "pass_updated_at", None)
+        if pass_updated:
+            try:
+                update_time = _dt.fromisoformat(pass_updated.replace("Z", ""))
+                if update_time < one_hour_ago:
+                    c.pass_needs_update = False
+                    stuck_fixed += 1
+            except Exception:
+                pass
+        else:
+            if c.pass_downloaded_at:
+                c.pass_updated_at = c.pass_downloaded_at
+                c.pass_needs_update = False
+                stuck_fixed += 1
+    if stuck_fixed > 0:
+        db.commit()
+    results["checks"].append({"name": "stuck_pass_needs_update", "found": len(stuck_customers), "fixed": stuck_fixed})
+    results["fixes"] += stuck_fixed
+    
+    # CHECK 2: pass_downloaded_at vs device_registrations mismatch
+    mismatched = db.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.pass_downloaded_at.isnot(None),
+        LoyaltyCustomer.pass_type == "apple",
+    ).all()
+    mismatch_fixed = 0
+    for c in mismatched:
+        reg_count = db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).count()
+        if reg_count == 0:
+            c.pass_downloaded_at = None
+            c.pass_needs_update = False
+            mismatch_fixed += 1
+    if mismatch_fixed > 0:
+        db.commit()
+    results["checks"].append({"name": "registration_mismatch", "found": mismatch_fixed, "fixed": mismatch_fixed})
+    results["fixes"] += mismatch_fixed
+    
+    # CHECK 3: Duplikate nach device_id
+    customers_with_device = db.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.last_known_device_id.isnot(None)
+    ).all()
+    device_groups = {}
+    for c in customers_with_device:
+        did = c.last_known_device_id
+        if did not in device_groups:
+            device_groups[did] = []
+        device_groups[did].append(c)
+    dup_groups = {k: v for k, v in device_groups.items() if len(v) > 1}
+    dup_merged = 0
+    for did, group in dup_groups.items():
+        group_sorted = sorted(group, key=lambda c: c.id)
+        master = group_sorted[0]
+        for dup in group_sorted[1:]:
+            if dup.current_stamps > 0:
+                master.current_stamps = min(master.current_stamps + dup.current_stamps, 99)
+            master.total_stamps_earned += dup.total_stamps_earned
+            master.rewards_redeemed += dup.rewards_redeemed
+            tier_order = {"neu": 0, "stamm": 1, "vip": 2}
+            if tier_order.get(dup.tier, 0) > tier_order.get(master.tier, 0):
+                master.tier = dup.tier
+            dup.last_known_device_id = None
+            dup.pass_needs_update = False
+            dup_merged += 1
+    if dup_merged > 0:
+        db.commit()
+    results["checks"].append({"name": "duplicate_device_ids", "groups": len(dup_groups), "merged": dup_merged})
+    results["fixes"] += dup_merged
+    
+    # CHECK 4: pass_updated_at backfill
+    needs_backfill = db.query(LoyaltyCustomer).filter(
+        LoyaltyCustomer.pass_updated_at.is_(None),
+        LoyaltyCustomer.pass_downloaded_at.isnot(None),
+    ).all()
+    backfill_count = 0
+    for c in needs_backfill:
+        c.pass_updated_at = c.pass_downloaded_at
+        backfill_count += 1
+    if backfill_count > 0:
+        db.commit()
+    results["checks"].append({"name": "pass_updated_at_backfill", "filled": backfill_count})
+    results["fixes"] += backfill_count
+    
+    # CHECK 5: iOS Logs in letzten 30 Min
+    recent_logs = db.query(DBPasskitLog).filter(
+        DBPasskitLog.created_at > thirty_min_ago.isoformat()
+    ).all()
+    error_count = 0
+    for log in recent_logs:
+        try:
+            entries = json.loads(log.logs) if log.logs else []
+            for entry in entries:
+                if isinstance(entry, str) and ("error" in entry.lower() or "spurious" in entry.lower()):
+                    error_count += 1
+        except Exception:
+            pass
+    results["checks"].append({"name": "ios_logs_30min", "total": len(recent_logs), "errors": error_count})
+    results["alerts"] += error_count
+    
+    # CHECK 6: Kunden-Zahl
+    total_customers = db.query(LoyaltyCustomer).count()
+    results["checks"].append({"name": "customer_count", "total": total_customers})
+    
+    print(f"[Auto-Heal] {results["fixes"]} fixes, {results["alerts"]} alerts, {total_customers} customers")
+    return JSONResponse(results)
+
+
 # MERGE: Duplikate (gleiche device_id) zusammenführen
 # ═══════════════════════════════════════════════════════════════════════
 @app.post("/admin/loyalty/merge-duplicates")
