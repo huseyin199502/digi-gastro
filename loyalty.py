@@ -306,6 +306,11 @@ def _generate_apple_pass_json(
                     "value": "Stempel können nicht übertragen werden. Einlösung erfolgt ausschließlich vor Ort. Keine Barauszahlung."
                 },
                 {
+                    "key": "openmenu",
+                    "label": "🍽️ Speisekarte öffnen",
+                    "value": f"https://digi-gastro.de/{tenant_slug}?recover={short_code or serial}"
+                },
+                {
                     "key": "lastmsg",
                     "label": "Letzte Nachricht",
                     "value": customer.get("last_message", "Willkommen!"),

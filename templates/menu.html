@@ -455,11 +455,19 @@
                     </div>
 
                     <!-- Stempelkarte Button (NEU - ersetzt das Popup) -->
-                    <!-- x-show: nur sichtbar wenn Loyalty-Karte aktiv (via JS checkLoyaltyAvailability) -->
-                    <div class="w-full">
-                        <a href="/{{ slug }}/loyalty/pass/apple" class="btn-premium btn-premium-primary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95 shadow-lg shadow-primary/20">
-                            <span class="material-symbols-outlined" style="font-size:18px;">loyalty</span>
-                            <span>Stempelkarte</span>
+                    <!-- Nur sichtbar wenn Loyalty-Karte aktiv (_loyaltyCardActive via JS) -->
+                    <!-- aid wird dynamisch per JS gesetzt sobald _getOrCreateAid() fertig ist -->
+                    <!-- Device Detection: iOS → Apple Button, Android → Google Button, Desktop → beide -->
+                    <div class="w-full space-y-1.5" id="loyalty-pass-btn-container" style="display:none;">
+                        <!-- Apple Wallet Button -->
+                        <a id="loyalty-apple-btn" href="/{{ slug }}/loyalty/pass/apple" onclick="return loyaltyPassClick(event)" class="btn-premium btn-premium-primary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95 shadow-lg shadow-primary/20">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.03-2.5 2.04-3.7 2.13-3.76-1.16-1.7-2.97-1.93-3.61-1.96-1.54-.16-3 .91-3.78.91-.79 0-1.99-.89-3.27-.86-1.68.03-3.23.98-4.09 2.48-1.74 3.02-.44 7.46 1.26 9.91.83 1.21 1.82 2.56 3.12 2.51 1.26-.05 1.73-.81 3.25-.81 1.53 0 1.96.81 3.29.79 1.36-.03 2.22-1.23 3.06-2.44.96-1.4 1.36-2.76 1.38-2.83-.03-.01-2.65-1.01-2.68-4.01zM14.78 5.49c.69-.84 1.16-1.99 1.03-3.14-1 .04-2.21.66-2.93 1.5-.64.74-1.2 1.92-1.05 3.04 1.12.09 2.26-.57 2.95-1.4z"/></svg>
+                            <span>Apple Wallet</span>
+                        </a>
+                        <!-- Google Wallet Button -->
+                        <a id="loyalty-google-btn" href="/{{ slug }}/loyalty/pass/google" class="btn-premium glass-btn-secondary w-full inline-flex items-center justify-center gap-2.5 text-xs font-bold hover:scale-105 transition-all py-3 rounded-xl active:scale-95" style="color:#ffffff !important;">
+                            <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                            <span>Google Wallet</span>
                         </a>
                     </div>
 
@@ -1127,30 +1135,49 @@
                 if (data.card) {
                     _loyaltyCardData = data;
                     _loyaltyCardActive = true;
-                    // Modal-Daten vorbereiten (für eventuelle spätere Anzeige)
+                    // Stempelkarte Button sichtbar machen (nur wenn Karte aktiv)
+                    const btnContainer = document.getElementById('loyalty-pass-btn-container');
+                    if (btnContainer) btnContainer.style.display = '';
+
+                    // AUTO-RECOVERY: ?recover=CODE in URL → /loyalty/state mit recover aufrufen
+                    // Wenn Kunde aus Wallet auf "Speisekarte öffnen" getippt hat:
+                    // URL enthält ?recover=Y7YJ → Server findet Customer via short_code
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const recoverCode = urlParams.get('recover');
+                    const aid = await _getOrCreateAid();
+                    // aid in Stempelkarte-Button Link setzen (für direkte Navigation)
+                    _updateLoyaltyPassBtnHref();
+
+                    // /loyalty/state aufrufen — mit aid UND recover (falls vorhanden)
+                    let stateUrl = `/{{ slug }}/loyalty/state?aid=${encodeURIComponent(aid)}`;
+                    if (recoverCode) {
+                        stateUrl += `&recover=${encodeURIComponent(recoverCode)}`;
+                    }
 
                     // Drei-Kanal-Server-Lookup: hat dieser Kunde schon einen Pass?
                     // Server ist verlässlich (DB-basiert) — ersetzt fragiles Cookie-Checking.
                     try {
-                        const aid = await _getOrCreateAid();
-                        const stateRes = await fetch(`/{{ slug }}/loyalty/state?aid=${encodeURIComponent(aid)}`);
+                        const stateRes = await fetch(stateUrl);
                         if (stateRes.ok) {
                             const state = await stateRes.json();
                             _loyaltyHasPass = !!state.has_pass;
-                            // CRITICAL FIX: _cid Cookie wird jetzt vom SERVER via Set-Cookie
-                            // HTTP-Header gesetzt (in /loyalty/state Response).
-                            // Vorher: document.cookie = '...' → Safari ITP kürzt auf 7 Tage.
-                            // Jetzt: Server-set Cookie überlebt 1 Jahr (ITP-exempt).
-                            // Wir müssen hier NICHTS mehr setzen — Server übernimmt das.
-                            // Bestehendes "saved"-Cookie synchronisieren (falls Server sagt: hat Pass)
+
+                            // Button Text dynamisch anpassen
+                            // has_pass=true → "Stempelkarte öffnen" (Kunde hat sie schon)
+                            // has_pass=false → "Stempelkarte laden" (Kunde hat sie noch nicht)
+                            const appleBtn = document.getElementById('loyalty-apple-btn');
+                            const googleBtn = document.getElementById('loyalty-google-btn');
+                            if (appleBtn) {
+                                const span = appleBtn.querySelector('span:last-child');
+                                if (span) span.textContent = state.has_pass ? 'Stempelkarte öffnen' : 'Apple Wallet';
+                            }
+                            if (googleBtn) {
+                                const span = googleBtn.querySelector('span:last-child');
+                                if (span) span.textContent = state.has_pass ? 'Stempelkarte öffnen' : 'Google Wallet';
+                            }
+
                             if (state.has_pass) {
                                 _setLoyaltySavedCookie();
-                            } else if (state.show_popup === true) {
-                                // BUGFIX: Server sagt autoritativ "hat keinen Pass" →
-                                // stale Client-Daten (Cookie/LS) löschen, sonst blockieren
-                                // sie dauerhaft das Popup, obwohl der Server has_pass=false liefert.
-                                document.cookie = `loyalty_{{ slug }}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure`;
-                                localStorage.removeItem(`loyalty_saved_{{ slug }}`);
                             }
                         }
                     } catch (e) { /* Server-Lookup optional, Cookie-Fallback unten */ }
@@ -1159,6 +1186,62 @@
         }
 
         let _loyaltyHasPass = false; // Drei-Kanal-Server-Lookup Ergebnis
+        let _loyaltyAidReady = false; // Wird true sobald _getOrCreateAid() fertig ist
+
+        // Stempelkarte Button Click Handler
+        // Hängt anonymous_id (aid) an den Link bevor Navigation stattfindet
+        // Ohne aid: Server erkennt Kunden nicht → Duplikat-Schutz → Code-Eingabe
+        // Mit aid: Server erkennt Kunden → Pass wird direkt generiert
+        async function loyaltyPassClick(event) {
+            // Wenn aid schon gesetzt (checkLoyaltyAvailability war schneller)
+            if (typeof _dgAid !== 'undefined' && _dgAid && _dgAid.length === 36) {
+                const btn = document.getElementById('loyalty-apple-btn');
+                if (btn) {
+                    // aid an Link anhängen (falls noch nicht da)
+                    const currentHref = btn.getAttribute('href');
+                    if (currentHref && !currentHref.includes('aid=')) {
+                        btn.setAttribute('href', currentHref + '?aid=' + encodeURIComponent(_dgAid));
+                    }
+                }
+                return true; // Navigation erlaubt
+            }
+
+            // aid noch nicht ready → warte bis es da ist, dann navigiere
+            if (event) event.preventDefault();
+            try {
+                const clickAid = await _getOrCreateAid();
+                if (clickAid && clickAid.length === 36) {
+                    window.location.href = '/{{ slug }}/loyalty/pass/apple?aid=' + encodeURIComponent(clickAid);
+                } else {
+                    // Fallback: ohne aid navigieren (Server zeigt Code-Eingabe-Seite)
+                    window.location.href = '/{{ slug }}/loyalty/pass/apple';
+                }
+            } catch(e) {
+                // Fehler → trotzdem navigieren (Fallback)
+                window.location.href = '/{{ slug }}/loyalty/pass/apple';
+            }
+            return false;
+        }
+
+        // aid in beide Button-Links setzen (für direkte Navigation ohne Click-Handler)
+        function _updateLoyaltyPassBtnHref() {
+            if (typeof _dgAid === 'undefined' || !_dgAid || _dgAid.length !== 36) return;
+            const appleBtn = document.getElementById('loyalty-apple-btn');
+            const googleBtn = document.getElementById('loyalty-google-btn');
+            const aidParam = '?aid=' + encodeURIComponent(_dgAid);
+            if (appleBtn) {
+                let href = appleBtn.getAttribute('href') || '';
+                if (!href.includes('aid=')) {
+                    appleBtn.setAttribute('href', href.split('?')[0] + aidParam);
+                }
+            }
+            if (googleBtn) {
+                let href = googleBtn.getAttribute('href') || '';
+                if (!href.includes('aid=')) {
+                    googleBtn.setAttribute('href', href.split('?')[0] + aidParam);
+                }
+            }
+        }
 
         function _setLoyaltySavedCookie() {
             const expires = new Date();

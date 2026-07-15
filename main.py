@@ -5585,7 +5585,44 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
-    
+
+    # ═══════════════════════════════════════════════════════════════
+    # AUTO-RECOVERY via ?recover=CODE (aus Apple Wallet Back-Field Link)
+    # ═══════════════════════════════════════════════════════════════
+    # Wenn Kunde im Pass auf "Speisekarte öffnen" tippt:
+    # URL: /deer-lounge?recover=Y7YJ
+    # Server findet Customer via short_code → setzt _cid Cookie (1 Jahr)
+    # → Kunde ist sofort erkannt, keine Code-Eingabe nötig!
+    recover_code = request.query_params.get("recover", "").strip().upper()
+    if recover_code and len(recover_code) >= 3:
+        try:
+            recover_customer = db.query(LoyaltyCustomer).filter_by(
+                tenant_slug=slug, short_code=recover_code
+            ).first()
+            if recover_customer:
+                _fwd_proto_rec = request.headers.get("x-forwarded-proto", "")
+                _is_secure_rec = (request.url.scheme == "https" or _fwd_proto_rec == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
+                response.set_cookie(
+                    key=f"loyalty_{slug}_cid",
+                    value=str(recover_customer.id),
+                    httponly=True,
+                    max_age=31536000,  # 1 Jahr
+                    samesite="lax",
+                    secure=_is_secure_rec,
+                )
+                if recover_customer.pass_downloaded_at:
+                    response.set_cookie(
+                        key=f"loyalty_{slug}",
+                        value="saved",
+                        httponly=False,
+                        max_age=31536000,
+                        samesite="lax",
+                        secure=_is_secure_rec,
+                    )
+                print(f"[Loyalty Auto-Recovery] Customer {recover_customer.id} (Code: {recover_code}) via ?recover= erkannt → _cid Cookie gesetzt")
+        except Exception as _e:
+            print(f"[Loyalty Auto-Recovery] Fehler bei recover={recover_code}: {_e}")
+
     if set_session_cookie and table and token:
         # Security: Same settings as QR redirect cookie for consistency
         _fwd_proto_2 = request.headers.get("x-forwarded-proto", "")
@@ -14349,6 +14386,9 @@ def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)
     slug_lower = slug.lower().strip()
     aid = request.query_params.get("aid", "").strip()
 
+    # AUTO-RECOVERY: ?recover=CODE → Customer via short_code finden
+    recover_code = request.query_params.get("recover", "").strip().upper()
+
     # Tenant-Test-Override: ?no_loyalty_popup=1 → Popup immer unterdrücken
     if request.query_params.get("no_loyalty_popup") == "1":
         return {"show_popup": False, "customer_id": None, "has_pass": False, "anonymous_id": aid}
@@ -14357,9 +14397,23 @@ def loyalty_get_state(slug: str, request: Request, db: Session = Depends(get_db)
     if not card:
         return {"show_popup": False, "customer_id": None, "has_pass": False, "anonymous_id": aid}
 
-    # Lookup-Priorität: 1. anonymous_id (DB), 2. _cid Cookie (Backward-Compat)
+    # Lookup-Priorität: 0. recover=CODE (Auto-Recovery aus Wallet Pass), 1. anonymous_id, 2. _cid Cookie
     customer = None
-    if aid:
+
+    # 0. AUTO-RECOVERY via ?recover=CODE
+    if recover_code and len(recover_code) >= 3:
+        customer = db.query(LoyaltyCustomer).filter_by(
+            tenant_slug=slug_lower, short_code=recover_code
+        ).first()
+        if customer:
+            # anonymous_id verknüpfen (falls nicht bereits)
+            if aid and customer.anonymous_id != aid:
+                customer.anonymous_id = aid
+                db.commit()
+            print(f"[Loyalty Auto-Recovery] Customer {customer.id} (Code: {recover_code}) via /loyalty/state?recover= erkannt")
+
+    # 1. anonymous_id (DB)
+    if not customer and aid:
         customer = db.query(LoyaltyCustomer).filter_by(
             tenant_slug=slug_lower, anonymous_id=aid
         ).first()
@@ -14576,10 +14630,13 @@ def loyalty_apple_pass(slug: str, request: Request, db: Session = Depends(get_db
     #
     # Das verhindert dass Kunden die schon einen Pass haben einen NEUEN
     # Code bekommen und ein Duplikat entsteht.
-    # ABER: force_new=1 Parameter überspringt den Schutz für echte Neukunden!
+    # ═══════════════════════════════════════════════════════════════
+    # force_new=1 Parameter überspringt den Schutz für echte Neukunden!
+    # show_code=1 Parameter zeigt Code-Bestätigungs-Seite BEVOR Pass heruntergeladen wird
     # ═══════════════════════════════════════════════════════════════
     force_new = request.query_params.get("force_new", "0") == "1"
-    if not customer and not force_new:
+    show_code_first = request.query_params.get("show_code", "0") == "1"
+    if not customer and not force_new and not show_code_first:
         # Prüfe: gibt es für diesen Tenant bereits Kunden mit Pass?
         existing_pass_count = db.query(LoyaltyCustomer).filter(
             LoyaltyCustomer.tenant_slug == slug_lower,
@@ -14628,7 +14685,7 @@ button:hover {{ background: linear-gradient(135deg, #e8c875 0%, #c9a84c 100%); }
 <button onclick="recover()">Stempelkarte wiederherstellen</button>
 <p class="msg" id="msg"></p>
 <div class="hint">
-Du hast noch keine Stempelkarte? <a onclick="location.href='/{slug_lower}/loyalty/pass/apple?aid={aid or ''}&force_new=1'">Neue Karte erstellen</a>
+Du hast noch keine Stempelkarte? <a onclick="location.href='/{slug_lower}/loyalty/pass/apple?aid={aid or ''}&show_code=1'">Neue Karte erstellen</a>
 </div>
 </div>
 <script>
@@ -14662,6 +14719,68 @@ async function recover() {{
     # Kunde identifizierbar ODER kein bestehender Pass-Kunde → normal weiter
     if not customer:
         customer, _ = get_or_create_customer(db, slug_lower, card.id, pass_type="apple", anonymous_id=aid or None)
+
+    # NEU: Wenn Customer neu erstellt wurde (show_code=1) →
+    # zeige Code-Bestätigungs-Seite BEVOR der Pass heruntergeladen wird
+    # Kunde muss Code notieren für spätere Wiedererkennung (Safari ITP)
+    if show_code_first and customer and customer.short_code:
+        html = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dein Stempel-Code</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: 'Inter', sans-serif; background: #050507; color: #fafafa; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }}
+.card {{ background: #18181b; border: 1px solid #27272a; border-radius: 1.5rem; padding: 2rem; max-width: 420px; width: 100%; text-align: center; }}
+.logo {{ width: 64px; height: 64px; margin: 0 auto 1.5rem; background: linear-gradient(135deg, #c9a84c 0%, #e8c875 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; }}
+h1 {{ font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }}
+p {{ color: #a1a1aa; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem; }}
+.code-box {{ background: #09090b; border: 2px solid #c9a84c; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; }}
+.code {{ font-size: 2.5rem; font-weight: 900; letter-spacing: 0.3em; color: #c9a84c; font-family: monospace; }}
+.hint {{ color: #71717a; font-size: 0.8rem; margin-top: 0.5rem; }}
+button {{ width: 100%; padding: 1rem; background: linear-gradient(135deg, #c9a84c 0%, #b8964a 100%); color: #0a0a0a; font-weight: 700; border: none; border-radius: 0.75rem; cursor: pointer; font-size: 1rem; margin-bottom: 0.5rem; }}
+button:hover {{ background: linear-gradient(135deg, #e8c875 0%, #c9a84c 100%); }}
+.btn-secondary {{ background: transparent; color: #a1a1aa; border: 1px solid #27272a; }}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo">🎉</div>
+<h1>Dein Stempel-Code</h1>
+<p>Notiere dir diesen Code! Du brauchst ihn falls du dein Gerät wechselst oder deine Stempelkarte nach einigen Tagen nicht mehr automatisch erkannt wird.</p>
+<div class="code-box">
+<div class="code">{customer.short_code}</div>
+<div class="hint">4-stelliger Code — bitte notieren oder Screenshot machen</div>
+</div>
+<a href="/{slug_lower}/loyalty/pass/apple?aid={aid or ""}&force_new=1">
+<button style="width:100%;padding:1rem;background:linear-gradient(135deg,#c9a84c 0%,#b8964a 100%);color:#0a0a0a;font-weight:700;border:none;border-radius:0.75rem;cursor:pointer;font-size:1rem;margin-bottom:0.5rem;">Jetzt in Apple Wallet laden</button>
+</a>
+<a href="/{slug_lower}/loyalty/pass/google?aid={aid or ""}&force_new=1">
+<button class="btn-secondary" style="width:100%;padding:1rem;background:transparent;color:#a1a1aa;border:1px solid #27272a;font-weight:700;border-radius:0.75rem;cursor:pointer;font-size:1rem;">Oder Google Wallet</button>
+</a>
+<a href="/{slug_lower}">
+<button class="btn-secondary" style="width:100%;padding:0.75rem;background:transparent;color:#71717a;border:none;font-weight:600;border-radius:0.75rem;cursor:pointer;font-size:0.85rem;margin-top:0.5rem;">Später</button>
+</a>
+</div>
+</body>
+</html>"""
+        # _cid Cookie setzen damit Kunde erkannt wird
+        _fwd_proto_sc = request.headers.get("x-forwarded-proto", "")
+        _is_secure_sc = (request.url.scheme == "https" or _fwd_proto_sc == "https") and request.url.hostname not in ["localhost", "127.0.0.1", "testserver"]
+        response = HTMLResponse(content=html, status_code=200)
+        response.set_cookie(
+            key=f"loyalty_{slug_lower}_cid",
+            value=str(customer.id),
+            httponly=True,
+            max_age=31536000,
+            samesite="lax",
+            secure=_is_secure_sc,
+        )
+        print(f"[Loyalty] Code-Bestätigungs-Seite für Customer {customer.id} (Code: {customer.short_code})")
+        return response
 
     # CRITICAL FIX: Wenn der Customer zuvor als "google" erstellt wurde, aber
     # jetzt einen Apple Pass lädt → pass_type auf "apple" updaten!
