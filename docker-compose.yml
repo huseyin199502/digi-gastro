@@ -84,6 +84,7 @@ services:
       WORKERS: "6"
       TZ: Europe/Berlin
       REDIS_URL: redis://redis:6379/0
+      AUTOHEAL_TOKEN: "autoheal-secret-2026"
     deploy:
       resources:
         limits:
@@ -120,6 +121,52 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+
+  # ═══════════════════════════════════════════════════════════════
+  # CRON SERVICE — ruft Auto-Heal + Inaktivität regelmäßig auf
+  # Nutzt das gleiche Docker Image wie web (hat Python + requests)
+  # Läuft als eigener Container, stört web nicht
+  # ═══════════════════════════════════════════════════════════════
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digi_gastro_cron
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      TZ: Europe/Berlin
+      CRON_WEB_URL: "http://web:8000"
+      AUTOHEAL_TOKEN: "autoheal-secret-2026"
+    entrypoint: ["python3", "-c"]
+    command:
+      - |
+        import os, time, urllib.request, json
+        WEB_URL = os.environ.get("CRON_WEB_URL", "http://web:8000")
+        TOKEN = os.environ.get("AUTOHEAL_TOKEN", "")
+        print("digi-gastro Cron Service gestartet", flush=True)
+        print(f"Auto-Heal: alle 5 Min -> {WEB_URL}/api/auto-heal", flush=True)
+        while True:
+            try:
+                url = f"{WEB_URL}/api/auto-heal?token={TOKEN}"
+                resp = urllib.request.urlopen(url, timeout=30)
+                data = json.loads(resp.read())
+                fixes = data.get("fixes", 0)
+                alerts = data.get("alerts", 0)
+                if fixes > 0 or alerts > 0:
+                    print(f"[Cron] Auto-Heal: {fixes} fixes, {alerts} alerts", flush=True)
+            except Exception as e:
+                print(f"[Cron] Auto-Heal Fehler: {e}", flush=True)
+            time.sleep(300)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          memory: 64M
 
 volumes:
   pgdata:
