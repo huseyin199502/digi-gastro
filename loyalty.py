@@ -324,25 +324,28 @@ def _generate_apple_pass_json(
             ]
         },
         # ── Push Notification Settings ──
-        # BUG FIX (CRITICAL): relevantDate ENTFERNT!
-        # Vorher: relevantDate = heute um Mitternacht
+        # BUG FIX (CRITICAL): relevantDate ENTFERNT, expirationDate in 10 Jahren!
+        #
+        # Vorher (BUG): relevantDate = heute um Mitternacht
         #   → Apple Wallet spec: "Wallet treats passes as expired 24 hours after
         #     the relevant date, even if they are still valid"
         #   → Nach 24h markiert iOS den Pass als 'expired'
         #   → iOS 18+ hat 'Hide Expired Passes' als DEFAULT → Pass verschwindet!
-        #   → User sah: "Wallet deaktiviert" nach 1 Tag
         #
-        # Nachher: KEIN relevantDate + KEIN expirationDate
-        #   → Apple Wallet spec: "If no expiration date is provided by the issuer,
-        #     the pass will remain until the user removes it"
-        #   → Stempelkarte bleibt permanent im Wallet (wie eine Kreditkarte)
-        #   → Nur durch manuelles Löschen durch User weg
+        # Nachher (FIX): expirationDate in 10 Jahren + KEIN relevantDate
+        #   → Apple Wallet spec: Pass gilt als aktiv solange expirationDate in Zukunft
+        #   → 10 Jahre = praktisch permanent (wie Kreditkarte die auch 4-6 Jahre gilt)
+        #   → iOS verschiebt Pass NICHT in 'Expired' Bereich
+        #   → Push funktioniert weiterhin (changeMessage in backFields)
         #
-        # WICHTIG: Für Push-Notifications ist changeMessage in backFields zuständig
-        # (nicht relevantDate/relevantText). Push funktioniert auch ohne relevantDate.
+        # WICHTIG: expirationDate SOLLTE gesetzt sein, nicht weggelassen!
+        # Wenn expirationDate fehlt, kann iOS den Pass je nach Typ trotzdem als
+        # expired behandeln (relevantDate-basiert). Mit expirationDate in 10 Jahren
+        # ist das Verhalten deterministisch: Pass bleibt permanent aktiv.
         #
         # voided: false explizit — verhindert dass iOS den Pass als 'stale' markiert
         "voided": False,
+        "expirationDate": "2036-07-15T00:00:00+00:00",  # 10 Jahre in Zukunft
         "userInfo": {
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),

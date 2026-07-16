@@ -16028,6 +16028,113 @@ def loyalty_sync_pass_status(
     }
 
 
+@app.post("/admin/loyalty/recover-all-passes")
+def loyalty_recover_all_passes(
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db),
+):
+    """Admin: Auto-Recovery für ALLE Kunden — Pass wieder aktivieren.
+
+    LÖSUNG FÜR "WALLET DEAKTIVIERT" PROBLEM:
+    ========================================
+    Root Cause: Alte Pässe hatten relevantDate = heute → iOS markiert Pass
+    nach 24h als 'expired' → iOS 18+ 'Hide Expired Passes' (default) →
+    Pass verschwindet aus dem Wallet (scheinbar "deaktiviert").
+
+    FIX:
+    1. Aktualisiert pass.json (neues expirationDate in 10 Jahren)
+    2. Setzt pass_needs_update=True für ALLE Kunden mit Device-Registration
+    3. Sendet APNs Push an alle Geräte → iOS wacht auf
+    4. iOS ruft GET /passes/{serial} auf → holt NEUEN Pass mit expirationDate
+    5. iOS ersetzt alten 'expired' Pass durch neuen 'active' Pass
+    6. Pass erscheint WIEDER AKTIV im Wallet (ohne User-Interaktion!)
+
+    WICHTIG: serialNumber und passTypeIdentifier bleiben unverändert!
+    Apple Spec: Diese Felder dürfen sich NICHT ändern — sonst gilt es als
+    neuer Pass und der alte bleibt im 'expired' Bereich. Mit gleicher Serial
+    ERSETZT iOS den alten Pass durch den neuen.
+
+    Returns: Statistik über reaktivierte Kunden.
+    """
+    from loyalty import _trigger_pass_update_push, _now_iso
+    user, slug, restaurant = chef_data
+    slug_lower = slug.lower().strip()
+
+    # Alle Kunden des Tenants
+    customers = db.query(LoyaltyCustomer).filter_by(tenant_slug=slug_lower).all()
+
+    stats = {
+        "total_customers": len(customers),
+        "reactivated": 0,
+        "skipped_no_device": 0,
+        "skipped_google": 0,
+        "push_failed": 0,
+        "details": []
+    }
+
+    for c in customers:
+        # Google-Kunden überspringen (andere Push-Logik)
+        if c.pass_type == "google":
+            stats["skipped_google"] += 1
+            continue
+
+        # Prüfe ob Device-Registration existiert (sonst kein Push möglich)
+        reg_count = db.query(DBPasskitReg).filter_by(pass_serial=c.pass_serial).count()
+        if reg_count == 0:
+            stats["skipped_no_device"] += 1
+            continue
+
+        # pass_needs_update=True setzen — damit weiß iOS dass ein Update da ist
+        c.pass_needs_update = True
+        c.pass_updated_at = _now_iso()
+        c.updated_at = _now_iso()
+        # last_message + nonce aktualisieren → changeMessage triggert Notification
+        # "🎉 Deine Stempelkarte ist wieder aktiv!"
+        c.last_message = "🎉 Deine Stempelkarte ist wieder aktiv!"
+        c.msg_nonce = (c.msg_nonce or 0) + 1
+        db.commit()  # VOR dem Push committen!
+
+        # APNs Push senden → iOS holt neuen Pass
+        success = _trigger_pass_update_push(
+            db, c,
+            "Stempelkarte aktiviert",
+            "🎉 Deine Stempelkarte ist wieder aktiv!"
+        )
+
+        if success:
+            stats["reactivated"] += 1
+            stats["details"].append({
+                "customer_id": c.id,
+                "short_code": c.short_code,
+                "stamps": c.current_stamps,
+                "push_sent": True
+            })
+        else:
+            stats["push_failed"] += 1
+            stats["details"].append({
+                "customer_id": c.id,
+                "short_code": c.short_code,
+                "stamps": c.current_stamps,
+                "push_sent": False,
+                "error": "APNs Push fehlgeschlagen (Dev-Mode oder Zertifikate fehlen)"
+            })
+
+    print(f"[Loyalty Recovery] Tenant '{slug_lower}': {stats['reactivated']}/{len(customers)} Kunden reaktiviert, "
+          f"{stats['skipped_no_device']} ohne Device, {stats['skipped_google']} Google übersprungen, "
+          f"{stats['push_failed']} Push-Fehler")
+
+    return {
+        "success": True,
+        **stats,
+        "message": (
+            f"{stats['reactivated']} Kunden reaktiviert (Push gesendet). "
+            f"{stats['skipped_no_device']} ohne Device-Reg übersprungen. "
+            f"{stats['skipped_google']} Google übersprungen. "
+            f"{stats['push_failed']} Push-Fehler."
+        )
+    }
+
+
 @app.get("/admin/loyalty/diagnose")
 def loyalty_diagnose_duplicates(
     chef_data: tuple = Depends(require_chef_user_flat),
