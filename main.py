@@ -14723,6 +14723,7 @@ async function recover() {{
     # NEU: Wenn Customer neu erstellt wurde (show_code=1) →
     # zeige Code-Bestätigungs-Seite BEVOR der Pass heruntergeladen wird
     # Kunde muss Code notieren für spätere Wiedererkennung (Safari ITP)
+    # WICHTIG: Auto-Close nach Pass-Download! (window.close + redirect Fallback)
     if show_code_first and customer and customer.short_code:
         html = f"""<!DOCTYPE html>
 <html lang="de">
@@ -14744,6 +14745,13 @@ p {{ color: #a1a1aa; font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.5rem;
 button {{ width: 100%; padding: 1rem; background: linear-gradient(135deg, #c9a84c 0%, #b8964a 100%); color: #0a0a0a; font-weight: 700; border: none; border-radius: 0.75rem; cursor: pointer; font-size: 1rem; margin-bottom: 0.5rem; }}
 button:hover {{ background: linear-gradient(135deg, #e8c875 0%, #c9a84c 100%); }}
 .btn-secondary {{ background: transparent; color: #a1a1aa; border: 1px solid #27272a; }}
+.success-overlay {{ position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; padding: 2rem; text-align: center; }}
+.success-overlay.show {{ display: flex; }}
+.success-icon {{ font-size: 4rem; margin-bottom: 1rem; }}
+.success-title {{ font-size: 1.5rem; font-weight: 800; color: #10b981; margin-bottom: 0.5rem; }}
+.success-text {{ color: #a1a1aa; font-size: 0.95rem; line-height: 1.5; max-width: 320px; }}
+.spinner {{ width: 24px; height: 24px; border: 3px solid rgba(201,168,76,0.2); border-top-color: #c9a84c; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 1rem auto; }}
+@keyframes spin {{ to {{ transform: rotate(360deg); }} }}
 </style>
 </head>
 <body>
@@ -14755,16 +14763,71 @@ button:hover {{ background: linear-gradient(135deg, #e8c875 0%, #c9a84c 100%); }
 <div class="code">{customer.short_code}</div>
 <div class="hint">4-stelliger Code — bitte notieren oder Screenshot machen</div>
 </div>
-<a href="/{slug_lower}/loyalty/pass/apple?aid={aid or ""}&force_new=1">
+<a id="download-apple" href="/{slug_lower}/loyalty/pass/apple?aid={aid or ""}&force_new=1" onclick="return onAppleDownload(event)">
 <button style="width:100%;padding:1rem;background:linear-gradient(135deg,#c9a84c 0%,#b8964a 100%);color:#0a0a0a;font-weight:700;border:none;border-radius:0.75rem;cursor:pointer;font-size:1rem;margin-bottom:0.5rem;">Jetzt in Apple Wallet laden</button>
 </a>
-<a href="/{slug_lower}/loyalty/pass/google?aid={aid or ""}&force_new=1">
+<a id="download-google" href="/{slug_lower}/loyalty/pass/google?aid={aid or ""}&force_new=1" onclick="return onGoogleDownload(event)">
 <button class="btn-secondary" style="width:100%;padding:1rem;background:transparent;color:#a1a1aa;border:1px solid #27272a;font-weight:700;border-radius:0.75rem;cursor:pointer;font-size:1rem;">Oder Google Wallet</button>
 </a>
 <a href="/{slug_lower}">
 <button class="btn-secondary" style="width:100%;padding:0.75rem;background:transparent;color:#71717a;border:none;font-weight:600;border-radius:0.75rem;cursor:pointer;font-size:0.85rem;margin-top:0.5rem;">Später</button>
 </a>
 </div>
+
+<!-- Auto-Close Overlay nach Pass-Download -->
+<div id="success-overlay" class="success-overlay">
+<div class="success-icon">✅</div>
+<div class="success-title">Pass wird hinzugefügt!</div>
+<div class="success-text">Dein Browser öffnet jetzt die Wallet-App. Du kannst dieses Fenster schließen.</div>
+<div class="spinner"></div>
+<button onclick="closeWindow()" style="margin-top:1.5rem;width:auto;padding:0.75rem 2rem;">Fenster schließen</button>
+</div>
+
+<script>
+// Auto-Close nach Pass-Download — Multi-Layer Strategie
+function onAppleDownload(event) {{
+    showSuccessOverlay();
+    // Nach 2s versuchen zu schließen (iOS Wallet App sollte sich geöffnet haben)
+    setTimeout(function() {{ tryCloseWindow(); }}, 2000);
+    return true; // Link trotzdem folgen (.pkpass Download)
+}}
+
+function onGoogleDownload(event) {{
+    showSuccessOverlay();
+    setTimeout(function() {{ tryCloseWindow(); }}, 2000);
+    return true;
+}}
+
+function showSuccessOverlay() {{
+    var overlay = document.getElementById('success-overlay');
+    if (overlay) overlay.classList.add('show');
+}}
+
+function tryCloseWindow() {{
+    // Versuche Fenster zu schließen (nur bei per JS geöffneten Fenstern)
+    try {{ window.close(); }} catch(e) {{}}
+    // Fallback: Redirect zur Speisekarte
+    if (!window.closed) {{
+        window.location.href = '/{slug_lower}';
+    }}
+}}
+
+function closeWindow() {{
+    try {{ window.close(); }} catch(e) {{}}
+    if (!window.closed) {{ window.location.href = '/{slug_lower}'; }}
+}}
+
+// visibilitychange: Wenn Wallet App sich öffnet → Tab wird hidden
+// → Beim Zurückkommen Auto-Close versuchen
+document.addEventListener('visibilitychange', function() {{
+    if (document.visibilityState === 'visible') {{
+        var overlay = document.getElementById('success-overlay');
+        if (overlay && overlay.classList.contains('show')) {{
+            setTimeout(function() {{ tryCloseWindow(); }}, 500);
+        }}
+    }}
+}});
+</script>
 </body>
 </html>"""
         # _cid Cookie setzen damit Kunde erkannt wird
