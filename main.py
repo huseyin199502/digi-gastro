@@ -16488,23 +16488,38 @@ def loyalty_merge_duplicates(
     db: Session = Depends(get_db),
 ):
     """Merge: Findet Customers mit gleicher last_known_device_id und führt
-    sie zusammen. Der älteste Customer (niedrigste ID) wird zum Master,
-    alle anderen werden zu ihm migriert und dann deaktiviert.
+    sie zusammen. Der NEUESTE Customer (höchste ID) wird zum Master,
+    alle älteren werden zu ihm migriert und dann deaktiviert.
 
-    Migration:
-    - current_stamps: Summe (max von allen, falls unterschiedlich)
-    - total_stamps_earned: Summe
+    WARUM NEUESTER MASTER?
+    - Wenn Kunde mehrfach herunterlädt, entsteht pro Download ein neuer Customer
+    - Der neueste Customer (höchste ID) ist der, dessen Pass AKTUELL im Wallet ist
+    - Dessen pass_serial ist in passkit_device_registrations registriert
+    - Nur mit dessen pass_serial funktioniert der APNs Push
+    - Ältere Customer sind "verwaist" — ihre Pässe wurden durch neue ersetzt
+
+    Migration (von alten → neuer Master):
+    - current_stamps: Summe aller, begrenzt auf stamps_required (kein Auto-Reset)
+      Begründung: Jeder Stempel war eine echte Bestellung, also addieren.
+      Begrenzung auf stamps_required verhindert unrealistische Werte wie 50/15.
+      Rest-Stempel gehen verloren (akzeptiert, da Duplikate Bug waren).
+    - total_stamps_earned: Summe (Lifetime-Stempel für Analytics)
     - rewards_redeemed: Summe
-    - first_visit_at: Ältester
-    - last_visit_at: Neuester
+    - first_visit_at: Ältester (Master behält ältestes Datum)
+    - last_visit_at: Neuester (Master behält neuestes Datum)
     - tier: Höchster (vip > stamm > neu)
-    - pass_needs_update: True (neuer Pass für Master)
 
     Der alte Customer wird NICHT gelöscht (Audit-Trail) sondern:
     - last_known_device_id = None (losgelöst)
     - pass_needs_update = False (kein Push)
     - anonymous_id bleibt (falls wieder auftauchend)
+
+    Nach Merge:
+    - Master bekommt pass_needs_update=True + last_message "Stempel zusammengeführt"
+    - APNs Push an Master → iOS holt aktualisierten Pass mit korrekten Stempeln
     """
+    from loyalty import _trigger_pass_update_push, _now_iso
+    from database import LoyaltyCard as DBLoyaltyCard
     user, slug, restaurant = chef_data
     slug_lower = slug.lower().strip()
 
@@ -16524,27 +16539,27 @@ def loyalty_merge_duplicates(
 
     merged_count = 0
     merged_details = []
+    reactivated_masters = 0
 
     for did, group in duplicate_groups.items():
-        # Sortiere nach ID (älteste zuerst = Master)
-        group_sorted = sorted(group, key=lambda c: c.id)
+        # BUG FIX: Nach ID sortieren, NEUESTE (höchste ID) = Master
+        # Vorher: älteste = Master (falsch — dessen Pass ist nicht mehr im Wallet)
+        # Jetzt: neueste = Master (dessen Pass ist aktuell im Wallet + registriert)
+        group_sorted = sorted(group, key=lambda c: c.id, reverse=True)  # neueste zuerst
         master = group_sorted[0]
-        duplicates = group_sorted[1:]
+        duplicates = group_sorted[1:]  # alle älteren
 
         master_stamps_before = master.current_stamps
         master_total_before = master.total_stamps_earned
         master_rewards_before = master.rewards_redeemed
 
-        for dup in duplicates:
-            # Stempel zusammenführen (Summe, aber nicht doppelt zählen)
-            # Strategie: Master behält seine Stempel, Duplikant-Stempel werden addiert
-            # (da jeder Stempel eine echte Bestellung war)
-            master.current_stamps = max(master.current_stamps, master.current_stamps + dup.current_stamps)
-            # ABER: max 15 (Karten-Limit) — Rest geht verloren
-            # Eigentlich: current_stamps sollte die Summe sein, aber nicht über stamps_required
-            # Für jetzt: Summe, aber begrenzt auf 99 (kein Auto-Reset)
-            master.current_stamps = min(master.current_stamps + dup.current_stamps, 99)
+        # stamps_required für Limit holen
+        card = db.query(DBLoyaltyCard).filter_by(id=master.card_id).first()
+        stamps_limit = (card.stamps_required * 2) if card else 20  # max 2x required
 
+        for dup in duplicates:
+            # Stempel zusammenführen (Summe, begrenzt auf stamps_limit)
+            master.current_stamps = min(master.current_stamps + dup.current_stamps, stamps_limit)
             master.total_stamps_earned += dup.total_stamps_earned
             master.rewards_redeemed += dup.rewards_redeemed
 
@@ -16572,24 +16587,45 @@ def loyalty_merge_duplicates(
                 "device_id": did[:16] + "...",
                 "master_id": master.id,
                 "master_code": master.short_code,
+                "master_stamps_after": master.current_stamps,
                 "duplicate_id": dup.id,
                 "duplicate_code": dup.short_code,
                 "duplicate_stamps_moved": dup.current_stamps,
                 "master_stamps_before": master_stamps_before,
-                "master_stamps_after": master.current_stamps,
             })
+
+        # Master bekommt Update + Push → iOS holt neuen Pass mit korrekten Stempeln
+        master.pass_needs_update = True
+        master.pass_updated_at = _now_iso()
+        master.updated_at = _now_iso()
+        master.last_message = f"✅ Stempel zusammengeführt: {master.current_stamps}/{card.stamps_required if card else 10}"
+        master.msg_nonce = (master.msg_nonce or 0) + 1
+        db.commit()  # VOR Push committen!
+
+        # APNs Push an Master → iOS holt aktualisierten Pass
+        push_success = _trigger_pass_update_push(
+            db, master,
+            "Stempel aktualisiert",
+            f"✅ Du hast jetzt {master.current_stamps} Stempel!"
+        )
+        if push_success:
+            reactivated_masters += 1
 
     if merged_count > 0:
         db.commit()
 
-    print(f"[Loyalty Merge] {merged_count} Duplikate zusammengeführt in {len(duplicate_groups)} Gruppen")
+    print(f"[Loyalty Merge] {merged_count} Duplikate in {len(duplicate_groups)} Gruppen zusammengeführt "
+          f"(NEUESTE als Master). {reactivated_masters} Master-Pushs gesendet.")
 
     return {
         "success": True,
         "duplicate_groups_found": len(duplicate_groups),
         "duplicates_merged": merged_count,
+        "masters_pushed": reactivated_masters,
+        "strategy": "NEUESTE Customer-ID = Master (dessen Pass ist aktuell im Wallet)",
         "details": merged_details,
-        "message": f"{merged_count} Duplikate in {len(duplicate_groups)} Gruppen zusammengeführt."
+        "message": f"{merged_count} Duplikate in {len(duplicate_groups)} Gruppen zusammengeführt. "
+                   f"Master = neueste Customer-ID. {reactivated_masters} Pushs gesendet."
     }
 
 
