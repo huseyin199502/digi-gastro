@@ -324,13 +324,25 @@ def _generate_apple_pass_json(
             ]
         },
         # ── Push Notification Settings ──
-        # relevantDate NICHT auf NOW setzen — das ändert sich bei jedem Pass-Update
-        # und verursacht Coalescing (iOS zeigt "Kundenkarte geändert" statt changeMessage).
-        # Stattdessen: fester Datumswert (heute um Mitternacht) → ändert sich nur 1x/Tag.
-        # WICHTIG: relevantText ist KEIN gültiger Top-Level Key (nur in locations[]/beacons[])!
-        # Top-level relevantText wird von iOS ignoriert. Für Push-Notifications ist
-        # changeMessage in backFields zuständig (nicht relevantText).
-        "relevantDate": datetime.utcnow().strftime("%Y-%m-%dT00:00:00+00:00"),
+        # BUG FIX (CRITICAL): relevantDate ENTFERNT!
+        # Vorher: relevantDate = heute um Mitternacht
+        #   → Apple Wallet spec: "Wallet treats passes as expired 24 hours after
+        #     the relevant date, even if they are still valid"
+        #   → Nach 24h markiert iOS den Pass als 'expired'
+        #   → iOS 18+ hat 'Hide Expired Passes' als DEFAULT → Pass verschwindet!
+        #   → User sah: "Wallet deaktiviert" nach 1 Tag
+        #
+        # Nachher: KEIN relevantDate + KEIN expirationDate
+        #   → Apple Wallet spec: "If no expiration date is provided by the issuer,
+        #     the pass will remain until the user removes it"
+        #   → Stempelkarte bleibt permanent im Wallet (wie eine Kreditkarte)
+        #   → Nur durch manuelles Löschen durch User weg
+        #
+        # WICHTIG: Für Push-Notifications ist changeMessage in backFields zuständig
+        # (nicht relevantDate/relevantText). Push funktioniert auch ohne relevantDate.
+        #
+        # voided: false explizit — verhindert dass iOS den Pass als 'stale' markiert
+        "voided": False,
         "userInfo": {
             "tenant_slug": tenant_slug,
             "card_id": card.get("id"),
