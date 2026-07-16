@@ -15969,7 +15969,7 @@ def loyalty_reset_customer_pass(
     }
 
 
-@app.post("/admin/loyalty/sync-pass-status")
+@app.api_route("/admin/loyalty/sync-pass-status", methods=["GET", "POST"])
 def loyalty_sync_pass_status(
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db),
@@ -16028,7 +16028,7 @@ def loyalty_sync_pass_status(
     }
 
 
-@app.post("/admin/loyalty/recover-all-passes")
+@app.api_route("/admin/loyalty/recover-all-passes", methods=["GET", "POST"])
 def loyalty_recover_all_passes(
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db),
@@ -16279,7 +16279,7 @@ def loyalty_diagnose_duplicates(
 # Für alle bestehenden Customers die VOR unserem Auto-Recovery Deploy
 # erstellt wurden: last_known_device_id aus passkit_device_registrations holen.
 # Danach: Duplikate erkennen und zusammenführen.
-@app.post("/admin/loyalty/backfill-device-ids")
+@app.api_route("/admin/loyalty/backfill-device-ids", methods=["GET", "POST"])
 def loyalty_backfill_device_ids(
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db),
@@ -16482,7 +16482,7 @@ def auto_heal_endpoint(token: str = "", request: Request = None, db: Session = D
 
 # MERGE: Duplikate (gleiche device_id) zusammenführen
 # ═══════════════════════════════════════════════════════════════════════
-@app.post("/admin/loyalty/merge-duplicates")
+@app.api_route("/admin/loyalty/merge-duplicates", methods=["GET", "POST"])
 def loyalty_merge_duplicates(
     chef_data: tuple = Depends(require_chef_user_flat),
     db: Session = Depends(get_db),
