@@ -9584,7 +9584,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 note: item.note || '',
                                 status: status,
                                 key: key,
-                                unit_index: idx
+                                unit_index: idx,
+                                // OPTION A: Kombi-Felder übernehmen für Anzeige im Cockpit
+                                combo_id: item.combo_id || null,
+                                combo_name: item.combo_name || null
                             };
                             
                             if (status === 'pending') {
@@ -9601,6 +9604,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 totalBalance += orderTotal;
                 return {
                     id: order.id,
+                    // BUG FIX: daily_bon_number + bon_date übernehmen (vorher vergessen!)
+                    // Sonst zeigt Kellner-Cockpit 'Bon #917' statt 'Bon #1'
+                    daily_bon_number: order.daily_bon_number,
+                    bon_date: order.bon_date,
                     total: orderTotal,
                     pendingItems,
                     deliveredItems,
@@ -9676,6 +9683,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         const groupItemsHtml = group.items.map(item => {
                             const isPending = (item.item_status || item.status) === 'pending';
                             const itemName = (item.name || '').replace(/'/g, "\\'");
+                            // OPTION A: Kombi-Anzeige im Kellner-Cockpit
+                            const isCombo = item.combo_id && item.combo_name;
+                            const comboBadgeHtml = isCombo ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-700 dark:text-teal-300 font-black uppercase tracking-wider ml-1">Kombi</span>` : '';
+                            const comboSubNameHtml = isCombo ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#6b7280;">↳ ${escHtml(item.name)}</span>` : '';
+                            const displayName = isCombo ? item.combo_name : item.name;
                             if (isPending) {
                                 return `
                                 <div class="flex items-center justify-between p-2.5 rounded-xl border text-xs shadow-sm" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};border-color:${escapeHtml(group.color)}33;color:#1f2937;">
@@ -9684,7 +9696,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                             <span class="material-symbols-outlined text-sm" style="color:#ffffff;">check</span>
                                         </button>
                                         <div class="flex-1 min-w-0">
-                                            <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
+                                            <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(displayName)}${comboBadgeHtml}</span>
+                                            ${comboSubNameHtml}
                                             ${item.note ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#b45309;">✎ ${escHtml(item.note)}</span>` : ''}
                                         </div>
                                     </div>
@@ -9704,7 +9717,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                                onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
                                                class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
                                         <div class="flex-1 min-w-0">
-                                            <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(item.name)}</span>
+                                            <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(displayName)}${comboBadgeHtml}</span>
+                                            ${comboSubNameHtml}
                                             ${item.note ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#b45309;">✎ ${escHtml(item.note)}</span>` : ''}
                                         </div>
                                     </div>
