@@ -1637,8 +1637,22 @@
                     <div class="bg-background/50 border border-outline-variant/80 p-4 rounded-2xl text-sm space-y-2">
                         <div class="flex items-center justify-between">
                             <div>
-                                <span class="font-extrabold text-on-surface block text-sm" x-text="item.name"></span>
-                                <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
+                                <!-- OPTION A: Kombi-Items zeigen combo_name statt Produktname -->
+                                <!-- Beispiel: "Kombi: Shisha + Cola" statt "Wassermelone-Ananas (Kombi)" -->
+                                <template x-if="item.combo_id && item.combo_name">
+                                    <div>
+                                        <span class="font-extrabold text-on-surface block text-sm" x-text="item.combo_name"></span>
+                                        <!-- Sub-Items als Vorschau (klein, grau) -->
+                                        <span class="text-xs text-on-surface-variant mt-0.5 block" x-text="(item.combo_items || []).join(' + ')"></span>
+                                        <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
+                                    </div>
+                                </template>
+                                <template x-if="!item.combo_id || !item.combo_name">
+                                    <div>
+                                        <span class="font-extrabold text-on-surface block text-sm" x-text="item.name"></span>
+                                        <span class="text-xs text-primary font-bold mt-0.5 block" x-text="item.price.toFixed(2) + ' €'"></span>
+                                    </div>
+                                </template>
                             </div>
                             <div class="flex items-center space-x-3.5">
                                 <button @click="changeQty(item.cart_id, -1)" class="w-11 h-11 bg-surface-container-high border border-outline-variant rounded-full flex items-center justify-center font-bold text-base text-on-surface hover:bg-white/10 transition-colors">-</button>
@@ -3026,6 +3040,26 @@
                     // iPhone Safari: Prevent body scroll
                     document.body.style.overflow = 'hidden';
                     
+                    // OPTION B: AUTO-SELECTION — erstes Produkt in jeder Gruppe vorauswählen
+                    // Verhindert Bug: Kunde vergisst Softdrink-Auswahl → bestellt einzeln
+                    // Schnellerer Bestell-Flow (1 Klick statt 3 Klicks)
+                    setTimeout(() => {
+                        for (const categoryName of Object.keys(groups)) {
+                            const firstRadio = document.querySelector(`input[name="cat_${categoryName}"]`);
+                            if (firstRadio && !document.querySelector(`input[name="cat_${categoryName}"]:checked`)) {
+                                firstRadio.checked = true;
+                                // Visuelle Auswahl markieren (falls updateComboPickerSelection das macht)
+                                if (typeof updateComboPickerSelection === 'function') {
+                                    try { updateComboPickerSelection(firstRadio); } catch(e) {}
+                                } else {
+                                    // Fallback: label markieren
+                                    const label = firstRadio.closest('.combo-pick-option');
+                                    if (label) label.style.borderColor = '#14b8a6';
+                                }
+                            }
+                        }
+                    }, 50);
+                    
                     // Restore body scroll when modal is closed
                     const overlay = document.getElementById('combo-picker-overlay');
                     if (overlay) {
@@ -3121,7 +3155,13 @@
                             category_type: p.category_type,
                             note: null,
                             is_combo: true,
-                            combo_id: comboId
+                            combo_id: comboId,
+                            // OPTION A: combo_name speichern — Admin/Bon kann Items
+                            // mit gleicher combo_id + combo_name zu einer Zeile gruppieren
+                            // Format: "Kombi: Shisha + Cola" (wird im Bon-Detail angezeigt)
+                            combo_name: comboName,
+                            // Sub-Items Info für Cart-Display (nur client-seitig)
+                            combo_items: comboProducts.map(cp => cp.name)
                         });
                     }
                     
@@ -3524,7 +3564,9 @@
                             price: i.price,
                             quantity: i.quantity,
                             note: i.note || null,
-                            combo_id: i.combo_id || null
+                            combo_id: i.combo_id || null,
+                            // OPTION A: combo_name mitsenden — Backend speichert es
+                            combo_name: i.combo_name || null
                         })),
                         // Idempotency-Key: Einmalige ID pro Bestell-Vorgang.
                         // Server lehnt doppelte Requests mit gleicher Key ab (innerhalb 60s).

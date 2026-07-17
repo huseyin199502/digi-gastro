@@ -1503,8 +1503,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "category_type": item.category_type,
             "note": item.note,
             "item_status": getattr(item, "item_status", "pending") or "pending",
-                "combo_id": getattr(item, "combo_id", None),
-            "combo_id": getattr(item, "combo_id", None)
+            "combo_id": getattr(item, "combo_id", None),
+            "combo_name": getattr(item, "combo_name", None)
         } for item in db_items]
         orders.append({
             "id": o.id,
@@ -1786,6 +1786,7 @@ def append_order_to_db(slug: str, order_data: dict, session):
             note=item.get("note"),
             item_status=item.get("item_status", "pending"),
             combo_id=item.get("combo_id"),  # NEU: Kombi-Zugehörigkeit speichern
+            combo_name=item.get("combo_name"),  # OPTION A: Kombi-Name für Bon-Gruppierung
         )
         session.add(db_item)
     
@@ -2018,7 +2019,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 category_type=item.get("category_type", "küche"),
                 note=item.get("note"),
                 item_status=item.get("item_status", "pending"),
-                combo_id=item.get("combo_id")
+                combo_id=item.get("combo_id"),
+                combo_name=item.get("combo_name")
             )
             session.add(db_item)
             
@@ -3187,6 +3189,9 @@ class OrderItem(BaseModel):
     note: Optional[str] = None
     item_status: Optional[str] = "pending"  # Wird serverseitig immer auf "pending" gesetzt
     combo_id: Optional[int] = None
+    # OPTION A: combo_name — Anzeige-Name der Kombi (z.B. "Shisha + Softdrink")
+    # Wird im Bon-Detail verwendet um Items zu einer Zeile zu gruppieren.
+    combo_name: Optional[str] = None
 
 class OrderPayload(BaseModel):
     table: str
@@ -9289,7 +9294,8 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
                 "category_type": item.category_type,
                 "note": item.note,
                 "item_status": getattr(item, "item_status", "pending") or "pending",
-                "combo_id": getattr(item, "combo_id", None)
+                "combo_id": getattr(item, "combo_id", None),
+                "combo_name": getattr(item, "combo_name", None)
             })
 
     active_orders = []
@@ -10685,7 +10691,8 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
                 "quantity": item.quantity,
                 "note": item.note,
                 "item_status": getattr(item, "item_status", "pending") or "pending",
-                "combo_id": getattr(item, "combo_id", None)
+                "combo_id": getattr(item, "combo_id", None),
+                "combo_name": getattr(item, "combo_name", None)
             })
             
     pending = []
@@ -12193,6 +12200,8 @@ def _load_all_orders_for_export(slug: str, db) -> list:
             "is_event": getattr(item, "is_event", False),
             "event_id": getattr(item, "event_id", None),
             "note": getattr(item, "note", None),
+            "combo_id": getattr(item, "combo_id", None),
+            "combo_name": getattr(item, "combo_name", None),
         })
     orders = []
     for o in db_orders:

@@ -250,6 +250,10 @@ class OrderItem(Base):
     note = Column(String, nullable=True)
     item_status = Column(String, nullable=True, default="pending")
     combo_id = Column(Integer, nullable=True)  # NEU: Kombi-Zugehörigkeit für korrekte Preisanzeige
+    # OPTION A: combo_name — Anzeige-Name der Kombi (z.B. "Shisha + Softdrink")
+    # Items mit gleicher combo_id + combo_name werden im Bon zu einer Zeile gruppiert.
+    # NULL für Non-Kombi-Items oder alte Bestellungen vor diesem Feature.
+    combo_name = Column(String, nullable=True)
 
 class Staff(Base):
     __tablename__ = 'staff'
@@ -1111,6 +1115,7 @@ def _migrate_database():
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")
     add_column_if_missing('order_items', 'note', "TEXT")
     add_column_if_missing('order_items', 'combo_id', "INTEGER")  # NEU: Kombi-Zugehörigkeit
+    add_column_if_missing('order_items', 'combo_name', "VARCHAR")  # OPTION A: Kombi-Anzeigename für Bon-Gruppierung
     # Multi-Tenant: tenant_slug auf order_items für Tenant-Isolation
     add_column_if_missing('order_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
 

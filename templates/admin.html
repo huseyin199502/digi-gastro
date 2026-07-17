@@ -8701,11 +8701,21 @@
                         const categoryLabel = (PRICE_MODE === 'netto') ? '' : ((item.category_type === 'bar') ? 'Bar · 19%' : (item.category_type === 'shisha') ? 'Shisha · 19%' : 'Küche · 7%');
                         const metaLine = categoryLabel ? `${fmtEUR(price)} · ${categoryLabel}` : fmtEUR(price);
                         const noteHtml = item.note ? `<div class="text-[10px] text-zinc-500 italic mt-0.5">📝 ${escapeHtml(item.note)}</div>` : '';
+
+                        // OPTION A: Kombi-Items speziell rendern
+                        // - Zeige "Kombi: Name" als Hauptname (combo_name)
+                        // - Zeige Produktname klein darunter
+                        // - Badge "KOMBI" zur schnellen Erkennung
+                        const isCombo = item.combo_id && item.combo_name;
+                        const comboBadge = isCombo ? `<span style="display:inline-block;background:#14b8a6;color:#000;font-size:8px;font-weight:900;padding:1px 5px;border-radius:4px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle;">KOMBI</span>` : '';
+                        const comboSubName = isCombo ? `<div class="text-[10px] text-zinc-500 mt-0.5">↳ ${escapeHtml(item.name)}</div>` : '';
+
                         return `<div class="bon-detail-item" style="background:${lightBg};border-left:3px solid ${escapeHtml(group.color)};">
                             <div class="bon-detail-item-qty">${qty}×</div>
                             <div>
-                                <div class="bon-detail-item-name">${escapeHtml(item.name || 'Unbekannt')}</div>
+                                <div class="bon-detail-item-name">${isCombo ? escapeHtml(item.combo_name) : escapeHtml(item.name || 'Unbekannt')}${comboBadge}</div>
                                 <div class="bon-detail-item-meta">${metaLine}</div>
+                                ${comboSubName}
                                 ${noteHtml}
                             </div>
                             <div class="bon-detail-item-price">${fmtEUR(lineTotal)}</div>
@@ -9378,12 +9388,19 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             const key = `${item.product_id}_${noteSlug}_${status}_${comboId}`;
                             const statusLabel = status === 'pending' ? 'Ausstehend' : status === 'confirmed' ? 'Zubereitung' : 'Serviert';
                             const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-700 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-200 border border-zinc-600';
-                            
+
+                            // OPTION A: Kombi-Badge + combo_name im Teilzahlung-Popup
+                            const isCombo = item.combo_id && item.combo_name;
+                            const comboBadgeHtml = isCombo ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-black uppercase tracking-wider ml-1">Kombi</span>` : '';
+                            const comboSubNameHtml = isCombo ? `<div class="text-[10px] text-zinc-500 mt-0.5">↳ ${escHtml(item.name)}</div>` : '';
+                            const displayName = isCombo ? item.combo_name : item.name;
+
                             itemsHtml += `
                                 <label class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/80 cursor-pointer border border-zinc-800/50 transition-colors">
                                     <input type="checkbox" value="${key}" class="custom-checkbox shrink-0">
                                     <div class="flex-1 min-w-0">
-                                        <div class="text-xs font-bold text-white truncate">${item.quantity}x ${escHtml(item.name)}</div>
+                                        <div class="text-xs font-bold text-white truncate">${item.quantity}x ${escHtml(displayName)}${comboBadgeHtml}</div>
+                                        ${comboSubNameHtml}
                                         ${item.note ? `<div class="text-[10px] text-amber-700 font-medium mt-0.5">✎ ${escHtml(item.note)}</div>` : ''}
                                     </div>
                                     <span class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${statusBg}">${statusLabel}</span>
