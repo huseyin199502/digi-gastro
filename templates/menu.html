@@ -3578,6 +3578,19 @@
                                           }))
                     };
 
+                    // BUG FIX: Konsolen-Logging für Kombi-Bug Diagnose
+                    // Falls Kunde sagt "über Kombi gebucht" aber Backend sieht kein combo_id,
+                    // können wir in der Browser-Konsole sehen was wirklich im Warenkorb war
+                    const _comboItems = this.cart.filter(i => i.combo_id);
+                    const _nonComboItems = this.cart.filter(i => !i.combo_id);
+                    console.log('[Bestellung] Warenkorb:', {
+                        total: this.cart.length,
+                        combo: _comboItems.length,
+                        nonCombo: _nonComboItems.length,
+                        comboItems: _comboItems.map(i => ({id: i.id, name: i.name, price: i.price, combo_id: i.combo_id, combo_name: i.combo_name})),
+                        nonComboItems: _nonComboItems.map(i => ({id: i.id, name: i.name, price: i.price}))
+                    });
+
                     const roleForBypass = (this.role === 'admin' || this.role === 'waiter') ? this.role : '';
                     const url = roleForBypass ? `/{{ slug }}/bestellen?role=${encodeURIComponent(roleForBypass)}` : `/{{ slug }}/bestellen`;
 

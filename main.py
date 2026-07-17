@@ -5647,6 +5647,28 @@ def get_menu(request: Request, slug: str, table: Optional[str] = None, token: Op
         
     return response
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# HELPER: Tägliche Bon-Nummer pro Tenant berechnen
+# ═══════════════════════════════════════════════════════════════════════
+# BUG FIX: 3 von 4 Order-Erstellungs-Pfaden haben daily_bon_number vergessen
+# → Frontend fiel auf o.id (globale DB-ID) zurück → 'Bon #917' statt 'Bon #1'
+# Lösung: Zentrale Hilfsfunktion die in allen 4 Pfaden aufgerufen wird
+def _compute_daily_bon_number(db, slug: str) -> tuple:
+    """Berechnet die nächste tägliche Bon-Nummer für einen Tenant.
+
+    Returns: (daily_bon_number, bon_date_str)
+    """
+    from datetime import date as _date
+    _today_str = _date.today().isoformat()
+    _max_daily_bon = db.query(Order).filter(
+        Order.tenant_slug == slug,
+        Order.bon_date == _today_str
+    ).count()
+    _daily_bon_number = _max_daily_bon + 1
+    return _daily_bon_number, _today_str
+
+
 @app.post("/{slug}/bestellen")
 @tenant_lock
 async def create_order(request: Request, slug: str, payload: OrderPayload, db: Session = Depends(get_db)):
@@ -5930,10 +5952,25 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                   f"items={len(combo_items)}, individual_total={individual_total}")
     
     # Log non-combo items for debugging
+    # BUG FIX: Erweitertes Logging — falls Kunde sagt "über Kombi gebucht" aber
+    # Item kommt ohne combo_id an, sehen wir im Log was passiert
+    combo_item_count = sum(1 for item in payload.items if getattr(item, 'combo_id', None))
+    non_combo_item_count = len(payload.items) - combo_item_count
+    print(f"[Order] Bestellung: {len(payload.items)} items total, "
+          f"{combo_item_count} mit combo_id, {non_combo_item_count} ohne combo_id")
+
     for item in payload.items:
         combo_id = getattr(item, 'combo_id', None)
         if not combo_id:
-            print(f"[Order] Non-combo item: id={item.product_id} name={item.name} price={item.price}")
+            # Prüfe ob dieses Produkt in einem aktiven Combo wäre
+            in_active_combo = False
+            for cid, cinfo in combo_lookup.items():
+                if item.product_id in cinfo.get("product_ids", []):
+                    in_active_combo = True
+                    break
+            warning_tag = " ⚠️ IN AKTIVEM COMBO ENTHALTEN!" if in_active_combo else ""
+            print(f"[Order] Non-combo item: id={item.product_id} name={item.name} "
+                  f"price={item.price}{warning_tag}")
     
     # Clean up temporary flags
     for ev in events:
@@ -6021,13 +6058,8 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     
     # NEU: Tägliche Bon-Nummer pro Tenant berechnen
     # #1, #2, #3... pro Tenant pro Tag — resetet täglich automatisch
-    from datetime import date as _date
-    _today_str = _date.today().isoformat()  # "2026-07-13"
-    _max_daily_bon = db.query(Order).filter(
-        Order.tenant_slug == slug,
-        Order.bon_date == _today_str
-    ).count()
-    _daily_bon_number = _max_daily_bon + 1
+    # BUG FIX: Zentrale Hilfsfunktion nutzen (vorher inline, jetzt DRY)
+    _daily_bon_number, _today_str = _compute_daily_bon_number(db, slug)
     
     new_order = {
         "id": None,   # will be filled in by save_restaurant_to_db after DB flush
@@ -7059,6 +7091,8 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
         # Create new order for target table — let DB assign autoincrement ID
         moved_item = copy.deepcopy(source_item_copy)
         moved_item["quantity"] = qty_to_move
+        # BUG FIX: Tägliche Bon-Nummer setzen (vorher vergessen → Bon #917 statt #1)
+        _daily_bon_number, _today_str = _compute_daily_bon_number(db, slug)
         new_order = {
             "id": None,  # DB will assign via autoincrement
             "table": target_table_str,
@@ -7071,7 +7105,9 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "status": "eingegangen",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "mwst_rate": 19,
-            "waiter_id": None
+            "waiter_id": None,
+            "daily_bon_number": _daily_bon_number,
+            "bon_date": _today_str,
         }
         update_order_status_by_items(new_order)
         restaurant["orders"].append(new_order)
@@ -14001,6 +14037,8 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 t_table_display = f"Tisch {t_table_num} ({t_zone})"
             else:
                 t_table_display = f"Tisch {t_table_num}"
+            # BUG FIX: Tägliche Bon-Nummer setzen (vorher vergessen)
+            _daily_bon_number, _today_str = _compute_daily_bon_number(db, slug)
             target_order = {
                 "id": new_order_id,
                 "table": t_table_display,
@@ -14013,7 +14051,9 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 "status": "eingegangen",
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "mwst_rate": 19,
-                "waiter_id": None
+                "waiter_id": None,
+                "daily_bon_number": _daily_bon_number,
+                "bon_date": _today_str,
             }
             if "orders" not in restaurant:
                 restaurant["orders"] = []
@@ -14258,6 +14298,8 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
         update_order_status_by_items(active_order)
     else:
         # Create a new order
+        # BUG FIX: Tägliche Bon-Nummer setzen (vorher vergessen → Bon #917 statt #1)
+        _daily_bon_number, _today_str = _compute_daily_bon_number(db, slug)
         new_order = {
             "id": None, # populated during sync/flush
             "table": table_str,
@@ -14268,7 +14310,9 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
             "status": "eingegangen", # starts as pending/eingegangen
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "mwst_rate": 19,
-            "waiter_id": user.get("name")
+            "waiter_id": user.get("name"),
+            "daily_bon_number": _daily_bon_number,
+            "bon_date": _today_str,
         }
         update_order_status_by_items(new_order)
         restaurant["orders"].append(new_order)
