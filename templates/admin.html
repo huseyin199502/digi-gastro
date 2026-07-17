@@ -9574,7 +9574,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         orderTotal += item.price * item.quantity;
                         
                         for (let idx = 0; idx < item.quantity; idx++) {
-                            const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${idx}`;
+                            // BUG FIX: combo_id in key aufnehmen — sonst haben Kombi-Items
+                            // mit gleicher product_id den gleichen key und der Serve-Button
+                            // matched das falsche Item (Kellner muss 2× klicken).
+                            // Siehe Teilzahlung-Popup (Zeile ~9388) das schon combo_id hat.
+                            const comboIdKey = item.combo_id || '';
+                            const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${comboIdKey}_${idx}`;
                             const itemData = {
                                 order_id: order.id,
                                 product_id: item.product_id,

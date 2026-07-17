@@ -6652,18 +6652,65 @@ async def service_erledigt(request: Request, slug: str, ruf_id: int, db: Session
 VALID_ITEM_STATUSES = {"pending", "confirmed", "delivered"}
 
 def parse_item_key(item_key: str):
-    """Splits composite key into (product_id_str, note_slug, status_str).
-    Parses from the right since status is always from a known set,
-    which makes the note_slug robust against underscores in notes."""
+    """Splits composite key into (product_id_str, note_slug, status_str, combo_id_str).
+
+    BUG FIX: combo_id ist jetzt Teil des Keys (siehe Frontend admin.html:9582).
+    Frontend-Format: '{order_id}_{pid}_{note}_{status}_{comboId}_{idx}'
+    Nach strip order_id prefix: '{pid}_{note}_{status}_{comboId}_{idx}'
+
+   combo_id und idx sind beide Zahlen (oder leer bei combo_id).
+    idx ist optional — wenn der letzte Teil eine Zahl ist, ist es idx.
+    combo_id ist die Zahl direkt nach status.
+
+    Erkannte Formate (nach strip order_id):
+      - '{pid}_{note}_{status}' (legacy)
+      - '{pid}_{note}_{status}_{comboId}' (neu, ohne idx)
+      - '{pid}_{note}_{status}_{comboId}_{idx}' (neu, mit idx)
+      - '{pid}_{note}_{status}_{idx}' (legacy mit idx, combo_id fehlt)
+
+    Returns: (pid_str, note_slug, status_str, combo_id_str)
+    """
     key_parts = item_key.split("_")
     pid_str = key_parts[0]
-    if len(key_parts) >= 2 and key_parts[-1] in VALID_ITEM_STATUSES:
-        status_str = key_parts[-1]
-        note_slug = "_".join(key_parts[1:-1])
-    else:
-        status_str = None
-        note_slug = "_".join(key_parts[1:])
-    return pid_str, note_slug, status_str
+    combo_id_str = None
+
+    # Status finden — kommt vor combo_id und idx
+    status_idx = -1
+    for i, part in enumerate(key_parts):
+        if part in VALID_ITEM_STATUSES:
+            status_idx = i
+            break
+
+    if status_idx == -1:
+        # Kein Status gefunden — legacy fallback
+        return pid_str, "_".join(key_parts[1:]), None, None
+
+    status_str = key_parts[status_idx]
+    # Alles vor status (außer pid) ist note
+    note_slug = "_".join(key_parts[1:status_idx])
+    # Alles nach status: combo_id und/oder idx
+    after_status = key_parts[status_idx + 1:]
+
+    if len(after_status) == 0:
+        # Format: pid_note_status (legacy ohne combo_id)
+        combo_id_str = None
+    elif len(after_status) == 1:
+        # Format: pid_note_status_X
+        # X kann combo_id sein (neu) oder idx (legacy)
+        # Heuristik: Wenn X eine Zahl ist, ist es combo_id (neues Format)
+        # Bei legacy ohne combo_id wäre X = idx
+        # Wir können nicht sicher unterscheiden — aber combo_id ist wahrscheinlicher
+        # bei neuen Bestellungen. Wir setzen combo_id_str und idx wird ignoriert.
+        if after_status[0].isdigit() or after_status[0] == '':
+            combo_id_str = after_status[0]
+        # Sonst: idx (legacy), combo_id_str bleibt None
+    elif len(after_status) == 2:
+        # Format: pid_note_status_comboId_idx
+        combo_id_str = after_status[0]  # combo_id (Zahl oder leer)
+        # idx = after_status[1] (wird nicht benötigt)
+    # Längere after_status-Arrays sollten nicht vorkommen
+
+    return pid_str, note_slug, status_str, combo_id_str
 
 def merge_duplicate_order_items(order):
     """Merges items with the same product_id, note, and status to clean up duplicates."""
@@ -6712,13 +6759,13 @@ def find_order_item(items, item_key: str, order_id: Optional[int] = None):
         if item_key.startswith(prefix):
             item_key = item_key[len(prefix):]
 
-    # Strip trailing index if present
-    key_parts = item_key.split("_")
-    if len(key_parts) >= 2 and key_parts[-1].isdigit():
-        key_parts.pop()
-    clean_item_key = "_".join(key_parts)
+    # WICHTIG: Trailing index NICHT mehr manuell strippen — parse_item_key
+    # macht das jetzt selbst (erkennt idx am Ende und combo_id davor).
+    # Sonst würde combo_id als idx fehlinterpretiert werden.
+    clean_item_key = item_key
 
-    pid_str, note_slug, status_str = parse_item_key(clean_item_key)
+    pid_str, note_slug, status_str, combo_id_str = parse_item_key(clean_item_key)
+    import re
     for item in items:
         # BUG FIX: .strip() zuerst (entfernt trailing/leading Leerzeichen),
         # DANN .replace(" ", "_") (macht aus restlichen Leerzeichen _).
@@ -6735,14 +6782,19 @@ def find_order_item(items, item_key: str, order_id: Optional[int] = None):
         # Da wir das Frontend nicht ändern können (live), müssen wir
         # das Backend anpassen: ersetze /\s+/g durch _ (wie Frontend)
         # OHNE strip.
-        import re
         item_note_slug = re.sub(r'\s+', '_', (item.get("note") or ""))
         item_status = item.get("item_status", "pending") or "pending"
+        item_combo_id = item.get("combo_id")
+        item_combo_id_str = str(item_combo_id) if item_combo_id is not None else ""
 
         if str(item.get("product_id")) == pid_str and item_note_slug == note_slug:
             # If status_str is provided, it MUST match the status exactly
             if status_str is None or item_status == status_str:
-                return item
+                # BUG FIX: combo_id muss auch matchen (wenn im key vorhanden)
+                # Sonst: 2 Kombi-Items mit gleicher product_id aber unterschiedlicher
+                # combo_id → matched das erste Item → Kellner muss 2× klicken
+                if combo_id_str is None or combo_id_str == item_combo_id_str:
+                    return item
     return None
 
 
