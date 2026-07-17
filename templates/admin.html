@@ -8706,6 +8706,8 @@
                         // - Zeige "Kombi: Name" als Hauptname (combo_name)
                         // - Zeige Produktname klein darunter
                         // - Badge "KOMBI" zur schnellen Erkennung
+                        // - KONTRAST FIX: türkis Hintergrund + schwarze Schrift (statt teal-300)
+                        //   → gut lesbar auf dunklem UND hellem Hintergrund
                         const isCombo = item.combo_id && item.combo_name;
                         const comboBadge = isCombo ? `<span style="display:inline-block;background:#14b8a6;color:#000;font-size:8px;font-weight:900;padding:1px 5px;border-radius:4px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle;">KOMBI</span>` : '';
                         const comboSubName = isCombo ? `<div class="text-[10px] text-zinc-500 mt-0.5">↳ ${escapeHtml(item.name)}</div>` : '';
@@ -9390,8 +9392,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             const statusBg = status === 'pending' ? 'bg-amber-500/10 text-amber-700 border border-amber-500/20' : status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-200 border border-zinc-600';
 
                             // OPTION A: Kombi-Badge + combo_name im Teilzahlung-Popup
+                            // KONTRAST FIX: türkis Hintergrund + schwarze Schrift (statt teal-300)
                             const isCombo = item.combo_id && item.combo_name;
-                            const comboBadgeHtml = isCombo ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-black uppercase tracking-wider ml-1">Kombi</span>` : '';
+                            const comboBadgeHtml = isCombo ? `<span style="display:inline-block;background:#14b8a6;color:#000;font-size:8px;font-weight:900;padding:1px 5px;border-radius:4px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle;">KOMBI</span>` : '';
                             const comboSubNameHtml = isCombo ? `<div class="text-[10px] text-zinc-500 mt-0.5">↳ ${escHtml(item.name)}</div>` : '';
                             const displayName = isCombo ? item.combo_name : item.name;
 
@@ -9689,8 +9692,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             const isPending = (item.item_status || item.status) === 'pending';
                             const itemName = (item.name || '').replace(/'/g, "\\'");
                             // OPTION A: Kombi-Anzeige im Kellner-Cockpit
+                            // KONTRAST FIX: türkis Hintergrund + schwarze Schrift (statt teal-300)
+                            // → gut lesbar auf hellem Cockpit-Hintergrund
                             const isCombo = item.combo_id && item.combo_name;
-                            const comboBadgeHtml = isCombo ? `<span class="text-[8px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-700 dark:text-teal-300 font-black uppercase tracking-wider ml-1">Kombi</span>` : '';
+                            const comboBadgeHtml = isCombo ? `<span style="display:inline-block;background:#14b8a6;color:#000;font-size:8px;font-weight:900;padding:1px 5px;border-radius:4px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle;">KOMBI</span>` : '';
                             const comboSubNameHtml = isCombo ? `<span class="text-[10px] block font-medium mt-0.5" style="color:#6b7280;">↳ ${escHtml(item.name)}</span>` : '';
                             const displayName = isCombo ? item.combo_name : item.name;
                             if (isPending) {
