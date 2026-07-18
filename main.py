@@ -6475,6 +6475,7 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
     for split_item in payload.items:
         split_note = (split_item.note or "").strip()
         split_combo_inst = split_item.combo_instance_id
+        print(f"[DEBUG split-pay-tablet] Looking: pid={split_item.product_id} note={split_note!r} combo_inst={split_combo_inst!r} qty={split_item.quantity}")
         # Match by product_id AND note AND combo_instance_id (composite key)
         order_item = next(
             (item for item in order["items"]
@@ -6485,6 +6486,9 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
             None
         )
         if not order_item:
+            print(f"[DEBUG split-pay-tablet] NO MATCH! Items in order:")
+            for i, it in enumerate(order.get("items", [])):
+                print(f"  [{i}] pid={it.get('product_id')} combo_inst={it.get('combo_instance_id')!r} qty={it.get('quantity')}")
             continue
             
         qty_to_pay = min(split_item.quantity, order_item["quantity"])
@@ -14042,6 +14046,7 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
     for split_item in payload.items:
         split_note = (split_item.note or "").strip()
         split_combo_inst = split_item.combo_instance_id
+        print(f"[DEBUG split-pay] Looking: pid={split_item.product_id} note={split_note!r} combo_inst={split_combo_inst!r} qty={split_item.quantity}")
         order_item = next(
             (item for item in order["items"]
              if item["product_id"] == split_item.product_id
@@ -14051,7 +14056,11 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
             None
         )
         if not order_item:
+            print(f"[DEBUG split-pay] NO MATCH! Items in order {payload.order_id}:")
+            for i, it in enumerate(order.get("items", [])):
+                print(f"  [{i}] pid={it.get('product_id')} note={it.get('note')!r} combo_inst={it.get('combo_instance_id')!r} qty={it.get('quantity')}")
             continue
+        print(f"[DEBUG split-pay] FOUND: pid={order_item['product_id']} combo_inst={order_item.get('combo_instance_id')!r} qty={order_item['quantity']}")
             
         qty_to_pay = min(split_item.quantity, order_item["quantity"])
         if qty_to_pay <= 0:
