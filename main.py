@@ -7058,7 +7058,10 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
     possible_tables = [target_table_str, target_num]
 
     # Find source item
-    pid_str, note_slug, status_str = parse_item_key(payload.item_key)
+    # BUG FIX: parse_item_key gibt 5 Werte zurück (combo_id, combo_instance_id neu dazu).
+    # Altes 3-Variablen-Unpacking → ValueError → Transfer schlug fehl → Kellner musste
+    # 2× klicken. Unbenutzte combo-Variablen als _.
+    pid_str, note_slug, status_str, _combo_id_str, _combo_instance_id_str = parse_item_key(payload.item_key)
     # DEBUG LOG
     print(f"[DEBUG transfer] order_id={order_id} item_key={payload.item_key!r} pid={pid_str} note_slug={note_slug!r} status={status_str}")
     for i, it in enumerate(source_order.get("items", [])):
