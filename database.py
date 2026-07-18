@@ -254,6 +254,11 @@ class OrderItem(Base):
     # Items mit gleicher combo_id + combo_name werden im Bon zu einer Zeile gruppiert.
     # NULL für Non-Kombi-Items oder alte Bestellungen vor diesem Feature.
     combo_name = Column(String, nullable=True)
+    # BUG FIX: combo_instance_id — eindeutige ID pro Kombi-Bestellung
+    # Beispiel: 2× "Shisha + Cola" bestellt → beide haben combo_id=3 aber
+    # unterschiedliche combo_instance_id. Teilzahlung toggelt nur Items mit
+    # gleicher combo_instance_id (sonst werden 2 Kombis zusammen getoggelt).
+    combo_instance_id = Column(String, nullable=True)
 
 class Staff(Base):
     __tablename__ = 'staff'
@@ -1116,6 +1121,7 @@ def _migrate_database():
     add_column_if_missing('order_items', 'note', "TEXT")
     add_column_if_missing('order_items', 'combo_id', "INTEGER")  # NEU: Kombi-Zugehörigkeit
     add_column_if_missing('order_items', 'combo_name', "VARCHAR")  # OPTION A: Kombi-Anzeigename für Bon-Gruppierung
+    add_column_if_missing('order_items', 'combo_instance_id', "VARCHAR")  # BUG FIX: Eindeutige Kombi-Bestell-ID für Teilzahlung
     # Multi-Tenant: tenant_slug auf order_items für Tenant-Isolation
     add_column_if_missing('order_items', 'tenant_slug', "VARCHAR REFERENCES tenants(slug) ON DELETE CASCADE")
 

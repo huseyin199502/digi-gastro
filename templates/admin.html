@@ -9653,7 +9653,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 unit_index: idx,
                                 // OPTION A: Kombi-Felder übernehmen für Anzeige im Cockpit
                                 combo_id: item.combo_id || null,
-                                combo_name: item.combo_name || null
+                                combo_name: item.combo_name || null,
+                                // BUG FIX: combo_instance_id für eindeutige Kombi-Zuordnung
+                                // bei Teilzahlung (sonst werden 2 gleiche Kombis zusammen getoggelt)
+                                combo_instance_id: item.combo_instance_id || null
                             };
 
                             // BUG FIX: Item in allItemsInOrder pushen (für stabile Reihenfolge)
@@ -9881,26 +9884,28 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         function toggleControlSplitCheckbox(key, item) {
             // BUG FIX (Bug 3): Kombi-Items als Einheit toggeln
-            // Wenn ein Kombi-Item angeklickt wird, werden ALLE Items mit
-            // derselben combo_id + combo_name mit-umgeschaltet.
+            // WICHTIG: Nutze combo_instance_id (eindeutig pro Kombi-Bestellung)
+            // NICHT combo_id (die ist für 2 gleiche Kombis identisch!)
+            // Beispiel: 2× "Shisha + Cola" bestellt → combo_id=3 für beide,
+            // aber combo_instance_id unterscheidet die beiden Kombis.
             // Non-Kombi-Items bleiben einzeln anklickbar.
-            if (item.combo_id && item.combo_name) {
-                // Kombi-Item: alle Items mit gleicher combo_id finden
+            if (item.combo_id && item.combo_name && item.combo_instance_id) {
+                // Kombi-Item: alle Items mit gleicher combo_instance_id finden
                 const isCurrentlyChecked = !!selectedControlSplitItems[key];
                 if (isCurrentlyChecked) {
-                    // Alle Kombi-Items deselecten
+                    // Alle Items mit gleicher combo_instance_id deselecten
                     Object.keys(selectedControlSplitItems).forEach(k => {
                         const sel = selectedControlSplitItems[k];
-                        if (sel.combo_id === item.combo_id) {
+                        if (sel.combo_instance_id === item.combo_instance_id) {
                             delete selectedControlSplitItems[k];
                         }
                     });
                 } else {
-                    // Alle Kombi-Items selecten — dazu alle Items aus allOrders durchsuchen
+                    // Alle Items mit gleicher combo_instance_id selecten
                     allOrders.forEach(o => {
                         if (o.id === item.order_id && o.items) {
                             o.items.forEach(it => {
-                                if (it.combo_id === item.combo_id && (it.item_status || 'pending') !== 'pending') {
+                                if (it.combo_instance_id === item.combo_instance_id && (it.item_status || 'pending') !== 'pending') {
                                     // Delivered Item — für Teilzahlung relevant
                                     const noteSlug = (it.note || '').replace(/\s+/g, '_');
                                     const status = it.item_status || 'delivered';
@@ -9917,7 +9922,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                                 quantity: 1,
                                                 selectedQty: 1,
                                                 combo_id: it.combo_id,
-                                                combo_name: it.combo_name
+                                                combo_name: it.combo_name,
+                                                combo_instance_id: it.combo_instance_id
                                             };
                                         }
                                     }

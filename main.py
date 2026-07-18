@@ -1504,7 +1504,8 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "note": item.note,
             "item_status": getattr(item, "item_status", "pending") or "pending",
             "combo_id": getattr(item, "combo_id", None),
-            "combo_name": getattr(item, "combo_name", None)
+            "combo_name": getattr(item, "combo_name", None),
+            "combo_instance_id": getattr(item, "combo_instance_id", None)
         } for item in db_items]
         orders.append({
             "id": o.id,
@@ -1787,6 +1788,7 @@ def append_order_to_db(slug: str, order_data: dict, session):
             item_status=item.get("item_status", "pending"),
             combo_id=item.get("combo_id"),  # NEU: Kombi-Zugehörigkeit speichern
             combo_name=item.get("combo_name"),  # OPTION A: Kombi-Name für Bon-Gruppierung
+            combo_instance_id=item.get("combo_instance_id"),  # BUG FIX: Eindeutige Kombi-Bestell-ID
         )
         session.add(db_item)
     
@@ -2020,7 +2022,8 @@ def save_restaurant_to_db(slug: str, r: dict, session):
                 note=item.get("note"),
                 item_status=item.get("item_status", "pending"),
                 combo_id=item.get("combo_id"),
-                combo_name=item.get("combo_name")
+                combo_name=item.get("combo_name"),
+                combo_instance_id=item.get("combo_instance_id")
             )
             session.add(db_item)
             
@@ -3192,6 +3195,11 @@ class OrderItem(BaseModel):
     # OPTION A: combo_name — Anzeige-Name der Kombi (z.B. "Shisha + Softdrink")
     # Wird im Bon-Detail verwendet um Items zu einer Zeile zu gruppieren.
     combo_name: Optional[str] = None
+    # BUG FIX: combo_instance_id — eindeutige ID pro Kombi-Bestellung
+    # Beispiel: 2× "Shisha + Cola" bestellt → beide haben combo_id=3 aber
+    # unterschiedliche combo_instance_id. Teilzahlung toggelt nur Items mit
+    # gleicher combo_instance_id (sonst werden 2 Kombis zusammen getoggelt).
+    combo_instance_id: Optional[str] = None
 
 class OrderPayload(BaseModel):
     table: str
@@ -9383,7 +9391,8 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
                 "note": item.note,
                 "item_status": getattr(item, "item_status", "pending") or "pending",
                 "combo_id": getattr(item, "combo_id", None),
-                "combo_name": getattr(item, "combo_name", None)
+                "combo_name": getattr(item, "combo_name", None),
+            "combo_instance_id": getattr(item, "combo_instance_id", None)
             })
 
     active_orders = []
@@ -10780,7 +10789,8 @@ def get_table_status_endpoint(request: Request, slug: str, table_num: str, db: S
                 "note": item.note,
                 "item_status": getattr(item, "item_status", "pending") or "pending",
                 "combo_id": getattr(item, "combo_id", None),
-                "combo_name": getattr(item, "combo_name", None)
+                "combo_name": getattr(item, "combo_name", None),
+            "combo_instance_id": getattr(item, "combo_instance_id", None)
             })
             
     pending = []
@@ -12290,6 +12300,7 @@ def _load_all_orders_for_export(slug: str, db) -> list:
             "note": getattr(item, "note", None),
             "combo_id": getattr(item, "combo_id", None),
             "combo_name": getattr(item, "combo_name", None),
+            "combo_instance_id": getattr(item, "combo_instance_id", None),
         })
     orders = []
     for o in db_orders:
