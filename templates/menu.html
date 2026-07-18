@@ -3108,7 +3108,9 @@
                 _addComboItemsToCart(comboId, comboName, comboPrice, productIds) {
                     // Verwende window._productsData (bereits in init() gesetzt)
                     const _allProds = window._productsData || [];
-                    const allProducts = _allProds.map(p => p.price);
+                    // BUG FIX: display_price statt price nutzen — sonst werden
+                    // Event-Preise ignoriert und Kombi-Preisverteilung ist falsch
+                    const allProducts = _allProds.map(p => p.display_price || p.price);
                     const allProductIds = _allProds.map(p => p.id);
                     const allProductNames = _allProds.map(p => p.name);
                     const allProductNamesEn = _allProds.map(p => p.name_en || p.name);
