@@ -3314,7 +3314,7 @@ class SplitItem(BaseModel):
     product_id: int
     quantity: int
     note: Optional[str] = None
-    combo_instance_id: Optional[str] = None  # BUG FIX: für korrekte Kombi-Zuordnung bei Teilzahlung
+    combo_instance_id: Optional[str] = None  # BUG FIX: nötig für korrekte Kombi-Zuordnung bei Teilzahlung
 
 class SplitPayload(BaseModel):
     items: List[SplitItem]

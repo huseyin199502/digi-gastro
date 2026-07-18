@@ -9979,7 +9979,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         name: item.name,
                         note: item.note,
                         quantity: item.quantity,
-                        selectedQty: item.quantity
+                        selectedQty: item.quantity,
+                        // BUG FIX: combo_instance_id speichern — sonst wird es beim
+                        // Gruppieren in submitControlSplitPayment nicht mitgesendet
+                        combo_instance_id: item.combo_instance_id || null
                     };
                 }
             }
