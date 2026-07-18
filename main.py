@@ -6481,8 +6481,7 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
             (item for item in order["items"]
              if item["product_id"] == split_item.product_id
              and (item.get("note") or "").strip() == split_note
-             and (split_combo_inst is None
-                  or item.get("combo_instance_id") == split_combo_inst)),
+             and item.get("combo_instance_id") == split_combo_inst),
             None
         )
         if not order_item:
@@ -14051,8 +14050,7 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
             (item for item in order["items"]
              if item["product_id"] == split_item.product_id
              and (item.get("note") or "").strip() == split_note
-             and (split_combo_inst is None
-                  or item.get("combo_instance_id") == split_combo_inst)),
+             and item.get("combo_instance_id") == split_combo_inst),
             None
         )
         if not order_item:

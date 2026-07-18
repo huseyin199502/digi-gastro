@@ -10330,7 +10330,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     const matchedItem = order.items.find(it =>
                         it.product_id === sel.product_id &&
                         (it.note || '').trim() === split_note &&
-                        (split_combo_inst === null || it.combo_instance_id === split_combo_inst)
+                        (it.combo_instance_id || null) === split_combo_inst
                     );
                     if (!matchedItem) return;
                     const qtyToPay = Math.min(sel.quantity, matchedItem.quantity);
