@@ -3127,7 +3127,9 @@
                     // → Teilzahlung toggelt ALLE Items mit combo_id=3 (beide Kombis)
                     // Lösung: combo_instance_id macht jede Kombi-Bestellung eindeutig
                     // → Teilzahlung toggelt nur Items mit gleicher combo_instance_id
-                    const comboInstanceId = comboId + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    // WICHTIG: Keine Unterstriche in combo_instance_id (sonst zerstört
+                    // parse_item_key das split('_') im Backend). Wir nutzen '-' als Separator.
+                    const comboInstanceId = comboId + '-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
                     
                     // FIX: Proportionale Preisverteilung mit Rest-Korrektur
                     // Verhindert 16.98€ statt 17.00€ durch Rundungsfehler

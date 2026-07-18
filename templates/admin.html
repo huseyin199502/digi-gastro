@@ -9638,12 +9638,13 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         orderTotal += item.price * item.quantity;
                         
                         for (let idx = 0; idx < item.quantity; idx++) {
-                            // BUG FIX: combo_id in key aufnehmen — sonst haben Kombi-Items
-                            // mit gleicher product_id den gleichen key und der Serve-Button
-                            // matched das falsche Item (Kellner muss 2× klicken).
-                            // Siehe Teilzahlung-Popup (Zeile ~9388) das schon combo_id hat.
+                            // BUG FIX: combo_id UND combo_instance_id in key aufnehmen
+                            // Vorher: nur combo_id → 2 Kombis mit gleicher combo_id haben
+                            // denselben key → beide werden zusammen checked angezeigt!
+                            // Jetzt: combo_instance_id macht jeden Kombi-Item eindeutig.
                             const comboIdKey = item.combo_id || '';
-                            const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${comboIdKey}_${idx}`;
+                            const comboInstKey = item.combo_instance_id || '';
+                            const key = `${order.id}_${item.product_id}_${noteSlug}_${status}_${comboIdKey}_${comboInstKey}_${idx}`;
                             const itemData = {
                                 order_id: order.id,
                                 product_id: item.product_id,
@@ -9913,8 +9914,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                     const noteSlug = (it.note || '').replace(/\s+/g, '_');
                                     const status = it.item_status || 'delivered';
                                     const comboIdKey = it.combo_id || '';
+                                    const comboInstKey = it.combo_instance_id || '';
+                                    // BUG FIX: combo_instance_id AUCH in key — sonst haben 2
+                                    // Kombis denselben key und beide werden zusammen ausgewählt
                                     for (let idx = 0; idx < it.quantity; idx++) {
-                                        const comboKey = `${o.id}_${it.product_id}_${noteSlug}_${status}_${comboIdKey}_${idx}`;
+                                        const comboKey = `${o.id}_${it.product_id}_${noteSlug}_${status}_${comboIdKey}_${comboInstKey}_${idx}`;
                                         if (!selectedControlSplitItems[comboKey]) {
                                             selectedControlSplitItems[comboKey] = {
                                                 order_id: o.id,
