@@ -188,6 +188,59 @@
             border-color: #22c55e;
         }
 
+        /* ── BUG FIX: Kellner-Cockpit Teilzahlung Checkbox Dark Mode ──
+           Problem: Grüner Haken / Kästchen in Dark Mode schlecht erkennbar
+           Fix: Größere Checkbox (26px), dickere Border, weißer Haken im Dark Mode,
+           Glow-Effekt wenn checked → maximale Sichtbarkeit */
+        html.dark .control-split-item .custom-checkbox {
+            width: 26px;
+            height: 26px;
+            border: 3px solid #f3f4f6;
+            background: #1f2937;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.4);
+        }
+        html.dark .control-split-item .custom-checkbox:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(255,255,255,0.15), 0 2px 6px rgba(0,0,0,0.5);
+        }
+        html.dark .control-split-item .custom-checkbox:checked {
+            background: #22c55e;
+            border-color: #16a34a;
+            box-shadow: 0 0 0 4px rgba(34,197,94,0.3), 0 2px 8px rgba(34,197,94,0.4);
+        }
+        html.dark .control-split-item .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 7px;
+            width: 7px;
+            height: 13px;
+            border: solid #ffffff !important;
+            border-width: 0 3px 3px 0 !important;
+            transform: rotate(45deg);
+        }
+        /* Auch im Light Mode: Checkbox im Cockpit größer und deutlicher */
+        html:not(.dark) .control-split-item .custom-checkbox {
+            width: 26px;
+            height: 26px;
+            border: 3px solid #374151;
+        }
+        html:not(.dark) .control-split-item .custom-checkbox:checked {
+            background: #16a34a;
+            border-color: #15803d;
+        }
+        html:not(.dark) .control-split-item .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 7px;
+            width: 7px;
+            height: 13px;
+            border: solid #ffffff !important;
+            border-width: 0 3px 3px 0 !important;
+            transform: rotate(45deg);
+        }
+
         /* ── Toggle Switch (Brutto/Netto, Kartenzahlung, Shisha-Modus) ──
            Hoch-Kontrast Toggle für Dark- und Light-Mode.
            Vorher: Klassen .switch und .slider waren nirgends definiert →
@@ -9569,6 +9622,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 let orderTotal = 0;
                 let pendingItems = [];
                 let deliveredItems = [];
+                // BUG FIX (Teilzahlung Bug 2): Items in ORIGINAL-Reihenfolge behalten
+                // Vorher: [...pendingItems, ...deliveredItems] → beim Servieren rutscht
+                // Item von oben nach unten (Kellner irritiert)
+                // Jetzt: allItemsInOrder behält die Reihenfolge aus order.items bei
+                let allItemsInOrder = [];
                 
                 if (order.items) {
                     order.items.forEach(item => {
@@ -9597,6 +9655,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                 combo_id: item.combo_id || null,
                                 combo_name: item.combo_name || null
                             };
+
+                            // BUG FIX: Item in allItemsInOrder pushen (für stabile Reihenfolge)
+                            allItemsInOrder.push(itemData);
                             
                             if (status === 'pending') {
                                 pendingItems.push(itemData);
@@ -9619,6 +9680,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     total: orderTotal,
                     pendingItems,
                     deliveredItems,
+                    allItemsInOrder,  // BUG FIX: stabile Reihenfolge für Anzeige
                     hasPending: pendingItems.length > 0,
                     hasDelivered: deliveredItems.length > 0,
                     allServed: pendingItems.length === 0 && deliveredItems.length > 0
@@ -9667,9 +9729,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 const bonBg = od.allServed ? 'border-emerald-200 dark:border-emerald-800/40' : 'border-amber-200 dark:border-amber-800/40';
                 const bonAccent = od.allServed ? 'bg-emerald-500' : 'bg-amber-500';
 
-                // Kombiniere alle Items (pending + delivered) und gruppiere sie nach Hauptgruppe
-                // WICHTIG: Für das Grouping MUSS product_id gesetzt sein, damit getProductCategory() funktioniert
-                const allItemsForGrouping = [
+                // BUG FIX (Teilzahlung Bug 2): Items in ORIGINAL-Reihenfolge anzeigen
+                // Vorher: [...pendingItems, ...deliveredItems] → beim Servieren rutscht
+                // das Item von oben nach unten (Kellner ist irritiert)
+                // Jetzt: allItemsInOrder aus orderData — stabile Reihenfolge!
+                const allItemsForGrouping = od.allItemsInOrder || [
                     ...od.pendingItems.map(it => ({ ...it, item_status: 'pending' })),
                     ...od.deliveredItems.map(it => ({ ...it, item_status: 'delivered' }))
                 ];
@@ -9816,18 +9880,67 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         }
 
         function toggleControlSplitCheckbox(key, item) {
-            if (selectedControlSplitItems[key]) {
-                delete selectedControlSplitItems[key];
+            // BUG FIX (Bug 3): Kombi-Items als Einheit toggeln
+            // Wenn ein Kombi-Item angeklickt wird, werden ALLE Items mit
+            // derselben combo_id + combo_name mit-umgeschaltet.
+            // Non-Kombi-Items bleiben einzeln anklickbar.
+            if (item.combo_id && item.combo_name) {
+                // Kombi-Item: alle Items mit gleicher combo_id finden
+                const isCurrentlyChecked = !!selectedControlSplitItems[key];
+                if (isCurrentlyChecked) {
+                    // Alle Kombi-Items deselecten
+                    Object.keys(selectedControlSplitItems).forEach(k => {
+                        const sel = selectedControlSplitItems[k];
+                        if (sel.combo_id === item.combo_id) {
+                            delete selectedControlSplitItems[k];
+                        }
+                    });
+                } else {
+                    // Alle Kombi-Items selecten — dazu alle Items aus allOrders durchsuchen
+                    allOrders.forEach(o => {
+                        if (o.id === item.order_id && o.items) {
+                            o.items.forEach(it => {
+                                if (it.combo_id === item.combo_id && (it.item_status || 'pending') !== 'pending') {
+                                    // Delivered Item — für Teilzahlung relevant
+                                    const noteSlug = (it.note || '').replace(/\s+/g, '_');
+                                    const status = it.item_status || 'delivered';
+                                    const comboIdKey = it.combo_id || '';
+                                    for (let idx = 0; idx < it.quantity; idx++) {
+                                        const comboKey = `${o.id}_${it.product_id}_${noteSlug}_${status}_${comboIdKey}_${idx}`;
+                                        if (!selectedControlSplitItems[comboKey]) {
+                                            selectedControlSplitItems[comboKey] = {
+                                                order_id: o.id,
+                                                product_id: it.product_id,
+                                                price: it.price,
+                                                name: it.name,
+                                                note: it.note,
+                                                quantity: 1,
+                                                selectedQty: 1,
+                                                combo_id: it.combo_id,
+                                                combo_name: it.combo_name
+                                            };
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
             } else {
-                selectedControlSplitItems[key] = {
-                    order_id: item.order_id,
-                    product_id: item.product_id,
-                    price: item.price,
-                    name: item.name,
-                    note: item.note,
-                    quantity: item.quantity,
-                    selectedQty: item.quantity
-                };
+                // Non-Kombi-Item: normal toggeln (wie bisher)
+                if (selectedControlSplitItems[key]) {
+                    delete selectedControlSplitItems[key];
+                } else {
+                    selectedControlSplitItems[key] = {
+                        order_id: item.order_id,
+                        product_id: item.product_id,
+                        price: item.price,
+                        name: item.name,
+                        note: item.note,
+                        quantity: item.quantity,
+                        selectedQty: item.quantity
+                    };
+                }
             }
             refreshControlModal();
         }
