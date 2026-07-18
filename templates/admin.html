@@ -9399,6 +9399,34 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             // BUG FIX: Auch hier 15s (vorher 3s) — gleicher Fix wie _trackOptimisticServe
             setTimeout(() => { _optimisticServes.delete(orderId); }, 15000);
         }
+
+        // ── OPTIMISTIC SPLIT-PAY TRACKING ──
+        // Bug 1 + Bug 2 Fix: Trackt Orders mit kürzlich gebuchter Teilzahlung,
+        // damit der Live-Poll die lokalen (optimistischen) Items/Totals nicht
+        // mit veralteten (gecachten) Server-Daten überschreibt.
+        // Key: orderId, Value: expiry-timestamp (ms). Auto-expire nach 15s —
+        // bis dahin ist der Backend-Cache sicher invalidiert und der Live-Poll
+        // liefert committed-Daten, die mit dem lokalen Zustand übereinstimmen.
+        let _optimisticSplitPays = new Map();
+        function _trackOptimisticSplitPay(orderIds) {
+            const expiry = Date.now() + 15000;
+            orderIds.forEach(id => _optimisticSplitPays.set(id, expiry));
+        }
+        function _hasOptimisticSplitPay(orderId) {
+            const expiry = _optimisticSplitPays.get(orderId);
+            if (!expiry) return false;
+            if (Date.now() > expiry) {
+                _optimisticSplitPays.delete(orderId);
+                return false;
+            }
+            return true;
+        }
+        function _clearOptimisticSplitPay(orderIds) {
+            // Bei Fetch-Fehler: Protection sofort aufheben, damit der Resync
+            // (checkLiveTischeUpdates) den echten Server-Zustand wiederherstellen kann.
+            orderIds.forEach(id => _optimisticSplitPays.delete(id));
+        }
+
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
 
@@ -10259,6 +10287,71 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             });
         }
 
+        // ── Hilfsfunktion: Optimistic Split-Pay für lokales allOrders ──
+        // Bug 1 + Bug 2 Fix: Spiegelt die Backend-Logik aus admin_split_pay
+        // wider — pro (product_id, note, combo_instance_id) wird die selectedQty
+        // vom Item abgezogen, Items mit quantity<=0 entfernt, Order-Total neu
+        // berechnet, Status auf 'bezahlt' gesetzt falls keine Items mehr.
+        // Wird VOR dem fetch ausgeführt, damit der Kellner sofortiges Feedback
+        // sieht und die Tisch-Cockpit-Beträge sofort stimmen.
+        function _applyOptimisticSplitPay(groups) {
+            const affectedOrderIds = [];
+            Object.keys(groups).forEach(orderIdStr => {
+                const orderId = parseInt(orderIdStr);
+                const order = allOrders.find(o => o.id === orderId);
+                if (!order || !order.items) return;
+                affectedOrderIds.push(orderId);
+
+                // Gruppe selektierter Items nach (product_id, note, combo_instance_id),
+                // selbe Logik wie der Payload fürs Backend weiter unten.
+                const groupedMap = {};
+                groups[orderIdStr].forEach(item => {
+                    const noteKey = item.note || "";
+                    const comboInstKey = item.combo_instance_id || '';
+                    const groupKey = `${item.product_id}_${noteKey}_${comboInstKey}`;
+                    if (!groupedMap[groupKey]) {
+                        groupedMap[groupKey] = {
+                            product_id: item.product_id,
+                            quantity: 0,
+                            note: item.note || null,
+                            combo_instance_id: item.combo_instance_id || null
+                        };
+                    }
+                    groupedMap[groupKey].quantity += item.selectedQty;
+                });
+
+                // Backend-Logik 1:1 nachgebaut — qty dekrementieren, ggf. entfernen
+                Object.values(groupedMap).forEach(sel => {
+                    const split_note = (sel.note || "").trim();
+                    const split_combo_inst = sel.combo_instance_id || null;
+                    const matchedItem = order.items.find(it =>
+                        it.product_id === sel.product_id &&
+                        (it.note || '').trim() === split_note &&
+                        (split_combo_inst === null || it.combo_instance_id === split_combo_inst)
+                    );
+                    if (!matchedItem) return;
+                    const qtyToPay = Math.min(sel.quantity, matchedItem.quantity);
+                    if (qtyToPay <= 0) return;
+                    matchedItem.quantity -= qtyToPay;
+                    if (matchedItem.quantity <= 0) {
+                        order.items = order.items.filter(i => i !== matchedItem);
+                    }
+                });
+
+                // Order-Total neu berechnen (damit UI-Summen stimmen)
+                order.total = Math.round(
+                    (order.items || []).reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0) * 100
+                ) / 100;
+                if (order.total_with_tip !== undefined) order.total_with_tip = order.total;
+
+                // Wenn keine Items mehr: Status auf 'bezahlt' setzen (wie Backend)
+                if (!order.items || order.items.length === 0) {
+                    order.status = 'bezahlt';
+                }
+            });
+            return affectedOrderIds;
+        }
+
         async function submitControlSplitPayment() {
             // SECURITY FIX (audit 4.10): Mutex + Button-Disable, damit Doppelklick nicht
             // 2× parallele split-pay-Requests feuert (Doppelbuchung von Teilzahlungen).
@@ -10270,6 +10363,8 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 groups[item.order_id].push(item);
             });
 
+            if (Object.keys(groups).length === 0) return;
+
             const submitBtn = document.getElementById('btn-control-split');
             _controlSplitPayInProgress = true;
             if (submitBtn) {
@@ -10278,70 +10373,112 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 submitBtn.innerHTML = '⏳ Verarbeite…';
                 submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
             }
-            try {
-                const promises = Object.keys(groups).map(orderId => {
-                    const groupedMap = {};
-                    groups[orderId].forEach(item => {
-                        const noteKey = item.note || "";
-                        // BUG FIX: combo_instance_id in groupKey aufnehmen — sonst werden
-                        // 2 Kombis mit gleicher product_id in einen gruppierten Eintrag
-                        // gepackt → falsche Kombi wird bei Teilzahlung abgezogen
-                        const comboInstKey = item.combo_instance_id || '';
-                        const groupKey = `${item.product_id}_${noteKey}_${comboInstKey}`;
-                        if (!groupedMap[groupKey]) {
-                            groupedMap[groupKey] = {
-                                product_id: item.product_id,
-                                quantity: 0,
-                                note: item.note || null,
-                                combo_instance_id: item.combo_instance_id || null
-                            };
-                        }
-                        groupedMap[groupKey].quantity += item.selectedQty;
-                    });
-                    
-                    const payload = {
-                        order_id: parseInt(orderId),
-                        items: Object.values(groupedMap)
-                    };
-                    return fetch('/admin/orders/split-pay', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                });
-                
-                const results = await Promise.all(promises);
-                if (results.every(r => r.ok)) {
-                    showToast("Teilzahlung gebucht!", "success");
-                    selectedControlSplitItems = {};
-                    await checkLiveTischeUpdates();
-                    // Check if table has no more active orders → auto-close control modal
-                    if (controlModalActiveTableNum) {
-                        const remainingOrders = allOrders.filter(o => {
-                            const t = String(o.table || '').trim();
-                            if (controlModalActiveTableZone) {
-                                const exact = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
-                                return (t === exact || t === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
-                            }
-                            const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
-                            return regex.test(t) && o.status !== 'bezahlt' && o.status !== 'storniert';
-                        });
-                        if (remainingOrders.length === 0) { closeControlModal(); }
+
+            // ── BUG 1 + BUG 2 FIX: OPTIMISTIC UPDATE VOR dem fetch ──
+            // Früher: await Promise.all(promises) + await checkLiveTischeUpdates()
+            //         → UI 2-4 s blockiert ("⏳ Verarbeite…"), und Tisch-Cockpit
+            //         zeigte alte Beträge bis der zweite Server-Request fertig war.
+            // Jetzt: Teilzahlung wird SOFORT lokal auf allOrders angewendet
+            //        (< 50 ms). Kellner sieht neues Betrag/Status sofort.
+            //        Tisch-Cockpit-Kacheln werden sofort neu gerendert (Bug 2).
+            //        fetch läuft im Hintergrund (fire-and-forget, kein await).
+            const affectedOrderIds = _applyOptimisticSplitPay(groups);
+            _trackOptimisticSplitPay(affectedOrderIds);
+
+            // Auswahl leeren + sofort UI-Feedback
+            selectedControlSplitItems = {};
+            showToast("Teilzahlung gebucht!", "success");
+
+            // Modal aktualisieren (zeigt neue Items/Totals — Bug 1: sofort sichtbar)
+            if (controlModalActiveTableNum) refreshControlModal();
+
+            // Bug 2 Fix: Tisch-Cockpit-Kacheln sofort neu rendern, damit die
+            // Betäge auf allen Tischen korrekt sind (vorher: stale bis zum
+            // manuellen Aktualisieren oder bis checkLiveTischeUpdates fertig war).
+            if (!isEditMode) renderSitzplanTiles();
+
+            // Auto-Close: Wenn keine aktiven Orders mehr auf diesem Tisch → Modal schließen
+            // (basiert jetzt auf dem optimistischen allOrders-Zustand, der mit dem
+            // Backend-Zustand identisch ist — keine Race-Condition mehr).
+            if (controlModalActiveTableNum) {
+                const remainingOrders = allOrders.filter(o => {
+                    const t = String(o.table || '').trim();
+                    if (controlModalActiveTableZone) {
+                        const exact = `Tisch ${controlModalActiveTableNum} (${controlModalActiveTableZone})`;
+                        return (t === exact || t === controlModalActiveTableNum) && o.status !== 'bezahlt' && o.status !== 'storniert';
                     }
-                } else {
-                    showToast("Fehler bei Teilzahlung", "error");
-                }
-            } catch (e) {
-                showToast("Verbindungsfehler", "error");
-            } finally {
-                _controlSplitPayInProgress = false;
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = submitBtn.dataset._origHtml || submitBtn.innerHTML;
-                    submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-                    delete submitBtn.dataset._origHtml;
-                }
+                    const regex = new RegExp(`^Tisch\\s+${controlModalActiveTableNum}(\\s*\\(|$)`);
+                    return regex.test(t) && o.status !== 'bezahlt' && o.status !== 'storniert';
+                });
+                if (remainingOrders.length === 0) { closeControlModal(); }
             }
+
+            // ── Lock SOFORT freigeben (nach optimistic update) ──
+            // Kellner kann sofort weitere Aktionen durchführen (z.B. nächste
+            // Teilzahlung, Serve, Cancel). fetch läuft unabhängig im Hintergrund.
+            _controlSplitPayInProgress = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = submitBtn.dataset._origHtml || submitBtn.innerHTML;
+                submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                delete submitBtn.dataset._origHtml;
+            }
+
+            // ── Fetch im Hintergrund (fire-and-forget, KEIN await) ──
+            // Bug 1 Fix: Der blockierende `await Promise.all(...)` ist entfernt —
+            // die UI reagiert sofort. Bei Diskrepanz sync via checkLiveTischeUpdates.
+            const promises = Object.keys(groups).map(orderId => {
+                const groupedMap = {};
+                groups[orderId].forEach(item => {
+                    const noteKey = item.note || "";
+                    // BUG FIX: combo_instance_id in groupKey aufnehmen — sonst werden
+                    // 2 Kombis mit gleicher product_id in einen gruppierten Eintrag
+                    // gepackt → falsche Kombi wird bei Teilzahlung abgezogen
+                    const comboInstKey = item.combo_instance_id || '';
+                    const groupKey = `${item.product_id}_${noteKey}_${comboInstKey}`;
+                    if (!groupedMap[groupKey]) {
+                        groupedMap[groupKey] = {
+                            product_id: item.product_id,
+                            quantity: 0,
+                            note: item.note || null,
+                            combo_instance_id: item.combo_instance_id || null
+                        };
+                    }
+                    groupedMap[groupKey].quantity += item.selectedQty;
+                });
+
+                const payload = {
+                    order_id: parseInt(orderId),
+                    items: Object.values(groupedMap)
+                };
+                return fetch('/admin/orders/split-pay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            });
+
+            Promise.all(promises).then(results => {
+                if (results.every(r => r.ok)) {
+                    // Erfolg → Hintergrund-Sync für Drift-Korrektur (nicht blockierend).
+                    // Protected durch _optimisticSplitPays: der Live-Poll überschreibt
+                    // die lokalen optimistischen Items/Totals nicht mit potenziell
+                    // stale-gecachten Daten vom Server.
+                    checkLiveTischeUpdates();
+                } else {
+                    // Server-Error (z.B. 400/500) → Protection aufheben + resyncen.
+                    // Nach Resync zeigt die UI den echten (nicht-teilbezahlten) Zustand.
+                    _clearOptimisticSplitPay(affectedOrderIds);
+                    showToast("Fehler bei Teilzahlung — synchronisiere…", "error");
+                    checkLiveTischeUpdates();
+                }
+            }).catch(err => {
+                // Netzwerkfehler → gleicher Resync-Pfad wie oben.
+                console.warn('[Split-Pay] Network error:', err);
+                _clearOptimisticSplitPay(affectedOrderIds);
+                showToast("Verbindungsfehler — synchronisiere…", "error");
+                checkLiveTischeUpdates();
+            });
         }
 
         async function closeTableControl() {
@@ -10821,6 +10958,29 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                         // Live-Daten überschreiben. Server hat u.U. noch nicht propagiert.
                         const localFinal = (o.status === 'bezahlt' || o.status === 'storniert');
                         const liveFinal  = (liveOrder.status === 'bezahlt' || liveOrder.status === 'storniert');
+
+                        // ── OPTIMISTIC SPLIT-PAY PROTECTION (Bug 2 Fix) ──
+                        // Wenn der Kellner vor kurzem eine Teilzahlung gebucht hat
+                        // (15s Window), könnte der Live-Poll veraltete (gecachte)
+                        // Server-Daten zurückgeben, die die lokalen optimistischen
+                        // Items/Totals überschreiben würden → "Teilrechnungsbetrag
+                        // bleibt stehen"-Bug. Deshalb: lokale Items + Totals bewahren,
+                        // aber Status vom Server übernehmen (falls Backend 'bezahlt'
+                        // bereits propagiert hat). Muss VOR dem localFinal-Check
+                        // passieren, weil sonst { ...liveOrder, status: o.status }
+                        // die stale Items/Totals übernehmen würde.
+                        if (_hasOptimisticSplitPay(o.id)) {
+                            const mergedStatus = liveFinal ? liveOrder.status : o.status;
+                            return {
+                                ...liveOrder,
+                                items: o.items,
+                                total: o.total,
+                                total_with_tip: o.total_with_tip,
+                                original_total: o.original_total,
+                                status: mergedStatus
+                            };
+                        }
+
                         if (localFinal && !liveFinal) {
                             // Server hat den Abschluss noch nicht propagiert — lokalen Final-Status bewahren.
                             return { ...liveOrder, status: o.status };

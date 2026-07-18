@@ -1804,6 +1804,101 @@ def update_order_status_in_db(order_id: int, status: str, session):
     session.query(DBOrder).filter_by(id=order_id).update({"status": status})
 
 
+def fast_update_order_in_db(slug: str, order: dict, session,
+                            update_tagesumsatz: float = 0.0,
+                            increment_bestellungen: bool = False) -> bool:
+    """Performance-Optimiert: Aktualisiert nur EINE Bestellung + ihre Items +
+    (optional) Tenant-Tagesumsatz / Bestellzähler — OHNE das gesamte Restaurant
+    (Kategorien/Produkte/Tabellen/Staff/AuditLog) zu laden oder zu syncen.
+
+    Verwendung statt `save_restaurant_to_db` für Mutationen die nur eine
+    einzelne Order betreffen (split-pay, cancel-item, pay-item, serve-item).
+
+    Vorteile:
+      • Kein Reload aller Produkte/Kategorien/Tabellen aus der DB
+      • Kein Delete-All+Re-Insert von Staff/Tables
+      • Nur die wirklich geänderten Rows werden upgedatet (Order + ihre Items)
+      • Cache-Invalidierung erfolgt durch den post-commit Hook
+        (session.info['_pending_cache_invalidate']) — gleicher Mechanismus wie
+        save_restaurant_to_db, d.h. Race-Condition-Schutz bleibt erhalten.
+
+    Args:
+      slug: Tenant-Slug
+      order: Die bereits in-memory mutierte Order-Dict (mit neuen Items/Totals/Status)
+      session: SQLAlchemy-Session (Caller macht commit/rollback)
+      update_tagesumsatz: Betrag der zum Tenant.tagesumsatz addiert wird (z.B. Teilzahlung)
+      increment_bestellungen: Wenn True, Tenant.bestellungen_gesamt um 1 erhöhen
+                               (für final bezahlte Orders)
+
+    Returns:
+      True bei Erfolg, False falls Order nicht in DB gefunden wurde.
+    """
+    from database import Order as DBOrder, OrderItem as DBOrderItem, Tenant as DBTenant
+
+    # 1. Order-Row laden und updaten
+    db_order = session.query(DBOrder).filter_by(tenant_slug=slug, id=order["id"]).first()
+    if not db_order:
+        return False
+
+    db_order.total = float(order.get("total", 0.0) or 0.0)
+    db_order.total_with_tip = float(order.get("total_with_tip", 0.0) or 0.0)
+    db_order.status = order.get("status", "eingegangen")
+    if order.get("tip_amount") is not None:
+        db_order.tip_amount = float(order.get("tip_amount", 0.0) or 0.0)
+    if order.get("waiter_id") is not None:
+        db_order.waiter_id = order.get("waiter_id")
+    # original_total: gleiche Logik wie save_restaurant_to_db (Fix 6 — nie wieder 0€)
+    _ot = order.get("original_total")
+    if _ot is None:
+        _ot = order.get("total", 0.0) or 0.0
+    try:
+        db_order.original_total = float(_ot)
+    except Exception:
+        db_order.original_total = 0.0
+    if order.get("daily_bon_number") is not None:
+        db_order.daily_bon_number = order.get("daily_bon_number")
+    if order.get("bon_date") is not None:
+        db_order.bon_date = order.get("bon_date")
+
+    # 2. Items: Delete + Re-Insert (für kleine Item-Listen schneller als diff-Update)
+    session.query(DBOrderItem).filter_by(order_id=order["id"]).delete()
+    for item in order.get("items", []):
+        session.add(DBOrderItem(
+            order_id=order["id"],
+            tenant_slug=slug,
+            product_id=item.get("product_id"),
+            name=item.get("name"),
+            price=item.get("price"),
+            quantity=item.get("quantity"),
+            category_type=item.get("category_type", "küche"),
+            note=item.get("note"),
+            item_status=item.get("item_status", "pending"),
+            combo_id=item.get("combo_id"),
+            combo_name=item.get("combo_name"),
+            combo_instance_id=item.get("combo_instance_id")
+        ))
+
+    # 3. Tenant: tagesumsatz / bestellungen_gesamt inkrementieren (falls gewünscht)
+    if update_tagesumsatz != 0.0 or increment_bestellungen:
+        tenant = session.query(DBTenant).filter_by(slug=slug).first()
+        if tenant:
+            if update_tagesumsatz != 0.0:
+                tenant.tagesumsatz = float(tenant.tagesumsatz or 0.0) + float(update_tagesumsatz)
+            if increment_bestellungen:
+                tenant.bestellungen_gesamt = int(tenant.bestellungen_gesamt or 0) + 1
+
+    # 4. Cache-Invalidierung: pre-commit (best-effort) + flag für post-commit Hook
+    #    Gleicher Mechanismus wie save_restaurant_to_db — schließt Race-Condition
+    #    zwischen pre-commit Invalidierung und commit.
+    try:
+        invalidate_restaurant_cache_sync(slug)
+    except Exception as _e:
+        print(f"[Redis Cache] invalidate on fast_update_order failed for {slug}: {_e}")
+    session.info['_pending_cache_invalidate'] = slug
+
+    return True
+
+
 def save_restaurant_to_db(slug: str, r: dict, session):
     tenant = session.query(Tenant).filter_by(slug=slug).first()
     if not tenant:
@@ -13986,9 +14081,26 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
         restaurant["bestellungen_gesamt"] += 1
         
         # NOTE: No token rotation on payment — see pay_order() for rationale.
-        
+
+    # ── BUG 1 FIX (Backend): Fast-Path statt save_restaurant_to_db ──
+    # save_restaurant_to_db lädt/synced ALLE Kategorien/Produkte/Tabellen/Staff
+    # (~100-500 ms bei 100+ Produkten). Für split-pay ändern wir aber nur EINE
+    # Order + Tenant.tagesumsatz/bestellungen_gesamt — fast_update_order_in_db
+    # macht genau das (nur Order + ihre Items + Tenant-Counters) und ist
+    # ~5-10× schneller. Cache-Invalidierung passiert über denselben post-commit
+    # Hook wie bei save_restaurant_to_db (Race-Condition-Schutz bleibt erhalten).
+    # Fallback: falls die Order nicht in der DB gefunden wird (sollte nicht
+    # passieren, aber Defensive Programming), nutzen wir save_restaurant_to_db.
     try:
-        save_restaurant_to_db(slug, restaurant, db)
+        ok = fast_update_order_in_db(
+            slug, order, db,
+            update_tagesumsatz=round(total_split_amount, 2),
+            increment_bestellungen=(order["status"] == "bezahlt")
+        )
+        if not ok:
+            # Defensive Fallback: Order nicht in DB → Full-Save (synchronisiert
+            # auch Orders, die in-memory neu angelegt aber noch nicht in DB sind).
+            save_restaurant_to_db(slug, restaurant, db)
         db.commit()
     except Exception as e:
         db.rollback()
