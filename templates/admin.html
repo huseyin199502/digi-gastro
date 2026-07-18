@@ -9384,17 +9384,20 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         function _trackOptimisticServe(orderId, itemKey) {
             if (!_optimisticServes.has(orderId)) _optimisticServes.set(orderId, new Set());
             _optimisticServes.get(orderId).add(itemKey);
-            // Auto-expire after 3 Sekunden — kurz genug dass andere Kellner schnell
-            // die richtigen Daten sehen, lang genug dass das Backend den Cache
-            // invalidiert (after_commit) und committed Daten liefert.
+            // BUG FIX: Auto-expire von 3s auf 15s erhöht.
+            // Vorher: nach 3s kam Live-Sync zurück und hat Item überschrieben
+            // → "Item taucht wieder auf" Bug (Kellner muss nochmal servieren)
+            // 15s ist lang genug dass Backend Cache invalidiert + Live-Sync
+            // stabile committed Daten liefert.
             setTimeout(() => {
                 const set = _optimisticServes.get(orderId);
                 if (set) { set.delete(itemKey); if (set.size === 0) _optimisticServes.delete(orderId); }
-            }, 3000);
+            }, 15000);
         }
         function _trackOptimisticServeAll(orderId) {
             _optimisticServes.set(orderId, new Set(['__all__']));
-            setTimeout(() => { _optimisticServes.delete(orderId); }, 3000);
+            // BUG FIX: Auch hier 15s (vorher 3s) — gleicher Fix wie _trackOptimisticServe
+            setTimeout(() => { _optimisticServes.delete(orderId); }, 15000);
         }
         let controlModalActiveTableZone = null;
         let selectedControlSplitItems = {};
@@ -9792,7 +9795,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
                                         <input type="checkbox" ${isChecked ? 'checked' : ''}
                                                onclick="toggleControlSplitCheckbox('${item.key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})"
-                                               class="custom-checkbox cursor-pointer" style="width:22px;height:22px;min-width:22px;">
+                                               class="custom-checkbox cursor-pointer">
                                         <div class="flex-1 min-w-0">
                                             <span class="font-extrabold block truncate text-[12px]" style="color:#1f2937;">${escHtml(displayName)}${comboBadgeHtml}</span>
                                             ${comboSubNameHtml}
@@ -10804,19 +10807,23 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                             return { ...liveOrder, status: o.status };
                         }
                         // ── OPTIMISTIC SERVE PROTECTION (vereinfacht & robust) ──
-                        // Wenn der Kellner vor kurzem etwas serviert hat (innerhalb 5s),
+                        // Wenn der Kellner vor kurzem etwas serviert hat (innerhalb 10s),
                         // behalten wir die lokalen item_status — egal was der Server sendet.
                         // Das verhindert das "Zurückspringen" von Items nach Serve.
-                        // Vorher: kompliziertes Key-Matching mit noteSlug → bugs bei Notes.
-                        // Jetzt: wenn order in _optimisticServes → alle localen delivered-Status behalten.
+                        // BUG FIX: combo_instance_id in Match aufnehmen — sonst matched
+                        // 2 Kombi-Items mit gleicher product_id auf das falsche Item.
+                        // BUG FIX: Window von 5s auf 10s erhöht — Kellner klickt schnell
+                        // und nach 5s kam Live-Sync zurück und hat Item überschrieben.
                         const pendingKeys = _optimisticServes.get(o.id);
                         if (pendingKeys && pendingKeys.size > 0 && liveOrder.items && o.items) {
                             const protectedOrder = { ...liveOrder };
                             protectedOrder.items = liveOrder.items.map(liveItem => {
-                                // Suche lokales Item mit gleicher product_id + note
+                                // Suche lokales Item mit gleicher product_id + note + combo_instance_id
+                                // BUG FIX: combo_instance_id ist wichtig für 2 gleiche Kombis!
                                 const localItem = o.items.find(i =>
                                     String(i.product_id) === String(liveItem.product_id) &&
                                     (i.note || '').trim() === (liveItem.note || '').trim() &&
+                                    (i.combo_instance_id || null) === (liveItem.combo_instance_id || null) &&
                                     (i.item_status || 'pending') === 'delivered'
                                 );
                                 // Wenn lokal als delivered markiert → delivered behalten!
@@ -12091,8 +12098,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     // FIX: combo_id in key aufnehmen — sonst haben alle Kombi-Items
                     // mit derselben product_id denselben key und der Kellner kann
                     // nicht einzelne Kombi-Items für Teilzahlung auswählen!
+                    // BUG FIX: combo_instance_id AUCH aufnehmen — sonst haben 2 gleiche
+                    // Kombis (gleiche combo_id) denselben key → beide werden zusammen
+                    // als checked angezeigt!
                     const comboId = item.combo_id || '';
-                    const key = `${item.product_id}_${noteSlug}_${itemStatus}_${comboId}`;
+                    const comboInstanceId = item.combo_instance_id || '';
+                    const key = `${item.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInstanceId}`;
 
                     let checkmarks = '';
                     if (itemStatus === 'confirmed') {
@@ -12412,10 +12423,38 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         // ── TEILRECHNUNG WORKFLOWS ──
         function addToTeilrechnung(itemKey, maxQty) {
+            // BUG FIX: Kombi-Items als Einheit hinzufügen
+            // Wenn Item combo_instance_id hat → alle Items mit gleicher instance hinzufügen
+            const order = allOrders.find(o => o.id === activeOrderId);
+            if (order && order.items) {
+                // Suche das Item das zu itemKey gehört
+                for (const item of order.items) {
+                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                    const comboId = item.combo_id || '';
+                    const comboInstanceId = item.combo_instance_id || '';
+                    const itemStatus = item.item_status || 'pending';
+                    const testKey = `${item.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInstanceId}`;
+                    if (testKey === itemKey && item.combo_instance_id) {
+                        // Kombi-Item: alle Items mit gleicher combo_instance_id hinzufügen
+                        order.items.forEach(it => {
+                            if (it.combo_instance_id === item.combo_instance_id && (it.item_status || 'pending') === 'delivered') {
+                                const itNoteSlug = (it.note || '').replace(/\s+/g, '_');
+                                const itKey = `${it.product_id}_${itNoteSlug}_${it.item_status}_${it.combo_id || ''}_${it.combo_instance_id}`;
+                                const current = selectedTeilrechnung[itKey] || 0;
+                                if (current < it.quantity) {
+                                    selectedTeilrechnung[itKey] = current + 1;
+                                }
+                            }
+                        });
+                        renderPopup(order);
+                        return;
+                    }
+                }
+            }
+            // Non-Kombi-Item: normal hinzufügen (wie bisher)
             const current = selectedTeilrechnung[itemKey] || 0;
             if (current < maxQty) {
                 selectedTeilrechnung[itemKey] = current + 1;
-                const order = allOrders.find(o => o.id === activeOrderId);
                 renderPopup(order);
             } else {
                 showToast('Maximale Menge erreicht', 'error');
@@ -12423,13 +12462,36 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         }
 
         function removeFromTeilrechnung(itemKey) {
+            // BUG FIX: Kombi-Items als Einheit entfernen
+            const order = allOrders.find(o => o.id === activeOrderId);
+            if (order && order.items) {
+                for (const item of order.items) {
+                    const noteSlug = (item.note || '').replace(/\s+/g, '_');
+                    const comboId = item.combo_id || '';
+                    const comboInstanceId = item.combo_instance_id || '';
+                    const itemStatus = item.item_status || 'pending';
+                    const testKey = `${item.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInstanceId}`;
+                    if (testKey === itemKey && item.combo_instance_id) {
+                        // Kombi-Item: alle Items mit gleicher combo_instance_id entfernen
+                        order.items.forEach(it => {
+                            if (it.combo_instance_id === item.combo_instance_id) {
+                                const itNoteSlug = (it.note || '').replace(/\s+/g, '_');
+                                const itKey = `${it.product_id}_${itNoteSlug}_${it.item_status}_${it.combo_id || ''}_${it.combo_instance_id}`;
+                                delete selectedTeilrechnung[itKey];
+                            }
+                        });
+                        renderPopup(order);
+                        return;
+                    }
+                }
+            }
+            // Non-Kombi-Item: normal entfernen (wie bisher)
             const current = selectedTeilrechnung[itemKey] || 0;
             if (current > 1) {
                 selectedTeilrechnung[itemKey] = current - 1;
             } else {
                 delete selectedTeilrechnung[itemKey];
             }
-            const order = allOrders.find(o => o.id === activeOrderId);
             renderPopup(order);
         }
 
