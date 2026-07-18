@@ -3219,6 +3219,7 @@ class SplitItem(BaseModel):
     product_id: int
     quantity: int
     note: Optional[str] = None
+    combo_instance_id: Optional[str] = None  # BUG FIX: für korrekte Kombi-Zuordnung bei Teilzahlung
 
 class SplitPayload(BaseModel):
     items: List[SplitItem]
@@ -6026,7 +6027,8 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
                  if item.get("product_id") == new_item.product_id
                  and (item.get("note") or "").strip() == new_note
                  and (item.get("item_status", "pending") or "pending") == "pending"
-                 and item.get("combo_id") == getattr(new_item, 'combo_id', None)),
+                 and item.get("combo_id") == getattr(new_item, 'combo_id', None)
+                 and item.get("combo_instance_id") == getattr(new_item, 'combo_instance_id', None)),
                 None
             )
             if existing_item:
@@ -6377,11 +6379,14 @@ async def pay_split_order(request: Request, slug: str, order_id: int, payload: S
     
     for split_item in payload.items:
         split_note = (split_item.note or "").strip()
-        # Match by product_id AND note (composite key) to handle same product with different notes
+        split_combo_inst = split_item.combo_instance_id
+        # Match by product_id AND note AND combo_instance_id (composite key)
         order_item = next(
             (item for item in order["items"]
              if item["product_id"] == split_item.product_id
-             and (item.get("note") or "").strip() == split_note),
+             and (item.get("note") or "").strip() == split_note
+             and (split_combo_inst is None
+                  or item.get("combo_instance_id") == split_combo_inst)),
             None
         )
         if not order_item:
@@ -6736,7 +6741,8 @@ def merge_duplicate_order_items(order):
              if m.get("product_id") == pid 
              and (m.get("note") or "").strip() == note 
              and (m.get("item_status") or "pending") == status
-             and m.get("combo_id") == item.get("combo_id")),
+             and m.get("combo_id") == item.get("combo_id")
+             and m.get("combo_instance_id") == item.get("combo_instance_id")),
             None
         )
         if existing:
@@ -13832,13 +13838,14 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
                 # Decrement quantity by 1
                 matched_item["quantity"] -= 1
                 
-                # Check for existing delivered item (combo_id MUST match!)
+                # Check for existing delivered item (combo_id AND combo_instance_id MUST match!)
                 delivered_item = None
                 for it in order.get("items", []):
                     if (it.get("product_id") == matched_item.get("product_id") and 
                         (it.get("note") or "").strip() == (matched_item.get("note") or "").strip() and 
                         (it.get("item_status") or "pending") == "delivered" and
-                        it.get("combo_id") == matched_item.get("combo_id")):
+                        it.get("combo_id") == matched_item.get("combo_id") and
+                        it.get("combo_instance_id") == matched_item.get("combo_instance_id")):
                         delivered_item = it
                         break
                 
@@ -13853,14 +13860,15 @@ async def serve_order_items(request: Request, payload: ServePayload, db: Session
                 # Just change status to delivered
                 matched_item["item_status"] = "delivered"
                 
-                # Merge with any existing delivered item (combo_id MUST match!)
+                # Merge with any existing delivered item (combo_id AND combo_instance_id MUST match!)
                 delivered_item = None
                 for it in order.get("items", []):
                     if (it is not matched_item and 
                         it.get("product_id") == matched_item.get("product_id") and 
                         (it.get("note") or "").strip() == (matched_item.get("note") or "").strip() and 
                         (it.get("item_status") or "pending") == "delivered" and
-                        it.get("combo_id") == matched_item.get("combo_id")):
+                        it.get("combo_id") == matched_item.get("combo_id") and
+                        it.get("combo_instance_id") == matched_item.get("combo_instance_id")):
                         delivered_item = it
                         break
                 if delivered_item:
@@ -13938,10 +13946,13 @@ async def admin_split_pay(request: Request, payload: AdminSplitPayPayload, db: S
     
     for split_item in payload.items:
         split_note = (split_item.note or "").strip()
+        split_combo_inst = split_item.combo_instance_id
         order_item = next(
             (item for item in order["items"]
              if item["product_id"] == split_item.product_id
-             and (item.get("note") or "").strip() == split_note),
+             and (item.get("note") or "").strip() == split_note
+             and (split_combo_inst is None
+                  or item.get("combo_instance_id") == split_combo_inst)),
             None
         )
         if not order_item:

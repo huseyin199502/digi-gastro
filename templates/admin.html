@@ -10192,7 +10192,10 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     const noteSlug = (i.note || '').replace(/\s+/g, '_');
                     const status = i.item_status || 'pending';
                     const iComboId2 = i.combo_id || '';
-                    return `${i.product_id}_${noteSlug}_${status}_${iComboId2}` === cleanKey;
+                    // BUG FIX: combo_instance_id in Match aufnehmen — sonst matched
+                    // der optimistic cancel nicht bei Kombi-Items
+                    const iComboInstId2 = i.combo_instance_id || '';
+                    return `${i.product_id}_${noteSlug}_${status}_${iComboId2}_${iComboInstId2}` === cleanKey;
                 });
                 if (!matchedItem) return;
                 matchedItem.quantity = Math.max(0, matchedItem.quantity - qty);
@@ -10280,12 +10283,17 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                     const groupedMap = {};
                     groups[orderId].forEach(item => {
                         const noteKey = item.note || "";
-                        const groupKey = `${item.product_id}_${noteKey}`;
+                        // BUG FIX: combo_instance_id in groupKey aufnehmen — sonst werden
+                        // 2 Kombis mit gleicher product_id in einen gruppierten Eintrag
+                        // gepackt → falsche Kombi wird bei Teilzahlung abgezogen
+                        const comboInstKey = item.combo_instance_id || '';
+                        const groupKey = `${item.product_id}_${noteKey}_${comboInstKey}`;
                         if (!groupedMap[groupKey]) {
                             groupedMap[groupKey] = {
                                 product_id: item.product_id,
                                 quantity: 0,
-                                note: item.note || null
+                                note: item.note || null,
+                                combo_instance_id: item.combo_instance_id || null
                             };
                         }
                         groupedMap[groupKey].quantity += item.selectedQty;
