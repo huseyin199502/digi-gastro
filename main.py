@@ -14260,17 +14260,28 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 print(f"[DEBUG admin_transfer] item: pid={item.get('product_id')} note={item.get('note')!r} slug={note_slug!r} status={item_status} price={item.get('price')} qty={item.get('quantity')}")
 
                 # Check both unique key (with order id) and legacy key
-                unique_key = f"{source_order['id']}_{item.get('product_id')}_{note_slug}_{item_status}"
-                legacy_key = f"{item.get('product_id')}_{note_slug}_{item_status}"
+                # BUG FIX: combo_id UND combo_instance_id in Key aufnehmen —
+                # das Frontend sendet Keys mit combo_id (admin.html:9477)
+                # ohne diese im Backend zu matchen → Transfer schlägt fehl!
+                item_combo_id = item.get("combo_id") or ''
+                item_combo_inst = item.get("combo_instance_id") or ''
+                unique_key = f"{source_order['id']}_{item.get('product_id')}_{note_slug}_{item_status}_{item_combo_id}_{item_combo_inst}"
+                legacy_key = f"{item.get('product_id')}_{note_slug}_{item_status}_{item_combo_id}_{item_combo_inst}"
+                # Fallback: auch ohne combo_instance_id matchen (für alte Bestellungen)
+                legacy_key_no_inst = f"{item.get('product_id')}_{note_slug}_{item_status}_{item_combo_id}"
+                # Fallback: auch ohne combo_id (für Non-Kombi Items)
+                legacy_key_no_combo = f"{item.get('product_id')}_{note_slug}_{item_status}"
 
                 print(f"[DEBUG admin_transfer]   unique_key={unique_key!r} legacy_key={legacy_key!r}")
                 print(f"[DEBUG admin_transfer]   payload.item_keys={payload.item_keys}")
 
                 matched_key = None
-                if payload.item_keys and unique_key in payload.item_keys:
-                    matched_key = unique_key
-                elif payload.item_keys and legacy_key in payload.item_keys:
-                    matched_key = legacy_key
+                if payload.item_keys:
+                    # BUG FIX: alle Key-Varianten durchprobieren (mit/ohne combo_id/instance)
+                    for k in [unique_key, legacy_key, legacy_key_no_inst, legacy_key_no_combo]:
+                        if k in payload.item_keys:
+                            matched_key = k
+                            break
 
                 print(f"[DEBUG admin_transfer]   matched_key={matched_key!r}")
 
