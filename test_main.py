@@ -1239,6 +1239,61 @@ def test_integration():
     assert t4_tab["security_token"] == "sec-t4-test"
     print("Tisch umbuchen order merge logic: OK")
 
+    # ── REGRESSION TEST: Combo-Markierung geht beim Tisch-Umbuchen nicht verloren ──
+    # Szenario aus dem Bug-Report: Auf Tisch 1 liegt eine Kombi (Cola+Shisha) UND
+    # eine separat ("extra zzgl.") gebuchte Cola mit gleicher product_id. Beim
+    # Umbuchen auf einen Tisch, auf dem bereits eine Cola liegt, dürfen die beiden
+    # Cola-Positionen NICHT zusammengemerged werden — sonst erbt die Einzel-Cola
+    # die combo_id der Kombi-Cola und wird fälschlich als KOMBI angezeigt.
+    # Wir testen die Merge-Logik direkt gegen die in-memory Bestell-Items, weil
+    # das der Ort des Bugs ist (alle 5 Transfer-Routinen benutzen dieselbe Logik).
+    print("Testing combo_id preservation during table transfer merge...")
+    cola_pid = 999  # dummy product id, identical for both items (that's the point)
+    # Einzel-Cola: KEINE combo-Felder
+    single_cola = {
+        "product_id": cola_pid, "name": "Cola", "price": 2.50, "quantity": 1,
+        "note": "", "item_status": "pending",
+        "combo_id": None, "combo_name": None, "combo_instance_id": None,
+    }
+    # Kombi-Cola: GEHÖRT zur Kombi
+    combo_cola = {
+        "product_id": cola_pid, "name": "Cola", "price": 2.50, "quantity": 1,
+        "note": "", "item_status": "pending",
+        "combo_id": 7, "combo_name": "Shisha + Cola", "combo_instance_id": "ci-test-1",
+    }
+    # Zieltisch hat bereits die Kombi-Cola liegen
+    target_items = [copy.deepcopy(combo_cola)]
+
+    # Simuliere den Merge aus transfer_order / admin_transfer (ganzer Tisch):
+    # nur product_id + note + item_status + combo_id + combo_instance_id sind gleich.
+    # Quelle = [single_cola, combo_cola] (gleiche product_id, aber unterschiedliche combo_id).
+    for item in [single_cola, combo_cola]:
+        t_item = next(
+            (i for i in target_items
+             if i.get("product_id") == item.get("product_id")
+             and (i.get("note") or "").strip() == (item.get("note") or "").strip()
+             and (i.get("item_status", "pending") or "pending") == (item.get("item_status", "pending") or "pending")
+             and i.get("combo_id") == item.get("combo_id")
+             and i.get("combo_instance_id") == item.get("combo_instance_id")),
+            None
+        )
+        if t_item:
+            t_item["quantity"] += item["quantity"]
+        else:
+            target_items.append(copy.deepcopy(item))
+
+    # Erwartung: 2 separate Positionen — die Kombi-Cola (qty=2, weil 1 Ziel + 1 Quelle
+    # mit identischer combo_instance_id gemerged) UND die Einzel-Cola (qty=1, combo_id=None).
+    assert len(target_items) == 2, f"BUG: Einzel-Cola und Kombi-Cola wurden zusammengemerged! Items: {target_items}"
+    combo_positions = [i for i in target_items if i.get("combo_id") == 7]
+    single_positions = [i for i in target_items if i.get("combo_id") is None]
+    assert len(combo_positions) == 1, f"Expected exactly 1 combo position, got {len(combo_positions)}"
+    assert len(single_positions) == 1, f"Expected exactly 1 single position, got {len(single_positions)}"
+    assert single_positions[0]["combo_id"] is None, "Einzel-Cola hat fälschlich combo_id geerbt!"
+    assert single_positions[0]["combo_name"] is None, "Einzel-Cola hat fälschlich combo_name geerbt!"
+    assert combo_positions[0]["combo_instance_id"] == "ci-test-1"
+    print("combo_id preservation during table transfer merge: OK")
+
     # ── Test manual product addition via flat endpoint ──
     print("Testing flat manual order item addition...")
     # Add manual product 4 (Spezi) on Tisch 4

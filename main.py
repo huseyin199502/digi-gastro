@@ -6577,8 +6577,11 @@ async def merge_tables(request: Request, slug: str, source_table: str = Form(...
         source_order["table"] = t_table
     else:
         # Merge items of source order into target order
+        # BUG FIX:.note, item_status UND combo_id/combo_instance_id vergleichen.
+        # Vorher wurde NUR product_id verglichen → Einzel-Cola + Kombi-Cola
+        # verschmolzen → Cola wurde danach fälschlich als KOMBI angezeigt.
         for s_item in source_order.get("items", []):
-            t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id")), None)
+            t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending") and item.get("combo_id") == s_item.get("combo_id") and item.get("combo_instance_id") == s_item.get("combo_instance_id")), None)
             if t_item:
                 t_item["quantity"] += s_item.get("quantity", 0)
             else:
@@ -7228,7 +7231,12 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             (i for i in target_order.get("items", [])
              if str(i.get("product_id")) == pid_str
              and _re_transfer.sub(r'\s+', '_', (i.get("note") or "")) == note_slug
-             and (i.get("item_status", "pending") or "pending") == source_status),
+             and (i.get("item_status", "pending") or "pending") == source_status
+             # BUG FIX: combo_id UND combo_instance_id vergleichen — sonst wird
+             # beim Einzel-Transfer eine Einzel-Cola in eine Kombi-Cola auf dem
+             # Zieltisch hineingemerged und danach als KOMBI angezeigt.
+             and i.get("combo_id") == source_item_copy.get("combo_id")
+             and i.get("combo_instance_id") == source_item_copy.get("combo_instance_id")),
             None
         )
         if t_item:
@@ -7630,9 +7638,15 @@ async def transfer_order(request: Request, slug: str, payload: TransferOrderPayl
             
             t_item = next(
                 (i for i in target_order.get("items", [])
-                 if str(i.get("product_id")) == pid_str 
+                 if str(i.get("product_id")) == pid_str
                  and (i.get("note") or "").strip().replace(" ", "_") == note_slug
-                 and (i.get("item_status", "pending") or "pending") == source_status),
+                 and (i.get("item_status", "pending") or "pending") == source_status
+                 # BUG FIX: combo_id UND combo_instance_id mit vergleichen —
+                 # sonst wird eine einzeln gebuchte Cola mit der Kombi-Cola
+                 # (gleiche product_id) zusammengemerged und danach als KOMBI
+                 # angezeigt. Siehe bestellen()-Merge (main.py:6125-6126).
+                 and i.get("combo_id") == item.get("combo_id")
+                 and i.get("combo_instance_id") == item.get("combo_instance_id")),
                 None
             )
             if t_item:
@@ -14306,7 +14320,11 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                     moved_item["quantity"] = qty_to_move
 
                     # Add to target order
-                    t_item = next((i for i in target_order.get("items", []) if i.get("product_id") == item.get("product_id") and (i.get("note") or "").strip() == (item.get("note") or "").strip() and (i.get("item_status") or "pending") == item_status), None)
+                    # BUG FIX: combo_id UND combo_instance_id mit vergleichen —
+                    # sonst wird eine Einzel-Cola in eine Kombi-Cola (gleiche
+                    # product_id) auf dem Zieltisch hineingemerged und danach
+                    # fälschlich als KOMBI erkannt.
+                    t_item = next((i for i in target_order.get("items", []) if i.get("product_id") == item.get("product_id") and (i.get("note") or "").strip() == (item.get("note") or "").strip() and (i.get("item_status") or "pending") == item_status and i.get("combo_id") == item.get("combo_id") and i.get("combo_instance_id") == item.get("combo_instance_id")), None)
                     if t_item:
                         t_item["quantity"] += qty_to_move
                     else:
@@ -14367,7 +14385,10 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 transferred_amounts.append(moved_amount)
 
                 for s_item in source_order.get("items", []):
-                    t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending")), None)
+                    # BUG FIX: combo_id UND combo_instance_id mit vergleichen —
+                    # sonst verschmilzt der Admin-Tischtransfer eine Einzel-Cola
+                    # mit der Kombi-Cola und zeigt sie fälschlich als KOMBI an.
+                    t_item = next((item for item in target_order.get("items", []) if item.get("product_id") == s_item.get("product_id") and (item.get("note") or "").strip() == (s_item.get("note") or "").strip() and (item.get("item_status", "pending") or "pending") == (s_item.get("item_status", "pending") or "pending") and item.get("combo_id") == s_item.get("combo_id") and item.get("combo_instance_id") == s_item.get("combo_instance_id")), None)
                     if t_item:
                         t_item["quantity"] += s_item.get("quantity", 0)
                     else:
