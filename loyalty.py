@@ -1891,6 +1891,20 @@ def award_stamp_for_order(
 
     db_session.commit()
 
+    # BUG FIX: APNs Push bei Online-Bestellung wieder aktivieren!
+    # Vorher (Revert Commit 2936937): Push wurde entfernt weil User meinte
+    # es gäbe Doppel-Pushs. ABER: award_stamp_for_order (Online-Bestellung)
+    # und award_manual_stamp (Kellner) sind ZWEI VERSCHIEDENE Code-Pfade!
+    # - award_manual_stamp: wird bei MANUELLER Stempel-Vergabe aufgerufen
+    # - award_stamp_for_order: wird bei ONLINE-Bestellung aufgerufen
+    # Ohne Push hier: Kunde bestellt online → Stempel im System aber Wallet
+    # zeigt 0 (iOS weiß nicht dass es ein Update gibt). Erst wenn Kellner
+    # manuell Stempel vergibt → Push → iOS holt Pass → springt von 0 auf 3.
+    try:
+        _trigger_pass_update_push(db_session, customer, card.name, "Stempel erhalten!")
+    except Exception as e:
+        print(f"[Loyalty] Push failed (non-fatal): {e}")
+
     return {
         "success": True,
         "card_id": card.id,

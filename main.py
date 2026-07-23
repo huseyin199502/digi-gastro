@@ -5932,7 +5932,18 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         # Jetzt: Kombi-Items behalten ihren Frontend-Preis (der vom Frontend
         # korrekt pro Kombi verteilt wurde). Nur Non-Kombi-Items bekommen
         # den Server-Preis aus der DB.
-        if combo_id and combo_id in combo_lookup:
+        #
+        # BUG FIX (sporadischer Kombi-Preis-Bug):
+        # Vorher: if combo_id and combo_id in combo_lookup:
+        # Wenn die Kombi zur Bestellzeit NICHT aktiv war (Event-Zeitfenster
+        # abgelaufen, falscher Tag) → combo_id NOT in combo_lookup →
+        # Non-Kombi-Pfad → Preis wurde mit Normalpreis überschrieben!
+        # Das war SPORADISCH weil es von Uhrzeit/Wochentag abhängt.
+        #
+        # FIX: Wenn item.combo_id gesetzt ist (vom Frontend), IMMER den
+        # Frontend-Preis behalten. Das Frontend hat die Kombi zur Auswahlzeit
+        # korrekt berechnet — unabhängig davon ob sie jetzt noch aktiv ist.
+        if combo_id:
             # Kombi-Item: Frontend-Preis behalten (wurde von _addComboItemsToCart korrekt gesetzt)
             # Nur Name aus DB überschreiben (Security)
             item.name = prod["name"]
