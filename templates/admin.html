@@ -6237,7 +6237,7 @@
                                         {% for vid in restaurant.landing_page.gallery_videos %}
                                         <div class="image-thumb-container relative w-24 h-16 rounded-xl overflow-hidden border border-violet-200 group bg-zinc-950 flex items-center justify-center">
                                             <video src="{{ vid }}" class="w-full h-full object-cover" muted></video>
-                                            <button type="button" onclick="deleteLandingImage('{{ vid }}', 'video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
+                                            <button type="button" onclick="deleteLandingImage('{{ vid }}', 'gallery_video', this)" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 transition-opacity">
                                                 <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
                                             </button>
                                         </div>
