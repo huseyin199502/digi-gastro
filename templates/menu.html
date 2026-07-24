@@ -415,7 +415,7 @@
         {% if restaurant.landing_page.slideshow_videos %}
         <div id="slideshow-video-layer" class="absolute inset-0">
             {% for vid in restaurant.landing_page.slideshow_videos %}
-            <video :class="currentBgVideoIdx === {{ loop.index0 }} ? 'opacity-100' : 'opacity-0'" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000" src="{{ vid }}" autoplay loop muted playsinline></video>
+            <video :class="currentBgVideoIdx === {{ loop.index0 }} ? 'opacity-100' : 'opacity-0'" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000" src="{{ vid }}" autoplay loop muted playsinline webkit-playsinline preload="auto" data-slideshow-video></video>
             {% endfor %}
         </div>
         {% endif %}
@@ -428,6 +428,60 @@
         <div class="absolute inset-0 bg-black/30 backdrop-blur-[2px]"></div>
     </div>
     {% endif %}
+
+    <!-- BUG FIX: iOS Safari Autoplay für alle Videos + Slideshow Auto-Start -->
+    <!-- iOS braucht .play() per JS aufgerufen, webkit-playsinline, und muted als Property -->
+    <script>
+    (function() {
+        function forcePlayVideos() {
+            // Alle Videos auf der Landingpage suchen und abspielen
+            document.querySelectorAll('video[autoplay], video[data-slideshow-video]').forEach(function(v) {
+                v.muted = true;
+                v.defaultMuted = true;
+                try { v.playsInline = true; } catch(e) {}
+                try { v.setAttribute('webkit-playsinline', 'webkit-playsinline'); } catch(e) {}
+                try {
+                    var p = v.play();
+                    if (p && p.catch) p.catch(function() {
+                        // iOS blockiert autoplay → bei erster User-Interaction retry
+                        var retry = function() {
+                            v.play().catch(function(){});
+                            document.removeEventListener('touchstart', retry, true);
+                            document.removeEventListener('click', retry, true);
+                        };
+                        document.addEventListener('touchstart', retry, true);
+                        document.addEventListener('click', retry, true);
+                    });
+                } catch(e) {}
+            });
+        }
+        // Sofort versuchen
+        forcePlayVideos();
+        // Nach DOM ready
+        if (document.readyState !== 'loading') forcePlayVideos();
+        else document.addEventListener('DOMContentLoaded', forcePlayVideos);
+        // Nach Alpine init (x-show könnte display:none → blockiert autoplay)
+        document.addEventListener('alpine:initialized', function() {
+            setTimeout(forcePlayVideos, 100);
+            setTimeout(forcePlayVideos, 500);
+            setTimeout(forcePlayVideos, 1500);
+        });
+        // Bei jeder View-Änderung (landing → menu → landing)
+        document.addEventListener('alpine:initialized', function() {
+            var observer = new MutationObserver(function() {
+                forcePlayVideos();
+            });
+            var slideshow = document.getElementById('landing-slideshow');
+            if (slideshow) {
+                observer.observe(slideshow, { attributes: true, attributeFilter: ['style', 'class'] });
+            }
+        });
+        // Bei visibilitychange (Tab zurückkehren)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) setTimeout(forcePlayVideos, 100);
+        });
+    })();
+    </script>
 
     {% if is_readonly %}
     <!-- Fullscreen Scan-Required Overlay (Read-only mode disabled) -->
