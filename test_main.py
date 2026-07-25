@@ -17,6 +17,53 @@ from main import app, restaurants, INITIAL_RESTAURANTS
 
 client = TestClient(app)
 
+def test_order_does_not_award_stamp_automatically(monkeypatch):
+    restaurants.clear()
+
+    from database import STANDARD_PRODUCTS
+    import copy
+
+    demo_tenant = {
+        "name": "Demo Lounge",
+        "security_token": "demo2026",
+        "products": copy.deepcopy(STANDARD_PRODUCTS),
+        "orders": [],
+        "tables": [{"number": "1", "zone": "innen"}],
+        "staff": [{"name": "Chef", "role": "chef", "pin": "1111", "pin_code": "1111"}],
+        "audit_log": [],
+        "orders_enabled": True,
+        "show_revenue": True,
+        "active": True,
+        "is_onboarded": True,
+        "is_setup_completed": True,
+        "branding": {},
+    }
+    restaurants["demo"] = demo_tenant
+
+    called = {"value": False}
+
+    def fake_hook(*args, **kwargs):
+        called["value"] = True
+        return None
+
+    monkeypatch.setattr(main, "_maybe_award_loyalty_stamp", fake_hook)
+
+    resp = client.post(
+        "/demo/bestellen",
+        json={
+            "table": "Tisch 1",
+            "token": "demo2026",
+            "items": [
+                {"product_id": 1, "name": "Premium Burger", "price": 14.50, "quantity": 1}
+            ],
+        },
+        cookies={"loyalty_demo_cid": "7"},
+    )
+
+    assert resp.status_code == 200
+    assert called["value"] is False
+
+
 def test_integration():
     print("Starting integration tests for digi-gastro backend...")
     

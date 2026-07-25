@@ -162,6 +162,7 @@ def _generate_apple_pass_json(
     customer: Dict[str, Any],
     geofence: Optional[Dict[str, Any]] = None,
     logo_url: Optional[str] = None,
+    base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generiert das pass.json für einen Apple Wallet Stempelkarten-Pass.
 
@@ -178,6 +179,8 @@ def _generate_apple_pass_json(
     card_name = card.get("name", "Stempelkarte")
     color = card.get("color_hex", "#C9A84C")
     short_code = customer.get("short_code", "")  # 4-stelliger Code für Kellner
+
+    base_url = (base_url or os.getenv("APP_BASE_URL") or "https://digi-gastro.de").rstrip("/")
 
     # Konvertiere Hex zu RGB-String für Apple (z.B. "rgb(201,168,76)")
     hex_clean = color.lstrip("#")
@@ -234,7 +237,7 @@ def _generate_apple_pass_json(
         "passTypeIdentifier": APPLE_PASS_TYPE_ID,
         "serialNumber": serial,
         "teamIdentifier": APPLE_TEAM_ID,
-        "webServiceURL": f"https://digi-gastro.de/api/wallet/apple",
+        "webServiceURL": f"{base_url}/api/wallet/apple",
         "authenticationToken": customer.get("auth_token", _gen_auth_token(serial)),
         # Karten-Farbe als Hintergrund (Tenant wählt rot → Pass ist rot!)
         "backgroundColor": bg_color,
@@ -308,7 +311,7 @@ def _generate_apple_pass_json(
                 {
                     "key": "openmenu",
                     "label": "🍽️ Speisekarte öffnen",
-                    "value": f"https://digi-gastro.de/{tenant_slug}?recover={short_code or serial}"
+                    "value": f"{base_url}/{tenant_slug}?recover={short_code or serial}"
                 },
                 {
                     "key": "lastmsg",
@@ -1376,7 +1379,7 @@ def generate_apple_pkpass(
     try:
         # 1. pass.json generieren
         pass_json = _generate_apple_pass_json(
-            tenant_slug, tenant_name, card, customer, geofence
+            tenant_slug, tenant_name, card, customer, geofence, base_url=os.getenv("APP_BASE_URL")
         )
         pass_json_bytes = json.dumps(pass_json, indent=2).encode("utf-8")
 
@@ -1676,7 +1679,7 @@ def _generate_google_pass_payload(
         ],
         "linksModuleData": {
             "uris": [
-                {"uri": f"https://digi-gastro.de/{tenant_slug}", "description": "Speisekarte öffnen"}
+                {"uri": f"{(os.getenv('APP_BASE_URL') or 'https://digi-gastro.de').rstrip('/')}/{tenant_slug}", "description": "Speisekarte öffnen"}
             ]
         },
     }
@@ -1692,6 +1695,7 @@ def _generate_google_class_payload(
     tenant_name: str,
     card: Dict[str, Any],
     logo_url: str = "",
+    base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generiert LoyaltyClass — definiert visuelles Layout (Farbe, Logo, Template).
 
@@ -1699,6 +1703,7 @@ def _generate_google_class_payload(
     Google Wallet erwartet '#C9A84C' nicht 'FFC9A84C'.
     WICHTIG: Logo URL muss erreichbar sein (kein 404!) → sonst Fehler.
     """
+    base_url = (base_url or os.getenv("APP_BASE_URL") or "https://digi-gastro.de").rstrip("/")
     color_hex = card.get("color_hex", "#C9A84C")
     hex_bg = "#" + color_hex.lstrip("#").upper()
 
@@ -1719,7 +1724,7 @@ def _generate_google_class_payload(
         # WICHTIG: Enthält KEINE device_id, nur das Object-ID-Event.
         # Wir können damit immerhin feststellen ob der Pass noch im Wallet ist.
         "callbackOptions": {
-            "updateUrl": f"https://digi-gastro.de/api/wallet/google/callback",
+            "updateUrl": f"{base_url}/api/wallet/google/callback",
             "urlContext": "eyJ2ZXJzaW9uIjogMSwgInJlZ2lzdHJhdGlvblR5cGUiOiAiU0FGRSJ9"  # base64 JSON {version:1,registrationType:SAFE}
         },
     }
@@ -1768,7 +1773,7 @@ def generate_google_wallet_jwt(
 
         # Class-Payload (für visuelles Layout — ohne Class nur Text!)
         class_payload = _generate_google_class_payload(
-            tenant_slug, tenant_name, card, logo_url=logo_url
+            tenant_slug, tenant_name, card, logo_url=logo_url, base_url=os.getenv("APP_BASE_URL")
         )
 
         # JWT Claims — WICHTIG: loyaltyClasses UND loyaltyObjects!

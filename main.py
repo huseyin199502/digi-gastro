@@ -6193,11 +6193,8 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
     # → Admin sieht neue Bestellung nicht (bis 2s TTL abläuft)
     invalidate_restaurant_cache_sync(slug)
     
-    # Loyalty: Stempel vergeben falls Kunde erkannt (via Cookie)
-    try:
-        _maybe_award_loyalty_stamp(request, slug, new_order.get("id"), new_order.get("total", 0), db)
-    except Exception as e:
-        print(f"[Loyalty] Stamp hook error (non-fatal): {e}")
+    # Loyalty: Stempel werden nur noch explizit durch Kellner vergeben.
+    # QR-/Kunden-Bestellungen erhalten keine automatischen Stempel mehr.
     
     # Bon-Druck: Küchenbon bei neuer Bestellung (falls POS aktiv)
     try:
@@ -15249,7 +15246,7 @@ def loyalty_google_pass(slug: str, request: Request, db: Session = Depends(get_d
     if tenant.logo_path:
         logo_filename = tenant.logo_path.split("/")[-1]
         png_filename = logo_filename.replace(".webp", ".png")
-        png_url = f"https://digi-gastro.de/uploads/logos/{png_filename}"
+        png_url = f"{os.getenv('APP_BASE_URL', 'https://digi-gastro.de').rstrip('/')}/uploads/logos/{png_filename}"
         # Prüfe ob PNG-Version existiert
         import os as _os
         png_fs_path = _os.path.join(UPLOAD_DIR, "logos", png_filename)
@@ -17458,29 +17455,13 @@ def set_tenant_operating_mode(
 
 
 def _maybe_award_loyalty_stamp(request: Request, slug: str, order_id: int, order_total: float, db: Session):
-    """Hook: Vergibt automatisch Stempel nach Bestellung (via Cookie erkannt).
+    """No-op-Hook für automatische Stempelvergabe.
 
-    BUG-FIX: Cookie-Name war 'loyalty_{slug}' (Wert='saved') → int('saved') ValueError.
-    Korrekt: 'loyalty_{slug}_cid' (Wert=customer.id, HttpOnly).
+    Sicherheits- und Produktentscheidung: Kundenbestellungen über QR-/Menu-Flow
+    vergeben weiterhin keine Stempel mehr. Stempel können nur noch explizit
+    von Kellnern/Chefs über die manuelle Stempel-UI vergeben werden.
     """
-    try:
-        slug_lower = slug.lower().strip()
-        # BUG 1 FIX: _cid Cookie enthält die Customer-ID, nicht das "saved"-Cookie
-        cookie_name = f"loyalty_{slug_lower}_cid"
-        customer_id_str = request.cookies.get(cookie_name)
-        if not customer_id_str:
-            return None
-        customer_id = int(customer_id_str)
-        customer = db.query(LoyaltyCustomer).filter_by(
-            tenant_slug=slug_lower, id=customer_id
-        ).first()
-        if not customer:
-            return None
-        result = award_stamp_for_order(db, slug_lower, customer_id, order_id, order_total)
-        return result
-    except Exception as e:
-        print(f"[Loyalty] Stamp award failed: {e}")
-        return None
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
