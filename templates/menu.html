@@ -375,19 +375,28 @@
 
         /* ── Official Google Wallet Button (White, Google Sans, 4-color G) ── */
         .wallet-btn-google {
-            background: #ffffff;
-            color: #1f1f1f;
-            border: 1px solid #dadce0;
+            background: #ffffff !important;
+            color: #1f1f1f !important;
+            border: 1px solid #dadce0 !important;
             font-family: 'Google Sans', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             letter-spacing: -0.01em;
         }
         .wallet-btn-google:hover {
-            background: #f8f9fa;
+            background: #f8f9fa !important;
             transform: scale(1.01);
-            border-color: #bdc1c6;
+            border-color: #bdc1c6 !important;
         }
-        .wallet-btn-google .wallet-btn-label { line-height: 1; }
+        .wallet-btn-google .wallet-btn-label {
+            line-height: 1;
+            color: #1f1f1f !important;
+        }
+        /* Dark-Mode Override: Google Button bleibt IMMER weiß mit dunklem Text */
+        html.dark .wallet-btn-google,
+        html.dark .wallet-btn-google .wallet-btn-label {
+            background: #ffffff !important;
+            color: #1f1f1f !important;
+        }
 
         /* Reduced motion: disable sheet transitions */
         @media (prefers-reduced-motion: reduce) {
