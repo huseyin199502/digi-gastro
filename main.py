@@ -10036,6 +10036,23 @@ async def update_branding(
     final_logo_url = logo_url.strip() if logo_url else restaurant.get("branding", {}).get("logo_url", "")
     final_logo_url_2 = logo_url_2.strip() if logo_url_2 else restaurant.get("branding", {}).get("logo_url_2", "")
 
+    # BUG FIX: Logo-Löschung unterstützen
+    # Wenn logo_url leer gesendet wird (z.B. beim Klick auf Löschen), setze auf ""
+    # Vorher: leeres logo_url → final_logo_url behielt alten Wert (Fallback auf branding.logo_url)
+    # Jetzt: Wenn logo_url explizit "" gesendet wird → Logo löschen
+    delete_logo_param = request.query_params.get("delete_logo") or ""
+    # Bei URL-encoded form data: check if logo_url was sent as empty string
+    # (happens when frontend sends "logo_url=&delete_logo=1")
+    try:
+        form_data = await request.form()
+        if form_data.get("delete_logo") == "1":
+            if logo_url is not None and logo_url.strip() == "":
+                final_logo_url = ""
+            if logo_url_2 is not None and logo_url_2.strip() == "":
+                final_logo_url_2 = ""
+    except Exception:
+        pass
+
     # Process logo file upload if present
     if logo_file and logo_file.filename:
         import time
