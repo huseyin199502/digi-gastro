@@ -909,6 +909,24 @@
                     </button>
                 </div>
 
+                <!-- NEU: Extras Infokachel (zeigt Extras unter Kategorie-Header) -->
+                <template x-if="currentCategory !== '' && getCategoryExtras(currentCategory).length > 0">
+                    <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 mb-2">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <span class="material-symbols-outlined text-amber-500" style="font-size:16px;">add_circle</span>
+                            <span class="text-[11px] font-black text-amber-500 uppercase tracking-wider">Extras</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <template x-for="ex in getCategoryExtras(currentCategory)" :key="ex.name">
+                                <span class="text-xs font-bold text-zinc-300 bg-zinc-800/60 border border-zinc-700/50 rounded-lg px-2.5 py-1">
+                                    <span x-text="ex.name"></span>
+                                    <span class="text-amber-400 ml-1" x-text="'+' + (ex.price || 0).toFixed(2).replace('.', ',') + ' €'"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- Combo Deals Section (TOP - shown when event with combos is active and no category selected) -->
                 {% if today_combo_events %}
                 {% set combos_list = [] %}
@@ -2861,43 +2879,21 @@
                         try { catName = localStorage.getItem('dl_last_cat_name_{{ slug }}') || ''; } catch(e) {}
                     }
 
-                    // currentCategory zurücksetzen — zeigt Kategorie-Liste
                     this.currentCategory = '';
-
-                    // Produkte verstecken
-                    const products = document.querySelectorAll('.product-item');
-                    products.forEach(item => { item.style.display = 'none'; });
-
-                    // Zum geklickten Kategorie-Button scrollen (via data-cat-name)
-                    // WICHTIG: iOS-26 Workaround — body ist Scroll-Container, nicht html!
-                    const scrollEl = (getComputedStyle(document.body).overflowY === 'auto' && getComputedStyle(document.documentElement).overflowY === 'hidden') ? document.body : (document.scrollingElement || document.documentElement);
+                    // Scroll zur letzten Kategorie-Position
                     this.$nextTick(() => {
-                        setTimeout(() => {
-                            if (catName) {
-                                const btn = document.querySelector('[data-cat-name="' + CSS.escape(catName) + '"]');
-                                if (btn) {
-                                    const header = document.querySelector('.dash-header') || document.querySelector('header');
-                                    const headerOffset = header ? header.offsetHeight : 80;
-                                    const rect = btn.getBoundingClientRect();
-                                    const scrollTarget = scrollEl.scrollTop + rect.top - headerOffset - 10;
-                                    scrollEl.scrollTop = scrollTarget;
-                                }
-                            }
-                            // Nochmal nach 150ms für iOS Safari
-                            setTimeout(() => {
-                                if (catName) {
-                                    const btn = document.querySelector('[data-cat-name="' + CSS.escape(catName) + '"]');
-                                    if (btn) {
-                                        const header = document.querySelector('.dash-header') || document.querySelector('header');
-                                        const headerOffset = header ? header.offsetHeight : 80;
-                                        const rect = btn.getBoundingClientRect();
-                                        const scrollTarget = scrollEl.scrollTop + rect.top - headerOffset - 10;
-                                        scrollEl.scrollTop = scrollTarget;
-                                    }
-                                }
-                            }, 150);
-                        }, 50);
+                        try {
+                            const savedPos = parseInt(localStorage.getItem('dl_cat_scroll_{{ slug }}') || '0');
+                            if (savedPos > 0) window.scrollTo({ top: savedPos, behavior: 'instant' });
+                        } catch(e) {}
                     });
+                },
+
+                // NEU: Extras für eine Kategorie abrufen (aus categoryData)
+                getCategoryExtras(catName) {
+                    if (!catName || !this.categoryData) return [];
+                    const cat = this.categoryData.find(c => c.name === catName);
+                    return (cat && cat.extras) ? cat.extras : [];
                 },
 
                 updateCarousel(activeCategory) {
