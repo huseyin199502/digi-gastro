@@ -1442,7 +1442,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
     
     db_categories = session.query(Category).filter_by(tenant_slug=slug).order_by(Category.position, Category.id).all()
     categories = [c.name for c in db_categories]
-    category_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None)} for c in db_categories]
+    category_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None), "extras": json.loads(getattr(c, "extras", None) or "[]")} for c in db_categories]
 
     # Load super_groups for this tenant (Hauptgruppen)
     from database import SuperGroup as DBSuperGroup
@@ -1984,12 +1984,14 @@ def save_restaurant_to_db(slug: str, r: dict, session):
     session.flush()
     # 1. Update categories (match by name to preserve super_group_id; only add/remove changed)
     existing_cats = {c.name: c for c in session.query(Category).filter_by(tenant_slug=slug).all()}
-    # Build map: name -> super_group_id from incoming category_data (if present)
+    # Build map: name -> super_group_id AND extras from incoming category_data
     cat_super_map = {}
+    cat_extras_map = {}
     for cd in (r.get("category_data") or []):
         if isinstance(cd, dict) and cd.get("name"):
             try:
                 cat_super_map[cd["name"]] = cd.get("super_group_id")
+                cat_extras_map[cd["name"]] = cd.get("extras") or []
             except Exception:
                 pass
     incoming_cat_names = set(r.get("categories", []))
@@ -2006,6 +2008,12 @@ def save_restaurant_to_db(slug: str, r: dict, session):
             if cat_name in cat_super_map:
                 try:
                     db_c.super_group_id = cat_super_map[cat_name]
+                except Exception:
+                    pass
+            # NEU: Extras speichern
+            if cat_name in cat_extras_map:
+                try:
+                    db_c.extras = json.dumps(cat_extras_map[cat_name])
                 except Exception:
                     pass
         else:
@@ -10012,6 +10020,65 @@ def delete_staff(request: Request, pin_code: str, chef_data: tuple = Depends(req
         raise HTTPException(status_code=500, detail=f"Fehler beim Speichern: {e}")
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
+
+# ════════════════════════════════════════════════════════════════════
+# LOGO LÖSCHEN: Separater Endpoint (nicht /admin/branding weil multipart)
+# ════════════════════════════════════════════════════════════════════
+@app.post("/admin/branding/delete-logo")
+async def delete_logo(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Löscht ein Logo (Haupt-Logo oder Logo 2)."""
+    user, slug, restaurant = chef_data
+    body = await request.json()
+    logo_field = body.get("logo_field", "")
+    
+    if logo_field not in ("logo_url", "logo_url_2"):
+        raise HTTPException(status_code=400, detail="Ungültiges Feld.")
+    
+    branding = restaurant.get("branding", {})
+    if not isinstance(brandging, dict):
+        branding = {}
+    
+    # Alten Logo-Pfad für Datei-Löschung speichern
+    old_logo = branding.get(logo_field, "")
+    
+    # Logo aus Branding entfernen
+    branding[logo_field] = ""
+    restaurant["branding"] = branding
+    
+    # In DB speichern
+    from database import Tenant as DBTenant
+    tenant = db.query(DBTenant).filter_by(slug=slug).first()
+    if tenant:
+        if logo_field == "logo_url":
+            tenant.logo_path = ""
+        elif logo_field == "logo_url_2":
+            if hasattr(tenant, "logo_url_2"):
+                tenant.logo_url_2 = ""
+    
+    save_restaurant_to_db(slug, restaurant, db)
+    db.commit()
+    
+    # Datei löschen (optional, non-fatal)
+    if old_logo:
+        try:
+            filename = os.path.basename(old_logo)
+            # Sowohl .webp als auch .png versuchen zu löschen
+            for ext in ['.webp', '.png', '.jpg', '.jpeg']:
+                path = os.path.join(UPLOAD_DIR, "logos", filename.rsplit('.', 1)[0] + ext) if '.' in filename else ""
+                if path and os.path.exists(path):
+                    os.remove(path)
+                    print(f"[Logo Delete] {path} gelöscht")
+        except Exception as e:
+            print(f"[Logo Delete] Datei-Löschung fehlgeschlagen (non-fatal): {e}")
+    
+    print(f"[Logo Delete] {slug}: {logo_field} gelöscht")
+    return {"success": True}
+
+
 @app.post("/admin/branding")
 async def update_branding(
     request: Request,
@@ -11537,6 +11604,44 @@ async def reorder_categories_api(
     db.commit()
     await manager.broadcast_global(slug, {"type": "update"})
     return {"success": True}
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXTRAS API: Extras pro Kategorie speichern (z.B. Sojamilch +1€)
+# ════════════════════════════════════════════════════════════════════
+@app.post("/api/categories/extras")
+async def update_category_extras(
+    request: Request,
+    chef_data: tuple = Depends(require_chef_user_flat),
+    db: Session = Depends(get_db)
+):
+    """Speichert Extras für eine Kategorie.
+    
+    Body: {"category_name": "Getränke", "extras": [{"name": "Sojamilch", "price": 1.0}]}
+    """
+    user, slug, restaurant = chef_data
+    body = await request.json()
+    cat_name = (body.get("category_name") or "").strip()
+    extras = body.get("extras") or []
+    
+    if not cat_name:
+        raise HTTPException(status_code=400, detail="Kategorie-Name fehlt.")
+    
+    # Category in DB finden
+    cat = db.query(Category).filter_by(tenant_slug=slug, name=cat_name).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Kategorie nicht gefunden.")
+    
+    # Extras als JSON speichern
+    cat.extras = json.dumps(extras)
+    db.commit()
+    
+    # Cache invalidieren
+    invalidate_restaurant_cache_sync(slug)
+    
+    print(f"[Extras] {slug}/{cat_name}: {len(extras)} Extras gespeichert")
+    return {"success": True, "extras": extras}
+
 
 @app.patch("/api/categories/edit")
 async def update_category_api(

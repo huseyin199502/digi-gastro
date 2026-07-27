@@ -2278,6 +2278,8 @@
                 _savedCategoryScrollPos: 0,
                 _lastClickedCategoryName: '', // Kategorie-Name statt DOM-Ref (überlebt Reload)
                 allCategories: {{ restaurant.categories | tojson | safe }},
+                // NEU: category_data mit Extras für Infokacheln
+                categoryData: {{ restaurant.category_data | tojson if restaurant.category_data else '[]' }},
                 currentOfferIdx: 0,
                 currentBgVideoIdx: 0,
                 prevOfferSlide() {

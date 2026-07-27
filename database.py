@@ -177,6 +177,10 @@ class Category(Base):
     name = Column(String, nullable=False)
     position = Column(Integer, default=0)
     super_group_id = Column(Integer, nullable=True)  # FK zu super_groups.id; NULL = 'Sonstiges' Bucket
+    # NEU: Extras für diese Kategorie (JSON-String)
+    # Format: [{"name": "Sojamilch", "price": 1.0}, {"name": "Hafermilch", "price": 1.0}]
+    # NULL = keine Extras aktiviert
+    extras = Column(Text, nullable=True)
 
 class Product(Base):
     __tablename__ = 'products'
@@ -1115,6 +1119,7 @@ def _migrate_database():
     # Migrate 'categories' table
     add_column_if_missing('categories', 'position', "INTEGER DEFAULT 0")
     add_column_if_missing('categories', 'super_group_id', "INTEGER")
+    add_column_if_missing('categories', 'extras', "TEXT")  # NEU: JSON-String mit Extras pro Kategorie
 
     # Migrate 'order_items' table
     add_column_if_missing('order_items', 'item_status', "VARCHAR DEFAULT 'pending'")

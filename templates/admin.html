@@ -9096,6 +9096,110 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         // ═══════════════════════════════════════════════════════
         // CATEGORY TREE-VIEW (Hauptgruppe → Kategorie → Produktzahl)
         // ═══════════════════════════════════════════════════════
+        // ── EXTRAS MODAL: Extras pro Kategorie verwalten ──
+        let _extrasModalCatName = '';
+        function openExtrasModal(catName) {
+            _extrasModalCatName = catName;
+            // Aktuelle Extras laden
+            const sgCats = _superGroupCategories || [];
+            const catData = sgCats.find(c => c.name === catName);
+            const currentExtras = (catData && catData.extras) ? catData.extras : [];
+
+            const modal = document.getElementById('extras-modal');
+            const title = document.getElementById('extras-modal-title');
+            const list = document.getElementById('extras-list');
+            if (!modal || !title || !list) return;
+
+            title.textContent = 'Extras für "' + catName + '"';
+            list.innerHTML = '';
+
+            if (currentExtras.length === 0) {
+                list.innerHTML = '<p class="text-xs text-zinc-500 text-center py-4">Noch keine Extras. Klicke "Extra hinzufügen".</p>';
+            } else {
+                currentExtras.forEach((ex, idx) => {
+                    list.innerHTML += `
+                        <div class="flex items-center gap-2 p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800" data-extras-idx="${idx}">
+                            <input type="text" value="${escapeHtml(ex.name || '')}" placeholder="z.B. Sojamilch" class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs extras-name">
+                            <input type="number" step="0.50" min="0" value="${ex.price || 1.0}" placeholder="1.00" class="w-20 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs extras-price">
+                            <span class="text-xs font-bold text-zinc-500">€</span>
+                            <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 p-1" title="Entfernen">
+                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeExtrasModal() {
+            document.getElementById('extras-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function addExtraRow() {
+            const list = document.getElementById('extras-list');
+            if (!list) return;
+            // "Noch keine Extras" Text entfernen
+            const emptyP = list.querySelector('p');
+            if (emptyP) emptyP.remove();
+            list.innerHTML += `
+                <div class="flex items-center gap-2 p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                    <input type="text" placeholder="z.B. Sojamilch" class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs extras-name">
+                    <input type="number" step="0.50" min="0" value="1.00" placeholder="1.00" class="w-20 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs extras-price">
+                    <span class="text-xs font-bold text-zinc-500">€</span>
+                    <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 p-1" title="Entfernen">
+                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        async function saveExtras() {
+            const list = document.getElementById('extras-list');
+            if (!list) return;
+            const rows = list.querySelectorAll('div[data-extras-idx], div:not([data-extras-idx])');
+            const extras = [];
+            list.querySelectorAll('.flex.items-center.gap-2').forEach(row => {
+                const nameInput = row.querySelector('.extras-name');
+                const priceInput = row.querySelector('.extras-price');
+                if (nameInput && priceInput && nameInput.value.trim()) {
+                    extras.push({
+                        name: nameInput.value.trim(),
+                        price: parseFloat(priceInput.value) || 0.0
+                    });
+                }
+            });
+
+            // An Backend senden
+            try {
+                const res = await fetch('/api/categories/extras', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category_name: _extrasModalCatName, extras: extras })
+                });
+                if (res.ok) {
+                    showToast('Extras gespeichert!', 'success');
+                    // Lokale Daten aktualisieren
+                    const sgCats = _superGroupCategories || [];
+                    const catData = sgCats.find(c => c.name === _extrasModalCatName);
+                    if (catData) {
+                        catData.extras = extras;
+                    } else {
+                        sgCats.push({ name: _extrasModalCatName, super_group_id: null, extras: extras });
+                    }
+                    renderCategoryTree();
+                    closeExtrasModal();
+                } else {
+                    showToast('Fehler beim Speichern', 'error');
+                }
+            } catch(e) {
+                showToast('Fehler: ' + e.message, 'error');
+            }
+        }
+
         function renderCategoryTree() {
             const container = document.getElementById('cat-tree-container');
             if (!container) return;
@@ -9152,15 +9256,23 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 } else {
                     groupCats.forEach(catName => {
                         const pCount = countByCat[catName] || 0;
+                        // BUG FIX: Extras für diese Kategorie finden
+                        const catData = (sgCats || []).find(c => c.name === catName);
+                        const catExtras = (catData && catData.extras && catData.extras.length > 0) ? catData.extras : [];
+                        const extrasBadge = catExtras.length > 0 ? `<span class="text-[8px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-full ml-1">${catExtras.length} Extras</span>` : '';
+                        const safeCatName = catName.replace(/'/g, "\\'");
                         html += `
                             <div class="cat-tree-item">
                                 <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">folder_open</span>
-                                <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
+                                <span class="cat-tree-item-name">${escapeHtml(catName)}${extrasBadge}</span>
                                 <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
-                                <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-700 p-0.5" title="Bearbeiten">
+                                <button onclick="event.stopPropagation(); openExtrasModal('${safeCatName}')" class="text-amber-600 hover:text-amber-700 p-0.5" title="Extras verwalten">
+                                    <span class="material-symbols-outlined" style="font-size:12px;">add_circle</span>
+                                </button>
+                                <button onclick="event.stopPropagation(); editCategoryInline('${safeCatName}', '${safeCatName}')" class="text-zinc-500 hover:text-emerald-700 p-0.5" title="Bearbeiten">
                                     <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                                 </button>
-                                <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \\'${catName.replace(/'/g, "\\'")}\\' löschen? Alle Produkte darin verlieren ihre Kategorie!')">
+                                <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie \\'${safeCatName}\\' löschen? Alle Produkte darin verlieren ihre Kategorie!')">
                                     <input type="hidden" name="name" value="${escapeHtml(catName)}">
                                     <button type="submit" class="text-red-600 hover:text-red-600 p-0.5" title="Löschen">
                                         <span class="material-symbols-outlined" style="font-size:12px;">delete</span>
@@ -9189,12 +9301,19 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 `;
                 orphanCats.forEach(catName => {
                     const pCount = countByCat[catName] || 0;
+                    const catData = (sgCats || []).find(c => c.name === catName);
+                    const catExtras = (catData && catData.extras && catData.extras.length > 0) ? catData.extras : [];
+                    const extrasBadge = catExtras.length > 0 ? `<span class="text-[8px] font-bold text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-full ml-1">${catExtras.length} Extras</span>` : '';
+                    const safeCatName = catName.replace(/'/g, "\\'");
                     html += `
                         <div class="cat-tree-item">
                             <span class="material-symbols-outlined text-zinc-500" style="font-size:14px;">folder_open</span>
-                            <span class="cat-tree-item-name">${escapeHtml(catName)}</span>
+                            <span class="cat-tree-item-name">${escapeHtml(catName)}${extrasBadge}</span>
                             <span class="cat-tree-item-count" title="${pCount} Produkte">${pCount}</span>
-                            <button onclick="event.stopPropagation(); editCategoryInline('${catName.replace(/'/g, "\\'")}', '${catName.replace(/'/g, "\\'")}')" class="text-zinc-500 hover:text-emerald-700 p-0.5" title="Bearbeiten">
+                            <button onclick="event.stopPropagation(); openExtrasModal('${safeCatName}')" class="text-amber-600 hover:text-amber-700 p-0.5" title="Extras verwalten">
+                                <span class="material-symbols-outlined" style="font-size:12px;">add_circle</span>
+                            </button>
+                            <button onclick="event.stopPropagation(); editCategoryInline('${safeCatName}', '${safeCatName}')" class="text-zinc-500 hover:text-emerald-700 p-0.5" title="Bearbeiten">
                                 <span class="material-symbols-outlined" style="font-size:12px;">edit</span>
                             </button>
                             <form action="/admin/kategorie-loeschen" method="POST" class="inline" onsubmit="return confirm('Kategorie löschen? Alle Produkte darin verlieren ihre Kategorie!')">
@@ -15140,17 +15259,18 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 
         function deleteLogo(logoField) {
             if (!confirm('Logo wirklich löschen?')) return;
-            fetch('/admin/branding', {
+            fetch('/admin/branding/delete-logo', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: logoField + '=&delete_logo=1'
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logo_field: logoField })
             }).then(res => res.json()).then(data => {
                 if (data.success) {
+                    showToast('Logo erfolgreich gelöscht!', 'success');
                     location.reload();
                 } else {
-                    showToast('Fehler beim Löschen', 'error');
+                    showToast('Fehler beim Löschen: ' + (data.detail || 'unbekannt'), 'error');
                 }
-            }).catch(err => showToast('Fehler', 'error'));
+            }).catch(err => showToast('Fehler: ' + err.message, 'error'));
         }
 
         function deleteLandingImage(imageUrl, imageType, buttonElement) {
@@ -16482,6 +16602,28 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
         <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p class="text-sm font-bold text-white tracking-wide">Bilder werden generiert... Bitte warten...</p>
     </div>
+
+    <!-- ══ EXTRAS MODAL ══ -->
+    <div id="extras-modal" class="overlay-backdrop hidden" style="z-index:60;">
+        <div class="popup-card max-w-md mx-4" style="background:#18181b;border:1px solid #27272a;border-radius:1.5rem;padding:1.5rem;">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white" id="extras-modal-title">Extras</h3>
+                <button onclick="closeExtrasModal()" class="text-zinc-400 hover:text-white p-1">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <p class="text-xs text-zinc-500 mb-4">Extras werden unter der Kategorie in der Speisekarte angezeigt (z.B. "Sojamilch +1€").</p>
+            <div id="extras-list" class="space-y-2 mb-4 max-h-[300px] overflow-y-auto"></div>
+            <button onclick="addExtraRow()" class="w-full border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/15 text-amber-600 font-bold text-xs py-2 rounded-xl transition flex items-center justify-center gap-1 mb-4">
+                <span class="material-symbols-outlined" style="font-size:16px;">add</span> Extra hinzufügen
+            </button>
+            <div class="flex gap-2">
+                <button onclick="closeExtrasModal()" class="flex-1 border border-zinc-700 text-zinc-300 font-bold text-xs py-2.5 rounded-xl transition">Abbrechen</button>
+                <button onclick="saveExtras()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2.5 rounded-xl transition">Speichern</button>
+            </div>
+        </div>
+    </div>
+
     <!-- PWA Service Worker Registrierung + Update-Flow -->
     <!-- SW Registration entfernt -->
 </body>
