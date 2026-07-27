@@ -10039,7 +10039,7 @@ async def delete_logo(
         raise HTTPException(status_code=400, detail="Ungültiges Feld.")
     
     branding = restaurant.get("branding", {})
-    if not isinstance(brandging, dict):
+    if not isinstance(branding, dict):
         branding = {}
     
     # Alten Logo-Pfad für Datei-Löschung speichern
