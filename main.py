@@ -11721,7 +11721,7 @@ async def list_super_groups(chef_data: tuple = Depends(require_chef_user_flat), 
     cat_data = restaurant.get("category_data") or []
     # Refresh from DB
     db_cats = db.query(Category).filter_by(tenant_slug=slug).all()
-    cat_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None)} for c in db_cats]
+    cat_data = [{"id": c.id, "name": c.name, "super_group_id": getattr(c, "super_group_id", None), "extras": json.loads(getattr(c, "extras", None) or "[]")} for c in db_cats]
     return {"super_groups": super_groups, "categories": cat_data}
 
 
