@@ -2117,13 +2117,30 @@ def _send_apple_apns_push(db_session, customer: LoyaltyCustomer, title: str, mes
 
 
 def _apns_push(push_token: str, title: str, message: str) -> bool:
-    """Sendet HTTP/2 Background Push an APNs für Pass-Update.
+    """Sendet HTTP/2 Push an APNs für Pass-Update.
 
-    Background Push (leer) → iOS holt Pass → changeMessage als Notification.
+    BUG FIX: Statt leerem payload {} verwenden wir aps.content-available: 1
+    Das ist ein "silent push" den iOS schneller verarbeitet als ein
+    komplett leerer background push.
+
+    Flow:
+    1. Silent Push (content-available: 1) → iOS wacht sofort auf
+    2. iOS ruft GET /passes/.../... auf → holt aktualisierten Pass
+    3. changeMessage in pass.json wird als Notification angezeigt
+
+    WICHTIG: Apple Wallet kann KEINE alert pushes empfangen (nur background).
+    Aber content-available: 1 mit priority 5 ist erlaubt und wird
+    zuverlässiger zugestellt als ein komplett leerer payload.
     """
     import ssl
 
-    payload = {}  # Empty — iOS holt Pass und zeigt changeMessage
+    # BUG FIX: content-available: 1 statt komplett leerer payload
+    # Das signalisiert iOS dass es "Content" gibt den es abholen soll
+    payload = {
+        "aps": {
+            "content-available": 1
+        }
+    }
 
     try:
         import httpx
