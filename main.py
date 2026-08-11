@@ -1151,7 +1151,7 @@ async def sitemap_xml():
     """sitemap.xml – listet alle öffentlichen Seiten die Google
     indexieren soll. Aktuell: Landingpage + statische Sektionen."""
     from datetime import datetime
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_berlin_now().strftime("%Y-%m-%d")
     base = "https://digi-gastro.de"
 
     urls = [
@@ -5070,7 +5070,7 @@ def post_tenant_adjust_revenue(
         old_value=old_value,
         new_value=new_value,
         adjusted_by="admin@digi-gastro.de",
-        adjusted_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        adjusted_at=get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
     )
     db.add(log_entry)
     db.commit()
@@ -6141,7 +6141,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         active_order["total_with_tip"] = round(active_order["total_with_tip"] + total, 2)
         active_order["tip_amount"] = round(active_order["tip_amount"], 2)
         active_order["status"] = "eingegangen"  # Mark as eingegangen so it blinks orange again
-        active_order["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        active_order["timestamp"] = get_berlin_now().strftime("%Y-%m-%d %H:%M:%S")
         
         try:
             save_restaurant_to_db(slug, restaurant, db)
@@ -6179,7 +6179,7 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         "total_with_tip": round(total_with_tip, 2),
         "tip_amount": 0.0,
         "status": "eingegangen",
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
         "mwst_rate": 19,
         "waiter_id": None,
         "daily_bon_number": _daily_bon_number,  # #1, #2, #3... pro Tag
@@ -6305,7 +6305,7 @@ async def service_ruf(request: Request, slug: str, payload: ServiceRufPayload, d
         "id": new_id,
         "table": call_table_name,
         "type": payload.type,
-        "timestamp": datetime.now().strftime("%H:%M:%S")
+        "timestamp": get_berlin_now().strftime("%H:%M:%S")
     }
     restaurant["service_calls"].append(new_call)
     
@@ -6697,7 +6697,7 @@ async def cancel_order(request: Request, slug: str, order_id: int, pin: Optional
     _maybe_rotate_table_session_token(restaurant, order.get("table"))
     
     log_entry = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
         "employee_name": employee["name"],
         "employee_role": employee["role"],
         "action": f"Stornierung der Bestellung #{order_id}",
@@ -7263,7 +7263,7 @@ async def transfer_item(request: Request, slug: str, order_id: int, payload: Tra
             "total_with_tip": round(item_amount, 2),
             "tip_amount": 0.0,
             "status": "eingegangen",
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
             "mwst_rate": 19,
             "waiter_id": None,
             "daily_bon_number": _daily_bon_number,
@@ -7348,7 +7348,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         # Siehe "Wasser doppelt gebucht"-Bug.
         try:
             log_entry_done = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
                 "employee_name": employee["name"],
                 "employee_role": employee["role"],
                 "action": f"Storno-Versuch (bereits erledigt) für Bestellung #{order_id}",
@@ -7393,7 +7393,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         # Audit-Log schreiben, damit der Vorgang nachvollziehbar bleibt
         try:
             log_entry_idem = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
                 "employee_name": employee["name"],
                 "employee_role": employee["role"],
                 "action": f"Storno-Versuch (bereits erledigt) für Artikel in Bestellung #{order_id}",
@@ -7431,7 +7431,7 @@ async def cancel_item(request: Request, slug: str, order_id: int, payload: Cance
         update_order_status_by_items(order)
 
     log_entry = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
         "employee_name": employee["name"],
         "employee_role": employee["role"],
         "action": f"Stornierung von {qty_to_cancel}x {matched_item.get('name')} (Bestellung #{order_id})",
@@ -7531,7 +7531,7 @@ async def cancel_items_bulk(request: Request, slug: str, order_id: int, payload:
 
     if cancelled_details_list:
         log_entry = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
             "employee_name": employee["name"],
             "employee_role": employee["role"],
             "action": f"Stornierung von {', '.join(cancelled_details_list)} (Bestellung #{order_id})",
@@ -7949,7 +7949,7 @@ def get_admin(request: Request, period: str = "heute", db: Session = Depends(get
             break
         
     orders = restaurant.get("orders", [])
-    now = datetime.now()
+    now = get_berlin_now()
     
     filtered_orders = []
     for o in orders:
@@ -9169,7 +9169,7 @@ async def api_call_service(request: Request, slug: str, payload: CallServicePayl
         "id": new_id,
         "table": normalized_table,
         "type": service_type,
-        "timestamp": datetime.now().strftime("%H:%M:%S")
+        "timestamp": get_berlin_now().strftime("%H:%M:%S")
     }
     
     restaurant["service_calls"].append(new_call)
@@ -9555,7 +9555,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
     # 4. Statistiken (Tagesumsatz etc.) — direkte SQL-Query statt Python-Loop.
     # Filters identisch zur vorherigen Logik: nicht storniert UND timestamp
     # beginnt mit heutigem Datum (YYYY-MM-DD).
-    now = datetime.now()
+    now = get_berlin_now()
     today = now.strftime("%Y-%m-%d")
     db_today_orders = db.query(Order).filter(
         Order.tenant_slug == slug_lower,
@@ -9670,7 +9670,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
         "orders": active_orders,
         "service_calls": service_calls,
         "tables": tables,
-        "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "server_time": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
         "price_mode": getattr(tenant, "price_mode", "brutto") or "brutto",
         "stats": {
             "brutto": round(brutto, 2),
@@ -10261,7 +10261,7 @@ async def test_pos_connection(
         test_payload = {
             "event": "test_connection",
             "tenant": slug,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": get_berlin_now().isoformat(),
             "message": "digi-gastro POS Connection Test"
         }
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -10315,7 +10315,7 @@ async def send_order_to_pos(slug: str, order: dict, restaurant: dict):
             }
             for item in (order.get("items") or [])
         ],
-        "timestamp": order.get("timestamp", datetime.now().isoformat()),
+        "timestamp": order.get("timestamp", get_berlin_now().isoformat()),
         "waiter": order.get("waiter_id", ""),
         "pos_location_id": branding.get("pos_location_id", "")
     }
@@ -10357,7 +10357,7 @@ async def send_bon_to_printer(slug: str, order: dict, restaurant: dict, bon_type
         "order_id": order.get("id"),
         "daily_bon_number": order.get("daily_bon_number"),
         "table": order.get("table", ""),
-        "timestamp": order.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        "timestamp": order.get("timestamp", get_berlin_now().strftime("%Y-%m-%d %H:%M:%S")),
         "waiter": order.get("waiter_id", ""),
         "items": [
             {
@@ -12390,7 +12390,7 @@ def _filter_orders_for_export(orders, range_param, status_param, date_from, date
     so the export always matches exactly what the admin sees on screen.
     """
     from datetime import datetime, timedelta
-    now = datetime.now()
+    now = get_berlin_now()
     filtered = []
 
     search_lower = (search_param or "").strip().lower()
@@ -12660,7 +12660,7 @@ def orders_export_pdf(
     if search:
         filter_parts.append(f"Suche: &quot;{search}&quot;")
     filter_text = " · ".join(filter_parts) if filter_parts else "Keine Filter aktiv"
-    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+    now_str = get_berlin_now().strftime("%d.%m.%Y %H:%M")
     elements.append(Paragraph(
         f"{filter_text}<br/>Erstellt am: {now_str} · Preis-Modus: {price_mode.capitalize()}",
         subtitle_style
@@ -12786,7 +12786,7 @@ def orders_export_pdf(
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
-    filename = f"bestellreport-{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    filename = f"bestellreport-{slug}-{get_berlin_now().strftime('%Y%m%d%H%M%S')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -13031,7 +13031,7 @@ def monatsreport_pdf(
 
     from_dt = date_from.strftime("%d.%m.%Y")
     to_dt = date_to.strftime("%d.%m.%Y")
-    now_str = datetime.now().strftime("%d.%m.%Y, %H:%M Uhr")
+    now_str = get_berlin_now().strftime("%d.%m.%Y, %H:%M Uhr")
     elements.append(Paragraph(f"Zeitraum: {from_dt} – {to_dt}", meta_style))
     elements.append(Paragraph(f"Erstellt am: {now_str}", meta_style))
     elements.append(Spacer(1, 10))
@@ -13288,7 +13288,7 @@ def orders_export_xlsx(
     filter_text = " · ".join(filter_parts) if filter_parts else "Keine Filter aktiv"
 
     ws.merge_cells("A2:G2")
-    ws["A2"] = f"{filter_text}  ·  Erstellt am: {datetime.now().strftime('%d.%m.%Y %H:%M')}  ·  Preis-Modus: {price_mode.capitalize()}"
+    ws["A2"] = f"{filter_text}  ·  Erstellt am: {get_berlin_now().strftime('%d.%m.%Y %H:%M')}  ·  Preis-Modus: {price_mode.capitalize()}"
     ws["A2"].font = Font(size=9, color="666666", italic=True)
     ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[2].height = 16
@@ -13513,7 +13513,7 @@ def orders_export_xlsx(
     xlsx_bytes = buffer.getvalue()
     buffer.close()
 
-    filename = f"bestellreport-{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    filename = f"bestellreport-{slug}-{get_berlin_now().strftime('%Y%m%d%H%M%S')}.xlsx"
     return Response(
         content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -14358,7 +14358,7 @@ async def admin_transfer(request: Request, payload: AdminTransferPayload, db: Se
                 "total_with_tip": 0.0,
                 "tip_amount": 0.0,
                 "status": "eingegangen",
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
                 "mwst_rate": 19,
                 "waiter_id": None,
                 "daily_bon_number": _daily_bon_number,
@@ -14635,7 +14635,7 @@ async def add_manual_order_item(request: Request, payload: AddManualPayload, db:
             "total_with_tip": round(new_item["price"] * payload.quantity, 2),
             "tip_amount": 0.0,
             "status": "eingegangen", # starts as pending/eingegangen
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
             "mwst_rate": 19,
             "waiter_id": user.get("name"),
             "daily_bon_number": _daily_bon_number,

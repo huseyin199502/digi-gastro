@@ -1786,8 +1786,9 @@
                                     <div class="text-primary font-bold text-[10px]" x-text="suggestion.price.toFixed(2) + ' €'"></div>
                                 </div>
                                 <button @click="addUpsellItem(suggestion)"
-                                    class="w-7 h-7 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-sm shrink-0 active:scale-90 transition-transform"
-                                    style="touch-action: manipulation;">
+                                    class="w-11 h-11 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-lg shrink-0 active:scale-90 transition-transform"
+                                    style="touch-action: manipulation;"
+                                    aria-label="Zum Warenkorb hinzufügen">
                                     +
                                 </button>
                             </div>
@@ -1943,7 +1944,7 @@
                                        :checked="selectedSplitItems.some(i => i.key === item.key)"
                                        @change="toggleSplitCheckbox(item)"
                                        class="rounded border-2 border-outline-variant bg-surface text-primary focus:ring-0 cursor-pointer"
-                                       style="width:28px;height:28px;min-width:28px;">
+                                       style="width:44px;height:44px;min-width:44px;">
                                 
                                 <span class="material-symbols-outlined text-emerald-400 font-black text-lg select-none">done_all</span>
                                 
@@ -1954,9 +1955,9 @@
                                     <!-- Split Qty controls -->
                                     <template x-if="selectedSplitItems.some(i => i.key === item.key) && item.quantity > 1">
                                         <div class="flex items-center gap-2 mt-1.5 bg-surface w-fit px-2 py-0.5 rounded-lg border border-outline-variant">
-                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-2 py-1 min-w-[32px] min-h-[32px] flex items-center justify-center">-</button>
+                                            <button @click.stop="adjustSplitQty(item, -1)" class="text-on-surface-variant hover:text-on-surface font-black text-base px-3 py-2 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menge verringern">-</button>
                                             <span class="text-[11px] font-black text-on-surface font-mono" x-text="getSplitQty(item)"></span>
-                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-sm px-2 py-1 min-w-[32px] min-h-[32px] flex items-center justify-center">+</button>
+                                            <button @click.stop="adjustSplitQty(item, 1)" class="text-on-surface-variant hover:text-on-surface font-black text-base px-3 py-2 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Menge erhöhen">+</button>
                                         </div>
                                     </template>
                                 </div>
@@ -4385,7 +4386,7 @@
     </div>
 
     <!-- MODERN GLASSMORPHIC COOKIE BANNER -->
-    <div id="cookieBanner" class="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:max-w-md glass-panel border border-outline-variant p-6 rounded-3xl shadow-2xl transition-all duration-500" style="transform:translateY(150%);opacity:0;pointer-events:none;z-index:9999;">
+    <div id="cookieBanner" class="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:max-w-md glass-panel border border-outline-variant p-6 rounded-3xl shadow-2xl transition-all duration-500" style="transform:translateY(150%);opacity:0;pointer-events:none;z-index:90;">
         <div class="flex flex-col gap-4">
             <div class="flex items-start gap-3">
                 <div class="p-2.5 bg-primary/10 rounded-xl text-primary mt-1 shrink-0 pulse-green">

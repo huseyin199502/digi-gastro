@@ -1308,6 +1308,10 @@
         .popup-body {
             padding: 1.5rem;
             overflow-y: auto;
+            /* Verhindert Scroll-Chaining: Wenn der Inhalt am Ende/Anfang ist,
+               scrollt nicht die Seite dahinter mit. Wichtig für iOS Safari & Android Chrome. */
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
 
         /* Scrollable area shadow indicator for control modal */
@@ -5399,7 +5403,7 @@
                     <div class="section-card-body">
                         <!-- Result count above grid for orientation -->
                         <div class="flex items-center justify-between mb-3 text-[10px] font-bold text-zinc-500">
-                            <span><span id="product-filter-result-count">{{ restaurant.products|length }}</span> Produkte sichtbar</span>
+                            <span><span id="product-filter-result-count-grid">{{ restaurant.products|length }}</span> Produkte sichtbar</span>
                             <span id="product-page-info" class="hidden sm:inline"></span>
                         </div>
                         <div class="product-grid-view" id="product-grid-view">
@@ -7787,17 +7791,7 @@
             }
         }
 
-        function openSidebar() {
-            const aside = document.querySelector('aside');
-            const backdrop = document.getElementById('sidebar-backdrop');
-            const main = document.querySelector('main');
-            if (aside) {
-                aside.classList.remove('closed');
-                aside.classList.add('open');
-                if (backdrop) backdrop.classList.add('show');
-                if (main) main.classList.remove('sidebar-closed');
-            }
-        }
+        // REMOVED: openSidebar() — nirgends aufgerufen (toggleSidebar() wird stattdessen verwendet)
 
         function switchAdminTab(tabId, updateHash = true) {
             closeSidebar();
@@ -11244,99 +11238,14 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             }
         }
 
-        // ── LIVE NOTIFICATION BAR ──
-        // Shows new orders with unserved items and active service calls
-        // at the very top of the dashboard so waiters never miss them.
-        let _notifDismissedOrders = new Set(); // order IDs manually dismissed
-        let _notifDismissedCalls = new Set();  // call IDs manually dismissed
-
-        function renderLiveNotificationBar(orders, serviceCalls) {
-            // DEAKTIVIERT per User-Vorgabe — Bestell-Popups wurden entfernt.
-            // Tisch-Kacheln zeigen weiterhin Status (farbig). Sound bleibt.
-            // Service-Rufe werden über renderServiceCallsAlerts() angezeigt.
-            const bar = document.getElementById('live-notification-bar');
-            if (bar) { bar.innerHTML = ''; bar.classList.remove('has-items'); }
-        }
-
-        async function notifServeItem(orderId, itemKey, btnEl) {
-            if (!_acquireServeLock()) return;
-            // Track optimistic serve so poll doesn't overwrite it
-            _trackOptimisticServe(orderId, itemKey);
-            // Optimistic UI update FIRST
-            const order = allOrders.find(o => o.id === orderId);
-            if (order) {
-                const parts = itemKey.split('_');
-                const pid = parts[0];
-                const status = parts[parts.length - 1];
-                const noteParts = parts.slice(1, parts.length - 1).join('_');
-                const item = order.items.find(i => String(i.product_id) === pid 
-                    && (i.note || '').trim().replace(/\s+/g, '_') === noteParts
-                    && (i.item_status || 'pending') === status);
-                if (item) item.item_status = 'delivered';
-            }
-            // renderLiveNotificationBar entfernt — Bestell-Popups werden nicht mehr angezeigt
-            if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
-            try {
-                const res = await fetch(`/${slug}/tablet/item-status/${orderId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ item_key: itemKey, status: 'delivered' })
-                });
-                if (!res.ok) {
-                    showToast('Fehler beim Servieren', 'error');
-                }
-                // Background sync – no await
-                checkLiveTischeUpdates();
-            } catch (e) {
-                showToast('Verbindungsfehler', 'error');
-            } finally {
-                _releaseServeLock();
-                if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = ''; }
-            }
-        }
-
-        async function notifServeAll(orderId, btnEl) {
-            if (!_acquireServeLock()) return;
-            // Track optimistic serve-all so poll doesn't overwrite it
-            _trackOptimisticServeAll(orderId);
-            // Optimistic UI update FIRST
-            const order = allOrders.find(o => o.id === orderId);
-            if (order && order.items) {
-                order.items.forEach(i => { i.item_status = 'delivered'; });
-            }
-            // renderLiveNotificationBar entfernt — Bestell-Popups werden nicht mehr angezeigt
-            if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
-            try {
-                const res = await fetch('/admin/orders/serve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_id: orderId })
-                });
-                if (!res.ok) {
-                    showToast('Fehler beim Servieren', 'error');
-                }
-                // Background sync – no await
-                checkLiveTischeUpdates();
-            } catch (e) {
-                showToast('Verbindungsfehler', 'error');
-            } finally {
-                _releaseServeLock();
-                if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = ''; }
-            }
-        }
-
-        async function notifResolveCall(callId) {
-            try {
-                await fetch(`/${slug}/service-erledigt/${callId}`, { method: 'POST' });
-                _notifDismissedCalls.add(callId);
-                // renderLiveNotificationBar entfernt — Service-Rufe werden über renderServiceCallsAlerts angezeigt
-                renderServiceCallsAlerts();
-                await checkLiveTischeUpdates();
-            } catch (e) {
-                showToast('Fehler beim Erledigen des Rufs', 'error');
-            }
-        }
-
+        // ── LIVE NOTIFICATION BAR (DEAD CODE REMOVED) ──
+        // Die Funktionen renderLiveNotificationBar(), notifServeItem(),
+        // notifServeAll() und notifResolveCall() wurden per User-Vorgabe
+        // deaktiviert und hatten keine aktiven Aufrufer mehr.
+        // Servieren läuft jetzt über das #control-modal (Kellner-Cockpit),
+        // Service-Rufe über renderServiceCallsAlerts().
+        // Behalten: <div id="live-notification-bar"> als leerer Container
+        // (falls CSS es noch referenziert) — wirft keine Fehler mehr.
 
         // ── SITZPLAN RENDERING ──
 
@@ -14079,8 +13988,12 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 ? document.querySelectorAll('#product-grid-view .product-tile[data-matches-filter="true"]')
                 : document.querySelectorAll('#product-table-container .product-row[data-matches-filter="true"]');
             _productVisibleCount = visibleItems.length;
+            // Update BOTH counters (Toolbar + Grid-Header). Früher hatten beide dieselbe ID,
+            // was getElementById nur das erste Element zurückgeben ließ → Grid-Counter blieb stale.
             const totalEl = document.getElementById('product-filter-result-count');
+            const totalElGrid = document.getElementById('product-filter-result-count-grid');
             if (totalEl) totalEl.textContent = _productVisibleCount;
+            if (totalElGrid) totalElGrid.textContent = _productVisibleCount;
         }
 
         // ── Pagination: zeigt nur die ersten _productShownCount sichtbaren Items ──
@@ -14177,9 +14090,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 items.forEach(item => item.dataset.matchesFilter = 'true');
                 _productVisibleCount = items.length;
                 applyProductPagination();
-                // Result-Count zurücksetzen
+                // Result-Count zurücksetzen — beide Counter synchron halten
                 const totalEl = document.getElementById('product-filter-result-count');
+                const totalElGrid = document.getElementById('product-filter-result-count-grid');
                 if (totalEl) totalEl.textContent = items.length;
+                if (totalElGrid) totalElGrid.textContent = items.length;
             }, 100);
         });
 
@@ -16589,13 +16504,9 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
             }
         }
 
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        }
     </script>
+    <!-- REMOVED: duplicate escapeHtml() — die robustere Version oben (~L8990) wird verwendet.
+         Die hier entfernte Version hatte einen Bug (`if(!str)` verschluckt `0`/`false`). -->
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex flex-col items-center justify-center space-y-4 modal-overscroll" style="z-index: 9999;">
