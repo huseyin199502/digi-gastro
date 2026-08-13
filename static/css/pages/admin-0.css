@@ -2542,7 +2542,7 @@
             color: var(--gastro-primary);
             border-color: var(--gastro-primary);
         }
-        @media (max-width: 1023px) {
+        @media (max-width: 1279px) {
             .hamburger-btn { display: flex; }
         }
 
