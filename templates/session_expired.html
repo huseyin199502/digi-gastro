@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sitzung abgelaufen</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/pages/session-expired.css">
+</head>
+<body><main class="card">
+    <h1>Sitzung abgelaufen</h1>
+    <p>Ihre Sitzung für <strong>{{ restaurant_name }}</strong> ist abgelaufen.</p>
+    <p>Bitte scannen Sie den QR-Code erneut, um eine neue Sitzung zu starten.</p>
+    <a href="/{{ slug }}">Zur Startseite</a>
+</main></body>
+</html>

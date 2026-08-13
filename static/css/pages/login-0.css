@@ -1,0 +1,17 @@
+@view-transition { navigation: auto; }
+        :root { --color-primary: #10b981; --color-primary-rgb: 16 185 129; }
+        html { overscroll-behavior: none; }
+        body { background-color: var(--bg-obsidian); color: #f3f4f6; font-family: var(--font-sans); }
+        @media (max-width: 640px) {
+            input[type="text"], input[type="email"], input[type="tel"], input[type="number"],
+            input[type="password"], input[type="search"], input[type="url"], textarea, select {
+                font-size: 16px !important;
+            }
+        }
+        /* Staff PIN field — animated reveal */
+        #staff-section { overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 0; opacity: 0; }
+        #staff-section.visible { max-height: 400px; opacity: 1; }
+        /* Mode toggle */
+        .mode-toggle { display: flex; gap: 0; margin-bottom: 1.5rem; border-radius: 0.75rem; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .mode-btn { flex: 1; padding: 0.75rem; text-align: center; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; background: transparent; color: #71717a; border: none; min-height: 44px; }
+        .mode-btn.active { background: rgba(16, 185, 129, 0.15); color: #10b981; }

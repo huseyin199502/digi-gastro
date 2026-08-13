@@ -1,0 +1,240 @@
+/* static/css/sitzplan.css */
+
+.sitzplan-map-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    background-color: #0b0c10;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.5rem;
+    overflow: hidden;
+    box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.sitzplan-table {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    user-select: none;
+    transition: box-shadow 0.2s, transform 0.1s;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.sitzplan-table:active {
+    transform: scale(0.98);
+}
+
+/* Shapes */
+.sitzplan-table.rect {
+    border-radius: 1rem;
+}
+
+.sitzplan-table.round {
+    border-radius: 50%;
+}
+
+/* Edit Mode styling */
+.sitzplan-table.draggable {
+    cursor: move;
+    border-style: dashed !important;
+    border-color: #6366f1 !important; /* Indigo dashed outline */
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: #a5b4fc !important;
+}
+
+.sitzplan-table.draggable:hover {
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+}
+
+/* Status colors (active, pending, free, served) */
+.sitzplan-table.status-free {
+    background: linear-gradient(135deg, #1f2937, #111827);
+    color: #f3f4f6;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sitzplan-table.status-free:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 12px 24px rgba(255, 255, 255, 0.05);
+}
+
+.sitzplan-table.status-active {
+    background: linear-gradient(135deg, #065f46, #047857);
+    color: #ffffff;
+    border-color: #059669;
+}
+
+.sitzplan-table.status-active:hover {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+.sitzplan-table.status-pending {
+    background: linear-gradient(135deg, #7f1d1d, #991b1b);
+    color: #ffffff;
+    border-color: #dc2626;
+    animation: pulseRed 1.5s infinite;
+}
+
+@keyframes pulseRed {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+        border-color: #dc2626;
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(239, 68, 68, 0.85);
+        border-color: #ef4444;
+    }
+}
+
+/* Drag Handles & Resizers */
+.resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #6366f1;
+    border: 1px solid #ffffff;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+.resize-handle.se {
+    right: -4px;
+    bottom: -4px;
+    cursor: se-resize;
+}
+
+.resize-handle.nw {
+    left: -4px;
+    top: -4px;
+    cursor: nw-resize;
+}
+
+/* Quick Actions in Edit Mode */
+.edit-table-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #6366f1;
+    color: white;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+.edit-table-shape-btn {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #a5b4fc;
+    font-size: 8px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: none;
+    z-index: 15;
+}
+
+.sitzplan-table.draggable:hover .edit-table-shape-btn {
+    display: block;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RESPONSIVE SITZPLAN — Mobile / Tablet Breakpoints
+   The original .sitzplan-map-container had a fixed height: 600px which
+   is too tall on landscape phones and too cramped on portrait phones.
+   These rules progressively reduce height & adjust table tiles.
+   They are additive and only activate below specific widths.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet landscape & small laptops (≤1023px) ── */
+@media (max-width: 1023px) {
+    .sitzplan-map-container {
+        height: 520px;
+        background-size: 20px 20px;
+    }
+}
+
+/* ── Tablet portrait & large phones (≤768px) ── */
+@media (max-width: 768px) {
+    .sitzplan-map-container {
+        height: 440px;
+        background-size: 18px 18px;
+        border-radius: 1rem;
+    }
+
+    /* Slightly larger touch targets on tables for fat fingers */
+    .sitzplan-table {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Hide tiny edit-mode badges on small screens (too small to read/use) */
+    .edit-table-badge {
+        display: none;
+    }
+
+    /* Larger resize handles for touch */
+    .resize-handle {
+        width: 16px;
+        height: 16px;
+    }
+    .resize-handle.se {
+        right: -8px;
+        bottom: -8px;
+    }
+    .resize-handle.nw {
+        left: -8px;
+        top: -8px;
+    }
+}
+
+/* ── Phone (≤480px) ── */
+@media (max-width: 480px) {
+    .sitzplan-map-container {
+        /* Use viewport-relative height so canvas fills available screen
+           without forcing user to scroll past empty space */
+        height: 60vh;
+        min-height: 320px;
+        background-size: 16px 16px;
+        border-radius: 0.75rem;
+    }
+
+    /* Hide edit-table-shape-btn entirely on phones — too fiddly with touch */
+    .edit-table-shape-btn {
+        display: none !important;
+    }
+    .sitzplan-table.draggable:hover .edit-table-shape-btn {
+        display: none !important;
+    }
+}
+
+/* ── Landscape phone (short height) ── */
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+    .sitzplan-map-container {
+        height: 70vh;
+        min-height: 280px;
+    }
+}
+
+/* ── Reduced motion: disable pulse animation ── */
+@media (prefers-reduced-motion: reduce) {
+    .sitzplan-table.status-pending {
+        animation: none !important;
+    }
+    .sitzplan-table:active {
+        transform: none !important;
+    }
+}

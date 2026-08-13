@@ -1,0 +1,375 @@
+/* Alpine.js x-cloak: hide elements until Alpine initializes */
+        [x-cloak] { display: none !important; }
+
+        /* ── Cross-Document View Transitions (MPA) ──
+           Aktiviert flüssige Seitenwechsel ohne SPA-Rewrite.
+           Support: Chrome 126+, Safari 18.2+, ~85% Coverage. */
+        @view-transition {
+            navigation: auto;
+        }
+
+        html, body {
+            touch-action: manipulation;
+        }
+        /* iOS Overscroll-Bounce Prevention */
+        html {
+            overscroll-behavior: none;
+        }
+        /* iOS BOUNCE FIX: Verhindert dass iOS Safari am Seitenende zurück-"bounced"
+           und die fixed Bottom-Nav-Bar über den Footer legt.
+           padding-bottom auf body = Platz für Bottom-Nav + Safe-Area + Extra-Puffer.
+           margin-bottom auf footer = zusätzliche Garantie dass Footer sichtbar bleibt. */
+        body {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ── iOS 26 Safari Fixed/Sticky-Bug Workaround ──
+           Auf iOS 26 wandern position:fixed Elemente (Bottom-Nav, Cart-Bar)
+           vertikal wenn die URL-Bar beim Scrollen schrumpft.
+           Fix: html+body auf 100dvh setzen, body wird Scroll-Container.
+           Dadurch kann die URL-Bar nicht animieren und Fixed-Elemente bleiben stabil.
+           Side-Effect: window.scrollTo funktioniert nicht mehr → document.scrollingElement verwenden.
+           Siehe: https://stackoverflow.com/q/79753701 */
+        @media (max-width: 1024px) {
+            html {
+                height: 100vh;
+                height: 100dvh;
+                overflow: hidden;
+            }
+            body {
+                height: 100vh;
+                height: 100dvh;
+                overscroll-behavior: contain;
+                overflow-y: auto;
+                /* display:block statt flex — mit flex+flex-direction:column werden
+                   die Children durch flex-shrink:1 gequetscht statt dass body scrollt.
+                   Block-Layout lässt Children natürlich wachsen → body scrollt. */
+                display: block !important;
+            }
+            /* Children dürfen nicht schrumpfen — sonst werden sie geclippt */
+            body > * {
+                flex-shrink: 0;
+            }
+        }
+
+        /* All modal overlays must contain scroll — prevents iOS rubber-band from breaking fixed positioning */
+        .modal-overscroll {
+            overscroll-behavior: contain;
+        }
+        body {
+            background-color: var(--bg-obsidian);
+            color: var(--text-on-surface);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        .slide-up-modal {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-none {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .select-none {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        @keyframes cartPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-cart-pulse {
+            animation: cartPulse 0.3s ease-in-out;
+        }
+        @keyframes badgePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+        .animate-badge-pulse {
+            animation: badgePulse 0.3s ease-in-out;
+        }
+        @keyframes btnSuccessPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-btn-success {
+            animation: btnSuccessPulse 0.3s ease-in-out;
+        }
+        @keyframes bounceHorizontalRight {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(4px); }
+        }
+        @keyframes bounceHorizontalLeft {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-50%) translateX(-4px); }
+        }
+        .animate-bounce-horizontal-right {
+            animation: bounceHorizontalRight 1.2s infinite;
+        }
+        .animate-bounce-horizontal-left {
+            animation: bounceHorizontalLeft 1.2s infinite;
+        }
+        /* ===== Category List Navigation ===== */
+        #category-list-view button:active {
+            transform: scale(0.98);
+        }
+        /* Video full-size display - no crop, no max-height restriction */
+        .landing-video-full {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* ════════════════════════════════════════════════════════════════
+           MARKDOWN STYLES für Custom Sections
+           ════════════════════════════════════════════════════════════════ */
+        .lp-markdown { line-height: 1.6; }
+        .lp-markdown .lp-md-h3 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #C9A84C !important;
+            margin: 0.75rem 0 0.5rem;
+            font-family: 'Outfit', sans-serif;
+        }
+        .lp-markdown .lp-md-h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #ffffff !important;
+            margin: 0.5rem 0 0.375rem;
+            font-family: 'Outfit', sans-serif;
+        }
+        .lp-markdown strong { font-weight: 800; color: #ffffff; }
+        .lp-markdown em { font-style: italic; }
+        .lp-markdown .lp-md-hr {
+            border: none;
+            border-top: 1px solid rgba(201, 168, 76, 0.3);
+            margin: 0.75rem 0;
+        }
+        .lp-markdown .lp-md-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0.5rem 0;
+        }
+        .lp-markdown .lp-md-list li {
+            padding-left: 1.25rem;
+            position: relative;
+            margin-bottom: 0.25rem;
+        }
+        .lp-markdown .lp-md-list li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: #C9A84C;
+            font-weight: bold;
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           MOBILE ENHANCEMENTS — additive only, no category/product layout changes
+           These rules improve mobile UX without touching the existing
+           grid layout, badge positioning, or card structure.
+           ════════════════════════════════════════════════════════════════════ */
+
+        /* ── Small phone (≤480px) — performance & legibility ── */
+        @media (max-width: 480px) {
+            /* Slightly tighter header for more content space on tiny screens */
+            header.sticky {
+                height: 3.5rem;
+            }
+            /* Disable heavy box-shadows on mobile for GPU savings */
+            .shadow-2xl {
+                box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5) !important;
+            }
+            /* Smooth scroll for bottom-sheet modals on iOS */
+            .modal-overscroll {
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        /* ── Mobile bottom-sheet modal: ensure proper sizing ── */
+        @media (max-width: 640px) {
+            /* Bottom-sheet modals should fill width minus safe-area */
+            #cart-modal-inner,
+            #legal-modal > div {
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            /* Ensure form inputs use 16px to prevent iOS auto-zoom */
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ── Landscape phone: prevent UI collapse ── */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            /* Compact header in landscape */
+            header.sticky {
+                height: 3.5rem !important;
+            }
+            /* Bottom navigation: thinner in landscape */
+            .fixed.bottom-0.inset-x-0 {
+                height: 2.75rem !important;
+            }
+        }
+
+        /* ── Reduced motion: respect user preference ── */
+        @media (prefers-reduced-motion: reduce) {
+            .slide-up-modal,
+            .animate-cart-pulse,
+            .animate-fade-in {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* ── Dark mode: prevent flash of white background ── */
+        @media (prefers-color-scheme: dark) {
+            html:not(.light) body {
+                background-color: var(--bg-obsidian);
+            }
+        }
+
+        /* ════════════════════════════════════════════════════════════════
+           WALLET PREMIUM BUTTON + BOTTOM-SHEET MODAL
+           ════════════════════════════════════════════════════════════════ */
+
+        /* Premium "Stempelkarte" Trigger Button */
+        .loyalty-premium-btn {
+            position: relative;
+            background: linear-gradient(135deg, #d9b95e 0%, #c9a84c 45%, #a8862c 100%);
+            color: #0a0a0a !important;
+            border: 1px solid rgba(255, 220, 140, 0.45);
+            box-shadow:
+                0 8px 24px -8px rgba(201, 168, 76, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+            isolation: isolate;
+        }
+        .loyalty-premium-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -130%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.4) 50%, transparent 80%);
+            transition: left 0.7s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .loyalty-premium-btn > * { position: relative; z-index: 2; }
+        .loyalty-premium-btn:hover {
+            transform: scale(1.02);
+            box-shadow:
+                0 12px 30px -8px rgba(201, 168, 76, 0.65),
+                inset 0 1px 0 rgba(255, 255, 255, 0.45),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+        }
+        .loyalty-premium-btn:hover::before { left: 130%; }
+        .loyalty-premium-icon {
+            font-size: 22px !important;
+            color: #0a0a0a;
+            filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.3));
+        }
+
+        /* Wallet Bottom-Sheet Backdrop fade-in */
+        #wallet-modal .wallet-modal-backdrop {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #wallet-modal:not(.hidden) .wallet-modal-backdrop { opacity: 1; }
+
+        /* Wallet Bottom-Sheet slide-up (mobile bottom-anchored, desktop centered) */
+        #wallet-modal-sheet {
+            transform: translateY(100%);
+            transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: transform;
+        }
+        #wallet-modal:not(.hidden) #wallet-modal-sheet { transform: translateY(0); }
+        @media (min-width: 640px) {
+            #wallet-modal-sheet {
+                transform: translateY(40px) scale(0.98);
+            }
+            #wallet-modal:not(.hidden) #wallet-modal-sheet {
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* ── Official Apple Wallet Button (Black, SF Pro) ── */
+        .wallet-btn-apple {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #000000;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            letter-spacing: -0.01em;
+        }
+        .wallet-btn-apple:hover {
+            background: #1d1d1f;
+            transform: scale(1.01);
+            border-color: #1d1d1f;
+        }
+        .wallet-btn-apple .wallet-btn-label { line-height: 1; }
+
+        /* ── Official Google Wallet Button (White, Google Sans, 4-color G) ── */
+        .wallet-btn-google {
+            background: #ffffff !important;
+            color: #1f1f1f !important;
+            border: 1px solid #dadce0 !important;
+            font-family: 'Google Sans', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            letter-spacing: -0.01em;
+        }
+        .wallet-btn-google:hover {
+            background: #f8f9fa !important;
+            transform: scale(1.01);
+            border-color: #bdc1c6 !important;
+        }
+        .wallet-btn-google .wallet-btn-label {
+            line-height: 1;
+            color: #1f1f1f !important;
+        }
+        /* Dark-Mode Override: Google Button bleibt IMMER weiß mit dunklem Text */
+        html.dark .wallet-btn-google,
+        html.dark .wallet-btn-google .wallet-btn-label {
+            background: #ffffff !important;
+            color: #1f1f1f !important;
+        }
+
+        /* Reduced motion: disable sheet transitions */
+        @media (prefers-reduced-motion: reduce) {
+            #wallet-modal-sheet,
+            .loyalty-premium-btn::before {
+                transition: none !important;
+            }
+        }

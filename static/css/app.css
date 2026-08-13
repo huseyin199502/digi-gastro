@@ -1,0 +1,36 @@
+/* Shared visual language. Page-specific rules belong in static/css/pages/. */
+:root {
+    --dg-focus: #c9a84c;
+    --dg-glass-bg: rgba(255, 255, 255, .10);
+    --dg-glass-bg-strong: rgba(255, 255, 255, .16);
+    --dg-glass-border: rgba(255, 255, 255, .22);
+    --dg-glass-shadow: 0 18px 55px rgba(0, 0, 0, .20);
+    --dg-glass-blur: blur(18px) saturate(135%);
+}
+
+:focus-visible { outline: 2px solid var(--dg-focus); outline-offset: 2px; }
+
+/* Shared glass surfaces used across landing, menu, login, scanner and admin. */
+.glass-panel,
+.glass-card,
+.glass-modal,
+.modal-content,
+.profile-card,
+.dashboard-card,
+.stat-card {
+    background: var(--dg-glass-bg) !important;
+    border: 1px solid var(--dg-glass-border) !important;
+    box-shadow: var(--dg-glass-shadow) !important;
+    -webkit-backdrop-filter: var(--dg-glass-blur);
+    backdrop-filter: var(--dg-glass-blur);
+}
+
+.glass-btn-primary,
+.glass-btn-secondary,
+button.nav-btn,
+button.nav-sub-btn {
+    -webkit-backdrop-filter: blur(12px) saturate(130%);
+    backdrop-filter: blur(12px) saturate(130%);
+}
+
+img, video { max-width: 100%; }

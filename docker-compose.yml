@@ -1,0 +1,177 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: digi_gastro_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: digi_gastro
+      POSTGRES_USER: gastro_user
+      POSTGRES_PASSWORD: gastro_secret
+      TZ: Europe/Berlin
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+    command: >
+      postgres
+      -c max_connections=300
+      -c shared_buffers=512MB
+      -c work_mem=4MB
+      -c effective_cache_size=1536MB
+      -c maintenance_work_mem=128MB
+      -c log_min_duration_statement=1000
+      -c log_connections=off
+      -c log_disconnections=off
+      -c autovacuum=on
+      -c autovacuum_max_workers=3
+      -c autovacuum_naptime=60s
+      -c autovacuum_vacuum_scale_factor=0.1
+      -c autovacuum_analyze_scale_factor=0.05
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c default_statistics_target=100
+      -c max_wal_size=2GB
+      -c min_wal_size=256MB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gastro_user -d digi_gastro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: digi_gastro_pgbouncer
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: gastro_user
+      DB_PASSWORD: gastro_secret
+      DB_NAME: digi_gastro
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "50"
+      MIN_POOL_SIZE: "10"
+      RESERVE_POOL_SIZE: "5"
+      RESERVE_POOL_TIMEOUT: "3"
+      SERVER_IDLE_TIMEOUT: "300"
+      AUTH_TYPE: plain
+    ports:
+      - "127.0.0.1:6432:5432"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digi_gastro_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
+      UPLOAD_DIR: /app/data/uploads
+      PYTHONUNBUFFERED: "1"
+      PORT: "8000"
+      WORKERS: "6"
+      TZ: Europe/Berlin
+      REDIS_URL: redis://redis:6379/0
+      AUTOHEAL_TOKEN: "autoheal-secret-2026"
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    volumes:
+      - uploads:/app/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8090:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: digi_gastro_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ═══════════════════════════════════════════════════════════════
+  # CRON SERVICE — ruft Auto-Heal + Inaktivität regelmäßig auf
+  # Nutzt das gleiche Docker Image wie web (hat Python + requests)
+  # Läuft als eigener Container, stört web nicht
+  # ═══════════════════════════════════════════════════════════════
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digi_gastro_cron
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      TZ: Europe/Berlin
+      CRON_WEB_URL: "http://web:8000"
+      AUTOHEAL_TOKEN: "autoheal-secret-2026"
+    entrypoint: ["python3", "-c"]
+    command:
+      - |
+        import os, time, urllib.request, json
+        WEB_URL = os.environ.get("CRON_WEB_URL", "http://web:8000")
+        TOKEN = os.environ.get("AUTOHEAL_TOKEN", "")
+        print("digi-gastro Cron Service gestartet", flush=True)
+        print(f"Auto-Heal: alle 5 Min -> {WEB_URL}/api/auto-heal", flush=True)
+        while True:
+            try:
+                url = f"{WEB_URL}/api/auto-heal?token={TOKEN}"
+                resp = urllib.request.urlopen(url, timeout=30)
+                data = json.loads(resp.read())
+                fixes = data.get("fixes", 0)
+                alerts = data.get("alerts", 0)
+                if fixes > 0 or alerts > 0:
+                    print(f"[Cron] Auto-Heal: {fixes} fixes, {alerts} alerts", flush=True)
+            except Exception as e:
+                print(f"[Cron] Auto-Heal Fehler: {e}", flush=True)
+            time.sleep(300)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          memory: 64M
+
+volumes:
+  pgdata:
+    driver: local
+  uploads:
+    driver: local
+  redisdata:
+    driver: local

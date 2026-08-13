@@ -1,0 +1,240 @@
+<script>
+
+        const slug = "{{ slug }}";
+        const cards = JSON.parse('{{ cards_json | safe }}');
+        let currentLookup = null;
+        let videoStream = null;
+
+        const codeInput = document.getElementById('shortCode');
+        const lookupResult = document.getElementById('lookupResult');
+        const stampBtn = document.getElementById('stampBtn');
+        const rewardBtn = document.getElementById('rewardBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        // Tab Switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'code') {
+                document.getElementById('code-section').style.display = '';
+                document.getElementById('scan-section').classList.remove('active');
+                stopScanner();
+            } else {
+                document.getElementById('code-section').style.display = 'none';
+                document.getElementById('scan-section').classList.add('active');
+                startScanner();
+            }
+        }
+
+        // QR Scanner — komplett überarbeitet (Sub-Agent Bug-Fixes)
+        let scanTimer = null;
+        let isScanning = false;
+        let scanCanvas = null;
+        let scanCtx = null;
+        const SCAN_W = 480, SCAN_H = 360; // Downscaled für Performance (statt 1280x720)
+        let lastScanLog = 0;
+
+        async function startScanner() {
+            if (isScanning) return;
+
+            // BUG 5 FIX: jsQR Load-Check
+            if (typeof jsQR !== 'function') {
+                showToast('QR-Scanner konnte nicht geladen werden. Code-Eingabe nutzen.', 'error');
+                switchTab('code');
+                return;
+            }
+
+            isScanning = true;
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+                const video = document.getElementById('qr-video');
+                video.srcObject = videoStream;
+                await video.play();
+
+                const hint = document.querySelector('.scanner-hint');
+                if (hint) hint.textContent = '📷 Kamera aktiv — QR-Code scannen...';
+
+                // BUG 3 FIX: Recursive setTimeout statt setInterval (kein Queue-Stacking)
+                scheduleScan();
+            } catch (e) {
+                console.error('Scanner start failed:', e);
+                let errMsg = 'Kamera nicht verfügbar';
+                if (e.name === 'NotAllowedError') errMsg = 'Kamera-Berechtigung verweigert. Bitte erlauben.';
+                else if (e.name === 'NotFoundError') errMsg = 'Keine Kamera gefunden.';
+                else if (e.name === 'NotReadableError') errMsg = 'Kamera wird bereits verwendet.';
+                else errMsg = 'Kamera-Fehler: ' + e.message;
+                showToast(errMsg, 'error');
+                isScanning = false;
+                switchTab('code');
+            }
+        }
+
+        function scheduleScan() {
+            if (!isScanning) return;
+            scanTimer = setTimeout(() => {
+                scanQR();
+                if (isScanning) scheduleScan();
+            }, 150); // 150ms = ~6.6fps (ausreichend für QR, wenig CPU)
+        }
+
+        function stopScanner() {
+            isScanning = false;
+            if (scanTimer) {
+                clearTimeout(scanTimer);
+                scanTimer = null;
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+                videoStream = null;
+            }
+            const video = document.getElementById('qr-video');
+            if (video) video.srcObject = null;
+        }
+
+        function scanQR() {
+            if (!isScanning) return;
+            const video = document.getElementById('qr-video');
+            if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+
+            try {
+                // BUG 2 FIX: Canvas einmalig anlegen + downscalen für Performance
+                if (!scanCanvas) {
+                    scanCanvas = document.createElement('canvas');
+                    scanCanvas.width = SCAN_W;
+                    scanCanvas.height = SCAN_H;
+                    scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+                }
+                scanCtx.drawImage(video, 0, 0, SCAN_W, SCAN_H);
+                const imageData = scanCtx.getImageData(0, 0, SCAN_W, SCAN_H);
+
+                // BUG 1 FIX (KRITISCH): dontInvert entfernt → attemptBoth (default)
+                // Dark Mode invertiert QR-Code → dontInvert findet ihn nie!
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code && code.data) {
+                    let scannedCode = code.data.trim().toUpperCase();
+                    console.log('[QR] erkannt:', scannedCode);
+
+                    if (scannedCode.includes(':')) {
+                        scannedCode = scannedCode.split(':').pop().trim();
+                    }
+                    scannedCode = scannedCode.replace(/[^A-Z0-9]/g, '');
+                    // BUG 7 FIX: Normalisierung wie bei manueller Eingabe
+                    scannedCode = scannedCode.replace(/O/g,'Q').replace(/I/g,'J').replace(/0/g,'Q').replace(/1/g,'J');
+
+                    if (scannedCode.length >= 3 && scannedCode.length <= 5) {
+                        if (navigator.vibrate) navigator.vibrate(200);
+                        stopScanner();
+                        codeInput.value = scannedCode;
+                        switchTab('code');
+                        showToast('✅ QR-Code gescannt: ' + scannedCode, 'success');
+                        lookupCustomer(scannedCode);
+                        return;
+                    } else {
+                        console.log('[QR] Code ignoriert (falsche Länge):', scannedCode);
+                    }
+                } else {
+                    // BUG 6 FIX: Diagnose-Logging (1x pro Sekunde)
+                    if (Date.now() - lastScanLog > 1000) {
+                        console.log('[QR] kein Code, readyState=', video.readyState, 'w/h=', video.videoWidth, video.videoHeight);
+                        lastScanLog = Date.now();
+                    }
+                }
+            } catch (e) {
+                console.error('[QR] Scan error:', e);
+            }
+        }
+
+        // Code-Eingabe
+        codeInput.addEventListener('input', async (e) => {
+            let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            v = v.replace(/O/g, 'Q').replace(/I/g, 'J').replace(/0/g, 'Q').replace(/1/g, 'J');
+            e.target.value = v;
+            if (v.length >= 3) await lookupCustomer(v);
+            else { lookupResult.style.display = 'none'; stampBtn.disabled = true; rewardBtn.style.display = 'none'; currentLookup = null; }
+        });
+        codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !stampBtn.disabled) awardStamp(); });
+
+        async function lookupCustomer(code) {
+            try {
+                const res = await fetch(`/admin/loyalty/lookup-customer?code=${encodeURIComponent(code)}`, { credentials: 'same-origin' });
+                if (!res.ok) { lookupResult.style.display = 'none'; stampBtn.disabled = true; rewardBtn.style.display = 'none'; currentLookup = null; return; }
+                const data = await res.json();
+                if (data.exists) {
+                    currentLookup = data;
+                    const progress = (data.current_stamps / data.stamps_required) * 100;
+                    const tierLabel = {neu:'Neu', stamm:'Stammgast', vip:'VIP ⭐'}[data.tier] || data.tier;
+                    const tierClass = {neu:'neu', stamm:'stamm', vip:'vip'}[data.tier] || 'neu';
+                    lookupResult.innerHTML = `<div class="lookup-card"><div class="progress-circle" style="--progress:${progress}%"><div class="progress-inner">${data.current_stamps}/${data.stamps_required}</div></div><div class="lookup-info"><div class="lookup-name">${data.nickname}</div><div class="lookup-tier ${tierClass}">${tierLabel}</div><div class="lookup-card-name">${data.card_name}</div></div></div>`;
+                    lookupResult.style.display = 'block';
+
+                    // Wenn 10/10 erreicht → Reward Button zeigen, Stempel verstecken
+                    if (data.current_stamps >= data.stamps_required) {
+                        stampBtn.style.display = 'none';
+                        rewardBtn.style.display = 'flex';
+                        rewardBtn.disabled = false;
+                    } else {
+                        stampBtn.style.display = 'flex';
+                        stampBtn.disabled = false;
+                        rewardBtn.style.display = 'none';
+                    }
+                } else {
+                    lookupResult.innerHTML = `<div class="lookup-card error"><div style="font-size:1.5rem;">❌</div><div>Kein Kunde mit Code "${code}"</div></div>`;
+                    lookupResult.style.display = 'block';
+                    stampBtn.disabled = true; rewardBtn.style.display = 'none'; currentLookup = null;
+                }
+            } catch (e) { console.error('Lookup failed:', e); }
+        }
+
+        async function awardStamp() {
+            if (!currentLookup) return;
+            stampBtn.disabled = true;
+            stampBtn.innerHTML = '<span style="font-size:1.125rem;">⏳</span> Wird vergeben...';
+            try {
+                const res = await fetch('/admin/loyalty/stamp-manual', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'same-origin', body: JSON.stringify({short_code: codeInput.value}) });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    if (data.reward_redeemed) showToast(`🎉 ${data.customer_nickname}: "${data.reward_name}" eingelöst!`, 'reward');
+                    else showToast(`✅ Stempel! ${data.current_stamps}/${data.stamps_required}`, 'success');
+                    await lookupCustomer(codeInput.value);
+                    stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Noch ein Stempel';
+                    stampBtn.disabled = false;
+                    nextBtn.style.display = 'block';
+                } else { showToast(data.detail || 'Fehler', 'error'); stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Stempel vergeben'; stampBtn.disabled = false; }
+            } catch (e) { showToast('Fehler: ' + e.message, 'error'); stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Stempel vergeben'; stampBtn.disabled = false; }
+        }
+
+        async function redeemReward() {
+            if (!currentLookup) return;
+            if (!confirm(`Prämie für ${currentLookup.nickname} einlösen?\nStempel werden auf 0 zurückgesetzt.`)) return;
+            rewardBtn.disabled = true;
+            rewardBtn.innerHTML = '<span style="font-size:1.125rem;">⏳</span> Wird eingelöst...';
+            try {
+                const res = await fetch(`/admin/loyalty/redeem/${currentLookup.customer_id}`, { method: 'POST', credentials: 'same-origin' });
+                const data = await res.json();
+                if (res.ok && data.success) { showToast(`🎁 Prämie eingelöst: ${data.reward_name}`, 'success'); await lookupCustomer(codeInput.value); nextBtn.style.display = 'block'; }
+                else { showToast(data.detail || 'Fehler', 'error'); rewardBtn.disabled = false; rewardBtn.innerHTML = '<span style="font-size:1.125rem;">🎁</span> Prämie einlösen'; }
+            } catch (e) { showToast('Fehler: ' + e.message, 'error'); rewardBtn.disabled = false; rewardBtn.innerHTML = '<span style="font-size:1.125rem;">🎁</span> Prämie einlösen'; }
+        }
+
+        function resetForm() {
+            codeInput.value = ''; codeInput.focus();
+            lookupResult.style.display = 'none';
+            stampBtn.disabled = true; stampBtn.style.display = 'flex'; stampBtn.innerHTML = '<span style="font-size:1.125rem;">⭐</span> Stempel vergeben';
+            rewardBtn.style.display = 'none'; nextBtn.style.display = 'none'; currentLookup = null;
+        }
+
+        function showToast(msg, type='success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = `toast show ${type}`;
+            setTimeout(() => t.classList.remove('show'), 4000);
+        }
+        codeInput.focus();
+    
+</script>

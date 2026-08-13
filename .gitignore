@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Node (for Tailwind build pipeline)
+node_modules/
+npm-debug.log*
+
+# Databases
+*.db
+*.db-journal
+*.sqlite
+
+# Local and production secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+tool-results/
+
+# Local uploads / customer media (mounted as volume in Docker)
+static/uploads/
+
+# ── Agent artifacts (never part of the actual app) ───────────────
+skills/
+upload/
+scripts/
+agent-ctx/
+worklog.md
+download/
+*.log

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <title>Stempel vergeben — {{ restaurant.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/pages/loyalty_scanner-0.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            {% if restaurant.logo_path %}
+                <img src="{{ restaurant.logo_path }}" alt="{{ restaurant.name }}">
+            {% endif %}
+            <h1>{{ restaurant.name }}</h1>
+            <p>Stempel-Konsole</p>
+        </header>
+
+        <!-- Tabs: Code-Eingabe vs QR-Scanner -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('code')" id="tab-code">🔢 Code</button>
+            <button class="tab-btn" onclick="switchTab('scan')" id="tab-scan">📷 QR-Scan</button>
+        </div>
+
+        <!-- Tab 1: Code-Eingabe -->
+        <div class="code-section" id="code-section">
+            <label class="code-label" for="shortCode">Code vom Kunden-Pass</label>
+            <input type="text" id="shortCode" class="stamp-input" placeholder="ABCD" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+            <p class="code-hint">4-stelliger Code auf der Pass-Rückseite</p>
+        </div>
+
+        <!-- Tab 2: QR-Scanner -->
+        <div class="scanner-section" id="scan-section">
+            <div class="scanner-overlay">
+                <video id="qr-video" playsinline autoplay muted></video>
+                <div class="scanner-frame"></div>
+            </div>
+            <p class="scanner-hint">QR-Code auf der Stempelkarte scannen</p>
+        </div>
+
+        <div id="lookupResult" style="display:none;"></div>
+
+        <button id="stampBtn" class="btn-primary" disabled onclick="awardStamp()">
+            <span style="font-size:1.125rem;">⭐</span> Stempel vergeben
+        </button>
+
+        <button id="rewardBtn" class="btn-reward" style="display:none;" onclick="redeemReward()">
+            <span style="font-size:1.125rem;">🎁</span> Prämie einlösen
+        </button>
+
+        <button id="nextBtn" class="btn-secondary" style="display:none;" onclick="resetForm()">Nächster Kunde</button>
+
+        <footer class="footer">Powered by digi-gastro · Stempel sofort im Wallet</footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- QR Scanner Library — LOKAL (CDN hatte falsche Version 1.4.2 die nicht existiert!) -->
+    <script src="/static/js/jsQR.js"></script>
+    {% include 'partials/loyalty_scanner-script-0.html' %}
+</body>
+</html>

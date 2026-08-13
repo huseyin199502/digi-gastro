@@ -1,0 +1,64 @@
+<script>
+
+        const slug = "{{ slug }}";
+
+        // Apple Button: Cookie setzen + Close
+        const appleBtn = document.getElementById('apple-btn');
+        if (appleBtn) {
+            appleBtn.addEventListener('click', () => {
+                const expires = new Date();
+                expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000));
+                document.cookie = `loyalty_${slug}=saved; expires=${expires.toUTCString()}; path=/; SameSite=Lax; Secure`;
+                localStorage.setItem(`loyalty_saved_${slug}`, 'true');
+                showToast('✅ Wird zu Apple Wallet hinzugefügt...', 'success');
+            });
+        }
+
+        // Google Button: save_url fetchen und direkt öffnen
+        const googleBtn = document.getElementById('google-btn');
+        if (googleBtn) {
+            googleBtn.style.pointerEvents = 'none';
+            googleBtn.style.opacity = '0.5';
+            googleBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await fetch(`/${slug}/loyalty/pass/google`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.save_url) {
+                            const expires = new Date();
+                            expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000));
+                            document.cookie = `loyalty_${slug}=saved; expires=${expires.toUTCString()}; path=/; SameSite=Lax; Secure`;
+                            localStorage.setItem(`loyalty_saved_${slug}`, 'true');
+                            window.open(data.save_url, '_blank');
+                            showToast('✅ Wird zu Google Wallet hinzugefügt...', 'success');
+                        }
+                    }
+                } catch (err) {
+                    showToast('Fehler beim Google Wallet Download', 'error');
+                }
+            });
+            // Pre-fetch save_url
+            fetch(`/${slug}/loyalty/pass/google`, {
+                headers: { 'Accept': 'application/json' }
+            })
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                    if (d && d.save_url) {
+                        googleBtn.href = d.save_url;
+                        googleBtn.style.pointerEvents = 'auto';
+                        googleBtn.style.opacity = '1';
+                    } else {
+                        googleBtn.style.display = 'none';
+                    }
+                })
+                .catch(() => { googleBtn.style.display = 'none'; });
+        }
+
+        function showToast(msg, type='success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = `toast show ${type}`;
+            setTimeout(() => t.classList.remove('show'), 4000);
+        }
+    
+</script>

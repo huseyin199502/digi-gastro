@@ -1,0 +1,16 @@
+{
+  "name": "digi-gastro-tailwind-build",
+  "version": "1.0.0",
+  "description": "Local Tailwind CSS build pipeline for digi-gastro (replaces Play CDN)",
+  "private": true,
+  "scripts": {
+    "build": "tailwindcss -i tailwind-input.css -o static/css/tailwind-built.css --minify",
+    "build:dev": "tailwindcss -i tailwind-input.css -o static/css/tailwind-built.css --watch",
+    "clean": "rm -f static/css/tailwind-built.css"
+  },
+  "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.9",
+    "tailwindcss": "^3.4.17"
+  }
+}

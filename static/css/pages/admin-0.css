@@ -1,0 +1,4284 @@
+/* ── Cross-Document View Transitions (MPA) ──
+           Aktiviert flüssige Seitenwechsel ohne SPA-Rewrite.
+           Support: Chrome 126+, Safari 18.2+, ~85% Coverage.
+           Progressive Enhancement — Browser ohne Support ignorieren es. */
+        @view-transition {
+            navigation: auto;
+        }
+
+        /* ── LÖSUNG A: Body als natürlicher Scroll-Container ──
+           WebKit Bug #297779 in iOS 26: Verschachtelte overflow:hidden + 100dvh
+           führt zu Viewport-Drift beim URL-Bar-Shrink → Snap-Back am Boden.
+
+           Architektur (wie Twitter/Instagram):
+           - html: KEINE height:100%, KEIN overflow:hidden → nur overscroll-behavior:none
+           - body: KEINE height:100%, KEIN overflow:hidden → scrollt natürlich
+           - main: KEINE height:100dvh, KEIN overflow:hidden → wächst mit Inhalt
+           - header: position:sticky, top:0 → bleibt oben via Sticky
+           - .content-area: KEIN overflow-y:auto → nur padding, display:block
+
+           Vorteil: Keine künstlichen Scroll-Container, keine overflow:hidden
+           Barrieren. Body scrollt natürlich wie eine normale Webseite.
+           Sticky Header bleibt oben. Funktioniert auf iOS Safari 26 + Android Chrome. */
+        html {
+            overscroll-behavior: none;
+            /* overflow-x:hidden auf html (nicht body!) — sonst wird body zum
+               Scroll-Container und iOS 26 Bug #297779 tritt wieder auf. */
+            overflow-x: hidden;
+        }
+        .modal-overscroll {
+            overscroll-behavior: contain;
+        }
+        :root {
+            --gastro-primary: #047857;       /* P1-Fix: #009900 (3.78:1) → #047857 (5.14:1) WCAG AA */
+            --gastro-primary-hover: #065f46;  /* P1-Fix: #008000 → #065f46 dunkler für Hover */
+            --gastro-bg-gray: rgb(235, 235, 235);
+            --gastro-card-bg: #ffffff;
+            --gastro-text-main: #1f2937;
+            --gastro-text-muted: #6b7280;
+            --gastro-border: #e5e7eb;
+            /* Phase 15 P1-Fix: Fehlende Variablen, die an ~20 Stellen referenziert wurden.
+               Vorher fiel der Browser auf #009900 (altes Grün, 3.78:1 Kontrast = WCAG-AA fail)
+               bzw. #fafafa/#f4f4f5 (in Dark Mode zu hell) zurück. */
+            --gastro: #047857;               /* Gleich wie --gastro-primary, WCAG-AA-konform */
+            --gastro-bg-muted: #f4f4f5;      /* Dezenter Hintergrund für Hover/Selektion */
+            --gastro-bg: #ffffff;            /* Haupt-Hintergrund für Cards/Panels */
+            /* Override Tailwind primary to admin green (was set via CDN tailwind.config before) */
+            --color-primary: #047857;
+            --color-primary-rgb: 4 120 87;
+        }
+
+        /* Dark Mode variables */
+        html.dark, :root.dark {
+            --gastro-bg-gray: #09090b;
+            --gastro-card-bg: #18181b;
+            --gastro-text-main: #f4f4f5;
+            --gastro-text-muted: #a1a1aa;
+            --gastro-border: #27272a;
+            /* Phase 15 P1-Fix: Dark-Mode-Werte für vorher fehlende Variablen */
+            --gastro: #047857;               /* In Dark Mode etwas heller für Sichtbarkeit */
+            --gastro-bg-muted: #1f2937;      /* Dunkler Hover-Hintergrund */
+            --gastro-bg: #18181b;            /* Dark-Mode Card-BG */
+        }
+
+        /* ── Custom Checkbox (dark-mode safe, high-visibility) ── */
+        .custom-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            border: 2.5px solid #6b7280;
+            border-radius: 5px;
+            background: #ffffff;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        /* Dark mode: HELLER Border (3px) + hellerer BG für besseren Kontrast */
+        html.dark .custom-checkbox {
+            border-color: #e5e7eb;
+            border-width: 2.5px;
+            background: #374151;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+        }
+        /* Dark mode: hover/focus state deutlicher */
+        html.dark .custom-checkbox:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(229, 231, 235, 0.15);
+        }
+        .custom-checkbox:checked {
+            background: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+            box-shadow: 0 2px 6px rgba(0,153,0,0.25);
+        }
+        html.dark .custom-checkbox:checked {
+            background: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+        }
+        /* Dark-Mode Override: dunkelgrüner Haken statt weiß
+           (damit Haken auch im Dark-Mode klar erkennbar ist) */
+        html.dark .custom-checkbox:checked::after {
+            border: solid #047857 !important;
+            border-width: 0 2.5px 2.5px 0 !important;
+        }
+        .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 6px;
+            width: 5px;
+            height: 10px;
+            border: solid #047857;  /* vorher: white → dunkelgrün für max. Sichtbarkeit */
+            border-width: 0 2.5px 2.5px 0;
+            transform: rotate(45deg);
+        }
+        .custom-checkbox:focus-visible {
+            outline: 2px solid var(--gastro-primary);
+            outline-offset: 2px;
+        }
+        /* Custom Checkbox on light backgrounds (bg-emerald-50, bg-white, popup-card, etc.) */
+        .bg-emerald-50 .custom-checkbox,
+        .bg-white .custom-checkbox,
+        .popup-card .custom-checkbox,
+        .popup-body .custom-checkbox,
+        .control-split-item .custom-checkbox,
+        .bg-gray-50 .custom-checkbox {
+            border-color: #6b7280;
+            background: #ffffff;
+        }
+        .bg-emerald-50 .custom-checkbox:checked,
+        .bg-white .custom-checkbox:checked,
+        .popup-card .custom-checkbox:checked,
+        .popup-body .custom-checkbox:checked,
+        .control-split-item .custom-checkbox:checked,
+        .bg-gray-50 .custom-checkbox:checked {
+            background: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        /* ── BUG FIX: Kellner-Cockpit Teilzahlung Checkbox Dark Mode ──
+           Problem: Grüner Haken / Kästchen in Dark Mode schlecht erkennbar
+           Fix: Größere Checkbox (26px), dickere Border, weißer Haken im Dark Mode,
+           Glow-Effekt wenn checked → maximale Sichtbarkeit */
+        html.dark .control-split-item .custom-checkbox {
+            width: 26px;
+            height: 26px;
+            border: 3px solid #f3f4f6;
+            background: #1f2937;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.4);
+        }
+        html.dark .control-split-item .custom-checkbox:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(255,255,255,0.15), 0 2px 6px rgba(0,0,0,0.5);
+        }
+        html.dark .control-split-item .custom-checkbox:checked {
+            background: #22c55e;
+            border-color: #16a34a;
+            box-shadow: 0 0 0 4px rgba(34,197,94,0.3), 0 2px 8px rgba(34,197,94,0.4);
+        }
+        html.dark .control-split-item .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 7px;
+            width: 7px;
+            height: 13px;
+            border: solid #ffffff !important;
+            border-width: 0 3px 3px 0 !important;
+            transform: rotate(45deg);
+        }
+        /* Auch im Light Mode: Checkbox im Cockpit größer und deutlicher */
+        html:not(.dark) .control-split-item .custom-checkbox {
+            width: 26px;
+            height: 26px;
+            border: 3px solid #374151;
+        }
+        html:not(.dark) .control-split-item .custom-checkbox:checked {
+            background: #16a34a;
+            border-color: #15803d;
+        }
+        html:not(.dark) .control-split-item .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 7px;
+            width: 7px;
+            height: 13px;
+            border: solid #ffffff !important;
+            border-width: 0 3px 3px 0 !important;
+            transform: rotate(45deg);
+        }
+
+        /* ── Toggle Switch (Brutto/Netto, Kartenzahlung, Shisha-Modus) ──
+           Hoch-Kontrast Toggle für Dark- und Light-Mode.
+           Vorher: Klassen .switch und .slider waren nirgends definiert →
+           Browser-Default-Checkbox wurde gezeigt (schwer erkennbar). */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+            cursor: pointer;
+            /* Touch-Target vergrößern (Apple HIG: min. 44×44px).
+               Padding ist transparent, deshalb kein Layout-Bruch. */
+            padding: 8px;
+            margin: -8px;
+            box-sizing: content-box;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        .slider {
+            position: absolute;
+            inset: 0;
+            background-color: #cbd5e1;
+            border: 2px solid #94a3b8;
+            border-radius: 9999px;
+            transition: all 0.2s ease;
+        }
+        .slider::before {
+            content: "";
+            position: absolute;
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #ffffff;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        /* Eingeschaltet (checked) */
+        .switch input:checked + .slider {
+            background-color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        .switch input:checked + .slider::before {
+            transform: translate(22px, -50%);
+            background-color: #ffffff;
+        }
+        /* Hover/Focus States */
+        .switch:hover .slider {
+            border-color: #64748b;
+        }
+        .switch input:checked + .slider:hover {
+            background-color: #15803d;
+            border-color: #15803d;
+        }
+        .switch input:focus-visible + .slider {
+            outline: 2px solid var(--gastro-primary);
+            outline-offset: 2px;
+        }
+        /* Dark Mode: hellere Slider-BG für besseren Kontrast */
+        html.dark .slider {
+            background-color: #475569;
+            border-color: #94a3b8;
+        }
+        html.dark .switch:hover .slider {
+            border-color: #cbd5e1;
+        }
+        html.dark .switch input:checked + .slider {
+            background-color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+        }
+        html.dark .switch input:checked + .slider:hover {
+            background-color: #16a34a;
+            border-color: #16a34a;
+        }
+        html.dark .slider::before {
+            background-color: #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        }
+
+        /* ── Preisanzeige Toggle Row: Dark Mode Kontrast ──
+           Vorher: text-zinc-500/700 waren im Dark Mode kaum lesbar.
+           Jetzt: eigene Klassen mit klaren Dark-Mode-Farben. */
+        .toggle-title {
+            color: #1f2937;
+        }
+        .toggle-desc {
+            color: #4b5563;
+        }
+        .toggle-label {
+            color: #1f2937;
+        }
+        .toggle-hint {
+            color: #6b7280;
+        }
+        .toggle-badge {
+            color: #fff;
+        }
+        .badge-netto {
+            background: #d97706;
+            border: 1px solid #b45309;
+            color: #fffbeb;
+        }
+        .badge-brutto {
+            background: #059669;
+            border: 1px solid #047857;
+            color: #ecfdf5;
+        }
+
+        html.dark .dark-mode-toggle-row {
+            background: var(--gastro-card-bg) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .toggle-title {
+            color: #f3f4f6 !important;
+        }
+        html.dark .toggle-desc {
+            color: #d1d5db !important;
+        }
+        html.dark .toggle-label {
+            color: #ffffff !important;
+        }
+        html.dark .toggle-hint {
+            color: #9ca3af !important;
+        }
+        html.dark .badge-netto {
+            background: #f59e0b !important;
+            border-color: #d97706 !important;
+            color: #1f2937 !important;
+        }
+        html.dark .badge-brutto {
+            background: #10b981 !important;
+            border-color: #059669 !important;
+            color: #052e16 !important;
+        }
+
+        /* ── Standard-Checkboxen: Dark Mode Kontrast ──
+           Vorher: Default-Checkbox im Dark Mode kaum sichtbar (dunkel auf dunkel).
+           Jetzt: Heller Border + glow für bessere Sichtbarkeit. */
+        html.dark input[type="checkbox"] {
+            /* Nur Standard-Checkboxen, nicht .switch input (unsichtbar gemacht) oder
+               .custom-checkbox (hat eigene Regeln) */
+            appearance: auto;
+            -webkit-appearance: auto;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            background: #374151;
+            cursor: pointer;
+            accent-color: #22c55e;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        html.dark input[type="checkbox"]:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.1);
+        }
+        html.dark input[type="checkbox"]:checked {
+            background: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+        }
+        html.dark input[type="checkbox"]:focus-visible {
+            outline: 2px solid #22c55e;
+            outline-offset: 2px;
+        }
+        /* .switch input muss unsichtbar bleiben (Toggle-Logik) */
+        html.dark .switch input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 0;
+            height: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+        }
+        /* .custom-checkbox hat eigene Regeln → nicht überschreiben */
+        html.dark input.custom-checkbox[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+        }
+
+        .cat-label {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--gastro-text-muted);
+            padding: 4px 2px 2px;
+            margin-top: 8px;
+        }
+
+        /* Serviert-Checkmarks im Control Modal — INLINE-STYLES statt CSS-Klassen!
+           Siehe renderPopupItems() — Haken werden mit inline style="..." gerendert
+           damit sie Cache-resistent sind und nicht von custom-checkbox überschrieben
+           werden können. Diese CSS-Klasse bleibt als Fallback. */
+        .checkmark-served {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 26px !important;
+            height: 26px !important;
+            padding: 0 4px !important;
+            border-radius: 999px !important;
+            background: #ffffff !important;
+            color: #047857 !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            box-shadow: 0 0 0 2px #047857 !important, 0 1px 4px rgba(4,120,87,0.4) !important;
+            vertical-align: middle !important;
+        }
+
+        /* Logo-Upload Karten — Theme-aware via explizitem CSS (nicht Tailwind dark:)
+           weil tailwind-built.css nicht alle dark: Varianten enthält. */
+        .logo-preview-card {
+            background: #f9fafb;       /* gray-50 Light */
+            border-color: #f3f4f6;     /* gray-100 Light */
+        }
+        .logo-preview-2 {
+            background: #eff6ff;       /* blue-50 Light */
+            border-color: #dbeafe;     /* blue-100 Light */
+        }
+        .logo-upload-card {
+            background: #fffbeb;       /* amber-50 Light */
+            border-color: #fef3c7;     /* amber-100 Light */
+        }
+        /* Dark-Mode Overrides — html.dark Klasse wird via restaurant.theme gesetzt */
+        html.dark .logo-preview-card {
+            background: #1f2937;       /* zinc-800 Dark */
+            border-color: #374151;     /* zinc-700 Dark */
+            color: #e4e4e7;            /* zinc-200 Dark */
+        }
+        html.dark .logo-preview-2 {
+            background: rgba(30, 58, 138, 0.3);  /* blue-950 mit 30% Opazität */
+            border-color: #1e3a8a;                /* blue-900 Dark */
+            color: #93c5fd;                       /* blue-300 Dark */
+        }
+        html.dark .logo-upload-card {
+            background: rgba(120, 53, 15, 0.3);  /* amber-950 mit 30% Opazität */
+            border-color: #78350f;                /* amber-900 Dark */
+            color: #fcd34d;                       /* amber-300 Dark */
+        }
+
+        /* Haken-Icon im Servieren-Button — dunkelgrün + fett für max. Sichtbarkeit.
+           Vorher: ✔️ wurde als buntes Emoji gerendert (mit Variation Selector),
+           das auf hellem Pastell-Hintergrund kaum erkennbar war.
+           Jetzt: solid Unicode ✔ in dunkelgrün, größer und fetter. */
+        .btn-check-icon {
+            color: #047857;
+            font-weight: 900;
+            font-size: 16px;
+            line-height: 1;
+            display: inline-block;
+            margin-right: 2px;
+            text-shadow: 0 0 1px rgba(4, 120, 87, 0.3);
+        }
+
+        /* Light mode: Event product selector & day selector checkboxes need better visibility */
+        html.light .ep-toggle,
+        html.light .event-day-check {
+            accent-color: #7c3aed !important;
+        }
+        html.light #event-modal .combo-day-check,
+        html.light #event-modal .combo-item-toggle {
+            accent-color: #0d9488 !important;
+        }
+        /* Light mode: Event modal inputs/selects need dark text */
+        html.light #event-modal select,
+        html.light #event-modal input[type="text"],
+        html.light #event-modal input[type="number"],
+        html.light #event-modal input[type="time"] {
+            color: #111827 !important;
+            background-color: #f9fafb !important;
+            border-color: #d1d5db !important;
+        }
+        html.light #event-modal select option {
+            color: #111827 !important;
+            background-color: #ffffff !important;
+        }
+        /* Light mode: Ensure event product row text is dark */
+        html.light #event-modal .text-zinc-800,
+        html.light #event-modal .text-zinc-100 {
+            color: #1f2937 !important;
+        }
+        html.light #event-modal .text-zinc-500,
+        html.light #event-modal .text-zinc-500,
+        html.light #event-modal .text-zinc-600 {
+            color: #4b5563 !important;
+        }
+        /* Light mode: Combo section contrast fixes */
+        html.light #event-modal .bg-teal-50\/50,
+        html.light #event-modal .bg-teal-50 {
+            background-color: #f0fdfa !important;
+        }
+        html.light #event-modal .bg-teal-100 {
+            background-color: #ccfbf1 !important;
+        }
+        html.light #event-modal .bg-teal-200 {
+            background-color: #99f6e4 !important;
+        }
+        html.light #event-modal .text-teal-700,
+        html.light #event-modal .text-teal-700,
+        html.light #event-modal .text-teal-800 {
+            color: #0f766e !important;
+        }
+        html.light #event-modal .border-teal-200,
+        html.light #event-modal .border-teal-300 {
+            border-color: #99f6e4 !important;
+        }
+        html.light #event-modal .text-emerald-700,
+        html.light #event-modal .text-emerald-700 {
+            color: #059669 !important;
+        }
+        html.light #event-modal .bg-emerald-50,
+        html.light #event-modal .bg-emerald-100 {
+            background-color: #ecfdf5 !important;
+        }
+        html.light #event-modal .bg-gray-100 {
+            background-color: #f3f4f6 !important;
+        }
+        html.light #event-modal .text-gray-600 {
+            color: #4b5563 !important;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--gastro-bg-gray) !important;
+            color: var(--gastro-text-main) !important;
+            /* KEIN overflow-x:hidden hier (auf html gesetzt), KEIN height, KEIN display:flex.
+               Body ist ein normales Block-Element das mit Inhalt wächst.
+               HTML (documentElement) ist der natürliche Scroll-Container.
+               Löst WebKit Bug #297779 (iOS 26 Snap-Back). */
+            min-height: 100svh;
+        }
+
+        /* Dark theme dashboard overrides for Tailwind classes */
+        html.dark .bg-white,
+        html.dark .bg-gray-50,
+        html.dark .bg-gray-100,
+        html.dark .bg-gray-200,
+        html.dark .bg-zinc-50,
+        html.dark .bg-zinc-100,
+        html.dark .bg-zinc-200,
+        html.dark .bg-slate-50,
+        html.dark .bg-slate-100,
+        html.dark .bg-neutral-50,
+        html.dark .bg-neutral-100,
+        html.dark .bg-stone-50,
+        html.dark .bg-stone-100,
+        html.dark .bg-emerald-50,
+        html.dark .bg-amber-50,
+        html.dark .bg-teal-50,
+        html.dark .bg-purple-50,
+        html.dark .bg-purple-100,
+        html.dark .bg-violet-50,
+        html.dark .bg-violet-100,
+        html.dark .bg-indigo-50,
+        html.dark .bg-indigo-100,
+        html.dark .from-emerald-50,
+        html.dark .to-teal-50,
+        html.dark .from-amber-50,
+        html.dark .to-orange-50 {
+            background: var(--gastro-card-bg) !important;
+        }
+
+        /* Dark mode hover overrides for light-bg hover states */
+        html.dark .hover\:bg-purple-50,
+        html.dark .hover\:bg-gray-50,
+        html.dark .hover\:bg-purple-100 {
+            --tw-bg-opacity: 1 !important;
+        }
+        html.dark .hover\:bg-purple-50:hover,
+        html.dark .hover\:bg-gray-50:hover,
+        html.dark .hover\:bg-purple-100:hover {
+            background: var(--gastro-bg-gray) !important;
+        }
+
+        /* Override gradient backgrounds in dark mode */
+        html.dark .bg-gradient-to-r {
+            background-image: none !important;
+        }
+        
+        html.dark .text-gray-900,
+        html.dark .text-gray-800,
+        html.dark .text-gray-700,
+        html.dark .text-gray-600,
+        html.dark .text-zinc-900,
+        html.dark .text-zinc-800,
+        html.dark .text-zinc-700,
+        html.dark .text-zinc-600,
+        html.dark .text-slate-900,
+        html.dark .text-slate-800,
+        html.dark .text-slate-700,
+        html.dark .text-slate-600,
+        html.dark .text-neutral-900,
+        html.dark .text-neutral-800,
+        html.dark .text-neutral-700,
+        html.dark .text-neutral-600,
+        html.dark .text-stone-900,
+        html.dark .text-stone-800,
+        html.dark .text-stone-700,
+        html.dark .text-stone-600,
+        html.dark .text-black,
+        html.dark .text-emerald-800,
+        html.dark .text-emerald-700,
+        html.dark .text-amber-800,
+        html.dark .text-amber-700,
+        html.dark .text-amber-700,
+        html.dark .text-purple-800,
+        html.dark .text-purple-700,
+        html.dark .text-purple-600,
+        html.dark .text-violet-800,
+        html.dark .text-violet-700,
+        html.dark .text-violet-600,
+        html.dark .text-indigo-800,
+        html.dark .text-indigo-700,
+        html.dark .text-indigo-600,
+        html.dark .text-rose-800,
+        html.dark .text-rose-700,
+        html.dark .text-rose-600 {
+            color: var(--gastro-text-main) !important;
+        }
+
+        html.dark .text-gray-500,
+        html.dark .text-gray-400,
+        html.dark .text-zinc-500,
+        html.dark .text-zinc-500,
+        html.dark .text-slate-500,
+        html.dark .text-slate-400,
+        html.dark .text-neutral-500,
+        html.dark .text-neutral-400,
+        html.dark .text-stone-500,
+        html.dark .text-stone-400 {
+            color: var(--gastro-text-muted) !important;
+        }
+
+        html.dark .border-gray-100,
+        html.dark .border-gray-200,
+        html.dark .border-gray-300,
+        html.dark .border-zinc-100,
+        html.dark .border-zinc-200,
+        html.dark .border-zinc-300,
+        html.dark .border-slate-100,
+        html.dark .border-slate-200,
+        html.dark .border-neutral-100,
+        html.dark .border-neutral-200,
+        html.dark .border-stone-100,
+        html.dark .border-stone-200,
+        html.dark .border-emerald-100,
+        html.dark .border-emerald-200,
+        html.dark .border-amber-100,
+        html.dark .border-amber-200,
+        html.dark .border-amber-300 {
+            border-color: var(--gastro-border) !important;
+        }
+
+        html.dark .divide-y > :not([hidden]) ~ :not([hidden]) {
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark input, html.dark select, html.dark textarea {
+            background-color: var(--gastro-bg-gray) !important;
+            color: var(--gastro-text-main) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark input::placeholder, html.dark textarea::placeholder {
+            color: var(--gastro-text-muted) !important;
+            opacity: 0.7;
+        }
+        html.dark .popup-card {
+            background-color: var(--gastro-card-bg) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .popup-footer {
+            background-color: var(--gastro-bg-gray) !important;
+            border-top-color: var(--gastro-border) !important;
+        }
+        /* Ensure popup body text is always readable */
+        html.dark .popup-body {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .popup-footer {
+            color: var(--gastro-text-main) !important;
+        }
+        /* Light mode: ensure popup text stays dark on white background */
+        html.light .popup-body,
+        html.light .popup-footer {
+            color: #1f2937 !important;
+        }
+        /* Control modal split cockpit: Items haben Pastell-BG via lightenColor(group.color, 94).
+           Das Pastell ist immer hell (auch im Dark Mode), deshalb MUSS der Text dunkel sein.
+           Die alten !important-Overrides fuer .control-split-item wurden entfernt, weil sie
+           im Dark Mode var(--gastro-text-main) = weiss erzwingen wollten → weisser Text auf
+           hellem Pastell = unlesbar (Bug: 'Kontrast Fehler nach servieren').
+           Jetzt ist die Inline color:#1f2937 auf den Item-Divs die einzige Quelle der Wahrheit. */
+        /* Control modal Bon cards: ensure readable in dark mode */
+        html.dark #control-orders-container .bg-gray-50 {
+            background: var(--gastro-bg-gray) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark #control-orders-container .bg-white {
+            background: var(--gastro-bg-gray) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark #control-orders-container .text-gray-900,
+        html.dark #control-orders-container .text-gray-600 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark #control-orders-container .text-zinc-500,
+        html.dark #control-orders-container .text-zinc-800 {
+            color: var(--gastro-text-muted) !important;
+        }
+        /* Control modal footer dark mode: ensure readable */
+        html.dark .popup-footer .text-zinc-700,
+        html.dark .popup-footer .text-zinc-800,
+        html.dark .popup-footer .text-gray-200 {
+            color: var(--gastro-text-main) !important;
+        }
+        /* Ensure alert items in control modal are readable */
+        html.dark #control-alerts-box .text-amber-700 {
+            color: #fbbf24 !important;
+        }
+
+        /* ── SITZPLAN TABLE TILE DARK MODE CONTRAST ── */
+        /* In dark mode, inline dark colors on table tiles are nearly invisible */
+        /* Override all inline color styles inside sitzplan-table to inherit from parent */
+        html.dark .sitzplan-table span[style*="color:"],
+        html.dark .sitzplan-table a[style*="color:"] {
+            color: inherit !important;
+        }
+        /* Status-specific bright colors for dark mode tiles */
+        html.dark .sitzplan-table.status-active {
+            color: #34d399 !important;  /* emerald-400 */
+        }
+        html.dark .sitzplan-table.status-pending {
+            color: #fca5a5 !important;  /* red-300 */
+        }
+        html.dark .sitzplan-table.status-calling {
+            color: #fcd34d !important;  /* amber-300 */
+        }
+        html.dark .sitzplan-table.status-free {
+            color: #a1a1aa !important;  /* zinc-400 */
+        }
+        /* Dark mode: tile timers need visibility */
+        html.dark .sitzplan-table .tile-timer {
+            color: #fca5a5 !important;
+            background: rgba(239, 68, 68, 0.15) !important;
+        }
+        /* Light mode: ensure tile colors are dark enough on white background */
+        html.light .sitzplan-table.status-active {
+            color: #065f46 !important;
+        }
+        html.light .sitzplan-table.status-pending {
+            color: #9f1239 !important;
+        }
+        html.light .sitzplan-table.status-calling {
+            color: #92400e !important;
+        }
+        html.light .sitzplan-table.status-free {
+            color: #6b7280 !important;
+        }
+        /* Dark mode: sitzplan section containers (Drinnen/Draußen) need dark bg */
+        html.dark .seating-canvas .bg-white {
+            background-color: var(--gastro-card-bg) !important;
+            border-color: var(--gastro-border) !important;
+        }
+        html.dark .seating-canvas .bg-white h3,
+        html.dark .seating-canvas .bg-white .text-zinc-800 {
+            color: var(--gastro-text-main) !important;
+        }
+        html.dark .seating-canvas .bg-white .text-zinc-500 {
+            color: var(--gastro-text-muted) !important;
+        }
+
+        /* Left Sidebar - Responsive styling */
+        aside {
+            width: 280px;
+            background-color: var(--gastro-card-bg);
+            border-right: 1px solid var(--gastro-border);
+            height: 100vh;
+            height: 100dvh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            /* KRITISCH: Wenn Sidebar geschlossen ist (off-screen via translateX),
+               darf sie keine Touch-Events abfangen — sonst blockiert sie den
+               Scroll im Hauptinhalt auf iOS Safari. pointer-events:none wenn
+               geschlossen, auto wenn .open oder nicht-closed. */
+            pointer-events: none;
+        }
+        /* Sidebar darf Events empfangen wenn:
+           - Desktop (≥1024px) und nicht .closed
+           - Mobile/Tablet und .open */
+        @media (min-width: 1024px) {
+            aside:not(.closed) {
+                pointer-events: auto;
+            }
+        }
+        @media (max-width: 1023px) {
+            aside.open {
+                pointer-events: auto;
+            }
+        }
+        aside nav {
+            overflow-y: auto;
+        }
+
+        /* On mobile/tablet, hide sidebar off-screen by default */
+        @media (max-width: 1023px) {
+            aside {
+                transform: translateX(-100%);
+            }
+            aside.open {
+                transform: translateX(0);
+                box-shadow: 10px 0 25px -5px rgba(0, 0, 0, 0.15);
+            }
+            main {
+                margin-left: 0 !important;
+            }
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background-color: rgba(0, 0, 0, 0.4);
+                z-index: 45;
+                backdrop-filter: blur(2px);
+            }
+            .sidebar-backdrop.show {
+                display: block;
+            }
+        }
+
+        /* On desktop, keep sidebar fixed and open by default but allow closing */
+        @media (min-width: 1024px) {
+            aside {
+                transform: translateX(0);
+            }
+            aside.closed {
+                transform: translateX(-100%);
+            }
+            main {
+                margin-left: 280px;
+                transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            main.sidebar-closed {
+                margin-left: 0 !important;
+            }
+            .sidebar-backdrop {
+                display: none !important;
+            }
+        }
+
+        .profile-card {
+            padding: 1.5rem;
+            background-color: #1f2937;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--gastro-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+
+        nav .nav-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            color: var(--gastro-text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        nav .nav-btn:hover {
+            background-color: #f3f4f6;
+            color: var(--gastro-text-main);
+        }
+
+        nav .nav-btn.active {
+            background-color: #e6f5e6;
+            color: var(--gastro-primary);
+            border-left-color: var(--gastro-primary);
+        }
+
+        main {
+            margin-left: 280px;
+            /* KEIN height:100dvh, KEIN overflow:hidden — main wächst mit Inhalt.
+               Body scrollt natürlich. Sticky Header bleibt oben via position:sticky. */
+            min-height: 100svh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── .content-area: KEIN Scroll-Container mehr! ──
+           Body scrollt natürlich. .content-area ist nur noch ein Container
+           mit padding. Kein overflow-y:auto, kein flex:1, kein min-height:0.
+           Das umgeht WebKit Bug #297779 vollständig. */
+        .content-area {
+            padding: 1.5rem;
+            /* Safe-Area + Extra-Room für Home-Indicator + Rubber-Band-Room */
+            padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+            display: block;
+        }
+
+        /* Tab Content: wächst natürlich mit Inhalt */
+        .admin-tab-content {
+            display: none;
+        }
+
+        .admin-tab-content.active {
+            display: block;
+        }
+
+        /* Seating Plan Canvas */
+        .seating-canvas {
+            position: relative;
+            width: 100%;
+            height: 620px;
+            background-color: var(--gastro-card-bg);
+            border: 2px dashed var(--gastro-border);
+            border-radius: 1rem;
+            margin-top: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        /* ── Responsive seating canvas height ── */
+        @media (max-width: 1023px) {
+            .seating-canvas {
+                height: 520px;
+            }
+        }
+        @media (max-width: 768px) {
+            .seating-canvas {
+                height: 440px;
+            }
+        }
+        @media (max-width: 480px) {
+            .seating-canvas {
+                height: 60vh;
+                min-height: 320px;
+            }
+        }
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            .seating-canvas {
+                height: 70vh;
+                min-height: 280px;
+            }
+        }
+
+
+        .seating-canvas.view-mode-grouped {
+            position: relative;
+            width: 100%;
+            height: auto !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+.seating-canvas.view-mode-grouped .sitzplan-table {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            width: 100% !important;
+            height: 128px !important;
+            margin: 0 !important;
+        }
+
+
+        /* Table Tiles */
+        .sitzplan-table {
+            position: absolute;
+            background-color: var(--gastro-card-bg);
+            border: 2px solid var(--gastro-border);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: var(--gastro-text-main);
+            user-select: none;
+        }
+
+        .sitzplan-table:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.12);
+        }
+
+        .sitzplan-table.rect {
+            border-radius: 12px;
+        }
+
+        .sitzplan-table.round {
+            border-radius: 50%;
+        }
+
+        /* Prevent double-tap to zoom on interactive elements on mobile */
+        button,
+        input,
+        select,
+        textarea,
+        a,
+        .sitzplan-table,
+        .table-sel-tile {
+            touch-action: manipulation;
+        }
+
+        /* Styling for table selection tiles in the transfer popup */
+        .table-sel-tile {
+            background-color: #1f2937 !important; /* slate-800 */
+            border: 1px solid #374151 !important; /* slate-700 */
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+        }
+
+        .table-sel-tile:hover {
+            background-color: #374151 !important; /* slate-700 */
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+
+        .table-sel-tile.busy {
+            border-color: #f59e0b !important; /* amber-500 */
+            background-color: #1e1b15 !important;
+        }
+
+        .table-sel-tile.busy:hover {
+            background-color: #2c2519 !important;
+        }
+
+        .sitzplan-table.status-free {
+            border-color: var(--gastro-border);
+        }
+
+        .sitzplan-table.status-active {
+            border-color: var(--gastro-primary);
+            background-color: rgba(0, 153, 0, 0.08);
+            color: var(--gastro-primary);
+        }
+
+        .sitzplan-table.status-pending {
+            border-color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.08);
+            animation: tableShake 0.4s infinite;
+        }
+
+        .sitzplan-table.status-calling {
+            border-color: #f59e0b !important;
+            background-color: rgba(245, 158, 11, 0.08) !important;
+            color: #d97706 !important;
+            animation: pulseAmber 1.2s infinite alternate;
+        }
+
+        .sitzplan-table.draggable {
+            cursor: move;
+            border-style: dashed !important;
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.05) !important;
+            color: #3b82f6 !important;
+        }
+
+        @keyframes tableShake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-1deg) translateY(-1px); }
+            75% { transform: rotate(1deg) translateY(1px); }
+        }
+
+        @keyframes pulseAmber {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); border-color: #f59e0b; }
+            100% { box-shadow: 0 0 12px 6px rgba(245, 158, 11, 0.1); border-color: #d97706; }
+        }
+
+        /* Service Alerts */
+        .call-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(252, 165, 165, 0.3);
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            animation: pulseBg 1.5s infinite;
+        }
+
+        @keyframes pulseBg {
+            0%, 100% { opacity: 0.95; }
+            50% { opacity: 1; transform: scale(1.005); }
+        }
+
+        /* Overlay Backdrop Modals */
+        .overlay-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            padding: 1rem;
+            padding-top: max(1rem, env(safe-area-inset-top));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            padding-left: max(1rem, env(safe-area-inset-left));
+            padding-right: max(1rem, env(safe-area-inset-right));
+            overscroll-behavior: contain;
+        }
+
+        .popup-card {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .popup-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            /* Verhindert Scroll-Chaining: Wenn der Inhalt am Ende/Anfang ist,
+               scrollt nicht die Seite dahinter mit. Wichtig für iOS Safari & Android Chrome. */
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Scrollable area shadow indicator for control modal */
+        #control-modal .popup-body {
+            scroll-behavior: smooth;
+        }
+        #control-modal .popup-body::-webkit-scrollbar {
+            width: 4px;
+        }
+        #control-modal .popup-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #control-modal .popup-body::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+            border-radius: 10px;
+        }
+        html.dark #control-modal .popup-body::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .popup-footer {
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            padding: 1rem 1.5rem;
+        }
+
+        /* Toast element */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            bottom: calc(24px + env(safe-area-inset-bottom, 0px)); /* Phase 13 P2: iOS Home-Indicator nicht überlappen */
+            right: 24px;
+            right: calc(24px + env(safe-area-inset-right, 0px));
+            padding: 12px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            max-width: calc(100vw - 48px); /* Phase 13 P2: Nie über Viewport rand */
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast-success { background-color: #047857; } /* WCAG AA: white auf #047857 = 5.14:1 (vorher #10b981 = 2.54:1) */
+        .toast-error { background-color: #dc2626; }   /* WCAG AA: white auf #dc2626 = 4.97:1 (vorher #ef4444 = 3.76:1) */
+
+        @media (max-width: 640px) {
+            .overlay-backdrop {
+                align-items: flex-end;
+                padding: 0;
+                overflow: hidden;
+                /* iOS Safe-Area: verhindert dass Modal unter Home-Indicator verschwindet */
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            .popup-card {
+                max-width: 100% !important;
+                border-bottom-left-radius: 0 !important;
+                border-bottom-right-radius: 0 !important;
+                border-top-left-radius: 1.5rem !important;
+                border-top-right-radius: 1.5rem !important;
+                margin: 0;
+                max-height: 90vh !important;
+                display: flex;
+                flex-direction: column;
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            .popup-body {
+                max-height: 55vh !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            .popup-header { 
+                padding: 0.75rem 1rem;
+                padding-top: max(0.75rem, env(safe-area-inset-top, 0));
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                flex-shrink: 0;
+            }
+            .popup-header button {
+                min-width: 44px;
+                min-height: 44px;
+            }
+            .popup-body { padding: 1rem; }
+            .popup-footer { 
+                padding: 0.75rem 1rem;
+                padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0));
+                flex-shrink: 0;
+            }
+        }
+
+        /* Config Sub-tab styles */
+        .config-subtab-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px;
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .config-subtab-btn:hover {
+            background-color: #f3f4f6;
+            color: var(--gastro-text-main);
+        }
+        html.dark .config-subtab-btn:hover {
+            background-color: #27272a;
+        }
+        .config-subtab-btn.active {
+            background-color: #e6f5e6;
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        html.dark .config-subtab-btn.active {
+            background-color: rgba(0, 153, 0, 0.15);
+            color: #22c55e;
+            border-color: #22c55e;
+        }
+        .config-tab-content {
+            display: none;
+        }
+        .config-tab-content.active {
+            display: block;
+        }
+
+        /* Remove annoying browser-native icons from form fields */
+        input[type="text"]::-webkit-search-cancel-button,
+        input[type="search"]::-webkit-search-cancel-button,
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            -webkit-appearance: none;
+            appearance: none;
+            display: none !important;
+            margin: 0;
+            padding: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* ===== PREMIUM DASHBOARD ENHANCEMENTS ===== */
+
+        /* Sidebar enhancements */
+        .sidebar-header {
+            padding: 1rem 1.25rem;
+            padding-top: calc(1rem + env(safe-area-inset-top));
+            border-bottom: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(201, 168, 76, 0.04), transparent);
+            position: relative;
+        }
+        .sidebar-header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2.5rem;
+            height: 2px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+        }
+
+        .profile-card {
+            padding: 1.25rem 1.25rem 1rem;
+            background: linear-gradient(145deg, #1f2937, #111827);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(201, 168, 76, 0.1);
+        }
+        .profile-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 3rem;
+            height: 3px;
+            border-radius: 3px;
+            background: #c9a84c;
+            opacity: 0.6;
+        }
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at top, rgba(201, 168, 76, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            background-color: var(--gastro-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            margin-bottom: 0.625rem;
+            box-shadow: 0 4px 12px rgba(0, 153, 0, 0.25);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 153, 0, 0.35);
+        }
+
+        .nav-group-label {
+            padding: 0.5rem 1.25rem 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--gastro-text-muted);
+            /* opacity entfernt — WCAG AA: Section-Label muss mind. 4.5:1 Kontrast haben */
+        }
+
+        .nav-divider {
+            height: 1px;
+            background-color: var(--gastro-border);
+            margin: 0.5rem 1.25rem;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           CMS DASHBOARD (Shopify-Style Übersicht)
+           ═══════════════════════════════════════════════════════ */
+        .cms-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .cms-card {
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .cms-card:hover {
+            border-color: var(--gastro, #009900);
+            box-shadow: 0 8px 24px -8px rgba(0, 153, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        .cms-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 0.25rem;
+        }
+        .cms-card-icon.green { background: #ecfdf5; color: #059669; }
+        .cms-card-icon.blue { background: #eff6ff; color: #2563eb; }
+        .cms-card-icon.amber { background: #fffbeb; color: #d97706; }
+        .cms-card-icon.purple { background: #faf5ff; color: #9333ea; }
+        .cms-card-icon.rose { background: #fff1f2; color: #e11d48; }
+        .cms-card-icon.gray { background: #f4f4f5; color: #52525b; }
+        .cms-card-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--gastro-text-main, #18181b);
+            letter-spacing: -0.01em;
+        }
+        .cms-card-stat {
+            font-size: 1.75rem;
+            font-weight: 900;
+            color: var(--gastro-text-main, #18181b);
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+        .cms-card-substat {
+            font-size: 0.75rem;
+            color: #71717a;
+            font-weight: 600;
+        }
+        .cms-card-substat .alert { color: #dc2626; font-weight: 800; }
+        .cms-card-substat .ok { color: #059669; font-weight: 800; }
+        .cms-card-action {
+            margin-top: auto;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--gastro, #009900);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #f4f4f5;
+        }
+        .cms-card-action .material-symbols-outlined { font-size: 14px; }
+        .cms-overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .cms-overview-title {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--gastro-text-main, #18181b);
+            letter-spacing: -0.02em;
+        }
+        .cms-overview-subtitle {
+            font-size: 0.8rem;
+            color: #71717a;
+            font-weight: 600;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           PRODUKT-GRID (Card View als Default)
+           ═══════════════════════════════════════════════════════ */
+        .product-grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+        .product-tile {
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            border-radius: 12px;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+        .product-tile:hover {
+            border-color: var(--gastro, #009900);
+            box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.1);
+        }
+        .product-tile.out-of-stock {
+            opacity: 0.65;
+            background: var(--gastro-bg-muted, #fafafa);
+        }
+        .product-tile-img {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: var(--gastro-bg-muted, #f4f4f5);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .product-tile-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .product-tile-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #dc2626;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .product-tile-name {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--gastro-text-main, #18181b);
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .product-tile-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .product-tile-price {
+            font-size: 0.9rem;
+            font-weight: 900;
+            color: var(--gastro-text-main, #18181b);
+            font-family: ui-monospace, monospace;
+        }
+        .product-tile-cat {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #52525b;
+            background: #f4f4f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100px;
+        }
+        .product-tile-actions {
+            display: flex;
+            gap: 0.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #f4f4f5;
+        }
+        .product-tile-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            min-height: 44px;
+            border-radius: 6px;
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            background: var(--gastro-card-bg, white);
+            color: var(--gastro-text-muted, #52525b);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .product-tile-actions button:hover { background: #f4f4f5; }
+        .product-tile-actions button.danger:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+
+        /* ─── Mobile: 2-Spalten Grid + kompaktere Karten ───
+           Default-Grid (200px min) zeigt auf Mobile nur 1 Spalte → zu viel Scroll.
+           Mobile: 2 Spalten, kompaktere Karten, weniger Padding. */
+        @media (max-width: 640px) {
+            .product-grid-view {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.5rem !important;
+            }
+            .product-tile {
+                padding: 0.5rem !important;
+                gap: 0.375rem !important;
+                border-radius: 10px !important;
+            }
+            .product-tile-img {
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 6px !important;
+            }
+            .product-tile-name {
+                font-size: 0.75rem !important;
+                line-height: 1.15 !important;
+                /* Erlaubt 2 Zeilen auf Mobile, damit nichts abgeschnitten wird */
+                white-space: normal !important;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                min-height: 1.7em;
+            }
+            .product-tile-price {
+                font-size: 0.8rem !important;
+            }
+            .product-tile-cat {
+                font-size: 0.55rem !important;
+                max-width: 60px !important;
+                padding: 1px 4px !important;
+            }
+            .product-tile-actions {
+                padding-top: 0.375rem !important;
+                gap: 0.25rem !important;
+            }
+            .product-tile-actions button {
+                padding: 0.375rem !important;
+                min-height: 36px !important;
+            }
+            .product-tile-actions button .material-symbols-outlined {
+                font-size: 16px !important;
+            }
+            /* Switch auf Mobile etwas kleiner, damit er in der schmalen Karte Platz hat */
+            .product-tile .switch {
+                transform: scale(0.75) !important;
+            }
+        }
+
+        /* ─── Load-More Pagination Bar ─── */
+        .product-load-more-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.5rem 0 0.5rem;
+            margin-top: 1rem;
+            border-top: 1px solid var(--gastro-border, #e4e4e7);
+        }
+        .product-load-more-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 48px;
+            padding: 0 1.5rem;
+            background: var(--gastro-primary, #16a34a);
+            color: white;
+            border: 0;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .product-load-more-btn:hover {
+            background: #15803d;
+        }
+        html.dark .product-load-more-btn {
+            background: #22c55e;
+            color: #0a0a0a;
+        }
+        html.dark .product-load-more-btn:hover {
+            background: #16a34a;
+            color: white;
+        }
+        .product-load-more-info {
+            font-size: 0.7rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+        html.dark .product-load-more-info { color: #9ca3af; }
+
+        /* Filter-Chips statt Dropdowns */
+        .filter-chips {
+            display: flex;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-chip {
+            padding: 0.5rem 0.875rem; /* Touch-Target ≥44px height */
+            border-radius: 999px;
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            background: var(--gastro-card-bg, white);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--gastro-text-muted, #52525b);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .filter-chip:hover { border-color: #d4d4d8; }
+        .filter-chip.active {
+            background: var(--gastro, #009900);
+            color: white;
+            border-color: var(--gastro, #009900);
+        }
+        .filter-chip .count {
+            font-size: 0.65rem;
+            opacity: 0.8;
+            font-weight: 800;
+        }
+
+        /* View-Toggle (Grid / Tabelle) */
+        .view-toggle {
+            display: inline-flex;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        .view-toggle button {
+            padding: 0.6rem 0.75rem; /* Touch-Target ≥44px */
+            background: var(--gastro-card-bg, white);
+            border: none;
+            cursor: pointer;
+            color: var(--gastro-text-muted, #71717a);
+            transition: all 0.15s;
+        }
+        .view-toggle button.active {
+            background: #18181b;
+            color: white;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           KATEGORIEN TREE-VIEW
+           ═══════════════════════════════════════════════════════ */
+        .cat-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .cat-tree-group {
+            background: var(--gastro-bg-muted, #fafafa);
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .cat-tree-group-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 0.875rem; /* Touch-Target ≥44px */
+            background: var(--gastro-card-bg, white);
+            border-bottom: 1px solid var(--gastro-border, #f4f4f5);
+            cursor: pointer;
+            user-select: none;
+        }
+        .cat-tree-group-header:hover { background: var(--gastro-bg-muted, #fafafa); }
+        .cat-tree-color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .cat-tree-group-name {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--gastro-text-main, #18181b);
+            flex: 1;
+        }
+        .cat-tree-group-count {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--gastro-text-muted, #52525b);
+            background: var(--gastro-bg-muted, #f4f4f5);
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+        /* Dark-Mode Overrides für cat-tree-group — selbes Pattern wie cat-tree-item */
+        html.dark .cat-tree-group-header {
+            background: #1f2937;
+            border-bottom-color: #374151;
+        }
+        html.dark .cat-tree-group-header:hover { background: #374151; }
+        html.dark .cat-tree-group-name {
+            color: #f4f4f5;
+        }
+        html.dark .cat-tree-group-count {
+            color: #d4d4d8;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        html.dark .cat-tree-group {
+            background: #18181b;
+            border-color: #374151;
+        }
+        .cat-tree-children {
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+        .cat-tree-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 0.75rem; /* Touch-Target ≥40px (nearly 44) */
+            background: var(--gastro-card-bg, white);
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            border-radius: 8px;
+            transition: all 0.15s ease;
+        }
+        .cat-tree-item:hover {
+            border-color: var(--gastro, #009900);
+            transform: translateX(2px);
+        }
+        .cat-tree-item-name {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--gastro-text-main, #27272a);
+            flex: 1;
+        }
+        .cat-tree-item-count {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--gastro-text-muted, #71717a);
+            background: var(--gastro-bg-muted, #f4f4f5);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        /* Dark-Mode Overrides für cat-tree — hardcoded Farben durch CSS-Variablen ersetzt,
+           aber zur Sicherheit explizite html.dark Regeln für max. Kontrast. */
+        html.dark .cat-tree-item {
+            background: #1f2937;        /* zinc-800 */
+            border-color: #374151;       /* zinc-700 */
+        }
+        html.dark .cat-tree-item-name {
+            color: #f4f4f5;              /* zinc-100 = sehr hell = max. Kontrast auf dunklem BG */
+        }
+        html.dark .cat-tree-item-count {
+            color: #d4d4d8;              /* zinc-300 */
+            background: rgba(255, 255, 255, 0.1);
+        }
+        html.dark .cat-tree-empty {
+            color: #a1a1aa;
+        }
+        .cat-tree-empty {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.7rem;
+            font-style: italic;
+            text-align: center;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           LANDINGPAGE SPLIT-SCREEN EDITOR
+           ═══════════════════════════════════════════════════════ */
+        .lp-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+        @media (max-width: 1024px) {
+            /* Mobile: Komplettes Reset, normales Block-Layout.
+               Editor und Preview stapeln sich sauber untereinander. */
+            .lp-split {
+                display: block !important;
+                grid-template-columns: none !important;
+            }
+            .lp-editor-pane, .lp-preview-pane {
+                position: static !important;
+                max-height: none !important;
+                overflow: visible !important;
+                top: auto !important;
+                margin-bottom: 1rem;
+            }
+            /* Preview-Pane auf Mobile: normales Block-Layout statt flex-column.
+               Verhindert dass der iframe-wrap verschwindet oder Header abgeschnitten wird. */
+            .lp-preview-pane {
+                display: block !important;
+            }
+            .lp-preview-iframe-wrap {
+                display: block;
+                overflow: visible;
+                min-height: 0;
+                flex: none;
+            }
+            .lp-preview-iframe {
+                height: 60vh;
+                min-height: 400px;
+                width: 100%;
+            }
+            .lp-submit-bar {
+                position: static !important;
+                bottom: auto !important;
+                margin-top: 1rem;
+            }
+        }
+        .lp-editor-pane {
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            border-radius: 16px;
+            padding: 1rem;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            position: sticky;
+            top: calc(72px + env(safe-area-inset-top, 0px));
+            scroll-behavior: smooth;
+        }
+        .lp-editor-pane::-webkit-scrollbar { width: 8px; }
+        .lp-editor-pane::-webkit-scrollbar-track { background: transparent; }
+        .lp-editor-pane::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
+        .lp-editor-pane::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+        .lp-preview-pane {
+            background: var(--gastro-card-bg, #fff);
+            border: 1px solid var(--gastro-border, #e4e4e7);
+            border-radius: 16px;
+            overflow: hidden;
+            position: sticky;
+            top: 72px;
+            max-height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+        }
+        .lp-preview-header {
+            background: var(--gastro-bg-muted, #f4f4f5);
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e4e4e7;
+            flex-shrink: 0;
+        }
+        .lp-preview-device-toggle {
+            display: inline-flex;
+            background: white;
+            border: 1px solid #e4e4e7;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .lp-preview-device-toggle button {
+            padding: 0.25rem 0.5rem;
+            background: white;
+            border: none;
+            cursor: pointer;
+            color: #71717a;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .lp-preview-device-toggle button.active {
+            background: #18181b;
+            color: white;
+        }
+        .lp-preview-iframe-wrap {
+            flex: 1;
+            overflow: auto;
+            background: var(--gastro-bg-muted, #f4f4f5);
+            min-height: 400px;
+        }
+        .lp-preview-iframe {
+            width: 100%;
+            height: 100%;
+            min-height: 600px;
+            border: none;
+            background: white;
+            transition: max-width 0.3s ease;
+            margin: 0 auto;
+            display: block;
+        }
+        .lp-preview-iframe.mobile {
+            max-width: 390px;
+            border-left: 1px solid #e4e4e7;
+            border-right: 1px solid #e4e4e7;
+        }
+        .lp-section-templates {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .lp-template-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.875rem 0.5rem; /* Touch-Target ≥44px */
+            border: 1px dashed var(--gastro-border, #d4d4d8);
+            border-radius: 10px;
+            background: var(--gastro-bg-muted, #fafafa);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--gastro-text-muted, #52525b);
+        }
+        .lp-template-btn:hover {
+            border-color: var(--gastro, #009900);
+            color: var(--gastro, #009900);
+            background: #f0fdf4;
+        }
+        .lp-template-btn .material-symbols-outlined { font-size: 22px; }
+
+        /* Live-Badge für aktive Änderungen */
+        .lp-unsaved-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.65rem;
+            font-weight: 800;
+            border-radius: 999px;
+            border: 1px solid #fde68a;
+        }
+        .lp-unsaved-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f59e0b;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Submit-Button im Editor-Pane: sticky am Boden, sauber abgetrennt */
+        .lp-submit-bar {
+            position: sticky;
+            bottom: -1rem;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, #fff 70%, rgba(255,255,255,0));
+            padding: 1rem 0 0.5rem;
+            margin-top: 1rem;
+            z-index: 5;
+        }
+        .lp-submit-bar button {
+            width: 100%;
+            min-height: 48px; /* Touch-Target ≥44px */
+            box-shadow: 0 -4px 12px -4px rgba(0,0,0,0.08);
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           HAUPTGRUPPEN-BADGE-LEISTE für Tisch-Kacheln (Sitzplan)
+           Farbcodierte Segmente unten an jeder Tisch-Kachel.
+           Shisha = lila, Getränke = blau, Snacks = orange (Hauptgruppen-Farben)
+           ═══════════════════════════════════════════════════════ */
+        .seating-legend {
+            border: 1px solid var(--gastro-border, #e4e4e7);
+        }
+        .seating-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--gastro-bg-muted, #f4f4f5);
+            border-radius: 999px;
+            font-size: 0.75rem;  /* vorher 0.7rem — etwas größer für bessere Lesbarkeit */
+            font-weight: 700;
+            color: var(--gastro-text-main, #18181b);
+        }
+        html.dark .seating-legend-item {
+            background: rgba(255, 255, 255, 0.08);
+            color: #f4f4f5;  /* helles Grau-Weiß für max. Kontrast auf dunklem BG */
+        }
+        .seating-legend-color {
+            width: 16px;  /* vorher 14px — etwas größer */
+            height: 16px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+        }
+        html.dark .seating-legend-color {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+        }
+        .seating-legend-item .material-symbols-outlined {
+            font-size: 16px;
+            color: var(--gastro-text-muted, #71717a);
+        }
+        html.dark .seating-legend-item .material-symbols-outlined {
+            color: #d4d4d8;  /* hellere Icon-Farbe in Dark-Mode */
+        }
+
+        .tile-sg-bar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 5px;
+            display: flex;
+            overflow: hidden;
+            border-bottom-left-radius: inherit;
+            border-bottom-right-radius: inherit;
+            box-shadow: 0 -1px 2px rgba(0,0,0,0.05);
+            z-index: 5;
+            pointer-events: none; /* Klicks gehen an die Tisch-Kachel durch */
+        }
+        .tile-sg-segment {
+            height: 100%;
+            min-width: 4px; /* Mindestbreite damit auch 1 Artikel sichtbar ist */
+            transition: width 0.2s ease;
+        }
+        /* Auf Mobile die Leiste etwas dicker für bessere Sichtbarkeit */
+        @media (max-width: 640px) {
+            .tile-sg-bar { height: 7px; }
+        }
+        /* In der runden Tisch-Form die Leiste ebenfalls rund */
+        .sitzplan-table.round .tile-sg-bar {
+            border-radius: 0 0 50% 50% / 0 0 30% 30%;
+        }
+        /* Hover: Leiste wird etwas dicker für bessere Erkennung */
+        .sitzplan-table:hover .tile-sg-bar {
+            height: 7px;
+            transition: height 0.15s ease;
+        }
+        @media (max-width: 640px) {
+        .sitzplan-table:hover .tile-sg-bar { height: 9px; }
+
+        /* Final mobile seating layout: the zone panel is full width; only
+           the table list itself uses two columns. */
+        @media (max-width: 640px) {
+            #admin-tiles-root.seating-canvas.view-mode-grouped {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+            }
+            #admin-tiles-root.seating-canvas.view-mode-grouped > div {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+            #admin-tiles-root.seating-canvas.view-mode-grouped > div > .grid {
+                display: grid !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 10px !important;
+            }
+            #admin-tiles-root.seating-canvas.view-mode-grouped > div > .grid > .sitzplan-table {
+                position: relative !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                height: 128px !important;
+            }
+        }
+        }
+
+        nav .nav-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.25rem;
+            color: var(--gastro-text-muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-left: 3px solid transparent;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            background: none;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 0;
+            position: relative;
+        }
+
+        nav .nav-btn:hover {
+            background-color: rgba(201, 168, 76, 0.06);
+            color: var(--gastro-text-main);
+            padding-left: 1.5rem;
+        }
+        html.dark nav .nav-btn:hover {
+            background-color: rgba(201, 168, 76, 0.08);
+        }
+
+        nav .nav-btn.active {
+            background: linear-gradient(90deg, rgba(201, 168, 76, 0.12), rgba(201, 168, 76, 0.02));
+            color: #c9a84c;
+            border-left-color: #c9a84c;
+            font-weight: 700;
+        }
+        html.dark nav .nav-btn.active {
+            background: linear-gradient(90deg, rgba(201, 168, 76, 0.18), rgba(201, 168, 76, 0.04));
+            color: #e8c875;
+            border-left-color: #e8c875;
+        }
+
+        nav .nav-btn .material-symbols-outlined {
+            font-size: 20px;
+            transition: transform 0.2s;
+        }
+        nav .nav-btn:hover .material-symbols-outlined {
+            transform: scale(1.1);
+        }
+
+        /* Sub-Nav Buttons (Unterpunkte) — noch dezent als eingerückte Items */
+        nav .nav-sub-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 1.25rem 0.55rem 2.5rem;
+            color: var(--gastro-text-muted);
+            font-weight: 500;
+            font-size: 0.78rem;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+            background: none;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 0;
+        }
+        nav .nav-sub-btn:hover {
+            background-color: rgba(201, 168, 76, 0.05);
+            color: var(--gastro-text-main);
+            border-left-color: rgba(201, 168, 76, 0.4);
+        }
+        html.dark nav .nav-sub-btn:hover {
+            background-color: rgba(201, 168, 76, 0.07);
+        }
+        nav .nav-sub-btn.active {
+            background: linear-gradient(90deg, rgba(201, 168, 76, 0.10), rgba(201, 168, 76, 0.02));
+            color: #c9a84c;
+            border-left-color: #c9a84c;
+            font-weight: 600;
+        }
+        html.dark nav .nav-sub-btn.active {
+            color: #e8c875;
+            border-left-color: #e8c875;
+        }
+        nav .nav-sub-btn .material-symbols-outlined {
+            font-size: 18px;
+            opacity: 0.85;
+        }
+
+        /* Nav-Group-Labels — dezentere Premium-Optik */
+        .nav-group-label {
+            padding: 0.85rem 1.25rem 0.4rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(201, 168, 76, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-group-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, rgba(201, 168, 76, 0.2), transparent);
+        }
+        .nav-divider {
+            margin: 0.5rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+            opacity: 0.5;
+        }
+
+        .sidebar-logout {
+            padding: 0.75rem 1.25rem;
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0));
+            border-top: 1px solid var(--gastro-border);
+        }
+        .sidebar-logout a {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #ef4444;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+        }
+        .sidebar-logout a:hover {
+            background-color: rgba(239, 68, 68, 0.08);
+        }
+        html.dark .sidebar-logout a:hover {
+            background-color: rgba(239, 68, 68, 0.12);
+        }
+
+        /* ── Reports Redesign: Tagesumsatz-Card & Zeitraum-Report ── */
+        .reports-day-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border: 1px solid #bbf7d0;
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.15);
+        }
+        .reports-day-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .reports-day-card-value {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #064e3b;
+            line-height: 1.2;
+            margin: 0.25rem 0;
+            font-family: 'Outfit', sans-serif;
+        }
+        .reports-day-card-sub {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        html.dark .reports-day-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        html.dark .reports-day-card-value {
+            color: #34d399;
+        }
+        html.dark .reports-day-card-sub {
+            color: #9ca3af;
+        }
+
+        /* Zeitraum-Report Inputs */
+        .reports-date-input {
+            width: 100%;
+            padding: 0.6rem 0.85rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.625rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+            background: #fff;
+            transition: all 0.15s ease;
+        }
+        .reports-date-input:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+        html.dark .reports-date-input {
+            background: var(--gastro-card-bg);
+            border-color: var(--gastro-border);
+            color: var(--gastro-text-main);
+        }
+
+        .reports-generate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.65rem 1.25rem;
+            background: var(--gastro-primary);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 800;
+            border-radius: 0.625rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(0, 153, 0, 0.2);
+            white-space: nowrap;
+        }
+        .reports-generate-btn:hover {
+            background: var(--gastro-primary-hover);
+            box-shadow: 0 4px 8px rgba(0, 153, 0, 0.3);
+        }
+        .reports-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .reports-quick-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.75rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .reports-quick-btn:hover {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        html.dark .reports-quick-btn {
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            border-color: var(--gastro-border);
+        }
+        html.dark .reports-quick-btn:hover {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+        }
+
+        /* ── Period-Switcher Button Styles (legacy, no longer used but kept for safety) ── */
+        .period-switch-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.4rem 0.85rem;
+            border-radius: 0.625rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            letter-spacing: 0.01em;
+        }
+        .period-switch-active {
+            background: var(--gastro-primary);
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 153, 0, 0.2);
+        }
+        .period-switch-inactive {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+        .period-switch-inactive:hover {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        html.dark .period-switch-inactive {
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            border-color: var(--gastro-border);
+        }
+        html.dark .period-switch-inactive:hover {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+        }
+
+        /* Header enhancements */
+        .dash-header {
+            padding: 0.875rem 1.5rem;
+            padding-top: calc(0.875rem + env(safe-area-inset-top));
+            padding-left: calc(1.5rem + env(safe-area-inset-left));
+            padding-right: calc(1.5rem + env(safe-area-inset-right));
+            background-color: var(--gastro-card-bg);
+            border-bottom: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.85);
+        }
+        html.dark .dash-header {
+            background-color: rgba(24, 24, 27, 0.85);
+        }
+
+        .breadcrumb-sep {
+            color: var(--gastro-text-muted);
+            margin: 0 0.25rem;
+            /* opacity: 0.4 entfernt — WCAG AA: Breadcrumb muss lesbar bleiben */
+        }
+
+        .hamburger-btn {
+            display: none;
+            padding: 0.5rem;
+            min-width: 44px; /* Touch-Target */
+            min-height: 44px; /* Touch-Target */
+            border-radius: 0.75rem;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            align-items: center;
+            justify-content: center;
+        }
+        .hamburger-btn:hover {
+            background-color: rgba(0, 153, 0, 0.06);
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+        }
+        @media (max-width: 1023px) {
+            .hamburger-btn { display: flex; }
+        }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background-color: rgba(16, 185, 129, 0.08);
+            color: #059669;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            letter-spacing: 0.02em;
+        }
+        html.dark .live-badge {
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        .live-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #10b981;
+            animation: livePulse 2s infinite;
+        }
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+        }
+
+        /* Stat card enhancements */
+        .stat-card {
+            background-color: var(--gastro-card-bg);
+            border: 1px solid var(--gastro-border);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.1);
+        }
+        .stat-card .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+        }
+        .stat-card .stat-icon .material-symbols-outlined {
+            font-size: 18px;
+        }
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--gastro-text-muted);
+            margin-bottom: 0.25rem;
+        }
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--gastro-text-main);
+            font-family: 'Inter', monospace;
+            line-height: 1.2;
+        }
+        .stat-card .stat-sub {
+            font-size: 0.7rem;
+            color: var(--gastro-text-muted);
+            margin-top: 0.375rem;
+            line-height: 1.4;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            opacity: 0.04;
+            transform: translate(20px, -20px);
+        }
+        .stat-card.stat-revenue::before { background: var(--gastro-primary); }
+        .stat-card.stat-orders::before { background: #3b82f6; }
+        .stat-card.stat-avg::before { background: #8b5cf6; }
+
+        /* Section card enhancements */
+        .section-card {
+            background-color: var(--gastro-card-bg);
+            border: 1px solid var(--gastro-border);
+            border-radius: 1rem;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .section-card:hover {
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
+        }
+        .section-card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .section-card-body {
+            padding: 1.25rem;
+        }
+
+        /* Enhanced table styling */
+        .dash-table {
+            width: 100%;
+            text-align: left;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .dash-table thead tr {
+            background: linear-gradient(135deg, #1f2937, #111827);
+        }
+        .dash-table thead th {
+            padding: 0.875rem 1rem;
+            color: white;
+            font-weight: 800;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .dash-table tbody tr {
+            transition: background-color 0.15s;
+        }
+        .dash-table tbody tr:hover {
+            background-color: rgba(0, 153, 0, 0.03);
+        }
+        .dash-table tbody td {
+            padding: 0.875rem 1rem;
+        }
+
+        /* Product card enhancement */
+        .product-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+        }
+        .product-item:hover {
+            border-color: var(--gastro-primary);
+            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.12);
+        }
+
+        /* Staff member row enhancement */
+        .staff-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.625rem 0;
+            transition: background-color 0.15s;
+        }
+        .staff-row:not(:last-child) {
+            border-bottom: 1px solid var(--gastro-border);
+        }
+        .staff-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--gastro-primary), #065f06);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        /* Config sub-tab enhancements */
+        .config-subtab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px;
+            border-radius: 0.625rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+        .config-subtab-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+            transform: translateY(-1px);
+        }
+        html.dark .config-subtab-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+        .config-subtab-btn.active {
+            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.2);
+        }
+        html.dark .config-subtab-btn.active {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+            color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 2px 8px -2px rgba(34, 197, 94, 0.2);
+        }
+
+        /* Form field enhancements */
+        .form-field {
+            width: 100%;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color: var(--gastro-text-main);
+            min-height: 44px;
+        }
+        .form-field:focus {
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+            outline: none;
+        }
+        html.dark .form-field:focus {
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+        }
+
+        /* ─── Custom File Upload Button (ersetzt hässliches native "Choose File") ───
+           Trick: input[type=file] wird visuell versteckt, ein Custom-Button mit Label
+           überlagert es. Klick auf Button → öffnet nativen File-Dialog.
+           Touch-Ziel: 44px hoch, ganz breit — mobil perfekt bedienbar. */
+        .file-upload-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 44px;
+        }
+        .file-upload-wrap input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+        .file-upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px;
+            background: var(--gastro-bg-gray, #f3f4f6);
+            border: 1px solid var(--gastro-border, #d1d5db);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--gastro-text-main, #374151);
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            pointer-events: none;
+        }
+        .file-upload-wrap:hover .file-upload-btn {
+            background: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        html.dark .file-upload-wrap:hover .file-upload-btn {
+            background: #3f3f46;
+            border-color: #71717a;
+        }
+        .file-upload-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+        .file-upload-name {
+            font-size: 0.7rem;
+            color: #6b7280;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        html.dark .file-upload-name { color: #9ca3af; }
+
+        /* Wenn input[type=file] nicht von .file-upload-wrap umschlossen ist,
+           fallback: native file-inputs direkt stylen (weniger schön aber größer) */
+        input[type="file"]:not(.file-upload-wrap input[type="file"]) {
+            min-height: 44px;
+            font-size: 0.7rem;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+        input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button {
+            min-height: 36px;
+            padding: 0 0.875rem;
+            margin-right: 0.625rem;
+            border: 0;
+            border-radius: 0.375rem;
+            background: var(--gastro-primary, #16a34a);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button:hover {
+            background: #15803d;
+        }
+        html.dark input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button {
+            background: #22c55e;
+            color: #0a0a0a;
+        }
+        html.dark input[type="file"]:not(.file-upload-wrap input[type="file"])::file-selector-button:hover {
+            background: #16a34a;
+            color: white;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gastro-text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .btn-primary {
+            background: var(--gastro-primary);
+            color: white;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px; /* WCAG 2.5.5: Touch-Target ≥44px (Apple HIG) */
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.3);
+        }
+        .btn-primary:hover {
+            background: var(--gastro-primary-hover);
+            box-shadow: 0 4px 12px -2px rgba(0, 153, 0, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #1f2937;
+            color: white;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 0.625rem 1rem;
+            min-height: 44px; /* WCAG 2.5.5: Touch-Target ≥44px */
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-secondary:hover {
+            background: #374151;
+            transform: translateY(-1px);
+        }
+
+        /* Category card in sidebar */
+        .cat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.7rem;
+            transition: all 0.2s;
+        }
+        .cat-chip:hover {
+            border-color: var(--gastro-primary);
+        }
+
+        /* Responsive stat cards */
+        @media (max-width: 640px) {
+            .stat-card .stat-value {
+                font-size: 1.25rem;
+            }
+            .stat-card {
+                padding: 1rem;
+            }
+        }
+
+        /* ===== LIVE NOTIFICATION BAR ===== */
+        .live-notification-bar {
+            position: sticky;
+            /* Safe-Area berücksichtigen: Header hat padding-top: calc(0.875rem + env(safe-area-inset-top))
+               und ist sticky top:0. Die Notification-Bar muss unter dem Header bleiben,
+               inkl. Notch-Höhe auf iPhone.
+               Phase 13 P1-Fix: 52px → 72px (Header ist inkl. Padding tatsächlich ~72px hoch,
+               vorher überlappte die Notification-Bar den Header). */
+            top: calc(72px + env(safe-area-inset-top, 0px));
+            z-index: 39;
+            background: transparent;
+            padding: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .live-notification-bar:empty {
+            display: none;
+        }
+        .live-notification-bar.has-items {
+            padding: 0.5rem 1.5rem;
+        }
+
+        .notif-card {
+            display: flex;
+            align-items: stretch;
+            border-radius: 0.875rem;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 4px 12px -2px rgba(0,0,0,0.15);
+            animation: notifSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.3s;
+        }
+        .notif-card:last-child {
+            margin-bottom: 0;
+        }
+        .notif-card.notif-order {
+            border: 2px solid #3b82f6;
+        }
+        .notif-card.notif-service {
+            border: 2px solid #f59e0b;
+        }
+        html.dark .notif-card.notif-order {
+            border-color: #60a5fa;
+        }
+        html.dark .notif-card.notif-service {
+            border-color: #fbbf24;
+        }
+
+        .notif-accent {
+            width: 6px;
+            flex-shrink: 0;
+        }
+        .notif-order .notif-accent {
+            background: linear-gradient(180deg, #3b82f6, #2563eb);
+        }
+        .notif-service .notif-accent {
+            background: linear-gradient(180deg, #f59e0b, #d97706);
+        }
+
+        .notif-body {
+            flex: 1;
+            min-width: 0;
+            padding: 0.75rem 1rem;
+            background: var(--gastro-card-bg);
+        }
+        .notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .notif-title {
+            font-size: 0.75rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            white-space: nowrap;
+        }
+        .notif-order .notif-title {
+            color: #3b82f6;
+        }
+        .notif-service .notif-title {
+            color: #f59e0b;
+        }
+        html.dark .notif-order .notif-title {
+            color: #60a5fa;
+        }
+        html.dark .notif-service .notif-title {
+            color: #fbbf24;
+        }
+        .notif-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+        .notif-badge.badge-new {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            animation: notifPulse 1.5s infinite;
+        }
+        .notif-badge.badge-items {
+            background: rgba(59, 130, 246, 0.08);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+        html.dark .notif-badge.badge-items {
+            background: rgba(96, 165, 250, 0.1);
+            color: #60a5fa;
+            border-color: rgba(96, 165, 250, 0.2);
+        }
+
+        .notif-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+        }
+        /* Hauptgruppen-Grouping in der Notification-Bar */
+        .notif-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .notif-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .notif-group-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 0.4rem;
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            align-self: flex-start;
+            line-height: 1.4;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        .notif-group-header .notif-group-count {
+            font-size: 0.6rem;
+            font-weight: 800;
+            opacity: 0.85;
+            background: rgba(255,255,255,0.22);
+            padding: 0 0.35rem;
+            border-radius: 9999px;
+            line-height: 1.4;
+        }
+        html.dark .notif-group-header .notif-group-count {
+            background: rgba(0,0,0,0.22);
+        }
+        .notif-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            color: var(--gastro-text-main);
+            transition: all 0.2s;
+            cursor: default;
+        }
+        .notif-item.item-served {
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+        .notif-item .item-qty {
+            font-weight: 900;
+            color: var(--gastro-text-muted);
+            font-size: 0.7rem;
+        }
+        .notif-item .item-name {
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--gastro-text-main);
+        }
+        /* Serve-Button im Control Modal nutzt Tailwind-Klassen
+           (w-6 h-6 rounded-full border), emerald statt rose
+           und weißem Haken-Icon (color:#ffffff inline). Kein separates CSS nötig. */
+
+        .notif-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            flex-shrink: 0;
+            padding: 0.5rem 0.75rem;
+            background: var(--gastro-card-bg);
+            border-left: 1px solid var(--gastro-border);
+        }
+        .notif-btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.625rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            white-space: nowrap;
+        }
+        .notif-btn-serve-all {
+            background: var(--gastro-primary);
+            color: white;
+            box-shadow: 0 2px 6px rgba(0, 153, 0, 0.2);
+        }
+        .notif-btn-serve-all:hover {
+            background: var(--gastro-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 153, 0, 0.3);
+        }
+        .notif-btn-done {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+        }
+        .notif-btn-done:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+        }
+        .notif-btn-details {
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-muted);
+            border: 1px solid var(--gastro-border);
+        }
+        .notif-btn-details:hover {
+            color: var(--gastro-text-main);
+            border-color: var(--gastro-primary);
+        }
+
+        @keyframes notifSlideIn {
+            from { opacity: 0; transform: translateY(-12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes notifPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @media (max-width: 640px) {
+            .live-notification-bar.has-items {
+                padding: 0.375rem 0.75rem;
+            }
+            .notif-card {
+                flex-direction: column;
+            }
+            .notif-actions {
+                border-left: none;
+                border-top: 1px solid var(--gastro-border);
+                padding: 0.5rem;
+                justify-content: flex-end;
+            }
+            .notif-items {
+                gap: 0.25rem;
+            }
+            .notif-item .item-name {
+                max-width: 80px;
+            }
+        }
+
+        /* ===== ORDERS FILTER BAR ===== */
+        .orders-filter-bar {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .orders-search-wrap {
+            position: relative;
+            max-width: 320px;
+        }
+        .orders-search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: var(--gastro-text-muted);
+            pointer-events: none;
+        }
+        .orders-search-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.625rem;
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-main);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .orders-search-input:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+        html.dark .orders-search-input:focus {
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+        }
+        .orders-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .orders-filter-label {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gastro-text-muted);
+            min-width: 50px;
+        }
+        .orders-filter-btns {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+        .orders-filter-btn {
+            padding: 0.5rem 0.875rem;
+            min-height: 44px;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+        .orders-filter-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+        }
+        html.dark .orders-filter-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+        }
+        .orders-filter-btn.active {
+            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+            box-shadow: 0 2px 6px -1px rgba(0, 153, 0, 0.15);
+        }
+        html.dark .orders-filter-btn.active {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+            color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 2px 6px -1px rgba(34, 197, 94, 0.15);
+        }
+
+        /* ===== ORDERS PAGINATION ===== */
+        .orders-pagination {
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid var(--gastro-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .orders-pagination-info {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gastro-text-muted);
+        }
+        .orders-pagination-btns {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .orders-page-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0 0.625rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .orders-page-btn:hover:not(:disabled) {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+        }
+        .orders-page-btn.active {
+            background: var(--gastro-primary);
+            color: white;
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+        }
+        .orders-page-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .orders-page-btn.nav-arrow {
+            font-size: 0.8rem;
+        }
+
+        /* ===== CUSTOM DATE RANGE PICKER ===== */
+        .orders-custom-date-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        .orders-date-input {
+            padding: 0.45rem 0.6rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.5rem;
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-main);
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .orders-date-input:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+        .orders-apply-btn {
+            padding: 0.45rem 0.9rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            border: none;
+            border-radius: 0.5rem;
+            background: var(--gastro-primary);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .orders-apply-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .orders-clear-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 0.4rem;
+            background: var(--gastro-bg-gray);
+            color: var(--gastro-text-muted);
+            border: 1px solid var(--gastro-border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .orders-clear-btn:hover { color: #dc2626; border-color: #dc2626; }
+        .orders-select {
+            padding: 0.45rem 0.6rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.5rem;
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-main);
+            cursor: pointer;
+            min-width: 130px;
+        }
+        .orders-select:focus {
+            outline: none;
+            border-color: var(--gastro-primary);
+            box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.1);
+        }
+
+        /* ===== SORT ICONS ===== */
+        .sort-icon {
+            display: inline-block;
+            font-size: 12px;
+            color: var(--gastro-text-muted);
+            margin-left: 2px;
+            min-width: 12px;
+        }
+        .sort-icon.active { color: var(--gastro-primary); font-weight: 800; }
+
+        /* ===== CLICKABLE ORDER ROW ===== */
+        #orders-tbody tr {
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        #orders-tbody tr:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+        }
+        html.dark #orders-tbody tr:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+        }
+        .bon-detail-chevron {
+            color: var(--gastro-text-muted);
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        #orders-tbody tr:hover .bon-detail-chevron {
+            color: var(--gastro-primary);
+            transform: translateX(2px);
+        }
+
+        /* ===== BON DETAIL MODAL ===== */
+        #bon-detail-modal .popup-body {
+            max-height: 70vh;
+        }
+        .bon-detail-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+        }
+        .bon-detail-stat {
+            background: var(--gastro-bg-gray);
+            border: 1px solid var(--gastro-border);
+            border-radius: 0.625rem;
+            padding: 0.6rem 0.75rem;
+        }
+        .bon-detail-stat-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gastro-text-muted);
+        }
+        .bon-detail-stat-value {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--gastro-text-main);
+            margin-top: 2px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .bon-detail-items-header {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gastro-text-muted);
+            margin: 0.75rem 0 0.4rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--gastro-border);
+        }
+        .bon-detail-item {
+            display: grid;
+            grid-template-columns: 28px 1fr auto auto;
+            gap: 0.5rem;
+            padding: 0.5rem 0.4rem;
+            border-bottom: 1px dashed rgba(0,0,0,0.12);
+            align-items: center;
+            font-size: 0.78rem;
+        }
+        .bon-detail-item:last-child { border-bottom: none; }
+        .bon-detail-item-qty {
+            background: rgba(255,255,255,0.55);
+            color: #1f2937;
+            border-radius: 0.35rem;
+            font-weight: 800;
+            text-align: center;
+            font-size: 0.7rem;
+            padding: 0.2rem 0;
+        }
+        /* WICHTIG: bon-detail-item-name/-meta/-price MUSS immer dunkel sein,
+           weil der Item-Hintergrund via lightenColor(group.color, 94) immer
+           ein helles Pastell ist — auch im Dark Mode. Weisser Text auf hellem
+           Pastell war unlesbar (Bug-Report: "Hauptgruppen Produkte sind weiss"). */
+        .bon-detail-item-name {
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .bon-detail-item-meta {
+            font-size: 0.65rem;
+            color: #4b5563;
+            margin-top: 1px;
+        }
+        .bon-detail-item-price {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-weight: 700;
+            color: #374151;
+            text-align: right;
+            min-width: 60px;
+        }
+        .bon-detail-item-status {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .bon-detail-item-status.pending { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+        .bon-detail-item-status.confirmed { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
+        .bon-detail-item-status.delivered { background: rgba(16, 185, 129, 0.15); color: #047857; }
+        .bon-detail-item-status.paid { background: rgba(16, 185, 129, 0.2); color: #065f46; }
+        .bon-detail-item-status.cancelled { background: rgba(220, 38, 38, 0.15); color: #b91c1c; }
+        .bon-detail-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0.4rem;
+            margin-top: 0.4rem;
+            background: var(--gastro-bg-gray);
+            border-radius: 0.5rem;
+            font-weight: 800;
+        }
+        .bon-detail-0hint {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #b45309;
+            padding: 0.4rem 0.6rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+        html.dark .bon-detail-0hint { color: #fbbf24; }
+
+        /* Mobile responsive filter bar */
+        @media (max-width: 640px) {
+            .orders-search-wrap {
+                max-width: 100%;
+            }
+            .orders-filter-bar {
+                padding: 0.75rem;
+            }
+            .dash-table {
+                font-size: 0.75rem;
+            }
+            .dash-table thead th {
+                padding: 0.625rem 0.5rem;
+                font-size: 0.7rem;
+            }
+            .dash-table tbody td {
+                padding: 0.625rem 0.5rem;
+            }
+            .orders-pagination {
+                padding: 0.5rem 0.75rem;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .orders-pagination-btns {
+                justify-content: center;
+            }
+            /* ─── Mobile Card-View für Finanzen-Tabelle ───
+               Verhindert horizontalen Scroll: Tabelle wird zu Karten.
+               Jede Tabellenzeile → eine Karte mit Label: Value Paaren. */
+            .dash-table-wrap-mobile {
+                display: none;
+            }
+        }  /* schließt @media (max-width: 640px) */
+
+        /* ─── Finanzen Card-View bei ≤768px (iPad Portrait, Mobile) ───
+           MUSS auf Root-Ebene stehen, NICHT in @media (max-width:640px) verschachtelt!
+           Sonst greift sie nur wenn BEIDE Queries matchen (≤640px UND ≤768px) = ≤640px.
+           Mit dieser separaten Root-Query greift sie auch bei 641-768px (iPad Portrait). */
+        @media (max-width: 768px) {
+            .dash-table-desktop {
+                display: none !important;
+            }
+            .dash-table-wrap-mobile {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .dash-card {
+                background: var(--gastro-card-bg, #ffffff);
+                border: 1px solid var(--gastro-border, #e5e7eb);
+                border-radius: 0.75rem;
+                padding: 0.875rem 1rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            }
+            .dash-card-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.25rem 0;
+                gap: 0.5rem;
+            }
+            .dash-card-row + .dash-card-row {
+                border-top: 1px solid rgba(0,0,0,0.05);
+            }
+            .dash-card-label {
+                font-size: 0.65rem;
+                font-weight: 700;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .dash-card-value {
+                font-size: 0.85rem;
+                font-weight: 700;
+                color: var(--gastro-text-main, #1f2937);
+                text-align: right;
+            }
+            .dash-card-actions {
+                display: flex;
+                gap: 0.5rem;
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid rgba(0,0,0,0.05);
+            }
+            .dash-card-actions button {
+                flex: 1;
+                min-height: 44px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                border-radius: 0.5rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.25rem;
+            }
+        }
+
+        /* ===== SLIDE-OVER PANEL ===== */
+        .edit-slide-over {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            max-width: 560px;
+            height: 100vh;
+            height: 100dvh; /* dynamic viewport height — Mobile-browser-safe */
+            z-index: 60;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.35, 1);
+            background-color: var(--gastro-card-bg);
+            border-left: 1px solid var(--gastro-border);
+            box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            overscroll-behavior: contain;
+            /* WICHTIG: Wenn Slide-Over geschlossen ist (translateX(100%)), darf es
+               keine Touch-Events abfangen — sonst blockiert es Scroll auf Tablet/Desktop.
+               Auf iOS Safari specially, fixed elements off-screen können Touch blocken. */
+            pointer-events: none;
+        }
+        .edit-slide-over.open {
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+        /* Mobile: Full-width + safe-area */
+        @media (max-width: 640px) {
+            .edit-slide-over {
+                max-width: 100%;
+                padding-top: env(safe-area-inset-top, 0);
+            }
+        }
+        /* Form-Bereich muss scrollen können — Header + Tabs sind fixed */
+        .edit-slide-over form#edit-product-form {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            min-height: 0; /* Critical: allows flex item to shrink below content size */
+        }
+        /* Mobile: Sticky Submit-Button am Boden des Slide-Over */
+        @media (max-width: 640px) {
+            .edit-slide-over form#edit-product-form > button[type="submit"] {
+                position: sticky;
+                bottom: 0;
+                background: var(--gastro-card-bg);
+                padding: 12px 0;
+                margin-top: 12px;
+                z-index: 5;
+                border-top: 1px solid var(--gastro-border);
+            }
+        }
+        .edit-slide-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 59;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .edit-slide-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ===== BULK ACTION BAR ===== */
+        .bulk-action-bar {
+            position: fixed;
+            bottom: 24px;
+            bottom: calc(24px + env(safe-area-inset-bottom, 0px)); /* Phase 13 P2: iOS Home-Indicator */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            background: var(--gastro-card-bg);
+            border: 1px solid var(--gastro-border);
+            border-radius: 1rem;
+            padding: 0.75rem 1.25rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: calc(100vw - 32px); /* Phase 13 P2: Nie über Viewport rand */
+        }
+
+        /* ===== PRODUCT TABLE ===== */
+        .product-table th {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--gastro-text-muted, #71717a);
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 2px solid var(--gastro-border, #e5e7eb);
+            background: var(--gastro-bg, #fafafa);
+        }
+        html.dark .product-table th {
+            background: #0a0a0a;
+            color: #a1a1aa;
+            border-bottom-color: #27272a;
+        }
+        .product-table td {
+            padding: 12px 8px;
+            font-size: 13px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--gastro-border, #f4f4f5);
+        }
+        html.dark .product-table td { border-bottom-color: #1f1f23; }
+        .product-table tr:hover {
+            background-color: rgba(201, 168, 76, 0.04);
+        }
+        html.dark .product-table tr:hover {
+            background-color: rgba(201, 168, 76, 0.06);
+        }
+
+        /* Product card view for mobile */
+        .product-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid var(--gastro-border);
+            transition: background-color 0.15s;
+        }
+        .product-card:hover {
+            background-color: rgba(201, 168, 76, 0.04);
+        }
+        html.dark .product-card:hover {
+            background-color: rgba(201, 168, 76, 0.06);
+        }
+        .product-card .drag-handle {
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+        .product-card:hover .drag-handle,
+        .product-card:active .drag-handle {
+            opacity: 1;
+        }
+        .product-row .drag-handle {
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+        .product-row:hover .drag-handle {
+            opacity: 1;
+        }
+
+        /* HINWEIS: Alte automatische Desktop/Mobile-Umschaltung zwischen
+           .product-card-view und .product-table-view wurde ENTFERNT.
+           Stattdessen steuert der User über den View-Toggle (Grid/Tabelle)
+           selbst, welche Ansicht sichtbar ist — unabhängig von der Bildschirmgröße.
+           Die .product-table-view ist jetzt immer sichtbar, wenn ihr Container
+           (#product-table-container) sichtbar ist. */
+
+        /* Bulk action bar mobile */
+        @media (max-width: 640px) {
+            .bulk-action-bar {
+                left: 12px;
+                right: 12px;
+                transform: none;
+                bottom: 12px;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+                padding: 0.625rem 0.75rem;
+            }
+        }
+
+        /* iOS input zoom fix – prevents auto-zoom on focus */
+        @media (max-width: 640px) {
+            .popup-card input, .popup-card select, .popup-card textarea,
+            #event-modal input, #event-modal select, #event-modal textarea,
+            .edit-slide-over input, .edit-slide-over select, .edit-slide-over textarea {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ===== SPEISEKARTE SUB-TAB ===== */
+        .speisekarte-subtab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 0.875rem;
+            border-radius: 0.625rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border: 1px solid var(--gastro-border);
+            background: var(--gastro-card-bg);
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+        .speisekarte-subtab-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            border-color: rgba(0, 153, 0, 0.2);
+            transform: translateY(-1px);
+        }
+        html.dark .speisekarte-subtab-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+        .speisekarte-subtab-btn.active {
+            background: linear-gradient(135deg, rgba(0, 153, 0, 0.1), rgba(0, 153, 0, 0.05));
+            color: var(--gastro-primary);
+            border-color: var(--gastro-primary);
+            font-weight: 800;
+            box-shadow: 0 2px 8px -2px rgba(0, 153, 0, 0.2);
+        }
+        html.dark .speisekarte-subtab-btn.active {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+            color: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 2px 8px -2px rgba(34, 197, 94, 0.2);
+        }
+        .speisekarte-tab-content {
+            display: none;
+        }
+        .speisekarte-tab-content.active {
+            display: block;
+        }
+
+        /* ===== ACCORDION / COLLAPSIBLE ===== */
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            user-select: none;
+        }
+        .accordion-header:hover {
+            background-color: rgba(0, 153, 0, 0.03);
+        }
+        html.dark .accordion-header:hover {
+            background-color: rgba(34, 197, 94, 0.04);
+        }
+        .accordion-header .accordion-arrow {
+            transition: transform 0.2s;
+        }
+        .accordion-header.open .accordion-arrow {
+            transform: rotate(180deg);
+        }
+        .accordion-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .accordion-body.open {
+            max-height: 5000px;
+        }
+
+        /* ===== LANDINGPAGE EDITOR TABS ===== */
+        .lp-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        html.dark .lp-tabs { border-bottom-color: var(--gastro-border); }
+        .lp-tab-btn {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #9ca3af;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        .lp-tab-btn:hover { color: #4b5563; }
+        html.dark .lp-tab-btn:hover { color: #d1d5db; }
+        .lp-tab-btn.active {
+            color: var(--gastro-primary);
+            border-bottom-color: var(--gastro-primary);
+        }
+        html.dark .lp-tab-btn.active { color: #22c55e; border-bottom-color: #22c55e; }
+        .lp-tab-btn .material-symbols-outlined { font-size: 15px; }
+        .lp-tab-panel { display: none; }
+        .lp-tab-panel.active { display: block; }
+        .lp-section-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        html.dark .lp-section-box {
+            background: var(--gastro-card-bg);
+            border-color: var(--gastro-border);
+        }
+        .lp-section-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        html.dark .lp-section-title { color: #f4f4f5; }
+
+        /* ===== SLIDE-OVER PANEL TABS ===== */
+        .slide-tab-btn {
+            flex: 1;
+            padding: 0.625rem 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 2px solid transparent;
+            color: var(--gastro-text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            background: none;
+        }
+        .slide-tab-btn:hover {
+            color: var(--gastro-text-main);
+        }
+        .slide-tab-btn.active {
+            color: var(--gastro-primary);
+            border-bottom-color: var(--gastro-primary);
+        }
+        .slide-tab-content {
+            display: none;
+        }
+        .slide-tab-content.active {
+            display: block;
+        }
+
+        /* Nav sub-items */
+        nav .nav-sub-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.25rem 0.5rem 2.75rem;
+            color: var(--gastro-text-muted);
+            font-weight: 600;
+            font-size: 0.78rem;
+            border-left: 3px solid transparent;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            background: none;
+            border-top: none;
+            border-right: none;
+            border-bottom: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 0;
+        }
+        nav .nav-sub-btn:hover {
+            background-color: rgba(0, 153, 0, 0.04);
+            color: var(--gastro-text-main);
+            padding-left: 3rem;
+        }
+        html.dark nav .nav-sub-btn:hover {
+            background-color: rgba(34, 197, 94, 0.06);
+        }
+        nav .nav-sub-btn.active {
+            background: linear-gradient(90deg, rgba(0, 153, 0, 0.08), rgba(0, 153, 0, 0.02));
+            color: var(--gastro-primary);
+            border-left-color: var(--gastro-primary);
+            font-weight: 700;
+        }
+        html.dark nav .nav-sub-btn.active {
+            background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03));
+            color: #22c55e;
+            border-left-color: #22c55e;
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           ADDITIONAL MOBILE ENHANCEMENTS (admin) — additive only
+           ════════════════════════════════════════════════════════════════════ */
+
+        /* ── Tablet (≤1023px): tighter content padding ── */
+        @media (max-width: 1023px) {
+            .content-area {
+                padding: 1rem;
+                padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+            }
+            .dash-header {
+                padding: 0.75rem 1rem;
+                padding-top: calc(0.75rem + env(safe-area-inset-top));
+            }
+        }
+
+        /* ── Mobile (≤640px): optimized for one-handed use ── */
+        @media (max-width: 640px) {
+            .content-area {
+                padding: 0.75rem;
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+            }
+            .dash-header {
+                padding: 0.625rem 0.75rem;
+                padding-top: calc(0.625rem + env(safe-area-inset-top));
+            }
+            /* Make tables more compact on mobile */
+            .dash-table {
+                font-size: 0.75rem;
+            }
+            /* Larger tap targets for nav buttons when sidebar is open */
+            aside.open .nav-btn,
+            aside.open .nav-sub-btn {
+                padding: 0.95rem 1.25rem;
+            }
+            /* Form inputs: 16px to prevent iOS auto-zoom */
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+            /* Bulk action bar: full-width on mobile */
+            .bulk-action-bar {
+                left: 12px !important;
+                right: 12px !important;
+                transform: none !important;
+                bottom: 12px !important;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.5rem;
+                padding: 0.625rem 0.75rem;
+            }
+        }
+
+        /* ── Small phone (≤480px): minimal chrome ── */
+        @media (max-width: 480px) {
+            .content-area {
+                padding: 0.5rem;
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+            }
+            /* Hide breadcrumbs on very small screens (saves space) */
+            .breadcrumb-sep,
+            .hidden.lg\\:flex {
+                display: none !important;
+            }
+            /* Tighter card spacing */
+            .section-card {
+                border-radius: 0.875rem;
+            }
+        }
+
+        /* ── Landscape phone (short height) ── */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            .dash-header {
+                padding: 0.5rem 0.75rem;
+                padding-top: calc(0.5rem + env(safe-area-inset-top));
+            }
+            .content-area {
+                padding: 0.5rem;
+                padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+            }
+        }
+
+        /* ── Reduced motion: disable heavy animations ── */
+        @media (prefers-reduced-motion: reduce) {
+            .notif-card,
+            .slide-up-modal,
+            .edit-slide-over {
+                animation: none !important;
+                transition: none !important;
+            }
+            aside {
+                transition: none !important;
+            }
+        }
+
+        /* ═════════════════════════════════════════════════════════════════
+           DARK MODE COLOR UTILITIES (für Lagerverwaltung & Schichtplan)
+           — Diese Klassen sind NICHT im pre-built Tailwind CSS enthalten
+           und werden hier manuell nachgerüstet.
+           ═════════════════════════════════════════════════════════════════ */
+
+        /* Red (Low Stock, Löschen, Differenz negativ) */
+        .dark .dark\:text-red-200 { color: #fecaca !important; }
+        .dark .dark\:text-red-300 { color: #fca5a5 !important; }
+        .dark .dark\:text-red-400 { color: #f87171 !important; }
+        .dark .dark\:bg-red-900\/20 { background-color: rgba(127, 29, 29, 0.2) !important; }
+        .dark .dark\:bg-red-900\/30 { background-color: rgba(127, 29, 29, 0.3) !important; }
+        .dark .dark\:bg-red-950\/40 { background-color: rgba(69, 10, 10, 0.4) !important; }
+        .dark .dark\:border-red-700 { border-color: #b91c1c !important; }
+        .dark .dark\:border-red-800 { border-color: #991b1b !important; }
+
+        /* Blue (Bearbeiten Links) */
+        .dark .dark\:text-blue-400 { color: #60a5fa !important; }
+        .dark .dark\:text-blue-300 { color: #93c5fd !important; }
+
+        /* Green (Genehmigt, Differenz positiv, Abgeschlossen) */
+        .dark .dark\:text-green-300 { color: #86efac !important; }
+        .dark .dark\:text-green-400 { color: #4ade80 !important; }
+        .dark .dark\:bg-green-900\/20 { background-color: rgba(20, 83, 45, 0.2) !important; }
+        .dark .dark\:bg-green-900\/30 { background-color: rgba(20, 83, 45, 0.3) !important; }
+
+        /* Amber (Urlaubsanträge, Pending) */
+        .dark .dark\:text-amber-200 { color: #fde68a !important; }
+        .dark .dark\:text-amber-300 { color: #fcd34d !important; }
+        .dark .dark\:bg-amber-900\/20 { background-color: rgba(120, 53, 15, 0.2) !important; }
+        .dark .dark\:bg-amber-900\/30 { background-color: rgba(120, 53, 15, 0.3) !important; }
+        .dark .dark\:bg-amber-950\/40 { background-color: rgba(69, 26, 3, 0.4) !important; }
+        .dark .dark\:border-amber-700 { border-color: #b45309 !important; }
+        .dark .dark\:border-amber-800 { border-color: #92400e !important; }
+
+        /* Hover States */
+        .dark .dark\:hover\:text-green-400:hover { color: #4ade80 !important; }
+        .dark .dark\:hover\:text-red-400:hover { color: #f87171 !important; }
+        .dark .dark\:hover\:text-zinc-300:hover { color: #d4d4d8 !important; }
+
+        /* === AUDIT FIX: Fehlende Dark Mode Klassen === */
+
+        /* CRITICAL: bg-rose-50, bg-blue-50, bg-green-50, bg-orange-50 */
+        .dark .bg-rose-50 { background-color: rgba(76, 5, 25, 0.4) !important; }
+        .dark .bg-blue-50 { background-color: rgba(30, 58, 138, 0.3) !important; }
+        .dark .bg-green-50 { background-color: rgba(20, 83, 45, 0.3) !important; }
+        .dark .bg-orange-50 { background-color: rgba(67, 20, 7, 0.3) !important; }
+
+        /* CRITICAL: text-teal-700 */
+        .dark .text-teal-700 { color: #5eead4 !important; }
+
+        /* HIGH: border-rose-200, border-blue-200, border-emerald-300 */
+        .dark .border-rose-200 { border-color: #9f1239 !important; }
+        .dark .border-blue-200 { border-color: #1e3a8a !important; }
+        .dark .border-emerald-300 { border-color: #047857 !important; }
+
+        /* HIGH: hover backgrounds */
+        .dark .hover\:bg-emerald-50:hover { background-color: rgba(6, 78, 59, 0.3) !important; }
+        .dark .hover\:bg-blue-50:hover { background-color: rgba(30, 58, 138, 0.3) !important; }
+        .dark .hover\:bg-amber-50:hover { background-color: rgba(120, 53, 15, 0.3) !important; }
+        .dark .hover\:bg-zinc-50:hover { background-color: rgba(39, 39, 42, 0.5) !important; }
+        .dark .hover\:bg-red-50:hover { background-color: rgba(127, 29, 29, 0.3) !important; }
+        .dark .hover\:bg-rose-50:hover { background-color: rgba(76, 5, 25, 0.3) !important; }
+        .dark .hover\:bg-green-50:hover { background-color: rgba(20, 83, 45, 0.3) !important; }
+
+        /* MEDIUM: dark:hover backgrounds */
+        .dark .dark\:hover\:bg-zinc-700:hover { background-color: #3f3f46 !important; }
+        .dark .dark\:hover\:bg-zinc-800:hover { background-color: #27272a !important; }
+        .dark .dark\:hover\:text-white:hover { color: #fff !important; }
+        .dark .dark\:hover\:bg-emerald-600:hover { background-color: #059669 !important; }
+        .dark .dark\:bg-emerald-500 { background-color: #10b981 !important; }
+
+        /* MEDIUM: dark border-teal */
+        .dark .dark\:border-teal-500 { border-color: #14b8a6 !important; }
+
+        /* MEDIUM: dark gradients */
+        .dark .dark\:from-zinc-900 { --tw-gradient-from: #18181b !important; }
+        .dark .dark\:to-zinc-950 { --tw-gradient-to: #09090b !important; }
+
+        /* MEDIUM: dark badge backgrounds */
+        .dark .dark\:bg-amber-950\/30 { background-color: rgba(69, 26, 3, 0.3) !important; }
+        .dark .dark\:bg-amber-950\/50 { background-color: rgba(69, 26, 3, 0.5) !important; }
+        .dark .dark\:bg-blue-950\/30 { background-color: rgba(30, 27, 75, 0.3) !important; }
+        .dark .dark\:bg-blue-950\/50 { background-color: rgba(30, 27, 75, 0.5) !important; }
+        .dark .dark\:bg-emerald-950\/30 { background-color: rgba(2, 44, 34, 0.3) !important; }
+        .dark .dark\:bg-emerald-950\/50 { background-color: rgba(2, 44, 34, 0.5) !important; }
+        .dark .dark\:bg-red-900\/40 { background-color: rgba(127, 29, 29, 0.4) !important; }
+
+        /* === SAFARI FIXES === */
+        /* H7: -webkit-tap-highlight-color für alle Buttons */
+        button, a, [onclick], .nav-btn, .nav-sub-btn, .filter-chip, .cms-card,
+        .btn-primary, .btn-secondary, .tenant-btn, .ep-toggle, .combo-cat-toggle,
+        .combo-item-toggle, .event-day-check, .combo-day-check {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* H4: -webkit-backdrop-filter prefixes */
+        .sidebar-backdrop { -webkit-backdrop-filter: blur(2px); }
+        .overlay-backdrop { -webkit-backdrop-filter: blur(4px); }
+        .live-notification-bar { -webkit-backdrop-filter: blur(12px); }
+
+        /* H8: popup-card max-height für Desktop */
+        .popup-card { max-height: calc(100vh - 2rem); }
