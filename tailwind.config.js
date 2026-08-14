@@ -10,12 +10,13 @@
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // Scan all 4 templates for class names
+  // Scan all templates (incl. partials with JS template literals) and JS
+  // files for class names. IMPORTANT: partials like admin-script-1.html
+  // contain dynamically injected Tailwind classes (e.g. tile-timer with
+  // absolute/right-6/bottom-2) — excluding them strips needed utilities.
   content: [
-    "./templates/menu.html",
-    "./templates/admin.html",
-    "./templates/landing.html",
-    "./templates/login.html",
+    "./templates/**/*.html",
+    "./static/js/**/*.js",
   ],
   darkMode: "class",
   theme: {

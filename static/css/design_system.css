@@ -928,6 +928,55 @@ html.light .sitzplan-table.status-free {
     }
 }
 
+/* ── iPhone SE and small phones (≤375px) ──
+   A13-class GPUs: cheaper blur, tighter panels, 44px touch targets */
+@media (max-width: 375px) {
+    .glass-panel {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        padding: 12px;
+    }
+    .glass-card {
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* Smaller heading sizes so long words don't wrap awkwardly */
+    h1 {
+        font-size: clamp(1.6rem, 7vw, 2rem);
+    }
+    h2 {
+        font-size: clamp(1.3rem, 6vw, 1.6rem);
+    }
+
+    /* Touch-friendly minimum heights (44px Apple HIG minimum) */
+    .btn-premium,
+    .btn-premium-primary,
+    .btn-premium-secondary,
+    .glass-btn-primary,
+    .glass-btn-secondary,
+    button.nav-btn,
+    button.nav-sub-btn {
+        min-height: 44px;
+    }
+}
+
+/* ── Tablet (768px–1023px): 2-column grids instead of 1 or 3 ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .glass-card-grid,
+    .product-grid,
+    #product-grid-container {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    /* Slightly larger cards fill the wider columns comfortably */
+    .glass-card {
+        padding: 1.25rem;
+    }
+}
+
 /* ── Reduced motion: respect user preference ── */
 @media (prefers-reduced-motion: reduce) {
     .glass-card,

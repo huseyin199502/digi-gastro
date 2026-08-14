@@ -1527,6 +1527,7 @@ def load_restaurant_from_db(slug: str, session) -> Optional[dict]:
             "tip_amount": o.tip_amount,
             "status": o.status,
             "timestamp": o.timestamp,
+            "original_timestamp": getattr(o, "original_timestamp", None),
             "mwst_rate": o.mwst_rate,
             "waiter_id": o.waiter_id,
             "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None,
@@ -1774,6 +1775,7 @@ def append_order_to_db(slug: str, order_data: dict, session):
         tip_amount=order_data.get("tip_amount", 0.0),
         status=order_data.get("status", "eingang"),
         timestamp=order_data.get("timestamp", ""),
+        original_timestamp=order_data.get("original_timestamp"),
         mwst_rate=order_data.get("mwst_rate", 19),
         waiter_id=order_data.get("waiter_id"),
         daily_bon_number=order_data.get("daily_bon_number"),
@@ -2102,6 +2104,7 @@ def save_restaurant_to_db(slug: str, r: dict, session):
         db_o.tip_amount = o.get("tip_amount", 0.0)
         db_o.status = o.get("status", "eingegangen")
         db_o.timestamp = o.get("timestamp")
+        db_o.original_timestamp = o.get("original_timestamp")
         db_o.mwst_rate = o.get("mwst_rate", 19)
         db_o.waiter_id = o.get("waiter_id")
         # original_total dauerhaft in DB sichern — nie wieder 0€ nach Server-Restart
@@ -6136,6 +6139,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         active_order["total_with_tip"] = round(active_order["total_with_tip"] + total, 2)
         active_order["tip_amount"] = round(active_order["tip_amount"], 2)
         active_order["status"] = "eingegangen"  # Mark as eingegangen so it blinks orange again
+        # ── FIX Timer: original_timestamp wird beim Merge NIE zurückgesetzt.
+        # Für Alt-Bestellungen ohne Feld wird der aktuelle timestamp übernommen,
+        # BEVOR er unten auf "jetzt" aktualisiert wird → Timer startet nie wieder bei 0.
+        if not active_order.get("original_timestamp"):
+            active_order["original_timestamp"] = active_order.get("timestamp") or get_berlin_now().strftime("%Y-%m-%d %H:%M:%S")
         active_order["timestamp"] = get_berlin_now().strftime("%Y-%m-%d %H:%M:%S")
         
         try:
@@ -6175,6 +6183,11 @@ async def create_order(request: Request, slug: str, payload: OrderPayload, db: S
         "tip_amount": 0.0,
         "status": "eingegangen",
         "timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
+        # ── FIX Timer: original_timestamp bleibt beim ersten Bestellvorgang
+        # stehen und wird bei Nachbestellungen (Merge) NICHT verändert. Der
+        # Tisch-Timer startet so nie wieder bei 0, obwohl timestamp (Sortierung
+        # "neueste zuerst") bei jeder Nachbestellung aktualisiert wird. ──
+        "original_timestamp": get_berlin_now().strftime("%Y-%m-%d %H:%M:%S"),
         "mwst_rate": 19,
         "waiter_id": None,
         "daily_bon_number": _daily_bon_number,  # #1, #2, #3... pro Tag
@@ -9507,6 +9520,7 @@ def get_tablet_status(request: Request, db: Session = Depends(get_db)):
             "tip_amount": o.tip_amount,
             "status": o.status,
             "timestamp": o.timestamp,
+            "original_timestamp": getattr(o, "original_timestamp", None),
             "mwst_rate": o.mwst_rate,
             "waiter_id": o.waiter_id,
             "original_total": getattr(o, "original_total", None) if hasattr(o, "original_total") else None,
@@ -12529,6 +12543,7 @@ def _load_all_orders_for_export(slug: str, db) -> list:
             "bon_date": getattr(o, "bon_date", None),
             "status": o.status,
             "timestamp": o.timestamp,
+            "original_timestamp": getattr(o, "original_timestamp", None),
             "waiter": getattr(o, "waiter", None) or "",
             "tip": getattr(o, "tip", 0.0) or 0.0,
             "payment_method": getattr(o, "payment_method", None),

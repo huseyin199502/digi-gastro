@@ -1,0 +1,214 @@
+/* ════════════════════════════════════════════════════════════════════
+   admin-modern.css — Modernization overlay for the admin panel
+   MUST load AFTER admin-0.css and admin-responsive.css.
+   Purely additive visual layer: glass sidebar, depth elevation,
+   3D hover/entrance effects. No layout or logic changes.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Sidebar: subtle glassmorphism gradient over the base color ── */
+aside {
+    background-image: linear-gradient(165deg,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.01) 35%,
+        rgba(0, 0, 0, 0.12) 100%);
+    box-shadow: 4px 0 24px -8px rgba(0, 0, 0, 0.35);
+}
+html.light aside {
+    background-image: linear-gradient(165deg,
+        rgba(255, 255, 255, 0.55) 0%,
+        rgba(255, 255, 255, 0.15) 40%,
+        rgba(0, 0, 0, 0.04) 100%);
+}
+
+/* Sidebar header: soft depth line below the logo */
+.sidebar-header::after {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+}
+
+/* Profile card: slight elevation so the restaurant identity "floats" */
+.profile-card {
+    transform: translateZ(0);
+    box-shadow: 0 2px 12px -4px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Nav items: 3D hover slide with depth ── */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    nav .nav-btn,
+    nav .nav-sub-btn {
+        transform: translateZ(0);
+    }
+    nav .nav-btn:hover,
+    nav .nav-sub-btn:hover {
+        transform: perspective(900px) translateZ(6px) translateX(2px);
+    }
+    nav .nav-btn.active,
+    nav .nav-sub-btn.active {
+        box-shadow: inset 0 0 0 1px rgba(201, 168, 76, 0.12),
+                    0 2px 10px -4px rgba(201, 168, 76, 0.25);
+    }
+    .profile-card:hover {
+        transform: perspective(900px) translateZ(4px);
+        box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* ── Stat cards: elevation + 3D hover tilt ── */
+.stat-card {
+    transform-style: preserve-3d;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.18),
+        0 6px 16px -6px rgba(0, 0, 0, 0.25);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .stat-card:hover {
+        transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) translateZ(8px);
+        box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.2),
+            0 14px 32px -8px rgba(0, 0, 0, 0.35);
+    }
+}
+
+/* Dashboard cards: multi-layer depth shadow */
+.dashboard-card,
+.order-card {
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.15),
+        0 8px 20px -8px rgba(0, 0, 0, 0.25);
+    transition: box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow:
+            0 2px 4px rgba(0, 0, 0, 0.18),
+            0 16px 36px -10px rgba(0, 0, 0, 0.35);
+    }
+}
+
+/* ── Tab content: smooth 3D entrance on tab switch ── */
+@media (prefers-reduced-motion: no-preference) {
+    .admin-tab-content.active {
+        animation: admin-tab-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        transform-origin: center top;
+    }
+}
+@keyframes admin-tab-enter {
+    from {
+        opacity: 0;
+        transform: perspective(1200px) rotateX(-3deg) translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: perspective(1200px) rotateX(0) translateY(0);
+    }
+}
+
+/* ── Modals: 3D entrance with perspective rotateX ── */
+@media (prefers-reduced-motion: no-preference) {
+    .modal:not(.hidden) .modal-content,
+    .modal-content.slide-in-3d {
+        animation: admin-modal-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+        transform-origin: center 30%;
+    }
+}
+@keyframes admin-modal-enter {
+    from {
+        opacity: 0;
+        transform: perspective(1400px) rotateX(-8deg) translateY(28px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: perspective(1400px) rotateX(0) translateY(0) scale(1);
+    }
+}
+.modal-content {
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.25),
+        0 24px 60px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Buttons: 3D press on primary actions ── */
+.btn-premium-primary,
+.glass-btn-primary,
+button.btn-save,
+button[type="submit"].btn-premium-primary {
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-premium-primary:active,
+.glass-btn-primary:active,
+button.btn-save:active {
+    transform: perspective(600px) translateZ(-6px) scale(0.985);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .btn-premium-primary:hover,
+    .glass-btn-primary:hover {
+        transform: perspective(600px) translateZ(4px);
+        filter: brightness(1.05);
+    }
+}
+
+/* ── Headings: subtle text-shadow for depth ── */
+.dash-header h1,
+.dash-header h2,
+.cms-overview-header h1,
+.cms-overview-header h2,
+.admin-tab-content > h2,
+.admin-tab-content > h3 {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+html.light .dash-header h1,
+html.light .dash-header h2,
+html.light .cms-overview-header h1,
+html.light .cms-overview-header h2 {
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+/* Live badge: gentle pulse with shadow depth */
+@media (prefers-reduced-motion: no-preference) {
+    .live-badge {
+        animation: admin-live-pulse 2.4s ease-in-out infinite;
+    }
+}
+@keyframes admin-live-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.35); }
+    50%      { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   GUARDS — touch devices & small screens keep it cheap
+   ════════════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+    nav .nav-btn:active,
+    nav .nav-sub-btn:active,
+    .stat-card:active {
+        transform: scale(0.985);
+    }
+}
+@media (max-width: 768px) {
+    /* On mobile the sidebar is an overlay drawer — keep shadow stronger */
+    aside.open {
+        box-shadow: 12px 0 40px -10px rgba(0, 0, 0, 0.5);
+    }
+    /* Stat cards: skip tilt, plain lift is cheaper on small GPUs */
+    .stat-card:hover {
+        transform: none;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .admin-tab-content.active,
+    .modal:not(.hidden) .modal-content,
+    .live-badge {
+        animation: none !important;
+    }
+    .stat-card,
+    .dashboard-card,
+    .profile-card,
+    nav .nav-btn,
+    nav .nav-sub-btn {
+        transition: none !important;
+        transform: none !important;
+    }
+}

@@ -28,8 +28,8 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
+    <link rel="preload" href="/static/css/tailwind-built.css?v=5" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=5"></noscript>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="/static/js/puter.js"></script>
     <script src="/static/js/personal_inventory.js"></script>
@@ -39,6 +39,10 @@
     <link rel="stylesheet" href="/static/css/app.css">
     <link rel="stylesheet" href="/static/css/pages/admin-0.css?v=seating-full-width-1">
     <link rel="stylesheet" href="/static/css/pages/admin-responsive.css?v=glass-mobile-3">
+    <!-- 3D design system + modern admin overlay (load AFTER admin-0/admin-responsive) -->
+    <link rel="stylesheet" href="/static/css/design_3d.css?v=1">
+    <link rel="stylesheet" href="/static/css/pages/admin-modern.css?v=1">
+    <script src="/static/js/3d-interactions.js" defer></script>
 </head>
 <body class="bg-gray-100" style="padding-left: env(safe-area-inset-left, 0); padding-right: env(safe-area-inset-right, 0);">
 

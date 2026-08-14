@@ -23,8 +23,8 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/icon-192.png">
     <!-- Tailwind and FontAwesome / Material Symbols -->
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
+    <link rel="preload" href="/static/css/tailwind-built.css?v=5" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=5"></noscript>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -32,6 +32,9 @@
     <link rel="stylesheet" href="/static/css/app.css">
     <script src="/static/js/api.js" defer></script>
     <link rel="stylesheet" href="/static/css/pages/menu-0.css">
+    <!-- 3D utility layer (load last so utilities win the cascade) -->
+    <link rel="stylesheet" href="/static/css/design_3d.css?v=1">
+    <script src="/static/js/3d-interactions.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body x-data="menuState()" class="flex flex-col min-h-screen bg-background" style="min-height:100vh;min-height:100dvh" no-image-save {{ restaurant.theme or 'dark' }} {% if not is_readonly %}pb-32{% else %}items-center justify-center p-4{% endif %}"
@@ -708,7 +711,7 @@
                     {% set fetch_prio = 'high' if is_eager else 'auto' %}
                     {% set decode_attr = 'sync' if is_eager else 'async' %}
                     {% set is_avail = product.get('is_available', True) %}
-                    <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-3 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" 
+                    <article class="product-card product-item bg-surface-container-high hover-lift rounded-2xl p-3 flex flex-col justify-between border border-outline-variant/60 overflow-hidden {% if not is_avail %}opacity-50 grayscale pointer-events-none{% endif %}" data-3d-appear
                              data-category="{{ product.category }}" 
                              data-product-card-id="{{ product.id }}"
                              data-vegan="{{ 'true' if product.is_vegan else 'false' }}" 

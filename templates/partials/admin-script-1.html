@@ -3321,7 +3321,11 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
                 })
                 .then(data => {
                     if (!data) return;
-                    if (data.server_time) {
+                    if (data.server_time && serverTimeOffset === 0) {
+                        // FIX Timer: Offset nur EINMAL bestimmen und einfrieren.
+                        // server_time hat nur Sekunden-Granularität → bei jeder
+                        // Neuberechnung oszilliert der Offset um ±1s und der
+                        // Timer zählt unregelmäßig (1,2,3 → 2,3 → 8,9 → 7,8).
                         serverTimeOffset = new Date() - new Date(data.server_time.replace(' ', 'T'));
                     }
                     try {
@@ -4299,7 +4303,7 @@ ${bon.status === 'bezahlt' ? '<div class="divider"></div><div style="text-align:
 } else if (order) {
                     // Timer läuft ab der ältesten aktiven Bestellung (kein Neustart bei Nachbestellung)
                     // und weiter, bis der Kellner abgerechnet hat (Teilzahlung ODER komplett bezahlt).
-                    const timerTs = orders.reduce((min, o) => (o.timestamp && o.timestamp < min) ? o.timestamp : min, orders[0].timestamp);
+                    const timerTs = orders.reduce((min, o) => { const ts = o.original_timestamp || o.timestamp; return (ts && ts < min) ? ts : min; }, orders[0].original_timestamp || orders[0].timestamp);
                     const timerSpan = timerTs ? `<span class="tile-timer absolute right-6 bottom-2 text-[9px] font-bold px-1 rounded ${hasPending ? 'text-rose-800 bg-rose-200/50' : 'text-emerald-800 bg-emerald-200/50'}" data-timestamp="${timerTs}"></span>` : '';
                     if (hasPending) {
                         inner = `

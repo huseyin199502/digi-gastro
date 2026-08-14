@@ -621,3 +621,69 @@
         .scroll-indicator-v2 {
             animation: scroll-bounce 2s ease-in-out infinite;
         }
+
+        /* ════════════════════════════════════════════════════════════════
+           3D DEPTH LAYER — tilt, elevation & parallax (desktop pointers)
+           Note: .glass-card-v2 keeps its .reveal transform untouched;
+           tilt is applied via 3d-interactions.js on .card-3d elements
+           inside a .perspective-container wrapper.
+           ════════════════════════════════════════════════════════════════ */
+
+        /* Feature cards: perspective context + depth shadow on hover */
+        #features .grid {
+            perspective: 1200px;
+        }
+        .glass-card-v2 {
+            transform-style: preserve-3d;
+        }
+        @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+            .glass-card-v2.reveal.revealed:hover {
+                transform: perspective(1200px) rotateY(1.5deg) translateY(-4px) translateZ(10px);
+                box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.6),
+                            0 0 0 1px rgba(201, 168, 76, 0.18);
+            }
+        }
+
+        /* Hero section: parallax depth layers via translateZ */
+        .hero-section {
+            perspective: 1200px;
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            .hero-section .hero-video-wrap {
+                transform: translateZ(-40px) scale(1.08);
+            }
+            .hero-section .hero-glow-text {
+                transform: translateZ(24px);
+            }
+            .premium-badge {
+                transform: translateZ(32px);
+            }
+        }
+
+        /* CTA buttons: 3D press effect */
+        .btn-gold-v2,
+        .btn-glass-v2 {
+            transition: transform 0.15s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+        .btn-gold-v2:active,
+        .btn-glass-v2:active {
+            transform: perspective(600px) translateZ(-8px) scale(0.98);
+        }
+        @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+            .btn-gold-v2:hover {
+                transform: perspective(600px) translateZ(6px);
+                box-shadow: 0 10px 28px -6px rgba(201, 168, 76, 0.55);
+            }
+        }
+
+        /* Touch + reduced-motion guards */
+        @media (hover: none) {
+            .glass-card-v2.reveal.revealed:hover { transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-section .hero-video-wrap,
+            .hero-section .hero-glow-text,
+            .premium-badge {
+                transform: none !important;
+            }
+        }

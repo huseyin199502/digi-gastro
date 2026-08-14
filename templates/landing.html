@@ -67,8 +67,8 @@
          nachdem die optimale Quelle ermittelt wurde — verhindert dass Chrome-User
          unnötig H.264 (670KB) UND WebM (386KB) laden. -->
     <!-- Tailwind CSS — locally built, replaces Play CDN (~3 MB JS → 72 KB CSS) -->
-    <link rel="preload" href="/static/css/tailwind-built.css?v=4" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=4"></noscript>
+    <link rel="preload" href="/static/css/tailwind-built.css?v=5" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/tailwind-built.css?v=5"></noscript>
     <!-- Outfit + Inter Fonts — synchron laden, sonst FOUT (Flash of Unstyled Text) -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Material Symbols Outlined — synchron laden, sonst Icons als Text sichtbar -->
@@ -80,6 +80,9 @@
     <script src="/static/js/api.js" defer></script>
 
     <link rel="stylesheet" href="/static/css/pages/landing-0.css">
+    <!-- 3D utility layer (load last so utilities win the cascade) -->
+    <link rel="stylesheet" href="/static/css/design_3d.css?v=1">
+    <script src="/static/js/3d-interactions.js" defer></script>
 
 </head>
 <body class="bg-obsidian text-zinc-100 font-sans min-h-screen relative overflow-x-hidden no-image-save"
@@ -399,10 +402,10 @@
                 <p class="text-zinc-400 mt-4 text-sm sm:text-base font-medium">8 Features, die deinen Betrieb transformieren — von NFC-Bestellung bis GoBD-Audit-Log.</p>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 perspective-container">
                 
                 <!-- BENTO CARD 1: NFC Tap-to-Order (USP — größte Card) -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 md:row-span-2 flex flex-col justify-between reveal border-gold-500/30">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 md:row-span-2 flex flex-col justify-between reveal tilt-on-hover border-gold-500/30">
                     <div>
                         <div class="flex items-center gap-3 mb-4">
                             <div class="card-icon h-14 w-14 rounded-xl bg-gold-500/15 border border-gold-500/30 flex items-center justify-center text-gold-400">
@@ -432,7 +435,7 @@
                 </div>
 
                 <!-- BENTO CARD 2: Shisha-Modus -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-fire text-xl"></i>
@@ -446,7 +449,7 @@
                 </div>
 
                 <!-- BENTO CARD 3: 3-Schicht-Upselling -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-brain text-xl"></i>
@@ -460,7 +463,7 @@
                 </div>
 
                 <!-- BENTO CARD 4: Universal-POS -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-cash-register text-xl"></i>
@@ -474,7 +477,7 @@
                 </div>
 
                 <!-- BENTO CARD 5: Live-Sitzplan -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-table-cells-large text-xl"></i>
@@ -488,7 +491,7 @@
                 </div>
 
                 <!-- BENTO CARD 6: Teilzahlung & Split-Pay -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-arrows-split-up-and-left text-xl"></i>
@@ -502,7 +505,7 @@
                 </div>
 
                 <!-- BENTO CARD 7: Google-Review-Booster -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-1 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-star text-xl"></i>
@@ -516,7 +519,7 @@
                 </div>
 
                 <!-- BENTO CARD 8: GoBD & Audit-Log -->
-                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal">
+                <div class="glass-card-v2 p-5 sm:p-8 rounded-2xl group md:col-span-2 flex flex-col justify-between reveal tilt-on-hover">
                     <div>
                         <div class="card-icon h-12 w-12 rounded-xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500 mb-6">
                             <i class="fa-solid fa-shield-halved text-xl"></i>

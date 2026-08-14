@@ -10,17 +10,21 @@
 
 :focus-visible { outline: 2px solid var(--dg-focus); outline-offset: 2px; }
 
-/* Shared glass surfaces used across landing, menu, login, scanner and admin. */
-.glass-panel,
+/* Shared glass surfaces used across landing, menu, login, scanner and admin.
+   Wrapped in :where() (zero specificity) so the canonical definitions in
+   design_system.css — and any page CSS — always win the cascade. These
+   rules act only as a fallback for pages that don't load design_system.css
+   (e.g. admin, session-expired). */
+:where(.glass-panel,
 .glass-card,
 .glass-modal,
 .modal-content,
 .profile-card,
 .dashboard-card,
-.stat-card {
-    background: var(--dg-glass-bg) !important;
-    border: 1px solid var(--dg-glass-border) !important;
-    box-shadow: var(--dg-glass-shadow) !important;
+.stat-card) {
+    background: var(--dg-glass-bg);
+    border: 1px solid var(--dg-glass-border);
+    box-shadow: var(--dg-glass-shadow);
     -webkit-backdrop-filter: var(--dg-glass-blur);
     backdrop-filter: var(--dg-glass-blur);
 }

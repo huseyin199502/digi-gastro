@@ -233,6 +233,8 @@ class Order(Base):
     mwst_rate = Column(Integer, default=19)
     waiter_id = Column(String, nullable=True)
     original_total = Column(Float, default=0.0)  # Nie wieder 0€: echter Warenwert, wird beim Anlegen gesetzt und nie reduziert
+    # FIX Timer: erster Bestellzeitpunkt; bleibt bei Nachbestellung (Merge) erhalten
+    original_timestamp = Column(String, nullable=True)  # "2026-08-14 12:00:00"
     # NEU: Tägliche Bon-Nummer pro Tenant (resetet täglich)
     daily_bon_number = Column(Integer, nullable=True)  # #1, #2, #3... pro Tenant pro Tag
     bon_date = Column(String, nullable=True)  # "2026-07-13" — für Reset-Logik
@@ -1154,6 +1156,9 @@ def _migrate_database():
     # NEU: Tägliche Bon-Nummer pro Tenant
     add_column_if_missing('orders', 'daily_bon_number', "INTEGER")
     add_column_if_missing('orders', 'bon_date', "VARCHAR")
+    # FIX Timer: original_timestamp = erster Bestellzeitpunkt einer Bestellung,
+    # wird bei Nachbestellung (Merge) NICHT aktualisiert → Tisch-Timer startet nie wieder bei 0.
+    add_column_if_missing('orders', 'original_timestamp', "VARCHAR")
 
     # Ensure events and event_products tables exist
     try:

@@ -373,3 +373,60 @@
                 transition: none !important;
             }
         }
+
+        /* ════════════════════════════════════════════════════════════════
+           3D DEPTH LAYER — product appear, cart sheet, category tabs
+           ════════════════════════════════════════════════════════════════ */
+
+        /* Product cards: 3D appear animation when scrolled into view.
+           Play-state is driven by 3d-interactions.js (IntersectionObserver);
+           cards with [data-3d-appear] start paused until visible. */
+        @media (prefers-reduced-motion: no-preference) {
+            .product-card[data-3d-appear] {
+                animation: card-appear 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+            }
+        }
+
+        /* Cart bottom-sheet: 3D entrance with rotateX(-5deg) start */
+        #cart-modal {
+            perspective: 1200px;
+        }
+        #cart-modal-inner {
+            transform-origin: center bottom;
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            #cart-modal-inner.translate-y-full {
+                transform: translateY(100%) rotateX(-5deg);
+            }
+        }
+
+        /* Category cards: subtle 3D slide on selection (press) */
+        @media (prefers-reduced-motion: no-preference) {
+            #category-list-view button {
+                transform-style: preserve-3d;
+            }
+            #category-list-view button:active {
+                transform: perspective(800px) rotateX(2deg) scale(0.98);
+            }
+        }
+        @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+            #category-list-view button:hover {
+                transform: perspective(800px) translateZ(6px);
+            }
+        }
+
+        /* Touch & reduced-motion guards */
+        @media (hover: none) {
+            #category-list-view button:hover {
+                transform: none;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .product-card[data-3d-appear] {
+                animation: none !important;
+                opacity: 1 !important;
+            }
+            #cart-modal-inner.translate-y-full {
+                transform: translateY(100%);
+            }
+        }
