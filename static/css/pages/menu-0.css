@@ -41,10 +41,20 @@
                 height: 100dvh;
                 overscroll-behavior: contain;
                 overflow-y: auto;
+                /* Mobile-Scrollbar als Overlay (nimmt keinen Platz) — sonst wird der
+                   Body-Content um die Scrollbar-Breite verschmälert und der Header
+                   (width:100vw) wird rechts geclippt, sodass das Video durchscheint. */
+                scrollbar-width: none;
+                -ms-overflow-style: none;
                 /* display:block statt flex — mit flex+flex-direction:column werden
                    die Children durch flex-shrink:1 gequetscht statt dass body scrollt.
                    Block-Layout lässt Children natürlich wachsen → body scrollt. */
                 display: block !important;
+            }
+            body::-webkit-scrollbar {
+                display: none;
+                width: 0;
+                height: 0;
             }
             /* Children dürfen nicht schrumpfen — sonst werden sie geclippt */
             body > * {

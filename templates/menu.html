@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="{{ restaurant.theme or 'dark' }}" lang="de">
+<html class="{{ restaurant.theme or 'dark' }}" lang="de" style="overflow-x: clip;">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -95,8 +95,8 @@
     <!-- Top Navigation Bar / Header -->
     <!-- safe-area-inset-top im padding-top + height = Header-Hintergrund geht bis unter Statusleiste,
          Content wird durch padding-top nach unten geschoben. Sticky top-0 hält Header beim Scrollen. -->
-    <header class="grid grid-cols-3 items-center px-4 sm:px-6 w-full sticky top-0 z-50 glass-panel border-b border-outline-variant"
-            style="height: calc(5rem + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1.5rem, env(safe-area-inset-right, 0px)); -webkit-padding-top: env(safe-area-inset-top, 0px);">
+    <header class="grid grid-cols-3 items-center px-4 sm:px-6 w-screen sticky top-0 z-50 bg-surface border-b border-outline-variant"
+            style="width:100vw; height: calc(5rem + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1.5rem, env(safe-area-inset-right, 0px)); -webkit-padding-top: env(safe-area-inset-top, 0px);">
         <div class="flex justify-start items-center gap-2 sm:gap-3">
             {% if role == 'admin' or role == 'waiter' %}
             <!-- Dashboard-Button IM Header — erbt safe-area-inset-top vom Header padding -->
@@ -168,7 +168,7 @@
     </div>
 
     <!-- Main Dynamic Content Canvas -->
-    <main class="flex-grow w-full max-w-4xl mx-auto px-4">
+    <main class="relative z-10 flex-grow w-full max-w-4xl mx-auto px-4">
         
         <!-- ================= LANDING VIEW ================= -->
         <div x-show="currentView === 'landing'" class="space-y-0 animate-fade-in py-0 landing-page-wrapper" id="landing-page-wrapper">
@@ -490,7 +490,7 @@
 
                 <!-- NEU: Extras Infokachel (zeigt Extras unter Kategorie-Header) -->
                 <template x-if="currentCategory !== '' && getCategoryExtras(currentCategory).length > 0">
-                    <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 mb-2">
+                    <div class="relative z-10 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 mb-2">
                         <div class="flex items-center gap-1.5 mb-2">
                             <span class="material-symbols-outlined text-amber-500" style="font-size:16px;">add_circle</span>
                             <span class="text-[11px] font-black text-amber-500 uppercase tracking-wider">Extras</span>
@@ -793,8 +793,8 @@
     <!-- iOS BOUNCE FIX: padding-bottom muss Bottom-Nav-Bar (3.25rem) + safe-area + extra Platz abdecken
          Sonst bounced iOS Safari zurück und Nav-Bar verdeckt Impressum/Datenschutz UND Copyright-Text.
          8rem = 3.25rem (Nav-Bar) + 1rem (Abstand) + 2rem (Copyright-Höhe) + 1.75rem Puffer -->
-    <footer class="py-8 bg-surface border-t border-outline-variant text-center text-sm text-on-surface-variant space-y-3"
-            style="padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));">
+    <footer class="relative z-10 py-8 bg-surface border-t border-outline-variant text-center text-sm text-on-surface-variant space-y-3"
+            style="width:100vw; padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));">
         <div class="flex justify-center space-x-4">
             <button onclick="openLegalModal('impressum')" class="hover:text-primary transition underline py-1" data-translate="impressum">Impressum</button>
             <span>&bull;</span>
