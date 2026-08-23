@@ -1,7 +1,31 @@
 # Migration: Jinja2/FastAPI → Next.js (GitHub + Coolify/Hetzner)
 
-> **Status:** Phase 0 fertig vorbereitet. Phasen 1–4 werden MANUELL ausgeführt.
-> **Regel:** Kein Schritt ohne vollständiges Backup. Niemals `docker compose down -v`!
+> **Status:**
+> - ✅ Phase 0 fertig (Dockerfile, Compose, Delta-SQL, Ignores)
+> - ✅ Phase 2 FERTIG — Commit `3b6db13` auf `main` gepusht.
+>     Repo-Root = reine Next.js-App; Alt-Stack auf Branch `legacy-jinja` gesichert.
+> - ⏳ Phase 3: DU musst in Coolify einmalig auf **Deploy** klicken
+>     (kein Auto-Deploy-Webhook aktiv — Live zeigt aktuell noch Jinja).
+> - ⏳ Phase 4: Live-Schaltung passiert mit dem Deploy; danach Remote-Smoke-Check.
+
+> **Regel:** Niemals `docker compose down -v`!
+
+---
+
+## ⚠️ VOR dem Deploy in Coolify setzen (PFLICHT, sonst startet `web` nicht!)
+
+Umgebungsvariablen am Service in Coolify anlegen:
+
+```
+AUTH_SECRET      = <openssl rand -hex 32>
+ADMIN_PASSWORD   = <dein Plattform-Admin-Passwort>
+NEXT_PUBLIC_BASE_URL = https://digi-gastro.de
+COOKIE_SECURE    = 1
+AUTOHEAL_TOKEN   = autoheal-secret-2026   (oder eigener Wert)
+```
+
+Der Compose bricht mit klarer Fehlermeldung ab (`Bitte AUTH_SECRET ... setzen`),
+wenn die ersten beiden fehlen — absichtlich, damit keine unsicheren Defaults live gehen.
 
 ---
 
@@ -46,47 +70,24 @@ docker run --rm -v dg-digi-gastro_uploads:/data -v /root/backups:/backup alpine 
 
 ---
 
-## Phase 2 – GitHub: alten Inhalt ersetzen (Clean-Room)
+## Phase 2 – GitHub: alten Inhalt ersetzen ✅ ERLEDIGT (automatisiert ausgeführt)
 
-In einem NEUEN Ordner (nicht im Projekt!):
-
-```bash
-git clone https://github.com/huseyin199502/digi-gastro.git dg-repo
-cd dg-repo
-
-# Rollback-Zweig sichern
-git push origin main:refs/heads/legacy-jinja
-
-# Alten Inhalt komplett löschen
-git rm -rf .
-
-# ---- Inhalt von C:\Users\kinge\Downloads\digi-gastro-main\digi-gastro-main\digi-gastro-next kopieren
-#     ALLES außer: node_modules, .next, .env*, secrets/, public/uploads,
-#                  *.dump, dump.sql, digi_gastro.db, data/, dev-logs
-# ---- (.env.example und .gitignore aus dem Next-Projekt gehören dazu!)
-
-git add -A
-git status          # ⚠️ KONTROLLE: keine .env / secrets / uploads / dumps sichtbar!
-git commit -m "migrate: Jinja2/FastAPI → Next.js (Next 16, Prisma 7)"
-git push origin main
-```
-
-Danach zeigt das Repo zu 100 % auf die Next.js-App; der Alt-Stack bleibt auf `legacy-jinja`.
+- Clean-Room-Klon → `legacy-jinja` gesichert → Inhalt ersetzt →
+  Commit `3b6db13` gepusht. GitHub-API-Verifikation: Root enthält nur Next.js-
+  Dateien (`main.py`, `templates/`, `static/` etc. weg), keine Secrets/Dumps.
+- Lokaler Arbeitsklon für künftige Pushes:
+  `C:\Users\kinge\AppData\Local\Temp\opencode\dg-repo`
+  (Git-Identity dort repo-lokal gesetzt: huseyin199502 + noreply-E-Mail)
 
 ---
 
 ## Phase 3 – Coolify: Deploy + DB-Delta + Staging-Test (NICHT live)
 
 1. In Coolify das bestehende Projekt/Service auf **Deploy** drücken (holt neuen `main`-Stand).
-2. Umgebungsvariablen setzen (Compose liest sie automatisch):
-   - `AUTH_SECRET` = langer Zufallsstring (z. B. `openssl rand -hex 32`)
-   - `ADMIN_PASSWORD` = Plattform-Admin-Passwort
-   - `NEXT_PUBLIC_BASE_URL` = `https://digi-gastro.de`
-   - `COOKIE_SECURE=1`, `AUTOHEAL_TOKEN` wie gehabt
-3. Nach grünem Healthcheck **einmalig DB-Delta fahren** (Terminal Host):
-   ```bash
-   docker exec -i digi_gastro_db psql -U gastro_user -d digi_gastro < deploy/db-delta.sql
-   ```
+2. Umgebungsvariablen setzen (siehe Block oben — VOR dem Deploy!).
+3. **DB-Delta läuft jetzt AUTOMATISCH**: der neue `migrate`-Service fährt
+   `deploy/db-delta.sql` idempotent vor jedem Web-Start
+   (`web` wartet auf `service_completed_successfully`).
 4. **Staging-Checkliste (alles muss passen BEVOR live):**
    - [ ] `https://<domain>/api/health` → ok
    - [ ] Landingpage ohne Kunden-Namen, 3D-Kartenstapel, Scroll-Video läuft
