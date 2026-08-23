@@ -93,6 +93,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    environment:
+      PGPASSWORD: gastro_secret
     entrypoint: ["sh", "-c"]
     command:
       - |
