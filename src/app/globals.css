@@ -1,0 +1,62 @@
+/* Material Symbols werden per <link> im Root-Layout geladen
+   (Tailwind v4 entfernt Remote-@imports beim CSS-Bundling). */
+@import "tailwindcss";
+@import "./digigastro/design-system.css";
+@import "./digigastro/app.css";
+
+@theme {
+  /* ── digi-gastro Premium Dark Theme Palette (mirror of design-system.css) ── */
+  --color-obsidian: #050507;
+  --color-surface: #0b0c10;
+  --color-surface-elevated: #11131a;
+  --color-surface-overlay: #191c25;
+  --color-surface-container-high: #11131a;
+  --color-background: #050507;
+
+  --color-on-surface: #f3f4f6;
+  --color-on-surface-variant: #9ca3af;
+  --color-on-primary: #000000;
+
+  --color-primary: #c9a84c;
+  --color-primary-hover: #a8872e;
+
+  --color-outline-variant: rgba(255, 255, 255, 0.12);
+  --color-outline: rgba(255, 255, 255, 0.22);
+
+  --font-display: var(--font-outfit), "Outfit", sans-serif;
+  --font-sans: var(--font-inter), "Inter", sans-serif;
+}
+
+/* Sitzplan status pulses (mirror of legacy sitzplan.css) */
+@keyframes pulseRed {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+    border-color: #dc2626;
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.85);
+    border-color: #ef4444;
+  }
+}
+
+/* ── Landing: 3D Karten-Stapel (Features) ──
+   Gestaffelte Sticky-Offsets pro Karte — mobil enger, Desktop breiter. */
+.feature-stack-item {
+  --stack-base: 92px;
+  --stack-gap: 12px;
+}
+@media (min-width: 640px) {
+  .feature-stack-item {
+    --stack-base: 112px;
+    --stack-gap: 18px;
+  }
+}
+
+@keyframes pulseAmber {
+  from {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.7);
+  }
+}

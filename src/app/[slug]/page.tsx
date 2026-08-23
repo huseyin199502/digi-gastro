@@ -1,0 +1,191 @@
+import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getTenantSession } from "@/lib/auth";
+import {
+  guestCookieName,
+  isCookieSessionValid,
+  parseActiveTableNum,
+  parseGuestCookieValue,
+  resolveTable,
+} from "@/lib/guestSession";
+import {
+  getTenantMenu,
+  TenantNotFoundError,
+  TenantSuspendedError,
+} from "@/lib/menu";
+import { MenuClient } from "./menu-client";
+import RestaurantJsonLd from "@/components/RestaurantJsonLd";
+import "../digigastro/menu-0.css";
+import "../digigastro/menu-premium.css";
+
+export const dynamic = "force-dynamic";
+
+interface Props {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const menu = await getTenantMenu(slug);
+    return { title: `${menu.tenant.name} — Speisekarte` };
+  } catch {
+    return { title: "Speisekarte" };
+  }
+}
+
+function strParam(
+  v: string | string[] | undefined
+): string | null {
+  if (typeof v === "string" && v.length > 0) return v;
+  return null;
+}
+
+export default async function TenantMenuPage({ params, searchParams }: Props) {
+  const { slug: rawSlug } = await params;
+  const slug = rawSlug.toLowerCase().trim();
+  const sp = await searchParams;
+
+  const qTable = strParam(sp.table ?? sp.tisch ?? sp.t);
+  const qToken = strParam(sp.token ?? sp.tk);
+  const qZone = strParam(sp.z);
+  const roleParam = strParam(sp.role) ?? "";
+  const previewParam = strParam(sp.preview) === "true";
+
+  // ── QR-scan flow: delegate to the cookie-setting handler ──
+  if (qTable && qToken) {
+    const qs = new URLSearchParams();
+    qs.set("table", qTable);
+    qs.set("token", qToken);
+    if (qZone) qs.set("z", qZone);
+    if (roleParam) qs.set("role", roleParam);
+    redirect(`/${slug}/start-session?${qs.toString()}`);
+  }
+
+  const store = await cookies();
+  const guestCookie = store.get(guestCookieName(slug))?.value ?? null;
+  const session = await getTenantSession(store);
+
+  // ── Admin preview bypass (legacy main.py ~5355-5372) ──
+  const isChef = Boolean(session && session.slug === slug && session.role === "chef");
+  let isPreview = false;
+  if (previewParam && isChef) {
+    isPreview = true;
+  } else if (!previewParam && isChef && !qTable && !guestCookie) {
+    isPreview = true;
+  }
+
+  // ── Session resolution (legacy main.py ~5373-5534) ──
+  let table: string | null = null;
+  let token: string | null = null;
+  let isReadonly = true;
+
+  if (isPreview) {
+    isReadonly = false;
+    table = "Vorschau";
+    token = "preview";
+  } else if (guestCookie) {
+    const parsed = parseGuestCookieValue(guestCookie);
+    if (parsed) {
+      const { num, zone } = parseActiveTableNum(parsed.table);
+      let resolved = await resolveTable(slug, num, zone || null);
+      if (!resolved && zone) resolved = await resolveTable(slug, num, null);
+      if (resolved && (await isCookieSessionValid(slug, resolved, parsed.token))) {
+        table = resolved.displayName;
+        token = parsed.token;
+        isReadonly = false;
+      } else {
+        redirect(`/${slug}/sitz-expired`);
+      }
+    }
+  }
+
+  // Staff role mapping for the in-menu admin drawer / dashboard button
+  // (query-param role wins — legacy passes ?role= through).
+  let role = roleParam;
+  if (!role && session && session.slug === slug) {
+    if (session.role === "chef") role = "admin";
+    else if (session.role === "kellner") role = "waiter";
+  }
+
+  // ── operating_mode "stempelkarte_only": Gäste → Standalone-Stempelkarten-Seite
+  // (legacy main.py ~5336). Admin/Kellner dürfen weiterhin die Speisekarte sehen.
+  const tenantMeta = await prisma.tenant.findUnique({
+    where: { slug },
+    select: { operating_mode: true },
+  });
+  if (
+    tenantMeta?.operating_mode === "stempelkarte_only" &&
+    role !== "admin" &&
+    role !== "waiter" &&
+    role !== "kellner" &&
+    !isPreview
+  ) {
+    redirect(`/${slug}/newsletter`);
+  }
+
+  // ── Load menu data ──
+  let menu;
+  try {
+    menu = await getTenantMenu(slug);
+  } catch (e) {
+    if (e instanceof TenantNotFoundError) notFound();
+    if (e instanceof TenantSuspendedError) {
+      return (
+        <main className="flex flex-1 items-center justify-center px-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Vorübergehend nicht verfügbar</h1>
+            <p className="mt-2 text-zinc-400">
+              Dieses Restaurant ist derzeit pausiert.
+            </p>
+          </div>
+        </main>
+      );
+    }
+    throw e;
+  }
+
+  const t = menu.tenant;
+  const ordersEnabled =
+    t.orders_enabled && t.operating_mode === "full" && !isReadonly && !!table;
+
+  const tischName = table
+    ? table === "Vorschau"
+      ? "Vorschau"
+      : table
+    : "";
+
+const jsonLdData = {
+    name: t.name,
+    slug,
+    address: t.address && t.ort
+      ? { street: t.address, city: t.ort, postalCode: t.plz ?? undefined, country: "DE" }
+      : undefined,
+    telephone: undefined,
+    url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://digi-gastro.de"}/${slug}`,
+    logo: t.logo_url || undefined,
+    image: t.logo_url || undefined,
+    priceRange: "€€",
+    servesCuisine: ["International"],
+    baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "https://digi-gastro.de",
+  };
+
+  return (
+    <>
+      <RestaurantJsonLd {...jsonLdData} />
+      <MenuClient
+        slug={slug}
+        menu={menu}
+        table={table}
+        token={token}
+        isReadonly={isReadonly}
+        role={role}
+        tischName={tischName}
+        ordersEnabled={ordersEnabled}
+      />
+    </>
+  );
+}

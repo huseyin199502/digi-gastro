@@ -1,16 +1,50 @@
 {
-  "name": "digi-gastro-tailwind-build",
-  "version": "1.0.0",
-  "description": "Local Tailwind CSS build pipeline for digi-gastro (replaces Play CDN)",
+  "name": "digi-gastro-next",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tailwindcss -i tailwind-input.css -o static/css/tailwind-built.css --minify",
-    "build:dev": "tailwindcss -i tailwind-input.css -o static/css/tailwind-built.css --watch",
-    "clean": "rm -f static/css/tailwind-built.css"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "db:pull": "prisma db pull"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "@types/three": "^0.185.4",
+    "adm-zip": "^0.6.0",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "framer-motion": "^13.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "next": "16.3.1",
+    "node-forge": "^1.4.0",
+    "pdfkit": "^0.19.1",
+    "qrcode": "^1.5.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.3",
+    "three": "^0.185.1"
   },
   "devDependencies": {
-    "@tailwindcss/container-queries": "^0.1.1",
-    "@tailwindcss/forms": "^0.5.9",
-    "tailwindcss": "^3.4.17"
+    "@tailwindcss/postcss": "^4",
+    "@types/adm-zip": "^0.5.8",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20",
+    "@types/node-forge": "^1.3.14",
+    "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "prisma": "^7.9.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

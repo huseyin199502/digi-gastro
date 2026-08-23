@@ -1,0 +1,825 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  slug                    String              @id @db.VarChar
+  name                    String              @db.VarChar
+  email                   String              @db.VarChar
+  password                String              @db.VarChar
+  tagesumsatz             Float?
+  bestellungen_gesamt     Int?
+  active                  Boolean?
+  is_onboarded            Boolean?
+  is_setup_completed      Boolean?
+  has_kitchen             Boolean?
+  is_shishabar            Boolean?
+  impressum_content       String?
+  datenschutz_content     String?
+  security_token          String?             @db.VarChar
+  pos_token               String?             @db.VarChar
+  pos_secret              String?             @db.VarChar
+  kds_secret              String?             @db.VarChar
+  address                 String?             @db.VarChar
+  indigo                  String?             @db.VarChar
+  instagram               String?             @db.VarChar
+  facebook                String?             @db.VarChar
+  logo_url                String?
+  logo_path               String?             @db.VarChar
+  happy_hour_days         String?
+  happy_hour_start        String?             @db.VarChar
+  happy_hour_end          String?             @db.VarChar
+  happy_hour_discount     Int?
+  plz                     String?             @default("") @db.VarChar
+  ort                     String?             @default("") @db.VarChar
+  landing_page_json       String?             @default("{}")
+  theme                   String?             @default("dark") @db.VarChar
+  tiktok                  String?             @default("") @db.VarChar
+  accepts_card_payment    Boolean?            @default(true)
+  happy_hour_mode         String?             @default("discount") @db.VarChar
+  happy_hour_display_name String?             @default("Aktion") @db.VarChar
+  price_mode              String?             @default("brutto") @db.VarChar
+  logo_url_2              String?             @default("")
+  pos_system              String?             @default("none") @db.VarChar
+  pos_api_url             String?             @default("")
+  pos_api_key             String?             @default("")
+  pos_api_secret          String?             @default("")
+  pos_location_id         String?             @default("") @db.VarChar
+  pos_active              Boolean?            @default(false)
+  orders_enabled          Boolean?            @default(true)
+  owner_name              String?             @default("") @db.VarChar
+  owner_street            String?             @default("") @db.VarChar
+  owner_email             String?             @default("") @db.VarChar
+  owner_phone             String?             @default("") @db.VarChar
+  show_revenue            Boolean?            @default(true)
+  operating_mode          String?             @default("full") @db.VarChar
+  loyalty_enabled         Boolean?            @default(true)
+  notification_icon_path  String?             @db.VarChar
+  tier                    String?             @default("free") @db.VarChar
+  enabled_features        String?             @default("[]")
+  auditLogs               AuditLog[]
+  categories              Category[]
+  eventComboItems         EventComboItem[]
+  eventCombos             EventCombo[]
+  eventProducts           EventProduct[]
+  events                  Event[]
+  loyaltyCampaigns        LoyaltyCampaign[]
+  loyaltyCards            LoyaltyCard[]
+  loyaltyCustomers        LoyaltyCustomer[]
+  loyaltyPushLogs         LoyaltyPushLog[]
+  loyaltyStamps           LoyaltyStamp[]
+  orderItems              OrderItem[]
+  orders                  Order[]
+  products                Product[]
+  purchaseOrders          PurchaseOrder[]
+  recipes                 Recipe[]
+  revenueAdjustments      RevenueAdjustment[]
+  serviceCalls            ServiceCall[]
+  shiftSwaps              ShiftSwap[]
+  shiftTemplates          ShiftTemplate[]
+  shifts                  Shift[]
+  staff                   Staff[]
+  staffAvailability       StaffAvailability[]
+  stockCategories         StockCategory[]
+  stockCounts             StockCount[]
+  stockItems              StockItem[]
+  stockTransactions       StockTransaction[]
+  superGroups             SuperGroup[]
+  suppliers               Supplier[]
+  tables                  Table[]
+  tenantGeofences         TenantGeofence[]
+  timeOffRequests         TimeOffRequest[]
+
+  @@map("tenants")
+}
+
+model SuperGroup {
+  id          Int     @id @default(autoincrement())
+  tenant_slug String  @db.VarChar
+  name        String  @db.VarChar
+  position    Int?
+  color       String? @db.VarChar
+  icon        String? @db.VarChar
+  tenant      Tenant  @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("super_groups")
+}
+
+model Category {
+  id             Int     @id @default(autoincrement())
+  tenant_slug    String  @db.VarChar
+  name           String  @db.VarChar
+  position       Int?    @default(0)
+  super_group_id Int?
+  extras         String?
+  tenant         Tenant  @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, position], map: "idx_category_tenant_pos")
+  @@index([tenant_slug], map: "idx_category_tenant_slug")
+  @@map("categories")
+}
+
+model Product {
+  id                  Int         @id @default(autoincrement())
+  tenant_slug         String      @db.VarChar
+  name                String      @db.VarChar
+  price               Float
+  description         String?
+  image               String?
+  vegan               Boolean?
+  is_vegan            Boolean?
+  is_glutenfree       Boolean?
+  allergens           String?
+  category_type       String?     @db.VarChar
+  category            String      @db.VarChar
+  is_available        Boolean?
+  happy_hour_price    Float?
+  start_time          String?     @db.VarChar
+  end_time            String?     @db.VarChar
+  name_en             String?     @db.VarChar
+  description_en      String?
+  position            Int?        @default(0)
+  happy_hour_days     String?
+  related_product_ids String?     @default("[]")
+  extras              String?     @default("[]")
+  variants            String?     @default("[]")
+  tenant              Tenant      @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  recipes             Recipe[]
+  stockItems          StockItem[]
+
+  @@index([tenant_slug, position], map: "idx_product_tenant_pos")
+  @@index([tenant_slug], map: "idx_product_tenant_slug")
+  @@map("products")
+}
+
+model Order {
+  id               Int         @id @default(autoincrement())
+  tenant_slug      String      @db.VarChar
+  table            String      @db.VarChar
+  total            Float?
+  total_with_tip   Float?
+  tip_amount       Float?
+  status           String?     @db.VarChar
+  timestamp        String      @db.VarChar
+  mwst_rate        Int?
+  waiter_id        String?     @db.VarChar
+  original_total   Float?      @default(0.0)
+  daily_bon_number Int?
+  bon_date         String?     @db.VarChar
+  items            OrderItem[]
+  tenant           Tenant      @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, id], map: "idx_order_tenant_id")
+  @@index([tenant_slug], map: "idx_order_tenant_slug")
+  @@index([tenant_slug, status], map: "idx_orders_status")
+  @@index([tenant_slug, table], map: "idx_orders_table")
+  @@map("orders")
+}
+
+model OrderItem {
+  id                Int     @id @default(autoincrement())
+  order_id          Int
+  product_id        Int
+  name              String  @db.VarChar
+  price             Float
+  quantity          Int
+  category_type     String? @db.VarChar
+  note              String? @db.VarChar
+  item_status       String? @default("pending") @db.VarChar
+  tenant_slug       String? @db.VarChar
+  combo_id          Int?
+  combo_name        String? @db.VarChar
+  combo_instance_id String? @db.VarChar
+  extras            String? @db.VarChar
+  order             Order   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant            Tenant? @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_orderitem_order_id")
+  @@index([item_status], map: "idx_orderitem_status")
+  @@map("order_items")
+}
+
+model Staff {
+  id                  Int                 @id @default(autoincrement())
+  tenant_slug         String              @db.VarChar
+  name                String              @db.VarChar
+  role                String              @db.VarChar
+  pin                 String              @db.VarChar
+  pin_code            String              @db.VarChar
+  email               String?             @db.VarChar(255)
+  phone               String?             @db.VarChar(40)
+  hourly_rate         Decimal?            @default(0) @db.Decimal(8, 2)
+  weekly_target_hours Decimal?            @default(0) @db.Decimal(5, 1)
+  contract_type       String?             @default("minijob") @db.VarChar(20)
+  active              Boolean?            @default(true)
+  color               String?             @db.VarChar(7)
+  acceptedShiftSwaps  ShiftSwap[]         @relation("shift_swaps_accepted_staff_idTostaff")
+  requestedShiftSwaps ShiftSwap[]         @relation("shift_swaps_requesting_staff_idTostaff")
+  targetedShiftSwaps  ShiftSwap[]         @relation("shift_swaps_target_staff_idTostaff")
+  shiftTemplates      ShiftTemplate[]
+  shifts              Shift[]
+  tenant              Tenant              @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  availability        StaffAvailability[]
+  stockTransactions   StockTransaction[]
+  timeOffRequests     TimeOffRequest[]
+
+  @@index([tenant_slug, name], map: "idx_staff_tenant_name")
+  @@index([tenant_slug], map: "idx_staff_tenant_slug")
+  @@map("staff")
+}
+
+model ServiceCall {
+  id          Int    @id @default(autoincrement())
+  tenant_slug String @db.VarChar
+  table       String @db.VarChar
+  type        String @db.VarChar
+  timestamp   String @db.VarChar
+  tenant      Tenant @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug], map: "idx_servicecall_tenant_slug")
+  @@map("service_calls")
+}
+
+model Table {
+  id                   Int      @id @default(autoincrement())
+  tenant_slug          String   @db.VarChar
+  number               String   @db.VarChar
+  zone                 String   @db.VarChar
+  security_token       String   @db.VarChar
+  active_session_token String?  @db.VarChar
+  pos_x                Float?   @default(0.0)
+  pos_y                Float?   @default(0.0)
+  width                Float?   @default(120.0)
+  height               Float?   @default(80.0)
+  shape                String?  @default("rect") @db.VarChar
+  active               Boolean? @default(true)
+  qr_token             String?  @db.VarChar
+  tenant               Tenant   @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, number, zone], map: "idx_table_tenant_number_zone")
+  @@index([tenant_slug], map: "idx_table_tenant_slug")
+  @@map("tables")
+}
+
+model AuditLog {
+  id          Int     @id @default(autoincrement())
+  tenant_slug String  @db.VarChar
+  action      String  @db.VarChar
+  timestamp   String  @db.VarChar
+  user        String? @db.VarChar
+  details     String?
+  tenant      Tenant  @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, id], map: "idx_auditlog_tenant_id")
+  @@index([tenant_slug], map: "idx_auditlog_tenant_slug")
+  @@map("audit_log")
+}
+
+model Event {
+  id           Int            @id @default(autoincrement())
+  tenant_slug  String         @db.VarChar
+  name         String         @db.VarChar
+  display_name String         @db.VarChar
+  description  String?
+  days         String?
+  start_time   String?        @db.VarChar
+  end_time     String?        @db.VarChar
+  mode         String?        @db.VarChar
+  discount     Int?
+  is_active    Boolean?
+  position     Int?
+  banner_color String?        @default("#dc2626") @db.VarChar
+  combos       EventCombo[]
+  products     EventProduct[]
+  tenant       Tenant         @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, position], map: "idx_event_tenant_pos")
+  @@index([tenant_slug], map: "idx_event_tenant_slug")
+  @@map("events")
+}
+
+model EventProduct {
+  id          Int     @id @default(autoincrement())
+  event_id    Int
+  product_id  Int
+  event_price Float?
+  tenant_slug String? @db.VarChar
+  event       Event   @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      Tenant? @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([event_id], map: "idx_eventproduct_event_id")
+  @@map("event_products")
+}
+
+model EventCombo {
+  id          Int              @id @default(autoincrement())
+  event_id    Int
+  name        String           @db.VarChar
+  combo_price Float
+  position    Int?
+  days        String?
+  start_time  String?          @db.VarChar
+  end_time    String?          @db.VarChar
+  tenant_slug String?          @db.VarChar
+  items       EventComboItem[]
+  event       Event            @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      Tenant?          @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([event_id], map: "idx_eventcombo_event_id")
+  @@map("event_combos")
+}
+
+model EventComboItem {
+  id            Int        @id @default(autoincrement())
+  combo_id      Int
+  product_id    Int?
+  tenant_slug   String?    @db.VarChar
+  category_name String?    @db.VarChar
+  combo         EventCombo @relation(fields: [combo_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant        Tenant?    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([combo_id], map: "idx_eventcomboitem_combo_id")
+  @@map("event_combo_items")
+}
+
+model RevenueAdjustment {
+  id          Int    @id @default(autoincrement())
+  tenant_slug String @db.VarChar
+  adjustment  Float
+  old_value   Float
+  new_value   Float
+  adjusted_by String @db.VarChar
+  adjusted_at String @db.VarChar
+  tenant      Tenant @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug], map: "idx_revenue_adjustment_tenant_slug")
+  @@index([tenant_slug], map: "ix_revenue_adjustments_tenant_slug")
+  @@map("revenue_adjustments")
+}
+
+model LoyaltyCard {
+  id                      Int               @id @default(autoincrement())
+  tenant_slug             String            @db.VarChar
+  name                    String            @db.VarChar
+  description             String?
+  stamps_required         Int?
+  reward_name             String            @db.VarChar
+  reward_product_id       Int?
+  reward_discount_percent Int?
+  is_active               Boolean?
+  color_hex               String?           @db.VarChar
+  icon                    String?           @db.VarChar
+  created_at              String            @db.VarChar
+  wallet_banner_path      String?           @db.VarChar
+  wallet_banner_mode      String?           @default("zone") @db.VarChar
+  tenant                  Tenant            @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  customers               LoyaltyCustomer[]
+  stamps                  LoyaltyStamp[]
+
+  @@index([tenant_slug], map: "idx_loyalty_card_tenant")
+  @@map("loyalty_cards")
+}
+
+model LoyaltyCustomer {
+  id                   Int              @id @default(autoincrement())
+  tenant_slug          String           @db.VarChar
+  pass_serial          String           @db.VarChar
+  pass_type            String?          @db.VarChar
+  card_id              Int
+  current_stamps       Int?
+  total_stamps_earned  Int?
+  rewards_redeemed     Int?
+  first_visit_at       String?          @db.VarChar
+  last_visit_at        String?          @db.VarChar
+  last_push_at         String?          @db.VarChar
+  created_at           String           @db.VarChar
+  pass_needs_update    Boolean?
+  push_opt_out         Boolean?
+  short_code           String?          @default("") @db.VarChar
+  nickname             String?          @db.VarChar
+  birthday             String?          @db.VarChar
+  tier                 String?          @default("neu") @db.VarChar
+  last_message         String?          @default("Willkommen!") @db.VarChar
+  msg_nonce            Int?             @default(0)
+  anonymous_id         String?          @db.VarChar
+  pass_downloaded_at   String?          @db.VarChar
+  updated_at           String?          @db.VarChar
+  last_known_device_id String?          @db.VarChar
+  pass_updated_at      String?          @db.VarChar
+  card                 LoyaltyCard      @relation(fields: [card_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant               Tenant           @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  pushLogs             LoyaltyPushLog[]
+  stamps               LoyaltyStamp[]
+
+  @@unique([tenant_slug, pass_serial], map: "idx_loyalty_customer_tenant_serial")
+  @@index([tenant_slug], map: "idx_loyalty_customer_tenant")
+  @@index([tenant_slug, last_known_device_id], map: "idx_loyalty_customer_tenant_device")
+  @@map("loyalty_customers")
+}
+
+model LoyaltyStamp {
+  id          Int             @id @default(autoincrement())
+  tenant_slug String          @db.VarChar
+  customer_id Int
+  card_id     Int
+  order_id    Int?
+  order_total Float?
+  stamp_type  String?         @db.VarChar
+  is_redeemed Boolean?
+  redeemed_at String?         @db.VarChar
+  created_at  String          @db.VarChar
+  card        LoyaltyCard     @relation(fields: [card_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  customer    LoyaltyCustomer @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      Tenant          @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([customer_id, card_id], map: "idx_loyalty_stamp_customer_card")
+  @@index([tenant_slug, customer_id], map: "idx_loyalty_stamp_tenant_customer")
+  @@map("loyalty_stamps")
+}
+
+model LoyaltyCampaign {
+  id                      Int              @id @default(autoincrement())
+  tenant_slug             String           @db.VarChar
+  name                    String           @db.VarChar
+  campaign_type           String           @db.VarChar
+  title                   String           @db.VarChar
+  message                 String
+  geofence_radius_m       Int?
+  inactivity_days         Int?
+  min_hours_between_pushs Int?
+  active_from             String?          @db.VarChar
+  active_to               String?          @db.VarChar
+  active_days             String?
+  is_active               Boolean?
+  created_at              String           @db.VarChar
+  tenant                  Tenant           @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  pushLogs                LoyaltyPushLog[]
+
+  @@index([tenant_slug], map: "idx_loyalty_campaign_tenant")
+  @@map("loyalty_campaigns")
+}
+
+model LoyaltyPushLog {
+  id          Int              @id @default(autoincrement())
+  tenant_slug String           @db.VarChar
+  customer_id Int
+  campaign_id Int?
+  push_type   String           @db.VarChar
+  title       String           @db.VarChar
+  message     String
+  status      String?          @db.VarChar
+  sent_at     String           @db.VarChar
+  campaign    LoyaltyCampaign? @relation(fields: [campaign_id], references: [id], onUpdate: NoAction)
+  customer    LoyaltyCustomer  @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant      Tenant           @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([campaign_id], map: "idx_loyalty_pushlog_campaign")
+  @@index([tenant_slug, customer_id], map: "idx_loyalty_pushlog_tenant_customer")
+  @@map("loyalty_push_logs")
+}
+
+model TenantGeofence {
+  id          Int      @id @default(autoincrement())
+  tenant_slug String   @db.VarChar
+  name        String?  @db.VarChar
+  latitude    Float
+  longitude   Float
+  address     String?  @db.VarChar
+  is_primary  Boolean?
+  created_at  String   @db.VarChar
+  tenant      Tenant   @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug], map: "idx_tenant_geofence_tenant")
+  @@map("tenant_geofences")
+}
+
+model PasskitDeviceRegistration {
+  id                        Int     @id @default(autoincrement())
+  device_library_identifier String  @db.VarChar
+  pass_type_identifier      String  @db.VarChar
+  pass_serial               String  @db.VarChar
+  push_token                String  @db.VarChar
+  tenant_slug               String? @db.VarChar
+  created_at                String  @db.VarChar
+
+  @@index([device_library_identifier], map: "idx_passkit_device_library")
+  @@index([pass_serial], map: "idx_passkit_device_serial")
+  @@map("passkit_device_registrations")
+}
+
+model PasskitLog {
+  id         Int    @id @default(autoincrement())
+  logs       String
+  created_at String @db.VarChar
+
+  @@index([created_at], map: "idx_passkit_log_created")
+  @@map("passkit_logs")
+}
+
+model Shift {
+  id             Int         @id @default(autoincrement())
+  tenant_slug    String      @db.VarChar
+  staff_id       Int
+  role           String      @db.VarChar
+  shift_date     DateTime    @db.Date
+  start_time     DateTime    @db.Time(6)
+  end_time       DateTime    @db.Time(6)
+  break_minutes  Int?
+  hourly_rate    Decimal?    @db.Decimal(8, 2)
+  status         String?     @db.VarChar
+  position_label String?     @db.VarChar
+  notes          String?
+  created_by     String?     @db.VarChar
+  created_at     DateTime?   @db.Timestamp(6)
+  updated_at     DateTime?   @db.Timestamp(6)
+  swaps          ShiftSwap[]
+  staff          Staff       @relation(fields: [staff_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant         Tenant      @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, shift_date], map: "idx_shifts_tenant_date")
+  @@index([tenant_slug, staff_id, shift_date], map: "idx_shifts_tenant_staff")
+  @@index([tenant_slug, status, shift_date], map: "idx_shifts_tenant_status")
+  @@map("shifts")
+}
+
+model ShiftTemplate {
+  id               Int       @id @default(autoincrement())
+  tenant_slug      String    @db.VarChar
+  name             String    @db.VarChar
+  role             String    @db.VarChar
+  day_of_week      Int       @db.SmallInt
+  start_time       DateTime  @db.Time(6)
+  end_time         DateTime  @db.Time(6)
+  break_minutes    Int?
+  hourly_rate      Decimal?  @db.Decimal(8, 2)
+  recurrence       String?   @db.VarChar
+  default_staff_id Int?
+  position_label   String?   @db.VarChar
+  valid_from       DateTime? @db.Date
+  valid_until      DateTime? @db.Date
+  active           Boolean?
+  created_at       DateTime? @db.Timestamp(6)
+  defaultStaff     Staff?    @relation(fields: [default_staff_id], references: [id], onUpdate: NoAction)
+  tenant           Tenant    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, day_of_week], map: "idx_tmpl_tenant_dow")
+  @@map("shift_templates")
+}
+
+model TimeOffRequest {
+  id           Int       @id @default(autoincrement())
+  tenant_slug  String    @db.VarChar
+  staff_id     Int
+  start_date   DateTime  @db.Date
+  end_date     DateTime  @db.Date
+  request_type String?   @db.VarChar
+  reason       String?
+  status       String?   @db.VarChar
+  reviewed_by  String?   @db.VarChar
+  reviewed_at  DateTime? @db.Timestamp(6)
+  created_at   DateTime? @db.Timestamp(6)
+  staff        Staff     @relation(fields: [staff_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant       Tenant    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, staff_id, start_date], map: "idx_tor_tenant_staff")
+  @@index([tenant_slug, status, start_date], map: "idx_tor_tenant_status")
+  @@map("time_off_requests")
+}
+
+model StaffAvailability {
+  id            Int       @id @default(autoincrement())
+  tenant_slug   String    @db.VarChar
+  staff_id      Int
+  kind          String    @db.VarChar
+  day_of_week   Int?      @db.SmallInt
+  specific_date DateTime? @db.Date
+  start_time    DateTime? @db.Time(6)
+  end_time      DateTime? @db.Time(6)
+  available     Boolean?
+  note          String?   @db.VarChar
+  created_at    DateTime? @db.Timestamp(6)
+  staff         Staff     @relation(fields: [staff_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant        Tenant    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, staff_id], map: "idx_sa_tenant_staff")
+  @@map("staff_availability")
+}
+
+model ShiftSwap {
+  id                  Int       @id @default(autoincrement())
+  tenant_slug         String    @db.VarChar
+  shift_id            Int
+  requesting_staff_id Int
+  target_staff_id     Int?
+  status              String?   @db.VarChar
+  accepted_staff_id   Int?
+  accepted_at         DateTime? @db.Timestamp(6)
+  message             String?
+  reviewed_by         String?   @db.VarChar
+  reviewed_at         DateTime? @db.Timestamp(6)
+  created_at          DateTime? @db.Timestamp(6)
+  acceptedStaff       Staff?    @relation("shift_swaps_accepted_staff_idTostaff", fields: [accepted_staff_id], references: [id], onUpdate: NoAction)
+  requestingStaff     Staff     @relation("shift_swaps_requesting_staff_idTostaff", fields: [requesting_staff_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  shift               Shift     @relation(fields: [shift_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  targetStaff         Staff?    @relation("shift_swaps_target_staff_idTostaff", fields: [target_staff_id], references: [id], onUpdate: NoAction)
+  tenant              Tenant    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, status, created_at], map: "idx_swap_tenant_status")
+  @@map("shift_swaps")
+}
+
+model UnitOfMeasure {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique @db.VarChar
+  short     String  @db.VarChar
+  base_unit String? @db.VarChar
+
+  @@index([name], map: "idx_uom_name")
+  @@map("unit_of_measure")
+}
+
+model StockCategory {
+  id          Int         @id @default(autoincrement())
+  tenant_slug String      @db.VarChar
+  name        String      @db.VarChar
+  color       String?     @db.VarChar
+  position    Int?
+  tenant      Tenant      @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  stockItems  StockItem[]
+
+  @@index([tenant_slug, position], map: "idx_stockcat_tenant")
+  @@map("stock_categories")
+}
+
+model Supplier {
+  id              Int             @id @default(autoincrement())
+  tenant_slug     String          @db.VarChar
+  name            String          @db.VarChar
+  contact_name    String?         @db.VarChar
+  phone           String?         @db.VarChar
+  email           String?         @db.VarChar
+  address         String?
+  lead_time_days  Int?
+  min_order_value Decimal?        @db.Decimal(8, 2)
+  notes           String?
+  active          Boolean?
+  created_at      DateTime?       @db.Timestamp(6)
+  purchaseOrders  PurchaseOrder[]
+  stockItems      StockItem[]
+  tenant          Tenant          @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, name], map: "idx_supplier_tenant")
+  @@map("suppliers")
+}
+
+model StockItem {
+  id                      Int                 @id @default(autoincrement())
+  tenant_slug             String              @db.VarChar
+  name                    String              @db.VarChar
+  sku                     String?             @db.VarChar
+  category_id             Int?
+  supplier_id             Int?
+  current_stock           Decimal?            @db.Decimal(12, 3)
+  min_stock               Decimal?            @db.Decimal(12, 3)
+  max_stock               Decimal?            @db.Decimal(12, 3)
+  reorder_qty             Decimal?            @db.Decimal(12, 3)
+  base_unit               String              @db.VarChar
+  purchase_unit           String?             @db.VarChar
+  purchase_to_base_factor Decimal?            @db.Decimal(12, 4)
+  avg_cost                Decimal?            @db.Decimal(10, 4)
+  last_purchase_price     Decimal?            @db.Decimal(10, 4)
+  product_id              Int?
+  active                  Boolean?
+  notes                   String?
+  created_at              DateTime?           @db.Timestamp(6)
+  updated_at              DateTime?           @db.Timestamp(6)
+  purchaseOrderItems      PurchaseOrderItem[]
+  recipes                 Recipe[]
+  stockCountItems         StockCountItem[]
+  category                StockCategory?      @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  product                 Product?            @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  supplier                Supplier?           @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  tenant                  Tenant              @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  stockTransactions       StockTransaction[]
+
+  @@index([tenant_slug], map: "idx_stockitem_lowstock")
+  @@index([tenant_slug], map: "idx_stockitem_tenant")
+  @@index([tenant_slug, category_id], map: "idx_stockitem_tenant_cat")
+  @@map("stock_items")
+}
+
+model PurchaseOrder {
+  id                Int                 @id @default(autoincrement())
+  tenant_slug       String              @db.VarChar
+  supplier_id       Int?
+  order_number      String?             @db.VarChar
+  status            String?             @db.VarChar
+  order_date        DateTime            @db.Date
+  expected_delivery DateTime?           @db.Date
+  received_date     DateTime?           @db.Date
+  total_value       Decimal?            @db.Decimal(10, 2)
+  notes             String?
+  created_by        String?             @db.VarChar
+  created_at        DateTime?           @db.Timestamp(6)
+  items             PurchaseOrderItem[]
+  supplier          Supplier?           @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  tenant            Tenant              @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+  stockTransactions StockTransaction[]
+
+  @@index([tenant_slug, status, order_date], map: "idx_po_tenant_status")
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id                Int           @id @default(autoincrement())
+  purchase_order_id Int
+  stock_item_id     Int
+  quantity_ordered  Decimal       @db.Decimal(12, 3)
+  quantity_received Decimal?      @db.Decimal(12, 3)
+  unit_price        Decimal?      @db.Decimal(10, 4)
+  line_total        Decimal?      @db.Decimal(10, 2)
+  purchaseOrder     PurchaseOrder @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stockItem         StockItem     @relation(fields: [stock_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([purchase_order_id], map: "idx_poitem_po")
+  @@map("purchase_order_items")
+}
+
+model StockTransaction {
+  id                Int            @id @default(autoincrement())
+  tenant_slug       String         @db.VarChar
+  stock_item_id     Int
+  type              String         @db.VarChar
+  quantity          Decimal        @db.Decimal(12, 3)
+  unit_cost         Decimal?       @db.Decimal(10, 4)
+  reason            String?        @db.VarChar
+  order_id          Int?
+  purchase_order_id Int?
+  stock_count_id    Int?
+  staff_id          Int?
+  notes             String?
+  created_at        DateTime?      @db.Timestamp(6)
+  purchaseOrder     PurchaseOrder? @relation(fields: [purchase_order_id], references: [id], onUpdate: NoAction)
+  staff             Staff?         @relation(fields: [staff_id], references: [id], onUpdate: NoAction)
+  stockItem         StockItem      @relation(fields: [stock_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant            Tenant         @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_stocktxn_order")
+  @@index([tenant_slug, stock_item_id, created_at], map: "idx_stocktxn_tenant_item")
+  @@index([tenant_slug, type, created_at], map: "idx_stocktxn_tenant_type")
+  @@map("stock_transactions")
+}
+
+model StockCount {
+  id           Int              @id @default(autoincrement())
+  tenant_slug  String           @db.VarChar
+  name         String           @db.VarChar
+  status       String?          @db.VarChar
+  count_date   DateTime         @db.Date
+  notes        String?
+  created_by   String?          @db.VarChar
+  created_at   DateTime?        @db.Timestamp(6)
+  completed_at DateTime?        @db.Timestamp(6)
+  items        StockCountItem[]
+  tenant       Tenant           @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, status, created_at], map: "idx_stockcount_tenant")
+  @@map("stock_counts")
+}
+
+model StockCountItem {
+  id             Int        @id @default(autoincrement())
+  stock_count_id Int
+  stock_item_id  Int
+  expected_qty   Decimal?   @db.Decimal(12, 3)
+  counted_qty    Decimal?   @db.Decimal(12, 3)
+  variance       Decimal?   @db.Decimal(12, 3)
+  notes          String?
+  stockCount     StockCount @relation(fields: [stock_count_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stockItem      StockItem  @relation(fields: [stock_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([stock_count_id], map: "idx_stockcountitem_count")
+  @@map("stock_count_items")
+}
+
+model Recipe {
+  id            Int       @id @default(autoincrement())
+  tenant_slug   String    @db.VarChar
+  product_id    Int
+  stock_item_id Int
+  quantity      Decimal   @db.Decimal(12, 4)
+  unit          String    @db.VarChar
+  notes         String?
+  created_at    DateTime? @db.Timestamp(6)
+  product       Product   @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stockItem     StockItem @relation(fields: [stock_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant        Tenant    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, product_id], map: "idx_recipe_tenant_product")
+  @@map("recipes")
+}

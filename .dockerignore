@@ -1,72 +1,44 @@
-# ── Python runtime artifacts ──────────────────
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-.Python
+# Dependencies / Build
+node_modules
+.next
+out
+build
+coverage
 
-# ── Local virtual environments ────────────────
-.venv/
-venv/
-env/
-.env/
-ENV/
+# Kundendaten — NIEMALS ins Image oder Repo!
+public/uploads
 
-# ── Local databases (never ship SQLite into prod) ─
-*.db
-*.sqlite
-*.sqlite3
-
-# ── Local upload cache (will be mounted as volume) ─
-static/uploads/
-data/
-
-# ── Test artifacts ────────────────────────────
-.pytest_cache/
-htmlcov/
-.coverage
-*.cover
-coverage.xml
-test_*.py
-tests/
-
-# ── IDE & OS noise ────────────────────────────
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
-# ── Git & CI ──────────────────────────────────
-.git/
-.gitignore
-.github/
-
-# ── Secrets & environment files ───────────────
+# Umgebungsvariablen & Secrets — NIEMALS!
 .env
 .env.*
-*.env
-secrets.toml
+!.env.example
+secrets
+*.pem
+*service-account*.json
 
-# ── Docs & build artifacts ────────────────────
-README*
-docs/
-dist/
-build/
-*.egg-info/
+# Lokale Datenbanken / Dumps / Archive (alte Server-Daten!)
+*.dump
+*.sql.gz
+*.tar.gz
+data
+digi_gastro.db*
 
-# ── Agent artifacts (NOT part of the actual app) ──
-skills/
-upload/
-scripts/
-agent-ctx/
-worklog.md
-download/
+# Dev-Artefakte
+dev-server.log*
+dev.err.log
+dev.log
+*.tsbuildinfo
+next-env.d.ts
+src/generated
 
-# ── Large media files that shouldn't be in the repo ──
-*.mov
-*.MP4
-*.mp4
-!static/videos/*.mp4
+# Diverses
+.git
+.github
+.claude
+.windsurf
+.agents
+.vscode
+.idea
+.DS_Store
+README.md
+MIGRATION.md

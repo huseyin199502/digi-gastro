@@ -1,46 +1,61 @@
 # ─────────────────────────────────────────────
-# Stage 1: Build – install all dependencies
+# digi-gastro Next.js — Produktions-Image
+# Multi-Stage-Build (deps → builder → runner)
+# Läuft als standalone-Server (next.config.ts: output = "standalone")
+#
+# Kundendaten kommen NIE ins Image:
+#  - public/uploads wird per Volume gemountet (siehe docker-compose.yml)
+#  - .env / secrets/ sind via .dockerignore ausgeschlossen
 # ─────────────────────────────────────────────
-FROM python:3.12-slim AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
+# ── Stage 1: Dependencies (inkl. prisma generate) ──
+FROM node:20-alpine AS deps
 WORKDIR /app
+COPY package.json package-lock.json ./
+# postinstall führt `prisma generate` aus → Schema + Config nötig
+COPY prisma.config.ts ./
+COPY prisma ./prisma
+RUN npm ci
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# ─────────────────────────────────────────────
-# Stage 2: Runtime – lean production image
-# ─────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PORT=8000 \
-    UPLOAD_DIR=/app/data/uploads \
-    WORKERS=4
-
+# ── Stage 2: Build ──
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /install /usr/local
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN mkdir -p /app/data/uploads/logos /app/static/images
+# NEXT_PUBLIC_* werden zur Build-Zeit eingebrannt
+ARG NEXT_PUBLIC_BASE_URL=https://digi-gastro.de
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL \
+    NEXT_TELEMETRY_DISABLED=1
 
-EXPOSE 8000
+# Generierten Prisma-Client sicherstellen (src/generated ist via
+# .dockerignore vom Host ausgeschlossen und wird hier frisch erzeugt)
+RUN npx prisma generate
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+RUN npm run build
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS}"]
+# ── Stage 3: Runtime (schlank, standalone) ──
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0 \
+    TZ=Europe/Berlin \
+    NEXT_TELEMETRY_DISABLED=1
+
+RUN apk add --no-cache tzdata
+
+# Statische Public-Assets (Icons, hero-poster, …).
+# public/uploads wird im Compose per Volume überschrieben — Kundendaten
+# liegen ausschließlich auf dem Server-Volume.
+COPY --from=builder /app/public /app/public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=25s --retries=3 \
+    CMD wget -qO- "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1 || exit 1
+
+CMD ["node", "server.js"]

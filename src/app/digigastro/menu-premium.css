@@ -1,0 +1,341 @@
+/* =============================================================================
+   MENU PREMIUM LAYER — Premium Guest Menu Experience
+   Loaded AFTER menu-0.css + design_3d.css (overlay wins cascade).
+   Additive only: restyles/extends existing menu.html structures without
+   touching cart/order/Alpine logic. All motion is GPU-friendly
+   (transform/opacity) and guarded by prefers-reduced-motion.
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   1. MENU HERO ENTRANCE (compact brand + event strip at top of Speisekarte)
+   ----------------------------------------------------------------------------- */
+.mp-hero {
+    position: relative;
+    padding: 0.75rem 0.25rem 0.5rem;
+}
+
+.mp-hero-title {
+    font-size: clamp(1.35rem, 5.5vw, 1.9rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+.mp-hero-sub {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    opacity: 0.65;
+}
+
+.mp-event-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fde68a;
+    background: linear-gradient(135deg, rgba(201, 168, 76, 0.18), rgba(201, 168, 76, 0.06));
+    border: 1px solid rgba(201, 168, 76, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 18px -6px rgba(201, 168, 76, 0.35);
+}
+
+.mp-event-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #fbbf24;
+    animation: mp-pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes mp-pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.55; }
+}
+
+/* -----------------------------------------------------------------------------
+   2. CATEGORY CHIP BAR (horizontal, glass, sticky)
+   ----------------------------------------------------------------------------- */
+.mp-chipbar {
+    margin: 0.25rem -1rem 0.5rem;
+    padding: 0.5rem 1rem 0.65rem;
+    background: color-mix(in srgb, var(--dg-surface, #0a0a0b) 78%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    z-index: 40;
+}
+
+html.light .mp-chipbar {
+    background: rgba(255, 255, 255, 0.78);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.mp-chip-scroll {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+}
+
+.mp-chip-scroll::-webkit-scrollbar { display: none; }
+
+.mp-chip {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 40px;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    color: var(--dg-on-surface, #e4e4e7);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+html.light .mp-chip {
+    color: #27272a;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.mp-chip:active { transform: scale(0.95); }
+
+.mp-chip-active {
+    color: #0a0a0b;
+    background: var(--dg-primary, #C9A84C);
+    border-color: var(--dg-primary, #C9A84C);
+    box-shadow: 0 6px 18px -6px rgba(201, 168, 76, 0.55);
+}
+
+.mp-chip-count {
+    font-size: 10px;
+    font-weight: 900;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.mp-chip-active .mp-chip-count { background: rgba(0, 0, 0, 0.18); }
+
+/* -----------------------------------------------------------------------------
+   3. 3D CARD STACK (event/happy-hour products)
+   Without JS: plain vertical list (space-y). JS adds .mp-stack-enabled
+   which turns it into a swipeable perspective fan.
+   ----------------------------------------------------------------------------- */
+.mp-stack {
+    position: relative;
+    perspective: 1100px;
+}
+
+.mp-stack-card {
+    contain: layout style;
+}
+
+.mp-stack-enabled {
+    height: 176px;
+}
+
+.mp-stack-enabled .mp-stack-card {
+    position: absolute;
+    inset: 0;
+    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.38s ease;
+    will-change: transform;
+    cursor: grab;
+}
+
+.mp-stack-enabled .mp-stack-card[data-stack-index="0"] { z-index: 6; transform: translateZ(0); opacity: 1; }
+.mp-stack-enabled .mp-stack-card[data-stack-index="1"] { z-index: 5; transform: translateY(12px) translateZ(-24px) scale(0.96); opacity: 0.75; pointer-events: none; }
+.mp-stack-enabled .mp-stack-card[data-stack-index="2"] { z-index: 4; transform: translateY(22px) translateZ(-48px) scale(0.925); opacity: 0.5; pointer-events: none; }
+.mp-stack-enabled .mp-stack-card[data-stack-index="3"] { z-index: 3; transform: translateY(30px) translateZ(-72px) scale(0.895); opacity: 0.3; pointer-events: none; }
+.mp-stack-enabled .mp-stack-card[data-stack-index="4"],
+.mp-stack-enabled .mp-stack-card[data-stack-index="5"] { z-index: 2; transform: translateY(36px) translateZ(-90px) scale(0.87); opacity: 0.15; pointer-events: none; }
+
+.mp-stack-card.mp-swiping { transition: none; cursor: grabbing; }
+
+.mp-stack-card.mp-swiped-left { transform: translateX(-130%) rotate(-7deg) !important; opacity: 0 !important; }
+.mp-stack-card.mp-swiped-right { transform: translateX(130%) rotate(7deg) !important; opacity: 0 !important; }
+
+.mp-stack-dots {
+    display: none;
+    justify-content: center;
+    gap: 6px;
+    padding-top: 0.75rem;
+}
+
+.mp-stack-enabled ~ .mp-stack-dots,
+.mp-stack-enabled + .mp-stack-dots { display: flex; }
+
+.mp-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    transition: transform 0.25s, background 0.25s;
+}
+
+.mp-dot-active { background: var(--dg-primary, #C9A84C); transform: scale(1.35); }
+
+/* -----------------------------------------------------------------------------
+   4. PRODUCT DETAIL SHEET (mobile bottom sheet / desktop modal)
+   ----------------------------------------------------------------------------- */
+#product-sheet.sheet-open {
+    display: flex;
+    align-items: flex-end;
+}
+
+@media (min-width: 640px) {
+    #product-sheet.sheet-open {
+        align-items: center;
+        padding: 1.5rem;
+    }
+}
+
+#product-sheet.sheet-open #product-sheet-inner {
+    animation: mp-sheet-up 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mp-sheet-up {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@media (min-width: 640px) {
+    #product-sheet.sheet-open #product-sheet-inner {
+        animation-name: mp-sheet-pop;
+    }
+    @keyframes mp-sheet-pop {
+        from { transform: translateY(24px) scale(0.96); opacity: 0; }
+        to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+}
+
+/* Staggered content reveal inside the sheet (replays on every open) */
+#product-sheet.sheet-open .mp-sheet-body > * {
+    opacity: 0;
+    animation: mp-reveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+#product-sheet.sheet-open .mp-sheet-body > *:nth-child(1) { animation-delay: 0.10s; }
+#product-sheet.sheet-open .mp-sheet-body > *:nth-child(2) { animation-delay: 0.16s; }
+#product-sheet.sheet-open .mp-sheet-body > *:nth-child(3) { animation-delay: 0.22s; }
+#product-sheet.sheet-open .mp-sheet-body > *:nth-child(4) { animation-delay: 0.28s; }
+#product-sheet.sheet-open .mp-sheet-body > *:nth-child(5) { animation-delay: 0.34s; }
+#product-sheet.sheet-open .mp-sheet-body > *:nth-child(6) { animation-delay: 0.40s; }
+
+@keyframes mp-reveal {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Quantity stepper */
+.mp-qty-btn {
+    width: 44px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+html.light .mp-qty-btn {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.mp-qty-btn:active { transform: scale(0.9); background: rgba(255, 255, 255, 0.14); }
+
+/* -----------------------------------------------------------------------------
+   5. MICRO-FEEDBACK: fly-to-cart ghost + badge pop
+   ----------------------------------------------------------------------------- */
+.mp-fly-ghost {
+    position: fixed;
+    z-index: 9999;
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 14px;
+    pointer-events: none;
+    box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.6);
+}
+
+.mp-badge-pop { animation: mp-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes mp-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.45); }
+    100% { transform: scale(1); }
+}
+
+/* -----------------------------------------------------------------------------
+   6. ORDER SUCCESS: animated check ring
+   ----------------------------------------------------------------------------- */
+.mp-success-wrap { position: relative; }
+
+.mp-success-ring {
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+    border: 2px solid var(--dg-primary, #C9A84C);
+    animation: mp-ring 1s ease-out 0.15s both;
+}
+
+@keyframes mp-ring {
+    from { transform: scale(0.6); opacity: 0.9; }
+    to { transform: scale(1.5); opacity: 0; }
+}
+
+.mp-success-check {
+    animation: mp-check-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    transform-origin: center;
+}
+
+@keyframes mp-check-in {
+    from { transform: scale(0.3); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* -----------------------------------------------------------------------------
+   7. GUARDS: touch devices, reduced motion, tiny screens
+   ----------------------------------------------------------------------------- */
+@media (hover: none) {
+    .mp-stack-enabled .mp-stack-card[data-stack-index="0"] { cursor: pointer; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mp-event-dot,
+    .mp-success-ring,
+    .mp-badge-pop,
+    .mp-stack-card,
+    #product-sheet.sheet-open #product-sheet-inner,
+    #product-sheet.sheet-open .mp-sheet-body > * {
+        animation: none !important;
+        transition: none !important;
+    }
+    .mp-sheet-body > * { opacity: 1 !important; }
+    .mp-success-ring { display: none; }
+}
+
+@media (max-width: 360px) {
+    .mp-hero-title { font-size: 1.25rem; }
+    .mp-stack-enabled { height: 190px; }
+}

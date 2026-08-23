@@ -1,3 +1,22 @@
+# ═══════════════════════════════════════════════════════════════
+# digi-gastro — Produktion (Coolify / Hetzner)
+#
+# WICHTIG für Migration vom Jinja2-Stack:
+#  - Service-Namen & Volume-Namen IDENTISCH zum alten Compose
+#    (db/pgbouncer/web/cron, Volumes pgdata + uploads) → die bestehenden
+#    Hetzner-Volumes mit KUNDENDATEN werden weiterverwendet. Niemals
+#    `docker compose down -v` ausführen!
+#  - Das alte `uploads`-Volume liegt jetzt unter /app/public/uploads.
+#  - redis entfällt (Next.js nutzt kein Redis). Das alte redisdata-Volume
+#    bleibt ungenutzt auf dem Server liegen — kein Datenverlust.
+#
+# Erforderliche Umgebungsvariablen (in Coolify setzen):
+#   AUTH_SECRET, ADMIN_PASSWORD
+# Optionale:
+#   NEXT_PUBLIC_BASE_URL (Build-Arg, Default https://digi-gastro.de)
+#   COOKIE_SECURE=1 (HTTPS), AUTOHEAL_TOKEN
+# ═══════════════════════════════════════════════════════════════
+
 services:
 
   db:
@@ -22,7 +41,6 @@ services:
       -c log_disconnections=off
       -c autovacuum=on
       -c autovacuum_max_workers=3
-      -c autovacuum_naptime=60s
       -c autovacuum_vacuum_scale_factor=0.1
       -c autovacuum_analyze_scale_factor=0.05
       -c checkpoint_completion_target=0.9
@@ -65,26 +83,45 @@ services:
     ports:
       - "127.0.0.1:6432:5432"
 
+  # ── Auto-Migration: fährt deploy/db-delta.sql IDEMPOTENT vor jedem Start ──
+  # (ADD COLUMN IF NOT EXISTS → mehrfaches Ausführen harmlos, keine Datenverluste)
+  migrate:
+    image: postgres:16-alpine
+    container_name: digi_gastro_migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./deploy/db-delta.sql:/delta.sql:ro
+    environment:
+      PGHOST: db
+      PGUSER: gastro_user
+      PGPASSWORD: gastro_secret
+      PGDATABASE: digi_gastro
+    command: sh -c "psql -v ON_ERROR_STOP=1 -f /delta.sql && echo '[migrate] DB-Delta OK'"
+
   web:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://digi-gastro.de}
     container_name: digi_gastro_web
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
-      UPLOAD_DIR: /app/data/uploads
-      PYTHONUNBUFFERED: "1"
-      PORT: "8000"
-      WORKERS: "6"
+      AUTH_SECRET: ${AUTH_SECRET:?Bitte AUTH_SECRET in Coolify setzen}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Bitte ADMIN_PASSWORD in Coolify setzen}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+      AUTOHEAL_TOKEN: ${AUTOHEAL_TOKEN:-autoheal-secret-2026}
+      NEXT_TELEMETRY_DISABLED: "1"
       TZ: Europe/Berlin
-      REDIS_URL: redis://redis:6379/0
-      AUTOHEAL_TOKEN: "autoheal-secret-2026"
     deploy:
       resources:
         limits:
@@ -94,43 +131,23 @@ services:
           cpus: '1'
           memory: 512M
     volumes:
-      - uploads:/app/data
+      # Kundendaten (Logos, Produktbilder, …) — gleiches Volume wie vorher,
+      # jetzt innerhalb von public/ erreichbar (/uploads/... URLs).
+      - uploads:/app/public/uploads
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
-      - "8090:8000"
+      - "8090:3000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
-      interval: 5s
-      timeout: 5s
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
       retries: 10
-      start_period: 10s
+      start_period: 25s
 
-  redis:
-    image: redis:7-alpine
-    container_name: digi_gastro_redis
-    restart: unless-stopped
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-
-  # ═══════════════════════════════════════════════════════════════
-  # CRON SERVICE — ruft Auto-Heal + Inaktivität regelmäßig auf
-  # Nutzt das gleiche Docker Image wie web (hat Python + requests)
-  # Läuft als eigener Container, stört web nicht
-  # ═══════════════════════════════════════════════════════════════
+  # ── Cron: Auto-Heal alle 5 Minuten (Node-Variante des alten Python-Cron) ──
   cron:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: node:20-alpine
     container_name: digi_gastro_cron
     restart: unless-stopped
     depends_on:
@@ -138,40 +155,25 @@ services:
         condition: service_healthy
     environment:
       TZ: Europe/Berlin
-      CRON_WEB_URL: "http://web:8000"
-      AUTOHEAL_TOKEN: "autoheal-secret-2026"
-    entrypoint: ["python3", "-c"]
+      CRON_WEB_URL: "http://web:3000"
+      AUTOHEAL_TOKEN: ${AUTOHEAL_TOKEN:-autoheal-secret-2026}
+    entrypoint: ["sh", "-c"]
     command:
       - |
-        import os, time, urllib.request, json
-        WEB_URL = os.environ.get("CRON_WEB_URL", "http://web:8000")
-        TOKEN = os.environ.get("AUTOHEAL_TOKEN", "")
-        print("digi-gastro Cron Service gestartet", flush=True)
-        print(f"Auto-Heal: alle 5 Min -> {WEB_URL}/api/auto-heal", flush=True)
-        while True:
-            try:
-                url = f"{WEB_URL}/api/auto-heal?token={TOKEN}"
-                resp = urllib.request.urlopen(url, timeout=30)
-                data = json.loads(resp.read())
-                fixes = data.get("fixes", 0)
-                alerts = data.get("alerts", 0)
-                if fixes > 0 or alerts > 0:
-                    print(f"[Cron] Auto-Heal: {fixes} fixes, {alerts} alerts", flush=True)
-            except Exception as e:
-                print(f"[Cron] Auto-Heal Fehler: {e}", flush=True)
-            time.sleep(300)
+        echo "digi-gastro Cron gestartet (alle 5 Min -> $$CRON_WEB_URL/api/auto-heal)"
+        while true; do
+          wget -qO- "$${CRON_WEB_URL}/api/auto-heal?token=$${AUTOHEAL_TOKEN}" \
+            >/dev/null 2>&1 && echo "[Cron] Auto-Heal ok" || echo "[Cron] Auto-Heal Fehler"
+          sleep 300
+        done
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 128M
-        reservations:
+          cpus: '0.25'
           memory: 64M
 
 volumes:
   pgdata:
     driver: local
   uploads:
-    driver: local
-  redisdata:
     driver: local
