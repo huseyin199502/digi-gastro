@@ -83,8 +83,9 @@ services:
     ports:
       - "127.0.0.1:6432:5432"
 
-  # ── Auto-Migration: fährt deploy/db-delta.sql IDEMPOTENT vor jedem Start ──
+  # ── Auto-Migration: Delta IDEMPOTENT vor jedem Web-Start ──
   # (ADD COLUMN IF NOT EXISTS → mehrfaches Ausführen harmlos, keine Datenverluste)
+  # SQL ist direkt eingebettet — kein Datei-Mount, keine Pfad-Fallstricke unter Coolify.
   migrate:
     image: postgres:16-alpine
     container_name: digi_gastro_migrate
@@ -92,14 +93,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./deploy/db-delta.sql:/delta.sql:ro
-    environment:
-      PGHOST: db
-      PGUSER: gastro_user
-      PGPASSWORD: gastro_secret
-      PGDATABASE: digi_gastro
-    command: sh -c "psql -v ON_ERROR_STOP=1 -f /delta.sql && echo '[migrate] DB-Delta OK'"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "[migrate] warte auf DB ..."
+        i=0
+        until pg_isready -h db -U gastro_user -d digi_gastro -q; do
+          i=$$((i+1))
+          if [ $$i -gt 30 ]; then echo "[migrate] FEHLER: DB nicht erreichbar"; exit 1; fi
+          sleep 2
+        done
+        psql -v ON_ERROR_STOP=1 -h db -U gastro_user -d digi_gastro <<'SQL'
+        ALTER TABLE products    ADD COLUMN IF NOT EXISTS variants text DEFAULT '[]';
+        ALTER TABLE products    ADD COLUMN IF NOT EXISTS extras   text DEFAULT '[]';
+        ALTER TABLE order_items ADD COLUMN IF NOT EXISTS extras   varchar;
+        SQL
+        echo "[migrate] DB-Delta OK"
 
   web:
     build:
