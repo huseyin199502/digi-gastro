@@ -129,6 +129,7 @@ services:
       DATABASE_URL: postgresql://gastro_user:gastro_secret@pgbouncer:5432/digi_gastro
       AUTH_SECRET: ${AUTH_SECRET:?Bitte AUTH_SECRET in Coolify setzen}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Bitte ADMIN_PASSWORD in Coolify setzen}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://digi-gastro.de}
       COOKIE_SECURE: ${COOKIE_SECURE:-1}
       AUTOHEAL_TOKEN: ${AUTOHEAL_TOKEN:-autoheal-secret-2026}
       NEXT_TELEMETRY_DISABLED: "1"

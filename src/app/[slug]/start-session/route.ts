@@ -35,9 +35,16 @@ export async function GET(
   const zoneQ = (sp.get("z") ?? "").trim();
   const role = sp.get("role") ?? "";
 
+  // Öffentliche Basis hinter Reverse-Proxy. Priorität:
+  // PUBLIC_BASE_URL (env) → X-Forwarded-* → Host-Header.
+  const envBase = (process.env.PUBLIC_BASE_URL ?? "").trim();
+  const fwdHost = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
+  const fwdProto = req.headers.get("x-forwarded-proto") ?? (fwdHost.includes("localhost") ? "http" : "https");
+  const pubBase = envBase || (fwdHost ? `${fwdProto}://${fwdHost}` : "");
+
   const toSitzExpired = () => {
     const res = NextResponse.redirect(
-      new URL(`/${slug}/sitz-expired`, req.url)
+      new URL(`${pubBase}/${slug}/sitz-expired`)
     );
     res.cookies.set(guestCookieName(slug), "", {
       ...guestCookieOptions(isHttps(req.url)),
@@ -66,7 +73,7 @@ export async function GET(
     });
   }
 
-  const redirectUrl = new URL(`/${slug}`, req.url);
+  const redirectUrl = new URL(`${pubBase}/${slug}`);
   if (role) redirectUrl.searchParams.set("role", role);
 
   const res = NextResponse.redirect(redirectUrl);

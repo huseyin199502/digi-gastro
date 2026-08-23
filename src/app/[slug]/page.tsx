@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
-import { cookies } from "next/headers";
+﻿import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getTenantSession } from "@/lib/auth";
@@ -49,6 +49,15 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
   const slug = rawSlug.toLowerCase().trim();
   const sp = await searchParams;
 
+  // Öffentliche Basis-URL hinter Reverse-Proxy. Priorität:
+  // PUBLIC_BASE_URL (env) → X-Forwarded-*-Header → Host-Header.
+  // (Ohne dies baut redirect() die URL aus dem internen Host → 0.0.0.0:3000.)
+  const _h = await headers();
+  const envBase = (process.env.PUBLIC_BASE_URL ?? "").trim();
+  const pubHost = _h.get("x-forwarded-host") ?? _h.get("host") ?? "";
+  const pubProto = _h.get("x-forwarded-proto") ?? (pubHost.includes("localhost") ? "http" : "https");
+  const pubBase = envBase || (pubHost ? `${pubProto}://${pubHost}` : "");
+
   const qTable = strParam(sp.table ?? sp.tisch ?? sp.t);
   const qToken = strParam(sp.token ?? sp.tk);
   const qZone = strParam(sp.z);
@@ -62,7 +71,7 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
     qs.set("token", qToken);
     if (qZone) qs.set("z", qZone);
     if (roleParam) qs.set("role", roleParam);
-    redirect(`/${slug}/start-session?${qs.toString()}`);
+    redirect(`${pubBase}/${slug}/start-session?${qs.toString()}`);
   }
 
   const store = await cookies();
@@ -98,7 +107,7 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
         token = parsed.token;
         isReadonly = false;
       } else {
-        redirect(`/${slug}/sitz-expired`);
+        redirect(`${pubBase}/${slug}/sitz-expired`);
       }
     }
   }
@@ -124,7 +133,7 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
     role !== "kellner" &&
     !isPreview
   ) {
-    redirect(`/${slug}/newsletter`);
+    redirect(`${pubBase}/${slug}/newsletter`);
   }
 
   // ── Load menu data ──
