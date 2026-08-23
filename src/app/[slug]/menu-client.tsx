@@ -962,7 +962,7 @@ export function MenuClient({
   // Warenkorb + Service nur zeigen, wenn Bestellungen erlaubt sind.
   // Im Menu-only-Modus (orders_enabled=false) entfallen beide Buttons,
   // damit Gäste nicht das Gefühl haben, etwas kaufen zu können.
-  const showGuestFab = !isReadonly && !!table && isGuest && ordersAllowed;
+  const showGuestFab = !isReadonly && !!table && isGuest && ordersAllowed && !cartModalOpen;
 
   return (
     <div className="flex flex-col bg-gradient-to-br from-white via-gray-50 to-white">
@@ -2449,14 +2449,14 @@ function CartModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-t-3xl bg-white shadow-2xl" style={{ maxHeight: "85vh" }}>
+      <div className="relative flex w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl" style={{ maxHeight: "85vh" }}>
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2">
+        <div className="flex shrink-0 justify-center pt-3 pb-2">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 pb-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 pb-4">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-xl text-gray-700">shopping_cart</span>
             <h2 className="text-xl font-extrabold text-gray-900">{tr.your_cart}</h2>
@@ -2469,8 +2469,8 @@ function CartModal({
           </button>
         </div>
 
-        {/* Cart Items */}
-        <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(85vh - 200px)" }}>
+        {/* Cart Items – einziger scrollbarer Bereich */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {cart.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-400">
               {tr.empty_cart}
@@ -2533,9 +2533,9 @@ function CartModal({
           )}
         </div>
 
-        {/* Upsell */}
+        {/* Upsell – nicht scrollbar, bleibt sichtbar */}
         {cart.length > 0 && upsell.length > 0 ? (
-          <div className="px-4 pb-2">
+          <div className="shrink-0 px-4 pb-2">
             {!upsellCollapsed ? (
               <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50">
                 <div className="flex cursor-pointer items-center justify-between px-3 py-2" onClick={() => setUpsellCollapsed(true)}>
@@ -2575,16 +2575,16 @@ function CartModal({
           </div>
         ) : null}
 
-        {/* Total */}
-        <div className="border-t border-gray-100 px-6 py-3">
+        {/* Total – immer sichtbar */}
+        <div className="shrink-0 border-t border-gray-100 px-6 py-3">
           <div className="flex justify-between text-lg font-black text-gray-900">
             <span>{tr.basket_total}</span>
             <span className="text-emerald-600">{formatEur(cartTotal)}</span>
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="px-4 pb-4">
+        {/* Submit – immer sichtbar */}
+        <div className="shrink-0 px-4 pb-4">
           {ordersAllowed ? (
             <button
               onClick={onSubmit}
