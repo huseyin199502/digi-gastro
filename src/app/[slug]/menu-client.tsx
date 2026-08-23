@@ -959,7 +959,10 @@ export function MenuClient({
   const isGuest = role !== "waiter";
   const showBottomNav = false;
   const showCartBar = false;
-  const showGuestFab = !isReadonly && !!table && isGuest;
+  // Warenkorb + Service nur zeigen, wenn Bestellungen erlaubt sind.
+  // Im Menu-only-Modus (orders_enabled=false) entfallen beide Buttons,
+  // damit Gäste nicht das Gefühl haben, etwas kaufen zu können.
+  const showGuestFab = !isReadonly && !!table && isGuest && ordersAllowed;
 
   return (
     <div className="flex flex-col bg-gradient-to-br from-white via-gray-50 to-white">
@@ -1050,7 +1053,7 @@ export function MenuClient({
           </div>
 
           <div className="flex justify-end">
-            <span className="hidden rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 shadow-sm sm:inline-flex">
+            <span className="inline-flex rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 shadow-sm">
               Play World <span className="text-gray-400">(Soon)</span>
             </span>
           </div>
@@ -1987,14 +1990,16 @@ function LandingView({
             </a>
           ) : null}
 
-          <button
-            type="button"
-            onClick={onOpenWallet}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white/90 shadow-md backdrop-blur-xl transition-all duration-300 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span className="material-symbols-outlined text-lg">loyalty</span>
-            <span>Stempelkarte</span>
-          </button>
+          {t.loyalty_enabled ? (
+            <button
+              type="button"
+              onClick={onOpenWallet}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white/90 shadow-md backdrop-blur-xl transition-all duration-300 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-lg">loyalty</span>
+              <span>Stempelkarte</span>
+            </button>
+          ) : null}
         </div>
 
         {/* Social Links - unter Stempelkarte, größer */}
@@ -2393,6 +2398,11 @@ function ProductSheet({
                 {formatEur((effPrice + extraTotal + (selectedVariant?.price ?? 0)) * qty)}
               </span>
             </button>
+          ) : !ordersAllowed ? (
+            <div className="flex h-12 flex-grow cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-100 font-bold tracking-wide text-gray-500">
+              <MaterialIcon className="text-lg">block</MaterialIcon>
+              <span>Bestellung derzeit nicht möglich</span>
+            </div>
           ) : (
             <div className="flex h-12 flex-grow cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-100 font-black uppercase tracking-wider text-gray-400">
               <MaterialIcon className="text-lg">block</MaterialIcon>
