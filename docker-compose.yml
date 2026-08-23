@@ -142,13 +142,29 @@ services:
           cpus: '1'
           memory: 512M
     volumes:
-      # Kundendaten (Logos, Produktbilder, …) — gleiches Volume wie vorher,
-      # jetzt innerhalb von public/ erreichbar (/uploads/... URLs).
+      # Kundendaten (Logos, Produktbilder, …) — gleiches Volume wie vorher.
+      # Legacy-Struktur im Volume: <root>/uploads/<kategorie>/… — daher
+      # Start-Skript unten, das Symlinks auf die richtige Ebene legt.
       - uploads:/app/public/uploads
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "8090:3000"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "[web] Upload-Struktur pruefen ..."
+        if [ -d /app/public/uploads/uploads ]; then
+          for d in /app/public/uploads/uploads/*; do
+            [ -e "$$d" ] || continue
+            n=$$(basename "$$d")
+            if [ ! -e "/app/public/uploads/$$n" ]; then
+              ln -s "$$d" "/app/public/uploads/$$n"
+              echo "[web] symlink: $$n"
+            fi
+          done
+        fi
+        exec node server.js
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
       interval: 15s
