@@ -14,7 +14,7 @@ interface EventProductPayload {
 interface EventComboPayload {
   name?: unknown;
   combo_price?: unknown;
-  items?: { product_id?: unknown; category_name?: unknown }[];
+  items?: { product_id?: unknown; category_name?: unknown; excluded_product_ids?: unknown }[];
   days?: unknown;
   start_time?: unknown;
   end_time?: unknown;
@@ -73,12 +73,16 @@ export async function applyEventCombos(
     for (const ci of combo.items) {
       const productId = ci.product_id;
       const categoryName = ci.category_name;
+      const excludedIds = Array.isArray(ci.excluded_product_ids)
+        ? (ci.excluded_product_ids as unknown[]).map((n) => Number(n)).filter((n) => Number.isFinite(n))
+        : [];
       if (productId) {
         await prisma.eventComboItem.create({
           data: {
             combo_id: created.id,
             product_id: parseInt(String(productId), 10),
             category_name: categoryName ? String(categoryName) : null,
+            excluded_product_ids: JSON.stringify(excludedIds),
           },
         });
       } else if (categoryName) {
@@ -87,6 +91,7 @@ export async function applyEventCombos(
             combo_id: created.id,
             product_id: null,
             category_name: String(categoryName),
+            excluded_product_ids: JSON.stringify(excludedIds),
           },
         });
       }

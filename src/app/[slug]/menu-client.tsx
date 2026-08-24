@@ -32,7 +32,7 @@ const T = {
     order_locked: "Bestellung gesperrt (Tisch scannen)",
     thank_you: "Bestellung erhalten!",
     thank_you_desc:
-      "Ihre Bestellung wird frisch zubereitet. Die Abrechnung erfolgt am Ende über unsere Servicekräfte.",
+      "Ihre Bestellung wird frisch zubereitet. Wenn Sie zahlen möchten, klicken Sie unten rechts auf den Rechnung-Button – dann kommt der Kellner an Ihren Tisch.",
     more_orders: "Weitere Bestellungen aufnehmen",
     empty_cart: "Ihr Warenkorb ist leer.",
     cart_item_note: "Hinweis (z.B. ohne Zwiebeln, medium, extra scharf…)",
@@ -65,7 +65,13 @@ const T = {
     back: "Zurück",
     note_pin: "Bitte scannen Sie den QR-Code an Ihrem Tisch.",
     service_sent: "Anfrage gesendet!",
-    payment_sent: "Rechnung angefordert!",
+    payment_sent: "Rechnung angefordert – der Kellner kommt zu euch!",
+    bill_wait: "Rechnung ist bereits angefordert – bitte noch %s warten.",
+    bill_confirm_header: "Rechnung anfordern?",
+    bill_confirm_desc:
+      "Ein Kellner kommt an euren Tisch und bringt die Rechnung zum Bezahlen.",
+    bill_confirm_yes: "Ja, Rechnung bringen",
+    bill_cancel: "Abbrechen",
     order_error: "Bestellung fehlgeschlagen",
     order_ok: "Bestellung #%s aufgegeben",
     sold_out: "Ausverkauft",
@@ -87,7 +93,7 @@ const T = {
     order_locked: "Order locked (scan table code)",
     thank_you: "Order received!",
     thank_you_desc:
-      "Your order is being freshly prepared. Payment is collected by our staff at the end.",
+      "Your order is being freshly prepared. To pay, tap the bill button at the bottom right – your waiter will come to your table.",
     more_orders: "Take more orders",
     empty_cart: "Your cart is empty.",
     cart_item_note: "Note (e.g. no onions, medium, extra spicy…)",
@@ -120,7 +126,13 @@ const T = {
     back: "Back",
     note_pin: "Please scan the QR code at your table.",
     service_sent: "Request sent!",
-    payment_sent: "Bill requested!",
+    payment_sent: "Bill requested – your waiter is on the way!",
+    bill_wait: "Bill already requested – please wait %s.",
+    bill_confirm_header: "Request the bill?",
+    bill_confirm_desc:
+      "A waiter will come to your table and bring the bill for payment.",
+    bill_confirm_yes: "Yes, bring the bill",
+    bill_cancel: "Cancel",
     order_error: "Order failed",
     order_ok: "Order #%s placed",
     sold_out: "Sold out",
@@ -132,6 +144,24 @@ type Lang = keyof typeof T;
 
 function formatEur(value: number): string {
   return value.toFixed(2).replace(".", ",") + " €";
+}
+
+// Klang-Feedback beim Absenden einer Bestellung ("Jetzt bestellen").
+// Web + PWA: Der Service Worker cached die Datei cache-first.
+const orderSentAudio =
+  typeof Audio !== "undefined" ? new Audio("/sounds/kunde-bestellung.mp3") : null;
+if (orderSentAudio) orderSentAudio.preload = "auto";
+
+function playOrderSentSound() {
+  if (!orderSentAudio) return;
+  try {
+    orderSentAudio.currentTime = 0;
+    void orderSentAudio.play().catch(() => {
+      /* Autoplay blockiert → stumm ignorieren */
+    });
+  } catch {
+    // ignore
+  }
 }
 
 function parseActiveTableNum(raw: string): { num: string; zone: string } {
@@ -345,6 +375,9 @@ export function MenuClient({
   const [selectedPaymentType, setSelectedPaymentType] =
     useState("zahlen_bar");
   const [cooldownUntil, setCooldownUntil] = useState(0);
+  // Rechnung: Bestätigungs-Sheet + "angefordert"-Zustand als visuelles Feedback
+  const [billSheetOpen, setBillSheetOpen] = useState(false);
+  const [billSent, setBillSent] = useState(false);
   const [nowTs, setNowTs] = useState<number>(0);
   const [unpaidSum, setUnpaidSum] = useState(0);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -426,6 +459,7 @@ export function MenuClient({
       if (cooldownUntil - Date.now() <= 0) {
         clearInterval(iv);
         setNowTs(0);
+        setBillSent(false); // Cooldown vorbei → Button zurücksetzen
       } else {
         setNowTs(Date.now());
       }
@@ -507,22 +541,25 @@ export function MenuClient({
   }, [isReadonly, tableNum, role]);
 
   // ── Payment modal: outstanding amount ──
-  const openPaymentModal = useCallback(async () => {
-    setPaymentModalOpen(true);
-    if (tableNum) {
-      try {
-        const res = await fetch(
-          `/api/${slug}/table-unpaid-sum/${encodeURIComponent(tableNum)}`
-        );
-        if (res.ok) {
-          const data = (await res.json()) as { unpaid_sum: number };
-          setUnpaidSum(data.unpaid_sum ?? 0);
-        }
-      } catch {
-        // ignore
+  const refreshUnpaidSum = useCallback(async () => {
+    if (!tableNum) return;
+    try {
+      const res = await fetch(
+        `/api/${slug}/table-unpaid-sum/${encodeURIComponent(tableNum)}`
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { unpaid_sum: number };
+        setUnpaidSum(data.unpaid_sum ?? 0);
       }
+    } catch {
+      // ignore
     }
   }, [slug, tableNum]);
+
+  const openPaymentModal = useCallback(async () => {
+    setPaymentModalOpen(true);
+    await refreshUnpaidSum();
+  }, [refreshUnpaidSum]);
 
   // ── Cart ──
   const [addedProductId, setAddedProductId] = useState<number | null>(null);
@@ -598,6 +635,39 @@ export function MenuClient({
     });
   }
 
+  // Löschen: Bei Kombis (mehrere Warenkorb-Positionen mit gleicher
+  // "Kombi:"-Notiz) wird der GESAMTE Kombi entfernt — nicht nur ein Teil.
+  function removeFromCart(cartId: string) {
+    setCart((prev) => {
+      const item = prev.find((i) => i.cart_id === cartId);
+      if (!item) return prev;
+      if (item.note?.startsWith("Kombi:")) {
+        return prev.filter((i) => i.note !== item.note);
+      }
+      return prev.filter((i) => i.cart_id !== cartId);
+    });
+  }
+
+  // ── Frische Verfügbarkeit (Ausverkauft-Status kann sich ändern,
+  // während der Gast die Seite offen hat) ──
+  const [liveAvail, setLiveAvail] = useState<Map<number, boolean> | null>(null);
+  async function refreshAvailability() {
+    try {
+      const res = await fetch(`/api/${slug}/products-lite`);
+      if (!res.ok) return;
+      const j = (await res.json()) as { products?: { id: number; is_available: boolean }[] };
+      if (Array.isArray(j.products)) {
+        setLiveAvail(new Map(j.products.map((p) => [p.id, p.is_available])));
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  function openCartModal() {
+    setCartModalOpen(true);
+    void refreshAvailability();
+  }
+
   // ── Product sheet ──
   function openProductSheet(product: MenuProduct) {
     setSheetProduct(product);
@@ -635,6 +705,18 @@ export function MenuClient({
   // ── Order submission ──
   async function submitOrder() {
     if (cart.length === 0 || isSubmitting) return;
+    // Frischer Ausverkauft-Check: Produkte, die seit dem Seitenaufruf
+    // ausverkauft wurden, dürfen nicht bestellt werden.
+    const soldOutInCart = liveAvail
+      ? cart.filter((i) => liveAvail.get(i.product_id) === false)
+      : [];
+    if (soldOutInCart.length > 0) {
+      pushToast(
+        `${soldOutInCart[0].name} ${tr.sold_out.toLowerCase()} — bitte entferne es aus dem Warenkorb.`,
+        "error"
+      );
+      return;
+    }
     if (!table) {
       pushToast(tr.order_locked, "error");
       return;
@@ -683,6 +765,7 @@ export function MenuClient({
         return;
       }
       orderIdemKeyRef.current = null; // neue Bestellung → neuer Key
+      playOrderSentSound();
       setCart([]);
       setCartModalOpen(false);
       setThankYouOpen(true);
@@ -695,6 +778,34 @@ export function MenuClient({
   }
 
   // ── Service & payment requests ──
+  // "Rechnung"-Ruf: erstellt ServiceCall type "rechnung" (Admin sieht
+  // "wünscht Rechnung" im Cockpit).
+  async function confirmBillRequest() {
+    if (cooldownUntil > Date.now() || !table || !token) return;
+    try {
+      const res = await fetch(`/api/${slug}/call-service`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "rechnung",
+          table,
+          token,
+        }),
+      });
+      if (res.ok) {
+        setCooldownUntil(Date.now() + 30000);
+        setBillSheetOpen(false);
+        setBillSent(true); // Button zeigt Häkchen, bis der Cooldown endet
+        pushToast(tr.payment_sent);
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        pushToast(data.error || tr.order_error, "error");
+      }
+    } catch {
+      pushToast(tr.order_error, "error");
+    }
+  }
+
   async function confirmServiceRequest() {
     if (cooldownUntil > Date.now() || !table || !token) return;
     try {
@@ -928,6 +1039,10 @@ export function MenuClient({
     const cartIds = new Set(cart.map((i) => i.product_id));
     return menu.products
       .filter((p) => p.is_available && !cartIds.has(p.id))
+      // Frischer Ausverkauft-Status (products-lite) hat Vorrang vor dem
+      // beim Seitenaufruf geladenen Menü — sonst erscheinen ausverkaufte
+      // Produkte in "Passende Extras".
+      .filter((p) => liveAvail?.get(p.id) !== false)
       .filter(
         (p) =>
           p.category_type !== null &&
@@ -935,7 +1050,7 @@ export function MenuClient({
           !p.happy_hour_active
       )
       .slice(0, 2);
-  }, [cart, menu.products]);
+  }, [cart, menu.products, liveAvail]);
 
   // ── Read-only scan overlay ──
   if (isReadonly) {
@@ -962,7 +1077,15 @@ export function MenuClient({
   // Warenkorb + Service nur zeigen, wenn Bestellungen erlaubt sind.
   // Im Menu-only-Modus (orders_enabled=false) entfallen beide Buttons,
   // damit Gäste nicht das Gefühl haben, etwas kaufen zu können.
-  const showGuestFab = !isReadonly && !!table && isGuest && ordersAllowed && !cartModalOpen;
+  const showGuestFab =
+    !isReadonly &&
+    !!table &&
+    isGuest &&
+    ordersAllowed &&
+    !cartModalOpen &&
+    !categorySheetOpen &&
+    !comboModalOpen &&
+    !sheetProduct;
 
   return (
     <div className="flex flex-col bg-gradient-to-br from-white via-gray-50 to-white">
@@ -1212,9 +1335,37 @@ export function MenuClient({
           >
             <span className="material-symbols-outlined text-2xl">notifications_active</span>
           </button>
+          {/* Rechnung Button — öffnet Bestätigung, zeigt danach Häkchen + Cooldown */}
+          <button
+            onClick={() => {
+              if (!table || !token) return;
+              if (cooldownUntil > Date.now()) {
+                pushToast(tr.bill_wait.replace("%s", cooldownLabel ?? ""));
+                return;
+              }
+              void refreshUnpaidSum(); // offenen Betrag frisch laden
+              setBillSheetOpen(true);
+            }}
+            aria-pressed={billSent}
+            className={`relative flex h-14 w-14 items-center justify-center rounded-full shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:scale-110 active:scale-90 ${
+              billSent
+                ? "bg-emerald-500/90 text-white ring-2 ring-emerald-300"
+                : "bg-white/80 text-gray-700 hover:bg-white"
+            }`}
+            title={billSent ? tr.payment_sent : "Rechnung anfordern"}
+          >
+            <span className="material-symbols-outlined text-2xl">
+              {billSent ? "check" : "receipt_long"}
+            </span>
+            {billSent && cooldownLabel ? (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-1.5 py-px text-[9px] font-black text-white">
+                {cooldownLabel}
+              </span>
+            ) : null}
+          </button>
           {/* Cart Button */}
           <button
-            onClick={() => setCartModalOpen(true)}
+            onClick={openCartModal}
             className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:bg-white hover:scale-110 active:scale-90"
             title="Warenkorb"
           >
@@ -1233,17 +1384,17 @@ export function MenuClient({
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-2xl rounded-t-3xl bg-white shadow-2xl"
+            className="relative flex w-full max-w-2xl flex-col rounded-t-3xl bg-white shadow-2xl"
             style={{ maxHeight: "85vh" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2">
+            <div className="flex shrink-0 justify-center pt-3 pb-2">
               <div className="h-1.5 w-12 rounded-full bg-gray-300" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 pb-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 pb-4">
               <div>
                 <h2 className="text-xl font-extrabold text-gray-900">{currentCategory}</h2>
                 {categoryExtras.length > 0 ? (
@@ -1264,8 +1415,10 @@ export function MenuClient({
               </button>
             </div>
 
-            {/* Products Grid */}
-            <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(85vh - 100px)" }}>
+            {/* Products Grid — flex-1 + min-h-0: Scroll-Höhe richtet sich
+                automatisch nach der tatsächlichen Header-Höhe (z.B. mit
+                Kategorie-Extras-Chips), letzte Reihe bleibt erreichbar */}
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {parentProducts.length === 0 ? (
                 <p className="py-8 text-center text-sm text-gray-400">Keine Produkte in dieser Kategorie.</p>
               ) : (
@@ -1423,18 +1576,20 @@ export function MenuClient({
 
                 // Category selection - show only products from this category that are in the combo
                 if (currentItem.category_name) {
+                  // Ausgeschlossene Produkte (z.B. Cola 0,4 im Softdrinks-Kombi)
+                  const excludedIds = currentItem.excluded_product_ids ?? [];
                   // Get all product_ids from this combo for this category
                   const comboProductIds = comboModalData.items
                     .filter((ci) => ci.product_id && menu.products.find((p) => p.id === ci.product_id && p.category === currentItem.category_name))
                     .map((ci) => ci.product_id!);
-                  
+
                   // Also get products from the category if category_name is set
                   const catProducts = menu.products.filter(
-                    (p) => p.category === currentItem.category_name && p.is_available !== false
+                    (p) => p.category === currentItem.category_name && p.is_available !== false && !excludedIds.includes(p.id)
                   );
-                  
+
                   // Use combo products if available, otherwise all category products
-                  const availableProducts = comboProductIds.length > 0 
+                  const availableProducts = comboProductIds.length > 0
                     ? menu.products.filter((p) => comboProductIds.includes(p.id) && p.is_available !== false)
                     : catProducts;
 
@@ -1613,7 +1768,7 @@ export function MenuClient({
           style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
         >
           <button
-            onClick={() => setCartModalOpen(true)}
+            onClick={openCartModal}
             className="flex w-full items-center justify-between rounded-2xl bg-white/90 px-5 py-4 font-bold text-gray-900 shadow-lg transition-all hover:bg-white hover:shadow-xl active:scale-[0.98]"
           >
             <div className="flex items-center gap-3">
@@ -1741,6 +1896,7 @@ export function MenuClient({
         lang={lang}
         onClose={() => setCartModalOpen(false)}
         onQty={changeQty}
+        onRemove={removeFromCart}
         onNote={(cartId, note) =>
           setCart((prev) =>
             prev.map((i) => (i.cart_id === cartId ? { ...i, note } : i))
@@ -1760,6 +1916,15 @@ export function MenuClient({
         setSelected={setSelectedServiceType}
         onClose={() => setServiceModalOpen(false)}
         onConfirm={confirmServiceRequest}
+      />
+
+      {/* ── Rechnung: Bestätigungs-Sheet ── */}
+      <BillConfirmSheet
+        tr={tr}
+        open={billSheetOpen}
+        unpaidSum={unpaidSum}
+        onClose={() => setBillSheetOpen(false)}
+        onConfirm={confirmBillRequest}
       />
 
       {/* ── Payment modal ── */}
@@ -2425,6 +2590,7 @@ function CartModal({
   lang,
   onClose,
   onQty,
+  onRemove,
   onNote,
   onSubmit,
   upsell,
@@ -2439,6 +2605,7 @@ function CartModal({
   lang: Lang;
   onClose: () => void;
   onQty: (cartId: string, delta: number) => void;
+  onRemove: (cartId: string) => void;
   onNote: (cartId: string, note: string) => void;
   onSubmit: () => void;
   upsell: MenuProduct[];
@@ -2515,6 +2682,15 @@ function CartModal({
                           </button>
                         </>
                       )}
+                      {/* Löschen — entfernt die Position komplett (auch Kombis) */}
+                      <button
+                        onClick={() => onRemove(item.cart_id)}
+                        aria-label="Position entfernen"
+                        title={isCombo ? "Ganzen Kombi entfernen" : "Entfernen"}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100 hover:text-red-600 active:scale-90"
+                      >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                      </button>
                     </div>
                   </div>
                   {!isCombo && (
@@ -2664,6 +2840,64 @@ function PaymentOption({
       <span className="text-3xl">{icon}</span>
       <span className="text-xs font-bold text-gray-900">{label}</span>
     </button>
+  );
+}
+
+function BillConfirmSheet({
+  tr,
+  open,
+  unpaidSum,
+  onClose,
+  onConfirm,
+}: {
+  tr: (typeof T)[Lang];
+  open: boolean;
+  unpaidSum: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative w-full max-w-sm rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* Handle */}
+        <div className="flex justify-center pt-1 pb-4">
+          <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+        </div>
+        <button onClick={onClose} aria-label={tr.bill_cancel} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+          <span className="material-symbols-outlined text-lg">close</span>
+        </button>
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+          <span className="material-symbols-outlined text-3xl text-emerald-600">receipt_long</span>
+        </div>
+        <h3 className="mb-2 text-center text-xl font-extrabold text-gray-900">{tr.bill_confirm_header}</h3>
+        <p className="mb-4 text-center text-sm leading-relaxed text-gray-500">{tr.bill_confirm_desc}</p>
+        {unpaidSum > 0 ? (
+          <div className="mb-5 flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
+            <span className="text-sm font-bold text-gray-600">{tr.payment_outstanding}</span>
+            <span className="text-lg font-black text-gray-900">{formatEur(unpaidSum)}</span>
+          </div>
+        ) : null}
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              onConfirm();
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-sm font-bold text-white shadow-lg transition-all hover:bg-emerald-700 active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-lg">check_circle</span>
+            {tr.bill_confirm_yes}
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full rounded-2xl bg-gray-100 py-3.5 text-sm font-bold text-gray-600 transition-all hover:bg-gray-200 active:scale-[0.98]"
+          >
+            {tr.bill_cancel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

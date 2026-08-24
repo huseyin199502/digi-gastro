@@ -27,15 +27,14 @@ interface SitzplanTabProps {
   pendingCountFor: (label: string) => number;
   tableTotal: (label: string) => number;
   activeTableOrders: LiveOrder[];
-  serveItem: (o: LiveOrder, it: LiveItem) => void;
-  serveAllOrder: (o: LiveOrder) => void;
-  cancelItem: (o: LiveOrder, it: LiveItem) => void;
+  serveItemsBulk: (entries: { o: LiveOrder; it: LiveItem }[], okMsg?: string) => void;
+  cancelItem: (o: LiveOrder, it: LiveItem, opts?: { skipConfirm?: boolean; quantity?: number }) => void;
   cancelOrder: (o: LiveOrder) => void;
-  payOrder: (o: LiveOrder) => void;
+  payOrder: (o: LiveOrder, opts?: { skipConfirm?: boolean }) => void;
   splitPay: (o: LiveOrder, items: LiveItem[]) => void;
   transferOrder: (o: LiveOrder, targetLabel: string, itemKeys?: string[], itemsMap?: Record<string, number>) => void;
   serviceErledigt: (c: ServiceCall) => void;
-  addManualOrder: (tableLabel: string, productId: number, quantity: number) => void;
+  addManualOrder: (tableLabel: string, items: { product_id: number; quantity: number }[]) => void;
   pushToast: (msg: string, kind?: "success" | "error") => void;
   products: AdminProduct[];
   categories: { id: number; name: string; super_group_id: number | null }[];
@@ -206,8 +205,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     pendingCountFor,
     tableTotal,
     activeTableOrders,
-    serveItem,
-    serveAllOrder,
+    serveItemsBulk,
     cancelItem,
     cancelOrder,
     payOrder,
@@ -229,6 +227,14 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderItems, setNewOrderItems] = useState<Map<number, number>>(new Map()); // productId -> quantity
   const [multiSelect, setMultiSelect] = useState<Set<number>>(new Set());
+  // Stempel vergeben (Loyalty) direkt aus dem Cockpit
+  const [stampOpen, setStampOpen] = useState(false);
+  const [stampCode, setStampCode] = useState("");
+  const [stampBusy, setStampBusy] = useState(false);
+  // Aufgeklappte Kategorien im "Neue Bestellung"-Sheet
+  const [openOrderCats, setOpenOrderCats] = useState<Set<string>>(new Set());
+  // Produktsuche im "Neue Bestellung"-Sheet
+  const [orderSearch, setOrderSearch] = useState("");
 
   // Live-Timer für die Tisch-Kacheln
   const [now, setNow] = useState(() => Date.now());
@@ -331,30 +337,192 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     });
   }, [activeTableOrders]);
 
-  // Super-group badges per table
+  // Alle Bestellungen des Tisches als EIN Bon darstellen.
+  // Erst nach Abrechnung beginnt ein neuer Bon.
+  const mergedTableOrder = useMemo<LiveOrder | null>(() => {
+    if (sortedTableOrders.length === 0) return null;
+    const first = sortedTableOrders[0];
+    if (sortedTableOrders.length === 1) return first;
+    const bon =
+      sortedTableOrders.find((o) => o.daily_bon_number != null)?.daily_bon_number ?? first.id;
+    return {
+      ...first,
+      daily_bon_number: bon,
+      total: sortedTableOrders.reduce((s, o) => s + (o.total ?? 0), 0),
+      timestamp: first.timestamp,
+      items: sortedTableOrders.flatMap((o) => o.items),
+    };
+  }, [sortedTableOrders]);
+
+  // Zuordnung Item -> ursprüngliche Bestellung (für Serve/Storno/Split/Transfer)
+  const ownerByItemId = useMemo(() => {
+    const m = new Map<number, LiveOrder>();
+    for (const o of activeTableOrders) {
+      for (const it of o.items) m.set(it.id, o);
+    }
+    return m;
+  }, [activeTableOrders]);
+
+  const ownerOf = (fallback: LiveOrder, it: LiveItem): LiveOrder =>
+    ownerByItemId.get(it.id) ?? fallback;
+
+  // ── "Neue Bestellung": offene Items über den ganzen Tisch aggregieren ──
+  // Gleiche Produkte (inkl. gleicher Anmerkung/Kombi) werden zu EINER Zeile
+  // zusammengefasst → 5x Cola = ein Klick "Servieren" für alle 5.
+  interface PendingGroup {
+    key: string;
+    name: string;
+    note: string | null;
+    comboName: string | null;
+    qty: number;
+    ts: number; // neueste Bestellzeit im Group
+    entries: { o: LiveOrder; it: LiveItem }[];
+  }
+
+  const pendingGroups = useMemo<PendingGroup[]>(() => {
+    if (!mergedTableOrder) return [];
+    const map = new Map<string, PendingGroup>();
+    for (const it of mergedTableOrder.items) {
+      if ((it.item_status || "pending") !== "pending") continue;
+      const key = `${it.product_id}|${it.combo_id ?? ""}|${it.combo_instance_id ?? ""}|${(it.note ?? "").trim()}`;
+      const ownerTs = new Date(String(ownerOf(mergedTableOrder, it).timestamp || "").replace(" ", "T")).getTime();
+      const existing = map.get(key);
+      if (existing) {
+        existing.qty += it.quantity;
+        if (Number.isFinite(ownerTs) && ownerTs > existing.ts) existing.ts = ownerTs;
+        existing.entries.push({ o: ownerOf(mergedTableOrder, it), it });
+      } else {
+        map.set(key, {
+          key,
+          name: it.name,
+          note: it.note?.trim() || null,
+          comboName: it.combo_name ?? null,
+          qty: it.quantity,
+          ts: Number.isFinite(ownerTs) ? ownerTs : 0,
+          entries: [{ o: ownerOf(mergedTableOrder, it), it }],
+        });
+      }
+    }
+    // Neueste zuerst — eine frisch reinkommende Bestellung steht ganz oben
+    return [...map.values()].sort((a, b) => b.ts - a.ts || a.name.localeCompare(b.name));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedTableOrder, ownerByItemId]);
+
+  const pendingTotalQty = useMemo(
+    () => pendingGroups.reduce((s, g) => s + g.qty, 0),
+    [pendingGroups]
+  );
+
+  const servePendingGroup = (g: PendingGroup) => {
+    void serveItemsBulk(g.entries);
+  };
+
+  const cancelPendingGroup = (g: PendingGroup) => {
+    if (!window.confirm(`Storno: ${g.qty}x ${g.name}?`)) return;
+    for (const e of g.entries) void cancelItem(e.o, e.it, { skipConfirm: true, quantity: e.it.quantity });
+  };
+
+  const payWholeTable = async () => {
+    // Nur offene Bestellungen abrechnen — bereits bezahlte/stornierte
+    // (z.B. durch Teilzahlung) werden übersprungen.
+    const open = activeTableOrders.filter(
+      (ord) => ord.status !== "bezahlt" && ord.status !== "storniert"
+    );
+    if (open.length === 0) {
+      pushToast("Keine offenen Bestellungen an diesem Tisch.", "error");
+      return;
+    }
+    const sum = open.reduce((s, ord) => s + (ord.total ?? 0), 0);
+    const pendingItems = open.reduce(
+      (s, ord) => s + ord.items.filter((it) => (it.item_status || "pending") === "pending").length,
+      0
+    );
+    const warn =
+      pendingItems > 0
+        ? `\n\n⚠️ ${pendingItems} Artikel wurden noch nicht serviert und werden mitabgerechnet!`
+        : "";
+    if (
+      !window.confirm(
+        `Tisch ${selectedTable} über ${formatEur(sum)} abrechnen? (${open.length} Bestellung${open.length === 1 ? "" : "en"})${warn}`
+      )
+    )
+      return;
+    for (const ord of open) {
+      await payOrder(ord, { skipConfirm: true });
+    }
+    closeCockpit();
+  };
+
+  const cancelWholeBon = () => {
+    if (!window.confirm(`Kompletten Bon an ${selectedTable} stornieren?`)) return;
+    for (const ord of activeTableOrders) {
+      cancelOrder(ord);
+    }
+    closeCockpit();
+  };
   const badgesByTable = useMemo(() => {
     const map = new Map<string, SuperGroupBadge[]>();
     if (!live) return map;
     for (const t of live.tables ?? []) {
       const label = tableLabel(t);
       const orders = (live?.orders ?? []).filter((o) => o.table === label);
-      if (orders.length > 0) {
-        map.set(label, computeSuperGroupBadges(orders, products, categories, superGroups));
+      // Badges (Shisha/Speisen/Getränke) zeigen NUR die wirklich OFFENEN
+      // Positionen — nicht die ganze Bestellung. Kommt z.B. nur eine Shisha
+      // neu rein, leuchtet die Kachel ausschließlich lila, damit der
+      // Shisha-Meister sofort sieht: neue Bestellung = nur Shisha.
+      const pendingOnlyOrders = orders
+        .map((o) => ({
+          ...o,
+          items: o.items.filter((it) => (it.item_status || "pending") === "pending"),
+        }))
+        .filter((o) => o.items.length > 0);
+      if (pendingOnlyOrders.length > 0) {
+        map.set(label, computeSuperGroupBadges(pendingOnlyOrders, products, categories, superGroups));
       }
     }
     return map;
   }, [live, products, categories, superGroups]);
 
-  const toggleSplitItem = (itemId: number, quantity: number) => {
+  // ── Kombi-Gruppen ──
+  // Ein gekaufter Kombi besteht aus mehreren Positionen (gleiche "Kombi:"-
+  // Notiz bzw. gleiche combo_instance_id). Kombis sind nur ALS GANZES
+  // abrechenbar/umbuchbar: ein Produkt an-/abwählen wählt alle mit.
+  const comboGroupKeyOf = (it: LiveItem): string | null => {
+    if (it.combo_instance_id) return `inst:${it.combo_instance_id}`;
+    if (it.note?.startsWith("Kombi:")) return `note:${it.note}`;
+    return null;
+  };
+  const isComboRow = (it: LiveItem | undefined): boolean =>
+    !!it && comboGroupKeyOf(it) !== null;
+
+  const comboGroupIds = (itemId: number): number[] => {
+    const items = mergedTableOrder?.items ?? [];
+    const it = items.find((x) => x.id === itemId);
+    if (!it) return [itemId];
+    const key = comboGroupKeyOf(it);
+    if (!key) return [itemId];
+    return items.filter((x) => comboGroupKeyOf(x) === key).map((x) => x.id);
+  };
+
+  const toggleSplitItem = (itemId: number, _quantity: number) => {
+    const ids = comboGroupIds(itemId);
     setSplitSel((prev) => {
       const next = new Map(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.set(itemId, quantity);
+      if (next.has(ids[0])) {
+        for (const id of ids) next.delete(id);
+      } else {
+        for (const id of ids) {
+          const m = mergedTableOrder?.items.find((x) => x.id === id);
+          if (m) next.set(id, m.quantity); // immer volle Menge
+        }
+      }
       return next;
     });
   };
 
   const setSplitQty = (itemId: number, qty: number) => {
+    // Kombis sind nicht teilbar — Mengen-Stepper ist für sie deaktiviert
+    if (isComboRow(mergedTableOrder?.items.find((x) => x.id === itemId))) return;
     setSplitSel((prev) => {
       const next = new Map(prev);
       next.set(itemId, qty);
@@ -374,7 +542,18 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const confirmSplit = (o: LiveOrder) => {
     const items = splitItemsFor(o);
     if (items.length === 0) return;
-    splitPay(o, items);
+    // Ausgewählte Items können aus mehreren Bestellungen stammen —
+    // gruppiert je Ursprungs-Bestellung kassieren.
+    const byOwner = new Map<number, { order: LiveOrder; items: LiveItem[] }>();
+    for (const it of items) {
+      const owner = ownerOf(o, it);
+      const entry = byOwner.get(owner.id);
+      if (entry) entry.items.push(it);
+      else byOwner.set(owner.id, { order: owner, items: [it] });
+    }
+    for (const { order, items: its } of byOwner.values()) {
+      splitPay(order, its);
+    }
     setSplitMode(false);
     setSplitSel(new Map());
   };
@@ -402,14 +581,6 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     });
   };
 
-  const serveSelectedItems = async (order: LiveOrder) => {
-    const items = order.items.filter((it) => multiSelect.has(it.id) && (it.item_status || "pending") === "pending");
-    for (const it of items) {
-      await serveItem(order, it);
-    }
-    setMultiSelect(new Set());
-  };
-
   // Neue Bestellung - Mehrfachauswahl
   const toggleNewOrderItem = (productId: number) => {
     setNewOrderItems((prev) => {
@@ -432,15 +603,59 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const submitNewOrder = () => {
     if (!selectedInfo?.table || newOrderItems.size === 0) return;
     const tableLabel = tableLabelFor(selectedInfo.table);
-    for (const [productId, qty] of newOrderItems) {
-      addManualOrder(tableLabel, productId, qty);
-    }
+    // Alle ausgewählten Produkte als EIN Request → landen zusammen in
+    // einer Bestellung (ein Bon) und erscheinen komplett unter "Neue Bestellung".
+    const items = [...newOrderItems.entries()].map(([productId, quantity]) => ({
+      product_id: productId,
+      quantity,
+    }));
+    addManualOrder(tableLabel, items);
     setNewOrderOpen(false);
     setNewOrderItems(new Map());
   };
 
-  const closeCockpit = () => {
-    setSelectedTable(null);
+  // Loyalty-Stempel per Kurzcode vergeben (Backend: /admin/loyalty/stamp-manual)
+  const submitStamp = async () => {
+    const code = stampCode.trim();
+    if (code.length < 3 || stampBusy) return;
+    setStampBusy(true);
+    try {
+      const res = await fetch("/admin/loyalty/stamp-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ short_code: code }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        customer_nickname?: string;
+        current_stamps?: number;
+        stamps_required?: number;
+        reward_redeemed?: boolean;
+        reward_name?: string | null;
+      };
+      if (!res.ok) {
+        pushToast(data.error || "Stempel konnte nicht vergeben werden.", "error");
+        return;
+      }
+      const progress =
+        data.current_stamps != null && data.stamps_required != null
+          ? ` (${data.current_stamps}/${data.stamps_required})`
+          : "";
+      pushToast(
+        data.reward_redeemed
+          ? `🎉 Prämie bereit: ${data.reward_name ?? "Belohnung"} — Stempel für ${data.customer_nickname ?? "Kunden"} vergeben`
+          : `⭐ Stempel vergeben an ${data.customer_nickname ?? "Kunden"}${progress}`
+      );
+      setStampOpen(false);
+      setStampCode("");
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setStampBusy(false);
+    }
+  };
+
+  const closeCockpit = () => {    setSelectedTable(null);
     setSplitMode(false);
     setSplitSel(new Map());
     setTransferTarget(null);
@@ -453,16 +668,25 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   }, [selectedTable, live]);
 
   // ── Transfer: individuelle Produkte ──
-  const toggleTransferItem = (itemId: number, quantity: number) => {
+  const toggleTransferItem = (itemId: number, _quantity: number) => {
+    const ids = comboGroupIds(itemId);
     setTransferSel((prev) => {
       const next = new Map(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.set(itemId, quantity);
+      if (next.has(ids[0])) {
+        for (const id of ids) next.delete(id);
+      } else {
+        for (const id of ids) {
+          const m = mergedTableOrder?.items.find((x) => x.id === id);
+          if (m) next.set(id, m.quantity); // immer volle Menge
+        }
+      }
       return next;
     });
   };
 
   const setTransferQty = (itemId: number, qty: number) => {
+    // Kombis sind nicht teilbar — Mengen-Stepper ist für sie deaktiviert
+    if (isComboRow(mergedTableOrder?.items.find((x) => x.id === itemId))) return;
     setTransferSel((prev) => {
       const next = new Map(prev);
       next.set(itemId, qty);
@@ -473,13 +697,14 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const transferItemKeys = (o: LiveOrder): string[] => {
     const keys: string[] = [];
     for (const [itemId, qty] of transferSel) {
-      const it = o.items.find((x) => x.id === itemId);
+      const owner = ownerByItemId.get(itemId) ?? o;
+      const it = owner.items.find((x) => x.id === itemId);
       if (!it) continue;
       const noteSlug = (it.note ?? "").replace(/\s+/g, "_");
       const comboId = it.combo_id ?? "";
       const comboInst = it.combo_instance_id ?? "";
       const itemStatus = it.item_status || "pending";
-      keys.push(`${o.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`);
+      keys.push(`${owner.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`);
       void qty;
     }
     return keys;
@@ -488,24 +713,33 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const transferItemQtys = (o: LiveOrder): Record<string, number> => {
     const map: Record<string, number> = {};
     for (const [itemId, qty] of transferSel) {
-      const it = o.items.find((x) => x.id === itemId);
+      const owner = ownerByItemId.get(itemId) ?? o;
+      const it = owner.items.find((x) => x.id === itemId);
       if (!it) continue;
       const noteSlug = (it.note ?? "").replace(/\s+/g, "_");
       const comboId = it.combo_id ?? "";
       const comboInst = it.combo_instance_id ?? "";
       const itemStatus = it.item_status || "pending";
-      map[`${o.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`] = qty;
+      map[`${owner.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`] = qty;
     }
     return map;
   };
 
   const confirmTransfer = (o: LiveOrder, targetLabel: string) => {
-    const keys = transferItemKeys(o);
-    if (keys.length === 0) {
+    // Ausgewählte Items können aus mehreren Bestellungen stammen —
+    // je Ursprungs-Bestellung umbuchen.
+    const byOwner = new Map<number, LiveOrder>();
+    for (const itemId of transferSel.keys()) {
+      const owner = ownerByItemId.get(itemId);
+      if (owner && !byOwner.has(owner.id)) byOwner.set(owner.id, owner);
+    }
+    if (transferItemKeys(o).length === 0) {
       pushToast("Bitte zuerst die umzubuchende Produkte auswählen.", "error");
       return;
     }
-    transferOrder(o, targetLabel, keys, transferItemQtys(o));
+    for (const owner of byOwner.values()) {
+      transferOrder(owner, targetLabel, transferItemKeys(owner), transferItemQtys(owner));
+    }
     setTransferTarget(null);
     setTransferSel(new Map());
   };
@@ -595,6 +829,39 @@ export default function SitzplanTab(props: SitzplanTabProps) {
         </div>
       )}
 
+      {/* ── Service-Rufe — ganz oben unter den Hauptgruppen, sofort sichtbar ── */}
+      {(live?.service_calls ?? []).length > 0 ? (
+        <div className="mb-4 space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
+          <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-amber-300">
+            <span className="material-symbols-outlined text-lg">notifications_active</span>
+            Service-Rufe ({(live?.service_calls ?? []).length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {(live?.service_calls ?? []).slice(0, 12).map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-zinc-900 px-3 py-2"
+                style={{ animation: "pulseAmber 1.2s infinite alternate" }}
+              >
+                <div className="min-w-0">
+                  <span className="block truncate font-bold text-zinc-100">{c.table}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-amber-300">
+                    {c.type === "rechnung" ? "🧾 Rechnung" : c.type === "kohle" ? "💨 Kohle" : "🛎️ Service"}
+                  </span>
+                  <span className="ml-2 text-[10px] text-zinc-500">{c.timestamp?.slice(11, 16)}</span>
+                </div>
+                <button
+                  onClick={() => serviceErledigt(c)}
+                  className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold hover:bg-emerald-700"
+                >
+                  Erledigt
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {/* Tisch-Raster (sortiert nach Nummer) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {filteredTables.map((t) => {
@@ -631,7 +898,13 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                 ) : null}
               </span>
               <span className="mt-0.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wide opacity-80">
-                {status === "calling" ? "🔔 Ruf" : STATUS_META[status].text}
+                {status === "calling" && info?.call
+                  ? info.call.type === "rechnung"
+                    ? "🧾 Rechnung!"
+                    : info.call.type === "kohle"
+                      ? "💨 Kohle!"
+                      : "🛎️ Service!"
+                  : STATUS_META[status].text}
               </span>
               {pending > 0 ? (
                 <span className="text-xs sm:text-sm font-bold">{pending} offen</span>
@@ -668,34 +941,6 @@ export default function SitzplanTab(props: SitzplanTabProps) {
         ) : null}
       </div>
 
-      {/* Service calls */}
-      <h3 className="text-lg font-bold">Service-Rufe</h3>
-      <div className="space-y-2">
-        {(live?.service_calls ?? []).slice(0, 12).map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3"
-          >
-            <div>
-              <span className="font-semibold">{c.table}</span>
-              <span className="ml-2 rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
-                {c.type}
-              </span>
-              <span className="ml-2 text-xs text-zinc-500">{c.timestamp}</span>
-            </div>
-            <button
-              onClick={() => serviceErledigt(c)}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold hover:bg-emerald-700"
-            >
-              Erledigt
-            </button>
-          </div>
-        ))}
-        {(live?.service_calls ?? []).length === 0 ? (
-          <p className="text-sm text-zinc-500">Keine Service-Rufe.</p>
-        ) : null}
-      </div>
-
       {/* ── Bottom sheet cockpit ── */}
       {selectedTable && selectedInfo ? (
         <>
@@ -729,6 +974,17 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                   Neue Bestellung
                 </button>
                 <button
+                  onClick={() => {
+                    setStampCode("");
+                    setStampOpen(true);
+                  }}
+                  title="Loyalty-Stempel per Kunden-Code vergeben"
+                  className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-bold hover:bg-amber-700 min-h-[44px]"
+                >
+                  <span className="material-symbols-outlined text-base">stars</span>
+                  Stempel
+                </button>
+                <button
                   onClick={closeCockpit}
                   className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700"
                 >
@@ -740,7 +996,9 @@ export default function SitzplanTab(props: SitzplanTabProps) {
             {selectedCall ? (
               <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
                 <div>
-                  <span className="font-bold text-amber-300">🔔 {selectedCall.type}</span>
+                  <span className="font-bold text-amber-300">
+                    🔔 {selectedCall.type === "rechnung" ? `${selectedCall.table} wünscht Rechnung` : selectedCall.type}
+                  </span>
                   <span className="ml-2 text-xs text-zinc-400">{selectedCall.timestamp}</span>
                 </div>
                 <button
@@ -761,11 +1019,16 @@ export default function SitzplanTab(props: SitzplanTabProps) {
             ) : null}
 
             <div className="space-y-4">
-              {sortedTableOrders.map((o) => {
+              {mergedTableOrder
+                ? [mergedTableOrder].map((o) => {
                 const anyPending = o.items.some(
                   (it) => (it.item_status || "pending") === "pending"
                 );
                 const selectedInOrder = o.items.filter((it) => multiSelect.has(it.id) && (it.item_status || "pending") === "pending");
+                // Serve-View: offene Items leben im "Neue Bestellung"-Block,
+                // darunter steht nur noch das bereits Servierte. In Split-/
+                // Transfer-Auswahl wird weiterhin alles angezeigt.
+                const serveView = !splitMode && transferTarget !== "__picker__";
                 return (
                   <div
                     key={o.id}
@@ -791,9 +1054,71 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                       </span>
                     </div>
 
+                    {/* ── NEUE BESTELLUNG — immer ganz oben am Bon, sofort erkennbar ── */}
+                    {pendingGroups.length > 0 && serveView ? (
+                      <div
+                        className="mb-4 rounded-xl border-2 border-amber-400 bg-amber-500/10 p-3"
+                        style={{ animation: "pulseAmber 1.2s infinite alternate" }}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-300 sm:text-sm">
+                            <span className="material-symbols-outlined text-base">notifications_active</span>
+                            Neue Bestellung
+                          </span>
+                          <button
+                            onClick={() => serveItemsBulk(pendingGroups.flatMap((g) => g.entries), `Serviert: ${pendingTotalQty} Artikel`)}
+                            className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-emerald-500/30 transition-all hover:bg-emerald-600 active:scale-95 sm:text-sm"
+                          >
+                            <span className="material-symbols-outlined text-base">done_all</span>
+                            Alles servieren ({pendingTotalQty})
+                          </button>
+                        </div>
+                        <ul className="space-y-1">
+                          {pendingGroups.map((g) => (
+                            <li
+                              key={g.key}
+                              className="flex items-center gap-2 rounded-lg bg-zinc-900/80 px-3 py-2"
+                            >
+                              <span className="min-w-[2.5rem] rounded-md bg-amber-400 px-1.5 py-0.5 text-center text-sm font-black text-zinc-900">
+                                {g.qty}×
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold text-zinc-100">{g.name}</span>
+                                {g.note ? (
+                                  <span className="block truncate text-xs text-amber-400">✎ {g.note}</span>
+                                ) : null}
+                                {g.comboName ? (
+                                  <span className="block truncate text-xs text-zinc-500">[Kombi: {g.comboName}]</span>
+                                ) : null}
+                              </div>
+                              <button
+                                onClick={() => servePendingGroup(g)}
+                                title={`${g.qty}x ${g.name} servieren`}
+                                className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white transition-all hover:bg-emerald-700 active:scale-95"
+                              >
+                                <span className="material-symbols-outlined text-base">check</span>
+                                Servieren
+                              </button>
+                              <button
+                                onClick={() => cancelPendingGroup(g)}
+                                title={`Storno: ${g.qty}x ${g.name}`}
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/40"
+                              >
+                                <span className="material-symbols-outlined text-base">close</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
                     {/* Groups */}
                     {groupItemsBySuperGroup(o).map((group, groupIdx, groups) => {
-                      const pendingInGroup = group.items.filter((it) => (it.item_status || "pending") === "pending");
+                      const visibleItems = serveView
+                        ? group.items.filter((it) => (it.item_status || "pending") !== "pending")
+                        : group.items;
+                      if (serveView && visibleItems.length === 0) return null;
+                      const pendingInGroup = visibleItems.filter((it) => (it.item_status || "pending") === "pending");
                       const allGroupSelected = pendingInGroup.length > 0 && pendingInGroup.every((it) => multiSelect.has(it.id));
                       return (
                         <div key={group.sg.id} className={`mb-3 ${groupIdx < groups.length - 1 ? "border-b border-zinc-800 pb-3" : ""}`}>
@@ -805,7 +1130,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                 {group.sg.name}
                               </span>
                               <span className="text-[10px] text-zinc-500">
-                                {group.items.length} {group.items.length === 1 ? "Artikel" : "Artikel"}
+                                {visibleItems.length} {visibleItems.length === 1 ? "Artikel" : "Artikel"}
                               </span>
                             </div>
                             {pendingInGroup.length > 0 ? (
@@ -824,7 +1149,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
 
                           {/* Items */}
                           <ul className="space-y-1">
-                            {group.items.map((it, idx) => {
+                            {visibleItems.map((it, idx) => {
                               const isPending = (it.item_status || "pending") === "pending";
                               const isSelected = multiSelect.has(it.id);
                               const splitChecked = splitSel.has(it.id);
@@ -918,7 +1243,15 @@ export default function SitzplanTab(props: SitzplanTabProps) {
 
                                   {/* Status / Actions */}
                                   <div className="flex shrink-0 items-center gap-2">
-                                    {selectionActive ? (
+                                    {selectionActive && isComboRow(it) ? (
+                                      // Kombis sind nur als Ganzes wählbar — kein Mengen-Stepper
+                                      <span
+                                        title="Kombi wird immer komplett abgerechnet"
+                                        className="rounded bg-emerald-900/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300"
+                                      >
+                                        🔒 Kombi komplett
+                                      </span>
+                                    ) : selectionActive ? (
                                       <div className="flex items-center gap-1">
                                         <button
                                           onClick={() => {
@@ -954,9 +1287,9 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                     }`}>
                                       {isPending ? "offen" : "serviert"}
                                     </span>
-                                    {isPending ? (
-                                      <button
-                                        onClick={() => cancelItem(o, it)}
+                     {isPending ? (
+                                       <button
+                                         onClick={() => cancelItem(ownerOf(o, it), it)}
                                         title="Stornieren"
                                         className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/40"
                                       >
@@ -976,7 +1309,13 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                     <div className="mt-3 flex flex-wrap gap-2 border-t border-zinc-800 pt-3">
                       {selectedInOrder.length > 0 ? (
                         <button
-                          onClick={() => serveSelectedItems(o)}
+                          onClick={async () => {
+                            const sel = o.items
+                              .filter((it) => multiSelect.has(it.id) && (it.item_status || "pending") === "pending")
+                              .map((it) => ({ o: ownerOf(o, it), it }));
+                            await serveItemsBulk(sel);
+                            setMultiSelect(new Set());
+                          }}
                           className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 min-h-[44px]"
                         >
                           <span className="material-symbols-outlined text-lg">check_circle</span>
@@ -985,7 +1324,16 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                       ) : null}
                       {anyPending ? (
                         <button
-                          onClick={() => serveAllOrder(o)}
+                          onClick={() =>
+                            serveItemsBulk(
+                              activeTableOrders.flatMap((ord) =>
+                                ord.items
+                                  .filter((it) => (it.item_status || "pending") === "pending")
+                                  .map((it) => ({ o: ord, it }))
+                              ),
+                              "Tisch komplett serviert"
+                            )
+                          }
                           className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700 min-h-[44px]"
                         >
                           Alle servieren
@@ -1040,21 +1388,13 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                         </button>
                       )}
                       <button
-                        onClick={() => {
-                          payOrder(o);
-                          closeCockpit();
-                        }}
+                        onClick={payWholeTable}
                         className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold hover:bg-emerald-700 min-h-[44px]"
                       >
-                        Alles bezahlen
+                        Tisch abrechnen
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Bon #${o.id} komplett stornieren?`)) {
-                            cancelOrder(o);
-                            closeCockpit();
-                          }
-                        }}
+                        onClick={cancelWholeBon}
                         className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold hover:bg-red-700 min-h-[44px]"
                       >
                         Bon stornieren
@@ -1103,7 +1443,8 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                     ) : null}
                   </div>
                 );
-              })}
+              })
+                : null}
             </div>
           </div>
         </>
@@ -1122,16 +1463,95 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                 </p>
               </div>
               <button
-                onClick={() => { setNewOrderOpen(false); setNewOrderItems(new Map()); }}
+                onClick={() => { setNewOrderOpen(false); setNewOrderItems(new Map()); setOrderSearch(""); }}
                 className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700"
               >
                 ✕
               </button>
             </div>
 
-            {/* Products grouped by category */}
-            <div className="mb-4 max-h-[50vh] space-y-4 overflow-y-auto pr-1">
+            {/* Suche */}
+            <div className="relative mb-3">
+              <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg text-zinc-500">
+                search
+              </span>
+              <input
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                placeholder="Produkt suchen…"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 py-2.5 pl-10 pr-8 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+              />
+              {orderSearch ? (
+                <button
+                  onClick={() => setOrderSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300"
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              ) : null}
+            </div>
+
+            {/* Products: erst Kategorien, beim Antippen klappen die Produkte auf */}
+            <div className="mb-4 max-h-[50vh] space-y-2 overflow-y-auto pr-1">
               {(() => {
+                const q = orderSearch.trim().toLowerCase();
+
+                // Suchmodus: flache Liste aller passenden Produkte
+                if (q) {
+                  const matches = products.filter(
+                    (p) => p.is_available !== false && p.name.toLowerCase().includes(q)
+                  );
+                  if (matches.length === 0) {
+                    return <p className="py-4 text-center text-sm text-zinc-500">Keine Produkte gefunden.</p>;
+                  }
+                  const renderRow = (p: (typeof products)[number]) => {
+                    const isSelected = newOrderItems.has(p.id);
+                    const qty = newOrderItems.get(p.id) ?? 1;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+                          isSelected ? "bg-emerald-500/20 ring-1 ring-emerald-500/50" : "hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleNewOrderItem(p.id)}
+                          className="h-4 w-4 flex-shrink-0 accent-emerald-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm font-medium text-zinc-200">{p.name}</span>
+                          <span className="ml-2 text-xs text-zinc-500">{formatEur(p.price)}</span>
+                          <span className="ml-2 text-[10px] text-zinc-600">{p.category}</span>
+                        </div>
+                        {isSelected ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setNewOrderItemQty(p.id, qty - 1)}
+                              className="flex h-7 w-7 items-center justify-center rounded bg-zinc-800 text-sm font-bold text-zinc-300 hover:bg-zinc-700"
+                            >
+                              −
+                            </button>
+                            <span className="w-8 text-center text-sm font-bold">{qty}</span>
+                            <button
+                              onClick={() => setNewOrderItemQty(p.id, qty + 1)}
+                              className="flex h-7 w-7 items-center justify-center rounded bg-zinc-800 text-sm font-bold text-zinc-300 hover:bg-zinc-700"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  };
+                  return (
+                    <div className="space-y-1">
+                      {matches.map(renderRow)}
+                    </div>
+                  );
+                }
+
                 // Group products by category
                 const grouped = new Map<string, typeof products>();
                 for (const p of products) {
@@ -1140,10 +1560,25 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                   if (!grouped.has(cat)) grouped.set(cat, []);
                   grouped.get(cat)!.push(p);
                 }
-                return Array.from(grouped.entries()).map(([catName, catProducts]) => (
-                  <div key={catName}>
-                    {/* Category Header */}
-                    <div className="mb-2 flex items-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2">
+                const selectedCountInCat = (catProducts: typeof products) =>
+                  catProducts.reduce((s, p) => s + (newOrderItems.has(p.id) ? 1 : 0), 0);
+                return Array.from(grouped.entries()).map(([catName, catProducts]) => {
+                  const isOpen = openOrderCats.has(catName);
+                  const selCount = selectedCountInCat(catProducts);
+                  return (
+                  <div key={catName} className="rounded-lg border border-zinc-800 bg-zinc-900/60">
+                    {/* Category Header (toggle) */}
+                    <button
+                      onClick={() =>
+                        setOpenOrderCats((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(catName)) next.delete(catName);
+                          else next.add(catName);
+                          return next;
+                        })
+                      }
+                      className="flex w-full items-center gap-2 px-3 py-3 text-left hover:bg-zinc-800/50"
+                    >
                       <div className="h-4 w-1 rounded-full bg-emerald-500" />
                       <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                         {catName}
@@ -1151,9 +1586,22 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                       <span className="text-[10px] text-zinc-500">
                         {catProducts.length} {catProducts.length === 1 ? "Artikel" : "Artikel"}
                       </span>
-                    </div>
+                      {selCount > 0 ? (
+                        <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black text-white">
+                          {selCount}
+                        </span>
+                      ) : null}
+                      <span
+                        className={`material-symbols-outlined ml-auto text-zinc-400 transition-transform ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      >
+                        expand_more
+                      </span>
+                    </button>
                     {/* Products */}
-                    <div className="space-y-1">
+                    {isOpen ? (
+                    <div className="space-y-1 border-t border-zinc-800 p-1.5">
                       {catProducts.map((p) => {
                         const isSelected = newOrderItems.has(p.id);
                         const qty = newOrderItems.get(p.id) ?? 1;
@@ -1195,8 +1643,10 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                         );
                       })}
                     </div>
+                    ) : null}
                   </div>
-                ));
+                  );
+                });
               })()}
             </div>
 
@@ -1226,7 +1676,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                 {newOrderItems.size} {newOrderItems.size === 1 ? "Produkt" : "Produkte"} hinzufügen
               </button>
               <button
-                onClick={() => { setNewOrderOpen(false); setNewOrderItems(new Map()); }}
+                onClick={() => { setNewOrderOpen(false); setNewOrderItems(new Map()); setOrderSearch(""); }}
                 className="flex-1 rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700 min-h-[44px]"
               >
                 Abbrechen
@@ -1235,6 +1685,57 @@ export default function SitzplanTab(props: SitzplanTabProps) {
           </div>
         </>
       )}
+
+      {/* Stempel vergeben Modal (Loyalty) */}
+      {stampOpen ? (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setStampOpen(false)} />
+          <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md rounded-t-2xl border-t border-zinc-700 bg-zinc-900 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-zinc-100">
+                <span className="material-symbols-outlined text-amber-400">stars</span>
+                Stempel vergeben
+              </h2>
+              <button
+                onClick={() => setStampOpen(false)}
+                className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mb-3 text-xs leading-relaxed text-zinc-400">
+              Kunde öffnet seine Wallet/App und zeigt den Stempelcode. Code eingeben →
+              der Stempel landet direkt auf seiner Karte.
+            </p>
+            <input
+              autoFocus
+              value={stampCode}
+              onChange={(e) => setStampCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && stampCode.trim().length >= 3 && !stampBusy) void submitStamp();
+              }}
+              placeholder="z.B. A7K2"
+              maxLength={12}
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-center font-mono text-xl font-black tracking-[0.3em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => void submitStamp()}
+                disabled={stampCode.trim().length < 3 || stampBusy}
+                className="flex-1 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40 min-h-[44px]"
+              >
+                {stampBusy ? "Wird vergeben…" : "Stempel geben"}
+              </button>
+              <button
+                onClick={() => setStampOpen(false)}
+                className="flex-1 rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700 min-h-[44px]"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -70,6 +70,7 @@ export async function GET(
         items: c.items.map((i) => ({
           product_id: i.product_id,
           category_name: i.category_name,
+          excluded_product_ids: (() => { try { const d = JSON.parse(i.excluded_product_ids ?? "[]"); return Array.isArray(d) ? d.map(Number) : []; } catch { return []; } })(),
         })),
       })),
     });

@@ -19,13 +19,14 @@ import {
   findOrderIdByIdempotencyKey,
   isValidIdempotencyKey,
   rememberOrderId,
-  serializeIdempotent,
+  withLock,
 } from "@/lib/idempotency";
 
 export const dynamic = "force-dynamic";
 
 // Legacy POST /api/admin/orders/add-manual (main.py ~14565)
-// Body: {"table_number": "5", "product_id": int, "quantity": int}
+// Body (neu, Batch): {"table_number": "5", "items": [{"product_id": int, "quantity": int}]}
+// Body (legacy):     {"table_number": "5", "product_id": int, "quantity": int}
 export async function POST(request: NextRequest) {
   try {
     const session = await requireChefOrKellner();
@@ -45,11 +46,32 @@ export async function POST(request: NextRequest) {
     try {
       payload = await request.json();
     } catch {
-      throw new ApiError("Ungültiges JSON-Format", 400);
+      throw new ApiError("Ungültige JSON-Format.", 400);
     }
-    const productId = parseInt(String(payload.product_id), 10);
-    const quantity = parseInt(String(payload.quantity), 10);
-    if (!Number.isFinite(productId) || !Number.isFinite(quantity) || quantity < 1) {
+
+    // Items auflösen — Batch oder legacy Einzelprodukt
+    interface ManualItem { productId: number; quantity: number }
+    let items: ManualItem[];
+    if (Array.isArray(payload.items) && payload.items.length > 0) {
+      items = payload.items.map((raw) => {
+        const it = (raw ?? {}) as Record<string, unknown>;
+        return {
+          productId: parseInt(String(it.product_id), 10),
+          quantity: parseInt(String(it.quantity), 10),
+        };
+      });
+    } else {
+      items = [
+        {
+          productId: parseInt(String(payload.product_id), 10),
+          quantity: parseInt(String(payload.quantity), 10),
+        },
+      ];
+    }
+    if (
+      items.length === 0 ||
+      items.some((it) => !Number.isFinite(it.productId) || !Number.isFinite(it.quantity) || it.quantity < 1)
+    ) {
       throw new ApiError("Ungültige Eingabe.", 400);
     }
 
@@ -60,7 +82,7 @@ export async function POST(request: NextRequest) {
       : null;
     const bodyFp = fingerprintOrderInput({
       table: payload.table_number,
-      items: [{ product_id: productId, quantity }],
+      items: items.map((it) => ({ product_id: it.productId, quantity: it.quantity })),
     });
     if (idemKey) {
       const dupOrderId = await findOrderIdByIdempotencyKey(slug, idemKey, bodyFp);
@@ -69,15 +91,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const run = async (): Promise<number> => {
-
-    // 1. Find product (tenant-scoped)
-    const product = await prisma.product.findFirst({
-      where: { id: productId, tenant_slug: slug },
-    });
-    if (!product) throw new ApiError("Produkt nicht gefunden.", 404);
-
-    // 2. Resolve table + zone (legacy: "Tisch 5" → number, zone lookup)
+    // 1. Resolve table + zone (legacy: "Tisch 5" → number, zone lookup)
     // Accept both "5" and "6 (Draußen)" / "Tisch 6 (Draußen)".
     const rawTable = String(payload.table_number ?? "").replace(/^Tisch\s*/i, "").trim();
     const zoneMatch = rawTable.match(/^(.+?)\s*\(([^)]+)\)$/);
@@ -95,94 +109,110 @@ export async function POST(request: NextRequest) {
       ? `Tisch ${tNum} (${dbTable.zone})`
       : `Tisch ${tNum}`;
 
-    const itemPrice = product.price;
-
-    // 3. Find active (open) order for this table
-    const activeOrderRow = await prisma.order.findFirst({
-      where: {
-        tenant_slug: slug,
-        table: tableStr,
-        status: { notIn: ["bezahlt", "storniert"] },
-      },
-      orderBy: { id: "asc" },
-    });
-
-    if (activeOrderRow) {
-      const order: MutableOrder = (await loadOrder(slug, activeOrderRow.id))!;
-      // Merge into existing pending item with same product & no note (no combos)
-      const existingItem = order.items.find(
-        (i) =>
-          i.product_id === product.id &&
-          !i.note &&
-          i.item_status === "pending" &&
-          !i.combo_id
-      );
-      if (existingItem) {
-        existingItem.quantity += quantity;
-      } else {
-        order.items.push({
-          product_id: product.id,
-          name: product.name,
-          price: itemPrice,
-          quantity,
-          category_type: product.category_type ?? "küche",
-          note: null,
-          item_status: "pending",
-          combo_id: null,
-          combo_name: null,
-          combo_instance_id: null,
-        });
+    const run = async (): Promise<number> => {
+      // Produkte tenant-scoped laden
+      const productIds = [...new Set(items.map((it) => it.productId))];
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds }, tenant_slug: slug },
+      });
+      if (products.length !== productIds.length) {
+        throw new ApiError("Produkt nicht gefunden.", 404);
       }
-      const addAmount = Math.round(itemPrice * quantity * 100) / 100;
-      order.total = Math.round((order.total + addAmount) * 100) / 100;
-      order.total_with_tip =
-        Math.round((order.total_with_tip + addAmount) * 100) / 100;
-      updateOrderStatusByItems(order);
-      await persistOrder(order);
-      return activeOrderRow.id;
-    } else {
-      // Create a new order with daily Bon number
-      const { bonNumber, bonDate } = await nextDailyBonNumber(slug);
-      const total = Math.round(itemPrice * quantity * 100) / 100;
-      const created = await prisma.order.create({
-        data: {
+
+      // 2. Find active (open) order for this table
+      const activeOrderRow = await prisma.order.findFirst({
+        where: {
           tenant_slug: slug,
           table: tableStr,
-          total,
-          total_with_tip: total,
-          tip_amount: 0,
-          status: "eingegangen",
-          timestamp: berlinTimestamp(),
-          mwst_rate: 19,
-          waiter_id: session.name,
-          original_total: total,
-          daily_bon_number: bonNumber,
-          bon_date: bonDate,
-          items: {
-            create: [
-              {
-                product_id: product.id,
-                name: product.name,
-                price: itemPrice,
-                quantity,
-                category_type: product.category_type ?? "küche",
-                note: null,
-                item_status: "pending",
-              },
-            ],
-          },
+          status: { notIn: ["bezahlt", "storniert"] },
         },
+        orderBy: { id: "asc" },
       });
-      return created.id;
-    }
+
+      if (activeOrderRow) {
+        const order: MutableOrder = (await loadOrder(slug, activeOrderRow.id))!;
+        let addAmount = 0;
+        for (const it of items) {
+          const product = products.find((p) => p.id === it.productId)!;
+          // Merge into existing pending item with same product & no note (no combos)
+          const existingItem = order.items.find(
+            (i) =>
+              i.product_id === product.id &&
+              !i.note &&
+              i.item_status === "pending" &&
+              !i.combo_id
+          );
+          if (existingItem) {
+            existingItem.quantity += it.quantity;
+          } else {
+            order.items.push({
+              product_id: product.id,
+              name: product.name,
+              price: product.price,
+              quantity: it.quantity,
+              category_type: product.category_type ?? "küche",
+              note: null,
+              item_status: "pending",
+              combo_id: null,
+              combo_name: null,
+              combo_instance_id: null,
+            });
+          }
+          addAmount += product.price * it.quantity;
+        }
+        addAmount = Math.round(addAmount * 100) / 100;
+        order.total = Math.round((order.total + addAmount) * 100) / 100;
+        order.total_with_tip =
+          Math.round((order.total_with_tip + addAmount) * 100) / 100;
+        updateOrderStatusByItems(order);
+        await persistOrder(order);
+        return activeOrderRow.id;
+      } else {
+        // Create a new order with daily Bon number — ALLE Positionen in
+        // EINER Bestellung (ein Bon), nicht eine Order pro Produkt.
+        const total =
+          Math.round(
+            items.reduce((s, it) => {
+              const p = products.find((x) => x.id === it.productId)!;
+              return s + p.price * it.quantity;
+            }, 0) * 100
+          ) / 100;
+        const { bonNumber, bonDate } = await nextDailyBonNumber(slug);
+        const created = await prisma.order.create({
+          data: {
+            tenant_slug: slug,
+            table: tableStr,
+            total,
+            total_with_tip: total,
+            tip_amount: 0,
+            status: "eingegangen",
+            timestamp: berlinTimestamp(),
+            mwst_rate: 19,
+            waiter_id: session.name,
+            original_total: total,
+            daily_bon_number: bonNumber,
+            bon_date: bonDate,
+            items: {
+              create: items.map((it) => {
+                const product = products.find((p) => p.id === it.productId)!;
+                return {
+                  product_id: product.id,
+                  name: product.name,
+                  price: product.price,
+                  quantity: it.quantity,
+                  category_type: product.category_type ?? "küche",
+                  note: null,
+                  item_status: "pending",
+                };
+              }),
+            },
+          },
+        });
+        return created.id;
+      }
     };
 
-    const targetOrderId = await serializeIdempotent(slug, idemKey, bodyFp, async () => {
-      // Double-Check nach Lock-Erwerb
-      if (idemKey) {
-        const dupOrderId = await findOrderIdByIdempotencyKey(slug, idemKey, bodyFp);
-        if (dupOrderId !== null) return dupOrderId;
-      }
+    const targetOrderId = await withLock(`${slug}:table:${dbTable.id}`, async () => {
       const orderId = await run();
       if (idemKey) {
         await rememberOrderId(slug, idemKey, bodyFp, orderId);

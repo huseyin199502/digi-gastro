@@ -64,6 +64,7 @@ export interface CategoryExtras {
 export interface ComboItem {
   product_id: number | null;
   category_name: string | null;
+  excluded_product_ids?: number[];
 }
 
 export interface ComboInfo {
@@ -254,6 +255,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
           items: c.items.map((ci) => ({
             product_id: ci.product_id,
             category_name: ci.category_name ?? null,
+            excluded_product_ids: (() => { try { const d = JSON.parse(ci.excluded_product_ids ?? "[]"); return Array.isArray(d) ? d.map(Number) : []; } catch { return []; } })(),
           })),
         })),
       });

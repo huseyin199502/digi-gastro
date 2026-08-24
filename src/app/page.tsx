@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getTenantSession } from "@/lib/auth";
 import HeroSection from "@/components/landing/HeroSection";
 import FeaturesGrid from "@/components/landing/FeaturesGrid";
 import DemoWidget from "@/components/landing/DemoWidget";
@@ -17,6 +19,11 @@ export const dynamic = "force-dynamic";
 const WHATSAPP_URL = "https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen";
 
 export default async function LandingPage() {
+  // Eingeloggte Tenant-User landen automatisch im Dashboard,
+  // bis sie sich manuell abmelden.
+  const session = await getTenantSession();
+  if (session) redirect(`/${session.slug}/admin`);
+
   const tenants = await prisma.tenant.findMany({
     where: { active: true },
     orderBy: { name: "asc" },

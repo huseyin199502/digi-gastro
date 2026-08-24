@@ -186,3 +186,19 @@ export function serializeIdempotent<R>(
   });
   return run;
 }
+
+/**
+ * Kritischer Abschnitt pro beliebigem Schlüssel (z.B. "slug:table:12").
+ * Schützt Read-Modify-Write-Zyklen auf derselben Bestellung davor,
+ * sich gegenseitig zu überschreiben (Lost Update).
+ */
+export function withLock<R>(lockKey: string, fn: () => Promise<R>): Promise<R> {
+  const prev = locks.get(lockKey) ?? Promise.resolve();
+  const run = prev.then(fn, fn);
+  const tracked = run.catch(() => {});
+  locks.set(lockKey, tracked);
+  void tracked.then(() => {
+    if (locks.get(lockKey) === tracked) locks.delete(lockKey);
+  });
+  return run;
+}

@@ -107,6 +107,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
     }
   }, []);
 
+
   const loadCustomers = useCallback(
     async (page: number) => {
       try {
@@ -186,7 +187,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
       </div>
 
       {section === "uebersicht" ? (
-        <OverviewTab data={data} />
+        <OverviewTab data={data} pushToast={pushToast} />
       ) : section === "kunden" ? (
         <CustomersTab
           customers={customers}
@@ -203,7 +204,47 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
 
 // ─────────────────────────── Übersicht ───────────────────────────
 
-function OverviewTab({ data }: { data: LoyaltyDashboardData | null }) {
+function OverviewTab({
+  data,
+  pushToast,
+}: {
+  data: LoyaltyDashboardData | null;
+  pushToast: (m: string, k?: Toast["kind"]) => void;
+}) {
+  // Nachricht an alle Wallet-Kunden (Backend: /admin/loyalty/quick-send)
+  const [broadcastMsg, setBroadcastMsg] = useState("");
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
+  const sendBroadcast = async () => {
+    const message = broadcastMsg.trim();
+    if (!message || broadcastBusy) return;
+    if (!window.confirm(`Nachricht an ALLE Kunden senden?\n\n"${message}"`)) return;
+    setBroadcastBusy(true);
+    try {
+      const r = await fetch("/admin/loyalty/quick-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        pushs_sent?: number;
+        pushs_failed?: number;
+        total?: number;
+      };
+      if (!r.ok) {
+        pushToast(j.error || "Senden fehlgeschlagen.", "error");
+        return;
+      }
+      pushToast(
+        `Nachricht an ${j.total ?? j.pushs_sent ?? 0} Kunde(n) gesendet${j.pushs_failed ? ` — ${j.pushs_failed} fehlgeschlagen` : ""}`
+      );
+      setBroadcastMsg("");
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setBroadcastBusy(false);
+    }
+  };
   if (!data) {
     return <p className="text-sm text-zinc-500">Wird geladen…</p>;
   }
@@ -255,6 +296,35 @@ function OverviewTab({ data }: { data: LoyaltyDashboardData | null }) {
         </div>
 
         <div className="space-y-6">
+          {/* Nachricht an alle Wallet-Kunden senden (Quick-Send) */}
+          <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-4">
+            <h3 className="mb-1 flex items-center gap-2 font-bold">
+              <span className="material-symbols-outlined text-lg text-emerald-400">campaign</span>
+              Nachricht an alle Kunden
+            </h3>
+            <p className="mb-3 text-xs text-zinc-400">
+              Erscheint als Push auf den Wallet-Karten aller Kunden (ohne Opt-out).
+            </p>
+            <textarea
+              value={broadcastMsg}
+              onChange={(e) => setBroadcastMsg(e.target.value)}
+              maxLength={200}
+              rows={2}
+              placeholder="z.B. Heute: 2 für 1 auf alle Shishas! 🎉"
+              className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-zinc-500">{broadcastMsg.length}/200</span>
+              <button
+                onClick={() => void sendBroadcast()}
+                disabled={broadcastMsg.trim().length === 0 || broadcastBusy}
+                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 min-h-[44px]"
+              >
+                {broadcastBusy ? "Wird gesendet…" : "An alle senden"}
+              </button>
+            </div>
+          </div>
+
           <div>
             <h3 className="mb-3 font-bold">Kampagnen</h3>
             <div className="overflow-hidden rounded-xl border border-zinc-800">

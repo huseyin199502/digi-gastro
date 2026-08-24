@@ -148,6 +148,52 @@ function buildItemKey(
   return withIdx ? `${base}_0` : base;
 }
 
+// Optimistic-Serve-Overlay: bereits "servierte" Items werden lokal sofort
+// als delivered dargestellt, auch wenn ein Poll noch alte Serverdaten
+// liefert (verhindert Flackern bis der POST durch ist). Einträge bleiben
+// nach Erfolg kurz bestehen (TTL) und fangen noch laufende Stale-Polls ab.
+type ServeOverlayEntry = { units: number; ts: number };
+type ServeOverlay = Map<string, ServeOverlayEntry>; // `${orderId}:${itemKey}` -> optimistisch servierte Einheiten
+
+const SERVE_OVERLAY_TTL_MS = 20000;
+
+function applyServeOverlay(data: TabletStatus, overlay: ServeOverlay): TabletStatus {
+  // Abgelaufene Einträge entfernen
+  const now = Date.now();
+  for (const [k, v] of overlay) {
+    if (now - v.ts > SERVE_OVERLAY_TTL_MS) overlay.delete(k);
+  }
+  if (overlay.size === 0) return data;
+  let changed = false;
+  const alive = new Set<string>();
+  const orders = data.orders.map((o) => {
+    let oChanged = false;
+    const items = o.items.map((it) => {
+      const key = `${o.id}:${buildItemKey(it, true)}`;
+      const entry = overlay.get(key);
+      if (!entry || entry.units <= 0) return it;
+      if ((it.item_status || "pending") !== "pending") {
+        // Server hat die Servierung bereits verarbeitet → Overlay-Eintrag
+        // hat ausgedient und MUSS entfernt werden, sonst würde er eine
+        // später neu hinzugefügte Position desselben Produkts "verschlucken".
+        return it;
+      }
+      alive.add(key);
+      const q = it.quantity || 1;
+      oChanged = true;
+      return entry.units >= q ? { ...it, item_status: "delivered" } : { ...it, quantity: q - entry.units };
+    });
+    if (!oChanged) return o;
+    changed = true;
+    return { ...o, items };
+  });
+  // Einträge, die keinen offenen Treffer mehr haben, verwerfen
+  for (const k of [...overlay.keys()]) {
+    if (!alive.has(k)) overlay.delete(k);
+  }
+  return changed ? { ...data, orders } : data;
+}
+
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
 const EU_ALLERGENS = [
@@ -180,6 +226,80 @@ function daysLabel(days: string[]): string {
 
 // ─────────────────────────── Main component ───────────────────────────
 
+// Akustisches + haptisches Signal für neue Bestellungen.
+// Spielt die MP3 ab (Web + PWA — der Service Worker cached sie
+// cache-first). Blockiert der Browser Autoplay (noch keine Nutzer-
+// Interaktion), fällt das synthetische Signal als Rückfallebene zurück.
+const newOrderAudio =
+  typeof Audio !== "undefined" ? new Audio("/sounds/neue-bestellung.mp3") : null;
+if (newOrderAudio) newOrderAudio.preload = "auto";
+
+function playBeepFallback() {
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const beep = (start: number, freq: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + 0.25);
+    };
+    beep(0, 880);
+    beep(0.28, 1100);
+    window.setTimeout(() => void ctx.close(), 800);
+  } catch {
+    // ignore
+  }
+}
+
+function playNewOrderAlert() {
+  try {
+    navigator.vibrate?.([120, 80, 120]);
+  } catch {
+    // ignore
+  }
+  if (newOrderAudio) {
+    try {
+      newOrderAudio.currentTime = 0;
+      void newOrderAudio.play().catch(() => playBeepFallback());
+      return;
+    } catch {
+      // fall through to beep
+    }
+  }
+  playBeepFallback();
+}
+
+// Akustisches Signal für neue Service-Rufe (Kellner/Kohle/Rechnung)
+const serviceCallAudio =
+  typeof Audio !== "undefined" ? new Audio("/sounds/service-ruf.mp3") : null;
+if (serviceCallAudio) serviceCallAudio.preload = "auto";
+
+function playServiceCallAlert() {
+  try {
+    navigator.vibrate?.([220, 90, 220]);
+  } catch {
+    // ignore
+  }
+  if (serviceCallAudio) {
+    try {
+      serviceCallAudio.currentTime = 0;
+      void serviceCallAudio.play().catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export default function AdminClient({ initial }: { initial: AdminInitial }) {
   const router = useRouter();
   const { slug } = initial;
@@ -191,6 +311,15 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [zoneFilter, setZoneFilter] = useState<string>("gesamt");
   const toastSeq = useRef(0);
+  const seenOrderIds = useRef<Set<number> | null>(null);
+  // Bekannte offene Menge je Bestellung — wächst sie, ist Nachschub
+  // eingegangen (kein neuer Order-ID nötig, um den Ton auszulösen).
+  const seenPendingQty = useRef<Map<number, number> | null>(null);
+  // Höchste bisher gesehene Service-Call-ID — höhere ID = neuer Ruf.
+  const seenCallMaxId = useRef<number | null>(null);
+  // Optimistisch servierte Items (siehe applyServeOverlay) — wird nach
+  // erfolgreichem POST / fehlgeschlagenem POST wieder geleert.
+  const serveOverlayRef = useRef<ServeOverlay>(new Map());
 
   const pushToast = useCallback((msg: string, kind: Toast["kind"] = "success") => {
     const id = ++toastSeq.current;
@@ -200,16 +329,86 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
     }, 3200);
   }, []);
 
+  const liveReqSeq = useRef(0);
   const refreshLive = useCallback(async () => {
+    const reqId = ++liveReqSeq.current;
     try {
       const res = await fetch("/api/tablet-status");
       if (!res.ok) return;
       const data = (await res.json()) as TabletStatus;
-      setLive(data);
+      // Latest-Wins: Eine späte Antwort eines älteren Requests (z.B. Poll,
+      // der VOR einem Serve-POST startete) darf den aktuellen Zustand nicht
+      // überschreiben — sonst springt das optimistische UI zurück.
+      if (reqId !== liveReqSeq.current) return;
+      // Neue Bestellungen erkennen → Signal. Zwei Fälle:
+      // 1. Ganz neue Bestellung (neue Order-ID)
+      // 2. Nachschub auf bereits OFFENER Bestellung (offene Menge wächst —
+      //    z.B. "Neue Bestellung"-Sheet mergt in dieselbe Order → keine
+      //    neue ID, aber neue offene Positionen)
+      if (seenOrderIds.current === null || seenPendingQty.current === null) {
+        seenOrderIds.current = new Set(data.orders.map((o) => o.id));
+        seenPendingQty.current = new Map(
+          data.orders.map((o) => [
+            o.id,
+            o.items.reduce(
+              (s, it) => s + ((it.item_status || "pending") === "pending" ? it.quantity || 1 : 0),
+              0
+            ),
+          ])
+        );
+      } else {
+        const fresh = data.orders.filter(
+          (o) => !seenOrderIds.current!.has(o.id) && o.status !== "bezahlt" && o.status !== "storniert"
+        );
+        for (const o of data.orders) seenOrderIds.current.add(o.id);
+        let restocked = false;
+        for (const o of data.orders) {
+          if (o.status === "bezahlt" || o.status === "storniert") continue;
+          const qty = o.items.reduce(
+            (s, it) => s + ((it.item_status || "pending") === "pending" ? it.quantity || 1 : 0),
+            0
+          );
+          const prevQty = seenPendingQty.current.get(o.id) ?? 0;
+          if (qty > prevQty) restocked = true;
+          seenPendingQty.current.set(o.id, qty);
+        }
+        if (fresh.length > 0 || restocked) playNewOrderAlert();
+      }
+      // Neue Service-Rufe erkennen → Signal (Kellner/Kohle/Rechnung)
+      const maxCallId = (data.service_calls ?? []).reduce(
+        (m, c) => Math.max(m, c.id),
+        0
+      );
+      if (seenCallMaxId.current === null) {
+        seenCallMaxId.current = maxCallId; // erster Load: still initialisieren
+      } else if (maxCallId > seenCallMaxId.current) {
+        playServiceCallAlert();
+        seenCallMaxId.current = maxCallId;
+      }
+      setLive(applyServeOverlay(data, serveOverlayRef.current));
     } catch {
       // ignore – polling continues
     }
   }, []);
+
+  // Offline-Erkennung: Banner + Auto-Refresh bei Reconnect
+  const [offline, setOffline] = useState<boolean>(
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
+  useEffect(() => {
+    const goOffline = () => setOffline(true);
+    const goOnline = () => {
+      setOffline(false);
+      pushToast("Verbindung wiederhergestellt", "success");
+      void refreshLive();
+    };
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+  }, [pushToast, refreshLive]);
 
   // Poll live status
   useEffect(() => {
@@ -223,23 +422,43 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
     };
   }, [refreshLive]);
 
-  // SSE live updates
+  // SSE live updates — mit automatischem Reconnect (Exponential Backoff),
+  // sonst bleibt das Cockpit nach einem Verbindungsfehler nur noch auf dem
+  // 8s-Poll hängen.
   useEffect(() => {
-    const es = new EventSource(`/api/${slug}/events/stream`);
-    es.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data) as { type?: string };
-        if (msg.type === "update" || msg.type === "refresh_tables") {
-          void refreshLive();
+    let es: EventSource | null = null;
+    let retryTimer: number | null = null;
+    let retryMs = 1000;
+    let disposed = false;
+
+    const connect = () => {
+      if (disposed) return;
+      es = new EventSource(`/api/${slug}/events/stream`);
+      es.onopen = () => {
+        retryMs = 1000;
+      };
+      es.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data) as { type?: string };
+          if (msg.type === "update" || msg.type === "refresh_tables") {
+            void refreshLive();
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
-      }
+      };
+      es.onerror = () => {
+        es?.close();
+        if (!disposed) retryTimer = window.setTimeout(connect, retryMs);
+        retryMs = Math.min(retryMs * 2, 15000);
+      };
     };
-    es.onerror = () => {
-      es.close();
+    connect();
+    return () => {
+      disposed = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      es?.close();
     };
-    return () => es.close();
   }, [slug, refreshLive]);
 
   const postJson = useCallback(
@@ -341,31 +560,78 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
   );
 
   // ── Order actions ──
-  const serveItem = useCallback(
-    async (o: LiveOrder, it: LiveItem) => {
-      await postJson(
-        "/admin/orders/serve",
-        { order_id: o.id, item_key: buildItemKey(it, true) },
-        `Serviert: 1x ${it.name}`
-      );
-    },
-    [postJson]
-  );
+  // Sofortiges UI: Items werden lokal sofort als serviert markiert (Overlay),
+  // der POST läuft im Hintergrund. Schlägt er fehl → Overlay verwerfen,
+  // Serverstand neu laden und Fehler toasten.
+  const serveItemsBulk = useCallback(
+    async (entries: { o: LiveOrder; it: LiveItem }[], okMsg?: string) => {
+      const valid = entries.filter((e) => (e.it.item_status || "pending") !== "delivered" && e.it.quantity > 0);
+      if (valid.length === 0) return;
 
-  const serveAllOrder = useCallback(
-    async (o: LiveOrder) => {
-      await postJson("/admin/orders/serve", { order_id: o.id }, `Bestellung #${o.id} serviert`);
+      // 1. Overlay aufbauen + lokal sofort anwenden
+      const byOrder = new Map<number, { keys: string[]; units: number }>();
+      let totalUnits = 0;
+      for (const { o, it } of valid) {
+        const key = buildItemKey(it, true);
+        serveOverlayRef.current.set(`${o.id}:${key}`, { units: it.quantity, ts: Date.now() });
+        totalUnits += it.quantity;
+        const rec = byOrder.get(o.id) ?? { keys: [], units: 0 };
+        rec.keys.push(key);
+        rec.units += it.quantity;
+        byOrder.set(o.id, rec);
+      }
+      setLive((prev) => (prev ? applyServeOverlay(prev, serveOverlayRef.current) : prev));
+
+      // 2. Ein POST pro betroffener Bestellung — parallel, nicht sequentiell
+      try {
+        const responses = await Promise.all(
+          [...byOrder.entries()].map(([orderId, r]) =>
+            fetch("/admin/orders/serve", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ order_id: orderId, item_keys: r.keys, all_units: true }),
+            })
+          )
+        );
+        if (responses.some((res) => !res.ok)) {
+          const failed = responses.find((res) => !res.ok);
+          const data = (await failed?.json().catch(() => ({}))) as { error?: string };
+          throw new Error(data?.error || "Fehler");
+        }
+        const payloads = (await Promise.all(
+          responses.map((res) => res.json().catch(() => ({}) as { served?: number }))
+        )) as { served?: number }[];
+        const totalServed = payloads.reduce((s, p) => s + (p.served ?? 0), 0);
+        if (totalServed === 0) {
+          // Server hat nichts bedient (z.B. zweites Gerät war schneller oder
+          // Key-Drift) → optimistische Anzeige SOFORT verwerfen, sonst
+          // "kehrt" die Position scheinbar zurück.
+          for (const [orderId, r] of byOrder) for (const key of r.keys) serveOverlayRef.current.delete(`${orderId}:${key}`);
+          pushToast("Artikel waren bereits serviert.");
+        } else {
+          // Overlay-Einträge bleiben bewusst bestehen (TTL) — sie fangen
+          // noch laufende Stale-Polls ab, bis der Serverstand überall angekommen ist.
+          pushToast(okMsg ?? `Serviert: ${totalUnits} Artikel`);
+        }
+      } catch (err) {
+        // Fehler → optimistische Änderung verwerfen
+        for (const [orderId, r] of byOrder) for (const key of r.keys) serveOverlayRef.current.delete(`${orderId}:${key}`);
+        pushToast(err instanceof Error && err.message !== "Fehler" ? err.message : "Servieren fehlgeschlagen", "error");
+      } finally {
+        void refreshLive();
+      }
     },
-    [postJson]
+    [pushToast, refreshLive]
   );
 
   const cancelItem = useCallback(
-    async (o: LiveOrder, it: LiveItem) => {
-      if (!window.confirm(`Storno: 1x ${it.name}?`)) return;
+    async (o: LiveOrder, it: LiveItem, opts?: { skipConfirm?: boolean; quantity?: number }) => {
+      const qty = opts?.quantity ?? it.quantity;
+      if (!opts?.skipConfirm && !window.confirm(`Storno: ${qty}x ${it.name}?`)) return;
       await postJson(
         `/${slug}/tablet/cancel-item/${o.id}`,
-        { item_key: buildItemKey(it, true), quantity: 1 },
-        `Storniert: 1x ${it.name}`
+        { item_key: buildItemKey(it, true), quantity: qty },
+        `Storniert: ${qty}x ${it.name}`
       );
     },
     [postJson, slug]
@@ -380,8 +646,8 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
   );
 
   const payOrder = useCallback(
-    async (o: LiveOrder) => {
-      if (!window.confirm(`Bestellung #${o.id} (${formatEur(o.total)}) als bezahlt markieren?`)) return;
+    async (o: LiveOrder, opts?: { skipConfirm?: boolean }) => {
+      if (!opts?.skipConfirm && !window.confirm(`Bestellung #${o.id} (${formatEur(o.total)}) als bezahlt markieren?`)) return;
       await postJson(
         `/${slug}/tablet/bezahlen/${o.id}`,
         { waiter_id: initial.sessionName || null },
@@ -431,17 +697,20 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
   );
 
   const addManualOrder = useCallback(
-    async (tableLabel: string, productId: number, quantity: number) => {
+    async (tableLabel: string, items: { product_id: number; quantity: number }[]) => {
+      if (items.length === 0) return;
       // Idempotenz-Key pro Klick — schützt vor Browser-Retries bei
       // schlechter Verbindung (dieselbe Anfrage wird nicht doppelt gebucht).
+      // ALLE ausgewählten Produkte gehen als EIN Request raus → ein Bon,
+      // keine Race-Conditions durch parallele Einzel-Requests.
       const idempotencyKey =
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
           : `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-await postJson(
+      await postJson(
         "/api/admin/orders/add-manual",
-        { table_number: tableLabel, product_id: productId, quantity, idempotency_key: idempotencyKey },
-        "Bestellung hinzugefügt"
+        { table_number: tableLabel, items, idempotency_key: idempotencyKey },
+        items.length === 1 ? "Bestellung hinzugefügt" : `${items.length} Produkte hinzugefügt`
       );
     },
     [postJson]
@@ -590,8 +859,7 @@ await postJson(
             pendingCountFor={pendingCountFor}
             tableTotal={tableTotal}
             activeTableOrders={activeTableOrders}
-            serveItem={serveItem}
-            serveAllOrder={serveAllOrder}
+            serveItemsBulk={serveItemsBulk}
             cancelItem={cancelItem}
             cancelOrder={cancelOrder}
             payOrder={payOrder}
@@ -648,6 +916,22 @@ await postJson(
         )}
       </div>
 
+      {/* Offline-Banner */}
+      {offline ? (
+        <div className="sticky top-0 z-[60] flex items-center justify-center gap-2 bg-red-600 px-4 py-2 text-sm font-bold text-white">
+          <span className="material-symbols-outlined text-lg">wifi_off</span>
+          Keine Verbindung — Bestellungen werden nicht live aktualisiert
+        </div>
+      ) : null}
+
+      {/* Offline-Banner */}
+      {offline ? (
+        <div className="sticky top-0 z-[60] flex items-center justify-center gap-2 bg-red-600 px-4 py-2 text-sm font-bold text-white">
+          <span className="material-symbols-outlined text-lg">wifi_off</span>
+          Keine Verbindung — Bestellungen werden nicht live aktualisiert
+        </div>
+      ) : null}
+
       {/* Toasts */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map((t) => (
@@ -680,15 +964,14 @@ interface LiveTabProps {
   pendingCountFor: (label: string) => number;
   tableTotal: (label: string) => number;
   activeTableOrders: LiveOrder[];
-  serveItem: (o: LiveOrder, it: LiveItem) => void;
-  serveAllOrder: (o: LiveOrder) => void;
-  cancelItem: (o: LiveOrder, it: LiveItem) => void;
+  serveItemsBulk: (entries: { o: LiveOrder; it: LiveItem }[], okMsg?: string) => void;
+  cancelItem: (o: LiveOrder, it: LiveItem, opts?: { skipConfirm?: boolean; quantity?: number }) => void;
   cancelOrder: (o: LiveOrder) => void;
-  payOrder: (o: LiveOrder) => void;
+  payOrder: (o: LiveOrder, opts?: { skipConfirm?: boolean }) => void;
   splitPay: (o: LiveOrder, items: LiveItem[]) => void;
   transferOrder: (o: LiveOrder, targetLabel: string, itemKeys?: string[], itemsMap?: Record<string, number>) => void;
   serviceErledigt: (c: ServiceCall) => void;
-  addManualOrder: (tableNumber: string, productId: number, quantity: number) => void;
+  addManualOrder: (tableNumber: string, items: { product_id: number; quantity: number }[]) => void;
   pushToast: (msg: string, kind?: "success" | "error") => void;
   products: AdminProduct[];
   categories: AdminCategory[];
@@ -701,7 +984,7 @@ function LiveTab(props: LiveTabProps) {
   const {
     live, zoneFilter, setZoneFilter, zoneCounts, filteredTables,
     selectedTable, setSelectedTable, pendingCountFor, tableTotal,
-    activeTableOrders, serveItem, serveAllOrder, cancelItem, cancelOrder,
+    activeTableOrders, serveItemsBulk, cancelItem, cancelOrder,
     payOrder, splitPay, transferOrder, serviceErledigt, addManualOrder,
     pushToast, products, categories, superGroups, slug, showRevenue,
   } = props;
@@ -718,8 +1001,7 @@ function LiveTab(props: LiveTabProps) {
       pendingCountFor={pendingCountFor}
       tableTotal={tableTotal}
       activeTableOrders={activeTableOrders}
-      serveItem={serveItem}
-      serveAllOrder={serveAllOrder}
+      serveItemsBulk={serveItemsBulk}
       cancelItem={cancelItem}
       cancelOrder={cancelOrder}
       payOrder={payOrder}
@@ -750,21 +1032,36 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 interface OrdersTabProps {
   live: TabletStatus | null;
-  serveItem: (o: LiveOrder, it: LiveItem) => void;
-  serveAllOrder: (o: LiveOrder) => void;
+  serveItemsBulk: (entries: { o: LiveOrder; it: LiveItem }[], okMsg?: string) => void;
   cancelItem: (o: LiveOrder, it: LiveItem) => void;
   cancelOrder: (o: LiveOrder) => void;
-  payOrder: (o: LiveOrder) => void;
+  payOrder: (o: LiveOrder, opts?: { skipConfirm?: boolean }) => void;
 }
 
 function OrdersTab(props: OrdersTabProps) {
-  const { live, serveItem, serveAllOrder, cancelItem, cancelOrder, payOrder } = props;
+  const { live, serveItemsBulk, cancelItem, cancelOrder, payOrder } = props;
   const [statusFilter, setStatusFilter] = useState<string>("aktiv");
 
-  const orders = useMemo(() => {
+  const groups = useMemo(() => {
     const list = live?.orders ?? [];
-    if (statusFilter === "aktiv") return list;
-    return list.filter((o) => o.status === statusFilter);
+    if (statusFilter !== "aktiv") {
+      return list
+        .filter((o) => o.status === statusFilter)
+        .map((o) => ({ table: o.table, orders: [o] }));
+    }
+    // Aktive Bestellungen pro Tisch zu EINEM Bon zusammenfassen.
+    // Erst nach Abrechnung (alle Bestellungen des Tisches bezahlt)
+    // beginnt ein neuer Bon.
+    const byTable = new Map<string, LiveOrder[]>();
+    for (const o of list) {
+      const arr = byTable.get(o.table) ?? [];
+      arr.push(o);
+      byTable.set(o.table, arr);
+    }
+    return [...byTable.entries()].map(([table, os]) => ({
+      table,
+      orders: os,
+    }));
   }, [live, statusFilter]);
 
   return (
@@ -802,44 +1099,56 @@ function OrdersTab(props: OrdersTabProps) {
         </button>
       </div>
 
-      {orders.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="text-sm text-zinc-500">Keine Bestellungen gefunden.</p>
       ) : null}
 
-      {orders.map((o) => {
-        const pending = o.items.filter((i) => (i.item_status || "pending") === "pending");
+      {groups.map((g) => {
+        const first = g.orders[0];
+        const bonNumber = g.orders.find((o) => o.daily_bon_number != null)?.daily_bon_number ?? first.id;
+        const total = g.orders.reduce((s, o) => s + (o.total ?? 0), 0);
+        const pendingCount = g.orders.reduce(
+          (s, o) => s + o.items.filter((i) => (i.item_status || "pending") === "pending").length,
+          0
+        );
         return (
           <div
-            key={o.id}
+            key={`${g.table}-${g.orders.map((o) => o.id).join("_")}`}
             className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
           >
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="font-bold">Bon #{o.daily_bon_number ?? o.id}</span>
-                <span className="text-zinc-400">{o.table}</span>
+                <span className="font-bold">Bon #{bonNumber}</span>
+                <span className="text-zinc-400">{g.table}</span>
+                {g.orders.length > 1 ? (
+                  <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
+                    {g.orders.length} Bestellungen
+                  </span>
+                ) : null}
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs ${
-                    o.status === "bezahlt"
+                    first.status === "bezahlt"
                       ? "bg-emerald-500/15 text-emerald-300"
-                      : o.status === "storniert"
+                      : first.status === "storniert"
                         ? "bg-red-500/15 text-red-300"
                         : "bg-amber-500/15 text-amber-300"
                   }`}
                 >
-                  {o.status}
+                  {first.status}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold">{formatEur(o.total)}</span>
+                <span className="font-semibold">{formatEur(total)}</span>
               </div>
             </div>
 
             <ul className="mb-3 space-y-1.5">
-              {o.items.map((it, idx) => {
-                const isPending = (it.item_status || "pending") === "pending";
-                return (
+              {g.orders.flatMap((o) =>
+                o.items.map((it, idx) => {
+                  const isPending = (it.item_status || "pending") === "pending";
+                  return (
                   <li
-                    key={idx}
+                    key={`${o.id}-${idx}`}
                     className="flex items-center justify-between gap-2 rounded-lg bg-zinc-950/50 px-3 py-2 text-sm"
                   >
                     <span className="flex-1">
@@ -881,7 +1190,7 @@ function OrdersTab(props: OrdersTabProps) {
                     {isPending ? (
                       <div className="flex gap-1.5">
                         <button
-                          onClick={() => serveItem(o, it)}
+                          onClick={() => serveItemsBulk([{ o, it }], `Serviert: ${it.quantity}x ${it.name}`)}
                           className="rounded bg-emerald-600 px-2 py-1 text-xs font-bold hover:bg-emerald-700"
                         >
                           Servieren
@@ -895,26 +1204,56 @@ function OrdersTab(props: OrdersTabProps) {
                       </div>
                     ) : null}
                   </li>
-                );
-              })}
+                  );
+                })
+              )}
             </ul>
 
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => serveAllOrder(o)}
-                disabled={pending.length === 0}
+                onClick={() =>
+                  serveItemsBulk(
+                    g.orders.flatMap((o) =>
+                      o.items
+                        .filter((i) => (i.item_status || "pending") === "pending")
+                        .map((i) => ({ o, it: i }))
+                    ),
+                    "Alles serviert"
+                  )
+                }
+                disabled={pendingCount === 0}
                 className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold hover:bg-emerald-700 disabled:opacity-40"
               >
-                Alle serviert ({pending.length})
+                Alle serviert ({pendingCount})
               </button>
               <button
-                onClick={() => payOrder(o)}
+                onClick={async () => {
+                  const open = g.orders.filter(
+                    (ord) => ord.status !== "bezahlt" && ord.status !== "storniert"
+                  );
+                  if (open.length === 0) return;
+                  const openTotal = open.reduce((s, ord) => s + (ord.total ?? 0), 0);
+                  if (
+                    !window.confirm(
+                      `Tisch ${g.table} über ${formatEur(openTotal)} abrechnen? (${open.length} Bestellung${open.length === 1 ? "" : "en"})`
+                    )
+                  )
+                    return;
+                  for (const ord of open) {
+                    await payOrder(ord, { skipConfirm: true });
+                  }
+                }}
                 className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-bold hover:bg-sky-700"
               >
-                Bezahlen
+                Tisch abrechnen
               </button>
               <button
-                onClick={() => cancelOrder(o)}
+                onClick={async () => {
+                  if (!window.confirm(`Alle Bestellungen an ${g.table} stornieren?`)) return;
+                  for (const o of g.orders) {
+                    await cancelOrder(o);
+                  }
+                }}
                 className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold hover:bg-red-700"
               >
                 Stornieren
@@ -2629,7 +2968,7 @@ interface EventsTabProps {
 interface EventComboRow {
   name: string;
   combo_price: string;
-  items: { product_id: string; category_name: string }[];
+  items: { product_id: string; category_name: string; excluded_product_ids: number[] }[];
 }
 
 function EventsTab(props: EventsTabProps) {
@@ -2684,7 +3023,7 @@ function EventsTab(props: EventsTabProps) {
   };
 
   const addCombo = (setFn: React.Dispatch<React.SetStateAction<EventComboRow[]>>) => {
-    setFn((prev) => [...prev, { name: "", combo_price: "", items: [{ product_id: "", category_name: "" }] }]);
+    setFn((prev) => [...prev, { name: "", combo_price: "", items: [{ product_id: "", category_name: "", excluded_product_ids: [] }] }]);
   };
 
   const removeCombo = (setFn: React.Dispatch<React.SetStateAction<EventComboRow[]>>, idx: number) => {
@@ -2694,7 +3033,7 @@ function EventsTab(props: EventsTabProps) {
   const addComboItem = (setFn: React.Dispatch<React.SetStateAction<EventComboRow[]>>, cIdx: number) => {
     setFn((prev) =>
       prev.map((c, i) =>
-        i === cIdx ? { ...c, items: [...c.items, { product_id: "", category_name: "" }] } : c
+        i === cIdx ? { ...c, items: [...c.items, { product_id: "", category_name: "", excluded_product_ids: [] }] } : c
       )
     );
   };
@@ -2711,7 +3050,7 @@ function EventsTab(props: EventsTabProps) {
     setFn: React.Dispatch<React.SetStateAction<EventComboRow[]>>,
     cIdx: number,
     iIdx: number,
-    patch: Partial<{ product_id: string; category_name: string }>
+    patch: Partial<{ product_id: string; category_name: string; excluded_product_ids: number[] }>
   ) => {
     setFn((prev) =>
       prev.map((c, i) =>
@@ -2733,6 +3072,7 @@ function EventsTab(props: EventsTabProps) {
           .map((it) => ({
             product_id: it.product_id === "" ? null : Number(it.product_id),
             category_name: it.category_name === "" ? null : it.category_name,
+            excluded_product_ids: it.excluded_product_ids ?? [],
           })),
       }))
       .filter((c) => c.items.length > 0); // Only save combos with at least one item
@@ -2764,7 +3104,7 @@ function EventsTab(props: EventsTabProps) {
             combos?: {
               name: string;
               combo_price: number;
-              items?: { product_id: number | null; category_name: string | null }[];
+              items?: { product_id: number | null; category_name: string | null; excluded_product_ids?: number[] }[];
             }[];
           };
           const pmap: Record<number, string> = {};
@@ -2779,6 +3119,7 @@ function EventsTab(props: EventsTabProps) {
               items: (c.items ?? []).map((it) => ({
                 product_id: it.product_id != null ? String(it.product_id) : "",
                 category_name: it.category_name ?? "",
+                excluded_product_ids: it.excluded_product_ids ?? [],
               })),
             }))
           );
@@ -2996,42 +3337,78 @@ function EventsTab(props: EventsTabProps) {
             </div>
             <div className="space-y-1.5">
               {c.items.map((it, iIdx) => (
-                <div key={iIdx} className="flex items-center gap-2">
-                  <select
-                    value={it.product_id}
-                    onChange={(e) =>
-                      updateComboItem(setFn, cIdx, iIdx, {
-                        product_id: e.target.value,
-                        category_name: "",
-                      })
-                    }
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
-                  >
-                    <option value="">— Produkt auswählen —</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-xs text-zinc-500">oder Kategorie</span>
-                  <select
-                    value={it.category_name}
-                    onChange={(e) =>
-                      updateComboItem(setFn, cIdx, iIdx, {
-                        product_id: "",
-                        category_name: e.target.value,
-                      })
-                    }
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
-                  >
-                    <option value="">— Kategorie auswählen —</option>
-                    {[...new Set(products.map((p) => p.category).filter(Boolean))].map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                <div key={iIdx}>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={it.product_id}
+                      onChange={(e) =>
+                        updateComboItem(setFn, cIdx, iIdx, {
+                          product_id: e.target.value,
+                          category_name: "",
+                          excluded_product_ids: [],
+                        })
+                      }
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
+                    >
+                      <option value="">— Produkt auswählen —</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-zinc-500">oder Kategorie</span>
+                    <select
+                      value={it.category_name}
+                      onChange={(e) =>
+                        updateComboItem(setFn, cIdx, iIdx, {
+                          product_id: "",
+                          category_name: e.target.value,
+                          excluded_product_ids: [],
+                        })
+                      }
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
+                    >
+                      <option value="">— Kategorie auswählen —</option>
+                      {[...new Set(products.map((p) => p.category).filter(Boolean))].map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {it.category_name !== "" ? (
+                    <div className="mt-1.5 rounded-lg border border-zinc-800 bg-zinc-950/60 p-2">
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                        Ausgeschlossene Produkte (nicht im Kombi wählbar)
+                      </p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {products
+                          .filter((p) => p.category === it.category_name)
+                          .map((p) => {
+                            const excluded = (it.excluded_product_ids ?? []).includes(p.id);
+                            return (
+                              <label key={p.id} className="flex cursor-pointer items-center gap-1.5 text-xs text-zinc-300">
+                                <input
+                                  type="checkbox"
+                                  checked={excluded}
+                                  onChange={() => {
+                                    const cur = new Set(it.excluded_product_ids ?? []);
+                                    if (cur.has(p.id)) cur.delete(p.id);
+                                    else cur.add(p.id);
+                                    updateComboItem(setFn, cIdx, iIdx, {
+                                      excluded_product_ids: [...cur],
+                                    });
+                                  }}
+                                  className="h-3.5 w-3.5 accent-red-500"
+                                />
+                                {p.name}
+                              </label>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
               <button
