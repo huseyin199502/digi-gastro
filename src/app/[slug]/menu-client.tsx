@@ -1085,6 +1085,9 @@ export function MenuClient({
     !cartModalOpen &&
     !categorySheetOpen &&
     !comboModalOpen &&
+    !billSheetOpen &&
+    !serviceModalOpen &&
+    !paymentModalOpen &&
     !sheetProduct;
 
   return (
