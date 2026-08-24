@@ -37,7 +37,12 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form
+      onSubmit={onSubmit}
+      action="/api/auth/login"
+      method="POST"
+      className="space-y-4"
+    >
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-300">
           Email
