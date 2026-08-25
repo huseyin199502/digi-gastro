@@ -87,13 +87,13 @@ export default function WerbungTab() {
     if (!confirm("Banner wirklich löschen?")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/admin/ads?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
+      const res = await fetch(`/admin/ads/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         flash("ok", "Gelöscht.");
         await load();
       } else {
-        flash("err", data.detail || "Fehler");
+        flash("err", data?.detail || "Fehler beim Löschen.");
       }
     } catch {
       flash("err", "Netzwerkfehler.");
