@@ -177,6 +177,15 @@ export interface MenuData {
   products: MenuProduct[];
   activeEvents: ActiveEventInfo[];
   todayComboEvents: TodayComboEvent[];
+  ads: {
+    id: number;
+    company_name: string;
+    title: string;
+    subtitle: string | null;
+    image_url: string | null;
+    target_url: string | null;
+    placement: string;
+  }[];
 }
 
 export class TenantNotFoundError extends Error {}
@@ -189,7 +198,9 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
   if (!tenant) throw new TenantNotFoundError(slug);
   if (tenant.active === false) throw new TenantSuspendedError(slug);
 
-  const [dbCategories, dbProducts, dbEvents] = await Promise.all([
+  const berlinNow = getBerlinNow();
+
+  const [dbCategories, dbProducts, dbEvents, dbAds] = await Promise.all([
     prisma.category.findMany({
       where: { tenant_slug: slug },
       orderBy: [{ position: "asc" }, { id: "asc" }],
@@ -206,13 +217,34 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
         combos: { include: { items: true }, orderBy: { position: "asc" } },
       },
     }),
+    prisma.adBanner.findMany({
+      where: {
+        tenant_slug: slug,
+        status: "active",
+        OR: [
+          { start_at: null, end_at: null },
+          { start_at: null, end_at: { gte: berlinNow } },
+          { start_at: { lte: berlinNow }, end_at: null },
+          { start_at: { lte: berlinNow }, end_at: { gte: berlinNow } },
+        ],
+      },
+      orderBy: [{ priority: "desc" }, { created_at: "desc" }],
+      select: {
+        id: true,
+        company_name: true,
+        title: true,
+        subtitle: true,
+        image_url: true,
+        target_url: true,
+        placement: true,
+      },
+    }),
   ]);
 
   const priceMode = tenant.price_mode || "brutto";
   const activeCategoryNames = new Set(dbCategories.map((c) => c.name));
 
   // Determine currently active events (Berlin time, identical to legacy)
-  const berlinNow = getBerlinNow();
   const nowTime = berlinTimeStr(berlinNow);
   const possibleDays = possibleDaysToday(berlinNow);
 
@@ -377,6 +409,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
     products,
     activeEvents,
     todayComboEvents,
+    ads: dbAds,
   };
 }
 

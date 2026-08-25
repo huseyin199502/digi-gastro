@@ -134,30 +134,22 @@ export async function POST(request: NextRequest) {
         let addAmount = 0;
         for (const it of items) {
           const product = products.find((p) => p.id === it.productId)!;
-          // Merge into existing pending item with same product & no note (no combos)
-          const existingItem = order.items.find(
-            (i) =>
-              i.product_id === product.id &&
-              !i.note &&
-              i.item_status === "pending" &&
-              !i.combo_id
-          );
-          if (existingItem) {
-            existingItem.quantity += it.quantity;
-          } else {
-            order.items.push({
-              product_id: product.id,
-              name: product.name,
-              price: product.price,
-              quantity: it.quantity,
-              category_type: product.category_type ?? "küche",
-              note: null,
-              item_status: "pending",
-              combo_id: null,
-              combo_name: null,
-              combo_instance_id: null,
-            });
-          }
+          // Jede ausgewählte Position wird eine EIGENE order_item-Zeile
+          // (kein Zusammenführen identischer Produkte): Der Kellner sieht
+          // im Cockpit z.B. zwei getrennte "1× Döner Teller" statt einer
+          // "2× Döner Teller"-Zeile.
+          order.items.push({
+            product_id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: it.quantity,
+            category_type: product.category_type ?? "küche",
+            note: null,
+            item_status: "pending",
+            combo_id: null,
+            combo_name: null,
+            combo_instance_id: null,
+          });
           addAmount += product.price * it.quantity;
         }
         addAmount = Math.round(addAmount * 100) / 100;

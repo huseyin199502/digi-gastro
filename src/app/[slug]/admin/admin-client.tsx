@@ -8,6 +8,7 @@ import LoyaltyTab from "./loyalty-tab";
 import LagerTab from "./lager-tab";
 import SitzplanTab from "./sitzplan-tab";
 import LandingpageTab from "./landingpage-tab";
+import WerbungTab from "./werbung-tab";
 import type { LiveItem, LiveOrder, LiveTable, ServiceCall, TabletStatus } from "./admin-types";
 import { formatEur } from "./admin-types";
 
@@ -153,7 +154,7 @@ function buildItemKey(
 // liefert (verhindert Flackern bis der POST durch ist). Einträge bleiben
 // nach Erfolg kurz bestehen (TTL) und fangen noch laufende Stale-Polls ab.
 type ServeOverlayEntry = { units: number; ts: number };
-type ServeOverlay = Map<string, ServeOverlayEntry>; // `${orderId}:${itemKey}` -> optimistisch servierte Einheiten
+type ServeOverlay = Map<string, ServeOverlayEntry>; // `${orderId}:${itemId}` -> optimistisch servierte Einheiten
 
 const SERVE_OVERLAY_TTL_MS = 20000;
 
@@ -169,7 +170,10 @@ function applyServeOverlay(data: TabletStatus, overlay: ServeOverlay): TabletSta
   const orders = data.orders.map((o) => {
     let oChanged = false;
     const items = o.items.map((it) => {
-      const key = `${o.id}:${buildItemKey(it, true)}`;
+      // Eindeutig pro Position (itemId) statt Produkt-Key: Zwei identische
+      // Colas haben denselben Produkt-Key, aber verschiedene itemIds — so
+      // bleibt beim Einzel-Servieren die ANDERE Cola korrekt offen.
+      const key = `${o.id}:${it.id}`;
       const entry = overlay.get(key);
       if (!entry || entry.units <= 0) return it;
       if ((it.item_status || "pending") !== "pending") {
@@ -569,27 +573,50 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
       if (valid.length === 0) return;
 
       // 1. Overlay aufbauen + lokal sofort anwenden
-      const byOrder = new Map<number, { keys: string[]; units: number }>();
+      const byOrder = new Map<
+        number,
+        { o: LiveOrder; entries: number; keys: string[]; units: number; itemIds: number[] }
+      >();
       let totalUnits = 0;
       for (const { o, it } of valid) {
         const key = buildItemKey(it, true);
-        serveOverlayRef.current.set(`${o.id}:${key}`, { units: it.quantity, ts: Date.now() });
+        // Overlay eindeutig pro Position (itemId), damit identische Produkte
+        // (zwei Colas) nicht fälschlich gemeinsam als serviert markiert werden.
+        serveOverlayRef.current.set(`${o.id}:${it.id}`, { units: it.quantity, ts: Date.now() });
         totalUnits += it.quantity;
-        const rec = byOrder.get(o.id) ?? { keys: [], units: 0 };
+        const rec = byOrder.get(o.id) ?? { o, entries: 0, keys: [], units: 0, itemIds: [] };
+        rec.entries += 1;
         rec.keys.push(key);
+        rec.itemIds.push(it.id);
         rec.units += it.quantity;
         byOrder.set(o.id, rec);
       }
       setLive((prev) => (prev ? applyServeOverlay(prev, serveOverlayRef.current) : prev));
 
-      // 2. Ein POST pro betroffener Bestellung — parallel, nicht sequentiell
+      // 2. Ein POST pro betroffener Bestellung — parallel, nicht sequentiell.
+      //    Werden ALLE offenen Positionen einer Bestellung bedient, schicken
+      //    wir die Bestellung ohne item_keys (serviert alles) — so bleiben
+      //    identische Produkte (zwei Colas) getrennt und beide werden bedient,
+      //    statt vom Duplikat-Key-Dedup nur eine zu erwischen.
+      const bodies = [...byOrder.entries()].map(([orderId, r]) => {
+        const pendingCount = r.o.items.filter(
+          (x) => (x.item_status || "pending") === "pending"
+        ).length;
+        const serveWhole = r.entries >= pendingCount;
+        return {
+          orderId,
+          body: serveWhole
+            ? { order_id: orderId, all_units: true }
+            : { order_id: orderId, item_keys: r.keys, all_units: true },
+        };
+      });
       try {
         const responses = await Promise.all(
-          [...byOrder.entries()].map(([orderId, r]) =>
+          bodies.map(({ orderId, body }) =>
             fetch("/admin/orders/serve", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ order_id: orderId, item_keys: r.keys, all_units: true }),
+              body: JSON.stringify(body),
             })
           )
         );
@@ -606,7 +633,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
           // Server hat nichts bedient (z.B. zweites Gerät war schneller oder
           // Key-Drift) → optimistische Anzeige SOFORT verwerfen, sonst
           // "kehrt" die Position scheinbar zurück.
-          for (const [orderId, r] of byOrder) for (const key of r.keys) serveOverlayRef.current.delete(`${orderId}:${key}`);
+          for (const [orderId, r] of byOrder) for (const id of r.itemIds) serveOverlayRef.current.delete(`${orderId}:${id}`);
           pushToast("Artikel waren bereits serviert.");
         } else {
           // Overlay-Einträge bleiben bewusst bestehen (TTL) — sie fangen
@@ -615,7 +642,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
         }
       } catch (err) {
         // Fehler → optimistische Änderung verwerfen
-        for (const [orderId, r] of byOrder) for (const key of r.keys) serveOverlayRef.current.delete(`${orderId}:${key}`);
+        for (const [orderId, r] of byOrder) for (const id of r.itemIds) serveOverlayRef.current.delete(`${orderId}:${id}`);
         pushToast(err instanceof Error && err.message !== "Fehler" ? err.message : "Servieren fehlgeschlagen", "error");
       } finally {
         void refreshLive();
@@ -672,6 +699,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
         quantity: it.quantity,
         note: it.note ?? undefined,
         combo_instance_id: it.combo_instance_id ?? undefined,
+        item_id: it.id, // exakt pro Zeile, damit identische Produkte getrennt bezahlt werden
       }));
       const amount = items.reduce((s, i) => s + i.price * i.quantity, 0);
       await postJson(
@@ -755,14 +783,28 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
   // ── Event actions ──
   const toggleEvent = useCallback(
     async (e: AdminEvent) => {
-      await postJson(
-        `/admin/events/${e.id}`,
-        { is_active: !e.is_active },
-        e.is_active ? `Event "${e.display_name}" deaktiviert` : `Event "${e.display_name}" aktiviert`
-      );
-      router.refresh();
+      try {
+        const res = await fetch(`/admin/events/${e.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: !e.is_active }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          pushToast(data.error || "Fehler", "error");
+          return;
+        }
+        pushToast(
+          e.is_active
+            ? `Event "${e.display_name}" deaktiviert`
+            : `Event "${e.display_name}" aktiviert`
+        );
+        router.refresh();
+      } catch {
+        pushToast("Verbindungsfehler", "error");
+      }
     },
-    [postJson, router]
+    [pushToast, router]
   );
 
   const deleteEvent = useCallback(
@@ -787,6 +829,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
     { id: "personal", label: "Personal" },
     { id: "loyalty", label: "Loyalty" },
     { id: "lager", label: "Lager" },
+    { id: "werbung", label: "Werbung" },
     { id: "landingpage", label: "Landingpage" },
     { id: "reports", label: "Reports" },
     { id: "einstellungen", label: "Einstellungen" },
@@ -909,6 +952,8 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
           <LoyaltyTab pushToast={pushToast} />
         ) : tab === "lager" ? (
           <LagerTab pushToast={pushToast} />
+        ) : tab === "werbung" ? (
+          <WerbungTab />
         ) : tab === "landingpage" ? (
           <LandingpageTab pushToast={pushToast} />
         ) : (

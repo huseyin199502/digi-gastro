@@ -32,15 +32,23 @@ export function applySplitPay(
       splitItem.combo_instance_id === null
         ? null
         : String(splitItem.combo_instance_id);
+    const itemId =
+      splitItem.item_id === undefined || splitItem.item_id === null
+        ? null
+        : parseInt(String(splitItem.item_id), 10);
     const requestedQty = parseInt(String(splitItem.quantity), 10) || 0;
 
-    // Match by product_id AND note AND combo_instance_id (composite key)
-    const orderItem = order.items.find(
-      (item) =>
-        item.product_id === pid &&
-        (item.note ?? "").trim() === splitNote &&
-        (item.combo_instance_id ?? null) === splitComboInst
-    );
+    // Bevorzugt exakt nach Item-ID (eindeutig pro Zeile): Zwei identische
+    // Positionen (z.B. zwei "1× Döner") werden so getrennt bezahlt. Fallback
+    // auf Composite-Key für Tablet/Legacy-Clients ohne item_id.
+    const orderItem = Number.isFinite(itemId) && itemId !== null
+      ? order.items.find((item) => item.id === itemId)
+      : order.items.find(
+          (item) =>
+            item.product_id === pid &&
+            (item.note ?? "").trim() === splitNote &&
+            (item.combo_instance_id ?? null) === splitComboInst
+        );
     if (!orderItem) continue;
 
     const qtyToPay = Math.min(requestedQty, orderItem.quantity);

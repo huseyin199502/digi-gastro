@@ -11,6 +11,7 @@ import { berlinDateStr, berlinTimestamp, getBerlinNow } from "./time";
 // ──────────────────────────────────────────────────────────────────
 
 export interface MutableOrderItem {
+  id?: number; // DB-Item-ID (bei loadOrder gesetzt) — für exaktes Zeilen-Matching
   product_id: number;
   name: string;
   price: number;
@@ -64,6 +65,7 @@ export async function loadOrder(
     daily_bon_number: o.daily_bon_number,
     bon_date: o.bon_date,
     items: o.items.map((i) => ({
+      id: i.id,
       product_id: i.product_id,
       name: i.name,
       price: i.price,

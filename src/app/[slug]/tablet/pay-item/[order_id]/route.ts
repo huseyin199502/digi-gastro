@@ -48,24 +48,32 @@ export async function POST(
       throw new ApiError("Ungültiges JSON-Format", 400);
     }
     const itemKey = String(payload.item_key ?? "");
-    const requestedQty = parseInt(String(payload.quantity ?? "1"), 10) || 1;
+    let requestedQty = parseInt(String(payload.quantity ?? "1"), 10) || 1;
 
-    // Find item by status-sensitive composite key
-    const matchedItem = findOrderItem(order.items, itemKey, orderId);
-    if (!matchedItem) throw new ApiError("Artikel nicht gefunden.", 404);
-
-    const qtyToPay = Math.min(requestedQty, matchedItem.quantity);
+    // Identische Produkte sind getrennte Zeilen → über mehrere identische
+    // Zeilen "absaugen", bis die gewünschte Menge bezahlt ist.
+    let paidAmount = 0;
+    let paidItemName = "Artikel";
+    let totalPaidQty = 0;
+    while (requestedQty > 0) {
+      const matchedItem = findOrderItem(order.items, itemKey, orderId);
+      if (!matchedItem) break;
+      const take = Math.min(requestedQty, matchedItem.quantity);
+      if (take <= 0) break;
+      paidAmount = round2(paidAmount + take * matchedItem.price);
+      paidItemName = matchedItem.name ?? "Artikel";
+      totalPaidQty += take;
+      requestedQty -= take;
+      matchedItem.quantity -= take;
+      if (matchedItem.quantity <= 0) {
+        order.items = order.items.filter((i) => i !== matchedItem);
+      }
+    }
     // Audit Issue 3.8: keine nicht-positiven Zahlmengen
-    if (qtyToPay <= 0) {
-      throw new ApiError("Ungültige Menge für Teilzahlung.", 400);
+    if (paidAmount <= 0) {
+      throw new ApiError("Artikel nicht gefunden.", 404);
     }
-    const paidAmount = round2(qtyToPay * matchedItem.price);
-    const paidItemName = matchedItem.name ?? "Artikel";
-
-    matchedItem.quantity -= qtyToPay;
-    if (matchedItem.quantity <= 0) {
-      order.items = order.items.filter((i) => i !== matchedItem);
-    }
+    const qtyToPay = totalPaidQty;
 
     // Fix 6b: original_total sichern, dann total neu berechnen
     ensureOriginalTotal(order);

@@ -52,22 +52,23 @@ export async function POST(
     for (const raw of bulkItems) {
       if (!raw || typeof raw !== "object") continue;
       const info = raw as Record<string, unknown>;
-      const matchedItem = findOrderItem(
-        order.items,
-        String(info.item_key ?? ""),
-        orderId
-      );
-      if (!matchedItem) continue;
+      const itemKey = String(info.item_key ?? "");
+      let requestedQty = parseInt(String(info.quantity), 10) || 0;
+      if (requestedQty <= 0) continue;
 
-      const requestedQty = parseInt(String(info.quantity), 10) || 0;
-      const qtyToPay = Math.min(requestedQty, matchedItem.quantity);
-      if (qtyToPay <= 0) continue;
-      const paidAmount = round2(qtyToPay * matchedItem.price);
-      totalPaidAmount += paidAmount;
-
-      matchedItem.quantity -= qtyToPay;
-      if (matchedItem.quantity <= 0) {
-        order.items = order.items.filter((i) => i !== matchedItem);
+      // Identische Produkte sind getrennte Zeilen (z.B. zwei "1× Döner").
+      // findOrderItem trifft nur die erste — daher über mehrere identische
+      // Zeilen "absaugen", bis die angefragte Menge erfüllt ist.
+      while (requestedQty > 0) {
+        const matchedItem = findOrderItem(order.items, itemKey, orderId);
+        if (!matchedItem) break;
+        const take = Math.min(requestedQty, matchedItem.quantity);
+        totalPaidAmount += round2(take * matchedItem.price);
+        requestedQty -= take;
+        matchedItem.quantity -= take;
+        if (matchedItem.quantity <= 0) {
+          order.items = order.items.filter((i) => i !== matchedItem);
+        }
       }
     }
 

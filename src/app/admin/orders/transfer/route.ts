@@ -139,7 +139,10 @@ export async function POST(request: NextRequest) {
 
           const itemComboId = item.combo_id ?? "";
           const itemComboInst = item.combo_instance_id ?? "";
-          const uniqueKey = `${sourceOrder.id}_${item.product_id}_${noteSlug}_${itemStatus}_${itemComboId}_${itemComboInst}`;
+          // Eindeutig pro Zeile (item.id): Zwei identische Positionen (z.B.
+          // zwei "1× Döner") erhalten getrennte Keys und werden getrennt
+          // umgebucht. Fallbacks bleiben für ältere Clients ohne Item-ID.
+          const uniqueKey = `${sourceOrder.id}_${item.id}_${item.product_id}_${noteSlug}_${itemStatus}_${itemComboId}_${itemComboInst}`;
           const legacyKey = `${item.product_id}_${noteSlug}_${itemStatus}_${itemComboId}_${itemComboInst}`;
           const legacyKeyNoInst = `${item.product_id}_${noteSlug}_${itemStatus}_${itemComboId}`;
           const legacyKeyNoCombo = `${item.product_id}_${noteSlug}_${itemStatus}`;
@@ -174,20 +177,9 @@ export async function POST(request: NextRequest) {
               sourceTransferred + qtyToMove * (item.price ?? 0)
             );
 
-            // Add to target order (combo-aware merge)
-            const tItem = targetOrder!.items.find(
-              (i) =>
-                i.product_id === item.product_id &&
-                (i.note ?? "").trim() === (item.note ?? "").trim() &&
-                (i.item_status || "pending") === itemStatus &&
-                i.combo_id === item.combo_id &&
-                i.combo_instance_id === item.combo_instance_id
-            );
-            if (tItem) {
-              tItem.quantity += qtyToMove;
-            } else {
-              targetOrder!.items.push({ ...item, quantity: qtyToMove });
-            }
+            // Add to target order — als EIGENE Position (kein Zusammenführen
+            // identischer Produkte), damit getrennte Positionen getrennt bleiben.
+            targetOrder!.items.push({ ...item, quantity: qtyToMove });
 
             // Keep remaining quantity in source order
             const remQty = (item.quantity ?? 0) - qtyToMove;
@@ -248,20 +240,9 @@ export async function POST(request: NextRequest) {
           transferredAmounts.push(movedAmount);
 
           for (const sItem of sourceOrder.items) {
-            const tItem = targetOrder.items.find(
-              (item) =>
-                item.product_id === sItem.product_id &&
-                (item.note ?? "").trim() === (sItem.note ?? "").trim() &&
-                (item.item_status || "pending") ===
-                  (sItem.item_status || "pending") &&
-                item.combo_id === sItem.combo_id &&
-                item.combo_instance_id === sItem.combo_instance_id
-            );
-            if (tItem) {
-              tItem.quantity += sItem.quantity ?? 0;
-            } else {
-              targetOrder.items.push({ ...sItem });
-            }
+            // Als EIGENE Position übernehmen (kein Zusammenführen identischer
+            // Produkte), damit getrennte Positionen getrennt bleiben.
+            targetOrder.items.push({ ...sItem });
           }
 
           targetOrder.total = round2(

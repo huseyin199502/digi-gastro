@@ -127,13 +127,34 @@ export async function POST(
       );
     }
 
-    const qtyToCancel = Math.min(requestedQty, matchedItem.quantity);
-    const cancelledAmount = round2(qtyToCancel * matchedItem.price);
-
-    matchedItem.quantity -= qtyToCancel;
-    if (matchedItem.quantity <= 0) {
-      order.items = order.items.filter((i) => i !== matchedItem);
+    // Identische Produkte sind getrennte Zeilen → über mehrere identische
+    // Zeilen stornieren, bis die gewünschte Menge erfüllt ist.
+    let remainingQty = requestedQty;
+    let cancelledAmount = 0;
+    let cancelledName = "Artikel";
+    let totalCancelledQty = 0;
+    while (remainingQty > 0) {
+      const m = findOrderItem(order.items, itemKey, orderId);
+      if (!m) break;
+      const take = Math.min(remainingQty, m.quantity);
+      if (take <= 0) break;
+      cancelledAmount = round2(cancelledAmount + take * m.price);
+      cancelledName = m.name ?? "Artikel";
+      totalCancelledQty += take;
+      remainingQty -= take;
+      m.quantity -= take;
+      if (m.quantity <= 0) {
+        order.items = order.items.filter((i) => i !== m);
+      }
     }
+    const qtyToCancel = totalCancelledQty;
+    if (qtyToCancel <= 0) {
+      throw new ApiError(
+        "Ungültige Menge für Storno — muss > 0 sein.",
+        400
+      );
+    }
+    const cancelledItemName = cancelledName;
 
     order.total = round2(
       order.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
@@ -153,7 +174,7 @@ export async function POST(
         {
           name: employee.name,
           role: employee.role,
-          action: `Stornierung von ${qtyToCancel}x ${matchedItem.name} (Bestellung #${orderId})`,
+          action: `Stornierung von ${qtyToCancel}x ${cancelledItemName} (Bestellung #${orderId})`,
           details: `Tisch: ${order.table}, Betrag: ${cancelledAmount} € storniert.`,
         },
       ],

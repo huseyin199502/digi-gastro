@@ -73,25 +73,22 @@ export async function POST(
     for (const raw of bulkItems) {
       if (!raw || typeof raw !== "object") continue;
       const info = raw as Record<string, unknown>;
-      const matchedItem = findOrderItem(
-        order.items,
-        String(info.item_key ?? ""),
-        orderId
-      );
-      if (!matchedItem) continue;
-
-      const requestedQty = parseInt(String(info.quantity), 10) || 0;
-      // Skip invalid quantities silently in bulk mode
-      if (requestedQty <= 0) continue;
-
-      const qtyToCancel = Math.min(requestedQty, matchedItem.quantity);
-      const cancelledAmount = round2(qtyToCancel * matchedItem.price);
-      totalCancelledAmount += cancelledAmount;
-
-      matchedItem.quantity -= qtyToCancel;
-      cancelledDetailsList.push(`${qtyToCancel}x ${matchedItem.name}`);
-      if (matchedItem.quantity <= 0) {
-        order.items = order.items.filter((i) => i !== matchedItem);
+      const itemKey = String(info.item_key ?? "");
+      let requestedQty = parseInt(String(info.quantity), 10) || 0;
+      // Identische Produkte sind getrennte Zeilen → über mehrere identische
+      // Zeilen absaugen, bis die Stornierungsmenge erfüllt ist.
+      while (requestedQty > 0) {
+        const matchedItem = findOrderItem(order.items, itemKey, orderId);
+        if (!matchedItem) break;
+        const take = Math.min(requestedQty, matchedItem.quantity);
+        const cancelledAmount = round2(take * matchedItem.price);
+        totalCancelledAmount += cancelledAmount;
+        requestedQty -= take;
+        matchedItem.quantity -= take;
+        cancelledDetailsList.push(`${take}x ${matchedItem.name}`);
+        if (matchedItem.quantity <= 0) {
+          order.items = order.items.filter((i) => i !== matchedItem);
+        }
       }
     }
 

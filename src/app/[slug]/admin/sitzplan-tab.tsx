@@ -366,45 +366,42 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const ownerOf = (fallback: LiveOrder, it: LiveItem): LiveOrder =>
     ownerByItemId.get(it.id) ?? fallback;
 
-  // ── "Neue Bestellung": offene Items über den ganzen Tisch aggregieren ──
-  // Gleiche Produkte (inkl. gleicher Anmerkung/Kombi) werden zu EINER Zeile
-  // zusammengefasst → 5x Cola = ein Klick "Servieren" für alle 5.
+  // ── "Neue Bestellung": jedes OFFENE Produkt als EIGENE Position ──
+  // Kein Zusammenführen: Gleiche Produkte (z.B. zweimal Cola) bleiben
+  // getrennte Zeilen, damit der Kellner jede einzelne Cola separat
+  // servieren/stornieren kann. Eine Position = genau eine order_item-Zeile.
   interface PendingGroup {
     key: string;
     name: string;
     note: string | null;
     comboName: string | null;
     qty: number;
-    ts: number; // neueste Bestellzeit im Group
+    price: number; // Einzelpreis der Position (inkl. Kombi-Logik)
+    ts: number; // Bestellzeit der Position
     entries: { o: LiveOrder; it: LiveItem }[];
   }
 
   const pendingGroups = useMemo<PendingGroup[]>(() => {
     if (!mergedTableOrder) return [];
-    const map = new Map<string, PendingGroup>();
+    const groups: PendingGroup[] = [];
     for (const it of mergedTableOrder.items) {
       if ((it.item_status || "pending") !== "pending") continue;
-      const key = `${it.product_id}|${it.combo_id ?? ""}|${it.combo_instance_id ?? ""}|${(it.note ?? "").trim()}`;
-      const ownerTs = new Date(String(ownerOf(mergedTableOrder, it).timestamp || "").replace(" ", "T")).getTime();
-      const existing = map.get(key);
-      if (existing) {
-        existing.qty += it.quantity;
-        if (Number.isFinite(ownerTs) && ownerTs > existing.ts) existing.ts = ownerTs;
-        existing.entries.push({ o: ownerOf(mergedTableOrder, it), it });
-      } else {
-        map.set(key, {
-          key,
-          name: it.name,
-          note: it.note?.trim() || null,
-          comboName: it.combo_name ?? null,
-          qty: it.quantity,
-          ts: Number.isFinite(ownerTs) ? ownerTs : 0,
-          entries: [{ o: ownerOf(mergedTableOrder, it), it }],
-        });
-      }
+      const ownerTs = new Date(
+        String(ownerOf(mergedTableOrder, it).timestamp || "").replace(" ", "T")
+      ).getTime();
+      groups.push({
+        key: `item_${it.id}`,
+        name: it.name,
+        note: it.note?.trim() || null,
+        comboName: it.combo_name ?? null,
+        qty: it.quantity,
+        price: it.price,
+        ts: Number.isFinite(ownerTs) ? ownerTs : 0,
+        entries: [{ o: ownerOf(mergedTableOrder, it), it }],
+      });
     }
     // Neueste zuerst — eine frisch reinkommende Bestellung steht ganz oben
-    return [...map.values()].sort((a, b) => b.ts - a.ts || a.name.localeCompare(b.name));
+    return groups.sort((a, b) => b.ts - a.ts || a.name.localeCompare(b.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mergedTableOrder, ownerByItemId]);
 
@@ -603,12 +600,14 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const submitNewOrder = () => {
     if (!selectedInfo?.table || newOrderItems.size === 0) return;
     const tableLabel = tableLabelFor(selectedInfo.table);
-    // Alle ausgewählten Produkte als EIN Request → landen zusammen in
-    // einer Bestellung (ein Bon) und erscheinen komplett unter "Neue Bestellung".
-    const items = [...newOrderItems.entries()].map(([productId, quantity]) => ({
-      product_id: productId,
-      quantity,
-    }));
+    // Alle ausgewählten Produkte als EIN Request → landen zusammen in einer
+    // Bestellung (ein Bon). Eine Menge von z.B. 2 wird in EIGENE Positionen
+    // aufgeteilt (2 × quantity:1), damit der Kellner im Cockpit zwei
+    // getrennte "1× Döner Teller" sieht statt einer "2× Döner Teller".
+    const items: { product_id: number; quantity: number }[] = [];
+    for (const [productId, quantity] of newOrderItems) {
+      for (let i = 0; i < quantity; i++) items.push({ product_id: productId, quantity: 1 });
+    }
     addManualOrder(tableLabel, items);
     setNewOrderOpen(false);
     setNewOrderItems(new Map());
@@ -704,7 +703,8 @@ export default function SitzplanTab(props: SitzplanTabProps) {
       const comboId = it.combo_id ?? "";
       const comboInst = it.combo_instance_id ?? "";
       const itemStatus = it.item_status || "pending";
-      keys.push(`${owner.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`);
+      // Eindeutig pro Zeile (it.id): identische Produkte werden getrennt umgebucht
+      keys.push(`${owner.id}_${it.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`);
       void qty;
     }
     return keys;
@@ -720,7 +720,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
       const comboId = it.combo_id ?? "";
       const comboInst = it.combo_instance_id ?? "";
       const itemStatus = it.item_status || "pending";
-      map[`${owner.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`] = qty;
+      map[`${owner.id}_${it.id}_${it.product_id}_${noteSlug}_${itemStatus}_${comboId}_${comboInst}`] = qty;
     }
     return map;
   };
@@ -1091,6 +1091,9 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                   <span className="block truncate text-xs text-zinc-500">[Kombi: {g.comboName}]</span>
                                 ) : null}
                               </div>
+                              <span className="shrink-0 text-sm font-black text-emerald-400">
+                                {formatEur(g.price * g.qty)}
+                              </span>
                               <button
                                 onClick={() => servePendingGroup(g)}
                                 title={`${g.qty}x ${g.name} servieren`}
@@ -1240,6 +1243,11 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                       </span>
                                     ) : null}
                                   </div>
+
+                                  {/* Preis der Position (inkl. Kombi-Logik) */}
+                                  <span className="shrink-0 text-sm font-black text-emerald-400">
+                                    {formatEur(it.price * it.quantity)}
+                                  </span>
 
                                   {/* Status / Actions */}
                                   <div className="flex shrink-0 items-center gap-2">

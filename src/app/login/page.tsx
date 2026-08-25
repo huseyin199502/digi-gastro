@@ -4,7 +4,12 @@ import LoginForm from "./login-form";
 
 export const metadata: Metadata = { title: "Login" };
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const sp = await searchParams;
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-md">
@@ -15,7 +20,7 @@ export default function LoginPage() {
           <p className="mt-2 text-zinc-400">Restaurant-Administration</p>
         </div>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8">
-          <LoginForm />
+          <LoginForm initialError={sp.error} />
         </div>
       </div>
     </main>

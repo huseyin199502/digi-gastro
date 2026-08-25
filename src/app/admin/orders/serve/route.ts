@@ -8,7 +8,6 @@ import {
 import {
   findOrderItem,
   loadOrder,
-  mergeDuplicateOrderItems,
   MutableOrder,
   MutableOrderItem,
   persistOrder,
@@ -157,7 +156,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (updated) {
-      mergeDuplicateOrderItems(order);
+      // Kein mergeDuplicateOrderItems: Jede bestellte Position bleibt eine
+      // EIGENE order_item-Zeile (zwei Colas = zwei Zeilen), damit der Kellner
+      // jede einzeln servieren/stornieren kann. Die delivered-Twin-Logik in
+      // deliverWholeItem bzw. dem Single-Unit-Pfad erledigt das saubere
+      // Verschieben ohne Zusammenführen.
       updateOrderStatusByItems(order);
       await appendAuditLog(
         slug,

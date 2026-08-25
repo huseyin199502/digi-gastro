@@ -146,6 +146,16 @@ function formatEur(value: number): string {
   return value.toFixed(2).replace(".", ",") + " €";
 }
 
+/** Exakte Cent-Aufteilung einer Summe auf n Positionen (Summe bleibt erhalten). */
+function splitCents(totalCents: number, n: number): number[] {
+  if (n <= 0) return [];
+  const base = Math.floor(totalCents / n);
+  const rem = totalCents - base * n;
+  const arr = new Array(n).fill(base);
+  for (let i = 0; i < rem; i++) arr[i] += 1;
+  return arr;
+}
+
 // Klang-Feedback beim Absenden einer Bestellung ("Jetzt bestellen").
 // Web + PWA: Der Service Worker cached die Datei cache-first.
 const orderSentAudio =
@@ -577,39 +587,23 @@ export function MenuClient({
         : product.display_price;
     const extraTotal = selectedExtras.reduce((s, e) => s + e.price, 0);
     const finalPrice = effective + extraTotal + (variant?.price ?? 0);
-    const extrasKey = JSON.stringify(selectedExtras.map((e) => e.name).sort());
-    const variantKey = variant ? variant.name : "";
-    setCart((prev) => {
-      const existing = prev.find(
-        (i) =>
-          i.product_id === product.id &&
-          i.note === note &&
-          i.price === finalPrice &&
-          (i.variant?.name ?? "") === variantKey &&
-          JSON.stringify(i.extras.map((e) => e.name).sort()) === extrasKey
-      );
-      if (existing) {
-        return prev.map((i) =>
-          i.cart_id === existing.cart_id
-            ? { ...i, quantity: i.quantity + quantity }
-            : i
-        );
-      }
-      return [
-        ...prev,
-        {
-          cart_id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          product_id: product.id,
-          name: lang === "en" && product.name_en ? product.name_en : product.name,
-          price: finalPrice,
-          quantity,
-          note,
-          category_type: product.category_type ?? "küche",
-          extras: selectedExtras,
-          variant,
-        },
-      ];
-    });
+    // Jede Bestell-Aktion = EIGENE Position (kein Zusammenführen gleicher
+    // Produkte). Der Kellner sieht dann jede einzelne Cola separat im Cockpit
+    // und kann sie unabhängig servieren/stornieren.
+    setCart((prev) => [
+      ...prev,
+      {
+        cart_id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        product_id: product.id,
+        name: lang === "en" && product.name_en ? product.name_en : product.name,
+        price: finalPrice,
+        quantity,
+        note,
+        category_type: product.category_type ?? "küche",
+        extras: selectedExtras,
+        variant,
+      },
+    ]);
 
     // Haptisches Feedback
     try { navigator.vibrate?.(10); } catch { /* ignore */ }
@@ -1191,6 +1185,14 @@ export function MenuClient({
         <EventBanner key={ev.id} ev={ev} />
       ))}
 
+      {/* Ad banners — menu_mid placement */}
+      {menu.ads
+        .filter((a) => a.placement === "menu_mid")
+        .slice(0, 2)
+        .map((ad) => (
+          <AdBanner key={ad.id} ad={ad} className="mx-4 my-3" />
+        ))}
+
       {/* Main canvas */}
       <main className="relative z-10 mx-auto w-full max-w-4xl px-4">
         {/* ── LANDING VIEW ── */}
@@ -1685,16 +1687,23 @@ export function MenuClient({
                       return;
                     }
 
-                    // Add each product with combo price distributed and combo note
-                    for (const p of comboProducts) {
+                    // Add each product with combo price distributed and combo note.
+                    // Exakte Aufteilung (splitCents), damit die Warenkorb-Summe
+                    // exakt dem Kombipreis entspricht — identisch zur Server-
+                    // Aufteilung in createOrder (keine Rundungsabweichung).
+                    const comboPrices = splitCents(
+                      Math.round(comboModalData.combo_price * 100),
+                      comboProducts.length
+                    );
+                    comboProducts.forEach((p, i) => {
                       const comboProduct: MenuProduct = {
                         ...p,
-                        display_price: comboModalData.combo_price / comboProducts.length,
+                        display_price: comboPrices[i] / 100,
                         happy_hour_active: false,
                         happy_hour_display_price: null,
                       };
                       addToCart(comboProduct, 1, comboNote);
-                    }
+                    });
 
                     setComboModalOpen(false);
                     setComboStep(0);
@@ -1908,6 +1917,7 @@ export function MenuClient({
         onSubmit={submitOrder}
         upsell={upsellItems}
         onUpsell={(p) => quickAddToCart(p)}
+        ads={menu.ads.filter((a) => a.placement === "cart").slice(0, 1)}
       />
 
       {/* ── Service modal ── */}
@@ -1963,6 +1973,7 @@ export function MenuClient({
         tr={tr}
         open={thankYouOpen}
         onClose={() => setThankYouOpen(false)}
+        ads={menu.ads.filter((a) => a.placement === "thankyou").slice(0, 1)}
       />
 
       {/* ── Cookie banner ── */}
@@ -2018,6 +2029,83 @@ function useLang(): Lang {
 function setLang(lang: Lang) {
   window.localStorage.setItem("dg-lang", lang);
   window.location.reload();
+}
+
+function AdBanner({
+  ad,
+  className,
+}: {
+  ad: { id: number; company_name: string; title: string; subtitle: string | null; image_url: string | null; target_url: string | null; placement: string };
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const trackedRef = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !trackedRef.current) {
+          trackedRef.current = true;
+          fetch("/api/ads/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: ad.id, event: "impression" }),
+          }).catch(() => {});
+        }
+      },
+      { threshold: 0.5 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [ad.id]);
+
+  const handleClick = () => {
+    fetch("/api/ads/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: ad.id, event: "click" }),
+    }).catch(() => {});
+    if (ad.target_url) window.open(ad.target_url, "_blank", "noopener");
+  };
+
+  return (
+    <div
+      ref={ref}
+      onClick={handleClick}
+      className={`relative z-30 mx-auto max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-xl shadow-lg transition-all hover:shadow-xl ${
+        ad.target_url ? "cursor-pointer" : ""
+      } ${className ?? ""}`}
+    >
+      <div className="flex items-center gap-4 p-4">
+        {ad.image_url ? (
+          <img
+            src={ad.image_url}
+            alt={ad.company_name}
+            className="h-16 w-16 shrink-0 rounded-xl object-cover sm:h-20 sm:w-20"
+          />
+        ) : (
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl text-white/40 sm:h-20 sm:w-20">
+            <span className="material-symbols-outlined text-3xl">ads_click</span>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
+            {ad.company_name}
+          </div>
+          <div className="text-sm font-bold text-white sm:text-base">{ad.title}</div>
+          {ad.subtitle ? (
+            <div className="mt-0.5 text-xs text-white/60 line-clamp-1">{ad.subtitle}</div>
+          ) : null}
+        </div>
+        {ad.target_url ? (
+          <span className="material-symbols-outlined text-lg text-white/30">open_in_new</span>
+        ) : null}
+      </div>
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-600/10 to-blue-600/10" />
+    </div>
+  );
 }
 
 function EventBanner({ ev }: { ev: ActiveEventInfo }) {
@@ -2169,6 +2257,14 @@ function LandingView({
             </button>
           ) : null}
         </div>
+
+        {/* Ad banner — landing placement */}
+        {menu.ads
+          .filter((a) => a.placement === "landing")
+          .slice(0, 1)
+          .map((ad) => (
+            <AdBanner key={ad.id} ad={ad} className="mt-6" />
+          ))}
 
         {/* Social Links - unter Stempelkarte, größer */}
         {t.instagram || t.facebook || t.tiktok ? (
@@ -2598,6 +2694,7 @@ function CartModal({
   onSubmit,
   upsell,
   onUpsell,
+  ads,
 }: {
   tr: (typeof T)[Lang];
   open: boolean;
@@ -2613,6 +2710,7 @@ function CartModal({
   onSubmit: () => void;
   upsell: MenuProduct[];
   onUpsell: (p: MenuProduct) => void;
+  ads?: { id: number; company_name: string; title: string; subtitle: string | null; image_url: string | null; target_url: string | null; placement: string }[];
 }) {
   const [upsellCollapsed, setUpsellCollapsed] = useState(false);
   if (!open) return null;
@@ -2710,6 +2808,10 @@ function CartModal({
               })}
             </div>
           )}
+          {/* Ad banner — cart placement */}
+          {ads?.map((ad) => (
+            <AdBanner key={ad.id} ad={ad} className="mt-3" />
+          ))}
         </div>
 
         {/* Upsell – nicht scrollbar, bleibt sichtbar */}
@@ -3128,10 +3230,12 @@ function ThankYouModal({
   tr,
   open,
   onClose,
+  ads,
 }: {
   tr: (typeof T)[Lang];
   open: boolean;
   onClose: () => void;
+  ads?: { id: number; company_name: string; title: string; subtitle: string | null; image_url: string | null; target_url: string | null; placement: string }[];
 }) {
   if (!open) return null;
   return (
@@ -3151,6 +3255,9 @@ function ThankYouModal({
         <p className="mb-6 text-sm font-medium leading-relaxed text-gray-500">
           {tr.thank_you_desc}
         </p>
+        {ads?.map((ad) => (
+          <AdBanner key={ad.id} ad={ad} className="mb-4" />
+        ))}
         <button
           onClick={onClose}
           className="w-full rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-all hover:bg-emerald-700 active:scale-[0.98]"

@@ -110,6 +110,24 @@ services:
         ALTER TABLE products    ADD COLUMN IF NOT EXISTS extras   text DEFAULT '[]';
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS extras   varchar;
         ALTER TABLE event_combo_items ADD COLUMN IF NOT EXISTS excluded_product_ids varchar DEFAULT '[]';
+        CREATE TABLE IF NOT EXISTS ad_banners (
+          id              SERIAL PRIMARY KEY,
+          tenant_slug     VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+          company_name    VARCHAR NOT NULL,
+          title           VARCHAR NOT NULL,
+          subtitle        VARCHAR,
+          image_url       TEXT,
+          target_url      TEXT,
+          placement       VARCHAR NOT NULL DEFAULT 'menu_mid',
+          status          VARCHAR NOT NULL DEFAULT 'active',
+          start_at        TIMESTAMPTZ,
+          end_at          TIMESTAMPTZ,
+          priority        INT NOT NULL DEFAULT 0,
+          impressions     INT NOT NULL DEFAULT 0,
+          clicks          INT NOT NULL DEFAULT 0,
+          created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_adbanner_tenant_status ON ad_banners(tenant_slug, status, priority);
         SQL
         echo "[migrate] DB-Delta OK"
 
