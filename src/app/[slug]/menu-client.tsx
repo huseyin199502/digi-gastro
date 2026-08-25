@@ -1188,7 +1188,6 @@ export function MenuClient({
       {/* Ad banners — menu_mid placement */}
       {menu.ads
         .filter((a) => a.placement === "menu_mid")
-        .slice(0, 2)
         .map((ad) => (
           <AdBanner key={ad.id} ad={ad} className="mx-4 my-3" />
         ))}
@@ -1917,7 +1916,7 @@ export function MenuClient({
         onSubmit={submitOrder}
         upsell={upsellItems}
         onUpsell={(p) => quickAddToCart(p)}
-        ads={menu.ads.filter((a) => a.placement === "cart").slice(0, 1)}
+        ads={menu.ads.filter((a) => a.placement === "cart")}
       />
 
       {/* ── Service modal ── */}
@@ -1973,7 +1972,7 @@ export function MenuClient({
         tr={tr}
         open={thankYouOpen}
         onClose={() => setThankYouOpen(false)}
-        ads={menu.ads.filter((a) => a.placement === "thankyou").slice(0, 1)}
+        ads={menu.ads.filter((a) => a.placement === "thankyou")}
       />
 
       {/* ── Cookie banner ── */}
@@ -2261,7 +2260,6 @@ function LandingView({
         {/* Ad banner — landing placement */}
         {menu.ads
           .filter((a) => a.placement === "landing")
-          .slice(0, 1)
           .map((ad) => (
             <AdBanner key={ad.id} ad={ad} className="mt-6" />
           ))}

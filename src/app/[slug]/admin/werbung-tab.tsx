@@ -117,6 +117,37 @@ export default function WerbungTab() {
     }
   };
 
+  const duplicate = async (b: AdBanner) => {
+    setBusy(true);
+    try {
+      const res = await fetch("/admin/ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: b.company_name,
+          title: b.title,
+          subtitle: b.subtitle,
+          image_url: b.image_url,
+          target_url: b.target_url,
+          placement: b.placement,
+          priority: b.priority,
+          status: b.status,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        flash("ok", `"${b.company_name}" dupliziert.`);
+        await load();
+      } else {
+        flash("err", data.detail || "Fehler");
+      }
+    } catch {
+      flash("err", "Netzwerkfehler.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return <div className="py-12 text-center text-zinc-400">Lade Werbung…</div>;
   }
@@ -314,6 +345,13 @@ export default function WerbungTab() {
                     className={`${btnCls} border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs`}
                   >
                     Bearbeiten
+                  </button>
+                  <button
+                    onClick={() => void duplicate(b)}
+                    disabled={busy}
+                    className={`${btnCls} border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs`}
+                  >
+                    Duplizieren
                   </button>
                   <button
                     onClick={() => void del(b.id)}
