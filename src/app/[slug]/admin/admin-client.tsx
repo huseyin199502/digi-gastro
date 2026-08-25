@@ -1516,7 +1516,11 @@ function ProductsTab(props: ProductsTabProps) {
       const fd = new FormData();
       fd.append("csv_file", importFile);
       fd.append("overwrite", String(importOverwrite));
-      const res = await fetch("/admin/products/import-csv", { method: "POST", body: fd });
+      const res = await fetch("/admin/products/import-csv", {
+        method: "POST",
+        body: fd,
+        headers: { "x-requested-with": "fetch" },
+      });
       if (res.redirected || res.ok) {
         pushToast("CSV importiert");
         setShowImport(false);
@@ -3974,7 +3978,11 @@ function SettingsTab(props: SettingsTabProps) {
       const form = new FormData();
       form.set("file", file);
       form.set("field", field);
-      const res = await fetch("/admin/upload-logo", { method: "POST", body: form });
+      const res = await fetch("/admin/upload-logo", {
+        method: "POST",
+        body: form,
+        headers: { "x-requested-with": "fetch" },
+      });
       if (res.ok) {
         pushToast(`${field === "logo" ? "Logo" : "Logo 2"} hochgeladen`);
         router.refresh();
@@ -3994,7 +4002,10 @@ function SettingsTab(props: SettingsTabProps) {
     try {
       const res = await fetch("/admin/branding/delete-logo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-requested-with": "fetch",
+        },
         body: JSON.stringify({ logo_field: field }),
       });
       if (res.ok) {
@@ -4020,7 +4031,11 @@ function SettingsTab(props: SettingsTabProps) {
       form.set("instagram", instagram);
       form.set("facebook", facebook);
       form.set("tiktok", tiktok);
-      const res = await fetch("/admin/branding", { method: "POST", body: form });
+      const res = await fetch("/admin/branding", {
+        method: "POST",
+        body: form,
+        headers: { "x-requested-with": "fetch" },
+      });
       if (res.ok) {
         pushToast("Branding gespeichert");
       } else {

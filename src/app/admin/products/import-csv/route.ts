@@ -224,6 +224,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Legacy: manager.broadcast_global(slug, {"type": "update"}) → Etappe 7 (SSE)
+    if (
+      request.headers.get("accept")?.includes("application/json") ||
+      request.headers.get("x-requested-with") === "fetch"
+    ) {
+      return NextResponse.json({ success: true });
+    }
     return NextResponse.redirect(new URL("/admin/dashboard", request.url), 303);
   } catch (err) {
     return errorResponse(err);

@@ -274,11 +274,11 @@ export default function LandingpageTab({ pushToast }: { pushToast: (m: string, k
       const res = await fetch("/admin/landingpage", {
         method: "POST",
         body: fd,
-        redirect: "manual",
+        headers: { "x-requested-with": "fetch" },
       });
-      if (res.status !== 303 && !res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        pushToast(j.error || "Speichern fehlgeschlagen", "error");
+      const body = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+      if (!res.ok || body.success === false) {
+        pushToast(body.error || "Speichern fehlgeschlagen", "error");
         return;
       }
       pushToast("Landingpage gespeichert");

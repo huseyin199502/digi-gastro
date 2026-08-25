@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
     const parts = file.name.split(".");
     if (parts.length > 1) ext = parts[parts.length - 1].toLowerCase();
 
-    const filename = `${slug}-logo.${ext}`;
+    const field = String(form.get("field") ?? "logo");
+    const isLogo2 = field === "logo2";
+    const tag = isLogo2 ? "logo2" : "logo";
+    const filename = `${slug}-${tag}.${ext}`;
     const dir = uploadsDir("logos");
     fs.mkdirSync(dir, { recursive: true });
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -41,7 +44,9 @@ export async function POST(request: NextRequest) {
     const logoRelativePath = `/uploads/logos/${filename}`;
     await prisma.tenant.update({
       where: { slug },
-      data: { logo_path: logoRelativePath, logo_url: logoRelativePath },
+      data: isLogo2
+        ? { logo_url_2: logoRelativePath }
+        : { logo_path: logoRelativePath, logo_url: logoRelativePath },
     });
 
     return NextResponse.json({ success: true, logo_url: logoRelativePath });

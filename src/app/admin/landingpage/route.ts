@@ -351,6 +351,12 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       throw new ApiError(`Fehler beim Speichern: ${e}`, 500);
     }
+    if (
+      request.headers.get("accept")?.includes("application/json") ||
+      request.headers.get("x-requested-with") === "fetch"
+    ) {
+      return NextResponse.json({ success: true });
+    }
     return NextResponse.redirect(new URL("/admin/dashboard?tab=config", request.url), 303);
   } catch (err) {
     return errorResponse(err);
