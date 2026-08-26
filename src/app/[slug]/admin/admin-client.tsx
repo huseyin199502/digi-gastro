@@ -74,6 +74,7 @@ export interface TenantSettings {
   pos_api_url: string;
   pos_active: boolean | null;
   show_revenue: boolean | null;
+  is_shishabar: boolean;
 }
 
 export interface AdminInitial {
@@ -4016,6 +4017,7 @@ function SettingsTab(props: SettingsTabProps) {
   const [tableNum, setTableNum] = useState("1");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoFile2, setLogoFile2] = useState<File | null>(null);
+  const [isShishabar, setIsShishabar] = useState(s.is_shishabar);
 
   const uploadLogo = async (file: File, field: "logo" | "logo2") => {
     setBusy(true);
@@ -4085,6 +4087,31 @@ function SettingsTab(props: SettingsTabProps) {
         pushToast("Branding gespeichert");
       } else {
         pushToast("Fehler beim Speichern", "error");
+      }
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleShishabar = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/admin/shishabar-toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-requested-with": "fetch" },
+        body: JSON.stringify({ is_shishabar: !isShishabar }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; is_shishabar?: boolean };
+      if (res.ok && data.success) {
+        setIsShishabar(Boolean(data.is_shishabar));
+        pushToast(
+          data.is_shishabar ? "Shishabar-Modus aktiviert" : "Shishabar-Modus deaktiviert"
+        );
+        router.refresh();
+      } else {
+        pushToast("Fehler beim Umschalten", "error");
       }
     } catch {
       pushToast("Verbindungsfehler", "error");
@@ -4315,6 +4342,35 @@ function SettingsTab(props: SettingsTabProps) {
             {c.action}
           </div>
         ))}
+
+        {/* Shishabar-Modus Toggle */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-bold">Shishabar-Modus</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Aktiviert die „Shisha&quot;-Kategorie für Shisha-Bars.
+              </p>
+            </div>
+            <button
+              onClick={() => void toggleShishabar()}
+              disabled={busy}
+              className={`relative h-7 w-14 shrink-0 rounded-full transition-colors ${
+                isShishabar ? "bg-emerald-600" : "bg-zinc-700"
+              } disabled:opacity-40`}
+              aria-pressed={isShishabar}
+            >
+              <span
+                className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+                  isShishabar ? "left-[calc(100%-1.625rem)]" : "left-0.5"
+                }`}
+              />
+            </button>
+          </div>
+          <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs ${isShishabar ? "bg-emerald-500/15 text-emerald-300" : "bg-zinc-800 text-zinc-400"}`}>
+            {isShishabar ? "Aktiv" : "Inaktiv"}
+          </span>
+        </div>
       </div>
 
       <p className="text-xs text-zinc-600">

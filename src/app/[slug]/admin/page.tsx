@@ -140,6 +140,7 @@ export default async function TenantAdminPage({ params }: Props) {
     pos_api_url: tenant.pos_api_url ?? "",
     pos_active: tenant.pos_active ?? null,
     show_revenue: tenant.show_revenue ?? null,
+    is_shishabar: tenant.is_shishabar === true,
   };
 
   const initial: AdminInitial = {

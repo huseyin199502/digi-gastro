@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
   // does not exist at runtime (Helvetica.afm ENOENT). Externalize it so the
   // real module directory is used.
   serverExternalPackages: ["pdfkit"],
+  // Uploads (Logos, Produktbilder, Videos) robust über die API-Route
+  // ausliefern — funktioniert auch für neu angelegte Dateien/Unterordner
+  // im Standalone-Build (kein statisches Caching von public/).
+  async rewrites() {
+    return [
+      { source: "/uploads/:path*", destination: "/api/uploads/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;
