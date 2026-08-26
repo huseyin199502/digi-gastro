@@ -1793,6 +1793,36 @@ function ProductsTab(props: ProductsTabProps) {
     }
   };
 
+  const uploadProductImage = async (file: File) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("image_file", file);
+      const res = await fetch("/admin/products/upload-image", {
+        method: "POST",
+        body: fd,
+        headers: { "x-requested-with": "fetch" },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        image_url?: string;
+        detail?: string;
+        error?: string;
+      };
+      if (res.ok && data.success && data.image_url) {
+        setEditImage(data.image_url);
+        pushToast("Bild hochgeladen");
+      } else {
+        pushToast(data.detail || data.error || "Upload fehlgeschlagen", "error");
+      }
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4 overflow-x-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2175,6 +2205,21 @@ function ProductsTab(props: ProductsTabProps) {
                   <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
                   KI Bild generieren
                 </button>
+                <label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 disabled:opacity-40">
+                  <span className="material-symbols-outlined text-[12px]">upload_file</span>
+                  Bild hochladen
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadProductImage(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
                 {editImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
