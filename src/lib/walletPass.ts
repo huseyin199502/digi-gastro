@@ -728,40 +728,11 @@ export function generateGoogleObjectPayload(
     },
     barcode: {
       type: "QR_CODE",
-      value: shortCode || serial,
+      value: shortCode || serialShort,
       alternateText: shortCode ? `Code: ${shortCode}` : "",
     },
     accountName: `${tenantName} Stempelkarte`,
-    accountId: serial.slice(0, 16),
-    infoModuleData: {
-      showLastUpdateTime: true,
-      labelValueRows: [
-        { label: "Reward", value: card.reward_name || "Belohnung" },
-        { label: "Restaurant", value: tenantName },
-        { label: "Stempel-Code", value: shortCode || "—" },
-      ],
-    },
-    textModulesData: [
-      {
-        id: "info",
-        header: "So funktioniert's",
-        body: `Bei jeder Bestellung erhältst du automatisch einen Stempel. Nach ${card.stamps_required ?? 10} Stempeln: ${card.reward_name || "Belohnung"}!`,
-      },
-    ],
-    linksModuleData: {
-      uris: [
-        {
-          uri: `${appBaseUrl()}/${tenantSlug}`,
-          description: "Speisekarte öffnen",
-        },
-      ],
-    },
   };
-  if (geofence) {
-    payload.locations = [
-      { latitude: geofence.latitude, longitude: geofence.longitude },
-    ];
-  }
   return payload;
 }
 
@@ -779,26 +750,15 @@ export function generateGoogleClassPayload(
     hexBackgroundColor: hexBg,
     rewardsTier: card.reward_name || "Belohnung",
     rewardsTierLabel: "Stempel",
-    multipleDevicesAndHoldersAllowedStatus: "STATUS_MULTIPLE_HOLDERS",
-    reviewStatus: "UNDER_REVIEW",
-    countryCode: "DE",
-    localizedIssuerName: {
-      defaultValue: { language: "de", value: tenantName || "digi-gastro" },
-    },
-    callbackOptions: {
-      updateUrl: `${appBaseUrl()}/api/wallet/google/callback`,
-      // base64 JSON {version:1,registrationType:SAFE}
-      urlContext: "eyJ2ZXJzaW9uIjogMSwgInJlZ2lzdHJhdGlvblR5cGUiOiAiU0FGRSJ9",
-    },
+    // Optionaler Logo-Verweis (klein genug, um im JWT-Limit zu bleiben)
+    ...(logoUrl
+      ? {
+          programLogo: {
+            sourceUri: { uri: logoUrl },
+          },
+        }
+      : {}),
   };
-  if (logoUrl) {
-    classPayload.programLogo = {
-      sourceUri: { uri: logoUrl },
-      contentDescription: {
-        defaultValue: { language: "de", value: `${tenantName} Logo` },
-      },
-    };
-  }
   return classPayload;
 }
 
