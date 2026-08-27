@@ -746,23 +746,19 @@ export default function SitzplanTab(props: SitzplanTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {showRevenue ? (
+      {/* Stat cards — komplett ausblenden, wenn Umsatz-Anzeige deaktiviert */}
+      {showRevenue ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Umsatz heute" value={formatEur(stats?.brutto)} />
-        ) : null}
-        <StatCard label="Bestellungen heute" value={String(stats?.orders_count ?? 0)} />
-        {showRevenue ? (
+          <StatCard label="Bestellungen heute" value={String(stats?.orders_count ?? 0)} />
           <StatCard label="Trinkgeld" value={formatEur(stats?.tip)} />
-        ) : null}
-        {showRevenue ? (
           <StatCard label="Ø Bon" value={formatEur(stats?.avg_basket)} />
-        ) : null}
-        <StatCard
-          label="Server"
-          value={live ? (live.server_time || "").slice(0, 16) : "—"}
-        />
-      </div>
+          <StatCard
+            label="Server"
+            value={live ? (live.server_time || "").slice(0, 16) : "—"}
+          />
+        </div>
+      ) : null}
 
       {/* Zone filter */}
       <div className="flex flex-wrap items-center gap-2">

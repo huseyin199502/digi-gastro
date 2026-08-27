@@ -2038,12 +2038,15 @@ function setLang(lang: Lang) {
 function AdBanner({
   ad,
   className,
+  variant = "dark",
 }: {
   ad: { id: number; company_name: string; title: string; subtitle: string | null; image_url: string | null; target_url: string | null; placement: string };
   className?: string;
+  variant?: "dark" | "light";
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const trackedRef = useRef(false);
+  const light = variant === "light";
 
   useEffect(() => {
     const el = ref.current;
@@ -2078,12 +2081,20 @@ function AdBanner({
     <div
       ref={ref}
       onClick={handleClick}
-      className={`relative z-30 mx-auto max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-xl shadow-lg transition-all hover:shadow-xl ${
-        ad.target_url ? "cursor-pointer" : ""
-      } ${className ?? ""}`}
+      className={`relative z-30 mx-auto max-w-4xl overflow-hidden rounded-2xl border shadow-lg transition-all hover:shadow-xl ${
+        light
+          ? "border-zinc-200 bg-white"
+          : "border-white/10 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-xl"
+      } ${ad.target_url ? "cursor-pointer" : ""} ${className ?? ""}`}
     >
       <div className="flex items-center gap-2 px-3 pt-2">
-        <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+            light
+              ? "border-zinc-200 bg-zinc-100 text-zinc-500"
+              : "border-white/20 bg-black/40 text-white/70"
+          }`}
+        >
           <span className="material-symbols-outlined text-[10px]">campaign</span>
           Werbung
         </span>
@@ -2096,21 +2107,47 @@ function AdBanner({
             className="h-16 w-16 shrink-0 rounded-xl object-cover sm:h-20 sm:w-20"
           />
         ) : (
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl text-white/40 sm:h-20 sm:w-20">
+          <div
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl sm:h-20 sm:w-20 ${
+              light ? "bg-zinc-100 text-zinc-400" : "bg-white/10 text-white/40"
+            }`}
+          >
             <span className="material-symbols-outlined text-3xl">ads_click</span>
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/80">
+          <div
+            className={`text-[10px] font-bold uppercase tracking-widest ${
+              light ? "text-emerald-600" : "text-emerald-400/80"
+            }`}
+          >
             {ad.company_name}
           </div>
-          <div className="text-sm font-bold text-white sm:text-base">{ad.title}</div>
+          <div
+            className={`text-sm font-bold sm:text-base ${
+              light ? "text-zinc-900" : "text-white"
+            }`}
+          >
+            {ad.title}
+          </div>
           {ad.subtitle ? (
-            <div className="mt-0.5 text-xs text-white/60 line-clamp-1">{ad.subtitle}</div>
+            <div
+              className={`mt-0.5 text-xs line-clamp-1 ${
+                light ? "text-zinc-500" : "text-white/60"
+              }`}
+            >
+              {ad.subtitle}
+            </div>
           ) : null}
         </div>
         {ad.target_url ? (
-          <span className="material-symbols-outlined text-lg text-white/30">open_in_new</span>
+          <span
+            className={`material-symbols-outlined text-lg ${
+              light ? "text-zinc-400" : "text-white/30"
+            }`}
+          >
+            open_in_new
+          </span>
         ) : null}
       </div>
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-600/10 to-blue-600/10" />
@@ -2819,7 +2856,7 @@ function CartModal({
           )}
           {/* Ad banner — cart placement */}
           {ads?.map((ad) => (
-            <AdBanner key={ad.id} ad={ad} className="mt-3" />
+            <AdBanner key={ad.id} ad={ad} className="mt-3" variant="light" />
           ))}
         </div>
 
@@ -3265,7 +3302,7 @@ function ThankYouModal({
           {tr.thank_you_desc}
         </p>
         {ads?.map((ad) => (
-          <AdBanner key={ad.id} ad={ad} className="mb-4" />
+          <AdBanner key={ad.id} ad={ad} className="mb-4" variant="light" />
         ))}
         <button
           onClick={onClose}

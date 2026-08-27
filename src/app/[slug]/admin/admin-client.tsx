@@ -70,8 +70,12 @@ export interface TenantSettings {
   theme: string;
   logo_url: string;
   logo_url_2: string;
+  accepts_card_payment: boolean;
   pos_system: string;
   pos_api_url: string;
+  pos_api_key: string;
+  pos_api_secret: string;
+  pos_location_id: string;
   pos_active: boolean | null;
   show_revenue: boolean | null;
   is_shishabar: boolean;
@@ -1471,21 +1475,24 @@ function ProductsTab(props: ProductsTabProps) {
     return list;
   }, [initial.products, searchQuery]);
 
-  const moveProduct = async (sortedIdx: number, dir: -1 | 1) => {
-    const newIdx = sortedIdx + dir;
-    if (newIdx < 0 || newIdx >= sorted.length) return;
-    // Nur innerhalb derselben Kategorie sortieren (↑/↓ eines Produkts darf
-    // nicht die Kategorie wechseln). Kein Tausch, wenn Nachbar anderer Kategorie.
-    const cur = sorted[sortedIdx];
-    const neighbor = sorted[newIdx];
-    if (!cur || !neighbor || neighbor.category !== cur.category) return;
-    const ordered = [...sorted];
-    ordered[sortedIdx] = neighbor;
-    ordered[newIdx] = cur;
+  const moveProduct = async (cat: string, catIdx: number, dir: -1 | 1) => {
+    const group = groupedByCategory.find(([c]) => c === cat)?.[1];
+    if (!group) return;
+    const newIdx = catIdx + dir;
+    if (newIdx < 0 || newIdx >= group.length) return;
+    const catOrdered = [...group];
+    const [moved] = catOrdered.splice(catIdx, 1);
+    catOrdered.splice(newIdx, 0, moved);
+    // Globale Reihenfolge aus den Kategorien-Gruppen neu aufbauen
+    const orderedIds: number[] = [];
+    for (const [c, g] of groupedByCategory) {
+      const src = c === cat ? catOrdered : g;
+      for (const p of src) orderedIds.push(p.id);
+    }
     const res = await fetch("/admin/products/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_ids: ordered.map((p) => p.id) }),
+      body: JSON.stringify({ product_ids: orderedIds }),
     });
     if (res.ok) {
       router.refresh();
@@ -1949,13 +1956,9 @@ function ProductsTab(props: ProductsTabProps) {
                 {cat} ({products.length})
               </h3>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {products.map((p) => {
-                  const gi = sorted.indexOf(p);
-                  const canUp =
-                    gi > 0 && sorted[gi - 1].category === p.category;
-                  const canDown =
-                    gi < sorted.length - 1 &&
-                    sorted[gi + 1].category === p.category;
+                {products.map((p, catIdx) => {
+                  const canUp = catIdx > 0;
+                  const canDown = catIdx < products.length - 1;
                   return (
                     <div
                       key={p.id}
@@ -1975,7 +1978,7 @@ function ProductsTab(props: ProductsTabProps) {
                       </div>
                       <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
                         <button
-                          onClick={() => moveProduct(gi, -1)}
+                          onClick={() => moveProduct(cat, catIdx, -1)}
                           disabled={!canUp}
                           className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 disabled:opacity-30"
                           title="Innerhalb der Kategorie nach oben"
@@ -1983,7 +1986,7 @@ function ProductsTab(props: ProductsTabProps) {
                           ↑
                         </button>
                         <button
-                          onClick={() => moveProduct(gi, 1)}
+                          onClick={() => moveProduct(cat, catIdx, 1)}
                           disabled={!canDown}
                           className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 disabled:opacity-30"
                           title="Innerhalb der Kategorie nach unten"
@@ -2062,7 +2065,13 @@ function ProductsTab(props: ProductsTabProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {sorted.map((p) => (
+              {sorted.map((p) => {
+                const cat = p.category || "Ohne Kategorie";
+                const catList = groupedByCategory.find(([c]) => c === cat)?.[1] ?? [];
+                const catIdx = catList.findIndex((x) => x.id === p.id);
+                const canUp = catIdx > 0;
+                const canDown = catIdx < catList.length - 1;
+                return (
                 <tr key={p.id} className="bg-zinc-950/50">
                   <td className="px-4 py-3 font-medium">{p.name}</td>
                   <td className="px-4 py-3 text-zinc-400">{p.category}</td>
@@ -2081,16 +2090,16 @@ function ProductsTab(props: ProductsTabProps) {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1.5">
                       <button
-                        onClick={() => moveProduct(sorted.indexOf(p), -1)}
-                        disabled={sorted.indexOf(p) === 0}
+                        onClick={() => moveProduct(cat, catIdx, -1)}
+                        disabled={!canUp}
                         className="rounded bg-zinc-800 px-1.5 py-1 text-xs font-bold hover:bg-zinc-700 disabled:opacity-30"
                         title="Nach oben"
                       >
                         ↑
                       </button>
                       <button
-                        onClick={() => moveProduct(sorted.indexOf(p), 1)}
-                        disabled={sorted.indexOf(p) === sorted.length - 1}
+                        onClick={() => moveProduct(cat, catIdx, 1)}
+                        disabled={!canDown}
                         className="rounded bg-zinc-800 px-1.5 py-1 text-xs font-bold hover:bg-zinc-700 disabled:opacity-30"
                         title="Nach unten"
                       >
@@ -2117,7 +2126,8 @@ function ProductsTab(props: ProductsTabProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>
@@ -4075,6 +4085,13 @@ function SettingsTab(props: SettingsTabProps) {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoFile2, setLogoFile2] = useState<File | null>(null);
   const [isShishabar, setIsShishabar] = useState(s.is_shishabar);
+  const [acceptsCard, setAcceptsCard] = useState(s.accepts_card_payment);
+  const [posSystem, setPosSystem] = useState(s.pos_system);
+  const [posApiUrl, setPosApiUrl] = useState(s.pos_api_url);
+  const [posApiKey, setPosApiKey] = useState(s.pos_api_key);
+  const [posApiSecret, setPosApiSecret] = useState(s.pos_api_secret);
+  const [posLocationId, setPosLocationId] = useState(s.pos_location_id);
+  const [posActive, setPosActive] = useState(s.pos_active === true);
 
   const uploadLogo = async (file: File, field: "logo" | "logo2") => {
     setBusy(true);
@@ -4177,16 +4194,58 @@ function SettingsTab(props: SettingsTabProps) {
     }
   };
 
-  const rotateToken = async () => {
-    if (!window.confirm("POS-Security-Token wirklich rotieren? Vorhandene POS-Geräte werden entkoppelt.")) return;
-    const res = await fetch("/admin/token-rotieren", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    if (res.ok) {
-      pushToast("Token rotiert");
-    } else {
-      pushToast("Fehler", "error");
+  const toggleCardPayment = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/admin/card-payment-toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-requested-with": "fetch" },
+        body: JSON.stringify({ accepts_card_payment: !acceptsCard }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; accepts_card_payment?: boolean };
+      if (res.ok && data.success) {
+        setAcceptsCard(Boolean(data.accepts_card_payment));
+        pushToast(
+          data.accepts_card_payment
+            ? "Kartenzahlung aktiviert"
+            : "Kartenzahlung deaktiviert"
+        );
+        router.refresh();
+      } else {
+        pushToast("Fehler beim Umschalten", "error");
+      }
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const savePos = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/admin/pos-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-requested-with": "fetch" },
+        body: JSON.stringify({
+          pos_system: posSystem,
+          pos_api_url: posApiUrl,
+          pos_api_key: posApiKey,
+          pos_api_secret: posApiSecret,
+          pos_location_id: posLocationId,
+          pos_active: posActive,
+        }),
+      });
+      if (res.ok) {
+        pushToast("Kasse gespeichert");
+        router.refresh();
+      } else {
+        pushToast("Fehler beim Speichern", "error");
+      }
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -4215,18 +4274,6 @@ function SettingsTab(props: SettingsTabProps) {
         >
           QR-PDF öffnen
         </a>
-      ),
-    },
-    {
-      title: "POS-Token rotieren",
-      desc: "Neues Security-Token für POS-Geräte erzeugen.",
-      action: (
-        <button
-          onClick={() => void rotateToken()}
-          className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold hover:bg-zinc-700"
-        >
-          Rotieren
-        </button>
       ),
     },
     {
@@ -4430,9 +4477,111 @@ function SettingsTab(props: SettingsTabProps) {
         </div>
       </div>
 
-      <p className="text-xs text-zinc-600">
-        POS / Küchen-Konfiguration folgt in einem späteren Schritt.
-      </p>
+      {/* Kartenzahlung + Kasse */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <h3 className="mb-1 font-bold">Kasse &amp; Zahlung</h3>
+        <p className="mb-4 text-xs text-zinc-400">
+          Kartenzahlung im Gäste-Menü anbieten und POS-/Kassensystem verbinden.
+        </p>
+
+        {/* Kartenzahlung */}
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+          <div>
+            <p className="font-bold">Kartenzahlung</p>
+            <p className="mt-0.5 text-xs text-zinc-400">
+              Zeigt „Mit Karte zahlen&quot; als Zahlungsoption für Gäste.
+            </p>
+          </div>
+          <button
+            onClick={() => void toggleCardPayment()}
+            disabled={busy}
+            className={`relative h-7 w-14 shrink-0 rounded-full transition-colors ${
+              acceptsCard ? "bg-emerald-600" : "bg-zinc-700"
+            } disabled:opacity-40`}
+            aria-pressed={acceptsCard}
+          >
+            <span
+              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+                acceptsCard ? "left-[calc(100%-1.625rem)]" : "left-0.5"
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* POS / Kasse verbinden */}
+        <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-bold">Kasse verbinden (POS)</p>
+            <span className={`rounded-full px-2 py-0.5 text-xs ${posActive ? "bg-emerald-500/15 text-emerald-300" : "bg-zinc-800 text-zinc-400"}`}>
+              {posActive ? "Aktiv" : "Inaktiv"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">POS-System</label>
+              <select
+                value={posSystem}
+                onChange={(e) => setPosSystem(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+              >
+                <option value="none">Kein System</option>
+                <option value="other">Anderes / Eigenes</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">API-URL</label>
+              <input
+                value={posApiUrl}
+                onChange={(e) => setPosApiUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">API-Key</label>
+              <input
+                value={posApiKey}
+                onChange={(e) => setPosApiKey(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">API-Secret</label>
+              <input
+                value={posApiSecret}
+                onChange={(e) => setPosApiSecret(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">Location-ID</label>
+              <input
+                value={posLocationId}
+                onChange={(e) => setPosLocationId(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={posActive}
+                  onChange={(e) => setPosActive(e.target.checked)}
+                  className="h-4 w-4 accent-emerald-500"
+                />
+                POS aktiv
+              </label>
+            </div>
+          </div>
+          <button
+            onClick={() => void savePos()}
+            disabled={busy}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold hover:bg-emerald-700 disabled:opacity-40"
+          >
+            Kasse speichern
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
