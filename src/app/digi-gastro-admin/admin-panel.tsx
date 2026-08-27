@@ -78,7 +78,14 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
         headers: { "Content-Type": "application/json" },
         redirect: "manual",
       });
-      if (res.status >= 300 && res.status < 400) {
+      // Bei redirect:"manual" liefert der Browser eine opaque-redirect-Antwort
+      // (res.status === 0, res.type === "opaqueredirect") statt des HTTP-Codes.
+      // Erfolg = es gab eine Weiterleitung (Cookie wurde gesetzt).
+      if (
+        res.redirected ||
+        res.type === "opaqueredirect" ||
+        (res.status >= 300 && res.status < 400)
+      ) {
         router.push(`/${slug}/admin`);
         return;
       }
