@@ -337,6 +337,7 @@ type PushCustomer = {
   pass_serial: string;
   pass_type: string | null;
   tenant_slug: string;
+  current_stamps?: number | null;
 };
 
 /** Returns true wenn Push gesendet wurde; Dev-Mode/Fehler → false (Legacy C6). */
@@ -523,22 +524,29 @@ async function sendGoogleWalletUpdate(
     const serialShort = customer.pass_serial.slice(0, 16).replace(/-/g, "");
     const objectId = `${GOOGLE_ISSUER_ID}.${customer.tenant_slug}-${serialShort}`;
     const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objectId}`;
+    // Balance aktualisieren (Stempel) + Nachricht hinzufügen.
+    // Google-Aktualisierung nur über das `balance`-Feld sichtbar.
+    const patch: Record<string, unknown> = {};
+    if (typeof customer.current_stamps === "number") {
+      patch.loyaltyPoints = {
+        balance: { int: customer.current_stamps },
+      };
+    }
+    patch.messages = [
+      {
+        header: title,
+        body: message,
+        messageType: "TEXT",
+        displayInterval: { start: { date: nowIso() } },
+      },
+    ];
     const resp = await fetch(url, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        messages: [
-          {
-            header: title,
-            body: message,
-            messageType: "TEXT",
-            displayInterval: { start: { date: nowIso() } },
-          },
-        ],
-      }),
+      body: JSON.stringify(patch),
     });
     if (resp.status === 200 || resp.status === 201) {
       console.log(`[Google Wallet] Update sent for ${objectId}`);

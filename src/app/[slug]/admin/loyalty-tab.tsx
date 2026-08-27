@@ -161,6 +161,40 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
     }
   };
 
+  const sendMessage = async (c: LoyaltyCustomer) => {
+    const message = window.prompt(
+      `Nachricht an ${c.nickname ?? c.short_code} senden:`,
+      ""
+    );
+    if (message == null) return;
+    const msg = message.trim();
+    if (!msg) return;
+    if (
+      !window.confirm(
+        `Nachricht an Kunden "${c.nickname ?? c.short_code}" (${c.short_code}) senden?\n\n"${msg}"`
+      )
+    ) {
+      return;
+    }
+    try {
+      const r = await fetch("/admin/loyalty/quick-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, customer_id: c.id }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { success?: boolean; stats?: { pushs_sent?: number } };
+      if (r.ok && j.success) {
+        pushToast(
+          `Nachricht gesendet${j.stats?.pushs_sent ? ` (${j.stats.pushs_sent} Kunde)` : ""}`
+        );
+      } else {
+        pushToast("Nachricht konnte nicht gesendet werden", "error");
+      }
+    } catch {
+      pushToast("Netzwerkfehler", "error");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold">Loyalty &amp; Stempelkarten</h2>
@@ -194,6 +228,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
           pagination={pagination}
           onPage={loadCustomers}
           onSetStamps={setStamps}
+          onSendMessage={sendMessage}
         />
       ) : (
         <DiagnoseTab pushToast={pushToast} />
@@ -393,8 +428,9 @@ function CustomersTab(props: {
   pagination: { page: number; per_page: number; total: number; total_pages: number };
   onPage: (page: number) => Promise<void>;
   onSetStamps: (c: LoyaltyCustomer) => Promise<void>;
+  onSendMessage: (c: LoyaltyCustomer) => Promise<void>;
 }) {
-  const { customers, pagination, onPage, onSetStamps } = props;
+  const { customers, pagination, onPage, onSetStamps, onSendMessage } = props;
   return (
     <div>
       <div className="mb-3 text-sm text-zinc-400">
@@ -450,12 +486,20 @@ function CustomersTab(props: {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => void onSetStamps(c)}
-                      className="rounded-lg border border-zinc-700 px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
-                    >
-                      Stempel setzen
-                    </button>
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        onClick={() => void onSetStamps(c)}
+                        className="rounded-lg border border-zinc-700 px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
+                      >
+                        Stempel setzen
+                      </button>
+                      <button
+                        onClick={() => void onSendMessage(c)}
+                        className="rounded-lg border border-emerald-700 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-950"
+                      >
+                        Nachricht
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
