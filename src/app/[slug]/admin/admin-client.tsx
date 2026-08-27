@@ -921,6 +921,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
             categories={initial.categories}
             superGroups={initial.superGroups ?? []}
             slug={initial.slug}
+            showRevenue={showRevenue}
           />
         ) : tab === "produkte" ? (
           <ProductsTab

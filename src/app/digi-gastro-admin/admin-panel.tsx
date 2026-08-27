@@ -69,6 +69,47 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
     }
   };
 
+  const impersonate = async (slug: string) => {
+    setBusy(`imp-${slug}`);
+    setNote(null);
+    try {
+      const res = await fetch(`/digi-gastro-admin/tenant-impersonate/${slug}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        redirect: "manual",
+      });
+      if (res.status >= 300 && res.status < 400) {
+        router.push(`/${slug}/admin`);
+        return;
+      }
+      setNote({ kind: "err", text: "Einloggen fehlgeschlagen." });
+    } catch {
+      setNote({ kind: "err", text: "Verbindungsfehler." });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const deleteTenant = async (t: TenantRow) => {
+    const sure = window.confirm(
+      `Tenant wirklich löschen?\n\n"${t.name}" (${t.slug})\nAlle Bestellungen, Produkte, Kategorien und Kundendaten werden unwiderruflich gelöscht!`
+    );
+    if (!sure) return;
+    const sure2 = window.prompt(
+      `Zum Bestätigen bitte den Slug "${t.slug}" eingeben:`,
+      ""
+    );
+    if (sure2?.trim() !== t.slug) {
+      setNote({ kind: "err", text: "Löschen abgebrochen (Slug stimmt nicht)." });
+      return;
+    }
+    await act(
+      `del-${t.slug}`,
+      () => postJson(`/digi-gastro-admin/tenant-delete/${t.slug}`),
+      `Tenant gelöscht`
+    );
+  };
+
   const createTenant = async () => {
     if (!newName.trim() || !newSlug.trim()) return;
     await act(
@@ -327,6 +368,20 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
                     </button>
                     <button className={btnCls} disabled={busy !== null} onClick={() => void cleanupOrders(t)}>
                       Bestellungen bereinigen
+                    </button>
+                    <button
+                      className="rounded-lg border border-sky-700 bg-sky-900 px-2.5 py-1 text-xs font-medium text-sky-200 hover:border-sky-500 hover:text-sky-100 disabled:opacity-50"
+                      disabled={busy !== null}
+                      onClick={() => void impersonate(t.slug)}
+                    >
+                      Einloggen
+                    </button>
+                    <button
+                      className="rounded-lg border border-red-800 bg-red-950 px-2.5 py-1 text-xs font-medium text-red-300 hover:border-red-500 hover:text-red-200 disabled:opacity-50"
+                      disabled={busy !== null}
+                      onClick={() => void deleteTenant(t)}
+                    >
+                      Löschen
                     </button>
                   </div>
                 </td>
