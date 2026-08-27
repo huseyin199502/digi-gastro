@@ -743,6 +743,12 @@ export function generateGoogleClassPayload(
 ): Record<string, unknown> {
   const colorHex = card.color_hex || "#C9A84C";
   const hexBg = "#" + colorHex.replace(/^#/, "").toUpperCase();
+  // Google verlangt für Loyalty-Klassen zwingend reviewStatus UND ein
+  // programLogo (nur PNG/JPEG). Fallback auf ein gebündeltes Default-Logo,
+  // falls kein valides Tenant-PNG vorhanden ist.
+  const finalLogoUrl =
+    logoUrl ||
+    `${appBaseUrl()}/default-logo.png`;
   const classPayload: Record<string, unknown> = {
     id: GOOGLE_CLASS_ID,
     issuerName: tenantName || "digi-gastro",
@@ -750,14 +756,10 @@ export function generateGoogleClassPayload(
     hexBackgroundColor: hexBg,
     rewardsTier: card.reward_name || "Belohnung",
     rewardsTierLabel: "Stempel",
-    // Optionaler Logo-Verweis (klein genug, um im JWT-Limit zu bleiben)
-    ...(logoUrl
-      ? {
-          programLogo: {
-            sourceUri: { uri: logoUrl },
-          },
-        }
-      : {}),
+    reviewStatus: "UNDER_REVIEW",
+    programLogo: {
+      sourceUri: { uri: finalLogoUrl },
+    },
   };
   return classPayload;
 }

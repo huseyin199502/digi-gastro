@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, jsonError } from "@/lib/adminApi";
 import { getOrCreateCustomer, loyaltyCookieSecure } from "@/lib/loyalty";
@@ -83,18 +84,27 @@ export async function GET(
     };
 
     // Logo-URL für Google Wallet (muss PNG/JPEG sein, erreichbar von Google)
-    // WICHTIG: Google akzeptiert kein WebP! Kein PNG → Logo weglassen.
+    // WICHTIG: Google akzeptiert kein WebP → WebP wird nach PNG konvertiert.
+    // Falls kein Logo verfügbar, greift generateGoogleClassPayload auf ein
+    // gebündeltes Default-Logo zurück.
     let logoUrlForGoogle = "";
     if (tenant.logo_path) {
       const logoFilename = tenant.logo_path.split("/").pop() ?? "";
-      const pngFilename = logoFilename.replace(".webp", ".png");
+      const isWebp = /\.webp$/i.test(logoFilename);
+      const pngFilename = logoFilename.replace(/\.webp$/i, ".png");
+      const logoFsPath = path.join(UPLOAD_DIR, "logos", logoFilename);
       const pngFsPath = path.join(UPLOAD_DIR, "logos", pngFilename);
-      if (fs.existsSync(/* turbopackIgnore: true */ pngFsPath)) {
-        logoUrlForGoogle = `${appBaseUrl()}/uploads/logos/${pngFilename}`;
-      } else {
-        console.log(
-          `[Google Wallet] PNG logo not found: ${pngFsPath} → skipping logo`
-        );
+      try {
+        if (isWebp && fs.existsSync(/* turbopackIgnore: true */ logoFsPath)) {
+          await sharp(logoFsPath).png().toFile(pngFsPath);
+          logoUrlForGoogle = `${appBaseUrl()}/uploads/logos/${pngFilename}`;
+        } else if (fs.existsSync(/* turbopackIgnore: true */ pngFsPath)) {
+          logoUrlForGoogle = `${appBaseUrl()}/uploads/logos/${pngFilename}`;
+        } else if (fs.existsSync(/* turbopackIgnore: true */ logoFsPath)) {
+          logoUrlForGoogle = `${appBaseUrl()}/uploads/logos/${logoFilename}`;
+        }
+      } catch (e) {
+        console.log(`[Google Wallet] Logo conversion failed: ${e}`);
       }
     }
 
