@@ -308,6 +308,7 @@ function playServiceCallAlert() {
 export default function AdminClient({ initial }: { initial: AdminInitial }) {
   const router = useRouter();
   const { slug } = initial;
+  const showRevenue = initial.settings.show_revenue !== false;
 
   const [tab, setTab] = useState<string>("live");
   const [live, setLive] = useState<TabletStatus | null>(null);
@@ -946,7 +947,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
             pushToast={pushToast}
           />
         ) : tab === "reports" ? (
-          <ReportsTab live={live} pushToast={pushToast} />
+          <ReportsTab live={live} pushToast={pushToast} showRevenue={showRevenue} />
         ) : tab === "personal" ? (
           <PersonalTab pushToast={pushToast} />
         ) : tab === "loyalty" ? (
@@ -1473,9 +1474,14 @@ function ProductsTab(props: ProductsTabProps) {
   const moveProduct = async (sortedIdx: number, dir: -1 | 1) => {
     const newIdx = sortedIdx + dir;
     if (newIdx < 0 || newIdx >= sorted.length) return;
+    // Nur innerhalb derselben Kategorie sortieren (↑/↓ eines Produkts darf
+    // nicht die Kategorie wechseln). Kein Tausch, wenn Nachbar anderer Kategorie.
+    const cur = sorted[sortedIdx];
+    const neighbor = sorted[newIdx];
+    if (!cur || !neighbor || neighbor.category !== cur.category) return;
     const ordered = [...sorted];
-    const [moved] = ordered.splice(sortedIdx, 1);
-    ordered.splice(newIdx, 0, moved);
+    ordered[sortedIdx] = neighbor;
+    ordered[newIdx] = cur;
     const res = await fetch("/admin/products/reorder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1487,6 +1493,17 @@ function ProductsTab(props: ProductsTabProps) {
       pushToast("Sortierung fehlgeschlagen", "error");
     }
   };
+
+  // Produkte nach Kategorie gruppieren (für die Grid-Sortier-Ansicht)
+  const groupedByCategory = useMemo(() => {
+    const map = new Map<string, AdminProduct[]>();
+    for (const p of sorted) {
+      const cat = p.category || "Ohne Kategorie";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(p);
+    }
+    return Array.from(map.entries());
+  }, [sorted]);
 
   const generateImages = async () => {
     setBusy(true);
@@ -1925,74 +1942,109 @@ function ProductsTab(props: ProductsTabProps) {
       ) : null}
 
       {view === "grid" ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {sorted.map((p) => (
-            <div
-              key={p.id}
-              className={`relative overflow-hidden rounded-xl border bg-zinc-900/60 ${
-                p.is_available ? "border-zinc-800" : "border-zinc-800 opacity-60"
-              } ${selected.has(p.id) ? "ring-2 ring-emerald-500" : ""}`}
-            >
-              <div className="absolute left-2 top-2 z-10">
-                <input
-                  type="checkbox"
-                  checked={selected.has(p.id)}
-                  onChange={() => toggleSelect(p.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-4 w-4 accent-emerald-500"
-                  title="Auswählen für Bulk-Bearbeitung"
-                />
-              </div>
-              {p.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.image}
-                  alt={p.name}
-                  className="h-28 w-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex h-28 items-center justify-center bg-zinc-800 text-zinc-600">
-                  —
-                </div>
-              )}
-              <div className="p-3">
-                <p className="truncate text-sm font-bold" title={p.name}>
-                  {p.name}
-                </p>
-                <p className="text-xs text-zinc-400">{p.category}</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="font-semibold">{formatEur(p.price)}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      p.is_available
-                        ? "bg-emerald-500/15 text-emerald-300"
-                        : "bg-red-500/15 text-red-300"
-                    }`}
-                  >
-                    {p.is_available ? "Aktiv" : "Ausverkauft"}
-                  </span>
-                </div>
-                <div className="mt-2 flex gap-1.5">
-                  <button
-                    onClick={() => openEdit(p)}
-                    className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
-                  >
-                    Bearbeiten
-                  </button>
-                  <button
-                    onClick={() => toggleProduct(p)}
-                    className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
-                  >
-                    {p.is_available ? "Ausverkauft" : "Aktivieren"}
-                  </button>
-                  <button
-                    onClick={() => deleteProduct(p)}
-                    className="rounded bg-red-900/60 px-2 py-1 text-xs font-bold text-red-300 hover:bg-red-800"
-                  >
-                    Löschen
-                  </button>
-                </div>
+        <div className="space-y-6">
+          {groupedByCategory.map(([cat, products]) => (
+            <div key={cat}>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                {cat} ({products.length})
+              </h3>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {products.map((p) => {
+                  const gi = sorted.indexOf(p);
+                  const canUp =
+                    gi > 0 && sorted[gi - 1].category === p.category;
+                  const canDown =
+                    gi < sorted.length - 1 &&
+                    sorted[gi + 1].category === p.category;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`relative overflow-hidden rounded-xl border bg-zinc-900/60 ${
+                        p.is_available ? "border-zinc-800" : "border-zinc-800 opacity-60"
+                      } ${selected.has(p.id) ? "ring-2 ring-emerald-500" : ""}`}
+                    >
+                      <div className="absolute left-2 top-2 z-10">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-4 w-4 accent-emerald-500"
+                          title="Auswählen für Bulk-Bearbeitung"
+                        />
+                      </div>
+                      <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
+                        <button
+                          onClick={() => moveProduct(gi, -1)}
+                          disabled={!canUp}
+                          className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 disabled:opacity-30"
+                          title="Innerhalb der Kategorie nach oben"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => moveProduct(gi, 1)}
+                          disabled={!canDown}
+                          className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 disabled:opacity-30"
+                          title="Innerhalb der Kategorie nach unten"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      {p.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="h-28 w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-28 items-center justify-center bg-zinc-800 text-zinc-600">
+                          —
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <p className="truncate text-sm font-bold" title={p.name}>
+                          {p.name}
+                        </p>
+                        <p className="text-xs text-zinc-400">{p.category}</p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="font-semibold">{formatEur(p.price)}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs ${
+                              p.is_available
+                                ? "bg-emerald-500/15 text-emerald-300"
+                                : "bg-red-500/15 text-red-300"
+                            }`}
+                          >
+                            {p.is_available ? "Aktiv" : "Ausverkauft"}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex gap-1.5">
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            onClick={() => toggleProduct(p)}
+                            className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                          >
+                            {p.is_available ? "Ausverkauft" : "Aktivieren"}
+                          </button>
+                          <button
+                            onClick={() => deleteProduct(p)}
+                            className="rounded bg-red-900/60 px-2 py-1 text-xs font-bold text-red-300 hover:bg-red-800"
+                          >
+                            Löschen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -3793,10 +3845,11 @@ function EventsTab(props: EventsTabProps) {
 interface ReportsTabProps {
   live: TabletStatus | null;
   pushToast: (msg: string, kind?: Toast["kind"]) => void;
+  showRevenue?: boolean;
 }
 
 function ReportsTab(props: ReportsTabProps) {
-  const { live, pushToast } = props;
+  const { live, pushToast, showRevenue = true } = props;
   const [range, setRange] = useState("today");
   const [status, setStatus] = useState("all");
   const [frm, setFrm] = useState("");
@@ -3846,12 +3899,16 @@ function ReportsTab(props: ReportsTabProps) {
       <h2 className="text-lg font-bold">Bestellungen &amp; Reports</h2>
 
       {/* Live summary from tablet-status */}
-      {live ? (
+      {live && showRevenue ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard label="Umsatz heute (brutto)" value={formatEur(live.stats.brutto)} />
           <StatCard label="Umsatz 7%" value={formatEur(live.stats.brutto_7)} />
           <StatCard label="Umsatz 19%" value={formatEur(live.stats.brutto_19)} />
           <StatCard label="Bestellungen heute" value={String(live.stats.orders_count)} />
+        </div>
+      ) : live && !showRevenue ? (
+        <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-400">
+          Umsatz-Anzeigen wurden vom Plattform-Administrator deaktiviert.
         </div>
       ) : null}
 

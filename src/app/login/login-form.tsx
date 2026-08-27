@@ -3,9 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function LoginForm() {
+export default function LoginForm({
+  initialError,
+}: {
+  initialError?: string;
+}) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError || null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {

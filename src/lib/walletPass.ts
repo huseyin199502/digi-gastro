@@ -311,7 +311,7 @@ export function signPassManifest(manifestBytes: Buffer): Buffer {
       certificate: cert,
       digestAlgorithm: forge.pki.oids.sha1,
       authenticatedAttributes: [
-        { type: forge.pki.oids.contentType },
+        { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
         { type: forge.pki.oids.messageDigest },
         {
           type: forge.pki.oids.signingTime,
@@ -715,7 +715,8 @@ export function generateGoogleObjectPayload(
   const serial = customer.pass_serial || crypto.randomUUID();
   const stampsCurrent = customer.current_stamps ?? 0;
   const shortCode = customer.short_code || "";
-  const objectId = `${GOOGLE_ISSUER_ID}.${tenantSlug}-${serial.slice(0, 16)}`;
+  const serialShort = serial.slice(0, 16).replace(/-/g, "");
+  const objectId = `${GOOGLE_ISSUER_ID}.${tenantSlug}-${serialShort}`;
 
   const payload: Record<string, unknown> = {
     id: objectId,

@@ -1116,19 +1116,24 @@ export function MenuClient({
                     ))}
                   </div>
                 ) : null}
-                {sImages.length > 0 ? (
-                  <div
-                    className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
-                    style={{
-                      backgroundImage: `url('${sImages[imageIdx]}')`,
-                      opacity: hasVideos ? 0 : 1,
-                    }}
-                  />
+                {sImages.length > 0 && !hasVideos ? (
+                  <div className="absolute inset-0">
+                    {sImages.map((img, i) => (
+                      <div
+                        key={i}
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
+                          i === imageIdx ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ backgroundImage: `url('${img}')` }}
+                      />
+                    ))}
+                  </div>
                 ) : null}
               </>
             );
           })()}
-          <div className="absolute inset-0 bg-white/20 backdrop-blur-sm" />
+          {/* Dezenter dunkler Overlay für Lesbarkeit — nicht milchig */}
+          <div className="absolute inset-0 bg-black/10" />
         </div>
       ) : null}
 
@@ -2077,7 +2082,13 @@ function AdBanner({
         ad.target_url ? "cursor-pointer" : ""
       } ${className ?? ""}`}
     >
-      <div className="flex items-center gap-4 p-4">
+      <div className="flex items-center gap-2 px-3 pt-2">
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white/70">
+          <span className="material-symbols-outlined text-[10px]">campaign</span>
+          Werbung
+        </span>
+      </div>
+      <div className="flex items-center gap-4 p-4 pt-2">
         {ad.image_url ? (
           <img
             src={ad.image_url}

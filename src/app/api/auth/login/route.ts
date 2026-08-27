@@ -8,15 +8,31 @@ import {
 } from "@/lib/auth";
 
 // Port of legacy POST /login (main.py ~3501)
-// Supports both the modern JSON client request and a native HTML form
-// fallback for older WebKit/iPadOS versions where Client Component events
-// may not hydrate reliably.
+// Unterstützt sowohl den modernen JSON-Client (fetch) als auch den nativen
+// HTML-Form-POST (Fallback für ältere WebKit/iPadOS-Versionen, bei denen
+// Client-Komponenten-Events nicht zuverlässig hydratisieren).
+// Wichtig: Bei nativem Form-POST wird IMMER ein Redirect geliefert
+// (Erfolg -> Dashboard, Fehler -> /login?error=...), nie JSON.
+
+function cookieOptions(req: NextRequest) {
+  const base = sessionCookieOptions();
+  // Secure-Cookie nur setzen, wenn die Anfrage über HTTPS kam. Über HTTP
+  // (z.B. altes iPad im LAN) würde ein Secure-Cookie sonst nie gespeichert
+  // und der Login fehlschlägt.
+  const proto =
+    req.headers.get("x-forwarded-proto") ??
+    new URL(req.url).protocol.replace(":", "");
+  const isHttps = proto.toLowerCase() === "https";
+  return { ...base, secure: process.env.COOKIE_SECURE === "1" && isHttps };
+}
 
 export async function POST(req: NextRequest) {
   let email = "";
   let password = "";
   const contentType = req.headers.get("content-type") ?? "";
-  const nativeFormSubmit = !contentType.toLowerCase().includes("application/json");
+  const nativeFormSubmit = !contentType
+    .toLowerCase()
+    .includes("application/json");
 
   try {
     if (contentType.toLowerCase().includes("application/json")) {
@@ -29,41 +45,53 @@ export async function POST(req: NextRequest) {
       password = String(form.get("password") ?? "").trim();
     }
   } catch {
-    return NextResponse.json(
-      { success: false, error: "Ungültige Anfrage." },
-      { status: 400 }
-    );
+    const msg = "Ungültige Anfrage.";
+    if (nativeFormSubmit) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(msg)}`, req.url),
+        303
+      );
+    }
+    return NextResponse.json({ success: false, error: msg }, { status: 400 });
   }
 
+  const errRedirect = (msg: string, status: number) => {
+    if (nativeFormSubmit) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(msg)}`, req.url),
+        303
+      );
+    }
+    return NextResponse.json({ success: false, error: msg }, { status });
+  };
+
   if (!email || !password) {
-    return NextResponse.json(
-      { success: false, error: "Email und Passwort erforderlich." },
-      { status: 400 }
-    );
+    return errRedirect("Email und Passwort erforderlich.", 400);
   }
 
   // Platform super-admin login (legacy: admin@digi-gastro.de + ADMIN_PASSWORD)
   const adminPassword = process.env.ADMIN_PASSWORD ?? "";
-  if (email === "admin@digi-gastro.de" && adminPassword && safeEqual(password, adminPassword)) {
+  if (
+    email === "admin@digi-gastro.de" &&
+    adminPassword &&
+    safeEqual(password, adminPassword)
+  ) {
     const redirect = "/digi-gastro-admin";
     const res = nativeFormSubmit
       ? NextResponse.redirect(new URL(redirect, req.url), 303)
       : NextResponse.json({ success: true, redirect });
-    res.cookies.set(PLATFORM_COOKIE, adminPassword, sessionCookieOptions());
+    res.cookies.set(PLATFORM_COOKIE, adminPassword, cookieOptions(req));
     return res;
   }
 
   const tenant = await prisma.tenant.findFirst({ where: { email } });
   if (!tenant || !safeEqual(password, tenant.password)) {
-    return NextResponse.json(
-      { success: false, error: "Ungültige Zugangsdaten." },
-      { status: 401 }
-    );
+    return errRedirect("Ungültige Zugangsdaten.", 401);
   }
   if (tenant.active === false) {
-    return NextResponse.json(
-      { success: false, error: "Dieses Restaurant ist derzeit deaktiviert." },
-      { status: 403 }
+    return errRedirect(
+      "Dieses Restaurant ist derzeit deaktiviert.",
+      403
     );
   }
 
@@ -73,6 +101,6 @@ export async function POST(req: NextRequest) {
   const res = nativeFormSubmit
     ? NextResponse.redirect(new URL(redirect, req.url), 303)
     : NextResponse.json({ success: true, redirect });
-  res.cookies.set(SESSION_COOKIE, sessionValue, sessionCookieOptions());
+  res.cookies.set(SESSION_COOKIE, sessionValue, cookieOptions(req));
   return res;
 }

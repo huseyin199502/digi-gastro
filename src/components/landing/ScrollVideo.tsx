@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Scroll-gesteuertes Video: spielt NICHT automatisch ab. Der Scroll-
 // Fortschritt der gesamten Seite wird auf die Videolaufzeit gemappt
@@ -24,8 +24,36 @@ export default function ScrollVideo({
   className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isIOS] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const ua = navigator.userAgent;
+    return (
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === "MacIntel" &&
+        typeof navigator.maxTouchPoints === "number" &&
+        navigator.maxTouchPoints > 1)
+    );
+  });
 
   useEffect(() => {
+    // iOS Safari: programmatisches currentTime-Seeking (Scroll-Scrub) wird
+    // ohne Nutzer-Geste blockiert → Video bleibt auf Frame 0/unsichtbar.
+    // Daher auf iOS ein reguläres muted-autoplay-Loop-Video verwenden
+    // (muted+playsInline+autoplay funktioniert dort zuverlässig).
+    if (isIOS) {
+      const v = videoRef.current;
+      if (!v) return;
+      try {
+        v.muted = true;
+        v.playsInline = true;
+        const p = v.play();
+        if (p) p.catch(() => {});
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -106,13 +134,15 @@ export default function ScrollVideo({
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("error", onError);
     };
-  }, []);
+  }, [isIOS]);
 
   return (
     <video
       ref={videoRef}
       muted
       playsInline
+      autoPlay={isIOS}
+      loop={isIOS}
       preload="auto"
       disablePictureInPicture
       disableRemotePlayback
