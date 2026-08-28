@@ -236,36 +236,36 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const [openOrderCats, setOpenOrderCats] = useState<Set<string>>(new Set());
   // Produktsuche im "Neue Bestellung"-Sheet
   const [orderSearch, setOrderSearch] = useState("");
-  // Rabatt-Voucher für den aktuell ausgewählten Tisch
-  const [tableDiscount, setTableDiscount] = useState<{ type: string; value: number; label: string } | null>(null);
-
-  // Aktueller Tisch = Tisch der aktiven Bestellungen
-  const currentTableName = activeTableOrders[0]?.table ?? null;
+  // Rabatt-Vouchers für alle Tische (map: Tischlabel -> Rabatt)
+  const [voucherMap, setVoucherMap] = useState<Record<string, { type: string; value: number; label: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
-    if (!currentTableName) return;
-    fetch(
-      `/api/voucher/table?slug=${encodeURIComponent(slug)}&table=${encodeURIComponent(currentTableName)}`
-    )
+    fetch(`/api/voucher/tenant?slug=${encodeURIComponent(slug)}`)
       .then((r) => r.json())
       .then((j) => {
-        if (!cancelled) setTableDiscount(j.discount ?? null);
+        if (!cancelled && j.ok) setVoucherMap(j.discounts ?? {});
       })
       .catch(() => {
-        if (!cancelled) setTableDiscount(null);
+        if (!cancelled) setVoucherMap({});
       });
     return () => {
       cancelled = true;
     };
-  }, [slug, currentTableName]);
+  }, [slug]);
 
-  const applyDiscount = (total: number): { discount: number; total: number } => {
-    if (!tableDiscount) return { discount: 0, total };
+  const discountOf = (table: string | null | undefined) =>
+    table ? voucherMap[table] ?? null : null;
+
+  const applyDiscount = (
+    total: number,
+    disc: { type: string; value: number } | null
+  ): { discount: number; total: number } => {
+    if (!disc) return { discount: 0, total };
     const d =
-      tableDiscount.type === "percent"
-        ? Math.round(total * (tableDiscount.value / 100) * 100) / 100
-        : tableDiscount.value;
+      disc.type === "percent"
+        ? Math.round(total * (disc.value / 100) * 100) / 100
+        : disc.value;
     return { discount: d, total: Math.max(0, Math.round((total - d) * 100) / 100) };
   };
 
@@ -950,9 +950,20 @@ export default function SitzplanTab(props: SitzplanTabProps) {
               {pending > 0 ? (
                 <span className="text-xs sm:text-sm font-bold">{pending} offen</span>
               ) : total > 0 ? (
-                <span className="text-xs sm:text-sm font-semibold opacity-90">
-                  {formatEur(total)}
-                </span>
+                (() => {
+                  const disc = discountOf(label);
+                  const res = applyDiscount(total, disc);
+                  return disc ? (
+                    <span className="text-xs sm:text-sm font-semibold opacity-90">
+                      <span className="line-through opacity-70">{formatEur(total)}</span>{" "}
+                      <span className="text-emerald-300">{formatEur(res.total)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs sm:text-sm font-semibold opacity-90">
+                      {formatEur(total)}
+                    </span>
+                  );
+                })()
               ) : null}
               {timerText ? (
                 <span className="mt-1 rounded bg-black/30 px-1.5 py-0.5 font-mono text-[10px] sm:text-[11px] font-semibold">
@@ -1002,9 +1013,24 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                 </h2>
                 <p className="text-sm text-zinc-400">
                   Gesamt:{" "}
-                  <span className="font-bold text-emerald-400">
-                    {formatEur(activeTableOrders.reduce((s, o) => s + (o.total ?? 0), 0))}
-                  </span>
+                  {(() => {
+                    const disc = discountOf(activeTableOrders[0]?.table);
+                    const t = activeTableOrders.reduce((s, o) => s + (o.total ?? 0), 0);
+                    const res = applyDiscount(t, disc);
+                    if (disc) {
+                      return (
+                        <>
+                          <span className="font-bold text-zinc-500 line-through">{formatEur(t)}</span>{" "}
+                          <span className="font-bold text-emerald-400">{formatEur(res.total)}</span>
+                        </>
+                      );
+                    }
+                    return (
+                      <span className="font-bold text-emerald-400">
+                        {formatEur(t)}
+                      </span>
+                    );
+                  })()}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1091,20 +1117,25 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                         </span>
                       </div>
                       <div className="text-right">
-                        {tableDiscount ? (
-                          <>
-                            <span className="block text-xs font-bold text-zinc-500 line-through">
-                              {formatEur(o.total ?? 0)}
+                        {(() => {
+                          const disc = discountOf(o.table);
+                          const t = o.total ?? 0;
+                          const res = applyDiscount(t, disc);
+                          return disc ? (
+                            <>
+                              <span className="block text-xs font-bold text-zinc-500 line-through">
+                                {formatEur(t)}
+                              </span>
+                              <span className="text-sm font-black text-emerald-400">
+                                {formatEur(res.total)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="font-semibold text-emerald-400">
+                              {formatEur(t)}
                             </span>
-                            <span className="text-sm font-black text-emerald-400">
-                              {formatEur(applyDiscount(o.total ?? 0).total)}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="font-semibold text-emerald-400">
-                            {formatEur(o.total ?? 0)}
-                          </span>
-                        )}
+                          );
+                        })()}
                       </div>
                     </div>
 

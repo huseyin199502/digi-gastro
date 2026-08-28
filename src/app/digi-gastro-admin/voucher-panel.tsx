@@ -69,7 +69,7 @@ export default function VoucherPanel({ tenants }: { tenants: { slug: string; nam
     try {
       const r = await fetch("/digi-gastro-admin/voucher", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-requested-with": "fetch" },
         body: JSON.stringify({ tenant_slug: tenantSlug, discount_type: discountType, discount_value: v, code: code.trim() }),
       });
       const j = await r.json();

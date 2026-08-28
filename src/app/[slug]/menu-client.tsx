@@ -3200,6 +3200,12 @@ function BillConfirmSheet({
   };
 
   if (!open) return null;
+  const discountAmount = discount
+    ? discount.type === "percent"
+      ? Math.round(unpaidSum * (discount.value / 100) * 100) / 100
+      : discount.value
+    : 0;
+  const discountedSum = Math.max(0, Math.round((unpaidSum - discountAmount) * 100) / 100);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -3219,7 +3225,15 @@ function BillConfirmSheet({
         {unpaidSum > 0 ? (
           <div className="mb-5 flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
             <span className="text-sm font-bold text-gray-600">{tr.payment_outstanding}</span>
-            <span className="text-lg font-black text-gray-900">{formatEur(unpaidSum)}</span>
+            {discount ? (
+              <div className="text-right">
+                <span className="block text-xs font-bold text-gray-400 line-through">{formatEur(unpaidSum)}</span>
+                <span className="text-lg font-black text-gray-900">{formatEur(discountedSum)}</span>
+                <span className="block text-[11px] font-bold text-emerald-600">Rabatt: −{discount.label}</span>
+              </div>
+            ) : (
+              <span className="text-lg font-black text-gray-900">{formatEur(unpaidSum)}</span>
+            )}
           </div>
         ) : null}
 
