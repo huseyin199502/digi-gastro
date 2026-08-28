@@ -128,6 +128,15 @@ services:
           created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_adbanner_tenant_status ON ad_banners(tenant_slug, status, priority);
+        CREATE TABLE IF NOT EXISTS reviews (
+          id              SERIAL PRIMARY KEY,
+          tenant_slug     VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+          table_name      VARCHAR,
+          rating          INT NOT NULL DEFAULT 5,
+          comment         TEXT,
+          created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_review_tenant ON reviews(tenant_slug);
         SQL
         echo "[migrate] DB-Delta OK"
 

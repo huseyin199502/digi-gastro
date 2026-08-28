@@ -138,6 +138,126 @@ const T = {
     sold_out: "Sold out",
     order_lock: "Orders are currently not possible — please order in person.",
   },
+  tr: {
+    tab_menu: "Menü",
+    tab_welcome: "Hoş geldiniz",
+    view_menu: "Menüyü Görüntüle",
+    rate_us: "Bizi Google'da değerlendirin",
+    scan_required_header: "QR Kod Taraması Gerekli",
+    scan_required_desc:
+      "Menümüzü görmek ve sipariş vermek için lütfen masanızdaki QR kodunu tarayın.",
+    your_cart: "Sepetiniz",
+    cart_btn: "Sepet",
+    basket_total: "Toplam:",
+    order_pay: "Şimdi Sipariş Ver",
+    order_sending: "Gönderiliyor…",
+    order_locked: "Sipariş kilitli (masa kodunu tara)",
+    thank_you: "Sipariş alındı!",
+    thank_you_desc:
+      "Siparişiniz taze hazırlanıyor. Ödeme yapmak için sağ alttaki fatura butonuna dokunun – garsonunuz masanıza gelecek.",
+    more_orders: "Daha fazla sipariş al",
+    empty_cart: "Sepetiniz boş.",
+    cart_item_note: "Not (örn. soğansız, orta, ekstra acı…)",
+    impressum: "Künye",
+    datenschutz: "Gizlilik",
+    service_header_modal: "Ne gerekiyor?",
+    service_desc_modal: "Bir seçenek seçin, servis ekibimiz size gelecek.",
+    btn_kellner: "🛎️ Garson Çağır",
+    btn_kohle: "💨 Kömür Sipariş Et",
+    btn_send_request: "İstek Gönder",
+    payment_header_modal: "Fatura İste",
+    payment_desc_modal: "Ödemeyi nasıl yapmak istersiniz?",
+    payment_outstanding: "Ödenmemiş Tutar",
+    pay_bar: "Nakit Öde",
+    pay_card: "Kartla Öde",
+    btn_pay_confirm: "Onayla & Öde",
+    cookie_header: "Gizlilik & Çerezler",
+    cookie_desc:
+      "Masa ataması, siparişler ve girişler için yalnızca teknik olarak gerekli oturum çerezlerini kullanıyoruz. Bu çerezler olmadan hizmet sunulamaz.",
+    cookie_privacy: "Gizlilik Politikası",
+    cookie_btn: "Kabul Ediyorum",
+    nav_service: "Servis",
+    nav_bill: "Fatura",
+    dashboard: "Panel",
+    in_cart: "Sepete Ekle",
+    add: "Ekle",
+    now_offer: "Şimdi Fırsatta",
+    combo_deals: "Kombi Fırsatları",
+    back: "Geri",
+    note_pin: "Lütfen masanızdaki QR kodunu tarayın.",
+    service_sent: "İstek gönderildi!",
+    payment_sent: "Fatura istendi – garsonunuz geliyor!",
+    bill_wait: "Fatura zaten istendi – lütfen %s bekleyin.",
+    bill_confirm_header: "Fatura iste?",
+    bill_confirm_desc:
+      "Garson masanıza gelip ödeme için faturayı getirecek.",
+    bill_confirm_yes: "Evet, faturayı getir",
+    bill_cancel: "İptal",
+    order_error: "Sipariş başarısız",
+    order_ok: "Sipariş #%s verildi",
+    sold_out: "Tükendi",
+    order_lock: "Şu anda sipariş alınamıyor — lütfen yerinde sipariş verin.",
+  },
+  ar: {
+    tab_menu: "القائمة",
+    tab_welcome: "مرحباً",
+    view_menu: "عرض القائمة",
+    rate_us: "قيمنا على جوجل",
+    scan_required_header: "مطلوب مسح رمز QR",
+    scan_required_desc:
+      "لعرض قائمتنا وتقديم الطلبات مباشرة، يرجى مسح رمز QR على طاولتك.",
+    your_cart: "سلة التسوق",
+    cart_btn: "السلة",
+    basket_total: "الإجمالي:",
+    order_pay: "اطلب الآن",
+    order_sending: "جارٍ الإرسال…",
+    order_locked: "الطلب مقفل (امسح رمز الطاولة)",
+    thank_you: "تم استلام الطلب!",
+    thank_you_desc:
+      "يتم تحضير طلبك طازجاً. للدفع، اضغط على زر الفاتورة في الأسفل يميناً – سيأتي النادل إلى طاولتك.",
+    more_orders: "تسجيل طلبات أخرى",
+    empty_cart: "سلتك فارغة.",
+    cart_item_note: "ملاحظة (مثل بدون بصل، وسط، حار جداً…)",
+    impressum: "بيانات النشر",
+    datenschutz: "الخصوصية",
+    service_header_modal: "ماذا تحتاج؟",
+    service_desc_modal: "اختر خياراً وسيأتي فريق الخدمة إليك.",
+    btn_kellner: "🛎️ استدعاء النادل",
+    btn_kohle: "💨 طلب فحم",
+    btn_send_request: "إرسال الطلب",
+    payment_header_modal: "طلب الفاتورة",
+    payment_desc_modal: "كيف ترغب في الدفع؟",
+    payment_outstanding: "المبلغ المستحق",
+    pay_bar: "الدفع نقداً",
+    pay_card: "الدفع بالبطاقة",
+    btn_pay_confirm: "تأكيد والدفع",
+    cookie_header: "الخصوصية وملفات تعريف الارتباط",
+    cookie_desc:
+      "نستخدم فقط ملفات تعريف الارتباط الأساسية تقنياً لتمكين تخصيص الطاولة والطلبات والدخول. بدون هذه الملفات لا يمكن تقديم الخدمة.",
+    cookie_privacy: "سياسة الخصوصية",
+    cookie_btn: "أوافق",
+    nav_service: "الخدمة",
+    nav_bill: "الفاتورة",
+    dashboard: "لوحة التحكم",
+    in_cart: "أضف إلى السلة",
+    add: "إضافة",
+    now_offer: "الآن في العرض",
+    combo_deals: "عروض كومبو",
+    back: "رجوع",
+    note_pin: "يرجى مسح رمز QR على طاولتك.",
+    service_sent: "تم إرسال الطلب!",
+    payment_sent: "تم طلب الفاتورة – النادل قادم إليكم!",
+    bill_wait: "الفاتورة مطلوبة بالفعل – يرجى الانتظار %s.",
+    bill_confirm_header: "طلب الفاتورة؟",
+    bill_confirm_desc:
+      "سيأتي النادل إلى طاولتك ويحضر الفاتورة للدفع.",
+    bill_confirm_yes: "نعم، أحضر الفاتورة",
+    bill_cancel: "إلغاء",
+    order_error: "فشل الطلب",
+    order_ok: "تم تقديم الطلب #%s",
+    sold_out: "نفد",
+    order_lock: "الطلبات غير ممكنة حالياً — يرجى الطلب مباشرة.",
+  },
 } as const;
 
 type Lang = keyof typeof T;
@@ -380,6 +500,8 @@ export function MenuClient({
     null
   );
   const [thankYouOpen, setThankYouOpen] = useState(false);
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedServiceType, setSelectedServiceType] = useState("kellner");
   const [selectedPaymentType, setSelectedPaymentType] =
@@ -764,6 +886,13 @@ export function MenuClient({
       setCartModalOpen(false);
       setThankYouOpen(true);
       pushToast(tr.order_ok.replace("%s", String(data.order_id ?? "")));
+      // Bewertung nach kurzer Zeit anbieten (einmal pro Session)
+      if (!ratingDone) {
+        window.setTimeout(() => {
+          setRatingDone(true);
+          setRatingOpen(true);
+        }, 12000);
+      }
     } catch {
       pushToast(tr.order_error, "error");
     } finally {
@@ -1980,6 +2109,24 @@ export function MenuClient({
         ads={menu.ads.filter((a) => a.placement === "thankyou")}
       />
 
+      {/* ── In-App-Bewertung nach dem Bestellen ── */}
+      <RatingModal
+        tr={tr}
+        open={ratingOpen}
+        tenantName={t.name}
+        table={tischName}
+        onClose={() => setRatingOpen(false)}
+        onSubmit={async (rating, comment) => {
+          await fetch("/api/rating", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, rating, comment, table: tischName }),
+          }).catch(() => {});
+          setRatingOpen(false);
+          pushToast("Danke für dein Feedback!");
+        }}
+      />
+
       {/* ── Cookie banner ── */}
       <CookieBanner
         tr={tr}
@@ -2018,7 +2165,19 @@ export function MenuClient({
 function useLang(): Lang {
   const [lang, _setLangState] = useState<Lang>(() => {
     if (typeof window === "undefined") return "de";
-    return (window.localStorage.getItem("dg-lang") as Lang) || "de";
+    const stored = window.localStorage.getItem("dg-lang") as Lang | null;
+    if (stored === "de" || stored === "en") return stored;
+    // Sprach-Automatik: Browsersprache erkennen, wenn nichts gespeichert
+    try {
+      const nav = (navigator.languages && navigator.languages[0]) || navigator.language || "";
+      const first = (nav || "").toLowerCase().split(/[-_]/)[0];
+      if (first === "en") return "en";
+      if (first === "tr") return "tr";
+      if (first === "ar") return "ar";
+    } catch {
+      /* ignore */
+    }
+    return "de";
   });
   useEffect(() => {
     try {
@@ -2028,11 +2187,6 @@ function useLang(): Lang {
     }
   }, [lang]);
   return lang;
-}
-
-function setLang(lang: Lang) {
-  window.localStorage.setItem("dg-lang", lang);
-  window.location.reload();
 }
 
 function AdBanner({
@@ -3267,6 +3421,99 @@ function LegalModal({
         <div className="font-sans scrollbar-none flex-1 overflow-y-auto pr-2 text-sm leading-relaxed whitespace-pre-line text-on-surface-variant">
           {content}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RatingModal({
+  tr,
+  open,
+  tenantName,
+  table,
+  onClose,
+  onSubmit,
+}: {
+  tr: (typeof T)[Lang];
+  open: boolean;
+  tenantName: string;
+  table: string;
+  onClose: () => void;
+  onSubmit: (rating: number, comment: string) => Promise<void>;
+}) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState("");
+  const [sending, setSending] = useState(false);
+  if (!open) return null;
+
+  const labels = ["", "Schlecht", "Okay", "Gut", "Sehr gut", "Hervorragend"];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200"
+        >
+          <span className="material-symbols-outlined text-lg">close</span>
+        </button>
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
+          <span className="material-symbols-outlined text-4xl text-amber-500">star</span>
+        </div>
+        <h3 className="text-xl font-extrabold text-gray-900">Wie war dein Besuch?</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Hilf uns mit deinem Feedback bei {tenantName || "unserem Restaurant"}!
+        </p>
+
+        <div className="my-4 flex items-center justify-center gap-1">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              onClick={() => setRating(n)}
+              onMouseEnter={() => setHover(n)}
+              onMouseLeave={() => setHover(0)}
+              className="text-4xl transition-transform active:scale-90"
+              aria-label={`${n} Sterne`}
+            >
+              <span
+                className={`material-symbols-outlined ${n <= (hover || rating) ? "text-amber-400" : "text-gray-300"}`}
+              >
+                {n <= (hover || rating) ? "star" : "star"}
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="mb-3 h-5 text-sm font-semibold text-amber-600">
+          {rating ? labels[rating] : "Tippe auf Sterne"}
+        </p>
+
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Optional: dein Feedback…"
+          rows={3}
+          className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-amber-500 focus:outline-none"
+        />
+
+        <button
+          onClick={async () => {
+            if (rating === 0 || sending) return;
+            setSending(true);
+            await onSubmit(rating, comment.trim());
+          }}
+          disabled={rating === 0 || sending}
+          className="mt-3 w-full rounded-2xl bg-amber-500 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-50"
+        >
+          {sending ? "Wird gesendet…" : "Bewertung senden"}
+        </button>
+        <button
+          onClick={onClose}
+          className="mt-2 w-full py-2 text-xs text-gray-400 hover:text-gray-600"
+        >
+          Jetzt nicht
+        </button>
       </div>
     </div>
   );

@@ -400,8 +400,20 @@ export default function SitzplanTab(props: SitzplanTabProps) {
         entries: [{ o: ownerOf(mergedTableOrder, it), it }],
       });
     }
-    // Neueste zuerst — eine frisch reinkommende Bestellung steht ganz oben
-    return groups.sort((a, b) => b.ts - a.ts || a.name.localeCompare(b.name));
+    // Sortierung: erst nach Super-Gruppe (Getränke, Hauptgerichte, … in
+    // konfigurierter Reihenfolge, "Sonstiges" ans Ende), dann neueste zuerst.
+    return groups.sort((a, b) => {
+      const sga = superGroupOf(a.entries[0].it);
+      const sgb = superGroupOf(b.entries[0].it);
+      const idx = (sg: { id: string } | null) => {
+        if (!sg) return 999;
+        const i = superGroups.findIndex((s) => String(s.id) === String(sg.id));
+        return i === -1 ? 999 : i;
+      };
+      const di = idx(sga) - idx(sgb);
+      if (di !== 0) return di;
+      return b.ts - a.ts || a.name.localeCompare(b.name);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mergedTableOrder, ownerByItemId]);
 
@@ -1056,7 +1068,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                         className="mb-4 rounded-xl border-2 border-amber-400 bg-amber-500/10 p-3"
                         style={{ animation: "pulseAmber 1.2s infinite alternate" }}
                       >
-                        <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-300 sm:text-sm">
                             <span className="material-symbols-outlined text-base">notifications_active</span>
                             Neue Bestellung
@@ -1069,45 +1081,95 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                             Alles servieren ({pendingTotalQty})
                           </button>
                         </div>
-                        <ul className="space-y-1">
-                          {pendingGroups.map((g) => (
-                            <li
-                              key={g.key}
-                              className="flex items-center gap-2 rounded-lg bg-zinc-900/80 px-3 py-2"
-                            >
-                              <span className="min-w-[2.5rem] rounded-md bg-amber-400 px-1.5 py-0.5 text-center text-sm font-black text-zinc-900">
-                                {g.qty}×
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-bold text-zinc-100">{g.name}</span>
-                                {g.note ? (
-                                  <span className="block truncate text-xs text-amber-400">✎ {g.note}</span>
-                                ) : null}
-                                {g.comboName ? (
-                                  <span className="block truncate text-xs text-zinc-500">[Kombi: {g.comboName}]</span>
-                                ) : null}
+                        {(() => {
+                          const grouped: {
+                            sg: { id: string; name: string; color: string; icon: string };
+                            items: (typeof pendingGroups)[number][];
+                          }[] = [];
+                          const sonstiges: (typeof pendingGroups)[number][] = [];
+                          for (const g of pendingGroups) {
+                            const sg = superGroupOf(g.entries[0].it);
+                            if (!sg) {
+                              sonstiges.push(g);
+                              continue;
+                            }
+                            const existing = grouped.find((x) => x.sg.id === sg.id);
+                            if (existing) existing.items.push(g);
+                            else grouped.push({ sg, items: [g] });
+                          }
+                          grouped.sort((a, b) => {
+                            const idx = (sg: string) => {
+                              const i = superGroups.findIndex((s) => String(s.id) === sg);
+                              return i === -1 ? 999 : i;
+                            };
+                            return idx(a.sg.id) - idx(b.sg.id);
+                          });
+                          if (sonstiges.length > 0) {
+                            grouped.push({
+                              sg: { id: "sonstiges", name: "Sonstiges", color: "#9ca3af", icon: "restaurant" },
+                              items: sonstiges,
+                            });
+                          }
+                          return grouped.map((grp) => (
+                            <div key={grp.sg.id} className="mb-2">
+                              <div
+                                className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider"
+                                style={{ color: grp.sg.color }}
+                              >
+                                <span className="material-symbols-outlined text-sm">{grp.sg.icon}</span>
+                                {grp.sg.name}
+                                <span className="text-zinc-500">
+                                  ({grp.items.reduce((s, x) => s + x.qty, 0)})
+                                </span>
                               </div>
-                              <span className="shrink-0 text-sm font-black text-emerald-400">
-                                {formatEur(g.price * g.qty)}
-                              </span>
-                              <button
-                                onClick={() => servePendingGroup(g)}
-                                title={`${g.qty}x ${g.name} servieren`}
-                                className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white transition-all hover:bg-emerald-700 active:scale-95"
-                              >
-                                <span className="material-symbols-outlined text-base">check</span>
-                                Servieren
-                              </button>
-                              <button
-                                onClick={() => cancelPendingGroup(g)}
-                                title={`Storno: ${g.qty}x ${g.name}`}
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/40"
-                              >
-                                <span className="material-symbols-outlined text-base">close</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
+                              <div className="space-y-1.5">
+                                {grp.items.map((g) => (
+                                  <li
+                                    key={g.key}
+                                    className="rounded-lg bg-zinc-900/80 px-3 py-2"
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <span className="min-w-[2.5rem] shrink-0 rounded-md bg-amber-400 px-1.5 py-0.5 text-center text-sm font-black text-zinc-900">
+                                        {g.qty}×
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <span className="block text-sm font-bold leading-snug text-zinc-100 break-words">
+                                          {g.name}
+                                        </span>
+                                        {g.note ? (
+                                          <span className="mt-0.5 block text-xs leading-snug text-amber-400 break-words">✎ {g.note}</span>
+                                        ) : null}
+                                        {g.comboName ? (
+                                          <span className="mt-0.5 block text-xs text-zinc-500">[Kombi: {g.comboName}]</span>
+                                        ) : null}
+                                      </div>
+                                      <span className="shrink-0 pt-0.5 text-sm font-black text-emerald-400">
+                                        {formatEur(g.price * g.qty)}
+                                      </span>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <button
+                                        onClick={() => servePendingGroup(g)}
+                                        title={`${g.qty}x ${g.name} servieren`}
+                                        className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white transition-all hover:bg-emerald-700 active:scale-95"
+                                      >
+                                        <span className="material-symbols-outlined text-base">check</span>
+                                        <span>Servieren</span>
+                                      </button>
+                                      <button
+                                        onClick={() => cancelPendingGroup(g)}
+                                        title={`Storno: ${g.qty}x ${g.name}`}
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/20 text-red-400 transition-colors hover:bg-red-500/40"
+                                      >
+                                        <span className="material-symbols-outlined text-base">close</span>
+                                      </button>
+                                    </div>
+                                  </li>
+                                ))}
+                              </div>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     ) : null}
 
