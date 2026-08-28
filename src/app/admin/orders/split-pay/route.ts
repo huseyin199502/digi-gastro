@@ -4,6 +4,7 @@ import { loadOrder } from "@/lib/orderItems";
 import { persistOrderOps } from "@/lib/tabletOps";
 import { applySplitPay } from "@/lib/splitPay";
 import { publishEvent } from "@/lib/eventBus";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,24 @@ export async function POST(request: NextRequest) {
       addTagesumsatz: result.splitAmount,
       incrementBestellungen: completed ? 1 : 0,
     });
+
+    // Rabatt konsumieren, wenn der gesamte Tisch abgerechnet ist (egal ob
+    // "Tisch abrechnen" oder Teilzahlung, die alles offene begleicht).
+    if (completed) {
+      const otherOpen = await prisma.order.count({
+        where: {
+          tenant_slug: slug,
+          table: order.table,
+          status: { notIn: ["bezahlt", "storniert"] },
+        },
+      });
+      if (otherOpen === 0) {
+        await prisma.voucher.updateMany({
+          where: { tenant_slug: slug, status: "used", used_table: order.table },
+          data: { status: "consumed", used_table: null },
+        });
+      }
+    }
 
     publishEvent(slug, { type: "refresh_tables" });
 

@@ -280,6 +280,15 @@ export async function POST(request: NextRequest) {
 
     await persistOrderOps(slug, ops);
 
+    // Voucher: Rabatt dem Ziel-Tisch zuordnen, damit er der umgebuchten
+    // Rechnung folgt und NICHT am Quelltisch hängen bleibt (sonst bekäme der
+    // nächste Gast am Quelltisch den Rabatt des vorherigen).
+    const sTableDisplay = sZone ? `Tisch ${s.num} (${sZone})` : `Tisch ${s.num}`;
+    await prisma.voucher.updateMany({
+      where: { tenant_slug: slug, status: "used", used_table: sTableDisplay },
+      data: { used_table: tTableDisplay },
+    });
+
     if (sTokTable && tTokTable) {
       await prisma.table.update({
         where: { id: tTokTable.id },

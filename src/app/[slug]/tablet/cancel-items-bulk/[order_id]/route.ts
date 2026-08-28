@@ -14,6 +14,7 @@ import {
   tabletAuth,
 } from "@/lib/tabletOps";
 import { publishEvent } from "@/lib/eventBus";
+import { consumeVoucherIfTableEmpty } from "@/lib/voucherReset";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,7 @@ export async function POST(
 
     if (emptied) {
       await maybeRotateTableSessionToken(slug, order.table);
+      await consumeVoucherIfTableEmpty(slug, order.table);
     }
 
     publishEvent(slug, { type: "update" });

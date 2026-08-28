@@ -11,6 +11,7 @@ import {
   tabletAuth,
 } from "@/lib/tabletOps";
 import { publishEvent } from "@/lib/eventBus";
+import { consumeVoucherIfTableEmpty } from "@/lib/voucherReset";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,8 @@ export async function POST(
 
     // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
     await maybeRotateTableSessionToken(slug, order.table);
+    // Rabatt konsumieren, wenn der ganze Tisch abgerechnet ist
+    await consumeVoucherIfTableEmpty(slug, order.table);
 
     publishEvent(slug, { type: "refresh_tables" });
 

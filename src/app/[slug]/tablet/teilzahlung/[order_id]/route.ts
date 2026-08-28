@@ -9,6 +9,7 @@ import {
 } from "@/lib/tabletOps";
 import { applySplitPay } from "@/lib/splitPay";
 import { publishEvent } from "@/lib/eventBus";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,20 @@ export async function POST(
     if (completed) {
       // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
       await maybeRotateTableSessionToken(slug, order.table);
+      // Rabatt konsumieren, wenn der gesamte Tisch abgerechnet ist
+      const otherOpen = await prisma.order.count({
+        where: {
+          tenant_slug: slug,
+          table: order.table,
+          status: { notIn: ["bezahlt", "storniert"] },
+        },
+      });
+      if (otherOpen === 0) {
+        await prisma.voucher.updateMany({
+          where: { tenant_slug: slug, status: "used", used_table: order.table },
+          data: { status: "consumed", used_table: null },
+        });
+      }
     }
 
     publishEvent(slug, { type: "refresh_tables" });
