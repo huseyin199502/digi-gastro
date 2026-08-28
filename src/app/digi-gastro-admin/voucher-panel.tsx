@@ -87,6 +87,25 @@ export default function VoucherPanel({ tenants }: { tenants: { slug: string; nam
     }
   };
 
+  const del = async (id: number, code: string) => {
+    if (!window.confirm(`Voucher "${code}" wirklich löschen?`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/digi-gastro-admin/voucher?id=${id}`, { method: "DELETE" });
+      const j = await r.json();
+      if (r.ok && j.success) {
+        setNote({ kind: "ok", text: `Voucher ${code} gelöscht.` });
+        await load();
+      } else {
+        setNote({ kind: "err", text: j.detail || "Fehler" });
+      }
+    } catch {
+      setNote({ kind: "err", text: "Verbindungsfehler." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
       <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-amber-400">
@@ -176,10 +195,13 @@ export default function VoucherPanel({ tenants }: { tenants: { slug: string; nam
                 <th className="px-3 py-2">Rabatt</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Verwendet bei</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {vouchers.map((v) => (
+              {vouchers.map((v) => {
+                const isUsed = v.status === "used" || v.status === "consumed";
+                return (
                 <tr key={v.id} className="bg-zinc-950/40">
                   <td className="px-3 py-2 font-mono font-semibold">{v.code}</td>
                   <td className="px-3 py-2">
@@ -188,19 +210,29 @@ export default function VoucherPanel({ tenants }: { tenants: { slug: string; nam
                   <td className="px-3 py-2">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
-                        v.status === "used"
+                        isUsed
                           ? "bg-red-900/50 text-red-300"
                           : "bg-emerald-900/60 text-emerald-300"
                       }`}
                     >
-                      {v.status === "used" ? "verwendet" : "aktiv"}
+                      {isUsed ? "verwendet" : "aktiv"}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs text-zinc-500">
-                    {v.used_table ? `${v.used_table}` : "—"}
+                    {v.used_table ? `${v.used_table}` : isUsed ? "(verwendet)" : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      onClick={() => void del(v.id, v.code)}
+                      disabled={busy}
+                      className="rounded bg-red-900/60 px-2 py-1 text-xs font-bold text-red-300 hover:bg-red-800 disabled:opacity-50"
+                    >
+                      Löschen
+                    </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

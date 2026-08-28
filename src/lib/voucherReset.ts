@@ -22,7 +22,9 @@ export async function consumeVoucherIfTableEmpty(
     if (open === 0) {
       await prisma.voucher.updateMany({
         where: { tenant_slug: slug, status: "used", used_table: table },
-        data: { status: "consumed", used_table: null },
+        // used_table behalten (für "wo verwendet"-Anzeige im Superadmin),
+        // Status -> consumed (gilt nicht mehr für den Tisch)
+        data: { status: "consumed" },
       });
     }
   } catch {

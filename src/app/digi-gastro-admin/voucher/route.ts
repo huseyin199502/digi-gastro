@@ -63,3 +63,16 @@ export async function GET(request: NextRequest) {
     return errorResponse(err);
   }
 }
+
+// DELETE /digi-gastro-admin/voucher?id= — Voucher löschen (Liste bereinigen)
+export async function DELETE(request: NextRequest) {
+  try {
+    await requirePlatformAdmin();
+    const id = Number(request.nextUrl.searchParams.get("id"));
+    if (!id) throw new Error("Voucher-ID fehlt.");
+    await prisma.voucher.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}

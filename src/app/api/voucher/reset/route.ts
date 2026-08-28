@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.voucher.updateMany({
       where: { tenant_slug: slug, status: "used", used_table: table },
-      data: { status: "consumed", used_table: null },
+      data: { status: "consumed" },
     });
 
     return NextResponse.json({ ok: true });
