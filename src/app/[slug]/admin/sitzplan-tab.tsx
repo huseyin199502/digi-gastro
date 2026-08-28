@@ -241,16 +241,23 @@ export default function SitzplanTab(props: SitzplanTabProps) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/voucher/tenant?slug=${encodeURIComponent(slug)}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled && j.ok) setVoucherMap(j.discounts ?? {});
-      })
-      .catch(() => {
-        if (!cancelled) setVoucherMap({});
-      });
+    const load = () => {
+      fetch(`/api/voucher/tenant?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (!cancelled && j.ok) setVoucherMap(j.discounts ?? {});
+        })
+        .catch(() => {
+          if (!cancelled) setVoucherMap({});
+        });
+    };
+    load();
+    // Periodisch aktualisieren, damit frisch eingelöste Codes ohne manuelles
+    // Neu-Laden im Cockpit erscheinen.
+    const iv = window.setInterval(load, 10000);
     return () => {
       cancelled = true;
+      window.clearInterval(iv);
     };
   }, [slug]);
 
@@ -474,7 +481,10 @@ export default function SitzplanTab(props: SitzplanTabProps) {
       pushToast("Keine offenen Bestellungen an diesem Tisch.", "error");
       return;
     }
-    const sum = open.reduce((s, ord) => s + (ord.total ?? 0), 0);
+    const rawSum = open.reduce((s, ord) => s + (ord.total ?? 0), 0);
+    const disc = discountOf(activeTableOrders[0]?.table);
+    const res = applyDiscount(rawSum, disc);
+    const sum = res.total;
     const pendingItems = open.reduce(
       (s, ord) => s + ord.items.filter((it) => (it.item_status || "pending") === "pending").length,
       0
@@ -485,12 +495,29 @@ export default function SitzplanTab(props: SitzplanTabProps) {
         : "";
     if (
       !window.confirm(
-        `Tisch ${selectedTable} über ${formatEur(sum)} abrechnen? (${open.length} Bestellung${open.length === 1 ? "" : "en"})${warn}`
+        `Tisch ${selectedTable} über ${formatEur(sum)}${
+          disc ? ` (statt ${formatEur(rawSum)} mit Rabatt −${disc.label})` : ""
+        } abrechnen? (${open.length} Bestellung${open.length === 1 ? "" : "en"})${warn}`
       )
     )
       return;
     for (const ord of open) {
       await payOrder(ord, { skipConfirm: true });
+    }
+    // Rabatt nach Abrechnung konsumieren -> nächster Kunde am selben Tisch
+    // bekommt NICHT mehr den Rabatt des vorherigen Kunden.
+    if (disc) {
+      await fetch("/api/voucher/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, table: activeTableOrders[0]?.table }),
+      }).catch(() => {});
+      fetch(`/api/voucher/tenant?slug=${encodeURIComponent(slug)}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.ok) setVoucherMap(j.discounts ?? {});
+        })
+        .catch(() => {});
     }
     closeCockpit();
   };
