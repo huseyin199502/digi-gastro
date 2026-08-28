@@ -134,6 +134,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
     return () => window.clearTimeout(to);
   }, [loadCustomers]);
 
+
   const setStamps = async (c: LoyaltyCustomer) => {
     const raw = window.prompt(
       `Stempel für ${c.nickname ?? c.short_code} setzen (max ${c.stamps_required}):`,
@@ -221,7 +222,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
       </div>
 
       {section === "uebersicht" ? (
-        <OverviewTab data={data} pushToast={pushToast} />
+        <OverviewTab data={data} pushToast={pushToast} onCreated={() => void loadOverview()} />
       ) : section === "kunden" ? (
         <CustomersTab
           customers={customers}
@@ -242,10 +243,53 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
 function OverviewTab({
   data,
   pushToast,
+  onCreated,
 }: {
   data: LoyaltyDashboardData | null;
   pushToast: (m: string, k?: Toast["kind"]) => void;
+  onCreated: () => void;
 }) {
+  const [cardFormOpen, setCardFormOpen] = useState(false);
+  const [cardName, setCardName] = useState("");
+  const [cardReward, setCardReward] = useState("");
+  const [cardStamps, setCardStamps] = useState("10");
+  const [cardBusy, setCardBusy] = useState(false);
+
+  const createCard = async () => {
+    if (cardBusy) return;
+    if (!cardName.trim() || !cardReward.trim() || !cardStamps.trim()) {
+      pushToast("Bitte Name, Belohnung und Stempelanzahl angeben", "error");
+      return;
+    }
+    setCardBusy(true);
+    try {
+      const r = await fetch("/admin/loyalty/card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cardName.trim(),
+          reward_name: cardReward.trim(),
+          stamps_required: cardStamps.trim(),
+        }),
+      });
+      if (r.ok) {
+        pushToast("Stempelkarte erstellt");
+        setCardFormOpen(false);
+        setCardName("");
+        setCardReward("");
+        setCardStamps("10");
+        onCreated();
+      } else {
+        const j = await r.json().catch(() => ({}));
+        pushToast(String(j.detail ?? "Fehler"), "error");
+      }
+    } catch {
+      pushToast("Netzwerkfehler", "error");
+    } finally {
+      setCardBusy(false);
+    }
+  };
+
   // Nachricht an alle Wallet-Kunden (Backend: /admin/loyalty/quick-send)
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [broadcastBusy, setBroadcastBusy] = useState(false);
@@ -298,7 +342,56 @@ function OverviewTab({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
-          <h3 className="mb-3 font-bold">Stempelkarten</h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-bold">Stempelkarten</h3>
+            {data.cards.length === 0 ? (
+              <button
+                onClick={() => setCardFormOpen((v) => !v)}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                {cardFormOpen ? "Abbrechen" : "+ Stempelkarte erstellen"}
+              </button>
+            ) : null}
+          </div>
+
+          {cardFormOpen && data.cards.length === 0 ? (
+            <div className="mb-3 rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-4">
+              <p className="mb-3 text-sm font-semibold text-emerald-300">
+                Neue Stempelkarte anlegen
+              </p>
+              <div className="space-y-2">
+                <input
+                  value={cardName}
+                  onChange={(e) => setCardName(e.target.value)}
+                  placeholder="Name (z.B. Stempelkarte)"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                />
+                <input
+                  value={cardReward}
+                  onChange={(e) => setCardReward(e.target.value)}
+                  placeholder="Belohnung (z.B. Shisha gratis)"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                />
+                <input
+                  value={cardStamps}
+                  onChange={(e) => setCardStamps(e.target.value)}
+                  type="number"
+                  min="1"
+                  max="50"
+                  placeholder="Stempel bis Belohnung"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={() => void createCard()}
+                  disabled={cardBusy}
+                  className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {cardBusy ? "Erstelle…" : "Stempelkarte erstellen"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="overflow-hidden rounded-xl border border-zinc-800">
             {data.cards.map((c) => (
               <div

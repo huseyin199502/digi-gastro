@@ -95,7 +95,6 @@ model Tenant {
   tenantGeofences         TenantGeofence[]
   timeOffRequests         TimeOffRequest[]
   adBanners               AdBanner[]
-  reviews                 Review[]
 
   @@map("tenants")
 }
@@ -847,17 +846,4 @@ model AdBanner {
 
   @@index([tenant_slug, status, priority], map: "idx_adbanner_tenant_status")
   @@map("ad_banners")
-}
-
-model Review {
-  id          Int      @id @default(autoincrement())
-  tenant_slug String   @db.VarChar
-  table_name  String?  @db.VarChar
-  rating      Int      @default(5)
-  comment     String?
-  created_at  DateTime @default(now()) @db.Timestamp(6)
-  tenant      Tenant   @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([tenant_slug], map: "idx_review_tenant")
-  @@map("reviews")
 }

@@ -21,6 +21,11 @@ const T = {
     tab_welcome: "Willkommen",
     view_menu: "Speisekarte ansehen",
     rate_us: "Bewerten Sie uns auf Google",
+    google_review_header: "Wie war Ihr Besuch?",
+    google_review_desc:
+      "Vielen Dank! Wir würden uns über deine Bewertung auf Google freuen.",
+    google_review_btn: "Auf Google bewerten",
+    google_review_later: "Jetzt nicht",
     scan_required_header: "QR-Code Scan erforderlich",
     scan_required_desc:
       "Um unsere Speisekarte anzusehen und Bestellungen direkt aufzugeben, scannen Sie bitte den QR-Code an Ihrem Tisch.",
@@ -82,6 +87,10 @@ const T = {
     tab_welcome: "Welcome",
     view_menu: "View Menu",
     rate_us: "Rate us on Google",
+    google_review_header: "How was your visit?",
+    google_review_desc: "Thank you! We'd love your review on Google.",
+    google_review_btn: "Review on Google",
+    google_review_later: "Not now",
     scan_required_header: "QR-Code Scan Required",
     scan_required_desc:
       "To view our menu and place orders directly, please scan the QR code at your table.",
@@ -143,6 +152,10 @@ const T = {
     tab_welcome: "Hoş geldiniz",
     view_menu: "Menüyü Görüntüle",
     rate_us: "Bizi Google'da değerlendirin",
+    google_review_header: "Ziyaretiniz nasıldı?",
+    google_review_desc: "Teşekkürler! Google'da değerlendirmenizi çok isteriz.",
+    google_review_btn: "Google'da değerlendir",
+    google_review_later: "Şimdi değil",
     scan_required_header: "QR Kod Taraması Gerekli",
     scan_required_desc:
       "Menümüzü görmek ve sipariş vermek için lütfen masanızdaki QR kodunu tarayın.",
@@ -203,6 +216,10 @@ const T = {
     tab_welcome: "مرحباً",
     view_menu: "عرض القائمة",
     rate_us: "قيمنا على جوجل",
+    google_review_header: "كيف كانت زيارتك؟",
+    google_review_desc: "شكراً لك! يسعدنا تقييمك على جوجل.",
+    google_review_btn: "قيّم على جوجل",
+    google_review_later: "ليس الآن",
     scan_required_header: "مطلوب مسح رمز QR",
     scan_required_desc:
       "لعرض قائمتنا وتقديم الطلبات مباشرة، يرجى مسح رمز QR على طاولتك.",
@@ -500,8 +517,7 @@ export function MenuClient({
     null
   );
   const [thankYouOpen, setThankYouOpen] = useState(false);
-  const [ratingOpen, setRatingOpen] = useState(false);
-  const [ratingDone, setRatingDone] = useState(false);
+  const [googleReviewOpen, setGoogleReviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedServiceType, setSelectedServiceType] = useState("kellner");
   const [selectedPaymentType, setSelectedPaymentType] =
@@ -886,13 +902,6 @@ export function MenuClient({
       setCartModalOpen(false);
       setThankYouOpen(true);
       pushToast(tr.order_ok.replace("%s", String(data.order_id ?? "")));
-      // Bewertung nach kurzer Zeit anbieten (einmal pro Session)
-      if (!ratingDone) {
-        window.setTimeout(() => {
-          setRatingDone(true);
-          setRatingOpen(true);
-        }, 12000);
-      }
     } catch {
       pushToast(tr.order_error, "error");
     } finally {
@@ -920,6 +929,8 @@ export function MenuClient({
         setBillSheetOpen(false);
         setBillSent(true); // Button zeigt Häkchen, bis der Cooldown endet
         pushToast(tr.payment_sent);
+        // Google-Bewertung anbieten, nachdem der Gast die Rechnung angefordert hat
+        window.setTimeout(() => setGoogleReviewOpen(true), 1500);
       } else {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         pushToast(data.error || tr.order_error, "error");
@@ -2092,6 +2103,15 @@ export function MenuClient({
         onClose={() => setWalletModalOpen(false)}
       />
 
+      {/* ── Google-Bewertung nach Rechnungsanforderung ── */}
+      <GoogleReviewModal
+        tr={tr}
+        open={googleReviewOpen}
+        url={(menu.tenant.landing_page as Record<string, unknown>).google_rating_url as string | undefined}
+        tenantName={t.name}
+        onClose={() => setGoogleReviewOpen(false)}
+      />
+
       {/* ── Legal modal ── */}
       <LegalModal
         tr={tr}
@@ -2107,24 +2127,6 @@ export function MenuClient({
         open={thankYouOpen}
         onClose={() => setThankYouOpen(false)}
         ads={menu.ads.filter((a) => a.placement === "thankyou")}
-      />
-
-      {/* ── In-App-Bewertung nach dem Bestellen ── */}
-      <RatingModal
-        tr={tr}
-        open={ratingOpen}
-        tenantName={t.name}
-        table={tischName}
-        onClose={() => setRatingOpen(false)}
-        onSubmit={async (rating, comment) => {
-          await fetch("/api/rating", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug, rating, comment, table: tischName }),
-          }).catch(() => {});
-          setRatingOpen(false);
-          pushToast("Danke für dein Feedback!");
-        }}
       />
 
       {/* ── Cookie banner ── */}
@@ -2447,7 +2449,7 @@ function LandingView({
             </a>
           ) : null}
 
-          {t.loyalty_enabled ? (
+          {t.loyalty_enabled && t.has_loyalty_card ? (
             <button
               type="button"
               onClick={onOpenWallet}
@@ -3426,29 +3428,26 @@ function LegalModal({
   );
 }
 
-function RatingModal({
+function GoogleReviewModal({
   tr,
   open,
+  url,
   tenantName,
-  table,
   onClose,
-  onSubmit,
 }: {
   tr: (typeof T)[Lang];
   open: boolean;
-  tenantName: string;
-  table: string;
+  url?: string;
+  tenantName?: string;
   onClose: () => void;
-  onSubmit: (rating: number, comment: string) => Promise<void>;
 }) {
-  const [rating, setRating] = useState(0);
-  const [hover, setHover] = useState(0);
-  const [comment, setComment] = useState("");
-  const [sending, setSending] = useState(false);
   if (!open) return null;
-
-  const labels = ["", "Schlecht", "Okay", "Gut", "Sehr gut", "Hervorragend"];
-
+  // Fallback: Google-Suche, falls keine explizite Bewertungs-URL gesetzt ist
+  const targetUrl =
+    (url && url.trim()) ||
+    `https://www.google.com/search?q=${encodeURIComponent(
+      (tenantName || "Restaurant") + " Google Bewertung"
+    )}`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -3459,60 +3458,27 @@ function RatingModal({
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
-        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50">
-          <span className="material-symbols-outlined text-4xl text-amber-500">star</span>
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+          <GoogleG />
         </div>
-        <h3 className="text-xl font-extrabold text-gray-900">Wie war dein Besuch?</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Hilf uns mit deinem Feedback bei {tenantName || "unserem Restaurant"}!
-        </p>
-
-        <div className="my-4 flex items-center justify-center gap-1">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              onClick={() => setRating(n)}
-              onMouseEnter={() => setHover(n)}
-              onMouseLeave={() => setHover(0)}
-              className="text-4xl transition-transform active:scale-90"
-              aria-label={`${n} Sterne`}
-            >
-              <span
-                className={`material-symbols-outlined ${n <= (hover || rating) ? "text-amber-400" : "text-gray-300"}`}
-              >
-                {n <= (hover || rating) ? "star" : "star"}
-              </span>
-            </button>
-          ))}
-        </div>
-        <p className="mb-3 h-5 text-sm font-semibold text-amber-600">
-          {rating ? labels[rating] : "Tippe auf Sterne"}
-        </p>
-
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Optional: dein Feedback…"
-          rows={3}
-          className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-amber-500 focus:outline-none"
-        />
-
-        <button
-          onClick={async () => {
-            if (rating === 0 || sending) return;
-            setSending(true);
-            await onSubmit(rating, comment.trim());
-          }}
-          disabled={rating === 0 || sending}
-          className="mt-3 w-full rounded-2xl bg-amber-500 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-50"
+        <h3 className="text-xl font-extrabold text-gray-900">
+          {tr.google_review_header}
+        </h3>
+        <p className="mt-1 text-sm text-gray-500">{tr.google_review_desc}</p>
+        <a
+          href={targetUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-emerald-700 active:scale-[0.98]"
         >
-          {sending ? "Wird gesendet…" : "Bewertung senden"}
-        </button>
+          <GoogleG />
+          {tr.google_review_btn}
+        </a>
         <button
           onClick={onClose}
           className="mt-2 w-full py-2 text-xs text-gray-400 hover:text-gray-600"
         >
-          Jetzt nicht
+          {tr.google_review_later}
         </button>
       </div>
     </div>

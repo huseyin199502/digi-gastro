@@ -157,6 +157,7 @@ export interface MenuData {
     indigo: string | null;
     orders_enabled: boolean;
     loyalty_enabled: boolean;
+    has_loyalty_card: boolean;
     operating_mode: string;
     accepts_card_payment: boolean;
     price_mode: string;
@@ -200,7 +201,8 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
 
   const berlinNow = getBerlinNow();
 
-  const [dbCategories, dbProducts, dbEvents, dbAds] = await Promise.all([
+  const [dbCategories, dbProducts, dbEvents, dbAds, dbLoyaltyCard] =
+    await Promise.all([
     prisma.category.findMany({
       where: { tenant_slug: slug },
       orderBy: [{ position: "asc" }, { id: "asc" }],
@@ -239,6 +241,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
         placement: true,
       },
     }),
+    prisma.loyaltyCard.count({ where: { tenant_slug: slug } }),
   ]);
 
   const priceMode = tenant.price_mode || "brutto";
@@ -389,6 +392,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
       indigo: tenant.indigo,
       orders_enabled: tenant.orders_enabled !== false,
       loyalty_enabled: tenant.loyalty_enabled !== false,
+      has_loyalty_card: dbLoyaltyCard > 0,
       operating_mode: tenant.operating_mode ?? "full",
       accepts_card_payment: tenant.accepts_card_payment !== false,
       price_mode: priceMode,
