@@ -217,6 +217,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     products,
     categories,
     superGroups,
+    slug,
     showRevenue = true,
   } = props;
 
@@ -235,6 +236,38 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const [openOrderCats, setOpenOrderCats] = useState<Set<string>>(new Set());
   // Produktsuche im "Neue Bestellung"-Sheet
   const [orderSearch, setOrderSearch] = useState("");
+  // Rabatt-Voucher für den aktuell ausgewählten Tisch
+  const [tableDiscount, setTableDiscount] = useState<{ type: string; value: number; label: string } | null>(null);
+
+  // Aktueller Tisch = Tisch der aktiven Bestellungen
+  const currentTableName = activeTableOrders[0]?.table ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentTableName) return;
+    fetch(
+      `/api/voucher/table?slug=${encodeURIComponent(slug)}&table=${encodeURIComponent(currentTableName)}`
+    )
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled) setTableDiscount(j.discount ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setTableDiscount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, currentTableName]);
+
+  const applyDiscount = (total: number): { discount: number; total: number } => {
+    if (!tableDiscount) return { discount: 0, total };
+    const d =
+      tableDiscount.type === "percent"
+        ? Math.round(total * (tableDiscount.value / 100) * 100) / 100
+        : tableDiscount.value;
+    return { discount: d, total: Math.max(0, Math.round((total - d) * 100) / 100) };
+  };
 
   // Live-Timer für die Tisch-Kacheln
   const [now, setNow] = useState(() => Date.now());
@@ -1057,9 +1090,22 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                           {o.timestamp ? new Date(String(o.timestamp).replace(" ", "T")).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : ""}
                         </span>
                       </div>
-                      <span className="font-semibold text-emerald-400">
-                        {formatEur(o.total)}
-                      </span>
+                      <div className="text-right">
+                        {tableDiscount ? (
+                          <>
+                            <span className="block text-xs font-bold text-zinc-500 line-through">
+                              {formatEur(o.total ?? 0)}
+                            </span>
+                            <span className="text-sm font-black text-emerald-400">
+                              {formatEur(applyDiscount(o.total ?? 0).total)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-semibold text-emerald-400">
+                            {formatEur(o.total ?? 0)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* ── NEUE BESTELLUNG — immer ganz oben am Bon, sofort erkennbar ── */}

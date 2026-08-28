@@ -290,6 +290,31 @@ function OverviewTab({
     }
   };
 
+  const deleteCard = async (c: LoyaltyCard) => {
+    if (
+      !window.confirm(
+        `Stempelkarte "${c.name}" wirklich löschen?\nAlle Stempelkarten der Kunden werden entfernt!`
+      )
+    ) {
+      return;
+    }
+    setCardBusy(true);
+    try {
+      const r = await fetch(`/admin/loyalty/card/${c.id}`, { method: "DELETE" });
+      if (r.ok) {
+        pushToast("Stempelkarte gelöscht");
+        onCreated();
+      } else {
+        const j = await r.json().catch(() => ({}));
+        pushToast(String(j.detail ?? "Fehler"), "error");
+      }
+    } catch {
+      pushToast("Netzwerkfehler", "error");
+    } finally {
+      setCardBusy(false);
+    }
+  };
+
   // Nachricht an alle Wallet-Kunden (Backend: /admin/loyalty/quick-send)
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [broadcastBusy, setBroadcastBusy] = useState(false);
@@ -408,13 +433,22 @@ function OverviewTab({
                     {c.is_active ? "" : " · inaktiv"}
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                    c.is_active ? "bg-emerald-900/60 text-emerald-300" : "bg-zinc-800 text-zinc-400"
-                  }`}
-                >
-                  {c.is_active ? "aktiv" : "inaktiv"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      c.is_active ? "bg-emerald-900/60 text-emerald-300" : "bg-zinc-800 text-zinc-400"
+                    }`}
+                  >
+                    {c.is_active ? "aktiv" : "inaktiv"}
+                  </span>
+                  <button
+                    onClick={() => void deleteCard(c)}
+                    disabled={cardBusy}
+                    className="rounded-lg bg-red-900/60 px-2.5 py-1 text-xs font-bold text-red-300 hover:bg-red-800 disabled:opacity-50"
+                  >
+                    Löschen
+                  </button>
+                </div>
               </div>
             ))}
             {data.cards.length === 0 ? (

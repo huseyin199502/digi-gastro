@@ -128,6 +128,19 @@ services:
           created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_adbanner_tenant_status ON ad_banners(tenant_slug, status, priority);
+        CREATE TABLE IF NOT EXISTS vouchers (
+          id              SERIAL PRIMARY KEY,
+          code            VARCHAR NOT NULL UNIQUE,
+          tenant_slug     VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+          discount_type   VARCHAR NOT NULL DEFAULT 'percent',
+          discount_value  INT NOT NULL DEFAULT 0,
+          status          VARCHAR NOT NULL DEFAULT 'active',
+          used_table      VARCHAR,
+          used_at         TIMESTAMPTZ,
+          created_by      VARCHAR,
+          created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_voucher_tenant_status ON vouchers(tenant_slug, status);
         SQL
         echo "[migrate] DB-Delta OK"
 

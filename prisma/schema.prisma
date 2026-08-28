@@ -95,6 +95,7 @@ model Tenant {
   tenantGeofences         TenantGeofence[]
   timeOffRequests         TimeOffRequest[]
   adBanners               AdBanner[]
+  vouchers                Voucher[]
 
   @@map("tenants")
 }
@@ -846,4 +847,21 @@ model AdBanner {
 
   @@index([tenant_slug, status, priority], map: "idx_adbanner_tenant_status")
   @@map("ad_banners")
+}
+
+model Voucher {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique @db.VarChar
+  tenant_slug    String    @db.VarChar
+  discount_type  String    @default("percent") @db.VarChar
+  discount_value Int       @default(0)
+  status         String    @default("active") @db.VarChar
+  used_table     String?   @db.VarChar
+  used_at        DateTime?
+  created_by     String?   @db.VarChar
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  tenant         Tenant    @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, status], map: "idx_voucher_tenant_status")
+  @@map("vouchers")
 }

@@ -2080,6 +2080,8 @@ export function MenuClient({
         tr={tr}
         open={billSheetOpen}
         unpaidSum={unpaidSum}
+        slug={slug}
+        table={table || ""}
         onClose={() => setBillSheetOpen(false)}
         onConfirm={confirmBillRequest}
       />
@@ -3154,15 +3156,49 @@ function BillConfirmSheet({
   tr,
   open,
   unpaidSum,
+  slug,
+  table,
   onClose,
   onConfirm,
 }: {
   tr: (typeof T)[Lang];
   open: boolean;
   unpaidSum: number;
+  slug: string;
+  table: string;
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const [code, setCode] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  const [discount, setDiscount] = useState<{ type: string; value: number; label: string } | null>(null);
+  const [claimErr, setClaimErr] = useState<string | null>(null);
+
+  const claim = async () => {
+    const c = code.trim();
+    if (!c || claiming) return;
+    setClaiming(true);
+    setClaimErr(null);
+    try {
+      const r = await fetch("/api/voucher/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, code: c, table }),
+      });
+      const j = await r.json();
+      if (r.ok && j.ok) {
+        setDiscount(j.discount);
+        setCode("");
+      } else {
+        setClaimErr(j.error || "Ungültiger Code.");
+      }
+    } catch {
+      setClaimErr("Netzwerkfehler.");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
@@ -3186,6 +3222,34 @@ function BillConfirmSheet({
             <span className="text-lg font-black text-gray-900">{formatEur(unpaidSum)}</span>
           </div>
         ) : null}
+
+        {/* Rabattcode (optional) */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="Rabattcode (optional)"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 placeholder-gray-400 uppercase focus:border-emerald-500 focus:outline-none"
+            />
+            <button
+              onClick={() => void claim()}
+              disabled={claiming || !code.trim()}
+              className="shrink-0 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {claiming ? "…" : "Einlösen"}
+            </button>
+          </div>
+          {discount ? (
+            <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+              Rabatt aktiv: −{discount.label}
+            </p>
+          ) : null}
+          {claimErr ? (
+            <p className="mt-2 text-xs font-semibold text-red-500">{claimErr}</p>
+          ) : null}
+        </div>
+
         <div className="space-y-2">
           <button
             onClick={() => {

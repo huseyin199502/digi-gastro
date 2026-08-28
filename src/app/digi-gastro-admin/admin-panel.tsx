@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import VoucherPanel from "./voucher-panel";
 
 const formatEur = (v: number): string =>
   new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(v);
@@ -397,6 +398,9 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Rabatt-Vouchers */}
+      <VoucherPanel tenants={tenants.map((t) => ({ slug: t.slug, name: t.name }))} />
     </div>
   );
 }
