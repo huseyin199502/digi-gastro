@@ -307,6 +307,18 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     return [...set];
   }, [live]);
 
+  // Kacheln nach Zone gruppieren (z.B. "Drinnen:" alle aktiven Tische,
+  // darunter "Draußen:" alle aktiven Tische)
+  const tablesByZone = useMemo(() => {
+    const map = new Map<string, LiveTable[]>();
+    for (const t of filteredTables) {
+      const z = t.zone || "";
+      if (!map.has(z)) map.set(z, []);
+      map.get(z)!.push(t);
+    }
+    return [...map.entries()];
+  }, [filteredTables]);
+
   const statusByLabel = useMemo(() => {
     const map = new Map<string, StatusInfo>();
     for (const t of live?.tables ?? []) {
@@ -930,9 +942,21 @@ export default function SitzplanTab(props: SitzplanTabProps) {
         </div>
       ) : null}
 
-      {/* Tisch-Raster (sortiert nach Nummer) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {filteredTables.map((t) => {
+      {/* Tisch-Raster — nach Zone gruppiert (z.B. Drinnen: alle aktiven Tische,
+          darunter Draußen: alle aktiven Tische) */}
+      {tablesByZone.map(([zone, zoneTables]) => (
+        <div key={zone || "__ohne__"} className="mb-6">
+          {zone ? (
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
+              <span className="material-symbols-outlined text-sm">location_on</span>
+              {zone}
+              <span className="text-zinc-600">
+                ({zoneTables.filter((t) => (statusByLabel.get(tableLabel(t))?.status ?? "free") !== "free").length} aktiv)
+              </span>
+            </h3>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {zoneTables.map((t) => {
           const label = tableLabel(t);
           const info = statusByLabel.get(label);
           const status = info?.status ?? "free";
@@ -1014,11 +1038,13 @@ export default function SitzplanTab(props: SitzplanTabProps) {
               ) : null}
             </button>
           );
-        })}
-        {filteredTables.length === 0 ? (
-          <p className="col-span-full text-sm text-zinc-500">Keine Tische vorhanden.</p>
-        ) : null}
-      </div>
+            })}
+          </div>
+        </div>
+      ))}
+      {filteredTables.length === 0 ? (
+        <p className="text-sm text-zinc-500">Keine Tische vorhanden.</p>
+      ) : null}
 
       {/* ── Bottom sheet cockpit ── */}
       {selectedTable && selectedInfo ? (
