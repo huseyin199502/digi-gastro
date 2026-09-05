@@ -35,10 +35,21 @@ export function errorResponse(err: unknown) {
 /** Legacy Accept-based dual behaviour: fetch → JSON, form post → 303 redirect */
 export function wantsJson(request: Request): boolean {
   const accept = request.headers.get("accept") ?? "";
-  return (
+  if (
     accept.includes("application/json") ||
     request.headers.get("x-requested-with") === "fetch"
-  );
+  ) {
+    return true;
+  }
+  // fetch() sends `Accept: */*` by default (no explicit JSON accept) —
+  // treat JSON POSTs as JSON clients so they get {success:true} instead
+  // of a 303 redirect (which breaks behind reverse proxies and shows
+  // "Verbindungsfehler" although the delete already succeeded).
+  // Only real form navigations explicitly accept HTML.
+  if (accept.includes("text/html")) return false;
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) return true;
+  return false;
 }
 
 /**

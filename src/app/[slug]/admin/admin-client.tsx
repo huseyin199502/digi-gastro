@@ -480,12 +480,16 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
       try {
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-Requested-With": "fetch",
+          },
           body: body === undefined ? undefined : JSON.stringify(body),
         });
         if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { error?: string };
-          pushToast(data.error || "Fehler", "error");
+          const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+          pushToast(data.error || data.detail || "Fehler", "error");
           return false;
         }
         pushToast(okMsg);
