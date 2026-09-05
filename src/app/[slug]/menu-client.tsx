@@ -891,6 +891,7 @@ export function MenuClient({
         success?: boolean;
         error?: string;
         order_id?: number;
+        daily_bon_number?: number;
       };
       if (!res.ok || !data.success) {
         pushToast(data.error || tr.order_error, "error");
@@ -901,7 +902,9 @@ export function MenuClient({
       setCart([]);
       setCartModalOpen(false);
       setThankYouOpen(true);
-      pushToast(tr.order_ok.replace("%s", String(data.order_id ?? "")));
+      // Gäste sehen die Tages-Bonnummer (beginnt täglich neu bei 1),
+      // nicht die globale technische Bestell-ID.
+      pushToast(tr.order_ok.replace("%s", String(data.daily_bon_number ?? data.order_id ?? "")));
     } catch {
       pushToast(tr.order_error, "error");
     } finally {

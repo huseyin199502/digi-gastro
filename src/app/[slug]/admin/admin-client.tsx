@@ -70,6 +70,10 @@ export interface TenantSettings {
   theme: string;
   logo_url: string;
   logo_url_2: string;
+  owner_name: string;
+  owner_street: string;
+  owner_email: string;
+  owner_phone: string;
   accepts_card_payment: boolean;
   pos_system: string;
   pos_api_url: string;
@@ -718,10 +722,10 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
   );
 
   const transferOrder = useCallback(
-    async (o: LiveOrder, targetTable: string, itemKeys?: string[], itemsMap?: Record<string, number>) => {
-      await postJson(
+    async (o: LiveOrder, targetTable: string, itemKeys?: string[], itemsMap?: Record<string, number>, idempotencyKey?: string) => {
+      return postJson(
         "/admin/orders/transfer",
-        { source_table: o.table, target_table: targetTable, item_keys: itemKeys, items: itemsMap },
+        { source_table: o.table, target_table: targetTable, item_keys: itemKeys, items: itemsMap, idempotency_key: idempotencyKey },
         itemKeys && itemKeys.length > 0
           ? `Umbuchung (${itemKeys.length} Produkt${itemKeys.length === 1 ? "" : "e"}) nach ${targetTable}`
           : `Umbuchung nach ${targetTable}`
@@ -1021,7 +1025,7 @@ interface LiveTabProps {
   cancelOrder: (o: LiveOrder) => void;
   payOrder: (o: LiveOrder, opts?: { skipConfirm?: boolean }) => void;
   splitPay: (o: LiveOrder, items: LiveItem[]) => void;
-  transferOrder: (o: LiveOrder, targetLabel: string, itemKeys?: string[], itemsMap?: Record<string, number>) => void;
+  transferOrder: (o: LiveOrder, targetLabel: string, itemKeys?: string[], itemsMap?: Record<string, number>, idempotencyKey?: string) => Promise<boolean>;
   serviceErledigt: (c: ServiceCall) => void;
   addManualOrder: (tableNumber: string, items: { product_id: number; quantity: number }[]) => void;
   pushToast: (msg: string, kind?: "success" | "error") => void;
@@ -1335,6 +1339,15 @@ function ProductsTab(props: ProductsTabProps) {
   const [view, setView] = useState<"grid" | "table">("grid");
   const [showCreate, setShowCreate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [createdProducts, setCreatedProducts] = useState<AdminProduct[]>([]);
+  // Sofort sichtbare neu erstellte Produkte, ohne auf den Server-Refresh zu warten.
+  const products = useMemo(() => {
+    const initialIds = new Set(initial.products.map((p) => p.id));
+    return [
+      ...createdProducts.filter((p) => !initialIds.has(p.id)),
+      ...initial.products,
+    ];
+  }, [createdProducts, initial.products]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
@@ -1432,7 +1445,8 @@ function ProductsTab(props: ProductsTabProps) {
   };
 
   const submitCreate = async () => {
-    if (!name.trim()) {
+    const productName = name.trim();
+    if (!productName) {
       pushToast("Produktname erforderlich", "error");
       return;
     }
@@ -1440,23 +1454,34 @@ function ProductsTab(props: ProductsTabProps) {
     try {
       const res = await fetch("/admin/produkt-erstellen", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "x-requested-with": "fetch",
+        },
         body: JSON.stringify({
-          name: name.trim(),
+          name: productName,
           price: parseFloat(price) || 0,
           category: category.trim(),
         }),
       });
-      if (res.ok) {
-        pushToast(`Produkt "${name.trim()}" angelegt`);
-        setShowCreate(false);
-        setName("");
-        setPrice("");
-        setCategory("");
-      } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        pushToast(data.error || "Fehler", "error");
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        product?: AdminProduct;
+        detail?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.success || !data.product) {
+        pushToast(data.detail || data.error || "Fehler", "error");
+        return;
       }
+      setCreatedProducts((prev) => [data.product as AdminProduct, ...prev]);
+      pushToast(`Erfolgreich erstellt: "${productName}"`);
+      setShowCreate(false);
+      setName("");
+      setPrice("");
+      setCategory("");
+      router.refresh();
     } catch {
       pushToast("Verbindungsfehler", "error");
     } finally {
@@ -1465,7 +1490,7 @@ function ProductsTab(props: ProductsTabProps) {
   };
 
   const sorted = useMemo(() => {
-    let list = [...initial.products];
+    let list = [...products];
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((p) =>
@@ -1474,7 +1499,7 @@ function ProductsTab(props: ProductsTabProps) {
       );
     }
     return list;
-  }, [initial.products, searchQuery]);
+  }, [products, searchQuery]);
 
   const moveProduct = async (cat: string, catIdx: number, dir: -1 | 1) => {
     const group = groupedByCategory.find(([c]) => c === cat)?.[1];
@@ -1582,7 +1607,7 @@ function ProductsTab(props: ProductsTabProps) {
     try {
       let ok = true;
       for (const id of selected) {
-        const p = initial.products.find((x) => x.id === id);
+        const p = products.find((x) => x.id === id);
         if (!p) continue;
         const res = await fetch(`/admin/product-toggle/${id}`, { method: "POST" });
         if (!res.ok) ok = false;
@@ -1606,7 +1631,7 @@ function ProductsTab(props: ProductsTabProps) {
     try {
       let ok = true;
       for (const id of selected) {
-        const p = initial.products.find((x) => x.id === id);
+        const p = products.find((x) => x.id === id);
         if (!p) continue;
         const res = await fetch(`/api/products/${id}`, {
           method: "PUT",
@@ -1647,7 +1672,7 @@ function ProductsTab(props: ProductsTabProps) {
     try {
       let ok = true;
       for (const id of selected) {
-        const p = initial.products.find((x) => x.id === id);
+        const p = products.find((x) => x.id === id);
         if (!p) continue;
         const res = await fetch(`/admin/produkt-loeschen/${id}`, { method: "POST" });
         if (!res.ok) ok = false;
@@ -2464,7 +2489,7 @@ function ProductsTab(props: ProductsTabProps) {
                   Empfohlene Zusatzprodukte, die dem Gast beim Bestellen vorgeschlagen werden.
                 </p>
                 <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
-                  {initial.products
+                  {products
                     .filter((p) => p.id !== editing?.id)
                     .map((p) => {
                       const on = editRelated.includes(p.id);
@@ -4078,6 +4103,10 @@ function SettingsTab(props: SettingsTabProps) {
   const [address, setAddress] = useState(s.address);
   const [plz, setPlz] = useState(s.plz);
   const [ort, setOrt] = useState(s.ort);
+  const [ownerName, setOwnerName] = useState(s.owner_name);
+  const [ownerStreet, setOwnerStreet] = useState(s.owner_street);
+  const [ownerEmail, setOwnerEmail] = useState(s.owner_email);
+  const [ownerPhone, setOwnerPhone] = useState(s.owner_phone);
   const [instagram, setInstagram] = useState(s.instagram);
   const [facebook, setFacebook] = useState(s.facebook);
   const [tiktok, setTiktok] = useState(s.tiktok);
@@ -4160,6 +4189,34 @@ function SettingsTab(props: SettingsTabProps) {
       });
       if (res.ok) {
         pushToast("Branding gespeichert");
+      } else {
+        pushToast("Fehler beim Speichern", "error");
+      }
+    } catch {
+      pushToast("Verbindungsfehler", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveLegal = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/admin/legal-update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-requested-with": "fetch",
+        },
+        body: JSON.stringify({
+          owner_name: ownerName,
+          owner_street: ownerStreet,
+          owner_email: ownerEmail,
+          owner_phone: ownerPhone,
+        }),
+      });
+      if (res.ok) {
+        pushToast("Inhaber-Kontaktdaten gespeichert");
       } else {
         pushToast("Fehler beim Speichern", "error");
       }
@@ -4582,6 +4639,57 @@ function SettingsTab(props: SettingsTabProps) {
             Kasse speichern
           </button>
         </div>
+      </div>
+
+      {/* Inhaber & Impressum */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <h3 className="mb-1 font-bold">Inhaber &amp; Impressum</h3>
+        <p className="mb-4 text-xs text-zinc-400">
+          Diese Kontaktdaten erscheinen im Impressum und in der Datenschutzerklärung der Speisekarte.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs text-zinc-400">Name des Inhabers</label>
+            <input
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-zinc-400">E-Mail-Adresse des Inhabers</label>
+            <input
+              type="email"
+              value={ownerEmail}
+              onChange={(e) => setOwnerEmail(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-zinc-400">Straße und Hausnummer</label>
+            <input
+              value={ownerStreet}
+              onChange={(e) => setOwnerStreet(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-zinc-400">Telefonnummer</label>
+            <input
+              type="tel"
+              value={ownerPhone}
+              onChange={(e) => setOwnerPhone(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+        <button
+          onClick={() => void saveLegal()}
+          disabled={busy}
+          className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold hover:bg-emerald-700 disabled:opacity-40"
+        >
+          Rechtliches speichern
+        </button>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import type {
 } from "./admin-types";
 import { formatEur } from "./admin-types";
 import type { AdminProduct } from "./admin-types";
+import { beginTransferAction, endTransferAction } from "@/lib/transferAction";
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -32,7 +33,7 @@ interface SitzplanTabProps {
   cancelOrder: (o: LiveOrder) => void;
   payOrder: (o: LiveOrder, opts?: { skipConfirm?: boolean }) => void;
   splitPay: (o: LiveOrder, items: LiveItem[]) => void;
-  transferOrder: (o: LiveOrder, targetLabel: string, itemKeys?: string[], itemsMap?: Record<string, number>) => void;
+  transferOrder: (o: LiveOrder, targetLabel: string, itemKeys?: string[], itemsMap?: Record<string, number>, idempotencyKey?: string) => Promise<boolean>;
   serviceErledigt: (c: ServiceCall) => void;
   addManualOrder: (tableLabel: string, items: { product_id: number; quantity: number }[]) => void;
   pushToast: (msg: string, kind?: "success" | "error") => void;
@@ -225,6 +226,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const [splitSel, setSplitSel] = useState<Map<number, number>>(new Map());
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
   const [transferSel, setTransferSel] = useState<Map<number, number>>(new Map());
+  const [transferBusy, setTransferBusy] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [newOrderItems, setNewOrderItems] = useState<Map<number, number>>(new Map()); // productId -> quantity
   const [multiSelect, setMultiSelect] = useState<Set<number>>(new Set());
@@ -752,6 +754,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
 
   // ── Transfer: individuelle Produkte ──
   const toggleTransferItem = (itemId: number, _quantity: number) => {
+    if (transferBusy) return;
     const ids = comboGroupIds(itemId);
     setTransferSel((prev) => {
       const next = new Map(prev);
@@ -768,6 +771,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   };
 
   const setTransferQty = (itemId: number, qty: number) => {
+    if (transferBusy) return;
     // Kombis sind nicht teilbar — Mengen-Stepper ist für sie deaktiviert
     if (isComboRow(mergedTableOrder?.items.find((x) => x.id === itemId))) return;
     setTransferSel((prev) => {
@@ -809,23 +813,38 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     return map;
   };
 
-  const confirmTransfer = (o: LiveOrder, targetLabel: string) => {
-    // Ausgewählte Items können aus mehreren Bestellungen stammen —
-    // je Ursprungs-Bestellung umbuchen.
-    const byOwner = new Map<number, LiveOrder>();
-    for (const itemId of transferSel.keys()) {
-      const owner = ownerByItemId.get(itemId);
-      if (owner && !byOwner.has(owner.id)) byOwner.set(owner.id, owner);
+  const confirmTransfer = async (o: LiveOrder, targetLabel: string) => {
+    const idempotencyKey = beginTransferAction();
+    if (!idempotencyKey) {
+      pushToast("Umbuchung läuft bereits …", "error");
+      return;
     }
-    if (transferItemKeys(o).length === 0) {
+    const itemKeys = transferItemKeys(o);
+    const itemsMap = transferItemQtys(o);
+    if (itemKeys.length === 0) {
+      endTransferAction(idempotencyKey);
       pushToast("Bitte zuerst die umzubuchende Produkte auswählen.", "error");
       return;
     }
-    for (const owner of byOwner.values()) {
-      transferOrder(owner, targetLabel, transferItemKeys(owner), transferItemQtys(owner));
+    // Ein Nutzer-Klick = genau ein Request. Der Server behandelt alle
+    // ausgewählten Positionen aus allen Ursprungs-Bestellungen atomar.
+    setTransferBusy(true);
+    try {
+      const ok = await transferOrder(
+        o,
+        targetLabel,
+        itemKeys,
+        itemsMap,
+        idempotencyKey
+      );
+      if (ok) {
+        setTransferTarget(null);
+        setTransferSel(new Map());
+      }
+    } finally {
+      endTransferAction(idempotencyKey);
+      setTransferBusy(false);
     }
-    setTransferTarget(null);
-    setTransferSel(new Map());
   };
 
   return (
@@ -1375,6 +1394,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                         type="checkbox"
                                         checked={transferChecked}
                                         onChange={() => toggleTransferItem(it.id, it.quantity)}
+                                        disabled={transferBusy}
                                         className="h-4 w-4 accent-violet-500"
                                       />
                                     ) : isPending ? (
@@ -1457,7 +1477,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                             else setTransferQty(it.id, next);
                                           }}
                                           className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800 text-sm font-bold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
-                                          disabled={(splitMode ? splitQty : transferQty) <= 1}
+                                          disabled={(splitMode ? splitQty : transferQty) <= 1 || (!splitMode && transferBusy)}
                                         >
                                           −
                                         </button>
@@ -1472,7 +1492,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                                             else setTransferQty(it.id, next);
                                           }}
                                           className="flex h-6 w-6 items-center justify-center rounded bg-zinc-800 text-sm font-bold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
-                                          disabled={(splitMode ? splitQty : transferQty) >= it.quantity}
+                                          disabled={(splitMode ? splitQty : transferQty) >= it.quantity || (!splitMode && transferBusy)}
                                         >
                                           +
                                         </button>
@@ -1578,7 +1598,8 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                       ) : (
                         <button
                           onClick={() => setTransferTarget(null)}
-                          className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700 min-h-[44px]"
+                          disabled={transferBusy}
+                          className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 min-h-[44px]"
                         >
                           Abbrechen
                         </button>
@@ -1614,10 +1635,8 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                             return (
                               <button
                                 key={`${t.number}-${t.zone}`}
-                                onClick={() => {
-                                  confirmTransfer(o, tLabel);
-                                }}
-                                disabled={transferSel.size === 0}
+                                onClick={() => void confirmTransfer(o, tLabel)}
+                                disabled={transferSel.size === 0 || transferBusy}
                                 className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-3 text-center text-sm sm:text-base font-bold hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-zinc-800 min-h-[44px]"
                               >
                                 {t.number}

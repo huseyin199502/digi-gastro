@@ -1,6 +1,8 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ApiError, errorResponse, requireChefOrKellner } from "@/lib/adminApi";
+import { isValidIdempotencyKey, withLock } from "@/lib/idempotency";
 import {
   MutableOrder,
   nextDailyBonNumber,
@@ -20,7 +22,7 @@ import { publishEvent } from "@/lib/eventBus";
 export const dynamic = "force-dynamic";
 
 // Legacy POST /admin/orders/transfer (main.py ~14265)
-// Body JSON: { source_table, target_table, item_keys?: [str], items?: {key: qty} }
+// Body JSON: { source_table, target_table, item_keys?: [str], items?: {key: qty}, idempotency_key: str }
 export async function POST(request: NextRequest) {
   try {
     const session = await requireChefOrKellner();
@@ -45,10 +47,60 @@ export async function POST(request: NextRequest) {
       payload.items && typeof payload.items === "object" && !Array.isArray(payload.items)
         ? (payload.items as Record<string, unknown>)
         : null;
+    const transferIdempotencyKey =
+      typeof payload.idempotency_key === "string" ? payload.idempotency_key : null;
+    if (!isValidIdempotencyKey(transferIdempotencyKey)) {
+      throw new ApiError("Fehlender oder ungültiger Umbuchungs-Key.", 400);
+    }
 
     // Zone aus Tisch-String extrahieren — "Tisch 1 (Draußen)" → num/zone
     const s = parseActiveTableNum(String(payload.source_table ?? ""));
     const t = parseActiveTableNum(String(payload.target_table ?? ""));
+
+    const normalizedItemsMap = itemsMap
+      ? Object.fromEntries(
+          Object.entries(itemsMap).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        )
+      : null;
+    const transferFingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          source_table: String(payload.source_table ?? ""),
+          target_table: String(payload.target_table ?? ""),
+          item_keys: itemKeys ? [...itemKeys].sort() : null,
+          items: normalizedItemsMap,
+        })
+      )
+      .digest("hex");
+
+    const transferMarker = `transfer_idem:${transferIdempotencyKey}`;
+
+    // Serialisiert Umbuchungen derselben Tischkombination. Damit sehen
+    // parallele Wiederholungen den ersten Commit und erzeugen keine doppelten
+    // Ziel-Bestellungen oder doppelten Bonnummern.
+    return await withLock(
+      `transfer:${slug}:${s.num}:${s.zone}:${t.num}:${t.zone}`,
+      async () => {
+        const existing = await prisma.auditLog.findFirst({
+          where: { tenant_slug: slug, action: transferMarker },
+          orderBy: { id: "desc" },
+          select: { details: true },
+        });
+        if (existing?.details) {
+          try {
+            const marker = JSON.parse(existing.details) as {
+              fingerprint?: unknown;
+            };
+            if (marker.fingerprint === transferFingerprint) {
+              return NextResponse.json({ success: true, duplicate: true });
+            }
+          } catch {
+            // Ungültiger Marker darf eine Umbuchung nicht unbemerkt doppelt ausführen.
+            throw new ApiError("Doppelter Umbuchungs-Key.", 409);
+          }
+          throw new ApiError("Doppelter Umbuchungs-Key.", 409);
+        }
+
 
     // Zone info from table database (string zone first, then DB fallback)
     const tablesList = await prisma.table.findMany({
@@ -276,6 +328,17 @@ export async function POST(request: NextRequest) {
         action: `Admin-Transfer von ${payload.source_table} nach ${payload.target_table}`,
         details: `Verschobener Betrag: ${totalTransferred} €`,
       },
+      {
+        name: "System",
+        role: "system",
+        action: transferMarker,
+        details: JSON.stringify({
+          fingerprint: transferFingerprint,
+          source_table: String(payload.source_table ?? ""),
+          target_table: String(payload.target_table ?? ""),
+          moved_amount: totalTransferred,
+        }),
+      },
     ];
 
     await persistOrderOps(slug, ops);
@@ -299,6 +362,8 @@ export async function POST(request: NextRequest) {
     publishEvent(slug, { type: "refresh_tables" });
 
     return NextResponse.json({ success: true });
+      }
+    );
   } catch (err) {
     return errorResponse(err);
   }
