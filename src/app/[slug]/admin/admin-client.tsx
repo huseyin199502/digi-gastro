@@ -725,17 +725,61 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
     [postJson]
   );
 
+  // Eigener Fetch statt postJson: unterscheidet Erfolg / bereits ausgeführt /
+  // Konflikt / Fehler und gibt bei jedem Ausgang klare Hinweise. Nach einem
+  // Fehlschlag wird der Live-Stand neu geladen, damit die Anzeige nicht auf
+  // veraltetem Stand stehen bleibt (gestern sah der Kellner "Fehler", obwohl
+  // die Umbuchung durch war).
   const transferOrder = useCallback(
     async (o: LiveOrder, targetTable: string, itemKeys?: string[], itemsMap?: Record<string, number>, idempotencyKey?: string) => {
-      return postJson(
-        "/admin/orders/transfer",
-        { source_table: o.table, target_table: targetTable, item_keys: itemKeys, items: itemsMap, idempotency_key: idempotencyKey },
+      const okMsg =
         itemKeys && itemKeys.length > 0
           ? `Umbuchung (${itemKeys.length} Produkt${itemKeys.length === 1 ? "" : "e"}) nach ${targetTable}`
-          : `Umbuchung nach ${targetTable}`
-      );
+          : `Umbuchung nach ${targetTable}`;
+      try {
+        const res = await fetch("/admin/orders/transfer", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-Requested-With": "fetch",
+          },
+          body: JSON.stringify({
+            source_table: o.table,
+            target_table: targetTable,
+            item_keys: itemKeys,
+            items: itemsMap,
+            idempotency_key: idempotencyKey,
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          duplicate?: boolean;
+          error?: string;
+          detail?: string;
+        };
+        if (res.ok) {
+          pushToast(data.duplicate ? "Umbuchung war bereits ausgeführt." : okMsg);
+          void refreshLive();
+          return true;
+        }
+        if (res.status === 409) {
+          pushToast("Möglicherweise bereits umgebucht – bitte Ziel-Tisch prüfen.", "error");
+        } else {
+          pushToast(data.error || data.detail || "Fehler", "error");
+        }
+        void refreshLive();
+        return false;
+      } catch {
+        pushToast(
+          "Verbindungsfehler – bitte erst Ziel-Tisch prüfen, bevor du es wiederholst.",
+          "error"
+        );
+        void refreshLive();
+        return false;
+      }
     },
-    [postJson]
+    [pushToast, refreshLive]
   );
 
   const addManualOrder = useCallback(

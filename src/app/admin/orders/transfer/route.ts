@@ -124,9 +124,42 @@ export async function POST(request: NextRequest) {
     const sourceOrders = findOpenOrdersByTable(openOrders, s.num, sZone);
     if (sourceOrders.length === 0) {
       throw new ApiError(
-        "Keine offene Bestellung auf dem Quelltisch gefunden.",
+        "Keine offene Bestellung auf dem Quelltisch gefunden. Falls du es gerade versucht hast: bitte Ziel-Tisch prüfen – die Umbuchung ist evtl. bereits durch.",
         400
       );
+    }
+
+    // Retry-Schutz bei neuer Key, gleicher Ausführung: Item-IDs werden beim
+    // Persistieren neu vergeben, ein Retry mit neuem Key könnte sonst erneut
+    // (teil-)umbuchen. Der Ausführungs-Fingerprint enthält die Quell-Order-IDs
+    // und ist daher pro Ausführung eindeutig, aber stabil über Retries.
+    // (Hinweis: NICHT nur nach dem Payload-Fingerprint suchen – zwei echte
+    // Umbuchungen zwischen denselben Tischen hätten denselben Payload-Hash.)
+    const executionFingerprint = createHash("sha256")
+      .update(
+        `${transferFingerprint}|src:${sourceOrders
+          .map((o) => o.id)
+          .sort((a, b) => a - b)
+          .join(",")}`
+      )
+      .digest("hex");
+    const recentMarkers = await prisma.auditLog.findMany({
+      where: { tenant_slug: slug, action: { startsWith: "transfer_idem:" } },
+      orderBy: { id: "desc" },
+      take: 200,
+      select: { details: true },
+    });
+    for (const row of recentMarkers) {
+      try {
+        const m = JSON.parse(row.details ?? "") as {
+          executionFingerprint?: unknown;
+        };
+        if (m.executionFingerprint === executionFingerprint) {
+          return NextResponse.json({ success: true, duplicate: true });
+        }
+      } catch {
+        // ignore malformed markers
+      }
     }
 
     let targetOrder: MutableOrder | null =
@@ -334,6 +367,7 @@ export async function POST(request: NextRequest) {
         action: transferMarker,
         details: JSON.stringify({
           fingerprint: transferFingerprint,
+          executionFingerprint,
           source_table: String(payload.source_table ?? ""),
           target_table: String(payload.target_table ?? ""),
           moved_amount: totalTransferred,
