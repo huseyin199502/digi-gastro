@@ -23,16 +23,23 @@ export async function POST(request: NextRequest) {
       `[Google Wallet Callback] eventType=${eventType}, objectId=${objectId.slice(0, 40)}..., classId=${classId.slice(0, 40)}...`
     );
 
-    // Object-ID Format: "{issuer_id}.{tenant_slug}-{serial[:16]}"
+    // Object-ID Format: "{issuer_id}.{tenant_slug}-{serialShort}" mit
+    // serialShort = pass_serial.slice(0,16) OHNE Bindestriche. Für den
+    // Lookup müssen die UUID-Bindestriche an Position 8 und 13 zurück.
     if (objectId && objectId.includes(".")) {
       const objectPart = objectId.split(".").slice(1).join(".");
       if (objectPart.includes("-")) {
         const serialPrefix = objectPart.split("-").pop() ?? "";
-        // Customer finden dessen pass_serial mit serial_prefix beginnt
+        const dashed =
+          serialPrefix.length >= 13
+            ? `${serialPrefix.slice(0, 8)}-${serialPrefix.slice(8, 12)}-${serialPrefix.slice(12)}`
+            : serialPrefix;
+        // Customer finden dessen pass_serial mit dem rekonstruierten Prefix
+        // beginnt. OHNE pass_type-Filter: Kunden wandern zwischen den
+        // Wallets (Apple↔Google), das Google-Object bleibt aber bestehen.
         const customer = await prisma.loyaltyCustomer.findFirst({
           where: {
-            pass_serial: { startsWith: serialPrefix },
-            pass_type: "google",
+            pass_serial: { startsWith: dashed },
           },
         });
 

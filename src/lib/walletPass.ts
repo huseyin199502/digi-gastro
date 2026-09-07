@@ -582,26 +582,38 @@ export async function buildPassIconFromLogo(
     const cw0 = i2.width;
     const ch0 = i2.height;
     const aspectRatio = Math.max(cw0, ch0) / Math.max(1, Math.min(cw0, ch0));
-    let logoSharp = sharp(d2, {
-      raw: { width: cw0, height: ch0, channels: 4 },
-    });
-    if (aspectRatio > 1.5 && cw0 > ch0) {
-      const newWFull = Math.round(cw0 * (canvasSize / ch0));
-      logoSharp = logoSharp.resize(newWFull, canvasSize);
-      const portionWidth = Math.min(newWFull, Math.round(newWFull * 0.5));
-      logoSharp = logoSharp.extract({
-        left: 0,
-        top: 0,
-        width: portionWidth,
-        height: canvasSize,
-      });
-    }
     const targetSize = Math.round(canvasSize * 0.9);
-    logoSharp = logoSharp.resize(targetSize, targetSize, {
-      fit: "inside",
-      withoutEnlargement: false,
-    });
-    const logoFinal = await logoSharp.png().toBuffer();
+    // sharp ist lazy — Fehler aus resize/extract tauchen erst bei toBuffer
+    // auf. Deshalb: Wide-Pipeline separat consumen, bei Fehler normale
+    // Pipeline (frische Instanz, Operationen sind stateful). Sonst fällt der
+    // ganze Pass aufs Default-Icon zurück.
+    let logoFinal: Buffer;
+    try {
+      if (aspectRatio > 1.5 && cw0 > ch0) {
+        // Wide Logos: strecken + linke Hälfte beschneiden
+        const newWFull = Math.max(1, Math.round(cw0 * (canvasSize / Math.max(1, ch0))));
+        const portionWidth = Math.max(1, Math.min(newWFull, Math.round(newWFull * 0.5)));
+        const cropped = await sharp(d2, {
+          raw: { width: cw0, height: ch0, channels: 4 },
+        })
+          .resize({ width: newWFull, height: canvasSize, fit: "fill" })
+          .extract({ left: 0, top: 0, width: portionWidth, height: canvasSize })
+          .toBuffer();
+        logoFinal = await sharp(cropped)
+          .resize(targetSize, targetSize, { fit: "inside", withoutEnlargement: false })
+          .png()
+          .toBuffer();
+      } else {
+        throw new Error("not wide");
+      }
+    } catch {
+      logoFinal = await sharp(d2, {
+        raw: { width: cw0, height: ch0, channels: 4 },
+      })
+        .resize(targetSize, targetSize, { fit: "inside", withoutEnlargement: false })
+        .png()
+        .toBuffer();
+    }
 
     // Schritt 5: Canvas — dunkler BG bleibt opak, sonst transparent
     const keepOpaque =
@@ -792,6 +804,9 @@ export function generateGoogleWalletJwt(
       typ: "savetowallet",
       iat: Math.floor(Date.now() / 1000),
       origins: ["digi-gastro.de"],
+      // Google informiert uns über save/del-Events (pass_downloaded_at Reset
+      // nach Löschen aus dem Wallet). Ohne dieses Feld kommt nie ein Callback.
+      callbackUrl: `${appBaseUrl()}/api/wallet/google/callback`,
       payload: {
         loyaltyClasses: [classPayload],
         loyaltyObjects: [objPayload],

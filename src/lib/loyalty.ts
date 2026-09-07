@@ -215,7 +215,12 @@ export async function awardStampForOrder(
   }
 
   try {
-    await triggerPassUpdatePush(fresh, card.name, "Stempel erhalten!");
+    // Nach Reward-Reset muss die NEUE Balance (0) gepusht werden — `fresh`
+    // enthält noch den alten Stand vor dem Reset.
+    const pushCustomer = rewardTriggered
+      ? { ...fresh, current_stamps: 0 }
+      : fresh;
+    await triggerPassUpdatePush(pushCustomer, card.name, "Stempel erhalten!");
   } catch (e) {
     console.log(`[Loyalty] Push failed (non-fatal): ${e}`);
   }
@@ -384,6 +389,27 @@ async function sendAppleApnsPush(
     console.log(
       `[Loyalty Push] No device registrations for pass ${customer.pass_serial}`
     );
+    // Android-Fall: Kunde wurde irrtümlich als "apple" gespeichert (Anlage
+    // über die Apple-Download-Seite, dann "In Google Wallet" getippt).
+    // objectId leitet sich vom selben pass_serial ab → PATCH als Fallback.
+    // Existiert kein Google-Object, antwortet Google mit 404 (kein Effekt).
+    if (isGoogleConfigured()) {
+      const ok = await sendGoogleWalletUpdate(customer, title, _message);
+      if (ok) {
+        console.log(
+          `[Loyalty Push] Google-Fallback für Apple-Kunde ${customer.id} erfolgreich → pass_type wird auf google korrigiert`
+        );
+        try {
+          await prisma.loyaltyCustomer.update({
+            where: { id: customer.id },
+            data: { pass_type: "google" },
+          });
+        } catch {
+          // nicht kritisch
+        }
+        return true;
+      }
+    }
     return false; // C5: kein Push = kein Erfolg
   }
 
@@ -552,7 +578,12 @@ async function sendGoogleWalletUpdate(
       console.log(`[Google Wallet] Update sent for ${objectId}`);
       return true;
     }
-    console.log(`[Google Wallet] Update failed: ${resp.status}`);
+    // 404 = Object existiert nicht (Kunde hat den Pass nie gespeichert oder
+    // aus dem Wallet gelöscht) → Stempel ist in der DB, aber nicht sichtbar.
+    console.log(
+      `[Google Wallet] Update failed: ${resp.status} for ${objectId}` +
+        (resp.status === 404 ? " (Pass nie gespeichert oder gelöscht)" : "")
+    );
     return false;
   } catch (e) {
     console.log(`[Google Wallet] Update error: ${e}`);

@@ -62,6 +62,23 @@ export async function GET(
       return jsonError(500, "Kunde konnte nicht erstellt werden.");
     }
 
+    // CRITICAL FIX (Android): Der Download-Page-Link führt zuerst durch die
+    // Apple-Route → Kunde wird mit pass_type "apple" angelegt, bevor der
+    // Nutzer "In Google Wallet" tippt. Ohne Flip hier bleiben Android-Kunden
+    // für immer "apple" → Stempel-Pushs gehen via APNs ins Leere
+    // ("No device registrations") und die Google-Balance aktualisiert sich nie.
+    const oldPassType = customer.pass_type;
+    if (oldPassType !== "google") {
+      await prisma.loyaltyCustomer.update({
+        where: { id: customer.id },
+        data: { pass_type: "google" },
+      });
+      customer = { ...customer, pass_type: "google" };
+      console.log(
+        `[Loyalty] Customer ${customer.id} pass_type updated: ${oldPassType} → google`
+      );
+    }
+
     const geofence = await prisma.tenantGeofence.findFirst({
       where: { tenant_slug: slug, is_primary: true },
     });
