@@ -2317,39 +2317,79 @@ function AdBanner({
 }
 
 function EventBanner({ ev }: { ev: ActiveEventInfo }) {
-  if (ev.mode === "announcement") {
-    return (
-      <div
-        className="relative z-40 flex items-center justify-center gap-2 px-4 py-3 text-center text-xs font-bold text-white shadow-lg"
-        style={{ background: ev.bannerColor || "#dc2626" }}
-      >
-        <span className="material-symbols-outlined shrink-0 text-base">campaign</span>
-        <span className="leading-snug">
-          {ev.displayName ? (
-            <strong className="uppercase tracking-wider">{ev.displayName}</strong>
-          ) : null}
-          {ev.description ? (
-            <span className="ml-1 font-medium opacity-95">{ev.description}</span>
-          ) : null}
+  const color = ev.bannerColor || (ev.mode === "announcement" ? "#dc2626" : "#059669");
+  const isAnnouncement = ev.mode === "announcement";
+  const benefit =
+    ev.mode === "discount" && ev.discount > 0
+      ? `${ev.discount}% auf alles`
+      : ev.mode === "combos"
+        ? "Kombi-Angebote"
+        : isAnnouncement
+          ? ""
+          : "Sonderpreise";
+  const endLabel = ev.endTime ? `bis ${ev.endTime.slice(0, 5)} Uhr` : "";
+
+  // Laufband-Inhalt: Name, Beschreibung, Vorteil — mit ✦ getrennt.
+  // Der Track enthält den Inhalt ZWEIMAL (2. Kopie aria-hidden), damit das
+  // Band nahtlos von rechts nach links läuft (translateX(-50%) = Kopie 1).
+  const items = [
+    ev.displayName,
+    ev.description,
+    benefit,
+  ].filter((s): s is string => Boolean(s && s.trim()));
+
+  const run = (hidden: boolean) => (
+    <span aria-hidden={hidden || undefined} className="flex items-center">
+      {items.map((text, i) => (
+        <span key={i} className="flex items-center">
+          <span className="ev-ticker-item font-bold text-white">
+            {i === 0 ? (
+              <span className="uppercase tracking-wider">{text}</span>
+            ) : (
+              text
+            )}
+          </span>
+          <span className="ev-ticker-sep text-white" aria-hidden="true">✦</span>
         </span>
-      </div>
-    );
-  }
+      ))}
+    </span>
+  );
+
   return (
-    <div className="relative z-40 flex items-center justify-center gap-3 px-4 py-3 text-center shadow-lg" style={{ background: ev.bannerColor || "#059669" }}>
-      <span className="material-symbols-outlined text-base text-white/90">local_offer</span>
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-white">
-          {ev.displayName}
-        </span>
-        <span className="text-xs font-medium text-white/80">
-          {ev.mode === "discount" && ev.discount > 0
-            ? `${ev.discount}% auf alles`
-            : ev.mode === "combos"
-              ? "Kombi-Angebote"
-              : "Sonderpreise"}
-        </span>
+    <div
+      className="ev-ticker relative z-40 h-10 w-full"
+      style={{
+        background: `linear-gradient(90deg, ${color} 0%, ${color}cc 70%, ${color}99 100%)`,
+      }}
+      role="status"
+    >
+      {/* Badge links — TV-Ticker-Style */}
+      <div className="ev-ticker-badge">
+        {isAnnouncement ? (
+          <span className="material-symbols-outlined text-base leading-none text-white">campaign</span>
+        ) : (
+          <>
+            <span className="ev-ticker-dot" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white">Live</span>
+          </>
+        )}
       </div>
+
+      {/* Laufband */}
+      <div className="ev-ticker-viewport">
+        <div className="ev-ticker-track">
+          {run(false)}
+          {run(true)}
+        </div>
+      </div>
+
+      {/* Endzeit rechts */}
+      {endLabel ? (
+        <div className="ev-ticker-badge">
+          <span className="material-symbols-outlined text-sm leading-none text-white/90">schedule</span>
+          <span className="ev-ticker-end text-white">{endLabel}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2520,7 +2560,12 @@ function LandingView({
                 <p className="text-xs text-white/70">
                   {firstActiveEvent.mode === "discount" && firstActiveEvent.discount > 0
                     ? `${firstActiveEvent.discount}% Rabatt auf fast alle Artikel!`
-                    : "Exklusive Aktionspreise auf ausgewählte Artikel!"}
+                    : firstActiveEvent.mode === "combos"
+                      ? "Exklusive Kombi-Angebote heute!"
+                      : "Exklusive Aktionspreise auf ausgewählte Artikel!"}
+                  {firstActiveEvent.endTime
+                    ? ` Heute bis ${firstActiveEvent.endTime.slice(0, 5)} Uhr.`
+                    : ""}
                 </p>
               </div>
             </div>

@@ -54,6 +54,8 @@ export interface ActiveEventInfo {
   discount: number;
   bannerColor: string | null;
   description: string | null;
+  /** "20:00" — für "bis 20:00 Uhr" im Event-Ticker */
+  endTime?: string | null;
 }
 
 export interface CategoryExtras {
@@ -273,6 +275,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
       discount: ev.discount ?? 0,
       bannerColor: ev.banner_color ?? null,
       description: ev.description ?? null,
+      endTime: ev.end_time ?? null,
     });
 
     if (ev.combos.length > 0) {
