@@ -37,6 +37,7 @@ export default function Footer() {
               <li><Link href="#demo" className="transition-colors hover:text-amber-400">Live-Demo</Link></li>
               <li><Link href="#how-it-works" className="transition-colors hover:text-amber-400">So funktioniert&apos;s</Link></li>
               <li><Link href="#faq" className="transition-colors hover:text-amber-400">FAQ</Link></li>
+              <li><Link href="/bestellsystem-neuwied" className="transition-colors hover:text-amber-400">Bestellsystem Neuwied</Link></li>
             </ul>
           </div>
 
