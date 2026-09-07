@@ -1328,10 +1328,10 @@ export function MenuClient({
         </div>
       </header>
 
-      {/* Event / announcement banners */}
-      {menu.activeEvents.map((ev) => (
-        <EventBanner key={ev.id} ev={ev} />
-      ))}
+      {/* Event / announcement banners — ALLE Events in EINEM Ticker-Band */}
+      {menu.activeEvents.length > 0 ? (
+        <EventTicker events={menu.activeEvents} />
+      ) : null}
 
       {/* Ad banners — menu_mid placement */}
       {menu.ads
@@ -2316,38 +2316,50 @@ function AdBanner({
   );
 }
 
-function EventBanner({ ev }: { ev: ActiveEventInfo }) {
-  const color = ev.bannerColor || (ev.mode === "announcement" ? "#dc2626" : "#059669");
-  const isAnnouncement = ev.mode === "announcement";
-  const benefit =
-    ev.mode === "discount" && ev.discount > 0
-      ? `${ev.discount}% auf alles`
-      : ev.mode === "combos"
-        ? "Kombi-Angebote"
-        : isAnnouncement
-          ? ""
-          : "Sonderpreise";
-  const endLabel = ev.endTime ? `bis ${ev.endTime.slice(0, 5)} Uhr` : "";
+function EventTicker({ events }: { events: ActiveEventInfo[] }) {
+  const first = events[0];
+  const color =
+    first?.bannerColor ||
+    (events.some((e) => e.mode === "announcement") ? "#dc2626" : "#059669");
 
-  // Laufband-Inhalt: Name, Beschreibung, Vorteil — mit ✦ getrennt.
-  // Der Track enthält den Inhalt ZWEIMAL (2. Kopie aria-hidden), damit das
-  // Band nahtlos von rechts nach links läuft (translateX(-50%) = Kopie 1).
-  const items = [
-    ev.displayName,
-    ev.description,
-    benefit,
-  ].filter((s): s is string => Boolean(s && s.trim()));
+  // Alle aktiven Events zu EINER Laufband-Kette verschmelzen:
+  // pro Event Name (fett/groß), Beschreibung und Vorteil (normal), getrennt ✦.
+  const items: { text: string; bold: boolean }[] = [];
+  for (const ev of events) {
+    items.push({ text: ev.displayName, bold: true });
+    if (ev.description?.trim()) {
+      items.push({ text: ev.description.trim(), bold: false });
+    }
+    if (ev.mode === "announcement") continue;
+    items.push({
+      text:
+        ev.mode === "discount" && ev.discount > 0
+          ? `${ev.discount}% auf alles`
+          : ev.mode === "combos"
+            ? "Kombi-Angebote"
+            : "Sonderpreise",
+      bold: false,
+    });
+  }
 
+  // Laufband-Geschwindigkeit an Textlänge anpassen (mind. 24s pro Umlauf)
+  const totalChars = items.map((it) => it.text).join("").length;
+  const durationSec = Math.max(24, Math.round(totalChars / 6));
+
+  // Track enthält den Inhalt ZWEIMAL (2. Kopie aria-hidden), damit das Band
+  // nahtlos von rechts nach links läuft (translateX(-50%) = Kopie 1).
   const run = (hidden: boolean) => (
     <span aria-hidden={hidden || undefined} className="flex items-center">
-      {items.map((text, i) => (
+      {items.map((it, i) => (
         <span key={i} className="flex items-center">
-          <span className="ev-ticker-item font-bold text-white">
-            {i === 0 ? (
-              <span className="uppercase tracking-wider">{text}</span>
-            ) : (
-              text
-            )}
+          <span
+            className={
+              it.bold
+                ? "ev-ticker-item text-xs font-bold uppercase tracking-wider text-white"
+                : "ev-ticker-item text-xs font-medium text-white/90"
+            }
+          >
+            {it.text}
           </span>
           <span className="ev-ticker-sep text-white" aria-hidden="true">✦</span>
         </span>
@@ -2363,33 +2375,18 @@ function EventBanner({ ev }: { ev: ActiveEventInfo }) {
       }}
       role="status"
     >
-      {/* Badge links — TV-Ticker-Style */}
+      {/* Badge links — nur Icon, kein Text */}
       <div className="ev-ticker-badge">
-        {isAnnouncement ? (
-          <span className="material-symbols-outlined text-base leading-none text-white">campaign</span>
-        ) : (
-          <>
-            <span className="ev-ticker-dot" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white">Live</span>
-          </>
-        )}
+        <span className="material-symbols-outlined text-base leading-none text-white">campaign</span>
       </div>
 
       {/* Laufband */}
       <div className="ev-ticker-viewport">
-        <div className="ev-ticker-track">
+        <div className="ev-ticker-track" style={{ animationDuration: `${durationSec}s` }}>
           {run(false)}
           {run(true)}
         </div>
       </div>
-
-      {/* Endzeit rechts */}
-      {endLabel ? (
-        <div className="ev-ticker-badge">
-          <span className="material-symbols-outlined text-sm leading-none text-white/90">schedule</span>
-          <span className="ev-ticker-end text-white">{endLabel}</span>
-        </div>
-      ) : null}
     </div>
   );
 }
