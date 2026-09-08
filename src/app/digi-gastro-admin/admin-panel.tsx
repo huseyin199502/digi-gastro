@@ -14,6 +14,7 @@ interface TenantRow {
   active: boolean | null;
   orders_enabled: boolean | null;
   loyalty_enabled: boolean | null;
+  chat_enabled: boolean | null;
   show_revenue: boolean | null;
   operating_mode: string | null;
   tier: string | null;
@@ -21,6 +22,16 @@ interface TenantRow {
   bestellungen_gesamt: number | null;
   is_setup_completed: boolean | null;
   _count: { products: number; orders: number; loyaltyCustomers: number };
+}
+
+interface AnnouncementRow {
+  id: number;
+  key: string | null;
+  title: string;
+  body: string;
+  icon: string | null;
+  is_active: boolean | null;
+  created_at: Date;
 }
 
 const btnCls =
@@ -47,13 +58,48 @@ async function postJson(url: string, body?: Record<string, unknown>) {
   return data;
 }
 
-export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
+export default function AdminPanel({
+  tenants,
+  announcements,
+}: {
+  tenants: TenantRow[];
+  announcements: AnnouncementRow[];
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newSlug, setNewSlug] = useState("");
+
+  // Neuigkeiten-Formular
+  const [annTitle, setAnnTitle] = useState("");
+  const [annBody, setAnnBody] = useState("");
+  const [annIcon, setAnnIcon] = useState("celebration");
+
+  const createAnnouncement = async () => {
+    if (!annTitle.trim() || !annBody.trim()) return;
+    await act(
+      "ann-create",
+      async () => {
+        const fd = new FormData();
+        fd.set("title", annTitle.trim());
+        fd.set("body", annBody.trim());
+        fd.set("icon", annIcon.trim() || "celebration");
+        fd.set("is_active", "1");
+        const res = await fetch("/digi-gastro-admin/announcement-erstellen", {
+          method: "POST",
+          body: fd,
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error("Erstellen fehlgeschlagen");
+      },
+      "Neuigkeit veröffentlicht — erscheint 1x pro Geräte-Login"
+    );
+    setAnnTitle("");
+    setAnnBody("");
+    setAnnIcon("celebration");
+  };
 
   const act = async (key: string, fn: () => Promise<unknown>, okMsg: string) => {
     setBusy(key);
@@ -254,6 +300,7 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
                     {t.is_setup_completed ? "Setup ✓" : "Setup ✗"} ·{" "}
                     {t.orders_enabled ? "Bestellung ✓" : "Bestellung ✗"} ·{" "}
                     {t.loyalty_enabled ? "Loyalty ✓" : "Loyalty ✗"} ·{" "}
+                    {t.chat_enabled ? "Chat ✓" : "Chat ✗"} ·{" "}
                     {t.show_revenue ? "Umsatz ✓" : "Umsatz ✗"}
                   </div>
                 </td>
@@ -334,6 +381,19 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
                       disabled={busy !== null}
                       onClick={() =>
                         void act(
+                          `chat-${t.slug}`,
+                          () => postJson(`/digi-gastro-admin/tenant-chat-toggle/${t.slug}`),
+                          `Chat ${t.chat_enabled ? "aus" : "an"}: ${t.name}`
+                        )
+                      }
+                    >
+                      Chat {t.chat_enabled ? "aus" : "an"}
+                    </button>
+                    <button
+                      className={btnCls}
+                      disabled={busy !== null}
+                      onClick={() =>
+                        void act(
                           `revtoggle-${t.slug}`,
                           () => postJson(`/digi-gastro-admin/tenant-revenue-toggle/${t.slug}`),
                           `Umsatz-Anzeige ${t.show_revenue ? "aus" : "an"}: ${t.name}`
@@ -398,6 +458,115 @@ export default function AdminPanel({ tenants }: { tenants: TenantRow[] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Neuigkeiten / Tenant-Onboarding */}
+      <section className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-amber-400">
+          Neuigkeiten (Tenant-Onboarding)
+        </h2>
+        <p className="mb-3 text-xs text-zinc-500">
+          Erscheint als animiertes Popup im Admin-Dashboard — einmal pro
+          Gerät: dasselbe Login auf einem neuen Handy/Tablet/PC zeigt die
+          Neuigkeit erneut. Beim Löschen erscheint sie auf allen Geräten
+          wieder.
+        </p>
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className={labelCls}>Titel</label>
+            <input
+              className={inputCls}
+              value={annTitle}
+              onChange={(e) => setAnnTitle(e.target.value)}
+              placeholder="z.B. Neu: Gast-Chat 🎉"
+              maxLength={120}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Icon (Material-Symbol)</label>
+            <input
+              className={inputCls}
+              value={annIcon}
+              onChange={(e) => setAnnIcon(e.target.value)}
+              placeholder="forum / celebration / chat_bubble"
+              maxLength={40}
+            />
+          </div>
+          <button
+            onClick={() => void createAnnouncement()}
+            disabled={busy === "ann-create" || !annTitle.trim() || !annBody.trim()}
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-500 disabled:opacity-50"
+          >
+            {busy === "ann-create" ? "Veröffentliche…" : "Veröffentlichen"}
+          </button>
+        </div>
+        <div className="mb-4">
+          <label className={labelCls}>Text</label>
+          <textarea
+            className={`${inputCls} w-full`}
+            rows={3}
+            value={annBody}
+            onChange={(e) => setAnnBody(e.target.value)}
+            placeholder="Was ist neu? Was sollte der Tenant wissen/tun?"
+            maxLength={1000}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {announcements.length === 0 ? (
+            <p className="text-sm text-zinc-500">Noch keine Neuigkeiten.</p>
+          ) : (
+            announcements.map((a) => (
+              <div
+                key={a.id}
+                className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                    <span className="material-symbols-outlined text-base text-amber-400">
+                      {a.icon || "celebration"}
+                    </span>
+                    {a.title}
+                    {!a.is_active ? (
+                      <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-400">
+                        inaktiv
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-zinc-500">{a.body}</p>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    className={btnCls}
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void act(
+                        `ann-toggle-${a.id}`,
+                        () => postJson(`/digi-gastro-admin/announcement-toggle/${a.id}`),
+                        `Neuigkeit ${a.is_active ? "deaktiviert" : "aktiviert"}`
+                      )
+                    }
+                  >
+                    {a.is_active ? "Deaktivieren" : "Aktivieren"}
+                  </button>
+                  <button
+                    className="rounded-lg border border-red-800 bg-red-950 px-2.5 py-1 text-xs font-medium text-red-300 hover:border-red-500 disabled:opacity-50"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void act(
+                        `ann-del-${a.id}`,
+                        () => postJson(`/digi-gastro-admin/announcement-loeschen/${a.id}`),
+                        "Neuigkeit gelöscht"
+                      )
+                    }
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       {/* Rabatt-Vouchers */}
       <VoucherPanel tenants={tenants.map((t) => ({ slug: t.slug, name: t.name }))} />

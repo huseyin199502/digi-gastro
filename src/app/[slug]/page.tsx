@@ -124,7 +124,7 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
   // (legacy main.py ~5336). Admin/Kellner dürfen weiterhin die Speisekarte sehen.
   const tenantMeta = await prisma.tenant.findUnique({
     where: { slug },
-    select: { operating_mode: true },
+    select: { operating_mode: true, chat_enabled: true },
   });
   if (
     tenantMeta?.operating_mode === "stempelkarte_only" &&
@@ -194,6 +194,7 @@ const jsonLdData = {
         role={role}
         tischName={tischName}
         ordersEnabled={ordersEnabled}
+        chatEnabled={tenantMeta?.chat_enabled ?? false}
       />
     </>
   );

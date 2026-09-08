@@ -59,11 +59,14 @@ model Tenant {
   show_revenue            Boolean?            @default(true)
   operating_mode          String?             @default("full") @db.VarChar
   loyalty_enabled         Boolean?            @default(true)
+  chat_enabled            Boolean?            @default(false)
   notification_icon_path  String?             @db.VarChar
   tier                    String?             @default("free") @db.VarChar
   enabled_features        String?             @default("[]")
   auditLogs               AuditLog[]
   categories              Category[]
+  chatBans                ChatBan[]
+  chatMessages            ChatMessage[]
   eventComboItems         EventComboItem[]
   eventCombos             EventCombo[]
   eventProducts           EventProduct[]
@@ -280,6 +283,66 @@ model AuditLog {
   @@index([tenant_slug, id], map: "idx_auditlog_tenant_id")
   @@index([tenant_slug], map: "idx_auditlog_tenant_slug")
   @@map("audit_log")
+}
+
+model ChatMessage {
+  id          Int      @id @default(autoincrement())
+  tenant_slug String   @db.VarChar
+  device_id   String   @db.VarChar(64)
+  nickname    String   @db.VarChar(40)
+  body        String   @db.VarChar(500)
+  is_admin    Boolean  @default(false)
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  tenant      Tenant   @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_slug, id], map: "idx_chatmsg_tenant_id")
+  @@map("chat_messages")
+}
+
+model ChatBan {
+  id          Int      @id @default(autoincrement())
+  tenant_slug String   @db.VarChar
+  device_id   String   @db.VarChar(64)
+  nickname    String?  @db.VarChar(40)
+  reason      String?  @db.VarChar
+  banned_by   String?  @db.VarChar
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  tenant      Tenant   @relation(fields: [tenant_slug], references: [slug], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tenant_slug, device_id], map: "uq_chatban_tenant_device")
+  @@index([tenant_slug], map: "idx_chatban_tenant")
+  @@map("chat_bans")
+}
+
+// Plattformweite Neuigkeiten für das Tenant-Onboarding: erscheint als
+// Popup im Admin-Dashboard — einmal pro GERÄT (Cookie admin_device),
+// nicht pro Account (gleiches Login auf neuem Gerät → Neuigkeit kommt).
+model Announcement {
+  id         Int      @id @default(autoincrement())
+  key        String?  @unique @db.VarChar
+  title      String   @db.VarChar(120)
+  body       String   @db.VarChar(1000)
+  icon       String?  @db.VarChar(40)
+  is_active  Boolean  @default(true)
+  position   Int?     @default(0)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  views      AnnouncementView[]
+
+  @@map("announcements")
+}
+
+model AnnouncementView {
+  id              Int      @id @default(autoincrement())
+  announcement_id Int
+  device_id       String   @db.VarChar(64)
+  tenant_slug     String   @db.VarChar
+  seen_at         DateTime @default(now()) @db.Timestamp(6)
+  announcement    Announcement @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([announcement_id, device_id], map: "uq_annview_ann_device")
+  @@index([device_id], map: "idx_annview_device")
+  @@map("announcement_views")
 }
 
 model Event {

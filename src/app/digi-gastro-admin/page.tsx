@@ -12,26 +12,32 @@ export default async function PlatformAdminPage() {
   const authorized = await getPlatformSession();
   if (!authorized) redirect("/login");
 
-  const tenants = await prisma.tenant.findMany({
-    orderBy: { name: "asc" },
-    select: {
-      slug: true,
-      name: true,
-      email: true,
-      active: true,
-      orders_enabled: true,
-      loyalty_enabled: true,
-      show_revenue: true,
-      operating_mode: true,
-      tier: true,
-      tagesumsatz: true,
-      bestellungen_gesamt: true,
-      is_setup_completed: true,
-      _count: {
-        select: { products: true, orders: true, loyaltyCustomers: true },
+  const [tenants, announcements] = await Promise.all([
+    prisma.tenant.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        slug: true,
+        name: true,
+        email: true,
+        active: true,
+        orders_enabled: true,
+        loyalty_enabled: true,
+        chat_enabled: true,
+        show_revenue: true,
+        operating_mode: true,
+        tier: true,
+        tagesumsatz: true,
+        bestellungen_gesamt: true,
+        is_setup_completed: true,
+        _count: {
+          select: { products: true, orders: true, loyaltyCustomers: true },
+        },
       },
-    },
-  });
+    }),
+    prisma.announcement.findMany({
+      orderBy: [{ position: "asc" }, { id: "desc" }],
+    }),
+  ]);
 
   return (
     <main className="flex-1">
@@ -49,7 +55,7 @@ export default async function PlatformAdminPage() {
         </div>
       </header>
 
-      <AdminPanel tenants={tenants} />
+      <AdminPanel tenants={tenants} announcements={announcements} />
     </main>
   );
 }

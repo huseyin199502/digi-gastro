@@ -110,6 +110,54 @@ services:
         ALTER TABLE products    ADD COLUMN IF NOT EXISTS extras   text DEFAULT '[]';
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS extras   varchar;
         ALTER TABLE event_combo_items ADD COLUMN IF NOT EXISTS excluded_product_ids varchar DEFAULT '[]';
+        ALTER TABLE tenants     ADD COLUMN IF NOT EXISTS chat_enabled boolean DEFAULT false;
+        CREATE TABLE IF NOT EXISTS chat_messages (
+          id          SERIAL PRIMARY KEY,
+          tenant_slug VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+          device_id   VARCHAR(64) NOT NULL,
+          nickname    VARCHAR(40) NOT NULL,
+          body        VARCHAR(500) NOT NULL,
+          is_admin    BOOLEAN NOT NULL DEFAULT false,
+          is_deleted  BOOLEAN NOT NULL DEFAULT false,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_chatmsg_tenant_id ON chat_messages(tenant_slug, id);
+        CREATE TABLE IF NOT EXISTS chat_bans (
+          id          SERIAL PRIMARY KEY,
+          tenant_slug VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,
+          device_id   VARCHAR(64) NOT NULL,
+          nickname    VARCHAR(40),
+          reason      VARCHAR,
+          banned_by   VARCHAR,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT uq_chatban_tenant_device UNIQUE (tenant_slug, device_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_chatban_tenant ON chat_bans(tenant_slug);
+        CREATE TABLE IF NOT EXISTS announcements (
+          id          SERIAL PRIMARY KEY,
+          key         VARCHAR UNIQUE,
+          title       VARCHAR(120) NOT NULL,
+          body        VARCHAR(1000) NOT NULL,
+          icon        VARCHAR(40),
+          is_active   BOOLEAN NOT NULL DEFAULT true,
+          position    INT DEFAULT 0,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS announcement_views (
+          id              SERIAL PRIMARY KEY,
+          announcement_id INT NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+          device_id       VARCHAR(64) NOT NULL,
+          tenant_slug     VARCHAR NOT NULL,
+          seen_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CONSTRAINT uq_annview_ann_device UNIQUE (announcement_id, device_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_annview_device ON announcement_views(device_id);
+        INSERT INTO announcements (key, title, body, icon, position)
+        SELECT 'chat-launch',
+               'Neu: Gast-Chat 🎉',
+               'Deine Gäste können sich jetzt direkt über die Speisekarte miteinander unterhalten — mobile-first im Chat unten rechts. Du hast volle Kontrolle: Im neuen Tab „Chat" im Dashboard kannst du Nachrichten löschen und störende Gäste anhand der Geräte-ID sperren oder wieder entsperren. Der Chat wird pro Restaurant zentral freigeschaltet.',
+               'forum', 0
+        WHERE NOT EXISTS (SELECT 1 FROM announcements WHERE key = 'chat-launch');
         CREATE TABLE IF NOT EXISTS ad_banners (
           id              SERIAL PRIMARY KEY,
           tenant_slug     VARCHAR NOT NULL REFERENCES tenants(slug) ON DELETE CASCADE,

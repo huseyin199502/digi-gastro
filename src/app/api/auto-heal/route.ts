@@ -178,6 +178,17 @@ export async function GET(request: NextRequest) {
   const totalCustomers = await prisma.loyaltyCustomer.count();
   results.checks.push({ name: "customer_count", total: totalCustomers });
 
+  // CHECK 7: Chat-Retention — Nachrichten nach 7 Tagen löschen (DSGVO)
+  const sevenDaysAgo = new Date(nowMs - 7 * 24 * HOUR_MS);
+  const chatDeleted = await prisma.chatMessage.deleteMany({
+    where: { created_at: { lt: sevenDaysAgo } },
+  });
+  results.checks.push({
+    name: "chat_retention_7d",
+    deleted: chatDeleted.count,
+  });
+  results.fixes += chatDeleted.count;
+
   console.log(
     `[Auto-Heal] ${results.fixes} fixes, ${results.alerts} alerts, ${totalCustomers} customers`
   );

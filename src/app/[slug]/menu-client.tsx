@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createLiveClient, type LiveEvent } from "@/lib/live";
+import { ChatWidget } from "./chat-widget";
 import type {
   ActiveEventInfo,
   CategoryExtras,
@@ -480,6 +481,7 @@ export function MenuClient({
   role,
   tischName,
   ordersEnabled,
+  chatEnabled,
 }: {
   slug: string;
   menu: MenuData;
@@ -489,6 +491,7 @@ export function MenuClient({
   role: string;
   tischName: string;
   ordersEnabled: boolean;
+  chatEnabled: boolean;
 }) {
   const t = menu.tenant;
   const lang = useLang();
@@ -551,6 +554,15 @@ export function MenuClient({
     () => cart.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart]
   );
+
+  // Animations-Burst auf dem Warenkorb-FAB bei jeder Erhöhung
+  // (key-Remount startet die CSS-Animation neu — siehe .cart-fab-alert)
+  const cartPrevCountRef = useRef(0);
+  const [cartBurst, setCartBurst] = useState(0);
+  useEffect(() => {
+    if (cartCount > cartPrevCountRef.current) setCartBurst((b) => b + 1);
+    cartPrevCountRef.current = cartCount;
+  }, [cartCount]);
 
   const hhProducts = useMemo(
     () =>
@@ -1478,56 +1490,85 @@ export function MenuClient({
 
       {/* ── Guest floating action buttons ── */}
       {showGuestFab ? (
-        <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-3" style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}>
+        <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2.5" style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}>
           {/* Service Button */}
-          <button
-            onClick={() => setServiceModalOpen(true)}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:bg-white hover:scale-110 active:scale-90"
-            title="Service rufen"
-          >
-            <span className="material-symbols-outlined text-2xl">notifications_active</span>
-          </button>
-          {/* Rechnung Button — öffnet Bestätigung, zeigt danach Häkchen + Cooldown */}
-          <button
-            onClick={() => {
-              if (!table || !token) return;
-              if (cooldownUntil > Date.now()) {
-                pushToast(tr.bill_wait.replace("%s", cooldownLabel ?? ""));
-                return;
-              }
-              void refreshUnpaidSum(); // offenen Betrag frisch laden
-              setBillSheetOpen(true);
-            }}
-            aria-pressed={billSent}
-            className={`relative flex h-14 w-14 items-center justify-center rounded-full shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:scale-110 active:scale-90 ${
-              billSent
-                ? "bg-emerald-500/90 text-white ring-2 ring-emerald-300"
-                : "bg-white/80 text-gray-700 hover:bg-white"
-            }`}
-            title={billSent ? tr.payment_sent : "Rechnung anfordern"}
-          >
-            <span className="material-symbols-outlined text-2xl">
-              {billSent ? "check" : "receipt_long"}
+          <div className="flex w-14 flex-col items-center gap-1">
+            <button
+              onClick={() => setServiceModalOpen(true)}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:bg-white hover:scale-110 active:scale-90"
+              title={tr.nav_service}
+            >
+              <span className="material-symbols-outlined text-xl">notifications_active</span>
+            </button>
+            <span className="whitespace-nowrap rounded-full bg-white/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 shadow-sm backdrop-blur">
+              {tr.nav_service}
             </span>
-            {billSent && cooldownLabel ? (
-              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-1.5 py-px text-[9px] font-black text-white">
-                {cooldownLabel}
+          </div>
+          {/* Rechnung Button — öffnet Bestätigung, zeigt danach Häkchen + Cooldown */}
+          <div className="flex w-14 flex-col items-center gap-1">
+            <button
+              onClick={() => {
+                if (!table || !token) return;
+                if (cooldownUntil > Date.now()) {
+                  pushToast(tr.bill_wait.replace("%s", cooldownLabel ?? ""));
+                  return;
+                }
+                void refreshUnpaidSum(); // offenen Betrag frisch laden
+                setBillSheetOpen(true);
+              }}
+              aria-pressed={billSent}
+              className={`relative flex h-12 w-12 items-center justify-center rounded-full shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:scale-110 active:scale-90 ${
+                billSent
+                  ? "bg-emerald-500/90 text-white ring-2 ring-emerald-300"
+                  : "bg-white/80 text-gray-700 hover:bg-white"
+              }`}
+              title={billSent ? tr.payment_sent : tr.nav_bill}
+            >
+              <span className="material-symbols-outlined text-2xl">
+                {billSent ? "check" : "receipt_long"}
               </span>
-            ) : null}
-          </button>
+              {billSent && cooldownLabel ? (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-1.5 py-px text-[9px] font-black text-white">
+                  {cooldownLabel}
+                </span>
+              ) : null}
+            </button>
+            <span className="whitespace-nowrap rounded-full bg-white/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 shadow-sm backdrop-blur">
+              {tr.nav_bill}
+            </span>
+          </div>
           {/* Cart Button */}
-          <button
-            onClick={openCartModal}
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:bg-white hover:scale-110 active:scale-90"
-            title="Warenkorb"
-          >
-            <span className="material-symbols-outlined text-2xl">shopping_basket</span>
-            {cartCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-gray-900 text-xs font-black text-white shadow-md">
-                {cartCount}
+          <div className="flex w-14 flex-col items-center gap-1">
+            <button
+              onClick={openCartModal}
+              className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-gray-700 shadow-2xl backdrop-blur-2xl transition-all duration-300 hover:bg-white hover:scale-110 active:scale-90"
+              title={tr.cart_btn}
+            >
+              {/* Puls-Ring bei frischem Wareneingang */}
+              {cartCount > 0 && cartBurst > 0 ? (
+                <span
+                  key={`cart-ring-${cartBurst}`}
+                  className="cart-fab-ring absolute inset-0 rounded-full"
+                />
+              ) : null}
+              <span
+                key={`cart-anim-${cartBurst}`}
+                className={`material-symbols-outlined text-xl ${
+                  cartCount > 0 && cartBurst > 0 ? "cart-fab-alert" : ""
+                }`}
+              >
+                shopping_basket
               </span>
-            ) : null}
-          </button>
+              {cartCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] font-black text-white shadow-md">
+                  {cartCount}
+                </span>
+              ) : null}
+            </button>
+            <span className="whitespace-nowrap rounded-full bg-white/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 shadow-sm backdrop-blur">
+              {tr.cart_btn}
+            </span>
+          </div>
         </div>
       ) : null}
 
@@ -2029,6 +2070,16 @@ export function MenuClient({
           splitTotal={splitTotal}
           submitDrawerPayment={submitDrawerPayment}
           actionInProgress={actionInProgress}
+        />
+      ) : null}
+
+      {/* ── Gast-Chat (per Tenant freigeschaltet, Super-Admin-Toggle) ── */}
+      {chatEnabled ? (
+        <ChatWidget
+          slug={slug}
+          lang={lang}
+          guestFabVisible={showGuestFab}
+          onOpenPrivacy={() => setLegalDoc("datenschutz")}
         />
       ) : null}
 

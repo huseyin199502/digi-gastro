@@ -9,6 +9,8 @@ import LagerTab from "./lager-tab";
 import SitzplanTab from "./sitzplan-tab";
 import LandingpageTab from "./landingpage-tab";
 import WerbungTab from "./werbung-tab";
+import ChatTab from "./chat-tab";
+import AnnouncementsPopup from "./announcements-popup";
 import type { LiveItem, LiveOrder, LiveTable, ServiceCall, TabletStatus } from "./admin-types";
 import { formatEur } from "./admin-types";
 
@@ -457,6 +459,10 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
           if (msg.type === "update" || msg.type === "refresh_tables") {
             void refreshLive();
           }
+          if (msg.type === "chat_message") {
+            // Chat-Tab aktualisiert sich über dieses Fenster-Event live
+            window.dispatchEvent(new CustomEvent("dg:chat-update"));
+          }
         } catch {
           // ignore
         }
@@ -881,6 +887,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
 
   const navItems = [
     { id: "live", label: "Live" },
+    { id: "chat", label: "Chat" },
     { id: "produkte", label: "Produkte" },
     { id: "kategorien", label: "Kategorien" },
     { id: "events", label: "Events" },
@@ -895,6 +902,9 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
 
   return (
     <main className="flex-1">
+      {/* Neuigkeiten-Onboarding — 1x pro Gerät (Popup mit Animation) */}
+      <AnnouncementsPopup slug={initial.slug} />
+
       {/* Header */}
       <header className="border-b border-zinc-800 bg-zinc-900/40">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
@@ -975,6 +985,8 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
             slug={initial.slug}
             showRevenue={showRevenue}
           />
+        ) : tab === "chat" ? (
+          <ChatTab slug={initial.slug} pushToast={pushToast} />
         ) : tab === "produkte" ? (
           <ProductsTab
             initial={initial}
