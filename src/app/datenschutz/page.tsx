@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = { title: "Datenschutz — digi-gastro" };
+export const metadata: Metadata = {
+  title: "Datenschutz — digi-gastro",
+  alternates: { canonical: "/datenschutz" },
+};
 
 export default function DatenschutzPage() {
   return (

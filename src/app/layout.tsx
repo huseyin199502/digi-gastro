@@ -45,9 +45,6 @@ export const metadata: Metadata = {
   publisher: "digi-gastro",
   formatDetection: { telephone: false },
   metadataBase: new URL(SITE_URL),
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     locale: "de_DE",

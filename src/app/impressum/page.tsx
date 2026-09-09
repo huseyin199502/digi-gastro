@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = { title: "Impressum — digi-gastro" };
+export const metadata: Metadata = {
+  title: "Impressum — digi-gastro",
+  alternates: { canonical: "/impressum" },
+};
 
 export default function ImpressumPage() {
   return (

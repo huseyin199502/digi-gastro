@@ -31,9 +31,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
     const menu = await getTenantMenu(slug);
-    return { title: `${menu.tenant.name} — Speisekarte` };
+    const t = menu.tenant;
+    const ort = t.ort ? ` in ${t.ort}` : "";
+    const beschreibung = t.orders_enabled
+      ? `${t.name}${ort}: Speisekarte digital ansehen und direkt am Tisch bestellen — ohne App-Download. Gekocht von digi-gastro.`
+      : `${t.name}${ort}: Digitale Speisekarte — ansehen, entdecken, wiederkommen. Gekocht von digi-gastro.`;
+    return {
+      title: `${t.name}${ort} — Speisekarte`,
+      description: beschreibung,
+      alternates: { canonical: `/${slug}` },
+      openGraph: {
+        title: `${t.name}${ort}`,
+        description: beschreibung,
+        url: `/${slug}`,
+        locale: "de_DE",
+        type: "website",
+        ...(t.logo_url ? { images: [{ url: t.logo_url, alt: t.name }] } : {}),
+      },
+    };
   } catch {
-    return { title: "Speisekarte" };
+    return {
+      title: "Speisekarte",
+      robots: { index: false },
+    };
   }
 }
 

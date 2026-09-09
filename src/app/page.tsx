@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getTenantSession } from "@/lib/auth";
 import HeroSection from "@/components/landing/HeroSection";
@@ -15,6 +16,11 @@ import ScrollReveal from "@/components/landing/ScrollReveal";
 import ScrollVideo from "@/components/landing/ScrollVideo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "digi-gastro — Digitales Bestellsystem für Restaurants & Gastronomie",
+  alternates: { canonical: "/" },
+};
 
 const WHATSAPP_URL = "https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen";
 
