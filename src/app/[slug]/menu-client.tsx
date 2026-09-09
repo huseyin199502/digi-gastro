@@ -1725,16 +1725,16 @@ export function MenuClient({
             </div>
 
             {/* Step Indicator */}
-            <div className="flex items-center justify-center gap-2 px-6 py-3">
+            <div className="flex items-center justify-center gap-2 px-4 py-3 sm:px-6">
               {comboModalData.items.map((_, idx) => (
-                <div key={idx} className={`flex items-center gap-2 ${idx <= comboStep ? "text-emerald-600" : "text-gray-300"}`}>
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+                <div key={idx} className={`flex items-center gap-1 sm:gap-2 ${idx <= comboStep ? "text-emerald-600" : "text-gray-300"}`}>
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                     idx < comboStep ? "bg-emerald-600 text-white" : idx === comboStep ? "bg-emerald-100 text-emerald-700 border-2 border-emerald-600" : "bg-gray-100 text-gray-400"
                   }`}>
                     {idx < comboStep ? "✓" : idx + 1}
                   </div>
                   {idx < comboModalData.items.length - 1 ? (
-                    <div className={`h-0.5 w-8 ${idx < comboStep ? "bg-emerald-600" : "bg-gray-200"}`} />
+                    <div className={`h-0.5 w-4 sm:w-8 ${idx < comboStep ? "bg-emerald-600" : "bg-gray-200"}`} />
                   ) : null}
                 </div>
               ))}
@@ -3716,7 +3716,7 @@ function CookieBanner({
   if (!open) return null;
   return (
     <div
-      className="glass-panel fixed bottom-24 left-4 z-[90] w-[calc(100vw-1rem)] max-w-md lg:max-w-lg rounded-3xl border border-outline-variant p-6 shadow-2xl transition-all duration-500 md:left-auto md:right-4"
+      className="glass-panel fixed bottom-24 left-4 z-[90] w-[calc(100vw-2rem)] max-w-md lg:max-w-lg rounded-3xl border border-outline-variant p-4 sm:p-6 shadow-2xl transition-all duration-500 md:left-auto md:right-4"
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
@@ -3737,7 +3737,7 @@ function CookieBanner({
             </p>
           </div>
         </div>
-        <div className="font-display mt-2 flex items-center justify-between gap-4">
+        <div className="font-display mt-2 flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={onPrivacy}
             className="py-1 text-sm font-bold text-primary underline transition-colors hover:text-primary-hover"

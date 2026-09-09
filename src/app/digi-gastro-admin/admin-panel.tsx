@@ -278,7 +278,7 @@ export default function AdminPanel({
         <table className="w-full min-w-[1100px] text-sm">
           <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-400">
             <tr>
-              <th className="px-4 py-3">Restaurant</th>
+              <th className="sticky left-0 z-20 bg-zinc-900 px-4 py-3">Restaurant</th>
               <th className="px-4 py-3">Slug</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Modus</th>
@@ -293,7 +293,7 @@ export default function AdminPanel({
           <tbody className="divide-y divide-zinc-800">
             {tenants.map((t) => (
               <tr key={t.slug} className="bg-zinc-950/50 align-top">
-                <td className="px-4 py-3">
+                <td className="sticky left-0 z-10 bg-zinc-950 px-4 py-3">
                   <div className="font-semibold">{t.name}</div>
                   <div className="text-xs text-zinc-500">{t.email}</div>
                   <div className="mt-1 text-[11px] text-zinc-600">

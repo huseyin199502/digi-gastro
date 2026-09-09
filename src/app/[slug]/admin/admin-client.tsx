@@ -1265,9 +1265,9 @@ function OrdersTab(props: OrdersTabProps) {
                   return (
                   <li
                     key={`${o.id}-${idx}`}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-zinc-950/50 px-3 py-2 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-zinc-950/50 px-3 py-2 text-sm"
                   >
-                    <span className="flex-1">
+                    <span className="min-w-0 flex-1">
                       {it.quantity}× {it.name}
                       {(() => {
                         const { variant, extras } = parseItemExtras(it.extras);
@@ -1935,17 +1935,17 @@ function ProductsTab(props: ProductsTabProps) {
   };
 
   return (
-    <div className="space-y-4 overflow-x-auto">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Produkte ({sorted.length})</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {/* Search */}
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Produkte suchen..."
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+            className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none sm:w-auto"
           />
           <button
             onClick={() => setView("grid")}
@@ -2110,16 +2110,16 @@ function ProductsTab(props: ProductsTabProps) {
                             {p.is_available ? "Aktiv" : "Ausverkauft"}
                           </span>
                         </div>
-                        <div className="mt-2 flex gap-1.5">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           <button
                             onClick={() => openEdit(p)}
-                            className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                            className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
                           >
                             Bearbeiten
                           </button>
                           <button
                             onClick={() => toggleProduct(p)}
-                            className="flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                            className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
                           >
                             {p.is_available ? "Ausverkauft" : "Aktivieren"}
                           </button>
@@ -2290,7 +2290,7 @@ function ProductsTab(props: ProductsTabProps) {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Preis (€)</label>
                   <input
@@ -2472,7 +2472,7 @@ function ProductsTab(props: ProductsTabProps) {
                         value={row.name}
                         onChange={(e) => setEditExtras((prev) => prev.map((r, ri) => (ri === i ? { ...r, name: e.target.value } : r)))}
                         placeholder="Name (z.B. Cola 0,4)"
-                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
+                        className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
                       />
                       <input
                         value={row.price}
@@ -2517,7 +2517,7 @@ function ProductsTab(props: ProductsTabProps) {
                         value={row.name}
                         onChange={(e) => setEditVariants((prev) => prev.map((r, ri) => (ri === i ? { ...r, name: e.target.value } : r)))}
                         placeholder="Name (z.B. Groß 0,5l)"
-                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
+                        className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
                       />
                       <input
                         value={row.price}
@@ -2903,7 +2903,7 @@ function CategoriesTab(props: CategoriesTabProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Neue Kategorie..."
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter" && name.trim()) {
                 createCategory(name.trim());
@@ -3030,7 +3030,7 @@ function CategoriesTab(props: CategoriesTabProps) {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Farbe</label>
                   <input
@@ -3083,7 +3083,7 @@ function CategoriesTab(props: CategoriesTabProps) {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Farbe</label>
                   <input
@@ -3141,7 +3141,7 @@ function CategoriesTab(props: CategoriesTabProps) {
                       )
                     }
                     placeholder="Name"
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                    className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                   />
                   <input
                     value={row.price}
@@ -3561,7 +3561,7 @@ function EventsTab(props: EventsTabProps) {
                 value={c.name}
                 onChange={(e) => updateCombo(setFn, cIdx, { name: e.target.value })}
                 placeholder="Kombi-Name (z.B. Cola + Shisha)"
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               />
               <input
                 value={c.combo_price}
@@ -3591,7 +3591,7 @@ function EventsTab(props: EventsTabProps) {
                           excluded_product_ids: [],
                         })
                       }
-                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
+                      className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
                     >
                       <option value="">— Produkt auswählen —</option>
                       {products.map((p) => (
@@ -3610,7 +3610,7 @@ function EventsTab(props: EventsTabProps) {
                           excluded_product_ids: [],
                         })
                       }
-                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
+                      className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs"
                     >
                       <option value="">— Kategorie auswählen —</option>
                       {[...new Set(products.map((p) => p.category).filter(Boolean))].map((cat) => (
@@ -3752,7 +3752,7 @@ function EventsTab(props: EventsTabProps) {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Beginn</label>
                   <input
@@ -3772,7 +3772,7 @@ function EventsTab(props: EventsTabProps) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Farbe</label>
                   <input
@@ -3854,7 +3854,7 @@ function EventsTab(props: EventsTabProps) {
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Beginn</label>
                   <input
@@ -3874,7 +3874,7 @@ function EventsTab(props: EventsTabProps) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Farbe</label>
                   <input
@@ -4498,7 +4498,7 @@ function SettingsTab(props: SettingsTabProps) {
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs text-zinc-400">PLZ</label>
               <input
@@ -4524,7 +4524,7 @@ function SettingsTab(props: SettingsTabProps) {
               className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs text-zinc-400">Facebook</label>
               <input

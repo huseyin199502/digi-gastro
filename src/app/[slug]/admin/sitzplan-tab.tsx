@@ -1073,8 +1073,8 @@ export default function SitzplanTab(props: SitzplanTabProps) {
             onClick={closeCockpit}
           />
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border-t border-zinc-700 bg-zinc-900 p-4 sm:p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold">
                   Tisch {selectedInfo.table?.number ?? selectedTable}
                   {selectedInfo.table?.zone ? (

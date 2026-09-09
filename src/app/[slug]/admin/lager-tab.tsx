@@ -358,7 +358,7 @@ function ItemsSection(props: {
               placeholder="z. B. Cola 1L"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs text-zinc-400">Einheit</label>
               <input
@@ -377,7 +377,7 @@ function ItemsSection(props: {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs text-zinc-400">Einzelpreis (€)</label>
               <input
