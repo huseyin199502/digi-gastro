@@ -570,9 +570,20 @@ async function sendGoogleWalletUpdate(
     // Balance aktualisieren (Stempel) + Nachricht hinzufügen.
     // Google-Aktualisierung nur über das `balance`-Feld sichtbar.
     const basePatch: Record<string, unknown> = {};
-    if (typeof customer.current_stamps === "number") {
+    let balance = customer.current_stamps;
+    if (typeof balance !== "number") {
+      // Manche Aufrufer (z.B. quick-send/broadcast) laden nur Teilfelder.
+      // Dann den aktuellen Stand aus der DB holen, damit der Wallet-Stand
+      // niemals vom DB-Stand abweicht.
+      const row = await prisma.loyaltyCustomer.findUnique({
+        where: { id: customer.id },
+        select: { current_stamps: true },
+      });
+      balance = row?.current_stamps ?? undefined;
+    }
+    if (typeof balance === "number") {
       basePatch.loyaltyPoints = {
-        balance: { int: customer.current_stamps },
+        balance: { int: balance },
       };
     }
 

@@ -43,6 +43,7 @@ export async function POST(
         pass_serial: true,
         pass_type: true,
         tenant_slug: true,
+        current_stamps: true,
         last_message: true,
         msg_nonce: true,
         last_push_at: true,
