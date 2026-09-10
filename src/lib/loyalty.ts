@@ -364,7 +364,8 @@ type PushCustomer = {
 export async function triggerPassUpdatePush(
   customer: PushCustomer,
   title: string,
-  message: string
+  message: string,
+  notify: boolean = true
 ): Promise<boolean> {
   if (customer.pass_type === "apple" && !isAppleConfigured()) {
     console.log(
@@ -382,7 +383,7 @@ export async function triggerPassUpdatePush(
     if (customer.pass_type === "apple") {
       return await sendAppleApnsPush(customer, title, message);
     } else if (customer.pass_type === "google") {
-      return await sendGoogleWalletUpdate(customer, title, message);
+      return await sendGoogleWalletUpdate(customer, title, message, notify);
     }
     return false;
   } catch (e) {
@@ -558,7 +559,8 @@ async function getGoogleAccessToken(): Promise<string> {
 async function sendGoogleWalletUpdate(
   customer: PushCustomer,
   title: string,
-  message: string
+  message: string,
+  notify: boolean = true
 ): Promise<boolean> {
   try {
     const token = await getGoogleAccessToken();
@@ -567,28 +569,59 @@ async function sendGoogleWalletUpdate(
     const url = `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${objectId}`;
     // Balance aktualisieren (Stempel) + Nachricht hinzufügen.
     // Google-Aktualisierung nur über das `balance`-Feld sichtbar.
-    const patch: Record<string, unknown> = {};
+    const basePatch: Record<string, unknown> = {};
     if (typeof customer.current_stamps === "number") {
-      patch.loyaltyPoints = {
+      basePatch.loyaltyPoints = {
         balance: { int: customer.current_stamps },
       };
     }
-    patch.messages = [
-      {
-        header: title,
-        body: message,
-        messageType: "TEXT",
-        displayInterval: { start: { date: nowIso() } },
-      },
-    ];
-    const resp = await fetch(url, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(patch),
-    });
+
+    // WICHTIG für Lock-Screen-Benachrichtigungen: messageType
+    // "TEXT_AND_NOTIFY" statt "TEXT". Mit "TEXT" erscheint die Nachricht erst
+    // beim Öffnen der Google Wallet — mit TEXT_AND_NOTIFY kommt sie als
+    // Push-Benachrichtigung an (wie bei Apple Wallet). Google erlaubt max.
+    // 3 Notify-Nachrichten pro Pass in 24 h; danach wird die Nachricht ohne
+    // Benachrichtigung gesetzt, damit das Balance-Update trotzdem ankommt.
+    const sendPatch = (withNotify: boolean) =>
+      fetch(url, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...basePatch,
+          messages: [
+            {
+              // Eindeutige ID pro Nachricht → Google erkennt sie als NEU und
+              // löst die Benachrichtigung aus.
+              id: `${Date.now()}-${customer.id}`,
+              header: title,
+              body: message,
+              messageType: withNotify && notify ? "TEXT_AND_NOTIFY" : "TEXT",
+              displayInterval: { start: { date: nowIso() } },
+            },
+          ],
+        }),
+      });
+
+    let resp = await sendPatch(true);
+    if (
+      !(resp.status === 200 || resp.status === 201) &&
+      notify &&
+      resp.status !== 404
+    ) {
+      // Notify-Quota (429) oder unerwarteter Fehler → Nachricht ohne
+      // Benachrichtigung nachreichen, Balance/Stempel bleiben korrekt.
+      const errText = await resp.text().catch(() => "");
+      console.log(
+        `[Google Wallet] Notify-Update fehlgeschlagen (${resp.status}) für ${objectId}` +
+          (errText ? `: ${errText.slice(0, 160)}` : "") +
+          " → TEXT-Fallback"
+      );
+      resp = await sendPatch(false);
+    }
+
     if (resp.status === 200 || resp.status === 201) {
       console.log(`[Google Wallet] Update sent for ${objectId}`);
       return true;
