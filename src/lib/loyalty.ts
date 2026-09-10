@@ -238,7 +238,10 @@ export async function awardStampForOrder(
 
 /**
  * Manueller Stempel via Short-Code (Scanner-Alternative).
- * WICHTIG: Bei Limit wird NICHT resettet — Reset erst via /admin/loyalty/redeem.
+ * Bei Limit bleibt die Karte auf dem Limit stehen ("PRÄMIE BEREIT", Reward
+ * wird einmal gezählt); der nächste Stempel startet automatisch eine neue
+ * Runde bei 1 — nie 16/15. Alternativ kann vorab via /admin/loyalty/redeem
+ * auf 0 zurückgesetzt werden.
  */
 export async function awardManualStamp(
   tenantSlug: string,
@@ -300,10 +303,22 @@ export async function awardManualStamp(
     },
   });
 
-  // Reward-Check: current_stamps bleibt bei stamps_required ("PRÄMIE BEREIT!")
+  // Reward-Check:
+  // - Karte voll (== Limit): Prämie gilt als erreicht, Stempel bleibt auf dem
+  //   Limit stehen ("PRÄMIE BEREIT"). Reward wird genau EINMAL gezählt.
+  // - Nächster Stempel über dem Limit (z.B. 16 bei 15): bisherige Runde ist
+  //   abgerechnet → neuer Stempel startet die Folgekarte bei 1 (nicht 16!).
   let rewardRedeemed = false;
   const stampsRequired = card.stamps_required ?? 10;
-  if ((fresh.current_stamps ?? 0) >= stampsRequired) {
+  let current = fresh.current_stamps ?? 0;
+  if (current > stampsRequired) {
+    current = 1;
+    await prisma.loyaltyCustomer.update({
+      where: { id: fresh.id },
+      data: { current_stamps: 1, updated_at: now },
+    });
+    fresh.current_stamps = 1;
+  } else if (current === stampsRequired) {
     await prisma.loyaltyCustomer.update({
       where: { id: fresh.id },
       data: { rewards_redeemed: { increment: 1 } },

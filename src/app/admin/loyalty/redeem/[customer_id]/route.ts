@@ -40,11 +40,22 @@ export async function POST(
     const oldStamps = customer.current_stamps ?? 0;
     const now = nowIso();
 
+    // Im Manual-Stamp-Flow wird der Reward bereits beim Erreichen des Limits
+    // gezählt (Stempel sind dann alle als redeemed markiert). Hier nur zählen,
+    // wenn noch un-abgerechnete Stempel existieren — sonst Double-Count.
+    const unredeemed = await prisma.loyaltyStamp.count({
+      where: {
+        customer_id: customer.id,
+        card_id: card.id,
+        is_redeemed: false,
+      },
+    });
+
     await prisma.loyaltyCustomer.update({
       where: { id: customer.id },
       data: {
         current_stamps: 0,
-        rewards_redeemed: { increment: 1 },
+        ...(unredeemed > 0 ? { rewards_redeemed: { increment: 1 } } : {}),
         updated_at: now,
         pass_needs_update: true,
         pass_updated_at: now,
@@ -57,8 +68,10 @@ export async function POST(
     });
 
     try {
+      // Balance muss die NEUE (0) sein — `customer` enthält noch den alten
+      // Stand, Google-Wallet-Pushes würden sonst z.B. 15 Stempel zeigen.
       await triggerPassUpdatePush(
-        customer,
+        { ...customer, current_stamps: 0 },
         card.name,
         `Prämie eingelöst: ${card.reward_name}!`
       );
