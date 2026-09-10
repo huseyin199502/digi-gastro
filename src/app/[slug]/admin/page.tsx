@@ -162,6 +162,7 @@ export default async function TenantAdminPage({ params }: Props) {
     events,
     settings,
     superGroups,
+    chatEnabled: tenant.chat_enabled === true,
   };
 
   return <AdminClient initial={initial} />;

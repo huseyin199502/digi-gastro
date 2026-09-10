@@ -97,6 +97,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
   const [data, setData] = useState<LoyaltyDashboardData | null>(null);
   const [customers, setCustomers] = useState<LoyaltyCustomer[]>([]);
   const [pagination, setPagination] = useState({ page: 1, per_page: 25, total: 0, total_pages: 1 });
+  const [search, setSearch] = useState("");
 
   const loadOverview = useCallback(async () => {
     try {
@@ -109,9 +110,11 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
 
 
   const loadCustomers = useCallback(
-    async (page: number) => {
+    async (page: number, q = "") => {
       try {
-        const r = await fetch(`/admin/loyalty/customers?page=${page}&per_page=25`);
+        const r = await fetch(
+          `/admin/loyalty/customers?page=${page}&per_page=25&search=${encodeURIComponent(q)}`
+        );
         if (r.ok) {
           const j = await r.json();
           setCustomers(j.customers ?? []);
@@ -130,9 +133,9 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
   }, [loadOverview]);
 
   useEffect(() => {
-    const to = window.setTimeout(() => void loadCustomers(1), 0);
+    const to = window.setTimeout(() => void loadCustomers(1, search), 250);
     return () => window.clearTimeout(to);
-  }, [loadCustomers]);
+  }, [loadCustomers, search]);
 
 
   const setStamps = async (c: LoyaltyCustomer) => {
@@ -152,7 +155,7 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
       });
       if (r.ok) {
         pushToast("Stempel aktualisiert");
-        await loadCustomers(pagination.page);
+        await loadCustomers(pagination.page, search);
       } else {
         const j = await r.json().catch(() => ({}));
         pushToast(String(j.detail ?? "Fehler"), "error");
@@ -196,6 +199,62 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
     }
   };
 
+  // Mehrfach-Karten desselben Gastes (z.B. altes Handy + neues Handy):
+  // Stempel der zweiten Karte in diese übernehmen, zweite Karte löschen.
+  const mergeCustomer = async (c: LoyaltyCustomer) => {
+    const raw = window.prompt(
+      `Karte "${c.nickname ?? c.short_code}" (${c.current_stamps}/${c.stamps_required}) BEHALTEN\n` +
+        "und die Stempel einer zweiten Karte hinein zusammenführen.\n\n" +
+        "Code oder Kunden-ID der zweiten (alten) Karte:",
+      ""
+    );
+    if (raw == null) return;
+    const value = raw.trim().toUpperCase();
+    if (!value) return;
+    if (value === c.short_code) {
+      pushToast("Zweite Karte muss eine andere sein.", "error");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Karten zusammenführen?\n\n` +
+          `${c.short_code} behält künftig alle Stempel,\n` +
+          `${value} wird gelöscht (alte Wallet-Karte wird ungültig).`
+      )
+    ) {
+      return;
+    }
+    try {
+      const r = await fetch("/admin/loyalty/merge-customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          /^\d+$/.test(value)
+            ? { master_id: c.id, duplicate_id: Number(value) }
+            : { master_id: c.id, duplicate_code: value }
+        ),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        success?: boolean;
+        detail?: string;
+        error?: string;
+        current_stamps?: number;
+        stamps_required?: number;
+        duplicate_code?: string;
+      };
+      if (r.ok && j.success) {
+        pushToast(
+          `✅ ${j.duplicate_code ?? value} → ${c.short_code}: ${j.current_stamps}/${j.stamps_required} Stempel`
+        );
+        await loadCustomers(pagination.page, search);
+      } else {
+        pushToast(String(j.detail ?? j.error ?? "Zusammenführen fehlgeschlagen"), "error");
+      }
+    } catch {
+      pushToast("Netzwerkfehler", "error");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold">Loyalty &amp; Stempelkarten</h2>
@@ -227,9 +286,12 @@ export default function LoyaltyTab({ pushToast }: { pushToast: (m: string, k?: T
         <CustomersTab
           customers={customers}
           pagination={pagination}
-          onPage={loadCustomers}
+          search={search}
+          onSearch={setSearch}
+          onPage={(p) => void loadCustomers(p, search)}
           onSetStamps={setStamps}
           onSendMessage={sendMessage}
+          onMergeCustomer={mergeCustomer}
         />
       ) : (
         <DiagnoseTab pushToast={pushToast} />
@@ -553,15 +615,38 @@ function OverviewTab({
 function CustomersTab(props: {
   customers: LoyaltyCustomer[];
   pagination: { page: number; per_page: number; total: number; total_pages: number };
-  onPage: (page: number) => Promise<void>;
+  search: string;
+  onSearch: (v: string) => void;
+  onPage: (page: number) => Promise<void> | void;
   onSetStamps: (c: LoyaltyCustomer) => Promise<void>;
   onSendMessage: (c: LoyaltyCustomer) => Promise<void>;
+  onMergeCustomer: (c: LoyaltyCustomer) => Promise<void>;
 }) {
-  const { customers, pagination, onPage, onSetStamps, onSendMessage } = props;
+  const { customers, pagination, search, onSearch, onPage, onSetStamps, onSendMessage, onMergeCustomer } = props;
   return (
     <div>
-      <div className="mb-3 text-sm text-zinc-400">
-        {pagination.total} Kunden · Seite {pagination.page}/{pagination.total_pages}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Suche: Code (z.B. SUQ3), Name, Seriennummer oder ID…"
+          autoComplete="off"
+          spellCheck={false}
+          className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none"
+        />
+        {search ? (
+          <button
+            onClick={() => onSearch("")}
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
+          >
+            ✕ Suche zurücksetzen
+          </button>
+        ) : null}
+        <div className="text-sm text-zinc-400">
+          {search
+            ? `${pagination.total} Treffer`
+            : `${pagination.total} Kunden · Seite ${pagination.page}/${pagination.total_pages}`}
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-zinc-800">
         <table className="w-full text-left text-sm">
@@ -626,6 +711,13 @@ function CustomersTab(props: {
                       >
                         Nachricht
                       </button>
+                      <button
+                        onClick={() => void onMergeCustomer(c)}
+                        title="Zweite Karte desselben Gastes hierhin zusammenführen"
+                        className="rounded-lg border border-indigo-700 px-2.5 py-1 text-xs font-semibold text-indigo-300 hover:bg-indigo-950"
+                      >
+                        Zusammenführen
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -634,7 +726,7 @@ function CustomersTab(props: {
             {customers.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-sm text-zinc-500">
-                  Keine Kunden.
+                  {search ? `Keine Kunden gefunden für "${search}".` : "Keine Kunden."}
                 </td>
               </tr>
             ) : null}

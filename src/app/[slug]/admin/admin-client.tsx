@@ -98,6 +98,7 @@ export interface AdminInitial {
   events: AdminEvent[];
   settings: TenantSettings;
   superGroups: { id: number; name: string; color: string; icon: string }[];
+  chatEnabled: boolean;
 }
 
 export interface Toast {
@@ -887,7 +888,9 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
 
   const navItems = [
     { id: "live", label: "Live" },
-    { id: "chat", label: "Chat" },
+    // Chat-Tab nur zeigen, wenn Super-Admin den Gast-Chat für diesen
+    // Tenant freigeschaltet hat (sonst ist der Tab funktionell leer).
+    ...(initial.chatEnabled ? [{ id: "chat", label: "Chat" }] : []),
     { id: "produkte", label: "Produkte" },
     { id: "kategorien", label: "Kategorien" },
     { id: "events", label: "Events" },

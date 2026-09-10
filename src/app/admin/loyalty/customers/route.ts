@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { errorResponse, requireChef } from "@/lib/adminApi";
-import { generateShortCode } from "@/lib/loyalty";
+import { generateShortCode, normalizeShortCode } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 
@@ -39,13 +39,31 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const total = await prisma.loyaltyCustomer.count({
-      where: { tenant_slug: slug },
-    });
+    // Suche nach Kurzcode / Nickname / Pass-Seriennummer (Case-insensitiv,
+    // bei Codes tolerant gegen 0/O- und 1/I-Verwechslung).
+    const search = (request.nextUrl.searchParams.get("search") ?? "").trim();
+    const codeQuery = search ? normalizeShortCode(search) : "";
+    const where = {
+      tenant_slug: slug,
+      ...(search
+        ? {
+            OR: [
+              { short_code: { contains: codeQuery, mode: "insensitive" as const } },
+              { nickname: { contains: search, mode: "insensitive" as const } },
+              { pass_serial: { contains: search, mode: "insensitive" as const } },
+              ...(Number.isInteger(parseInt(search, 10))
+                ? [{ id: parseInt(search, 10) }]
+                : []),
+            ],
+          }
+        : {}),
+    };
+
+    const total = await prisma.loyaltyCustomer.count({ where });
     const totalPages = Math.max(1, Math.ceil(total / perPage));
 
     const customers = await prisma.loyaltyCustomer.findMany({
-      where: { tenant_slug: slug },
+      where,
       orderBy: { id: "desc" },
       skip: (page - 1) * perPage,
       take: perPage,
