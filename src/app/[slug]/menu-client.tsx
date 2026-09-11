@@ -1916,11 +1916,11 @@ export function MenuClient({
       {offerSheetOpen ? (
         <div className="fixed inset-0 z-[65] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setOfferSheetOpen(false)} />
-          <div className="relative w-full max-w-lg rounded-t-3xl bg-white shadow-2xl" style={{ maxHeight: "80vh" }}>
-            <div className="flex justify-center pt-3 pb-2">
+          <div className="relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+            <div className="flex shrink-0 justify-center pt-3 pb-2">
               <div className="h-1.5 w-12 rounded-full bg-gray-300" />
             </div>
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 pb-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 pb-4">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-xl text-amber-500">local_offer</span>
                 <h2 className="text-xl font-extrabold text-gray-900">Angebote</h2>
@@ -1929,7 +1929,7 @@ export function MenuClient({
                 <span className="material-symbols-outlined text-xl">close</span>
               </button>
             </div>
-            <div className="overflow-y-auto p-4" style={{ maxHeight: "calc(80vh - 100px)" }}>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="space-y-3">
                 {hhProducts.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 rounded-2xl bg-gray-50 p-3" onClick={() => { openProductSheet(p); setOfferSheetOpen(false); }}>
@@ -2336,7 +2336,7 @@ function AdBanner({
             {ad.company_name}
           </div>
           <div
-            className={`mt-0.5 text-base font-extrabold leading-tight sm:text-lg ${
+            className={`mt-0.5 text-sm font-bold leading-snug sm:text-base ${
               light ? "text-zinc-900" : "text-white"
             }`}
           >
@@ -3306,13 +3306,13 @@ function BillConfirmSheet({
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {/* Handle */}
-        <div className="flex justify-center pt-1 pb-4">
+        {/* Handle + Schließen (bleibt beim Scrollen oben) */}
+        <div className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center justify-center bg-white px-6 pb-3 pt-6">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+          <button onClick={onClose} aria-label={tr.bill_cancel} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
         </div>
-        <button onClick={onClose} aria-label={tr.bill_cancel} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
           <span className="material-symbols-outlined text-3xl text-emerald-600">receipt_long</span>
         </div>
@@ -3404,13 +3404,13 @@ function ServiceModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {/* Handle */}
-        <div className="flex justify-center pt-1 pb-4">
+        {/* Handle + Schließen (bleibt beim Scrollen oben) */}
+        <div className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center justify-center bg-white px-6 pb-3 pt-6">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+          <button onClick={onClose} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
         </div>
-        <button onClick={onClose} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
           <span className="material-symbols-outlined text-3xl text-emerald-600">notifications_active</span>
         </div>
@@ -3455,13 +3455,13 @@ function PaymentModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {/* Handle */}
-        <div className="flex justify-center pt-1 pb-4">
+        {/* Handle + Schließen (bleibt beim Scrollen oben) */}
+        <div className="sticky top-0 z-20 -mx-6 -mt-6 flex items-center justify-center bg-white px-6 pb-3 pt-6">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+          <button onClick={onClose} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
         </div>
-        <button onClick={onClose} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
           <span className="material-symbols-outlined text-3xl text-emerald-600">payments</span>
         </div>
@@ -3584,10 +3584,10 @@ function LegalModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="glass-panel my-4 flex max-h-[80vh] w-full max-w-md lg:max-w-2xl flex-col rounded-3xl border border-outline-variant p-5 shadow-2xl sm:p-8">
+      <div className="glass-panel relative my-4 flex max-h-[80vh] w-full max-w-md flex-col rounded-3xl border border-outline-variant p-5 shadow-2xl lg:max-w-2xl sm:p-8">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-white/10 hover:text-white"
+          className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-white/10 hover:text-white"
         >
           <MaterialIcon className="text-2xl">close</MaterialIcon>
         </button>
@@ -3625,13 +3625,16 @@ function GoogleReviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 text-center shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200"
-        >
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
+      <div className="relative flex max-h-[90vh] w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-white p-6 text-center shadow-2xl">
+        <div className="relative shrink-0">
+          <button
+            onClick={onClose}
+            className="absolute right-0 top-0 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200"
+          >
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
           <GoogleG />
         </div>
@@ -3654,6 +3657,7 @@ function GoogleReviewModal({
         >
           {tr.google_review_later}
         </button>
+        </div>
       </div>
     </div>
   );
@@ -3677,7 +3681,7 @@ function ThankYouModal({
       <div className="relative flex max-h-[85vh] w-full max-w-sm flex-col rounded-3xl bg-white text-center shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+          className="absolute right-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 shadow-md ring-1 ring-black/5 transition-colors hover:bg-gray-200 hover:text-gray-700"
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>

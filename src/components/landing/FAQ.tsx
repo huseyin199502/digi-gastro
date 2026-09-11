@@ -94,9 +94,11 @@ function FAQItem({
         id={panelId}
         role="region"
         aria-labelledby={buttonId}
-        className={`overflow-hidden transition-all duration-300 ${isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}
+        className={`grid transition-all duration-300 ease-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
       >
-        <div className="px-6 pb-6 text-zinc-400 leading-relaxed">{answer}</div>
+        <div className="overflow-hidden">
+          <div className="px-6 pb-6 text-zinc-400 leading-relaxed">{answer}</div>
+        </div>
       </div>
     </div>
   );

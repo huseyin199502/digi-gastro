@@ -1043,14 +1043,6 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
         </div>
       ) : null}
 
-      {/* Offline-Banner */}
-      {offline ? (
-        <div className="sticky top-0 z-[60] flex items-center justify-center gap-2 bg-red-600 px-4 py-2 text-sm font-bold text-white">
-          <span className="material-symbols-outlined text-lg">wifi_off</span>
-          Keine Verbindung — Bestellungen werden nicht live aktualisiert
-        </div>
-      ) : null}
-
       {/* Toasts */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map((t) => (

@@ -75,7 +75,7 @@ function MediaThumb({ url }: { url: string }) {
     return (
       <div className="relative">
         <video src={url} muted playsInline preload="metadata" className="h-20 w-28 rounded-lg bg-zinc-800 object-cover" />
-        <span className="absolute right-1 top-1 rounded bg-red-600 px-1 text-[10px] font-bold text-white">VIDEO</span>
+        <span className="absolute left-1 top-1 rounded bg-red-600 px-1 text-[10px] font-bold text-white">VIDEO</span>
       </div>
     );
   }
