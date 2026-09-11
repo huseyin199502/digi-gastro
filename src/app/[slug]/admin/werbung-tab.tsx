@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface AdBanner {
   id: number;
@@ -37,6 +37,11 @@ export default function WerbungTab() {
   const [editing, setEditing] = useState<Partial<AdBanner> | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [placementFilter, setPlacementFilter] = useState("all");
+  const [onlyActive, setOnlyActive] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const seededRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +57,61 @@ export default function WerbungTab() {
     const to = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(to);
   }, [load]);
+
+  // Beim ersten Laden: Gruppen mit aktiven Bannern automatisch ausklappen,
+  // pausierte Gruppen bleiben zu.
+  useEffect(() => {
+    if (seededRef.current || banners.length === 0) return;
+    seededRef.current = true;
+    setExpanded(
+      new Set(
+        banners
+          .filter((b) => b.status === "active")
+          .map((b) => b.company_name || "Ohne Namen"),
+      ),
+    );
+  }, [banners]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return banners.filter((b) => {
+      if (placementFilter !== "all" && b.placement !== placementFilter) return false;
+      if (onlyActive && b.status !== "active") return false;
+      if (!q) return true;
+      return (
+        b.company_name.toLowerCase().includes(q) ||
+        b.title.toLowerCase().includes(q) ||
+        (b.subtitle ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [banners, search, placementFilter, onlyActive]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, AdBanner[]>();
+    for (const b of filtered) {
+      const key = b.company_name || "Ohne Namen";
+      const arr = map.get(key);
+      if (arr) arr.push(b);
+      else map.set(key, [b]);
+    }
+    return Array.from(map.entries())
+      .map(([name, items]) => ({
+        name,
+        items,
+        impressions: items.reduce((s, i) => s + i.impressions, 0),
+        clicks: items.reduce((s, i) => s + i.clicks, 0),
+        hasActive: items.some((i) => i.status === "active"),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }, [filtered]);
+
+  const toggleGroup = (name: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
 
   const flash = (kind: "ok" | "err", text: string) => {
     setNote({ kind, text });
@@ -111,6 +171,25 @@ export default function WerbungTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: b.id, status: newStatus }),
       });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleGroupStatus = async (items: AdBanner[]) => {
+    const newStatus = items.some((i) => i.status === "active") ? "paused" : "active";
+    setBusy(true);
+    try {
+      await Promise.all(
+        items.map((b) =>
+          fetch("/admin/ads", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: b.id, status: newStatus }),
+          }),
+        ),
+      );
       await load();
     } finally {
       setBusy(false);
@@ -289,80 +368,184 @@ export default function WerbungTab() {
         </div>
       </section>
 
-      {/* Banner-Liste */}
+      {/* Banner-Liste — nach Firma gruppiert & einklappbar */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-400">
-          Bestehende Banner ({banners.length})
+          Bestehende Banner ({filtered.length}
+          {filtered.length !== banners.length ? ` von ${banners.length}` : ""})
         </h2>
+
+        {banners.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[12rem] flex-1">
+              <span className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-lg text-zinc-500">
+                search
+              </span>
+              <input
+                className={`${inputCls} pl-9`}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Firma oder Titel suchen…"
+              />
+            </div>
+            <select
+              className={`${inputCls} w-auto`}
+              value={placementFilter}
+              onChange={(e) => setPlacementFilter(e.target.value)}
+            >
+              <option value="all">Alle Platzierungen</option>
+              {PLACEMENTS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 px-1 text-xs font-semibold text-zinc-400">
+              <input
+                type="checkbox"
+                checked={onlyActive}
+                onChange={(e) => setOnlyActive(e.target.checked)}
+                className="h-4 w-4 accent-emerald-500"
+              />
+              Nur aktive
+            </label>
+          </div>
+        ) : null}
 
         {banners.length === 0 ? (
           <p className="text-sm text-zinc-500">
             Noch keine Banner angelegt. Erstelle das erste Werbebanner für dein Restaurant.
           </p>
+        ) : groups.length === 0 ? (
+          <p className="text-sm text-zinc-500">Keine Banner für diesen Filter gefunden.</p>
         ) : (
-          <div className="space-y-3">
-            {banners.map((b) => (
-              <div
-                key={b.id}
-                className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-800/30 p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-block h-2 w-2 rounded-full ${
-                        b.status === "active" ? "bg-emerald-400" : "bg-zinc-500"
+          <div className="space-y-2">
+            {groups.map((g) => {
+              const isOpen = expanded.has(g.name);
+              return (
+                <div
+                  key={g.name}
+                  className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-800/20"
+                >
+                  <div className="flex items-center transition-colors hover:bg-zinc-800/60">
+                    <button
+                      onClick={() => toggleGroup(g.name)}
+                      className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+                    >
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${
+                          g.hasActive ? "bg-emerald-400" : "bg-zinc-500"
+                        }`}
+                      />
+                      <span className="truncate text-sm font-bold text-zinc-100">{g.name}</span>
+                      <span className="shrink-0 rounded-full bg-zinc-700/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-300">
+                        {g.items.length} Banner
+                      </span>
+                      <span className="ml-auto hidden shrink-0 items-center gap-3 text-xs text-zinc-500 sm:flex">
+                        <span title="Impressions">👁 {g.impressions}</span>
+                        <span title="Klicks">🖱 {g.clicks}</span>
+                      </span>
+                      <span
+                        className={`material-symbols-outlined shrink-0 text-lg text-zinc-400 transition-transform ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      >
+                        expand_more
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => void toggleGroupStatus(g.items)}
+                      disabled={busy}
+                      title={
+                        g.hasActive
+                          ? `Alle ${g.items.length} Banner pausieren`
+                          : `Alle ${g.items.length} Banner aktivieren`
+                      }
+                      className={`mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${
+                        g.hasActive
+                          ? "border-emerald-700 text-emerald-400 hover:bg-emerald-950"
+                          : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
                       }`}
-                    />
-                    <span className="text-sm font-bold text-zinc-100 truncate">
-                      {b.company_name}: {b.title}
-                    </span>
-                    {b.subtitle ? (
-                      <span className="text-xs text-zinc-500 truncate hidden sm:inline">— {b.subtitle}</span>
-                    ) : null}
+                    >
+                      <span className="material-symbols-outlined text-lg">
+                        {g.hasActive ? "pause" : "play_arrow"}
+                      </span>
+                    </button>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-3 text-xs text-zinc-500">
-                    <span>Platz: {PLACEMENTS.find((p) => p.value === b.placement)?.label ?? b.placement}</span>
-                    <span>Prio: {b.priority}</span>
-                    <span>👁 {b.impressions}</span>
-                    <span>🖱 {b.clicks}</span>
-                  </div>
+
+                  {isOpen ? (
+                    <div className="space-y-1.5 border-t border-zinc-800 p-2">
+                      {g.items.map((b) => (
+                        <div
+                          key={b.id}
+                          className="flex items-center gap-3 rounded-lg bg-zinc-900/60 px-3 py-2"
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                              b.status === "active" ? "bg-emerald-400" : "bg-zinc-500"
+                            }`}
+                          />
+                          <span className="hidden w-40 shrink-0 truncate text-xs text-zinc-400 md:block">
+                            {PLACEMENTS.find((p) => p.value === b.placement)?.label ?? b.placement}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-zinc-100">
+                              {b.title}
+                            </div>
+                            {b.subtitle ? (
+                              <div className="truncate text-xs text-zinc-500">{b.subtitle}</div>
+                            ) : null}
+                          </div>
+                          <div className="hidden shrink-0 items-center gap-3 text-xs text-zinc-500 lg:flex">
+                            <span title="Priorität">P{b.priority}</span>
+                            <span title="Impressions">👁 {b.impressions}</span>
+                            <span title="Klicks">🖱 {b.clicks}</span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              onClick={() => void toggle(b)}
+                              disabled={busy}
+                              title={b.status === "active" ? "Pausieren" : "Aktivieren"}
+                              className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 ${
+                                b.status === "active"
+                                  ? "border-emerald-700 text-emerald-400 hover:bg-emerald-950"
+                                  : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-lg">
+                                {b.status === "active" ? "pause" : "play_arrow"}
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => setEditing(b)}
+                              disabled={busy}
+                              title="Bearbeiten"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-lg">edit</span>
+                            </button>
+                            <button
+                              onClick={() => void duplicate(b)}
+                              disabled={busy}
+                              title="Duplizieren"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-lg">content_copy</span>
+                            </button>
+                            <button
+                              onClick={() => void del(b.id)}
+                              disabled={busy}
+                              title="Löschen"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-800 text-red-400 transition-colors hover:bg-red-950 disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="flex flex-wrap gap-2 sm:shrink-0">
-                  <button
-                    onClick={() => void toggle(b)}
-                    disabled={busy}
-                    className={`${btnCls} border text-xs ${
-                      b.status === "active"
-                        ? "border-emerald-700 text-emerald-400 hover:bg-emerald-950"
-                        : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-                    }`}
-                  >
-                    {b.status === "active" ? "Aktiv" : "Pausiert"}
-                  </button>
-                  <button
-                    onClick={() => setEditing(b)}
-                    disabled={busy}
-                    className={`${btnCls} border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs`}
-                  >
-                    Bearbeiten
-                  </button>
-                  <button
-                    onClick={() => void duplicate(b)}
-                    disabled={busy}
-                    className={`${btnCls} border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs`}
-                  >
-                    Duplizieren
-                  </button>
-                  <button
-                    onClick={() => void del(b.id)}
-                    disabled={busy}
-                    className={`${btnCls} border border-red-800 text-red-400 hover:bg-red-950 text-xs`}
-                  >
-                    Löschen
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

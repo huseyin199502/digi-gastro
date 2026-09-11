@@ -92,8 +92,8 @@ export default function Navbar() {
       </nav>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-[#050507]/95 backdrop-blur-xl md:hidden">
-          <div className="flex h-full flex-col items-center justify-center gap-8 px-6">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-[#050507]/95 backdrop-blur-xl md:hidden">
+          <div className="flex min-h-full flex-col items-center justify-center gap-8 px-6 py-10">
             {navLinks.map((link) => (
               <Link
                 key={link.href}

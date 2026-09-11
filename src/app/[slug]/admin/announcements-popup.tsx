@@ -100,10 +100,10 @@ export default function AnnouncementsPopup({ slug }: { slug: string }) {
             exit={{ opacity: 0, y: -16, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 320, damping: 26 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+            className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl"
           >
             {/* Deko-Header */}
-            <div className="relative bg-gradient-to-br from-emerald-600/30 via-zinc-900 to-zinc-900 px-6 pb-5 pt-7 text-center">
+            <div className="relative shrink-0 bg-gradient-to-br from-emerald-600/30 via-zinc-900 to-zinc-900 px-6 pb-5 pt-7 text-center">
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-4xl shadow-inner">
                 <span className="material-symbols-outlined text-emerald-400" style={{ fontSize: 34 }}>
                   {current.icon || "celebration"}
@@ -116,14 +116,14 @@ export default function AnnouncementsPopup({ slug }: { slug: string }) {
             </div>
 
             {/* Inhalt */}
-            <div className="px-6 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
               <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-300">
                 {current.body}
               </p>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between gap-3 border-t border-zinc-800 px-6 py-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-zinc-800 px-6 py-4">
               <div className="flex gap-1.5">
                 {items.length > 1 ? (
                   items.map((_, i) => (

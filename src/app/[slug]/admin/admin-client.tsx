@@ -2224,7 +2224,7 @@ function ProductsTab(props: ProductsTabProps) {
 
       {showCreate ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Neues Produkt</h3>
             <div className="space-y-3">
               <div>
@@ -2282,9 +2282,9 @@ function ProductsTab(props: ProductsTabProps) {
 
       {editing ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Produkt bearbeiten</h3>
-            <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Name *</label>
                 <input
@@ -2602,7 +2602,7 @@ function ProductsTab(props: ProductsTabProps) {
 
       {showImport ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">CSV Import</h3>
             <div className="space-y-3">
               <div>
@@ -3022,7 +3022,7 @@ function CategoriesTab(props: CategoriesTabProps) {
       {/* ── Super-Group create modal ── */}
       {showSgCreate ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Neue Hauptgruppe</h3>
             <div className="space-y-3">
               <div>
@@ -3075,7 +3075,7 @@ function CategoriesTab(props: CategoriesTabProps) {
       {/* ── Super-Group edit modal ── */}
       {editSg ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Hauptgruppe bearbeiten</h3>
             <div className="space-y-3">
               <div>
@@ -3128,7 +3128,7 @@ function CategoriesTab(props: CategoriesTabProps) {
       {/* ── Extras modal ── */}
       {extrasCat ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Extras — {extrasCat.name}</h3>
             <p className="mb-3 text-xs text-zinc-500">
               Zusatzprodukte, die unter dieser Kategorie angeboten werden (z.B. Sojamilch +1€).
@@ -3736,9 +3736,9 @@ function EventsTab(props: EventsTabProps) {
 
       {showCreate ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Neues Event</h3>
-            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Name *</label>
                 <input
@@ -3835,12 +3835,12 @@ function EventsTab(props: EventsTabProps) {
 
       {editing ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             <h3 className="mb-4 text-lg font-bold">Event bearbeiten</h3>
             {loadingDetails ? (
               <p className="py-6 text-center text-sm text-zinc-400">Lade Details...</p>
             ) : (
-            <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Name *</label>
                 <input

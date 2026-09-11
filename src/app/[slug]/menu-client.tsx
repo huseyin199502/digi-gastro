@@ -1237,6 +1237,7 @@ export function MenuClient({
     !billSheetOpen &&
     !serviceModalOpen &&
     !paymentModalOpen &&
+    !thankYouOpen &&
     !sheetProduct;
 
   return (
@@ -1702,16 +1703,15 @@ export function MenuClient({
         <div className="fixed inset-0 z-[70] flex items-end justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <div
-            className="relative w-full max-w-lg rounded-t-3xl bg-white shadow-2xl"
-            style={{ maxHeight: "85vh" }}
+            className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl"
           >
             {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2">
+            <div className="flex shrink-0 justify-center pt-3 pb-2">
               <div className="h-1.5 w-12 rounded-full bg-gray-300" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 pb-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 pb-4">
               <div>
                 <h2 className="text-xl font-extrabold text-gray-900">{comboModalData.name}</h2>
                 <p className="text-lg font-black text-emerald-600">{formatEur(comboModalData.combo_price)}</p>
@@ -1725,7 +1725,7 @@ export function MenuClient({
             </div>
 
             {/* Step Indicator */}
-            <div className="flex items-center justify-center gap-2 px-4 py-3 sm:px-6">
+            <div className="flex shrink-0 items-center justify-center gap-2 px-4 py-3 sm:px-6">
               {comboModalData.items.map((_, idx) => (
                 <div key={idx} className={`flex items-center gap-1 sm:gap-2 ${idx <= comboStep ? "text-emerald-600" : "text-gray-300"}`}>
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
@@ -1741,7 +1741,7 @@ export function MenuClient({
             </div>
 
             {/* Current Step Content */}
-            <div className="overflow-y-auto px-6 py-4" style={{ maxHeight: "calc(85vh - 220px)" }}>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
               {(() => {
                 const currentItem = comboModalData.items[comboStep];
                 if (!currentItem) return null;
@@ -1826,7 +1826,7 @@ export function MenuClient({
             </div>
 
             {/* Navigation Buttons */}
-            <div className="border-t border-gray-100 p-4 flex gap-3">
+            <div className="flex shrink-0 gap-3 border-t border-gray-100 p-4">
               {comboStep > 0 ? (
                 <button
                   onClick={() => setComboStep(comboStep - 1)}
@@ -2329,14 +2329,14 @@ function AdBanner({
         )}
         <div className="flex-1 min-w-0">
           <div
-            className={`text-[10px] font-bold uppercase tracking-widest ${
-              light ? "text-emerald-600" : "text-emerald-400/80"
+            className={`text-xs font-extrabold uppercase tracking-wide sm:text-sm ${
+              light ? "text-emerald-700" : "text-emerald-400"
             }`}
           >
             {ad.company_name}
           </div>
           <div
-            className={`text-sm font-bold sm:text-base ${
+            className={`mt-0.5 text-base font-extrabold leading-tight sm:text-lg ${
               light ? "text-zinc-900" : "text-white"
             }`}
           >
@@ -2344,7 +2344,7 @@ function AdBanner({
           </div>
           {ad.subtitle ? (
             <div
-              className={`mt-0.5 text-xs line-clamp-1 ${
+              className={`mt-0.5 text-xs line-clamp-1 sm:text-sm ${
                 light ? "text-zinc-500" : "text-white/60"
               }`}
             >
@@ -3305,7 +3305,7 @@ function BillConfirmSheet({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Handle */}
         <div className="flex justify-center pt-1 pb-4">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
@@ -3403,7 +3403,7 @@ function ServiceModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Handle */}
         <div className="flex justify-center pt-1 pb-4">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
@@ -3454,7 +3454,7 @@ function PaymentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Handle */}
         <div className="flex justify-center pt-1 pb-4">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
@@ -3505,7 +3505,7 @@ function WalletModal({
       }}
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm rounded-t-3xl bg-white shadow-2xl" style={{ maxHeight: "85vh" }}>
+      <div className="relative flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="h-1.5 w-12 rounded-full bg-gray-300" />
@@ -3526,7 +3526,7 @@ function WalletModal({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           <p className="mb-5 text-sm text-gray-500">Wähle deine Wallet</p>
 
           <a
@@ -3625,7 +3625,7 @@ function GoogleReviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+      <div className="relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 text-center shadow-2xl">
         <button
           onClick={onClose}
           className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200"
@@ -3674,29 +3674,33 @@ function ThankYouModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
+      <div className="relative flex max-h-[85vh] w-full max-w-sm flex-col rounded-3xl bg-white text-center shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+          className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
-          <span className="material-symbols-outlined text-5xl text-emerald-500">check_circle</span>
+        <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-8 pb-2">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
+            <span className="material-symbols-outlined text-5xl text-emerald-500">check_circle</span>
+          </div>
+          <h2 className="mb-2 text-2xl font-extrabold text-gray-900">{tr.thank_you}</h2>
+          <p className="mb-6 text-sm font-medium leading-relaxed text-gray-500">
+            {tr.thank_you_desc}
+          </p>
+          {ads?.map((ad) => (
+            <AdBanner key={ad.id} ad={ad} className="mb-4" variant="light" />
+          ))}
         </div>
-        <h2 className="mb-2 text-2xl font-extrabold text-gray-900">{tr.thank_you}</h2>
-        <p className="mb-6 text-sm font-medium leading-relaxed text-gray-500">
-          {tr.thank_you_desc}
-        </p>
-        {ads?.map((ad) => (
-          <AdBanner key={ad.id} ad={ad} className="mb-4" variant="light" />
-        ))}
-        <button
-          onClick={onClose}
-          className="w-full rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-all hover:bg-emerald-700 active:scale-[0.98]"
-        >
-          {tr.more_orders}
-        </button>
+        <div className="shrink-0 p-8 pt-2">
+          <button
+            onClick={onClose}
+            className="w-full rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-all hover:bg-emerald-700 active:scale-[0.98]"
+          >
+            {tr.more_orders}
+          </button>
+        </div>
       </div>
     </div>
   );

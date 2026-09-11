@@ -1905,7 +1905,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
       {stampOpen ? (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setStampOpen(false)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md rounded-t-2xl border-t border-zinc-700 bg-zinc-900 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl">
+          <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl border-t border-zinc-700 bg-zinc-900 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-bold text-zinc-100">
                 <span className="material-symbols-outlined text-amber-400">stars</span>
