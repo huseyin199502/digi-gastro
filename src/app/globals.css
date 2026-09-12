@@ -60,3 +60,13 @@
     box-shadow: 0 0 20px rgba(245, 158, 11, 0.7);
   }
 }
+
+/* Touch-Steuerung im Play World: keine Browser-Gesten, multi-touch-sicher
+   (verhindert, dass ein zweiter Finger den ersten Pointer abbricht). */
+.play-controls,
+.play-controls * {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}

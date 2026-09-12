@@ -68,6 +68,10 @@ export class QuizShow {
 
   private boardText: Text;
   private categoryText: Text;
+  // Bei Gästen: vom Host gesendete Frage/Kategorie (eigene Reihenfolge weicht ab).
+  private remoteQ: string | null = null;
+  private remoteCat: string | null = null;
+  private total = 10;
   private beams: Beam[] = [];
   private board: THREE.Group;
   private stars: THREE.Points;
@@ -116,9 +120,11 @@ export class QuizShow {
     this.stars = built.stars;
 
     this.order = this.shuffle(this.questions).slice(0, 10);
+    this.total = this.order.length;
     this.resize();
     window.addEventListener('resize', this.resize);
-    window.addEventListener('pointerdown', this.onPointerDown);
+    // Nur das Canvas ist tippbar – ein zusätzlicher window-Listener würde
+    // Taps auf die DOM-Antworten fälschlich als 3D-Treffer interpretieren.
     this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
     this.loop();
   }
@@ -366,6 +372,9 @@ export class QuizShow {
     this.phase = s.phase;
     this.timeLeft = s.timeLeft;
     this.correct = s.correct;
+    this.remoteQ = s.question;
+    this.remoteCat = s.category;
+    this.total = s.total || this.order.length;
     this.players = s.players.map((p) => ({ ...p }));
     this.syncVisuals();
   }
@@ -384,9 +393,13 @@ export class QuizShow {
 
   private syncVisuals(): void {
     const q = this.currentQuestion();
-    if (q) {
-      this.boardText.text = q.q;
-      this.categoryText.text = `${q.category} · Frage ${Math.min(this.qIndex + 1, this.order.length)}/${this.order.length}`;
+    // Gäste: Frage/Kategorie aus dem Host-Snapshot zeigen (nicht aus der
+    // eigenen, anders gemischten Reihenfolge).
+    const qText = this.remoteQ ?? q?.q ?? '';
+    const catText = this.remoteCat ?? q?.category ?? '';
+    if (q || this.remoteQ) {
+      this.boardText.text = qText;
+      this.categoryText.text = `${catText} · Frage ${Math.min(this.qIndex + 1, this.total)}/${this.total}`;
       this.boardText.sync();
       this.categoryText.sync();
     }

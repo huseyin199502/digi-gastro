@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BottomSheet from "@/components/play/BottomSheet";
 
@@ -129,6 +129,8 @@ export default function PlayClient({
     best: number;
     previousBest: number | null;
   } | null>(null);
+  // Aktuell gehaltene Touch-Tasten (mehrere gleichzeitig, Multi-Touch).
+  const heldKeys = useRef<Set<string>>(new Set());
 
   function netUrl(): string {
     const env = process.env.NEXT_PUBLIC_GAMES_URL;
@@ -300,6 +302,35 @@ export default function PlayClient({
     return () => window.clearInterval(id);
   }, [playing, game]);
 
+  // Multi-Touch-Robustheit beim Kart: nur FAHR-Tasten (keine Edge-Aktionen
+  // wie Item/OK) regelmäßig neu senden, solange die Steuerung sichtbar ist.
+  useEffect(() => {
+    const active =
+      playing && game === "kart" && controls && (gameState === "racing" || gameState === "countdown");
+    if (!active) {
+      heldKeys.current.forEach((c) => sendKey(c, "keyup"));
+      heldKeys.current.clear();
+      return undefined;
+    }
+    const raceKeys = [K.left, K.right, K.gas, K.brake, K.drift];
+    const iv = window.setInterval(() => {
+      raceKeys.forEach((c) => {
+        if (heldKeys.current.has(c)) sendKey(c, "keydown");
+      });
+    }, 180);
+    return () => window.clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, game, controls, gameState]);
+
+  // Beim Verlassen des Spiels/Frames alle gehaltenen Tasten lösen.
+  useEffect(() => {
+    return () => {
+      heldKeys.current.forEach((c) => sendKey(c, "keyup"));
+      heldKeys.current.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, game]);
+
   function openNameEditor() {
     setNameInput(name || "");
     setNameError(null);
@@ -396,12 +427,38 @@ export default function PlayClient({
   function hold(code: string) {
     return {
       onPointerDown: (e: React.PointerEvent) => {
+        // Multi-Touch: Gesten verhindern + Pointer am Button "fangen",
+        // damit der Finger beim Verrutschen nicht die Taste verliert.
         e.preventDefault();
+        e.stopPropagation();
+        try {
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        heldKeys.current.add(code);
         sendKey(code, "keydown");
       },
-      onPointerUp: () => sendKey(code, "keyup"),
-      onPointerLeave: () => sendKey(code, "keyup"),
-      onPointerCancel: () => sendKey(code, "keyup"),
+      onPointerUp: (e: React.PointerEvent) => {
+        e.preventDefault();
+        try {
+          (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        heldKeys.current.delete(code);
+        sendKey(code, "keyup");
+      },
+      // Nur echte Abbrüche (z. B. Systemgeste) lösen die Taste.
+      onPointerCancel: (e: React.PointerEvent) => {
+        try {
+          (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        heldKeys.current.delete(code);
+        sendKey(code, "keyup");
+      },
     };
   }
 
@@ -790,7 +847,7 @@ export default function PlayClient({
       >
         <button
           onClick={() => { setPlaying(false); setActiveRoom(null); setRoomErr(null); }}
-          className="flex items-center gap-1 rounded-full bg-black/60 px-4 py-3 text-sm font-black text-white shadow-lg backdrop-blur-md active:scale-95"
+          className="flex items-center gap-1 rounded-full bg-black/60 px-3 py-2.5 text-sm font-black text-white shadow-lg backdrop-blur-md active:scale-95"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Spiele
@@ -812,11 +869,11 @@ export default function PlayClient({
                   /* ignore */
                 }
               }}
-              className="flex h-11 items-center gap-1 rounded-full bg-amber-500 px-3 text-xs font-black text-black shadow-lg active:scale-95"
+              className="flex h-11 items-center gap-1 rounded-full bg-amber-500 px-2.5 text-xs font-black text-black shadow-lg active:scale-95"
               aria-label="Raum-Code kopieren"
             >
               <span className="material-symbols-outlined text-base">{copied ? "check" : "key"}</span>
-              <span className="max-w-24 truncate tracking-wide">{copied ? "Kopiert!" : activeRoom}</span>
+              <span className="max-w-16 truncate tracking-wide">{copied ? "Kopiert!" : activeRoom}</span>
             </button>
           ) : null}
           <button
@@ -901,7 +958,7 @@ export default function PlayClient({
 
       {/* Touch-Steuerung – nur während des Rennens */}
       {game === "kart" && controls && (gameState === "racing" || gameState === "countdown") ? (
-        <div className="absolute inset-x-0 bottom-0 z-30 flex items-end justify-between gap-2 px-3" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}>
+        <div className="play-controls absolute inset-x-0 bottom-0 z-30 flex items-end justify-between gap-2 px-3" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}>
           {/* Lenken (linker Daumen) */}
           <div className="flex gap-2">
             <button {...hold(K.left)} className="flex h-[4.5rem] w-[4.5rem] select-none items-center justify-center rounded-full bg-white/15 text-3xl font-black text-white backdrop-blur active:bg-white/30" aria-label="Links">◀</button>
@@ -922,7 +979,7 @@ export default function PlayClient({
       {game === "kart" && controls && gameState !== "racing" && gameState !== "countdown" ? (
         <button
           {...hold(K.confirm)}
-          className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 select-none rounded-full bg-white/15 px-6 py-3 text-xs font-black uppercase tracking-wide text-white backdrop-blur active:bg-white/30"
+          className="play-controls absolute bottom-6 left-1/2 z-30 -translate-x-1/2 select-none rounded-full bg-white/15 px-6 py-3 text-xs font-black uppercase tracking-wide text-white backdrop-blur active:bg-white/30"
         >
           OK / Start
         </button>

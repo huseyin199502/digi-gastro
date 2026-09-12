@@ -161,17 +161,21 @@ function startSingle(): void {
 
 function onAnswer(index: number): void {
   if (show.phase !== 'question') return;
+  if (index < 0 || index > 3) return;
   if (net && !host) {
     room?.send('intent', { type: 'answer', index });
     const me = show.players.find((p) => p.id === myId);
     if (me && me.choice === null) {
       me.choice = index;
-      renderHud(show.getSnapshot());
+      // Aus dem letzten HOST-Snapshot rendern (nicht aus der lokalen Reihenfolge).
+      renderHud({ ...(lastSnap ?? show.getSnapshot()), players: show.players.map((p) => ({ ...p })) });
     }
     return;
   }
   show.answer(myId, index);
 }
+
+let lastSnap: QuizSnapshot | null = null;
 
 // ── Reaktion auf Zustandsänderungen ──────────────────────────────────
 show.onSelectAnswer = (i) => onAnswer(i);
@@ -334,13 +338,24 @@ function joinNet(): void {
       room.onMessage('start', (m: { ids: string[]; names: string[] }) => startNetGame(m));
       room.onMessage('state', (s: QuizSnapshot) => {
         if (host) return;
+        lastSnap = s;
         show.applySnapshot(s);
         renderHud(s);
         renderTimer(s.timeLeft / QUESTION_TIME, s.timeLeft);
+        // Gäste brauchen das Ergebnis-Overlay ebenfalls.
+        if (s.phase === 'results' && !shownResults) {
+          shownResults = true;
+          showResults(s);
+        } else if (s.phase !== 'results') {
+          shownResults = false;
+          clearOverlays();
+        }
       });
       room.onMessage('intent', (m: { type: string; index?: number; from: string }) => {
         if (!host) return;
-        if (m.type === 'answer' && typeof m.index === 'number') show.answer(m.from, m.index);
+        if (m.type === 'answer' && typeof m.index === 'number' && m.index >= 0 && m.index <= 3) {
+          show.answer(m.from, m.index);
+        }
       });
       room.send('hello');
       renderLobby(r.roomId);

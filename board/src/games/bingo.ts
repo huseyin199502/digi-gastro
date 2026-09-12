@@ -147,12 +147,24 @@ class BingoGame implements GameInstance {
   }
 
   private maybeShowWinner(): void {
-    if (this.state.phase === 'done' && this.state.winner && !this.shownWinner) {
+    if (this.state.phase === 'done' && !this.shownWinner) {
       this.shownWinner = true;
-      this.ctx.postScore('bingo', this.state.winner === this.ctx.myId ? 1 : 0);
-      const winner = this.players.find((p) => p.id === this.state.winner);
-      if (winner) this.showWinner(winner.name);
+      const winner = this.state.winner ? this.players.find((p) => p.id === this.state.winner) : undefined;
+      if (winner) {
+        this.ctx.postScore('bingo', winner.id === this.ctx.myId ? 1 : 0);
+        this.showWinner(winner.name);
+      } else {
+        this.showDraw();
+      }
     }
+  }
+
+  private showDraw(): void {
+    const again = document.createElement('button');
+    again.className = 'bb-again';
+    again.textContent = '🔁 Nochmal';
+    again.addEventListener('click', () => { this.ctx.clearOverlay(); if (this.ctx.isHost) this.start(); });
+    this.ctx.overlay([h('div', '', '🎯'), h('h1', '', 'Kein Bingo'), h('p', '', 'Alle Zahlen gezogen – niemand hatte eine Linie.'), again]);
   }
 
   // Host: Zahl ziehen
@@ -164,6 +176,7 @@ class BingoGame implements GameInstance {
       this.state.phase = 'done';
       this.state.log = 'Alle Zahlen gezogen – keine Linie.';
       this.render();
+      this.maybeShowWinner();
       this.ctx.sendState(this.snapshot());
       return;
     }

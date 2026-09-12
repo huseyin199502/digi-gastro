@@ -262,6 +262,9 @@ function joinNet(): void {
       }));
       players = botFill(humans);
       ctx.players = players;
+      // Laufendes Spiel nicht durch Roster-Änderungen umsortieren
+      // (sonst wandert der Zug/Bot-Indizes → falscher Spieler).
+      if (started) return;
       if (!game) createGame(); else game.setPlayers(players);
       showLobby(r.roomId);
     });

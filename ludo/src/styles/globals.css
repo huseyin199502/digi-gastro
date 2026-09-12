@@ -170,7 +170,7 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
   position: absolute; left: 8px; right: 8px;
   top: calc(env(safe-area-inset-top, 0px) + 114px);
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px; pointer-events: auto;
+  gap: 5px; pointer-events: none;
 }
 .ludo-chip {
   background: rgba(30,20,70,0.9); border: 1px solid rgba(255,255,255,0.22);
