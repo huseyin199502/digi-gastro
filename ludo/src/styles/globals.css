@@ -217,3 +217,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 canvas { touch-action: none; }
+
+/* Touch: Würfel/Pause ohne Zoom-Verzögerung */
+.ludo-dice #roll-dice-btn,
+.ludo-pause { touch-action: manipulation; }

@@ -265,7 +265,35 @@ export class QuizShow {
 
   restart(): void {
     this.order = this.shuffle(this.questions).slice(0, 10);
+    this.total = this.order.length;
     this.start();
+  }
+
+  /** Aktuelle Fragen-Reihenfolge als Indizes (für Mehrspieler-Sync). */
+  getOrder(): number[] {
+    return this.order.map((q) => this.questions.indexOf(q));
+  }
+
+  /** Übernimmt die Host-Reihenfolge (Gäste / nach Host-Wechsel). */
+  setOrder(indices: number[]): void {
+    if (!Array.isArray(indices) || indices.length === 0) return;
+    const next = indices
+      .map((i) => this.questions[i])
+      .filter((q): q is Question => !!q);
+    if (next.length === 0) return;
+    this.order = next;
+    this.total = next.length;
+    this.qIndex = Math.min(this.qIndex, next.length - 1);
+    this.remoteQ = null;
+    this.remoteCat = null;
+    this.syncVisuals();
+  }
+
+  /** Neue Reihenfolge mischen und zurückgeben (Host bei „Nochmal"). */
+  newOrder(): number[] {
+    this.order = this.shuffle(this.questions).slice(0, 10);
+    this.total = this.order.length;
+    return this.getOrder();
   }
 
   private beginQuestion(): void {

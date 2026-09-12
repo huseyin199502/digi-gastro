@@ -176,7 +176,7 @@ function onAnswer(index: number): void {
 }
 
 let lastSnap: QuizSnapshot | null = null;
-let lastConfig: { ids: string[]; names: string[] } = { ids: [], names: [] };
+let lastConfig: { ids: string[]; names: string[]; order?: number[] } = { ids: [], names: [] };
 
 // ── Reaktion auf Zustandsänderungen ──────────────────────────────────
 show.onSelectAnswer = (i) => onAnswer(i);
@@ -226,8 +226,14 @@ function showResults(s: QuizSnapshot): void {
   again.addEventListener('click', () => {
     if (net && !host) return; // Gast: der Host startet die neue Runde
     clearOverlays();
-    if (net && host) room?.send('start', lastConfig);
-    show.restart();
+    if (net && host) {
+      // Neue Reihenfolge erzeugen, an alle senden, dann lokal starten.
+      const order = show.newOrder();
+      room?.send('start', { ...lastConfig, order });
+      show.start();
+    } else {
+      show.restart();
+    }
   });
   overlay([mk('h1', '', '🏆 Ergebnis'), box, again]);
 }
@@ -265,7 +271,7 @@ function renderLobby(code: string): void {
   if (host) {
     const btn = mk('button', 'qz-btn', '🚀 Spiel starten') as HTMLButtonElement;
     btn.addEventListener('click', () => {
-      const config = { ids: roster.ids, names: roster.names };
+      const config = { ids: roster.ids, names: roster.names, order: show.getOrder() };
       room?.send('start', config);
       startNetGame(config);
     });
@@ -274,8 +280,10 @@ function renderLobby(code: string): void {
   overlay(kids);
 }
 
-function startNetGame(config: { ids: string[]; names: string[] }): void {
-  lastConfig = { ids: config.ids || [], names: config.names || [] };
+function startNetGame(config: { ids: string[]; names: string[]; order?: number[] }): void {
+  lastConfig = { ids: config.ids || [], names: config.names || [], order: config.order };
+  // Host-Reihenfolge übernehmen (wichtig für Gäste & nach Host-Wechsel).
+  if (config.order && config.order.length) show.setOrder(config.order);
   const humans = config.ids || [];
   const players: QuizPlayer[] = humans.map((id, i) => ({
     id,

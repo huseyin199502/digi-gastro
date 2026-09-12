@@ -62,6 +62,7 @@ class BingoGame implements GameInstance {
   private timer = 0;
   private shownWinner = false;
   private started = false;
+  private cells: HTMLButtonElement[] = [];
 
   private state: BingoState = {
     phase: 'play', drawn: [], last: null, cards: {}, marked: {}, winner: null, drawSeq: 0, log: 'Bereit',
@@ -267,25 +268,39 @@ class BingoGame implements GameInstance {
 
   private renderCard(): void {
     const card = this.state.cards[this.ctx.myId];
-    this.cardEl.innerHTML = '';
     if (!card) return;
+    // Zellen nur einmal erzeugen (verhindert verlorene Taps beim Neu-Rendern).
+    if (this.cells.length !== 25) {
+      this.cardEl.innerHTML = '';
+      for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('button');
+        cell.className = 'bb-cell';
+        cell.innerHTML = `<span class="lt"></span><span class="nu"></span>`;
+        cell.addEventListener('click', () => {
+          const c = this.state.cards[this.ctx.myId];
+          if (!c || this.state.phase !== 'play') return;
+          const n = c[i]!;
+          if (n === 0 || !this.state.drawn.includes(n)) return;
+          if (this.ctx.isHost) { this.mark(this.ctx.myId, n); this.checkWinners(); }
+          else this.ctx.sendIntent({ type: 'mark', n });
+        });
+        this.cardEl.appendChild(cell);
+        this.cells.push(cell);
+      }
+    }
     const marked = new Set(this.state.marked[this.ctx.myId] ?? []);
     for (let i = 0; i < 25; i++) {
       const n = card[i]!;
-      const cell = document.createElement('button');
-      cell.className = 'bb-cell';
-      const letter = COLS[i % 5]![0];
-      cell.innerHTML = `<span class="lt">${letter}</span><span class="nu">${n === 0 ? '★' : n}</span>`;
+      const cell = this.cells[i];
+      const lt = cell.querySelector('.lt') as HTMLElement | null;
+      const nu = cell.querySelector('.nu') as HTMLElement | null;
+      if (lt) lt.textContent = COLS[i % 5]![0];
+      if (nu) nu.textContent = n === 0 ? '★' : String(n);
       const isDrawn = n === 0 || this.state.drawn.includes(n);
       const isMarked = n === 0 || marked.has(n);
-      if (isMarked) cell.classList.add('marked');
-      if (n === this.state.last) cell.classList.add('hot');
+      cell.classList.toggle('marked', isMarked);
+      cell.classList.toggle('hot', n === this.state.last);
       cell.disabled = n === 0 || !isDrawn || this.state.phase !== 'play';
-      cell.addEventListener('click', () => {
-        if (this.ctx.isHost) { this.mark(this.ctx.myId, n); this.checkWinners(); }
-        else this.ctx.sendIntent({ type: 'mark', n });
-      });
-      this.cardEl.appendChild(cell);
     }
   }
 

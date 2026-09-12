@@ -319,16 +319,15 @@ export default function PlayClient({
       });
     }, 180);
     return () => window.clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, game, controls, gameState]);
 
   // Beim Verlassen des Spiels/Frames alle gehaltenen Tasten lösen.
   useEffect(() => {
+    const keys = heldKeys.current;
     return () => {
-      heldKeys.current.forEach((c) => sendKey(c, "keyup"));
-      heldKeys.current.clear();
+      keys.forEach((c) => sendKey(c, "keyup"));
+      keys.clear();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, game]);
 
   function openNameEditor() {
@@ -595,7 +594,7 @@ export default function PlayClient({
         </div>
         <button
           onClick={() => setScoreResult(null)}
-          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 text-current"
+          className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/10 text-current"
           aria-label="Schließen"
         >
           ✕
@@ -691,7 +690,7 @@ export default function PlayClient({
             <div className="w-full max-w-sm rounded-3xl bg-zinc-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-black">🏎️ Kart-Rennen</h2>
-                <button onClick={() => setRoomSheet(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
+                <button onClick={() => setRoomSheet(false)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -724,7 +723,7 @@ export default function PlayClient({
             <div className="w-full max-w-sm rounded-3xl bg-zinc-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-black">🎲 Mensch ärgere dich nicht</h2>
-                <button onClick={() => setLudoSheet(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
+                <button onClick={() => setLudoSheet(false)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -757,7 +756,7 @@ export default function PlayClient({
             <div className="w-full max-w-sm rounded-3xl bg-zinc-900 p-5 text-white shadow-2xl ring-1 ring-white/10">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-black">🎬 Quiz Show</h2>
-                <button onClick={() => setQuizSheet(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
+                <button onClick={() => setQuizSheet(false)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -792,7 +791,7 @@ export default function PlayClient({
                 <h2 className="text-xl font-black">
                   {BOARD_GAMES.find((g) => g.id === boardGame)?.emoji} {BOARD_GAMES.find((g) => g.id === boardGame)?.title}
                 </h2>
-                <button onClick={() => setBoardSheet(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
+                <button onClick={() => setBoardSheet(false)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10" aria-label="Schließen">
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -998,7 +997,7 @@ export default function PlayClient({
                 <button onClick={() => setSheetTab("order")} className={`rounded-full px-4 py-2 text-sm font-black ${sheetTab === "order" ? "bg-emerald-600 text-white" : "bg-zinc-100 text-zinc-600"}`}>Bestellen</button>
                 <button onClick={() => setSheetTab("service")} className={`rounded-full px-4 py-2 text-sm font-black ${sheetTab === "service" ? "bg-emerald-600 text-white" : "bg-zinc-100 text-zinc-600"}`}>Service</button>
               </div>
-              <button onClick={() => setSheetOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-500" aria-label="Schließen">
+              <button onClick={() => setSheetOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500" aria-label="Schließen">
                 <span className="material-symbols-outlined">expand_more</span>
               </button>
             </div>
@@ -1039,12 +1038,12 @@ export default function PlayClient({
                         </div>
                         {qty > 0 ? (
                           <div className="flex items-center gap-2">
-                            <button onClick={() => setCart((c) => { const n = { ...c }; if ((n[p.id] ?? 0) <= 1) delete n[p.id]; else n[p.id] = (n[p.id] ?? 0) - 1; return n; })} className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-lg font-black text-zinc-700">−</button>
+                            <button onClick={() => setCart((c) => { const n = { ...c }; if ((n[p.id] ?? 0) <= 1) delete n[p.id]; else n[p.id] = (n[p.id] ?? 0) - 1; return n; })} className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-200 text-lg font-black text-zinc-700">−</button>
                             <span className="w-5 text-center font-black text-zinc-900">{qty}</span>
-                            <button onClick={() => setCart((c) => ({ ...c, [p.id]: (c[p.id] ?? 0) + 1 }))} className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white">+</button>
+                            <button onClick={() => setCart((c) => ({ ...c, [p.id]: (c[p.id] ?? 0) + 1 }))} className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white">+</button>
                           </div>
                         ) : (
-                          <button onClick={() => setCart((c) => ({ ...c, [p.id]: 1 }))} className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white active:scale-90" aria-label="Hinzufügen">+</button>
+                          <button onClick={() => setCart((c) => ({ ...c, [p.id]: 1 }))} className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-600 text-lg font-black text-white active:scale-90" aria-label="Hinzufügen">+</button>
                         )}
                       </div>
                     );
@@ -1084,7 +1083,7 @@ export default function PlayClient({
           <div className="flex max-h-[88dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white text-zinc-900 shadow-2xl sm:rounded-3xl">
             <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
               <h2 className="flex items-center gap-2 text-lg font-black"><span className="material-symbols-outlined text-amber-500">emoji_events</span> Rekorde &amp; Highlights</h2>
-              <button onClick={() => setHlOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-500"><span className="material-symbols-outlined">close</span></button>
+              <button onClick={() => setHlOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500"><span className="material-symbols-outlined">close</span></button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               <p className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">Highlights entstehen automatisch, wenn jemand einen Rekord bricht.</p>

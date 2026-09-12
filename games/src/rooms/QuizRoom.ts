@@ -21,7 +21,7 @@ interface StartConfig {
 }
 
 export class QuizRoom extends Room<{ state: QuizState }> {
-  maxClients = 4;
+  maxClients = 8;
   private startConfig: StartConfig | null = null;
   private names = new Map<string, string>();
 

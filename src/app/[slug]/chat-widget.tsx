@@ -354,7 +354,7 @@ export function ChatWidget({
           {inv.text ? <span>{inv.text}</span> : null}
           <a
             href={inv.href}
-            className="mt-1.5 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white no-underline shadow-sm active:scale-95"
+            className="mt-1.5 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-black text-white no-underline min-h-[44px] shadow-sm active:scale-95"
           >
             ▶ Spiel starten
           </a>
@@ -426,7 +426,7 @@ export function ChatWidget({
             <div className="flex items-center gap-1">
               <button
                 onClick={onOpenPrivacy}
-                className="rounded-full px-2.5 py-1.5 text-[11px] font-bold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="min-h-[44px] rounded-full px-2.5 py-1.5 text-[11px] font-bold text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
                 {cd.privacy}
               </button>
