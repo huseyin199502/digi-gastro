@@ -20,6 +20,8 @@ export interface GameCtx {
   players: Player[];
   sendState: (s: unknown) => void;
   sendIntent: (m: unknown) => void;
+  /** Eigenes Ergebnis an den Wrapper melden (Highscore/Rekord). */
+  postScore: (game: string, score: number) => void;
 }
 
 export interface GameInstance {

@@ -199,6 +199,15 @@ function frame(): void {
 requestAnimationFrame(frame);
 
 function showResults(s: QuizSnapshot): void {
+  // Eigenes Ergebnis an den Wrapper melden (Highscore/Rekord).
+  const me = s.players.find((p) => p.id === myId);
+  if (me && !me.isBot) {
+    try {
+      window.parent?.postMessage({ type: 'game:score', game: 'quiz', score: me.score }, '*');
+    } catch {
+      /* ignore */
+    }
+  }
   const ranked = s.players.slice().sort((a, b) => b.score - a.score);
   const box = el('div', 'qz-ranks');
   ranked.forEach((p, i) => {

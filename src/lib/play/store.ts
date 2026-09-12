@@ -532,3 +532,30 @@ export async function listRecords(slug: string): Promise<PlayRecord[]> {
     slug,
   )) as PlayRecord[];
 }
+
+export interface ScoreResult {
+  record: boolean;
+  best: number;
+  previousBest: number | null;
+}
+
+// Allgemeiner Highscore für ALLE Spiele (auch die eigenständigen 3D-Spiele,
+// die ihr Ergebnis per postMessage melden). Höhere Punktzahl = besser.
+export async function recordGameScore(
+  slug: string,
+  game: string,
+  name: string,
+  score: number,
+): Promise<ScoreResult> {
+  await ensureTables();
+  const g = String(game).slice(0, 40);
+  const s = Math.max(0, Math.round(Number(score) || 0));
+  const rec = await getRecord(slug, g as GameId);
+  const previousBest = rec ? rec.best_score : null;
+  if (!rec || s > rec.best_score) {
+    await saveRecord(slug, g as GameId, s, name);
+    await insertHighlight(slug, name, g as GameId, `Neuer Rekord: ${s} Punkte`, s);
+    return { record: true, best: s, previousBest };
+  }
+  return { record: false, best: rec.best_score, previousBest };
+}

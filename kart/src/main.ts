@@ -4,6 +4,7 @@
 import { GAME_TITLE } from './core/constants';
 import { Game } from './game/Game';
 import { startNetplay } from './netplay';
+import { events } from './core/events';
 import { el } from './ui/dom';
 import { showToast } from './ui/toast';
 
@@ -63,6 +64,18 @@ function boot(): void {
     const game = new Game(app);
     game.start();
     (window as unknown as { __turboKartRush?: Game }).__turboKartRush = game;
+
+    // Ergebnis an den Wrapper melden (Highscore/Rekord): Platzierung → Punkte.
+    events.on('race:finish', (e) => {
+      if (!e.isPlayer) return;
+      const place = e.place || 4;
+      const pts = [1000, 600, 300, 100][place - 1] ?? 50;
+      try {
+        window.parent?.postMessage({ type: 'game:score', game: 'kart', score: pts }, '*');
+      } catch {
+        /* ignore */
+      }
+    });
 
     // Multiplayer: nur aktiv, wenn `?net=<ws-url>` gesetzt ist.
     const params = new URLSearchParams(window.location.search);

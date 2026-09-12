@@ -55,6 +55,24 @@ export default function GamePage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Ergebnis an den Wrapper melden (Highscore/Rekord).
+  useEffect(() => {
+    let posted = false;
+    const unsub = useGameStore.subscribe((s) => {
+      if (s.gameOver && !posted) {
+        posted = true;
+        const score = s.winner === 'red' ? 1 : 0;
+        try {
+          window.parent?.postMessage({ type: 'game:score', game: 'ludo', score }, '*');
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!s.gameOver) posted = false;
+    });
+    return unsub;
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
       {/* 3D Scene */}

@@ -157,6 +157,13 @@ const ctx: GameCtx = {
     if (!net || host) game?.handleIntent?.(m as Record<string, unknown>, ctx.myId);
     else room?.send('intent', m);
   },
+  postScore: (gameId, score) => {
+    try {
+      window.parent?.postMessage({ type: 'game:score', game: gameId, score }, '*');
+    } catch {
+      /* ignore */
+    }
+  },
 };
 
 function setStatus(s: string): void { statusEl.textContent = s; }

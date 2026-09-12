@@ -142,6 +142,8 @@ class PokerGame implements GameInstance {
   }
 
   private showResults(): void {
+    const myTotal = Object.values(this.state.scores[this.ctx.myId] ?? {}).reduce((a, b) => a + (b ?? 0), 0);
+    this.ctx.postScore('poker', myTotal);
     const totals = this.players.map((p) => ({
       p,
       total: Object.values(this.state.scores[p.id] ?? {}).reduce((a, b) => a + (b ?? 0), 0),

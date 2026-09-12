@@ -228,7 +228,10 @@ class LiarGame implements GameInstance {
       this.shownWinner = true;
       const alive = this.alivePlayers();
       const winner = alive[0];
-      if (winner) this.showWinner(winner.name);
+      if (winner) {
+        this.ctx.postScore('liar', winner.id === this.ctx.myId ? 1 : 0);
+        this.showWinner(winner.name);
+      }
     }
   }
 

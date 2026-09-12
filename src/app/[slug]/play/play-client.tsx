@@ -66,6 +66,17 @@ const BOARD_GAMES = [
 ] as const;
 type BoardGameId = (typeof BOARD_GAMES)[number]["id"];
 
+// Anzeigenamen aller Spiele (für Highscore/Rekorde).
+const GAME_LABELS: Record<string, string> = {
+  kart: "Kart-Rennen",
+  ludo: "Mensch ärgere dich nicht",
+  quiz: "Quiz Show",
+  bingo: "Bingo",
+  poker: "Würfel-Poker",
+  liar: "Lügen-Dice",
+};
+const gameLabel = (id: string): string => GAME_LABELS[id] ?? id;
+
 export default function PlayClient({
   slug,
   table,
@@ -111,6 +122,13 @@ export default function PlayClient({
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [roomErr, setRoomErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [scoreResult, setScoreResult] = useState<{
+    game: string;
+    score: number;
+    record: boolean;
+    best: number;
+    previousBest: number | null;
+  } | null>(null);
 
   function netUrl(): string {
     const env = process.env.NEXT_PUBLIC_GAMES_URL;
@@ -291,22 +309,6 @@ export default function PlayClient({
     setIframeSrc(buildSrc(n));
   }
 
-  // Raum-Code aus dem Spiel (iframe) empfangen, damit Gäste ihn teilen können.
-  useEffect(() => {
-    function onMessage(e: MessageEvent) {
-      if (e.origin !== window.location.origin) return;
-      const d = e.data as { type?: string; roomId?: string; message?: string } | null;
-      if (!d || typeof d !== "object") return;
-      if (d.type === "kart:room" && d.roomId) setActiveRoom(d.roomId);
-      else if (d.type === "kart:room-error") {
-        setActiveRoom(null);
-        setRoomErr(d.message ?? "Raum nicht gefunden.");
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
-
   const loadHighlights = useCallback(async () => {
     try {
       const r = await fetch(`/api/play/highlights?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
@@ -324,6 +326,54 @@ export default function PlayClient({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadHighlights();
   }, [loadHighlights]);
+
+  // Raum-Code + Spielergebnis aus dem Spiel (iframe) empfangen.
+  useEffect(() => {
+    async function submitScore(gameId: string, score: number) {
+      if (!gameId || !Number.isFinite(score)) return;
+      try {
+        const r = await fetch(`/api/play/score`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, game: gameId, name: name || "Gast", score }),
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          success?: boolean;
+          record?: boolean;
+          best?: number;
+          previousBest?: number | null;
+        };
+        if (j?.success) {
+          setScoreResult({
+            game: gameId,
+            score,
+            record: !!j.record,
+            best: Number(j.best ?? score),
+            previousBest: j.previousBest ?? null,
+          });
+          void loadHighlights();
+          window.setTimeout(() => setScoreResult(null), 6500);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { type?: string; roomId?: string; message?: string; game?: string; score?: number } | null;
+      if (!d || typeof d !== "object") return;
+      if (d.type === "kart:room" && d.roomId) setActiveRoom(d.roomId);
+      else if (d.type === "kart:room-error") {
+        setActiveRoom(null);
+        setRoomErr(d.message ?? "Raum nicht gefunden.");
+      } else if (d.type === "game:score" && d.game && typeof d.score === "number") {
+        void submitScore(d.game, d.score);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, name]);
 
   // ── Touch → Tastatur-Events ins Spiel (same-origin iframe) ──
   function sendKey(code: string, type: "keydown" | "keyup") {
@@ -448,6 +498,42 @@ export default function PlayClient({
           Los geht&apos;s
         </button>
         <p className="mt-3 text-center text-[11px] text-zinc-500">Nur für dieses Gerät gespeichert.</p>
+      </div>
+    </div>
+  ) : null;
+
+  // ── Highscore-Banner (Rekord geknackt oder nicht) ──
+  const scoreBanner = scoreResult ? (
+    <div
+      className="pointer-events-none fixed inset-x-0 top-0 z-[350] flex justify-center px-4"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 4.25rem)" }}
+    >
+      <div
+        className={`pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl ring-1 ${
+          scoreResult.record ? "bg-amber-400/95 text-black ring-amber-200" : "bg-zinc-900/95 text-white ring-white/15"
+        }`}
+      >
+        <span className="text-2xl">{scoreResult.record ? "🏆" : "🎯"}</span>
+        <div className="min-w-0">
+          <div className="text-sm font-black">
+            {scoreResult.record ? "Neuer Rekord geknackt!" : "Kein neuer Rekord"}
+          </div>
+          <div className="text-xs font-semibold opacity-80">
+            {gameLabel(scoreResult.game)} · {scoreResult.score} Punkte
+            {scoreResult.record
+              ? scoreResult.previousBest != null
+                ? ` (vorher ${scoreResult.previousBest})`
+                : " (erster Eintrag)"
+              : ` · Rekord: ${scoreResult.best}`}
+          </div>
+        </div>
+        <button
+          onClick={() => setScoreResult(null)}
+          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 text-current"
+          aria-label="Schließen"
+        >
+          ✕
+        </button>
       </div>
     </div>
   ) : null;
@@ -668,6 +754,7 @@ export default function PlayClient({
         ) : null}
 
         {nameModal}
+        {scoreBanner}
       </div>
     );
   }
@@ -675,6 +762,7 @@ export default function PlayClient({
   return (
     <div className="fixed inset-0 bg-black">
       {nameModal}
+      {scoreBanner}
       {/* Spiel (3D) – Vollbild; Portrait-Layout übernimmt die Spiel-CSS */}
       <iframe
         key={game === "kart" ? iframeSrc : game === "ludo" ? ludoSrc : game === "quiz" ? quizSrc : boardSrc}
@@ -933,7 +1021,7 @@ export default function PlayClient({
               <button onClick={() => setHlOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-500"><span className="material-symbols-outlined">close</span></button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <p className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">Highlights entstehen automatisch, wenn jemand einen Rekord bricht. Bald auch im Kart-Rennen.</p>
+              <p className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">Highlights entstehen automatisch, wenn jemand einen Rekord bricht.</p>
               {records.length > 0 ? (
                 <div className="mb-4">
                   <p className="mb-2 text-xs font-black uppercase tracking-wide text-zinc-500">Rekorde</p>
@@ -942,7 +1030,7 @@ export default function PlayClient({
                       <div key={r.game} className="flex items-center gap-3 rounded-2xl bg-amber-50 px-4 py-3">
                         <span className="text-lg">🏆</span>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-black text-zinc-900">{r.game}</div>
+                          <div className="text-sm font-black text-zinc-900">{gameLabel(r.game)}</div>
                           <div className="text-xs text-zinc-500">{r.best_name} · {r.best_score} Punkte</div>
                         </div>
                       </div>

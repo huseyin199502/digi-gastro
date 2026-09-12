@@ -149,6 +149,7 @@ class BingoGame implements GameInstance {
   private maybeShowWinner(): void {
     if (this.state.phase === 'done' && this.state.winner && !this.shownWinner) {
       this.shownWinner = true;
+      this.ctx.postScore('bingo', this.state.winner === this.ctx.myId ? 1 : 0);
       const winner = this.players.find((p) => p.id === this.state.winner);
       if (winner) this.showWinner(winner.name);
     }

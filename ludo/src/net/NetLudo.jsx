@@ -213,6 +213,27 @@ export default function NetLudo() {
     };
   }, [status]);
 
+  // Ergebnis an den Wrapper melden (Highscore/Rekord) – einmal pro Spiel.
+  useEffect(() => {
+    if (status !== 'playing') return undefined;
+    let posted = false;
+    const unsub = useGameStore.subscribe((s) => {
+      if (s.gameOver && !posted) {
+        posted = true;
+        const idx = rosterRef.current.ids.indexOf(myIdRef.current);
+        const myColor = PLAYER_NAMES[idx];
+        const score = s.winner === myColor ? 1 : 0;
+        try {
+          window.parent?.postMessage({ type: 'game:score', game: 'ludo', score }, '*');
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!s.gameOver) posted = false;
+    });
+    return unsub;
+  }, [status]);
+
   if (status === 'playing') {
     return (
       <div className="fixed inset-0 bg-black overflow-hidden">
