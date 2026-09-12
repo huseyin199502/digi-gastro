@@ -42,3 +42,6 @@ src/generated
 .DS_Store
 README.md
 MIGRATION.md
+
+# verschachtelte dependencies (games/ etc.) nicht in den Build-Kontext
+**/node_modules
