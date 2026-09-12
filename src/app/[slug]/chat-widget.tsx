@@ -94,6 +94,26 @@ type ChatLang = keyof typeof CD;
 /** Gäste dürfen eigene Nachrichten 5 Minuten lang selbst löschen. */
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
 
+/** Spiele, die aus dem Chat heraus gestartet werden können. */
+const PLAY_GAMES = [
+  { id: "kart", emoji: "🏎️", title: "Kart-Rennen" },
+  { id: "ludo", emoji: "🎲", title: "Mensch ärgere dich nicht" },
+  { id: "quiz", emoji: "🎬", title: "Quiz Show" },
+  { id: "bingo", emoji: "🔢", title: "Bingo" },
+  { id: "poker", emoji: "🎲", title: "Würfel-Poker" },
+  { id: "liar", emoji: "🤥", title: "Lügen-Dice" },
+] as const;
+
+/** Erkennt eine Play-World-Einladung im Nachrichtentext. */
+function extractPlayLink(body: string): { text: string; href: string } | null {
+  const m = body.match(/(\S*\/play\?g=[A-Za-z0-9_-]+)/);
+  if (!m) return null;
+  const raw = m[1];
+  const href = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
+  const text = body.replace(raw, "").replace(/\s+/g, " ").trim();
+  return { text, href };
+}
+
 // Klang-Feedback bei neuen Chat-Nachrichten (gleiche Konvention wie
 // menu-client/admin-client: Audio-Objekt auf Modulebene, preload).
 const chatNotifyAudio =
@@ -146,7 +166,9 @@ export function ChatWidget({
   const [sending, setSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [nowTs, setNowTs] = useState(() => Date.now());
+  const [pickerOpen, setPickerOpen] = useState(false);
   const lastIdRef = useRef(0);
+  const primedRef = useRef(false);
   const openRef = useRef(false);
   const unreadRef = useRef(0);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +181,12 @@ export function ChatWidget({
       return [...byId.values()].sort((a, b) => a.id - b.id);
     });
     const maxId = incoming[incoming.length - 1].id;
+    // Erster Voll-Load = Basislinie setzen, NICHT als ungelesen zählen.
+    if (!primedRef.current) {
+      primedRef.current = true;
+      lastIdRef.current = maxId;
+      return;
+    }
     if (maxId > lastIdRef.current) {
       const fresh = incoming.filter((m) => m.id > lastIdRef.current && !m.own);
       lastIdRef.current = maxId;
@@ -270,38 +298,71 @@ export function ChatWidget({
     [slug]
   );
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || sending || cooldown > 0 || banned) return;
-    setSending(true);
-    try {
-      const res = await fetch(`/api/${slug}/chat/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ body: text }),
-      });
-      if (res.status === 429) {
-        const data = (await res.json().catch(() => ({}))) as { retry_after_s?: number };
-        setCooldown(data.retry_after_s ?? 3);
-        return;
+  const sendText = useCallback(
+    async (text: string) => {
+      if (!text || sending || cooldown > 0 || banned) return;
+      setSending(true);
+      try {
+        const res = await fetch(`/api/${slug}/chat/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ body: text }),
+        });
+        if (res.status === 429) {
+          const data = (await res.json().catch(() => ({}))) as { retry_after_s?: number };
+          setCooldown(data.retry_after_s ?? 3);
+          return;
+        }
+        if (res.status === 403) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          if (data.error === "banned") setBanned(true);
+          return;
+        }
+        if (res.ok) {
+          const msg = (await res.json()) as ChatMsg;
+          if (msg.nickname) setIdentity(msg.nickname);
+          mergeMessages([msg]);
+          setInput("");
+        }
+      } catch {
+        // Verbindungsfehler — Eingabe bleibt erhalten
+      } finally {
+        setSending(false);
       }
-      if (res.status === 403) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (data.error === "banned") setBanned(true);
-        return;
-      }
-      if (res.ok) {
-        const msg = (await res.json()) as ChatMsg;
-        if (msg.nickname) setIdentity(msg.nickname);
-        mergeMessages([msg]);
-        setInput("");
-      }
-    } catch {
-      // Verbindungsfehler — Eingabe bleibt erhalten
-    } finally {
-      setSending(false);
-    }
-  }, [input, sending, cooldown, banned, slug, mergeMessages]);
+    },
+    [sending, cooldown, banned, slug, mergeMessages]
+  );
+
+  const send = useCallback(() => void sendText(input.trim()), [sendText, input]);
+
+  const sendInvite = useCallback(
+    (g: (typeof PLAY_GAMES)[number]) => {
+      setPickerOpen(false);
+      const link = `${window.location.origin}/${slug}/play?g=${g.id}`;
+      void sendText(`🎮 Spiel-Einladung: ${g.emoji} ${g.title} · ${link}`);
+    },
+    [slug, sendText]
+  );
+
+  /** Nachrichtentext rendern; Play-World-Einladungen werden zum Start-Button. */
+  const renderBody = useCallback(
+    (body: string) => {
+      const inv = extractPlayLink(body);
+      if (!inv) return body;
+      return (
+        <>
+          {inv.text ? <span>{inv.text}</span> : null}
+          <a
+            href={inv.href}
+            className="mt-1.5 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white no-underline shadow-sm active:scale-95"
+          >
+            ▶ Spiel starten
+          </a>
+        </>
+      );
+    },
+    []
+  );
 
   if (!enabled) return null;
 
@@ -337,10 +398,12 @@ export function ChatWidget({
               <span className="chat-fab-ring absolute inset-0 rounded-full" />
             ) : null}
             <span className="material-symbols-outlined text-xl">chat_bubble</span>
-            {/* Rote Dauer-Badge (Unread-Anzahl, sonst "1") — Chat-Hinweis */}
-            <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white">
-              {unread > 0 ? (unread > 99 ? "99+" : unread) : 1}
-            </span>
+            {/* Rote Badge NUR bei echten ungelesenen Nachrichten (sonst aus) */}
+            {unread > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            ) : null}
           </button>
           <span className="whitespace-nowrap rounded-full bg-white/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 shadow-sm backdrop-blur">
             {cd.label}
@@ -370,7 +433,7 @@ export function ChatWidget({
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
@@ -400,7 +463,7 @@ export function ChatWidget({
                         {cd.restaurant}
                       </span>
                       <div className="rounded-2xl rounded-bl-sm border-2 border-amber-300 bg-amber-50 px-3.5 py-2 text-sm font-semibold text-gray-900 shadow-md">
-                        {m.body}
+                        {renderBody(m.body)}
                       </div>
                       <span className="mt-0.5 text-[10px] font-bold text-amber-600">
                         {m.nickname} · {fmtTime(m.created_at)}
@@ -414,7 +477,7 @@ export function ChatWidget({
                             onClick={() => void deleteOwn(m)}
                             aria-label={cd.delete}
                             title={cd.delete}
-                            className="flex h-6 w-6 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
                               delete
@@ -422,7 +485,7 @@ export function ChatWidget({
                           </button>
                         ) : null}
                         <div className="rounded-2xl rounded-br-sm bg-gray-900 px-3.5 py-2 text-sm text-white shadow-sm">
-                          {m.body}
+                          {renderBody(m.body)}
                         </div>
                       </div>
                       <span className="mt-0.5 text-[10px] text-gray-400">
@@ -435,7 +498,7 @@ export function ChatWidget({
                         {m.nickname}
                       </span>
                       <div className="rounded-2xl rounded-bl-sm border border-gray-100 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-sm">
-                        {m.body}
+                        {renderBody(m.body)}
                       </div>
                       <span className="mt-0.5 text-[10px] text-gray-300">
                         {fmtTime(m.created_at)}
@@ -461,29 +524,55 @@ export function ChatWidget({
                 {cd.banned}
               </div>
             ) : (
-              <div className="flex items-end gap-2">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value.slice(0, 300))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void send();
-                    }
-                  }}
-                  rows={1}
-                  placeholder={cd.placeholder}
-                  className="max-h-24 min-h-[44px] flex-1 resize-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400"
-                />
-                <button
-                  onClick={() => void send()}
-                  disabled={sending || !input.trim() || cooldown > 0}
-                  aria-label={cd.send}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-md transition-all hover:bg-amber-600 active:scale-90 disabled:opacity-40"
-                >
-                  <span className="material-symbols-outlined">send</span>
-                </button>
-              </div>
+              <>
+                {pickerOpen ? (
+                  <div className="mb-2 grid grid-cols-2 gap-2">
+                    {PLAY_GAMES.map((g) => (
+                      <button
+                        key={g.id}
+                        onClick={() => sendInvite(g)}
+                        className="flex min-h-[44px] items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-[11px] font-bold text-emerald-800 active:scale-95"
+                      >
+                        <span className="text-base">{g.emoji}</span>
+                        <span className="truncate">{g.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={() => setPickerOpen((v) => !v)}
+                    aria-label="Spiel einladen"
+                    title="Spiel einladen"
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md transition-all active:scale-90 ${
+                      pickerOpen ? "bg-emerald-600 text-white" : "bg-emerald-100 text-emerald-700"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">sports_esports</span>
+                  </button>
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value.slice(0, 300))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                    rows={1}
+                    placeholder={cd.placeholder}
+                    className="max-h-24 min-h-[44px] flex-1 resize-none rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-400"
+                  />
+                  <button
+                    onClick={() => void send()}
+                    disabled={sending || !input.trim() || cooldown > 0}
+                    aria-label={cd.send}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-md transition-all hover:bg-amber-600 active:scale-90 disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined">send</span>
+                  </button>
+                </div>
+              </>
             )}
             {cooldown > 0 ? (
               <div className="mt-1 text-center text-[11px] text-gray-400">

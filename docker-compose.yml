@@ -280,6 +280,26 @@ services:
           cpus: '0.25'
           memory: 64M
 
+  # ── Play World: Realtime-Server (Colyseus) ──
+  # Für Live-Multiplayer (Kart-Arena). Erreichbar im Browser über eine
+  # eigene Domain (z. B. games.digi-gastro.de -> Port 2567, WebSocket).
+  games:
+    build:
+      context: ./games
+      dockerfile: Dockerfile
+    container_name: digi_gastro_games
+    restart: unless-stopped
+    environment:
+      PORT: "2567"
+      TZ: Europe/Berlin
+    expose:
+      - "2567"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
 volumes:
   pgdata:
     driver: local

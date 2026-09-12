@@ -23,6 +23,7 @@ export default async function PlatformAdminPage() {
         orders_enabled: true,
         loyalty_enabled: true,
         chat_enabled: true,
+        enabled_features: true,
         show_revenue: true,
         operating_mode: true,
         tier: true,
@@ -38,6 +39,24 @@ export default async function PlatformAdminPage() {
       orderBy: [{ position: "asc" }, { id: "desc" }],
     }),
   ]);
+
+  // Play-World-Onboarding (einmal pro Gerät im Tenant-Dashboard).
+  await prisma.announcement.upsert({
+    where: { key: "play_world" },
+    update: {},
+    create: {
+      key: "play_world",
+      title: "Play World ist für Sie aktiviert 🎮",
+      body:
+        "Wir haben Play World für Sie freigeschaltet – exklusiv bei digi-gastro! Kein anderes Bestellsystem hat das. " +
+        "Ihre Gäste spielen direkt im Browser: Kart-Rennen, Mensch ärgere dich nicht, Quiz Show, Bingo, Würfel-Poker und Lügen-Dice – " +
+        "allein gegen Bots oder gemeinsam an mehreren Tischen (einfach Raum-Code teilen). Alles ist fürs Handy optimiert. " +
+        "Play World lässt sich im Plattform-Admin pro Restaurant an- und ausschalten.",
+      icon: "sports_esports",
+      is_active: true,
+      position: 0,
+    },
+  });
 
   return (
     <main className="flex-1">

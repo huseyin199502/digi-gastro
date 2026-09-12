@@ -1,0 +1,21 @@
+{
+  "name": "digi-gastro-games",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^5.0.27",
+    "@colyseus/tools": "^0.18.0",
+    "@colyseus/ws-transport": "^0.18.2",
+    "colyseus": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}

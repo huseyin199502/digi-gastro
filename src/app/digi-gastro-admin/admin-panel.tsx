@@ -15,6 +15,7 @@ interface TenantRow {
   orders_enabled: boolean | null;
   loyalty_enabled: boolean | null;
   chat_enabled: boolean | null;
+  enabled_features: string | null;
   show_revenue: boolean | null;
   operating_mode: string | null;
   tier: string | null;
@@ -38,6 +39,17 @@ const btnCls =
   "rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-200 hover:border-amber-500 hover:text-amber-300 disabled:opacity-50";
 const inputCls =
   "rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-amber-500";
+
+/** Play World aktiv? (Bestellsystem nötig; Abschaltung via enabled_features "play_off".) */
+function playWorldEnabled(t: { orders_enabled: boolean | null; enabled_features: string | null }): boolean {
+  if (t.orders_enabled === false) return false;
+  try {
+    const f = JSON.parse(t.enabled_features ?? "[]") as string[];
+    return !(Array.isArray(f) && f.includes("play_off"));
+  } catch {
+    return true;
+  }
+}
 const labelCls = "mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500";
 
 async function postJson(url: string, body?: Record<string, unknown>) {
@@ -301,6 +313,7 @@ export default function AdminPanel({
                     {t.orders_enabled ? "Bestellung ✓" : "Bestellung ✗"} ·{" "}
                     {t.loyalty_enabled ? "Loyalty ✓" : "Loyalty ✗"} ·{" "}
                     {t.chat_enabled ? "Chat ✓" : "Chat ✗"} ·{" "}
+                    {playWorldEnabled(t) ? "Play ✓" : "Play ✗"} ·{" "}
                     {t.show_revenue ? "Umsatz ✓" : "Umsatz ✗"}
                   </div>
                 </td>
@@ -388,6 +401,19 @@ export default function AdminPanel({
                       }
                     >
                       Chat {t.chat_enabled ? "aus" : "an"}
+                    </button>
+                    <button
+                      className={btnCls}
+                      disabled={busy !== null}
+                      onClick={() =>
+                        void act(
+                          `play-${t.slug}`,
+                          () => postJson(`/digi-gastro-admin/tenant-play-toggle/${t.slug}`),
+                          `Play World ${playWorldEnabled(t) ? "aus" : "an"}: ${t.name}`
+                        )
+                      }
+                    >
+                      Play World {playWorldEnabled(t) ? "aus" : "an"}
                     </button>
                     <button
                       className={btnCls}

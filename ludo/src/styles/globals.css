@@ -1,0 +1,219 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #0f0c29;
+  color: white;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.5);
+  border-radius: 2px;
+}
+
+/* ─── Font Utilities ─────────────────────────────────────────────────────────── */
+.font-display { font-family: 'Orbitron', sans-serif; }
+.font-body    { font-family: 'Inter', sans-serif; }
+.font-accent  { font-family: 'Rajdhani', sans-serif; }
+
+/* ─── Glassmorphism ─────────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1rem;
+}
+
+/* ─── Gradient text ─────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Glow utilities ─────────────────────────────────────────────────────────── */
+.glow-indigo {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.5), 0 0 40px rgba(99, 102, 241, 0.2);
+}
+.glow-gold {
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.5), 0 0 40px rgba(251, 191, 36, 0.2);
+}
+.text-glow {
+  text-shadow: 0 0 20px currentColor;
+}
+
+/* ─── Animated gradient border ──────────────────────────────────────────────── */
+.gradient-border {
+  position: relative;
+  background: rgba(255,255,255,0.05);
+  border-radius: 1rem;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899, #6366f1);
+  background-size: 200% 200%;
+  animation: gradientShift 3s linear infinite;
+  z-index: -1;
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ─── Canvas cursor ─────────────────────────────────────────────────────────── */
+canvas { outline: none; }
+
+/* ─── Selection color ───────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(99, 102, 241, 0.4);
+  color: white;
+}
+
+/* ─── Range input global style ───────────────────────────────────────────────── */
+input[type="range"] {
+  accent-color: #6366f1;
+}
+
+/* ─── Backdrop gradient radial ───────────────────────────────────────────────── */
+.bg-gradient-radial {
+  background: radial-gradient(ellipse at center, var(--tw-gradient-stops));
+}
+
+/* ─── z-index layers ─────────────────────────────────────────────────────────── */
+.z-60 { z-index: 60; }
+.z-70 { z-index: 70; }
+.z-80 { z-index: 80; }
+.z-90 { z-index: 90; }
+.z-100 { z-index: 100; }
+
+/* ─── Button reset ───────────────────────────────────────────────────────────── */
+button { border: none; background: none; cursor: pointer; font-family: inherit; }
+
+/* ─── No-select ──────────────────────────────────────────────────────────────── */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ─── Shimmer animation ──────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Particle float ─────────────────────────────────────────────────────────── */
+@keyframes particleFloat {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-80px) scale(0); opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   digi-gastro Ludo — Mobile-first HUD (Hochformat)
+   Infos oben unter der digi-gastro-Leiste, Würfel unten (Daumen).
+   ═══════════════════════════════════════════════════════════════ */
+.ludo-hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+
+.ludo-top {
+  position: absolute; left: 0; right: 0;
+  top: calc(env(safe-area-inset-top, 0px) + 66px);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 0 10px; pointer-events: auto;
+}
+.ludo-brand {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(30,20,70,0.92); border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 999px; padding: 7px 11px; color: #fff; font-weight: 800; font-size: 12px;
+  white-space: nowrap;
+}
+.ludo-turn {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.4);
+  border-radius: 999px; padding: 6px 12px; color: #fff; font-weight: 800; font-size: 13px;
+  max-width: 46vw; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.ludo-turn .dot { width: 13px; height: 13px; border-radius: 999px; flex: 0 0 auto; }
+.ludo-pause {
+  width: 44px; height: 44px; flex: 0 0 auto; border-radius: 999px;
+  background: rgba(30,20,70,0.92); border: 1px solid rgba(255,255,255,0.28);
+  color: #fff; font-size: 18px; line-height: 1;
+}
+
+/* Spieler-Chips: 4 Spalten, kompakt */
+.ludo-players {
+  position: absolute; left: 8px; right: 8px;
+  top: calc(env(safe-area-inset-top, 0px) + 114px);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px; pointer-events: auto;
+}
+.ludo-chip {
+  background: rgba(30,20,70,0.9); border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 11px; padding: 4px 3px; text-align: center; overflow: hidden;
+  transition: box-shadow .25s, transform .25s;
+}
+.ludo-chip.active { transform: translateY(-1px); }
+.ludo-chip .nm { color: #fff; font-size: 10px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ludo-chip .dots { display: flex; justify-content: center; gap: 3px; margin-top: 3px; }
+.ludo-chip .dot { width: 7px; height: 7px; border-radius: 999px; border: 2px solid currentColor; }
+.ludo-chip .rank { font-size: 9px; font-weight: 800; color: #fbbf24; }
+
+/* Benachrichtigungen */
+.ludo-notifs {
+  position: absolute; left: 0; right: 0;
+  top: calc(env(safe-area-inset-top, 0px) + 158px);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  pointer-events: none;
+}
+
+/* Würfel unten, daumenfreundlich */
+.ludo-dice {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  display: flex; justify-content: center; pointer-events: auto;
+}
+.ludo-dice #roll-dice-btn { width: 4.75rem; height: 4.75rem; font-size: 2.4rem; }
+
+/* Landscape (Desktop/Tablet): Chips als zentrierte Reihe */
+@media (orientation: landscape) {
+  .ludo-top { top: 14px; }
+  .ludo-players {
+    left: 50%; right: auto; transform: translateX(-50%);
+    width: min(600px, 82vw);
+  }
+  .ludo-dice { bottom: 24px; }
+}
+
+/* Mobile: keine Browser-Gesten/Zoom/Gummiband im Spielbereich */
+html, body {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+canvas { touch-action: none; }

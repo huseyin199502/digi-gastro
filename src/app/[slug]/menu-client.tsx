@@ -482,6 +482,8 @@ export function MenuClient({
   tischName,
   ordersEnabled,
   chatEnabled,
+  playWorldEnabled,
+  ordersFeatureEnabled,
 }: {
   slug: string;
   menu: MenuData;
@@ -492,11 +494,24 @@ export function MenuClient({
   tischName: string;
   ordersEnabled: boolean;
   chatEnabled: boolean;
+  playWorldEnabled: boolean;
+  ordersFeatureEnabled: boolean;
 }) {
   const t = menu.tenant;
   const lang = useLang();
   const tr = T[lang];
   const ordersAllowed = ordersEnabled;
+
+  // Play-World-Sperre: freundliches Popup statt Sackgasse.
+  const [playInfo, setPlayInfo] = useState<null | "orders" | "admin">(null);
+  const onPlayClick = useCallback(
+    (e: { preventDefault: () => void }) => {
+      if (playWorldEnabled) return;
+      e.preventDefault();
+      setPlayInfo(ordersFeatureEnabled ? "admin" : "orders");
+    },
+    [playWorldEnabled, ordersFeatureEnabled]
+  );
 
   const [currentView, setCurrentView] = useState<"landing" | "speisekarte">(
     "landing"
@@ -1334,9 +1349,14 @@ export function MenuClient({
           </div>
 
           <div className="flex justify-end">
-            <span className="inline-flex rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 shadow-sm">
-              Play World <span className="text-gray-400">(Soon)</span>
-            </span>
+            <a
+              href={`/${slug}/play`}
+              onClick={onPlayClick}
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm transition-transform active:scale-95"
+            >
+              <span className="material-symbols-outlined text-sm">sports_esports</span>
+              Play World <span className="rounded bg-black/20 px-1 text-[8px] font-black uppercase tracking-wide">Beta</span>
+            </a>
           </div>
         </div>
       </header>
@@ -1481,6 +1501,16 @@ export function MenuClient({
 
       {/* Footer */}
       <footer className="w-full bg-white/30 py-4 text-center text-xs text-gray-500 backdrop-blur-xl">
+        <div className="mb-3 flex justify-center">
+          <a
+            href={`/${slug}/play`}
+            onClick={onPlayClick}
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md transition-transform active:scale-95"
+          >
+            <span className="material-symbols-outlined text-base">sports_esports</span>
+            Play World <span className="rounded bg-black/20 px-1 text-[9px] font-black uppercase tracking-wide">Beta</span>
+          </a>
+        </div>
         <div className="flex justify-center gap-3">
           <button onClick={() => setLegalDoc("impressum")} className="underline hover:text-gray-700">{tr.impressum}</button>
           <span className="text-gray-300">•</span>
@@ -2083,6 +2113,38 @@ export function MenuClient({
         />
       ) : null}
 
+      {/* ── Play-World-Sperre: freundliches Popup statt Sackgasse ── */}
+      {playInfo ? (
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 p-5 backdrop-blur-sm"
+          onClick={() => setPlayInfo(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-4xl">🎮</div>
+            <h3 className="mt-2 text-lg font-black text-gray-900">
+              Play World ist hier noch nicht verfügbar
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              {playInfo === "orders"
+                ? "Dieses Restaurant nutzt das Bestellsystem noch nicht. Play World ist exklusiv Teil davon – sobald das Bestellsystem aktiv ist, kann hier gespielt werden."
+                : "Play World wurde für dieses Restaurant noch nicht freigeschaltet. Das Team kann es in wenigen Sekunden aktivieren."}
+            </p>
+            <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
+              💡 Play World gibt es nur bei digi-gastro – kein anderes Bestellsystem hat das.
+            </p>
+            <button
+              onClick={() => setPlayInfo(null)}
+              className="mt-4 w-full rounded-2xl bg-gray-900 py-3.5 text-sm font-black text-white active:scale-[0.98]"
+            >
+              Verstanden
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── Product sheet ── */}
       <ProductSheet
         product={sheetProduct}
@@ -2520,6 +2582,27 @@ function LandingView({
           {subtitle}
         </p>
 
+        {/* Social Links – prominent über dem Menü-Button */}
+        {t.instagram || t.facebook || t.tiktok ? (
+          <div className="mb-5 flex items-center justify-center gap-5">
+            {t.instagram ? (
+              <a href={t.instagram} target="_blank" rel="noreferrer" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-xl transition-all hover:bg-white/30 hover:scale-110 active:scale-95" title="Instagram">
+                <svg viewBox="0 0 448 512" className="h-7 w-7 fill-current"><path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"/></svg>
+              </a>
+            ) : null}
+            {t.facebook ? (
+              <a href={t.facebook} target="_blank" rel="noreferrer" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-xl transition-all hover:bg-white/30 hover:scale-110 active:scale-95" title="Facebook">
+                <svg viewBox="0 0 512 512" className="h-7 w-7 fill-current"><path d="M504 256C504 119 393 8 256 8S8 119 8 256c0 123.8 90.7 226.4 209.3 245V327.7h-63V256h63v-54.6c0-62.2 37-96.5 93.7-96.5 27.1 0 55.5 4.8 55.5 4.8v61h-31.3c-30.8 0-40.4 19.1-40.4 38.7V256h68.8l-11 71.7h-57.8V501C413.3 482.4 504 379.8 504 256z"/></svg>
+              </a>
+            ) : null}
+            {t.tiktok ? (
+              <a href={t.tiktok} target="_blank" rel="noreferrer" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-xl transition-all hover:bg-white/30 hover:scale-110 active:scale-95" title="TikTok">
+                <svg viewBox="0 0 448 512" className="h-7 w-7 fill-current"><path d="M448 209.9a210.1 210.1 0 0 1-122.8-39.3V349.4A138.6 138.6 0 1 1 186.6 211v49.3a90.2 90.2 0 1 0 61.9 85.2V64h47.6a116.5 116.5 0 0 0 12.8 46.5A117.9 117.9 0 0 0 384 136.6h-52.6v73.2a211 211 0 0 1 116.6 0z"/></svg>
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* CTA Buttons */}
         <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-sm">
           <button
@@ -2560,27 +2643,6 @@ function LandingView({
           .map((ad) => (
             <AdBanner key={ad.id} ad={ad} className="mt-6" />
           ))}
-
-        {/* Social Links - unter Stempelkarte, größer */}
-        {t.instagram || t.facebook || t.tiktok ? (
-          <div className="mt-6 flex items-center justify-center gap-5">
-            {t.instagram ? (
-              <a href={t.instagram} target="_blank" rel="noreferrer" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-xl transition-all hover:bg-white/30 hover:scale-110 active:scale-95" title="Instagram">
-                <svg viewBox="0 0 448 512" className="h-7 w-7 fill-current"><path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"/></svg>
-              </a>
-            ) : null}
-            {t.facebook ? (
-              <a href={t.facebook} target="_blank" rel="noreferrer" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-xl transition-all hover:bg-white/30 hover:scale-110 active:scale-95" title="Facebook">
-                <svg viewBox="0 0 512 512" className="h-7 w-7 fill-current"><path d="M504 256C504 119 393 8 256 8S8 119 8 256c0 123.8 90.7 226.4 209.3 245V327.7h-63V256h63v-54.6c0-62.2 37-96.5 93.7-96.5 27.1 0 55.5 4.8 55.5 4.8v61h-31.3c-30.8 0-40.4 19.1-40.4 38.7V256h68.8l-11 71.7h-57.8V501C413.3 482.4 504 379.8 504 256z"/></svg>
-              </a>
-            ) : null}
-            {t.tiktok ? (
-              <a href={t.tiktok} target="_blank" rel="noreferrer" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-lg backdrop-blur-xl transition-all hover:bg-white/30 hover:scale-110 active:scale-95" title="TikTok">
-                <svg viewBox="0 0 448 512" className="h-7 w-7 fill-current"><path d="M448 209.9a210.1 210.1 0 0 1-122.8-39.3V349.4A138.6 138.6 0 1 1 186.6 211v49.3a90.2 90.2 0 1 0 61.9 85.2V64h47.6a116.5 116.5 0 0 0 12.8 46.5A117.9 117.9 0 0 0 384 136.6h-52.6v73.2a211 211 0 0 1 116.6 0z"/></svg>
-              </a>
-            ) : null}
-          </div>
-        ) : null}
 
         {/* Second Logo - gleiche visuelle Größe wie erstes */}
         {t.logo_url_2 ? (

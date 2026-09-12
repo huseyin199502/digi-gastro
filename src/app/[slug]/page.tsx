@@ -144,7 +144,7 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
   // (legacy main.py ~5336). Admin/Kellner dürfen weiterhin die Speisekarte sehen.
   const tenantMeta = await prisma.tenant.findUnique({
     where: { slug },
-    select: { operating_mode: true, chat_enabled: true },
+    select: { operating_mode: true, chat_enabled: true, orders_enabled: true, enabled_features: true },
   });
   if (
     tenantMeta?.operating_mode === "stempelkarte_only" &&
@@ -181,6 +181,18 @@ export default async function TenantMenuPage({ params, searchParams }: Props) {
   const ordersEnabled =
     t.orders_enabled && t.operating_mode === "full" && !isReadonly && !!table;
 
+  // Play World: nur mit aktivem Bestellsystem und ohne "play_off"-Marker.
+  const features: string[] = (() => {
+    try {
+      const v = JSON.parse(tenantMeta?.enabled_features ?? "[]");
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
+  const ordersFeatureEnabled = t.orders_enabled && t.operating_mode === "full";
+  const playWorldEnabled = ordersFeatureEnabled && !features.includes("play_off");
+
   const tischName = table
     ? table === "Vorschau"
       ? "Vorschau"
@@ -215,6 +227,8 @@ const jsonLdData = {
         tischName={tischName}
         ordersEnabled={ordersEnabled}
         chatEnabled={tenantMeta?.chat_enabled ?? false}
+        playWorldEnabled={playWorldEnabled}
+        ordersFeatureEnabled={ordersFeatureEnabled}
       />
     </>
   );

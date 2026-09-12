@@ -1,0 +1,2 @@
+digi-gastro Quiz Show - Eigencode.
+Enthaelt: three.js (MIT), troika-three-text (MIT), @colyseus/sdk (MIT).

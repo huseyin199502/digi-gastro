@@ -58,3 +58,6 @@ dev-server.log*
 dev.err.log
 dev.log
 _*.ps1
+
+# nested project dependencies (game apps)
+**/node_modules/

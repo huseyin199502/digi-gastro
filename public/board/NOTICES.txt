@@ -1,0 +1,2 @@
+digi-gastro Play World - 3D-Brettspiele (Eigencode).
+Enthaelt: three.js (MIT), troika-three-text (MIT), @colyseus/sdk (MIT).
