@@ -176,6 +176,7 @@ function onAnswer(index: number): void {
 }
 
 let lastSnap: QuizSnapshot | null = null;
+let lastConfig: { ids: string[]; names: string[] } = { ids: [], names: [] };
 
 // ── Reaktion auf Zustandsänderungen ──────────────────────────────────
 show.onSelectAnswer = (i) => onAnswer(i);
@@ -220,10 +221,13 @@ function showResults(s: QuizSnapshot): void {
     row.appendChild(mk('span', '', String(p.score)));
     box.appendChild(row);
   });
-  const again = mk('button', 'qz-btn', '🔁 Nochmal') as HTMLButtonElement;
+  const again = mk('button', net && !host ? 'qz-btn ghost' : 'qz-btn', net && !host ? '⏳ Warte auf Host…' : '🔁 Nochmal') as HTMLButtonElement;
+  again.disabled = !!(net && !host);
   again.addEventListener('click', () => {
+    if (net && !host) return; // Gast: der Host startet die neue Runde
     clearOverlays();
-    if (!net || host) show.restart();
+    if (net && host) room?.send('start', lastConfig);
+    show.restart();
   });
   overlay([mk('h1', '', '🏆 Ergebnis'), box, again]);
 }
@@ -271,6 +275,7 @@ function renderLobby(code: string): void {
 }
 
 function startNetGame(config: { ids: string[]; names: string[] }): void {
+  lastConfig = { ids: config.ids || [], names: config.names || [] };
   const humans = config.ids || [];
   const players: QuizPlayer[] = humans.map((id, i) => ({
     id,

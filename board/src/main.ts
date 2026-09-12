@@ -131,6 +131,7 @@ let host = !net;
 let myId = 'me';
 let players: Player[] = [];
 let started = false;
+let lastBoardConfig: { ids: string[]; names: string[] } = { ids: [], names: [] };
 let game: GameInstance | null = null;
 
 function botFill(humans: Player[]): Player[] {
@@ -152,7 +153,27 @@ const ctx: GameCtx = {
   isHost: host,
   myName,
   players,
-  sendState: (s) => { if (net && host && room) room.send('state', s); },
+  sendState: (s) => {
+    if (!net || !host || !room) return;
+    const snap = s as Record<string, unknown>;
+    const dice = snap && typeof snap === 'object' ? (snap as { dice?: unknown }).dice : undefined;
+    const isHiddenDice = dice && typeof dice === 'object' && !Array.isArray(dice);
+    const revealed = snap && typeof snap === 'object' && ((snap as { reveal?: unknown }).reveal || (snap as { phase?: unknown }).phase === 'done');
+    // Lügen-Dice: solange nicht aufgedeckt, bekommt jeder nur seine eigenen
+    // Würfelwerte (Mitspieler-Würfel als Platzhalter mit korrekter Anzahl).
+    if (isHiddenDice && !revealed) {
+      for (const p of players) {
+        if (p.isBot || p.id === myId) continue;
+        const filtered: Record<string, unknown> = {};
+        for (const [id, vals] of Object.entries(dice as Record<string, unknown>)) {
+          filtered[id] = id === p.id ? vals : Array.isArray(vals) ? vals.map(() => 0) : [];
+        }
+        room.send('stateFor', { to: p.id, state: { ...(snap as object), dice: filtered } });
+      }
+      return;
+    }
+    room.send('state', s);
+  },
   sendIntent: (m) => {
     if (!net || host) game?.handleIntent?.(m as Record<string, unknown>, ctx.myId);
     else room?.send('intent', m);
@@ -163,6 +184,12 @@ const ctx: GameCtx = {
     } catch {
       /* ignore */
     }
+  },
+  rematch: () => {
+    // Im Mehrspieler startet nur der Host; Gäste bekommen den 'start'-Broadcast.
+    if (net && !host) return;
+    if (net && host && room) room.send('start', lastBoardConfig);
+    game?.start();
   },
 };
 
@@ -227,7 +254,8 @@ function showLobby(code: string): void {
     b.className = 'btn';
     b.textContent = '🚀 Spiel starten';
     b.addEventListener('click', () => {
-      if (room) room.send('start', { ids: players.filter((p) => !p.isBot).map((p) => p.id), names: players.filter((p) => !p.isBot).map((p) => p.name) });
+      lastBoardConfig = { ids: players.filter((p) => !p.isBot).map((p) => p.id), names: players.filter((p) => !p.isBot).map((p) => p.name) };
+      if (room) room.send('start', lastBoardConfig);
       startGame();
     });
     kids.push(b);
@@ -269,6 +297,7 @@ function joinNet(): void {
       showLobby(r.roomId);
     });
     room.onMessage('start', (m: { ids: string[]; names: string[] }) => {
+      lastBoardConfig = { ids: m.ids || [], names: m.names || [] };
       const humans: Player[] = (m.ids || []).map((id, i) => ({
         id, name: (m.names && m.names[i]) || `Tisch ${i + 1}`, color: COLORS[i % COLORS.length]!, isBot: false,
       }));

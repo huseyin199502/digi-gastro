@@ -22,6 +22,8 @@ export interface GameCtx {
   sendIntent: (m: unknown) => void;
   /** Eigenes Ergebnis an den Wrapper melden (Highscore/Rekord). */
   postScore: (game: string, score: number) => void;
+  /** Neue Runde: im Mehrspieler synchronisiert der Host, Gäste warten. */
+  rematch: () => void;
 }
 
 export interface GameInstance {

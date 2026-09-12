@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Client } from '@colyseus/sdk';
 import { useGameStore } from '../store/gameStore';
+import { useUIStore } from '../store/uiStore';
 import { PLAYER_NAMES } from '../utils/ludoConstants';
 import { useGameEngine } from '../hooks/useGameEngine';
 import GameScene from '../game/GameScene';
@@ -70,6 +71,8 @@ export default function NetLudo() {
   const isHostRef = useRef(false);
   const rosterRef = useRef({ ids: [], names: [] });
   const myIdRef = useRef('');
+  // Original-Store-Aktionen, falls wir als Gast überschreiben (Host-Wechsel).
+  const originalsRef = useRef(null);
 
   // Sounds/Notifications
   useGameEngine();
@@ -137,7 +140,17 @@ export default function NetLudo() {
         });
         r.onMessage('start', (m) => applyConfig(m));
         r.onMessage('state', (m) => {
-          if (!isHostRef.current) useGameStore.setState(m);
+          if (!isHostRef.current) {
+            useGameStore.setState(m);
+            // Neue Runde → Sieges-Overlay der Gäste schließen.
+            if (m && m.gameOver === false) useUIStore.getState().closeVictory?.();
+          }
+        });
+        r.onMessage('restart', () => {
+          // Nur der Host reagiert: neue Runde starten + an alle verteilen.
+          if (!isHostRef.current) return;
+          useUIStore.getState().closeVictory?.();
+          useGameStore.getState().resetGame();
         });
         r.onMessage('intent', (m) => {
           if (!isHostRef.current) return;
@@ -175,6 +188,16 @@ export default function NetLudo() {
     if (!room) return undefined;
 
     if (!isHostRef.current) {
+      if (!originalsRef.current) {
+        const s = useGameStore.getState();
+        originalsRef.current = {
+          rollDiceAction: s.rollDiceAction,
+          selectToken: s.selectToken,
+          processAITurn: s.processAITurn,
+          endTurn: s.endTurn,
+          resetGame: s.resetGame,
+        };
+      }
       useGameStore.setState({
         rollDiceAction: async () => {
           room.send('intent', { type: 'roll' });
@@ -185,8 +208,18 @@ export default function NetLudo() {
         },
         processAITurn: async () => {},
         endTurn: () => {},
+        // "Nochmal" eines Gastes fragt den Host an (dieser startet neu).
+        resetGame: () => {
+          room.send('restart');
+        },
       });
       return undefined;
+    }
+
+    // Host (ggf. nach Host-Wechsel): Original-Aktionen wiederherstellen.
+    if (originalsRef.current) {
+      useGameStore.setState(originalsRef.current);
+      originalsRef.current = null;
     }
 
     // Host: Zustand bei Änderungen senden (gedrosselt ~8/s, letzte Änderung immer).
@@ -211,7 +244,7 @@ export default function NetLudo() {
       unsub();
       if (pending) clearTimeout(pending);
     };
-  }, [status]);
+  }, [status, isHost]);
 
   // Ergebnis an den Wrapper melden (Highscore/Rekord) – einmal pro Spiel.
   useEffect(() => {

@@ -161,10 +161,12 @@ class PokerGame implements GameInstance {
     });
     const again = document.createElement('button');
     again.className = 'btn';
-    again.textContent = '🔁 Nochmal';
+    again.textContent = this.ctx.isHost ? '🔁 Nochmal' : '⏳ Warte auf Host…';
+    again.disabled = !this.ctx.isHost;
     again.addEventListener('click', () => {
+      if (!this.ctx.isHost) return;
       this.ctx.clearOverlay();
-      if (this.ctx.isHost) this.start();
+      this.ctx.rematch();
     });
     this.ctx.overlay([h('h1', '', '🏆 Ergebnis'), box, again]);
   }

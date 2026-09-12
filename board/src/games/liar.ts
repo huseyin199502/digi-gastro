@@ -370,7 +370,9 @@ class LiarGame implements GameInstance {
     const again = document.createElement('button');
     again.className = 'bl-bidbtn';
     again.textContent = '🔁 Nochmal';
-    again.addEventListener('click', () => { this.ctx.clearOverlay(); if (this.ctx.isHost) this.start(); });
+    again.disabled = !this.ctx.isHost;
+    again.textContent = this.ctx.isHost ? '🔁 Nochmal' : '⏳ Warte auf Host…';
+    again.addEventListener('click', () => { if (!this.ctx.isHost) return; this.ctx.clearOverlay(); this.ctx.rematch(); });
     this.ctx.overlay([h('div', '', '🏆'), h('h1', '', name), h('p', '', 'gewinnt!'), again]);
   }
 

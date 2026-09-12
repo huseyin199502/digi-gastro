@@ -50,6 +50,13 @@ export class LudoRoom extends Room<{ state: LudoState }> {
       this.broadcast("start", msg, { except: client });
     });
 
+    // Gäste können eine neue Runde anfragen; der Host startet sie.
+    this.onMessage("restart", (client: Client) => {
+      if (client.sessionId === this.state.hostId) return;
+      const host = this.clients.find((c) => c.sessionId === this.state.hostId);
+      if (host) host.send("restart", { from: client.sessionId });
+    });
+
     // Nach dem Join fragt der Client aktiv an: garantiert Rolle/Roster/Start
     // (Broadcasts direkt beim Join können sonst vor der Handler-Registrierung eintreffen).
     this.onMessage("hello", (client: Client) => {

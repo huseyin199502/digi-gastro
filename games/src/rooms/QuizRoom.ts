@@ -33,6 +33,14 @@ export class QuizRoom extends Room<{ state: QuizState }> {
       this.broadcast("state", msg, { except: client });
     });
 
+    // Personalisierter Zustand (z. B. Lügen-Dice: nur eigene Würfel sichtbar).
+    this.onMessage("stateFor", (client: Client, msg: unknown) => {
+      if (client.sessionId !== this.state.hostId) return;
+      const m = msg as { to?: string; state?: unknown };
+      const target = this.clients.find((c) => c.sessionId === m?.to);
+      if (target) target.send("state", m?.state);
+    });
+
     this.onMessage("intent", (client: Client, msg: unknown) => {
       if (client.sessionId === this.state.hostId) return;
       const host = this.clients.find((c) => c.sessionId === this.state.hostId);
