@@ -294,6 +294,23 @@ services:
       TZ: Europe/Berlin
     expose:
       - "2567"
+    # Öffentlich über den Coolify-Traefik-Proxy unter /games (WSS).
+    # Das Frontend verbindet standardmäßig wss://<host>/games (same-origin).
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=yc12gd4qtxlgawd2p2fta57t"
+      - "traefik.http.middlewares.dg-games-strip.stripprefix.prefixes=/games"
+      - "traefik.http.services.dg-games.loadbalancer.server.port=2567"
+      - "traefik.http.routers.dg-games-http.entrypoints=http"
+      - "traefik.http.routers.dg-games-http.rule=(Host(`digi-gastro.de`) || Host(`www.digi-gastro.de`)) && PathPrefix(`/games`)"
+      - "traefik.http.routers.dg-games-http.middlewares=dg-games-strip"
+      - "traefik.http.routers.dg-games-http.service=dg-games"
+      - "traefik.http.routers.dg-games-https.entrypoints=https"
+      - "traefik.http.routers.dg-games-https.rule=(Host(`digi-gastro.de`) || Host(`www.digi-gastro.de`)) && PathPrefix(`/games`)"
+      - "traefik.http.routers.dg-games-https.tls=true"
+      - "traefik.http.routers.dg-games-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dg-games-https.middlewares=dg-games-strip"
+      - "traefik.http.routers.dg-games-https.service=dg-games"
     deploy:
       resources:
         limits:

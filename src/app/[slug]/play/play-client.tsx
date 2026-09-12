@@ -132,9 +132,18 @@ export default function PlayClient({
 
   function netUrl(): string {
     const env = process.env.NEXT_PUBLIC_GAMES_URL;
+    if (env) return env;
     const https = typeof window !== "undefined" && window.location.protocol === "https:";
     const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
-    return env || `${https ? "wss" : "ws"}://${host}:2567`;
+    const isLocal =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.startsWith("192.168.") ||
+      host.startsWith("10.") ||
+      host.endsWith(".local");
+    // Lokal/Dev → eigener Port 2567; Produktion → same-origin über den Proxy (/games).
+    const suffix = isLocal ? ":2567" : "/games";
+    return `${https ? "wss" : "ws"}://${host}${suffix}`;
   }
 
   function buildSrc(n: string, mode?: "create" | "join", room?: string): string {
