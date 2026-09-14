@@ -52,7 +52,7 @@ export default function SchemaMarkup({ tenants }: { tenants: Tenant[] }) {
       },
       {
         "@type": "Question",
-        name: "Ist das Finanzamtsicher?",
+        name: "Ist digi-gastro GoBD-konform?",
         acceptedAnswer: {
           "@type": "Answer",
           text: "Ja. Jede Stornierung, Änderung und Bezahlung wird manipulationssicher kryptografisch im Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. GoBD-konformer Export als PDF/Excel mit einem Klick.",

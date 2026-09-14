@@ -17,7 +17,7 @@ export default function HeroSection() {
           Plug &amp; Play Gastro-OS
         </div>
 
-        <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl">
           Das Gastro-OS, das in{" "}
           <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 bg-clip-text text-transparent">
             5 Minuten live

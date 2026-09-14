@@ -25,9 +25,9 @@ const faqs = [
       "Nein. digi-gastro arbeitet mit einem fairen monatlichen Flatrate-Modell. Es gibt keine versteckten Kosten und keine Provisionen pro Bestellung oder Gast. Du behältst 100 % deines Umsatzes.",
   },
   {
-    question: "Ist das Finanzamtsicher?",
+    question: "Ist digi-gastro GoBD-konform?",
     answer:
-      "Ja! Jede Stornierung, jede Änderung und jeder Bezahlvorgang wird manipulationssicher in einem kryptografisch verschlüsselten Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. Der GoBD-konforme Steuerberater-Export (PDF/Excel) ist mit einem Klick generierbar.",
+      "Ja. Jede Stornierung, jede Änderung und jeder Bezahlvorgang wird in einem manipulationssicheren, kryptografisch verschlüsselten Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. Der GoBD-konforme Steuerberater-Export (PDF/Excel) ist mit einem Klick generierbar.",
   },
   {
     question: "Wie lange dauert das Setup?",
@@ -41,7 +41,10 @@ export default function FAQ() {
     <section id="faq" className="relative border-t border-white/5 py-32">
       <div className="mx-auto max-w-3xl px-6">
         <ScrollReveal className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-white md:text-5xl">Häufig gestellte Fragen</h2>
+          <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
+            FAQ
+          </p>
+          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">Häufig gestellte Fragen</h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
             Alles Wissenswerte über das Betriebssystem der modernen Gastronomie.
           </p>

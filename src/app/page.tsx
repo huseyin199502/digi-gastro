@@ -63,7 +63,7 @@ export default async function LandingPage() {
         <div className="relative z-10">
           <Navbar />
           <HeroSection />
-          <SocialProof tenantCount={tenants.length} />
+          <SocialProof />
           <FeaturesGrid />
           <DemoWidget />
           <HowItWorks />
@@ -80,32 +80,55 @@ export default async function LandingPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Social Proof Section
 // ─────────────────────────────────────────────────────────────────────────────
-function SocialProof({ tenantCount }: { tenantCount: number }) {
-  const stats = [
-    { value: `${tenantCount}+`, label: "Aktive Restaurants" },
-    { value: "24/7", label: "Bestellungen" },
-    { value: "0%", label: "Provision" },
-    { value: "DE", label: "Made in Germany" },
+function SocialProof() {
+  const integrations = [
+    "Lightspeed",
+    "SumUp",
+    "Tillhub",
+    "HelloCash",
+    "Apple Wallet",
+    "Google Wallet",
+    "CSV-Import",
+  ];
+
+  const values = [
+    { title: "0 % Provision", text: "Du behältst jeden Euro Umsatz." },
+    { title: "Server in Deutschland", text: "DSGVO-konform gehostet." },
+    { title: "Keine App nötig", text: "Läuft im Browser jedes Smartphones." },
+    { title: "Jederzeit kündbar", text: "Keine Mindestlaufzeit, kein Lock-in." },
   ];
 
   return (
-    <section className="relative border-y border-white/5 bg-[#0b0c10]/60 py-16">
+    <section className="relative border-y border-white/5 bg-[#0b0c10]/60 py-20">
       <div className="mx-auto max-w-6xl px-6">
         <ScrollReveal className="text-center">
           <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80">
-            Vertrauen von Gastronomen
+            Kompatibel mit
           </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
-            {stats.map((stat, i) => (
-              <div key={stat.label} className="flex items-center gap-12">
-                {i > 0 && <div className="hidden h-12 w-px bg-white/10 sm:block" />}
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-white md:text-5xl">{stat.value}</div>
-                  <div className="mt-2 text-sm text-zinc-400">{stat.label}</div>
-                </div>
-              </div>
+          <h2 className="mt-4 font-display text-2xl font-semibold text-white sm:text-3xl">
+            Passt zu deiner Kasse — ohne neue Hardware.
+          </h2>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            {integrations.map((name) => (
+              <span
+                key={name}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-300"
+              >
+                {name}
+              </span>
             ))}
           </div>
+        </ScrollReveal>
+
+        <ScrollReveal delay={0.1} className="mt-14">
+          <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+            {values.map((v) => (
+              <div key={v.title} className="border-l border-amber-500/30 pl-4">
+                <dt className="font-display text-lg font-semibold text-white">{v.title}</dt>
+                <dd className="mt-1 text-sm text-zinc-400">{v.text}</dd>
+              </div>
+            ))}
+          </dl>
         </ScrollReveal>
       </div>
     </section>
@@ -121,7 +144,7 @@ function FinalCTA() {
       <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5" />
       <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
         <ScrollReveal>
-          <h2 className="text-4xl font-bold text-white md:text-6xl">
+          <h2 className="font-display text-4xl font-bold text-white md:text-6xl">
             Bereit für das <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gastro-OS der Zukunft</span>?
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">

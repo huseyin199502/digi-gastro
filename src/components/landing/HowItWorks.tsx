@@ -25,7 +25,10 @@ export default function HowItWorks() {
     <section id="how-it-works" className="relative border-y border-white/5 bg-[#0b0c10]/60 py-32">
       <div className="mx-auto max-w-6xl px-6">
         <ScrollReveal className="text-center mb-20">
-          <h2 className="text-4xl font-bold text-white md:text-5xl">So einfach funktioniert&apos;s</h2>
+          <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
+            In 3 Schritten
+          </p>
+          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">So einfach funktioniert&apos;s</h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
             In drei Schritten zum modernen Gastronomie-Erlebnis.
           </p>

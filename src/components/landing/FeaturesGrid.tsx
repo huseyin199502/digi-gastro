@@ -7,7 +7,7 @@ const features = [
   {
     title: "NFC Tap-to-Order",
     description:
-      "Gäste halten ihr Handy an den NFC-Chip am Tisch — die Speisekarte öffnet sich in unter 1 Sekunde. Kein QR-Code-Foto, kein Suchen, kein Warten. NFC ist 2026 — QR-Codes sind 2020.",
+      "Gäste halten ihr Handy an den NFC-Chip am Tisch — die Speisekarte öffnet sich in unter 1 Sekunde. Wer möchte, nutzt weiterhin den QR-Code. Ohne App, ohne Suchen, ohne Warten.",
     stats: ["<1s bis Speisekarte", "0€ App-Kosten", "100% kontaktlos"],
     icon: (
       <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -32,7 +32,7 @@ const features = [
     title: "3-Schicht-Upselling",
     description:
       "Manuelle Empfehlungen + Auto-Rules + KI-Co-Occurrence. Die Software lernt was zusammengekauft wird und empfiehlt es automatisch im Warenkorb.",
-    badge: "Bis zu 25% mehr Umsatz",
+    badge: "Mehr Umsatz pro Gast",
     icon: (
       <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -87,7 +87,7 @@ const features = [
     title: "GoBD & Krypto-Audit-Log",
     description:
       "Jede Stornierung, jede Änderung, jeder Bezahlvorgang wird manipulationssicher kryptografisch verschlüsselt aufgezeichnet. Stornos erfordern Mitarbeiter-PIN. Steuerberater-Export als PDF/Excel mit einem Klick.",
-    badge: "100% Finanzamtsicher",
+    badge: "GoBD-konform",
     icon: (
       <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -157,7 +157,7 @@ export default function FeaturesGrid() {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0b0c10]/70 to-transparent" />
       <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
         <ScrollReveal className="mb-16 text-center sm:mb-20">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl md:text-5xl">
+          <h2 className="font-display text-3xl font-bold text-white sm:text-4xl md:text-5xl">
             Alles dabei. Nichts überflüssig.
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-base text-zinc-400 sm:text-lg">

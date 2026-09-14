@@ -61,6 +61,7 @@ export default function ScrollVideo({
     let duration = 0;
     let target = 0;
     let lastSet = -1;
+    let applyStatic: (() => void) | null = null;
 
     const reduceMotion =
       typeof window.matchMedia === "function" &&
@@ -104,7 +105,9 @@ export default function ScrollVideo({
           }
         }
       }
-      rafId = requestAnimationFrame(tick);
+      if (!reduceMotion) {
+        rafId = requestAnimationFrame(tick);
+      }
     };
 
     const onLoadedMetadata = () => {
@@ -124,13 +127,30 @@ export default function ScrollVideo({
     window.addEventListener("resize", updateTarget);
     window.addEventListener("orientationchange", updateTarget);
     updateTarget();
-    rafId = requestAnimationFrame(tick);
+    if (reduceMotion) {
+      // Reduced motion: kein Dauer-rAF — Frame nur beim Scrollen setzen.
+      applyStatic = () => {
+        if (duration === 0 && syncDuration()) updateTarget();
+        if (duration > 0 && video.readyState >= 1) {
+          try {
+            video.currentTime = Math.min(Math.max(target, 0), duration - 0.01);
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+      window.addEventListener("scroll", applyStatic, { passive: true });
+      applyStatic();
+    } else {
+      rafId = requestAnimationFrame(tick);
+    }
 
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("scroll", updateTarget);
       window.removeEventListener("resize", updateTarget);
       window.removeEventListener("orientationchange", updateTarget);
+      if (applyStatic) window.removeEventListener("scroll", applyStatic);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("error", onError);
     };

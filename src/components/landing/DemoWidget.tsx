@@ -45,7 +45,7 @@ export default function DemoWidget() {
           <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
             Interaktive Simulation
           </p>
-          <h2 className="text-4xl font-bold text-white md:text-5xl">
+          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">
             So fühlt sich digi-gastro an
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">

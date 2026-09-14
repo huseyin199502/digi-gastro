@@ -34,9 +34,9 @@ export default function Testimonials() {
           <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
             Erfolgsgeschichten
           </p>
-          <h2 className="text-4xl font-bold text-white md:text-5xl">Was Gastronomen sagen.</h2>
+          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">Was Gastronomen sagen.</h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-            Echte Stimmen aus echten Betrieben — keine erfundenen Werbesprüche.
+            Was Betreiber mit digi-gastro im Alltag erleben.
           </p>
         </ScrollReveal>
 
