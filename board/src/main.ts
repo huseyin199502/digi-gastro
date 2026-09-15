@@ -255,21 +255,45 @@ function showLobby(code: string): void {
     b.textContent = '🚀 Spiel starten';
     b.addEventListener('click', () => {
       lastBoardConfig = { ids: players.filter((p) => !p.isBot).map((p) => p.id), names: players.filter((p) => !p.isBot).map((p) => p.name) };
+      // Server führt den Countdown aus und startet dann ALLE synchron.
+      b.disabled = true;
+      b.textContent = '⏳ Gleich geht\u2019s los…';
       if (room) room.send('start', lastBoardConfig);
-      startGame();
     });
     kids.push(b);
   }
   overlay(kids);
 }
 
+// Vom Server ausgelöster Countdown (synchron für alle).
+let countdownTimer: number | null = null;
+function showCountdown(endsAt: number): void {
+  if (started) return;
+  clearOverlay();
+  const cd = document.createElement('div');
+  cd.className = 'cd';
+  const o = overlay([h('div', '', '⏳'), h('h1', '', 'Gleich geht\u2019s los…'), cd]);
+  void o;
+  if (countdownTimer !== null) window.clearInterval(countdownTimer);
+  const update = () => {
+    const left = Math.ceil((endsAt - Date.now()) / 1000);
+    cd.textContent = String(Math.max(0, left));
+    if (left <= 0 && countdownTimer !== null) {
+      window.clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  };
+  update();
+  countdownTimer = window.setInterval(update, 150);
+}
+
 // ── Multiplayer ──
 function joinNet(): void {
   const client = new Client(net as string);
   const joining =
-    mode === 'create' ? client.create('board', { name: myName })
-      : roomParam ? client.joinById(roomParam, { name: myName })
-        : client.joinOrCreate('board', { name: myName });
+    mode === 'create' ? client.create('board', { name: myName, mode: 'create' })
+      : roomParam ? client.joinById(roomParam, { name: myName, mode: 'join' })
+        : client.joinOrCreate('board', { name: myName, mode: 'public' });
 
   joining.then((r) => {
     room = r;
@@ -307,6 +331,15 @@ function joinNet(): void {
       startGame();
     });
     room.onMessage('state', (s: unknown) => { if (!host) game?.applyState(s); });
+    // Server-Countdown sichtbar machen (Host und Gäste gleich).
+    room.onStateChange((s: unknown) => {
+      const st = s as { phase?: string; countdownEndsAt?: number };
+      if (st?.phase === 'countdown' && st.countdownEndsAt) showCountdown(st.countdownEndsAt);
+    });
+    room.onMessage('lobby:closed', (m: { reason?: string }) => {
+      clearOverlay();
+      overlay([h('h1', '', 'Spiel läuft bereits'), h('p', '', m?.reason ?? 'Bitte später erneut versuchen.')]);
+    });
     room.onMessage('intent', (m: Record<string, unknown> & { from: string }) => {
       if (!host) return;
       const { from, ...rest } = m;

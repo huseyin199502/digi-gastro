@@ -135,6 +135,26 @@ let host = false;
 let roster: { ids: string[]; names: string[] } = { ids: [], names: [] };
 let started = false;
 let shownResults = false;
+let countdownTimer: number | null = null;
+
+// Vom Server ausgelöster Countdown (synchron für alle).
+function showCountdown(endsAt: number): void {
+  if (started) return;
+  clearOverlays();
+  const o = overlay([mk('div', '', '⏳'), mk('h1', '', 'Gleich geht\u2019s los…'), mk('p', 'qz-countdown', '…')]);
+  const cd = o.querySelector('.qz-countdown') as HTMLElement | null;
+  if (countdownTimer !== null) window.clearInterval(countdownTimer);
+  const update = () => {
+    const left = Math.ceil((endsAt - Date.now()) / 1000);
+    if (cd) cd.textContent = String(Math.max(0, left));
+    if (left <= 0 && countdownTimer !== null) {
+      window.clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  };
+  update();
+  countdownTimer = window.setInterval(update, 150);
+}
 
 function botPlayers(startIndex: number): QuizPlayer[] {
   const out: QuizPlayer[] = [];
@@ -271,9 +291,12 @@ function renderLobby(code: string): void {
   if (host) {
     const btn = mk('button', 'qz-btn', '🚀 Spiel starten') as HTMLButtonElement;
     btn.addEventListener('click', () => {
+      // Nur der Server startet: er führt den Countdown aus und schickt „start"
+      // an ALLE (auch an den Host). Kein lokaler Start mehr.
       const config = { ids: roster.ids, names: roster.names, order: show.getOrder() };
+      btn.disabled = true;
+      btn.textContent = '⏳ Gleich geht\u2019s los…';
       room?.send('start', config);
-      startNetGame(config);
     });
     kids.push(btn);
   }
@@ -325,10 +348,10 @@ function joinNet(): void {
   const client = new Client(net as string);
   const joining =
     mode === 'create'
-      ? client.create('quiz', { name: myName })
+      ? client.create('quiz', { name: myName, mode: 'create' })
       : roomParam
-        ? client.joinById(roomParam, { name: myName })
-        : client.joinOrCreate('quiz', { name: myName });
+        ? client.joinById(roomParam, { name: myName, mode: 'join' })
+        : client.joinOrCreate('quiz', { name: myName, mode: 'public' });
 
   joining
     .then((r) => {
@@ -349,6 +372,15 @@ function joinNet(): void {
         renderLobby(r.roomId);
       });
       room.onMessage('start', (m: { ids: string[]; names: string[] }) => startNetGame(m));
+      // Server-Countdown sichtbar machen (Host und Gäste gleich).
+      room.onStateChange((s: unknown) => {
+        const st = s as { phase?: string; countdownEndsAt?: number };
+        if (st?.phase === 'countdown' && st.countdownEndsAt) showCountdown(st.countdownEndsAt);
+      });
+      room.onMessage('lobby:closed', (m: { reason?: string }) => {
+        clearOverlays();
+        overlay([mk('h1', '', 'Spiel läuft bereits'), mk('p', '', m?.reason ?? 'Bitte später erneut versuchen.')]);
+      });
       room.onMessage('state', (s: QuizSnapshot) => {
         if (host) return;
         lastSnap = s;

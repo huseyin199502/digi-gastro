@@ -66,6 +66,8 @@ export default function NetLudo() {
   const [roster, setRoster] = useState({ ids: [], names: [] });
   const [code, setCode] = useState(roomParam);
   const [error, setError] = useState('');
+  const [countdownEndsAt, setCountdownEndsAt] = useState(0);
+  const [, forceTick] = useState(0);
 
   const roomRef = useRef(null);
   const isHostRef = useRef(false);
@@ -76,6 +78,13 @@ export default function NetLudo() {
 
   // Sounds/Notifications
   useGameEngine();
+
+  // Countdown-Anzeige während der Server-Countdown läuft.
+  useEffect(() => {
+    if (!countdownEndsAt) return undefined;
+    const id = setInterval(() => forceTick((t) => t + 1), 150);
+    return () => clearInterval(id);
+  }, [countdownEndsAt]);
 
   const applyConfig = useCallback((config) => {
     const store = useGameStore.getState();
@@ -97,9 +106,10 @@ export default function NetLudo() {
       aiPlayers,
       names: (r.names || []).slice(0, humans),
     };
+    // Nur der Server startet: er führt den Countdown aus und schickt „start"
+    // an ALLE (auch an den Host). Kein lokaler Start mehr.
     roomRef.current?.send('start', config);
-    applyConfig(config);
-  }, [applyConfig]);
+  }, []);
 
   // Verbindung + Nachrichten
   useEffect(() => {
@@ -112,10 +122,10 @@ export default function NetLudo() {
     let room = null;
     const joining =
       mode === 'create'
-        ? client.create('ludo', { name: myName })
+        ? client.create('ludo', { name: myName, mode: 'create' })
         : roomParam
-          ? client.joinById(roomParam, { name: myName })
-          : client.joinOrCreate('ludo', { name: myName });
+          ? client.joinById(roomParam, { name: myName, mode: 'join' })
+          : client.joinOrCreate('ludo', { name: myName, mode: 'public' });
 
     joining
       .then((r) => {
@@ -139,6 +149,17 @@ export default function NetLudo() {
           setIsHost(iAmHost);
         });
         r.onMessage('start', (m) => applyConfig(m));
+        // Server-Countdown sichtbar machen (Host und Gäste gleich).
+        r.onStateChange((state) => {
+          const phase = state?.phase;
+          const endsAt = state?.countdownEndsAt;
+          if (phase === 'countdown' && endsAt) setCountdownEndsAt(endsAt);
+          if (phase === 'playing') setCountdownEndsAt(0);
+        });
+        r.onMessage('lobby:closed', (m) => {
+          setError(m?.reason || 'Das Spiel läuft bereits.');
+          setStatus('error');
+        });
         r.onMessage('state', (m) => {
           if (!isHostRef.current) {
             useGameStore.setState(m);
@@ -333,15 +354,25 @@ export default function NetLudo() {
               ))}
             </div>
 
+            {countdownEndsAt > 0 ? (
+              <div style={{ ...panel, padding: '14px', marginBottom: 12, textAlign: 'center', background: 'rgba(0,0,0,0.4)' }}>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Startet in</div>
+                <div style={{ fontSize: 36, fontWeight: 900 }}>
+                  {Math.max(0, Math.ceil((countdownEndsAt - Date.now()) / 1000))}
+                </div>
+              </div>
+            ) : null}
+
             {isHost ? (
               <button
                 onClick={startHost}
-                style={{ width: '100%', padding: '16px', borderRadius: 14, background: '#eab308', color: '#111', fontWeight: 900, fontSize: 15, cursor: 'pointer' }}
+                disabled={countdownEndsAt > 0}
+                style={{ width: '100%', padding: '16px', borderRadius: 14, background: '#eab308', color: '#111', fontWeight: 900, fontSize: 15, cursor: countdownEndsAt > 0 ? 'default' : 'pointer', opacity: countdownEndsAt > 0 ? 0.6 : 1 }}
               >
                 🚀 Spiel starten
               </button>
             ) : (
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Warte auf den Host…</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{countdownEndsAt > 0 ? 'Gleich geht\u2019s los…' : 'Warte auf den Host…'}</p>
             )}
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 10 }}>
               {humans < 2 ? 'Allein? Einfach mit Bots starten.' : `${humans} Spieler verbunden.`}

@@ -61,3 +61,6 @@ _*.ps1
 
 # nested project dependencies (game apps)
 **/node_modules/
+
+# Vite-Builds der Game-Apps (Ergebnis wird nach /public/<game> kopiert)
+**/dist/

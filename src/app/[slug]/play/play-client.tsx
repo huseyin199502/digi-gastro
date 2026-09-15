@@ -137,12 +137,15 @@ export default function PlayClient({
     if (env) return env;
     const https = typeof window !== "undefined" && window.location.protocol === "https:";
     const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
+    // Lokale/private Netze nutzen den Dev-Port; alles andere same-origin (/games).
     const isLocal =
       host === "localhost" ||
       host === "127.0.0.1" ||
-      host.startsWith("192.168.") ||
-      host.startsWith("10.") ||
-      host.endsWith(".local");
+      host === "::1" ||
+      host.endsWith(".local") ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host);
     // Lokal/Dev → eigener Port 2567; Produktion → same-origin über den Proxy (/games).
     const suffix = isLocal ? ":2567" : "/games";
     return `${https ? "wss" : "ws"}://${host}${suffix}`;

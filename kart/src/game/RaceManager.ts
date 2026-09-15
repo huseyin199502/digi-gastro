@@ -153,6 +153,15 @@ export class RaceManager {
     for (const tr of this.trackers) tr.kart.setFrozen(true);
   }
 
+  /**
+   * Netzmodus: Karts am Grid einfrieren, aber den Countdown NICHT starten.
+   * `startCountdown()` wird später durch den Server-„GO" ausgelöst.
+   */
+  holdAtGrid(): void {
+    if (this.phase !== 'grid') return;
+    for (const tr of this.trackers) tr.kart.setFrozen(true);
+  }
+
   update(dt: number): void {
     switch (this.phase) {
       case 'grid':

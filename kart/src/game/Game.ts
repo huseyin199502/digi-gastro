@@ -138,6 +138,16 @@ export class Game {
   private audioStarted = false;
   private disposed = false;
 
+  // Netcode: Im Netzmodus startet der Host über onNetworkStartRequest, und der
+  // eigentliche Rennstart wird per networkGo() (Server-„GO") synchron ausgelöst.
+  private networkMode = false;
+  private pendingNetworkHold = false;
+  private networkGoPending = false;
+  /** Wird im Netzmodus statt eines lokalen Starts aufgerufen (Host sendet an den Server). */
+  onNetworkStartRequest: ((settings: RaceSettings) => void) | null = null;
+  /** Wird im Netzmodus statt eines lokalen Rematchs aufgerufen. */
+  onNetworkRematchRequest: (() => void) | null = null;
+
   private readonly playerInput: InputState = createEmptyInput();
   private readonly unsubs: (() => void)[] = [];
   private readonly sunDir = new THREE.Vector3(0.4, 0.8, 0.3);
@@ -191,20 +201,41 @@ export class Game {
     this.mainMenu = new MainMenu(this.uiRoot, CHARACTERS as readonly CharacterDef[], TRACKS as readonly TrackDefinition[]);
     this.mainMenu.onHighlight = (id) => this.backdrop.setCharacter(getCharacter(id));
     this.mainMenu.onPanelChange = (panel) => this.onMenuPanel(panel);
-    this.mainMenu.onStart = (settings) => this.startRace(settings);
+    this.mainMenu.onStart = (settings) => this.onMenuStart(settings);
 
     this.results = new ResultsScreen(this.uiRoot);
     this.results.onRaceAgain = () => {
-      if (this.race) this.startRace(this.race.settings);
+      const settings = this.race?.settings;
+      if (this.networkMode && this.onNetworkRematchRequest) {
+        this.onNetworkRematchRequest();
+        return;
+      }
+      if (settings) this.startRace(settings);
     };
-    this.results.onChangeTrack = () => this.returnToMenu('trackSelect');
-    this.results.onMainMenu = () => this.returnToMenu('title');
+    this.results.onChangeTrack = () => {
+      if (this.networkMode && this.onNetworkRematchRequest) {
+        this.onNetworkRematchRequest();
+        return;
+      }
+      this.returnToMenu('trackSelect');
+    };
+    this.results.onMainMenu = () => {
+      if (this.networkMode && this.onNetworkRematchRequest) {
+        this.onNetworkRematchRequest();
+        return;
+      }
+      this.returnToMenu('title');
+    };
 
     this.pauseMenu = new PauseMenu(this.uiRoot);
     this.pauseMenu.onResume = () => this.resume();
     this.pauseMenu.onRestart = () => {
       const settings = this.race?.settings;
       this.leavePause();
+      if (this.networkMode && this.onNetworkRematchRequest) {
+        this.onNetworkRematchRequest();
+        return;
+      }
       if (settings) this.startRace(settings);
       else this.returnToMenu('title');
     };
@@ -238,6 +269,51 @@ export class Game {
 
   get currentState(): GameState {
     return this.state;
+  }
+
+  /** Aktiviert den Netzmodus (Lobby statt lokalem Menü-Start). */
+  enableNetworkMode(): void {
+    this.networkMode = true;
+  }
+
+  /** Host: Menü-Start → an den Server melden statt lokal zu starten. */
+  private onMenuStart(settings: RaceSettings): void {
+    if (this.networkMode) {
+      // Netzmodus: kein lokaler Start; der Server koordiniert Lobby + Countdown.
+      this.onNetworkStartRequest?.(settings);
+      return;
+    }
+    this.startRace(settings);
+  }
+
+  /**
+   * Netzmodus: Strecke aufbauen und – nach dem Laden – auf dem Grid WARTEN,
+   * bis `networkGo()` das synchronisierte 3-2-1 (Server-„GO") auslöst.
+   */
+  startNetworkRace(settings: RaceSettings): void {
+    this.pendingNetworkHold = true;
+    this.networkGoPending = false;
+    this.startRace(settings);
+  }
+
+  /** Server-„GO": startet den lokalen Countdown (bzw. merkt ihn fürs Laden vor). */
+  networkGo(): void {
+    if (!this.networkMode) return;
+    this.networkGoPending = true;
+    const r = this.race;
+    if (r && this.state === 'countdown') {
+      this.pendingNetworkHold = false;
+      this.networkGoPending = false;
+      r.raceManager.startCountdown();
+    }
+  }
+
+  /** Server hat in die Lobby zurückgesetzt (Rematch): Menü/Lobby erneut zeigen. */
+  returnToNetworkLobby(): void {
+    this.pendingNetworkHold = false;
+    this.networkGoPending = false;
+    this.leavePause();
+    this.returnToMenu('title');
   }
 
   /** Öffentlicher Zugriff für Netcode (Ghost-Karts). */
@@ -374,7 +450,10 @@ export class Game {
     if (this.race && ready) {
       // Warm the remaining passes (shadow depth, post-processing) behind the overlay.
       this.renderRace(dt, false);
-      if (this.loadingElapsed >= MIN_LOADING_SECONDS && this.loadingProgress > 0.985) this.enterCountdown();
+      if (this.loadingElapsed >= MIN_LOADING_SECONDS && this.loadingProgress > 0.985) {
+        const hold = this.networkMode && this.pendingNetworkHold && !this.networkGoPending;
+        this.enterCountdown(hold);
+      }
     }
   }
 
@@ -770,7 +849,7 @@ export class Game {
     );
   }
 
-  private enterCountdown(): void {
+  private enterCountdown(hold = false): void {
     const r = this.race;
     if (!r) return;
     this.pendingSettings = null;
@@ -800,6 +879,11 @@ export class Game {
     r.followCamera.setCinematic(from, look, 3 * COUNTDOWN_STEP_SECONDS, 46);
 
     r.raceManager.startCountdown();
+    if (hold) {
+      // Netzmodus: Karts bleiben am Grid stehen, bis der Server „GO" sendet.
+      r.raceManager.holdAtGrid();
+    }
+    this.pendingNetworkHold = false;
     this.setState('countdown');
     this.playMusic('race');
   }
