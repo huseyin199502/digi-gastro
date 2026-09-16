@@ -2016,7 +2016,7 @@ function ProductsTab(props: ProductsTabProps) {
           <button
             onClick={() => void bulkDelete()}
             disabled={bulkBusy}
-            className="rounded-lg bg-red-900/60 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-800 disabled:opacity-40"
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-40"
           >
             Löschen
           </button>
@@ -2105,22 +2105,22 @@ function ProductsTab(props: ProductsTabProps) {
                             {p.is_available ? "Aktiv" : "Ausverkauft"}
                           </span>
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
+                        <div className="mt-2 flex flex-col gap-1.5">
                           <button
                             onClick={() => openEdit(p)}
-                            className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                            className="w-full rounded bg-zinc-800 px-2 py-1.5 text-xs font-bold whitespace-nowrap text-zinc-100 hover:bg-zinc-700"
                           >
                             Bearbeiten
                           </button>
                           <button
                             onClick={() => toggleProduct(p)}
-                            className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                            className="w-full rounded bg-zinc-800 px-2 py-1.5 text-xs font-bold whitespace-nowrap text-zinc-100 hover:bg-zinc-700"
                           >
                             {p.is_available ? "Ausverkauft" : "Aktivieren"}
                           </button>
                           <button
                             onClick={() => deleteProduct(p)}
-                            className="rounded bg-red-900/60 px-2 py-1 text-xs font-bold text-red-300 hover:bg-red-800"
+                            className="w-full rounded bg-red-600 px-2 py-1.5 text-xs font-bold whitespace-nowrap text-white hover:bg-red-500"
                           >
                             Löschen
                           </button>
@@ -2200,7 +2200,7 @@ function ProductsTab(props: ProductsTabProps) {
                       </button>
                       <button
                         onClick={() => deleteProduct(p)}
-                        className="rounded bg-red-900/60 px-2 py-1 text-xs font-bold text-red-300 hover:bg-red-800"
+                        className="rounded bg-red-600 px-2 py-1 text-xs font-bold text-white hover:bg-red-500"
                       >
                         Löschen
                       </button>
