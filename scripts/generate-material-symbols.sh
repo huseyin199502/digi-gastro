@@ -17,7 +17,37 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/public/fonts/material-symbols-outlined.woff2"
 UA="Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36"
 
-ICON_NAMES="add,add_circle,admin_panel_settings,ads_click,alarm,analytics,arrow_back,arrow_downward,arrow_forward,arrow_upward,article,attach_money,auto_awesome,auto_awesome_mosaic,backup,bar_chart,block,bolt,brunch_dining,brush,cake,calendar_today,campaign,cancel,card_membership,category,celebration,chair,chair_alt,chat_bubble,check,check_circle,chevron_left,chevron_right,circle,cleaning_services,close,cloud,cloud_off,cloud_upload,coffee,collections,content_copy,contrast,credit_card,dark_mode,delete,delete_forever,delivery_dining,description,design_services,desk,dinner_dining,done,done_all,download,dry_cleaning,edit,email,emoji_events,error,euro,event_seat,expand_less,expand_more,favorite,feed,filter_list,flatware,folder,folder_open,forum,group,groups,hd,help,high_quality,history,hourglass_empty,icecream,image,info,insights,inventory,inventory_2,key,keyboard_double_arrow_down,label,light_mode,liquor,list,live_tv,local_bar,local_cafe,local_dining,local_fire_department,local_offer,local_pizza,local_shipping,location_on,lock,loop,loyalty,lunch_dining,map,meeting_room,menu,menu_book,mic,military_tech,more_horiz,more_vert,music_note,no_drinks,notes,notifications,notifications_active,offline_bolt,open_in_new,outdoor_grill,palette,pause,payments,people,person,person_add,phone,photo_camera,photo_library,pending,pending_actions,pie_chart,play_arrow,price_check,print,progress_activity,qr_code,qr_code_scanner,queue_music,radio_button_checked,radio_button_unchecked,receipt_long,refresh,remove,repeat,restaurant,restaurant_menu,room_service,save,schedule,search,send,sentiment_satisfied,settings,share,shopping_bag,shopping_cart,shuffle,signal_wifi_bad,skip_next,skip_previous,slideshow,smoking_rooms,sort,soup_kitchen,sports_bar,sports_esports,square,star,stars,store,storefront,subtitles,sync,table_bar,table_restaurant,task_alt,text_fields,thumb_up,timer,title,toggle_off,toggle_on,trending_up,tune,undo,upload,upload_file,verified,visibility,visibility_off,volume_off,volume_up,warning,warehouse,wash,whatshot,wifi_off,wine_bar,workspace_premium"
+# Manuelle Zusatz-Icons: dynamische/per Admin gesetzte Namen und Fallbacks,
+# die nicht statisch im JSX stehen. Wird mit den aus dem Quellcode
+# extrahierten Icons vereinigt (siehe unten).
+EXTRA_ICONS="add,add_circle,admin_panel_settings,ads_click,alarm,analytics,arrow_back,arrow_downward,arrow_forward,arrow_upward,article,attach_money,auto_awesome,auto_awesome_mosaic,backup,bar_chart,block,bolt,brunch_dining,brush,cake,calendar_today,campaign,cancel,card_membership,category,celebration,chair,chair_alt,chat_bubble,check,check_circle,chevron_left,chevron_right,circle,cleaning_services,close,cloud,cloud_off,cloud_upload,coffee,collections,content_copy,contrast,credit_card,dark_mode,delete,delete_forever,delivery_dining,description,design_services,desk,dinner_dining,done,done_all,download,dry_cleaning,edit,email,emoji_events,error,euro,event_seat,expand_less,expand_more,favorite,feed,filter_list,flatware,folder,folder_open,forum,group,groups,hd,help,high_quality,history,hourglass_empty,icecream,image,info,insights,inventory,inventory_2,key,keyboard_double_arrow_down,label,light_mode,liquor,list,live_tv,local_bar,local_cafe,local_dining,local_fire_department,local_offer,local_pizza,local_shipping,location_on,lock,loop,loyalty,lunch_dining,map,meeting_room,menu,menu_book,mic,military_tech,more_horiz,more_vert,music_note,no_drinks,notes,notifications,notifications_active,offline_bolt,open_in_new,outdoor_grill,palette,pause,payments,people,person,person_add,phone,photo_camera,photo_library,pending,pending_actions,pie_chart,play_arrow,price_check,print,progress_activity,qr_code,qr_code_scanner,queue_music,radio_button_checked,radio_button_unchecked,receipt_long,refresh,remove,repeat,restaurant,restaurant_menu,room_service,save,schedule,search,send,sentiment_satisfied,settings,share,shopping_bag,shopping_cart,shuffle,signal_wifi_bad,skip_next,skip_previous,slideshow,smoking_rooms,sort,soup_kitchen,sports_bar,sports_esports,square,star,stars,store,storefront,subtitles,sync,table_bar,table_restaurant,task_alt,text_fields,thumb_up,timer,title,toggle_off,toggle_on,trending_up,tune,undo,upload,upload_file,verified,visibility,visibility_off,volume_off,volume_up,warning,warehouse,wash,whatshot,wifi_off,wine_bar,workspace_premium"
+
+# Icons automatisch aus dem Quellcode ziehen (<MaterialIcon>…</MaterialIcon>
+# und material-symbols-outlined>…), damit neu verwendete Icons nie fehlen.
+AUTO_ICONS="$(python3 - "$ROOT/src" <<'PY'
+import re, sys, pathlib
+root = pathlib.Path(sys.argv[1])
+names = set()
+for p in root.rglob("*"):
+    if p.suffix not in (".tsx", ".ts", ".jsx", ".js"):
+        continue
+    if "generated" in p.parts:
+        continue
+    try:
+        text = p.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        continue
+    for m in re.finditer(r"<MaterialIcon\b[^>]*>\s*([a-z][a-z0-9_]+)\s*</MaterialIcon>", text, re.S):
+        names.add(m.group(1))
+    for m in re.finditer(r"material-symbols-outlined[^>]*>\s*([a-z][a-z0-9_]+)", text):
+        names.add(m.group(1))
+print(",".join(sorted(names)))
+PY
+)"
+
+# Vereinigen + deduplizieren
+ICON_NAMES="$(printf '%s,%s' "$EXTRA_ICONS" "$AUTO_ICONS" \
+  | tr ',' '\n' | sed '/^$/d' | sort -u | paste -sd, -)"
 
 CSS_URL="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=${ICON_NAMES}&display=block"
 
