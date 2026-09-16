@@ -365,9 +365,6 @@ export function startNetplay(
           phase = s.phase ?? 'lobby';
           countdownEndsAt = s.countdownEndsAt ?? 0;
           isHost = s.hostId === myId;
-          if (isHost) overlay.mountHost();
-          else overlay.mountGuest();
-          updateRoster(s);
 
           // Server hat in die Lobby zurückgesetzt (Rematch) → Menü/Lobby zeigen.
           if (phase === 'lobby' && prevPhase !== 'lobby') {
@@ -376,6 +373,18 @@ export function startNetplay(
             game.returnToNetworkLobby?.();
           }
           prevPhase = phase;
+
+          // Lobby-Overlay NUR in Lobby/Countdown zeigen – nicht während des
+          // Rennens. Sonst mountet jeder State-Update (laufende Positionen!)
+          // das Overlay nach dem GO wieder neu → Raum-Code blieb sichtbar.
+          if (!raceActive && (phase === 'lobby' || phase === 'countdown')) {
+            if (isHost) overlay.mountHost();
+            else overlay.mountGuest();
+          } else if (phase === 'playing' || phase === 'finished') {
+            overlay.remove();
+          }
+
+          updateRoster(s);
 
           remotes.clear();
           s.players?.forEach((p, key) => {

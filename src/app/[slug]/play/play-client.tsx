@@ -860,7 +860,7 @@ export default function PlayClient({
         </div>
         {game === "kart" ? (
         <div className="flex items-center gap-2">
-          {activeRoom ? (
+          {activeRoom && gameState !== "racing" && gameState !== "countdown" ? (
             <button
               onClick={async () => {
                 try {
