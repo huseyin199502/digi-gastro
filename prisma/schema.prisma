@@ -60,6 +60,9 @@ model Tenant {
   operating_mode          String?             @default("full") @db.VarChar
   loyalty_enabled         Boolean?            @default(true)
   chat_enabled            Boolean?            @default(false)
+  kds_enabled             Boolean?            @default(false)
+  kds_super_group_ids     String?             @default("[]")
+  kds_service_types       String?             @default("[\"kohle\"]")
   notification_icon_path  String?             @db.VarChar
   tier                    String?             @default("free") @db.VarChar
   enabled_features        String?             @default("[]")

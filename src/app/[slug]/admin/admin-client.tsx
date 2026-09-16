@@ -13,6 +13,7 @@ import ChatTab from "./chat-tab";
 import AnnouncementsPopup from "./announcements-popup";
 import type { LiveItem, LiveOrder, LiveTable, ServiceCall, TabletStatus } from "./admin-types";
 import { formatEur } from "./admin-types";
+import { playNewOrderAlert, playServiceCallAlert } from "@/lib/notifySound";
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -99,6 +100,9 @@ export interface AdminInitial {
   settings: TenantSettings;
   superGroups: { id: number; name: string; color: string; icon: string }[];
   chatEnabled: boolean;
+  kdsEnabled: boolean;
+  kdsSuperGroupIds: number[];
+  kdsServiceTypes: string[];
 }
 
 export interface Toast {
@@ -242,79 +246,8 @@ function daysLabel(days: string[]): string {
 
 // ─────────────────────────── Main component ───────────────────────────
 
-// Akustisches + haptisches Signal für neue Bestellungen.
-// Spielt die MP3 ab (Web + PWA — der Service Worker cached sie
-// cache-first). Blockiert der Browser Autoplay (noch keine Nutzer-
-// Interaktion), fällt das synthetische Signal als Rückfallebene zurück.
-const newOrderAudio =
-  typeof Audio !== "undefined" ? new Audio("/sounds/neue-bestellung.mp3") : null;
-if (newOrderAudio) newOrderAudio.preload = "auto";
-
-function playBeepFallback() {
-  try {
-    const Ctx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const beep = (start: number, freq: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
-      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + start + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + 0.22);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + 0.25);
-    };
-    beep(0, 880);
-    beep(0.28, 1100);
-    window.setTimeout(() => void ctx.close(), 800);
-  } catch {
-    // ignore
-  }
-}
-
-function playNewOrderAlert() {
-  try {
-    navigator.vibrate?.([120, 80, 120]);
-  } catch {
-    // ignore
-  }
-  if (newOrderAudio) {
-    try {
-      newOrderAudio.currentTime = 0;
-      void newOrderAudio.play().catch(() => playBeepFallback());
-      return;
-    } catch {
-      // fall through to beep
-    }
-  }
-  playBeepFallback();
-}
-
-// Akustisches Signal für neue Service-Rufe (Kellner/Kohle/Rechnung)
-const serviceCallAudio =
-  typeof Audio !== "undefined" ? new Audio("/sounds/service-ruf.mp3") : null;
-if (serviceCallAudio) serviceCallAudio.preload = "auto";
-
-function playServiceCallAlert() {
-  try {
-    navigator.vibrate?.([220, 90, 220]);
-  } catch {
-    // ignore
-  }
-  if (serviceCallAudio) {
-    try {
-      serviceCallAudio.currentTime = 0;
-      void serviceCallAudio.play().catch(() => {});
-    } catch {
-      // ignore
-    }
-  }
-}
+// Akustische Signale (playNewOrderAlert / playServiceCallAlert) sind in
+// @/lib/notifySound ausgelagert und werden mit dem KDS geteilt.
 
 export default function AdminClient({ initial }: { initial: AdminInitial }) {
   const router = useRouter();
@@ -888,6 +821,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
 
   const navItems = [
     { id: "live", label: "Live" },
+    { id: "kds", label: "KDS" },
     // Chat-Tab nur zeigen, wenn Super-Admin den Gast-Chat für diesen
     // Tenant freigeschaltet hat (sonst ist der Tab funktionell leer).
     ...(initial.chatEnabled ? [{ id: "chat", label: "Chat" }] : []),
@@ -990,6 +924,15 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
           />
         ) : tab === "chat" ? (
           <ChatTab slug={initial.slug} pushToast={pushToast} />
+        ) : tab === "kds" ? (
+          <KdsTab
+            slug={initial.slug}
+            superGroups={initial.superGroups ?? []}
+            kdsEnabled={initial.kdsEnabled}
+            kdsSuperGroupIds={initial.kdsSuperGroupIds}
+            kdsServiceTypes={initial.kdsServiceTypes}
+            pushToast={pushToast}
+          />
         ) : tab === "produkte" ? (
           <ProductsTab
             initial={initial}
@@ -1127,6 +1070,248 @@ function LiveTab(props: LiveTabProps) {
       slug={slug}
       showRevenue={showRevenue}
     />
+  );
+}
+
+// ─────────────────────────── KDS tab ───────────────────────────
+
+const KDS_SERVICE_TYPES: { id: string; label: string; icon: string }[] = [
+  { id: "kellner", label: "Kellner rufen", icon: "room_service" },
+  { id: "kohle", label: "Kohle bestellen", icon: "local_fire_department" },
+  { id: "rechnung", label: "Rechnung", icon: "receipt_long" },
+  { id: "bar", label: "Barzahlung", icon: "payments" },
+  { id: "karte", label: "Kartenzahlung", icon: "credit_card" },
+];
+
+interface KdsTabProps {
+  slug: string;
+  superGroups: { id: number; name: string; color: string; icon: string }[];
+  kdsEnabled: boolean;
+  kdsSuperGroupIds: number[];
+  kdsServiceTypes: string[];
+  pushToast: (msg: string, kind?: "success" | "error") => void;
+}
+
+function KdsTab({
+  slug,
+  superGroups,
+  kdsEnabled,
+  kdsSuperGroupIds,
+  kdsServiceTypes,
+  pushToast,
+}: KdsTabProps) {
+  const router = useRouter();
+  const [enabled, setEnabled] = useState(kdsEnabled);
+  const [selected, setSelected] = useState<Set<number>>(
+    () => new Set(kdsSuperGroupIds)
+  );
+  const [serviceTypes, setServiceTypes] = useState<Set<string>>(
+    () => new Set(kdsServiceTypes)
+  );
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleService = (id: string) => {
+    setServiceTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/admin/kds-config", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "fetch",
+        },
+        body: JSON.stringify({
+          enabled,
+          super_group_ids: [...selected],
+          service_types: [...serviceTypes],
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok) throw new Error(data.error || data.detail || "Fehler");
+      pushToast("KDS-Einstellungen gespeichert");
+      router.refresh();
+    } catch (e) {
+      pushToast(
+        e instanceof Error && e.message !== "Fehler"
+          ? e.message
+          : "Speichern fehlgeschlagen",
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              <span className="material-symbols-outlined text-amber-400">
+                soup_kitchen
+              </span>
+              Küchen-Display (KDS)
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+              Der KDS zeigt live nur die Bestellungen der hier markierten
+              Hauptgruppen (z. B. nur Shisha) plus Kohle-Nachbestell-Rufe.
+              Servieren ist mit dem Live-Tab synchron; bezahlte Bestellungen
+              verschwinden automatisch.
+            </p>
+          </div>
+          <a
+            href={`/${slug}/kds`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:border-zinc-500"
+          >
+            KDS öffnen ↗
+          </a>
+        </div>
+
+        <label className="mt-5 flex w-fit cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="h-4 w-4 accent-emerald-500"
+          />
+          <span className="text-sm font-semibold">KDS aktiv</span>
+        </label>
+      </div>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-zinc-400">
+          Sichtbare Hauptgruppen
+        </h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Nur Bestellungen aus diesen Hauptgruppen erscheinen auf dem KDS.
+        </p>
+
+        {superGroups.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-400">
+            Keine Hauptgruppen vorhanden. Lege sie im Tab „Kategorien“ an.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {superGroups.map((sg) => {
+              const on = selected.has(sg.id);
+              return (
+                <button
+                  key={sg.id}
+                  type="button"
+                  onClick={() => toggle(sg.id)}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
+                    on
+                      ? "border-emerald-500/60 bg-emerald-500/10"
+                      : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                  }`}
+                >
+                  <span
+                    className="material-symbols-outlined text-xl"
+                    style={{ color: sg.color || "#9ca3af" }}
+                  >
+                    {sg.icon || "category"}
+                  </span>
+                  <span className="flex-1 text-sm font-semibold">{sg.name}</span>
+                  <span
+                    className={`material-symbols-outlined text-lg ${
+                      on ? "text-emerald-400" : "text-zinc-600"
+                    }`}
+                  >
+                    {on ? "check_circle" : "radio_button_unchecked"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+      </div>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-zinc-400">
+          Service-Rufe
+        </h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Welche Service-Rufe der KDS anzeigt (z. B. „Kohle bestellen“).
+        </p>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {KDS_SERVICE_TYPES.map((t) => {
+            const on = serviceTypes.has(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => toggleService(t.id)}
+                className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
+                  on
+                    ? "border-amber-500/60 bg-amber-500/10"
+                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
+                }`}
+              >
+                <span
+                  className={`material-symbols-outlined text-xl ${
+                    on ? "text-amber-300" : "text-zinc-500"
+                  }`}
+                >
+                  {t.icon}
+                </span>
+                <span className="flex-1 text-sm font-semibold">{t.label}</span>
+                <span
+                  className={`material-symbols-outlined text-lg ${
+                    on ? "text-amber-400" : "text-zinc-600"
+                  }`}
+                >
+                  {on ? "check_circle" : "radio_button_unchecked"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => void save()}
+          disabled={saving}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {saving ? "Speichern…" : "Speichern"}
+        </button>
+        <span className="text-xs text-zinc-500">
+          {selected.size === 0
+            ? "Keine Hauptgruppe → KDS zeigt keine Bestellungen"
+            : `${selected.size} Hauptgruppe(n) sichtbar`}
+          {" · "}
+          {serviceTypes.size === 0
+            ? "keine Service-Rufe"
+            : `${serviceTypes.size} Service-Ruf-Typ(en)`}
+        </span>
+      </div>
+    </div>
   );
 }
 

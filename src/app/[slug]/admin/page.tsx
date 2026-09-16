@@ -163,6 +163,25 @@ export default async function TenantAdminPage({ params }: Props) {
     settings,
     superGroups,
     chatEnabled: tenant.chat_enabled === true,
+    kdsEnabled: tenant.kds_enabled === true,
+    kdsSuperGroupIds: (() => {
+      try {
+        const parsed = JSON.parse(tenant.kds_super_group_ids || "[]");
+        return Array.isArray(parsed)
+          ? parsed.map((v) => Number(v)).filter((n) => Number.isFinite(n))
+          : [];
+      } catch {
+        return [];
+      }
+    })(),
+    kdsServiceTypes: (() => {
+      try {
+        const parsed = JSON.parse(tenant.kds_service_types || '["kohle"]');
+        return Array.isArray(parsed) ? parsed.map((v) => String(v)) : [];
+      } catch {
+        return [];
+      }
+    })(),
   };
 
   return <AdminClient initial={initial} />;

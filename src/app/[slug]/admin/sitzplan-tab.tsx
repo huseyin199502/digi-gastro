@@ -12,6 +12,7 @@ import type {
 import { formatEur } from "./admin-types";
 import type { AdminProduct } from "./admin-types";
 import { beginTransferAction, endTransferAction } from "@/lib/transferAction";
+import { zoneTextClass } from "@/lib/zoneColor";
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -892,7 +893,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
             className={`rounded-xl px-4 py-2 text-xs font-bold ${
               zoneFilter === z
                 ? "bg-emerald-600 text-white"
-                : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                : `border border-zinc-700 hover:bg-zinc-800 ${zoneTextClass(z)}`
             }`}
           >
             {z} ({zoneCounts[z.toLowerCase()] ?? 0})
@@ -967,8 +968,10 @@ export default function SitzplanTab(props: SitzplanTabProps) {
         <div key={zone || "__ohne__"} className="mb-6">
           {zone ? (
             <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
-              <span className="material-symbols-outlined text-sm">location_on</span>
-              {zone}
+              <span className={`material-symbols-outlined text-sm ${zoneTextClass(zone)}`}>
+                location_on
+              </span>
+              <span className={zoneTextClass(zone)}>{zone}</span>
               <span className="text-zinc-600">
                 ({zoneTables.filter((t) => (statusByLabel.get(tableLabel(t))?.status ?? "free") !== "free").length} aktiv)
               </span>
@@ -1003,7 +1006,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
               <span className="flex items-center gap-1.5 text-base sm:text-lg">
                 <span className="leading-none">{t.number}</span>
                 {t.zone ? (
-                  <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide opacity-80">
+                  <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wide ${zoneTextClass(t.zone)}`}>
                     {t.zone}
                   </span>
                 ) : null}
@@ -1078,7 +1081,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                 <h2 className="text-lg font-bold">
                   Tisch {selectedInfo.table?.number ?? selectedTable}
                   {selectedInfo.table?.zone ? (
-                    <span className="ml-2 text-sm font-semibold text-zinc-400">
+                    <span className={`ml-2 text-sm font-bold ${zoneTextClass(selectedInfo.table.zone)}`}>
                       {selectedInfo.table.zone}
                     </span>
                   ) : null}
@@ -1641,7 +1644,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                               >
                                 {t.number}
                                 {t.zone ? (
-                                  <span className="block text-[11px] sm:text-xs font-medium text-zinc-400">
+                                  <span className={`block text-[11px] sm:text-xs font-bold ${zoneTextClass(t.zone)}`}>
                                     {t.zone}
                                   </span>
                                 ) : null}
