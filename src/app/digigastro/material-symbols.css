@@ -1,0 +1,43 @@
+/* ────────────────────────────────────────────────────────────────
+   Material Symbols Outlined — self-hosted Subset
+   ────────────────────────────────────────────────────────────────
+   Vorher per <link> direkt von Google Fonts (voller Zeichensatz,
+   ~4 MB) geladen. Im Energiespar-/Datensparmodus (oder durch
+   Tracking-Schutz) wurde das Google-Stylesheet geblockt → die
+   CSS-Regeln für .material-symbols-outlined fehlten und die
+   Ligatur-Namen wurden als Klartext gerendert (z. B. "shopping_cart"
+   statt Icon).
+
+   Jetzt lokal (same-origin, ~195 KB Subset). Der Service Worker
+   liefert .woff2 cache-first aus → funktioniert auch offline.
+
+   Neu generieren: bei Google Fonts das gewünschte Icon-Set als
+   `&icon_names=` anhängen, die woff2-URL aus dem CSS laden und hier
+   ersetzen:
+   https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=…
+   ──────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}

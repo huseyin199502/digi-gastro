@@ -1,6 +1,7 @@
-/* Material Symbols werden per <link> im Root-Layout geladen
-   (Tailwind v4 entfernt Remote-@imports beim CSS-Bundling). */
+/* Material Symbols (Icon-Font) werden self-hosted über
+   ./digigastro/material-symbols.css eingebunden. */
 @import "tailwindcss";
+@import "./digigastro/material-symbols.css";
 @import "./digigastro/design-system.css";
 @import "./digigastro/app.css";
 

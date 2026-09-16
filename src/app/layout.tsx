@@ -120,18 +120,12 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${outfit.variable} ${inter.variable} h-full antialiased dark`}
     >
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        {/* Material Symbols Icon-Font (Admin- & Menü-UI).
-            Muss als <link> geladen werden — Tailwind v4 entfernt
-            Remote-@imports beim CSS-Bundling. */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
-        />
-      </head>
+      {/* Material Symbols Icon-Font (Admin- & Menü-UI) ist self-hosted:
+          siehe src/app/digigastro/material-symbols.css + public/fonts/.
+          Bewusst KEIN Google-Fonts-<link> mehr — im Energiespar-/Datensparmodus
+          wurde das externe Stylesheet geblockt und die Ligatur-Namen als
+          Klartext gerendert ("shopping_cart" statt Icon). */}
+      <head />
       <body className="min-h-full flex flex-col overflow-x-clip bg-zinc-950 text-zinc-100 font-sans">
         {children}
         <script
