@@ -921,6 +921,7 @@ export default function AdminClient({ initial }: { initial: AdminInitial }) {
             superGroups={initial.superGroups ?? []}
             slug={initial.slug}
             showRevenue={showRevenue}
+            refreshLive={refreshLive}
           />
         ) : tab === "chat" ? (
           <ChatTab slug={initial.slug} pushToast={pushToast} />
@@ -1032,6 +1033,7 @@ interface LiveTabProps {
   superGroups: { id: number; name: string; color: string; icon: string }[];
   slug: string;
   showRevenue?: boolean;
+  refreshLive: () => Promise<void>;
 }
 
 function LiveTab(props: LiveTabProps) {
@@ -1041,6 +1043,7 @@ function LiveTab(props: LiveTabProps) {
     activeTableOrders, serveItemsBulk, cancelItem, cancelOrder,
     payOrder, splitPay, transferOrder, serviceErledigt, addManualOrder,
     pushToast, products, categories, superGroups, slug, showRevenue,
+    refreshLive,
   } = props;
 
   return (
@@ -1069,6 +1072,7 @@ function LiveTab(props: LiveTabProps) {
       superGroups={superGroups}
       slug={slug}
       showRevenue={showRevenue}
+      refreshLive={refreshLive}
     />
   );
 }

@@ -43,6 +43,7 @@ interface SitzplanTabProps {
   superGroups: { id: number; name: string; color: string; icon: string }[];
   slug: string;
   showRevenue?: boolean;
+  refreshLive: () => Promise<void>;
 }
 
 // ─────────────────────────── Helpers ───────────────────────────
@@ -221,6 +222,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     superGroups,
     slug,
     showRevenue = true,
+    refreshLive,
   } = props;
 
   const [splitMode, setSplitMode] = useState(false);
@@ -241,6 +243,13 @@ export default function SitzplanTab(props: SitzplanTabProps) {
   const [orderSearch, setOrderSearch] = useState("");
   // Rabatt-Vouchers für alle Tische (map: Tischlabel -> Rabatt)
   const [voucherMap, setVoucherMap] = useState<Record<string, { type: string; value: number; label: string }>>({});
+
+  // Tisch erstellen
+  const [tableCreateOpen, setTableCreateOpen] = useState(false);
+  const [newTableNumber, setNewTableNumber] = useState("");
+  const [newTableZone, setNewTableZone] = useState("");
+  const [newTableShape, setNewTableShape] = useState("rect");
+  const [tableCreateBusy, setTableCreateBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -748,6 +757,57 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     setTransferSel(new Map());
   };
 
+  // ── Tisch erstellen ──
+  const openTableCreate = () => {
+    setNewTableNumber("");
+    setNewTableZone(zoneFilter !== "gesamt" && zoneFilter !== "aktiv" ? zoneFilter : "");
+    setNewTableShape("rect");
+    setTableCreateOpen(true);
+  };
+
+  const createTable = async () => {
+    const number = newTableNumber.trim();
+    if (!number) {
+      pushToast("Bitte eine Tischnummer eingeben", "error");
+      return;
+    }
+    setTableCreateBusy(true);
+    try {
+      const res = await fetch("/admin/table-erstellen", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Requested-With": "fetch",
+        },
+        body: JSON.stringify({
+          number,
+          zone: newTableZone.trim(),
+          shape: newTableShape,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok) throw new Error(data.error || data.detail || "Fehler");
+      pushToast(
+        `Tisch ${number}${newTableZone.trim() ? ` (${newTableZone.trim()})` : ""} erstellt`
+      );
+      setTableCreateOpen(false);
+      await refreshLive();
+    } catch (e) {
+      pushToast(
+        e instanceof Error && e.message !== "Fehler"
+          ? e.message
+          : "Tisch konnte nicht erstellt werden",
+        "error"
+      );
+    } finally {
+      setTableCreateBusy(false);
+    }
+  };
+
   const targetTables = useMemo(() => {
     if (!selectedTable) return [];
     return (live?.tables ?? []).filter((t) => tableLabel(t) !== selectedTable);
@@ -899,6 +959,13 @@ export default function SitzplanTab(props: SitzplanTabProps) {
             {z} ({zoneCounts[z.toLowerCase()] ?? 0})
           </button>
         ))}
+        <button
+          onClick={openTableCreate}
+          className="ml-auto flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500"
+        >
+          <span className="material-symbols-outlined text-base">add</span>
+          Tisch erstellen
+        </button>
       </div>
 
       {/* Super-Group Legend */}
@@ -1953,6 +2020,88 @@ export default function SitzplanTab(props: SitzplanTabProps) {
             </div>
           </div>
         </>
+      ) : null}
+
+      {/* Tisch erstellen Modal */}
+      {tableCreateOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold">
+              <span className="material-symbols-outlined text-emerald-400">
+                table_restaurant
+              </span>
+              Tisch erstellen
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">
+                  Tischnummer *
+                </label>
+                <input
+                  value={newTableNumber}
+                  onChange={(e) => setNewTableNumber(e.target.value)}
+                  placeholder="z. B. 1"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">
+                  Zone (z. B. Innen / Draußen)
+                </label>
+                <input
+                  value={newTableZone}
+                  onChange={(e) => setNewTableZone(e.target.value)}
+                  list="sitzplan-zone-options"
+                  placeholder="Innen"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                />
+                <datalist id="sitzplan-zone-options">
+                  {zones.map((z) => (
+                    <option key={z} value={z} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Form</label>
+                <div className="flex gap-2">
+                  {[
+                    { id: "rect", label: "Rechteck" },
+                    { id: "round", label: "Rund" },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setNewTableShape(s.id)}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold ${
+                        newTableShape === s.id
+                          ? "bg-emerald-600 text-white"
+                          : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => void createTable()}
+                disabled={tableCreateBusy || !newTableNumber.trim()}
+                className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {tableCreateBusy ? "Erstellen…" : "Erstellen"}
+              </button>
+              <button
+                onClick={() => setTableCreateOpen(false)}
+                className="flex-1 rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-bold text-zinc-300 hover:bg-zinc-700"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
