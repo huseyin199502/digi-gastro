@@ -200,6 +200,10 @@ services:
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://digi-gastro.de}
     container_name: digi_gastro_web
     restart: unless-stopped
+    # PID1 = tini (reapt Zombies, leitet Signale weiter) + begrenzte
+    # Graceful-Shutdown-Zeit, damit Deploys nicht 30s pro Container hängen.
+    init: true
+    stop_grace_period: 10s
     depends_on:
       db:
         condition: service_healthy
@@ -258,6 +262,8 @@ services:
     image: node:20-alpine
     container_name: digi_gastro_cron
     restart: unless-stopped
+    init: true
+    stop_grace_period: 5s
     depends_on:
       web:
         condition: service_healthy
@@ -269,10 +275,11 @@ services:
     command:
       - |
         echo "digi-gastro Cron gestartet (alle 5 Min -> $$CRON_WEB_URL/api/auto-heal)"
+        trap 'exit 0' TERM INT
         while true; do
           wget -qO- "$${CRON_WEB_URL}/api/auto-heal?token=$${AUTOHEAL_TOKEN}" \
             >/dev/null 2>&1 && echo "[Cron] Auto-Heal ok" || echo "[Cron] Auto-Heal Fehler"
-          sleep 300
+          sleep 300 & wait $$!
         done
     deploy:
       resources:
