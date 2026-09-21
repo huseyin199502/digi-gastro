@@ -23,8 +23,11 @@ export async function GET(request: NextRequest) {
     const slug = session.slug;
 
     const url = new URL(request.url);
+    const searchRaw = (url.searchParams.get("search") ?? "").trim();
     const params = {
-      range: url.searchParams.get("range") ?? "today",
+      // Bei aktiver Suche (Bon-Nr./Tisch) den Zeitraum ignorieren — eine
+      // Bon-Nummer muss immer gefunden werden, egal welcher Tag aktiv ist.
+      range: searchRaw ? "all" : (url.searchParams.get("range") ?? "today"),
       status: url.searchParams.get("status") ?? "all",
       frm: url.searchParams.get("frm") ?? "",
       to: url.searchParams.get("to") ?? "",

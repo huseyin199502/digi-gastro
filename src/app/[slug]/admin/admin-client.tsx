@@ -4405,7 +4405,11 @@ function ReportsTab(props: ReportsTabProps) {
           <h3 className="font-bold">
             Vergangene Bons{" "}
             <span className="text-xs font-normal text-zinc-400">
-              ({historyTotal} gefunden — anklicken für Details)
+              ({historyTotal} gefunden — anklicken für Details
+              {search.trim()
+                ? " · Suche läuft über alle Zeiträume"
+                : ""}
+              )
             </span>
           </h3>
           <input
