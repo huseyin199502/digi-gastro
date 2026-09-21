@@ -16,6 +16,7 @@ export interface ExportOrderItem {
   status: string | null;
   category_type: string;
   note: string | null;
+  extras: string | null;
   combo_id: number | null;
   combo_name: string | null;
   combo_instance_id: string | null;
@@ -64,6 +65,7 @@ export async function loadAllOrdersForExport(slug: string): Promise<ExportOrder[
       status: i.item_status,
       category_type: i.category_type ?? "küche",
       note: i.note,
+      extras: i.extras ?? null,
       combo_id: i.combo_id,
       combo_name: i.combo_name,
       combo_instance_id: i.combo_instance_id,

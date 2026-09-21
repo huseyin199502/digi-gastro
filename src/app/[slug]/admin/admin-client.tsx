@@ -4128,12 +4128,53 @@ interface ReportsTabProps {
   showRevenue?: boolean;
 }
 
+// Vergangener Bon inkl. Positionen (für die klickbare Bon-Historie).
+interface HistoryItem {
+  id: number;
+  product_id: number;
+  name: string;
+  price: number;
+  quantity: number;
+  status: string | null;
+  category_type: string;
+  note: string | null;
+  extras: string | null;
+  combo_name: string | null;
+}
+
+interface HistoryOrder {
+  id: number;
+  daily_bon_number: number | null;
+  bon_date: string | null;
+  table: string;
+  status: string;
+  timestamp: string;
+  waiter: string;
+  tip: number;
+  total: number;
+  total_with_tip?: number | null;
+  items: HistoryItem[];
+}
+
+// "2026-09-21 14:03:11" → "21.09.2026, 14:03"
+function formatBonTimestamp(ts: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(ts ?? "");
+  if (!m) return ts || "—";
+  return `${m[3]}.${m[2]}.${m[1]}, ${m[4]}:${m[5]}`;
+}
+
 function ReportsTab(props: ReportsTabProps) {
   const { live, pushToast, showRevenue = true } = props;
   const [range, setRange] = useState("today");
   const [status, setStatus] = useState("all");
   const [frm, setFrm] = useState("");
   const [to, setTo] = useState("");
+  const [search, setSearch] = useState("");
+  const [history, setHistory] = useState<HistoryOrder[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [detail, setDetail] = useState<HistoryOrder | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const exportUrl = useMemo(() => {
     const q = new URLSearchParams();
@@ -4158,6 +4199,82 @@ function ReportsTab(props: ReportsTabProps) {
     q.set("to", to);
     return `/admin/monatsreport/pdf?${q.toString()}`;
   }, [frm, to]);
+
+  // ── Vergangene Bons laden (inkl. Positionen) ──
+  // Läuft bei jedem Filterwechsel; die Suche ist debounced (300 ms).
+  useEffect(() => {
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        setHistoryLoading(true);
+        try {
+          const q = new URLSearchParams();
+          q.set("range", range);
+          q.set("status", status);
+          q.set("limit", "100");
+          if (range === "custom") {
+            if (frm) q.set("frm", frm);
+            if (to) q.set("to", to);
+          }
+          if (search.trim()) q.set("search", search.trim());
+          const res = await fetch(`/admin/orders-history?${q.toString()}`, {
+            headers: { Accept: "application/json" },
+          });
+          if (!res.ok) throw new Error("Laden fehlgeschlagen");
+          const data = (await res.json()) as {
+            orders?: HistoryOrder[];
+            total_count?: number;
+          };
+          if (!cancelled) {
+            setHistory(Array.isArray(data.orders) ? data.orders : []);
+            setHistoryTotal(data.total_count ?? 0);
+          }
+        } catch {
+          if (!cancelled) {
+            setHistory([]);
+            setHistoryTotal(0);
+          }
+        } finally {
+          if (!cancelled) setHistoryLoading(false);
+        }
+      })();
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [range, status, frm, to, search]);
+
+  // ── Einzelnen Bon öffnen ──
+  // Hat die Zeile ihre Positionen schon dabei (Historie), sofort öffnen;
+  // sonst (Letzte Zahlungen/Stornierungen) Detail vom Server laden.
+  const openBonDetail = useCallback(
+    async (order: HistoryOrder | { id: number }) => {
+      const withItems = order as HistoryOrder;
+      if (Array.isArray(withItems.items)) {
+        setDetail(withItems);
+        return;
+      }
+      setDetailLoading(true);
+      try {
+        const res = await fetch(`/admin/orders/${order.id}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { detail?: string };
+          pushToast(data.detail || "Bon konnte nicht geladen werden", "error");
+          return;
+        }
+        const data = (await res.json()) as HistoryOrder;
+        setDetail(data);
+      } catch {
+        pushToast("Verbindungsfehler", "error");
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [pushToast]
+  );
 
   const rangeOptions = [
     { id: "today", label: "Heute" },
@@ -4282,23 +4399,105 @@ function ReportsTab(props: ReportsTabProps) {
         </div>
       </div>
 
-      {/* Recent payments + cancellations */}
+      {/* Vergangene Bons — anklicken für Positions-Details */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold">
+            Vergangene Bons{" "}
+            <span className="text-xs font-normal text-zinc-400">
+              ({historyTotal} gefunden — anklicken für Details)
+            </span>
+          </h3>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Suchen (Bon-Nr., Tisch)…"
+            className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none sm:w-56"
+          />
+        </div>
+        {historyLoading ? (
+          <p className="px-1 py-6 text-sm text-zinc-500">Bons werden geladen…</p>
+        ) : history.length === 0 ? (
+          <p className="px-1 py-6 text-sm text-zinc-500">
+            Keine Bons im gewählten Zeitraum gefunden.
+          </p>
+        ) : (
+          <div className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
+            {history.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => void openBonDetail(o)}
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-left transition hover:border-emerald-600/60 hover:bg-zinc-950"
+                title="Anklicken — bestellte Artikel ansehen"
+              >
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-bold">
+                      Bon #{o.daily_bon_number ?? o.id}
+                    </span>
+                    <span className="text-zinc-400">{o.table}</span>
+                    <span className="text-xs text-zinc-500">
+                      {formatBonTimestamp(o.timestamp)}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        o.status === "bezahlt"
+                          ? "bg-emerald-500/15 text-emerald-300"
+                          : o.status === "storniert"
+                            ? "bg-red-500/15 text-red-300"
+                            : "bg-amber-500/15 text-amber-300"
+                      }`}
+                    >
+                      {o.status}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">
+                      {formatEur(o.total)}
+                    </span>
+                    <span className="material-symbols-outlined text-base text-zinc-500">
+                      chevron_right
+                    </span>
+                  </span>
+                </span>
+                <span className="mt-1 block truncate text-xs text-zinc-500">
+                  {o.items.length === 0
+                    ? "Keine Artikel gespeichert"
+                    : o.items
+                        .map((it) => `${it.quantity}× ${it.name}`)
+                        .join(" · ")}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent payments + cancellations — ebenfalls anklickbar */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <h3 className="mb-3 font-bold">Letzte Zahlungen</h3>
           <div className="overflow-hidden rounded-xl border border-zinc-800">
             {(live?.recent_payments ?? []).map((p) => (
-              <div
+              <button
                 key={p.id}
-                className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2.5 text-sm last:border-0"
+                type="button"
+                onClick={() => void openBonDetail({ id: p.id })}
+                className="flex w-full items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2.5 text-left text-sm transition last:border-0 hover:bg-zinc-900"
+                title="Anklicken — bestellte Artikel ansehen"
               >
                 <span>
                   Bon #{p.id} · {p.table}
                 </span>
-                <span className="font-semibold text-emerald-400">
+                <span className="flex items-center gap-2 font-semibold text-emerald-400">
                   {formatEur(p.total)}
+                  <span className="material-symbols-outlined text-base text-zinc-500">
+                    chevron_right
+                  </span>
                 </span>
-              </div>
+              </button>
             ))}
             {(live?.recent_payments ?? []).length === 0 ? (
               <p className="px-4 py-6 text-sm text-zinc-500">Noch keine Zahlungen.</p>
@@ -4309,15 +4508,23 @@ function ReportsTab(props: ReportsTabProps) {
           <h3 className="mb-3 font-bold">Letzte Stornierungen</h3>
           <div className="overflow-hidden rounded-xl border border-zinc-800">
             {(live?.recent_cancellations ?? []).map((p) => (
-              <div
+              <button
                 key={p.id}
-                className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2.5 text-sm last:border-0"
+                type="button"
+                onClick={() => void openBonDetail({ id: p.id })}
+                className="flex w-full items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2.5 text-left text-sm transition last:border-0 hover:bg-zinc-900"
+                title="Anklicken — bestellte Artikel ansehen"
               >
                 <span>
                   Bon #{p.id} · {p.table}
                 </span>
-                <span className="font-semibold text-red-400">{formatEur(p.total)}</span>
-              </div>
+                <span className="flex items-center gap-2 font-semibold text-red-400">
+                  {formatEur(p.total)}
+                  <span className="material-symbols-outlined text-base text-zinc-500">
+                    chevron_right
+                  </span>
+                </span>
+              </button>
             ))}
             {(live?.recent_cancellations ?? []).length === 0 ? (
               <p className="px-4 py-6 text-sm text-zinc-500">
@@ -4327,6 +4534,126 @@ function ReportsTab(props: ReportsTabProps) {
           </div>
         </div>
       </div>
+
+      {/* Bon-Detail-Popup */}
+      {detailLoading ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+          <div className="rounded-2xl border border-zinc-700 bg-zinc-900 px-6 py-5 text-sm text-zinc-300">
+            Bon wird geladen…
+          </div>
+        </div>
+      ) : null}
+      {detail ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setDetail(null)}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-zinc-700 bg-zinc-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 p-5">
+              <div>
+                <h3 className="text-lg font-bold">
+                  Bon #{detail.daily_bon_number ?? detail.id}
+                </h3>
+                <p className="mt-0.5 text-xs text-zinc-400">
+                  {detail.table} · {formatBonTimestamp(detail.timestamp)}
+                  {detail.waiter ? ` · ${detail.waiter}` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                    detail.status === "bezahlt"
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : detail.status === "storniert"
+                        ? "bg-red-500/15 text-red-300"
+                        : "bg-amber-500/15 text-amber-300"
+                  }`}
+                >
+                  {detail.status}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDetail(null)}
+                  className="rounded-lg bg-zinc-800 px-2.5 py-1 text-sm font-bold text-zinc-200 hover:bg-zinc-700"
+                  aria-label="Schließen"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-5">
+              {detail.items.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  Keine Artikel gespeichert.
+                </p>
+              ) : (
+                detail.items.map((it) => {
+                  const { variant, extras } = parseItemExtras(it.extras);
+                  const noteRest = cleanAutoNote(it.note);
+                  return (
+                    <div
+                      key={it.id}
+                      className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-zinc-950/60 px-3 py-2 text-sm"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="font-semibold">
+                          {it.quantity}× {it.name}
+                        </span>
+                        {it.combo_name ? (
+                          <span className="ml-1.5 inline-block rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">
+                            {it.combo_name}
+                          </span>
+                        ) : null}
+                        {variant ? (
+                          <span className="ml-1.5 inline-block rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold text-indigo-300 ring-1 ring-indigo-500/30">
+                            {variant}
+                          </span>
+                        ) : null}
+                        {extras.map((ex) => (
+                          <span
+                            key={ex}
+                            className="ml-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-500/25"
+                          >
+                            + {ex}
+                          </span>
+                        ))}
+                        {noteRest ? (
+                          <span className="block text-xs text-zinc-500">
+                            Notiz: {noteRest}
+                          </span>
+                        ) : null}
+                        {it.status && it.status !== "pending" ? (
+                          <span className="block text-[11px] text-zinc-600">
+                            Status: {it.status}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="font-semibold">
+                        {formatEur(it.price * it.quantity)}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="space-y-1 border-t border-zinc-800 p-5 text-sm">
+              {detail.tip > 0 ? (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Trinkgeld</span>
+                  <span>{formatEur(detail.tip)}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between text-base font-bold">
+                <span>Gesamt</span>
+                <span>{formatEur(detail.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
