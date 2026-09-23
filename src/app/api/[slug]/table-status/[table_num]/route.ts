@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { getTenantSession } from "@/lib/auth";
 import { ApiError, errorResponse } from "@/lib/adminApi";
 import { getActiveTenant, parseActiveTableNum, round2 } from "@/lib/tabletOps";
+import {
+  isCookieSessionValid,
+  parseGuestCookieValue,
+  resolveTable,
+} from "@/lib/guestSession";
 
 export const dynamic = "force-dynamic";
 
@@ -18,33 +24,36 @@ export async function GET(
     const slug = rawSlug.toLowerCase().trim();
     await getActiveTenant(slug);
 
-    // raw_num VORAB parsen — auch ohne Guest-Cookie verfügbar
-    // (z. B. Admin-"Vorschau"-Modus, wo table_num "Vorschau" sein kann)
     const { num: rawNum } = parseActiveTableNum(String(table_num));
 
-    // Session-Verifikation: Cookie-Tisch muss mit angefragtem Tisch übereinstimmen
-    const sessionVal =
-      (await cookies()).get(`guest_session_${slug}`)?.value ?? null;
-    let isValid = true;
+    // Auth: gültige Gast-Session für diesen Tisch ODER Staff-Session des Tenants.
+    // Ohne Session → 403 (kein anonymer Zugriff auf fremde Bestellungen).
+    const cookieStore = await cookies();
+    const sessionVal = cookieStore.get(`guest_session_${slug}`)?.value ?? null;
+    const staffSession = await getTenantSession(cookieStore);
+    const isStaff = staffSession !== null && staffSession.slug === slug;
+
+    let isValid = false;
     let cToken: string | null = null;
     let cookieZone = "";
-    if (sessionVal) {
-      try {
-        const idx = sessionVal.indexOf(":");
-        if (idx === -1) throw new Error("bad session");
-        const cTable = sessionVal.slice(0, idx);
-        const cTok = sessionVal.slice(idx + 1);
-        const parsed = parseActiveTableNum(cTable);
-        if (parsed.num !== rawNum) {
-          isValid = false;
-        } else {
-          cToken = cTok;
-          cookieZone = parsed.zone;
+
+    if (isStaff) {
+      isValid = true;
+    } else if (sessionVal) {
+      const parsedGuest = parseGuestCookieValue(sessionVal);
+      if (parsedGuest) {
+        const parsedTable = parseActiveTableNum(parsedGuest.table);
+        if (parsedTable.num === rawNum) {
+          const table = await resolveTable(slug, parsedTable.num, parsedTable.zone || null);
+          if (table && (await isCookieSessionValid(slug, table, parsedGuest.token))) {
+            isValid = true;
+            cToken = parsedGuest.token;
+            cookieZone = parsedTable.zone;
+          }
         }
-      } catch {
-        isValid = false;
       }
     }
+
     if (!isValid) {
       throw new ApiError("Kein Zugriff auf diesen Tisch.", 403);
     }

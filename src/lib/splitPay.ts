@@ -40,15 +40,20 @@ export function applySplitPay(
 
     // Bevorzugt exakt nach Item-ID (eindeutig pro Zeile): Zwei identische
     // Positionen (z.B. zwei "1× Döner") werden so getrennt bezahlt. Fallback
-    // auf Composite-Key für Tablet/Legacy-Clients ohne item_id.
-    const orderItem = Number.isFinite(itemId) && itemId !== null
-      ? order.items.find((item) => item.id === itemId)
-      : order.items.find(
-          (item) =>
-            item.product_id === pid &&
-            (item.note ?? "").trim() === splitNote &&
-            (item.combo_instance_id ?? null) === splitComboInst
-        );
+    // auf Composite-Key, wenn die Item-ID nach einem Re-Persist (Items werden
+    // neu angelegt) nicht mehr existiert — sonst schweigend 0€ "bezahlt".
+    const byId =
+      Number.isFinite(itemId) && itemId !== null
+        ? order.items.find((item) => item.id === itemId)
+        : null;
+    const orderItem =
+      byId ??
+      order.items.find(
+        (item) =>
+          item.product_id === pid &&
+          (item.note ?? "").trim() === splitNote &&
+          (item.combo_instance_id ?? null) === splitComboInst
+      );
     if (!orderItem) continue;
 
     const qtyToPay = Math.min(requestedQty, orderItem.quantity);
@@ -68,7 +73,8 @@ export function applySplitPay(
   order.total = round2(
     order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   );
-  order.total_with_tip = round2(order.total);
+  // Trinkgeld erhalten (nicht auf total reduzieren)
+  order.total_with_tip = round2(order.total + (order.tip_amount || 0));
 
   return { splitAmount: round2(totalSplitAmount) };
 }

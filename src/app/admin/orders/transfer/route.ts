@@ -318,7 +318,9 @@ export async function POST(request: NextRequest) {
         } else {
           ensureOriginalTotal(sourceOrder);
           ensureOriginalTotal(targetOrder);
-          const movedAmount = round2(sourceOrder.original_total ?? 0);
+          // Nur den NOCH OFFENEN Warenwert übertragen (original_total kann
+          // bereits bezahlte Positionen enthalten → sonst Doppelzählung)
+          const movedAmount = round2(sourceOrder.total ?? 0);
           targetOrder.original_total = round2(
             (targetOrder.original_total ?? 0) + movedAmount
           );
@@ -336,7 +338,9 @@ export async function POST(request: NextRequest) {
               0
             )
           );
-          targetOrder.total_with_tip = round2(targetOrder.total);
+          targetOrder.total_with_tip = round2(
+            targetOrder.total + (targetOrder.tip_amount || 0)
+          );
 
           // Fix 6c: source NICHT auf 0€ setzen
           sourceOrder.status = "storniert";

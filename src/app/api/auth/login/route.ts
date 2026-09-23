@@ -26,6 +26,29 @@ function cookieOptions(req: NextRequest) {
   return { ...base, secure: process.env.COOKIE_SECURE === "1" && isHttps };
 }
 
+// In-Memory Rate-Limit (best effort, mehrinstanzen-fähig nur eingeschränkt)
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+
+function clientKey(req: NextRequest): string {
+  const fwd = req.headers.get("x-forwarded-for") ?? "";
+  const ip = fwd.split(",")[0]?.trim() || "unknown";
+  return ip;
+}
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || entry.resetAt <= now) {
+    loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    if (loginAttempts.size > 10000) loginAttempts.clear();
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > LOGIN_MAX_ATTEMPTS;
+}
+
 export async function POST(req: NextRequest) {
   let email = "";
   let password = "";
@@ -67,6 +90,10 @@ export async function POST(req: NextRequest) {
 
   if (!email || !password) {
     return errRedirect("Email und Passwort erforderlich.", 400);
+  }
+
+  if (isRateLimited(clientKey(req)) || isRateLimited(`email:${email.toLowerCase()}`)) {
+    return errRedirect("Zu viele Versuche. Bitte später erneut versuchen.", 429);
   }
 
   // Platform super-admin login (legacy: admin@digi-gastro.de + ADMIN_PASSWORD)

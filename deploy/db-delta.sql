@@ -19,3 +19,9 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS extras text DEFAULT '[]';
 
 -- Strukturierte Extras je Bestellposition (JSON) für Kellner/Admin-Anzeige
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS extras varchar;
+
+-- Eindeutige Bon-Nummern pro Tag und Tenant (verhindert Duplikate bei
+-- gleichzeitigen Bestellungen — wird von der App zusätzlich per advisory lock geschützt).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_bon_unique
+  ON orders (tenant_slug, bon_date, daily_bon_number)
+  WHERE bon_date IS NOT NULL AND daily_bon_number IS NOT NULL;

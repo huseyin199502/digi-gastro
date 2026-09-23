@@ -4654,6 +4654,18 @@ function ReportsTab(props: ReportsTabProps) {
                 <span>Gesamt</span>
                 <span>{formatEur(detail.total)}</span>
               </div>
+              <button
+                type="button"
+                onClick={() =>
+                  window.open(`/admin/orders/${detail.id}/pdf`, "_blank")
+                }
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500"
+              >
+                <span className="material-symbols-outlined text-base">
+                  print
+                </span>
+                Bon als PDF drucken / speichern
+              </button>
             </div>
           </div>
         </div>

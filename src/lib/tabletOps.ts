@@ -107,7 +107,9 @@ export async function resolveEmployeeForCancel(
     select: { name: true, role: true, pin: true, pin_code: true },
   });
   const found = staffList.find(
-    (s) => String(s.pin_code || s.pin) === wanted
+    (s) =>
+      (s.pin && safeEqual(wanted, s.pin)) ||
+      (s.pin_code && safeEqual(wanted, s.pin_code))
   );
   if (!found) throw new ApiError(pinInvalidMsg, 403);
   return { name: found.name, role: found.role };

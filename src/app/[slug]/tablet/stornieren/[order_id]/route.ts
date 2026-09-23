@@ -10,6 +10,7 @@ import {
   resolveEmployeeForCancel,
   tabletAuth,
 } from "@/lib/tabletOps";
+import { withLock } from "@/lib/idempotency";
 import { publishEvent } from "@/lib/eventBus";
 import { consumeVoucherIfTableEmpty } from "@/lib/voucherReset";
 
@@ -46,32 +47,47 @@ export async function POST(
       "Ungültige PIN oder keine Berechtigung für Stornierung."
     );
 
-    const order = Number.isFinite(orderId)
-      ? await loadOrder(slug, orderId)
-      : null;
-    if (!order) throw new ApiError("Bestellung nicht gefunden.", 404);
+    await withLock(`order:${slug}:${orderId}`, async () => {
+      const order = Number.isFinite(orderId)
+        ? await loadOrder(slug, orderId)
+        : null;
+      if (!order) throw new ApiError("Bestellung nicht gefunden.", 404);
 
-    order.status = "storniert";
+      if (order.status === "storniert") {
+        // idempotent — bereits storniert
+        return;
+      }
 
-    // Fix 6: original_total backfillen (total bleibt unangetastet)
-    ensureOriginalTotal(order);
+      const wasPaid = order.status === "bezahlt";
+      order.status = "storniert";
 
-    await persistOrderOps(slug, {
-      updates: [order],
-      audit: [
-        {
-          name: employee.name,
-          role: employee.role,
-          action: `Stornierung der Bestellung #${orderId}`,
-          details: `Tisch: ${order.table}, Betrag: ${order.total} € storniert.`,
-        },
-      ],
+      // Fix 6: original_total backfillen (total bleibt unangetastet)
+      ensureOriginalTotal(order);
+
+      await persistOrderOps(slug, {
+        updates: [order],
+        // Bezahlte Bestellung stornieren → Umsatzzähler zurücknehmen
+        ...(wasPaid
+          ? {
+              addTagesumsatz: -(order.total ?? 0),
+              incrementBestellungen: -1,
+            }
+          : {}),
+        audit: [
+          {
+            name: employee.name,
+            role: employee.role,
+            action: `Stornierung der Bestellung #${orderId}`,
+            details: `Tisch: ${order.table}, Betrag: ${order.total} € storniert.${wasPaid ? " (zuvor bezahlt — Umsatz storniert)" : ""}`,
+          },
+        ],
+      });
+
+      // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
+      await maybeRotateTableSessionToken(slug, order.table);
+      // Rabatt konsumieren, wenn der ganze Tisch abgerechnet ist
+      await consumeVoucherIfTableEmpty(slug, order.table);
     });
-
-    // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
-    await maybeRotateTableSessionToken(slug, order.table);
-    // Rabatt konsumieren, wenn der ganze Tisch abgerechnet ist
-    await consumeVoucherIfTableEmpty(slug, order.table);
 
     publishEvent(slug, { type: "refresh_tables" });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeEqual } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     );
   }
   const token = request.nextUrl.searchParams.get("token") || "";
-  if (token !== expectedToken) {
+  if (!token || !safeEqual(token, expectedToken)) {
     return NextResponse.json({ detail: "Forbidden" }, { status: 403 });
   }
 

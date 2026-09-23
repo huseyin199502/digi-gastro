@@ -10,6 +10,7 @@ import {
   round2,
   tabletAuth,
 } from "@/lib/tabletOps";
+import { withLock } from "@/lib/idempotency";
 import { sendBonToPrinter, sendOrderToPos } from "@/lib/posWebhook";
 import { publishEvent } from "@/lib/eventBus";
 import { consumeVoucherIfTableEmpty } from "@/lib/voucherReset";
@@ -30,70 +31,69 @@ export async function POST(
     await getActiveTenant(slug);
     const auth = await tabletAuth(slug, ["chef", "kellner"]);
 
-    const order = Number.isFinite(orderId)
-      ? await loadOrder(slug, orderId)
-      : null;
-    if (!order) throw new ApiError("Bestellung nicht gefunden.", 404);
-
-    // Audit Fix 1.1: bezahl darf storniert-Status nicht überschreiben
-    if (order.status === "storniert") {
-      return NextResponse.json({
-        success: true,
-        already_done: true,
-        detail: "Bestellung ist bereits storniert — nicht bezahlbar.",
-      });
-    }
-
     const fields = await readBodyFields(request);
     const waiterId = fields.waiter_id ?? null;
 
-    if (order.status !== "bezahlt") {
-      order.status = "bezahlt";
-      // Audit Fix 3.x: tip_amount NICHT löschen, falls zuvor gesetzt
-      if (order.tip_amount === null || order.tip_amount === undefined) {
-        order.tip_amount = 0;
+    // Lost-Update-Schutz: parallele Doppel-Taps serialisieren
+    await withLock(`order:${slug}:${orderId}`, async () => {
+      const order = Number.isFinite(orderId)
+        ? await loadOrder(slug, orderId)
+        : null;
+      if (!order) throw new ApiError("Bestellung nicht gefunden.", 404);
+
+      // Audit Fix 1.1: bezahl darf storniert-Status nicht überschreiben
+      if (order.status === "storniert") {
+        return;
       }
-      order.total_with_tip = round2(
-        (order.total ?? 0) + (order.tip_amount ?? 0)
-      );
-      order.waiter_id = waiterId;
 
-      // Fix 6: original_total sicherstellen (für Admin-Report)
-      ensureOriginalTotal(order);
+      if (order.status !== "bezahlt") {
+        order.status = "bezahlt";
+        // Audit Fix 3.x: tip_amount NICHT löschen, falls zuvor gesetzt
+        if (order.tip_amount === null || order.tip_amount === undefined) {
+          order.tip_amount = 0;
+        }
+        order.total_with_tip = round2(
+          (order.total ?? 0) + (order.tip_amount ?? 0)
+        );
+        order.waiter_id = waiterId;
 
-      // Ermittle Mitarbeiter-Namen für Audit-Log
-      const empName = auth.session?.name || "POS-Tablet";
-      const empRole = auth.session?.role || "pos";
+        // Fix 6: original_total sicherstellen (für Admin-Report)
+        ensureOriginalTotal(order);
 
-      await persistOrderOps(slug, {
-        updates: [order],
-        addTagesumsatz: order.total ?? 0,
-        incrementBestellungen: 1,
-        audit: [
-          {
-            name: empName,
-            role: empRole,
-            action: `Bezahlung Bestellung #${orderId}`,
-            details: `Tisch: ${order.table ?? "?"}, Betrag: ${(order.total ?? 0).toFixed(2)} €, Trinkgeld: ${(order.tip_amount ?? 0).toFixed(2)} €`,
-          },
-        ],
-      });
+        // Ermittle Mitarbeiter-Namen für Audit-Log
+        const empName = auth.session?.name || "POS-Tablet";
+        const empRole = auth.session?.role || "pos";
 
-      // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
-      await maybeRotateTableSessionToken(slug, order.table);
-      // Rabatt konsumieren, wenn der ganze Tisch abgerechnet ist
-      await consumeVoucherIfTableEmpty(slug, order.table);
-    } else {
-      await persistOrderOps(slug, { updates: [order] });
-    }
+        await persistOrderOps(slug, {
+          updates: [order],
+          addTagesumsatz: order.total ?? 0,
+          incrementBestellungen: 1,
+          audit: [
+            {
+              name: empName,
+              role: empRole,
+              action: `Bezahlung Bestellung #${orderId}`,
+              details: `Tisch: ${order.table ?? "?"}, Betrag: ${(order.total ?? 0).toFixed(2)} €, Trinkgeld: ${(order.tip_amount ?? 0).toFixed(2)} €`,
+            },
+          ],
+        });
 
-    // POS Webhook + Bon-Druck (fire-and-forget wie im Legacy)
-    try {
-      await sendOrderToPos(slug, order);
-      await sendBonToPrinter(slug, order, "receipt");
-    } catch (e) {
-      console.log(`[POS/Bon] Fehler im Hintergrund: ${e}`);
-    }
+        // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
+        await maybeRotateTableSessionToken(slug, order.table);
+        // Rabatt konsumieren, wenn der ganze Tisch abgerechnet ist
+        await consumeVoucherIfTableEmpty(slug, order.table);
+      } else {
+        await persistOrderOps(slug, { updates: [order] });
+      }
+
+      // POS Webhook + Bon-Druck (fire-and-forget wie im Legacy)
+      try {
+        await sendOrderToPos(slug, order);
+        await sendBonToPrinter(slug, order, "receipt");
+      } catch (e) {
+        console.log(`[POS/Bon] Fehler im Hintergrund: ${e}`);
+      }
+    });
 
     publishEvent(slug, { type: "refresh_tables" });
 

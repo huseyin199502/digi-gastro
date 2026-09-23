@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { subscribeEvents, LiveEvent } from "@/lib/eventBus";
+import { getTenantSession, safeEqual } from "@/lib/auth";
+import {
+  isCookieSessionValid,
+  parseGuestCookieValue,
+  resolveTable,
+} from "@/lib/guestSession";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +22,7 @@ function sseEncode(event: LiveEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
-// ─── Auth: Port von _validate_ws_cookies (main.py ~554) ───
+// ─── Auth: Port von _validate_ws_cookies (main.py ~554) — echte Validierung ───
 async function validateStreamAuth(
   slug: string,
   request: NextRequest
@@ -24,40 +30,63 @@ async function validateStreamAuth(
   const slugLower = slug.toLowerCase().trim();
   const cookie = (name: string) => request.cookies.get(name)?.value ?? null;
 
-  // 1. Unified admin session cookie (format: slug:name:role:pin)
-  const session = cookie("session");
-  if (session) {
-    const parts = session.split(":");
-    if (parts.length === 4 && parts[0] === slugLower) return true;
+  // 1. Unified admin/staff session — gegen DB validiert (nie nur Format)
+  const sessionRaw = cookie("session");
+  if (sessionRaw) {
+    try {
+      const store = await (await import("next/headers")).cookies();
+      const session = await getTenantSession(store);
+      if (session && session.slug === slugLower) return true;
+    } catch {
+      // fall through
+    }
   }
 
   // 2. Legacy device-specific session cookie (slug:name:pin → 3 parts)
   const sessionLegacy = cookie(`session_${slugLower}`);
   if (sessionLegacy) {
     const parts = sessionLegacy.split(":");
-    if (parts.length === 3) return true;
+    if (parts.length === 3 && parts[0] === slugLower) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { slug: slugLower },
+        select: {
+          password: true,
+          staff: { select: { name: true, pin: true, pin_code: true } },
+        },
+      });
+      if (tenant) {
+        const name = parts[1];
+        const pin = parts.slice(2).join(":");
+        if (name === "Owner" && tenant.password && safeEqual(pin, tenant.password)) {
+          return true;
+        }
+        const staff = tenant.staff.find(
+          (s) => s.name === name && (safeEqual(pin, s.pin) || safeEqual(pin, s.pin_code))
+        );
+        if (staff) return true;
+      }
+    }
   }
 
-  // 3. POS device cookie
-  if (cookie(`pos_token_${slugLower}`)) return true;
-
-  // 4. KDS device cookie
-  const kds = cookie("kds_session");
-  if (kds) {
-    const parts = kds.split(":");
-    if (parts.length >= 2 && parts[0] === slugLower) return true;
+  // 3. POS device cookie — Token-Wert muss dem tenant.pos_token entsprechen
+  const posCookie = cookie(`pos_token_${slugLower}`);
+  if (posCookie) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: slugLower },
+      select: { pos_token: true },
+    });
+    if (tenant?.pos_token && safeEqual(posCookie, tenant.pos_token)) return true;
   }
 
-  // 5. Guest session cookie (table:token) — Tenant muss existieren
+  // 4. Guest session cookie (table:token) — active_session_token prüfen
   const guest = cookie(`guest_session_${slugLower}`);
   if (guest) {
-    const parts = guest.split(":");
-    if (parts.length === 2 && parts[0] && parts[1]) {
-      const tenant = await prisma.tenant.findFirst({
-        where: { slug: slugLower },
-        select: { slug: true },
-      });
-      if (tenant) return true;
+    const parsed = parseGuestCookieValue(guest);
+    if (parsed) {
+      const table = await resolveTable(slugLower, parsed.table);
+      if (table && (await isCookieSessionValid(slugLower, table, parsed.token))) {
+        return true;
+      }
     }
   }
 

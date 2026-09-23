@@ -1,3 +1,4 @@
+import { randomInt, randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { jsonError, platformRedirect, wantsJson } from "./adminApi";
 
@@ -35,9 +36,14 @@ export function platformError(
   );
 }
 
-/** Legacy password generator: "Gastro-{1000..9999}!" */
+/**
+ * Legacy password generator format "Gastro-{NNNN}…!" — now CSPRNG with
+ * additional entropy (numeric block + 8-char base64url suffix).
+ */
 export function generateTenantPassword(): string {
-  return `Gastro-${Math.floor(1000 + Math.random() * 9000)}!`;
+  const num = randomInt(1000, 10000);
+  const suffix = randomBytes(8).toString("base64url");
+  return `Gastro-${num}-${suffix}!`;
 }
 
 /** "+10.00"/"-5.00" — Python f"{value:+.2f}" equivalent */

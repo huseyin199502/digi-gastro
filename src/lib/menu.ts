@@ -23,6 +23,29 @@ export function isEventActiveNow(
   return n >= s || n <= e;
 }
 
+/**
+ * Produkt-level Happy Hour: Preis gesetzt UND (optional) Zeitfenster/Wochentage
+ * aktiv. Wird in Menü-Anzeige und Server-Preisberechnung identisch genutzt.
+ */
+export function isProductHappyHourActive(
+  p: {
+    happy_hour_price: number | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    happy_hour_days?: string | null;
+  },
+  nowTime: string,
+  possibleDays: string[]
+): boolean {
+  if (p.happy_hour_price === null || p.happy_hour_price === undefined) return false;
+  if (p.start_time && p.end_time) {
+    if (!isEventActiveNow(p.start_time, p.end_time, nowTime)) return false;
+  }
+  const days = safeJsonArray(p.happy_hour_days);
+  if (days.length > 0 && !days.some((d) => possibleDays.includes(d))) return false;
+  return true;
+}
+
 /** MwSt rate: bar = 19%, everything else (küche) = 7% */
 export function mwstRateFor(categoryType: string | null): number {
   return (categoryType ?? "küche").toLowerCase() === "bar" ? 0.19 : 0.07;
@@ -137,6 +160,8 @@ export interface MenuProduct {
   display_price: number; // guest-visible price after price_mode
   happy_hour_active: boolean;
   happy_hour_display_price: number | null;
+  /** Netto-Preis, nur wenn produkt-level Happy Hour aktiv ist (sonst null). */
+  happy_hour_price: number | null;
   position: number;
   extras: { name: string; price: number }[];
   variants: { name: string; price: number }[];
@@ -300,10 +325,13 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
     }
 
     if ((ev.mode ?? "selected") === "discount" && (ev.discount ?? 0) > 0) {
-      activeDiscountEvent = {
-        discount: ev.discount ?? 0,
-        displayName: ev.display_name,
-      };
+      // Höchsten aktiven Rabatt behalten — identisch zur Bestell-Preislogik
+      if (!activeDiscountEvent || (ev.discount ?? 0) > activeDiscountEvent.discount) {
+        activeDiscountEvent = {
+          discount: ev.discount ?? 0,
+          displayName: ev.display_name,
+        };
+      }
     }
     for (const ep of ev.products) {
       if (ep.event_price !== null) {
@@ -322,6 +350,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
 
     let hhActive = false;
     let hhPrice: number | null = null;
+    let hhPriceNet: number | null = null;
 
     const eventPriceNet = activeEventProducts.get(p.id);
     if (eventPriceNet !== undefined) {
@@ -332,9 +361,11 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
       hhPrice =
         Math.round(base * (1 - activeDiscountEvent.discount / 100) * 100) /
         100;
-    } else if (p.happy_hour_price !== null) {
-      // Legacy fallback: product-level happy hour price when no event active
+    } else if (p.happy_hour_price !== null && isProductHappyHourActive(p, nowTime, possibleDays)) {
+      // Produkt-level Happy Hour: aktives Flag + angezeigter Preis
+      hhActive = true;
       hhPrice = displayPrice(p.happy_hour_price, p.category_type, priceMode);
+      hhPriceNet = p.happy_hour_price;
     }
 
     products.push({
@@ -355,6 +386,7 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
       display_price: base,
       happy_hour_active: hhActive,
       happy_hour_display_price: hhPrice,
+      happy_hour_price: hhPriceNet,
       position: p.position ?? 0,
       extras: safeJsonExtras(p.extras),
       variants: safeJsonExtras(p.variants),

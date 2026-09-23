@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { errorResponse } from "@/lib/adminApi";
+import { getTenantSession } from "@/lib/auth";
+import { ApiError, errorResponse } from "@/lib/adminApi";
 import { getActiveTenant, parseActiveTableNum } from "@/lib/tabletOps";
+import {
+  isCookieSessionValid,
+  parseGuestCookieValue,
+  resolveTable,
+} from "@/lib/guestSession";
 
 export const dynamic = "force-dynamic";
 
 // Legacy GET /api/{slug}/table-unpaid-sum/{table_num} (main.py ~9947)
-// Kein Auth-Gate — nur Gast-Session-Cookie für Zonen-Auflösung.
+// Auth: gültige Gast-Session für den Tisch ODER Staff-Session des Tenants.
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string; table_num: string }> }
@@ -20,25 +26,33 @@ export async function GET(
     let unpaidSum = 0.0;
     const { num: tNum } = parseActiveTableNum(String(table_num));
 
-    // Guest-Session-Cookie parsen (Zone + Token)
+    const cookieStore = await cookies();
+    const sessionVal = cookieStore.get(`guest_session_${slug}`)?.value ?? null;
+    const staffSession = await getTenantSession(cookieStore);
+    const isStaff = staffSession !== null && staffSession.slug === slug;
+
+    let allowed = false;
     let cookieZone = "";
     let cToken: string | null = null;
-    const sessionVal =
-      (await cookies()).get(`guest_session_${slug}`)?.value ?? null;
-    if (sessionVal) {
-      try {
-        const idx = sessionVal.indexOf(":");
-        if (idx === -1) throw new Error("bad session");
-        const cTable = sessionVal.slice(0, idx);
-        const cTok = sessionVal.slice(idx + 1);
-        const parsed = parseActiveTableNum(cTable);
-        if (parsed.num === tNum) {
-          cToken = cTok;
-          cookieZone = parsed.zone;
+
+    if (isStaff) {
+      allowed = true;
+    } else if (sessionVal) {
+      const parsedGuest = parseGuestCookieValue(sessionVal);
+      if (parsedGuest) {
+        const parsedTable = parseActiveTableNum(parsedGuest.table);
+        if (parsedTable.num === tNum) {
+          const table = await resolveTable(slug, parsedTable.num, parsedTable.zone || null);
+          if (table && (await isCookieSessionValid(slug, table, parsedGuest.token))) {
+            allowed = true;
+            cToken = parsedGuest.token;
+            cookieZone = parsedTable.zone;
+          }
         }
-      } catch {
-        // ignore
       }
+    }
+    if (!allowed) {
+      throw new ApiError("Kein Zugriff auf diesen Tisch.", 403);
     }
 
     const tablesList = await prisma.table.findMany({

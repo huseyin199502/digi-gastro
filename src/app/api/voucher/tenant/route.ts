@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/voucher/tenant?slug=
 // Liefert alle verwendeten (aktiven) Rabatt-Vouchers eines Tenants,
 // aufgeschlüsselt nach Tisch: { table: { type, value, label } }
+// Auth: Staff-Session des zugehörigen Tenants.
 export async function GET(request: NextRequest) {
   try {
+    const session = await getTenantSession();
+    if (!session || (session.role !== "chef" && session.role !== "kellner")) {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
     const slug = (request.nextUrl.searchParams.get("slug") || "").toLowerCase().trim();
     if (!slug) return NextResponse.json({ ok: false }, { status: 400 });
+    if (slug !== session.slug) {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
 
     const vouchers = await prisma.voucher.findMany({
       where: { tenant_slug: slug, status: "used" },

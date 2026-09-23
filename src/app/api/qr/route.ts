@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getTenantSession } from "@/lib/auth";
+import { getTenantSession, safeEqual } from "@/lib/auth";
 import { jsonError } from "@/lib/adminApi";
 import { embedLogo, makeQrPng, resolveLogoFsPath } from "@/lib/qr";
 import fs from "fs";
@@ -11,20 +11,6 @@ export const dynamic = "force-dynamic";
 // Serverseitige QR-Code-Erzeugung mit optionalem Logo-Overlay.
 // Tokens bleiben privat (keine externen APIs).
 export async function GET(request: NextRequest) {
-  // Auth: Admin-Session ODER pos_session ODER irgendein pos_token_*-Cookie
-  const session = await getTenantSession();
-  if (!session) {
-    const posSession = request.cookies.get("pos_session");
-    if (!posSession) {
-      const hasPosToken = request.cookies
-        .getAll()
-        .some((c) => c.name.startsWith("pos_token_"));
-      if (!hasPosToken) {
-        return jsonError(403, "Nicht autorisiert.");
-      }
-    }
-  }
-
   const { searchParams } = new URL(request.url);
   const data = searchParams.get("d") ?? "";
   if (!data) {
@@ -43,6 +29,27 @@ export async function GET(request: NextRequest) {
     } catch {
       // kein gültiger URL — ignoriert wie im Legacy
     }
+  }
+  slug = slug.toLowerCase().trim();
+
+  // Auth: Staff-Session des Tenants ODER gültiges pos_token_{slug}
+  // (Wert muss dem tenant.pos_token entsprechen — nicht nur Cookie-Name).
+  const session = await getTenantSession();
+  let authorized = Boolean(session && (!slug || session.slug === slug));
+  if (!authorized && slug) {
+    const posCookie = request.cookies.get(`pos_token_${slug}`)?.value;
+    if (posCookie) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { slug },
+        select: { pos_token: true },
+      });
+      if (tenant?.pos_token && safeEqual(posCookie, tenant.pos_token)) {
+        authorized = true;
+      }
+    }
+  }
+  if (!authorized) {
+    return jsonError(403, "Nicht autorisiert.");
   }
 
   // QR-Code erzeugen (ERROR_CORRECT_H, box_size=10, border=2)

@@ -109,11 +109,13 @@ export async function POST(
         }
       }
 
-      // Audit Issue 3.7: original_total auf Ziel übertragen
+      // Audit Issue 3.7: nur den NOCH OFFENEN Warenwert übertragen
+      // (original_total enthält ggf. bereits bezahlte Positionen → sonst Doppelzählung)
       ensureOriginalTotal(targetOrder);
       ensureOriginalTotal(order);
+      const movedOpenValue = round2(order.total ?? 0);
       targetOrder.original_total = round2(
-        (targetOrder.original_total ?? 0) + (order.original_total ?? 0)
+        (targetOrder.original_total ?? 0) + movedOpenValue
       );
 
       // Audit Issue 3.10: tip_amount zusammenführen
@@ -129,7 +131,7 @@ export async function POST(
       recalculateOrderTotals(targetOrder);
       updateOrderStatusByItems(targetOrder);
 
-      movedOriginalTotal = order.original_total ?? 0;
+      movedOriginalTotal = movedOpenValue;
 
       ops.updates = [targetOrder];
       ops.deletes = [order.id];

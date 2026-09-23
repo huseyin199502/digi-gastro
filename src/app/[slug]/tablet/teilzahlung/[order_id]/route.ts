@@ -10,6 +10,7 @@ import {
 import { applySplitPay } from "@/lib/splitPay";
 import { publishEvent } from "@/lib/eventBus";
 import { prisma } from "@/lib/prisma";
+import { withLock } from "@/lib/idempotency";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +28,6 @@ export async function POST(
     await getActiveTenant(slug);
     await tabletAuth(slug, ["chef", "kellner"]);
 
-    const order = Number.isFinite(orderId)
-      ? await loadOrder(slug, orderId)
-      : null;
-    if (!order) throw new ApiError("Bestellung nicht gefunden.", 404);
-    if (order.status === "bezahlt" || order.status === "storniert") {
-      throw new ApiError("Bestellung ist bereits abgeschlossen.", 400);
-    }
-
     let payload: Record<string, unknown>;
     try {
       payload = await request.json();
@@ -42,45 +35,61 @@ export async function POST(
       throw new ApiError("Ungültiges JSON-Format", 400);
     }
 
-    const result = applySplitPay(order, payload.items);
-
-    const completed = order.items.length === 0;
-    if (completed) {
-      order.status = "bezahlt";
-    }
-
-    await persistOrderOps(slug, {
-      updates: [order],
-      addTagesumsatz: result.splitAmount,
-      incrementBestellungen: completed ? 1 : 0,
-    });
-
-    if (completed) {
-      // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
-      await maybeRotateTableSessionToken(slug, order.table);
-      // Rabatt konsumieren, wenn der gesamte Tisch abgerechnet ist
-      const otherOpen = await prisma.order.count({
-        where: {
-          tenant_slug: slug,
-          table: order.table,
-          status: { notIn: ["bezahlt", "storniert"] },
-        },
-      });
-      if (otherOpen === 0) {
-        await prisma.voucher.updateMany({
-          where: { tenant_slug: slug, status: "used", used_table: order.table },
-          data: { status: "consumed" },
-        });
+    const result = await withLock(`order:${slug}:${orderId}`, async () => {
+      const order = Number.isFinite(orderId)
+        ? await loadOrder(slug, orderId)
+        : null;
+      if (!order) throw new ApiError("Bestellung nicht gefunden.", 404);
+      if (order.status === "bezahlt" || order.status === "storniert") {
+        throw new ApiError("Bestellung ist bereits abgeschlossen.", 400);
       }
-    }
+
+      const split = applySplitPay(order, payload.items);
+
+      const completed = order.items.length === 0;
+      if (completed) {
+        order.status = "bezahlt";
+      }
+
+      await persistOrderOps(slug, {
+        updates: [order],
+        addTagesumsatz: split.splitAmount,
+        incrementBestellungen: completed ? 1 : 0,
+      });
+
+      if (completed) {
+        // Option B: Token-Rotation nur wenn keine offenen Bestellungen mehr
+        await maybeRotateTableSessionToken(slug, order.table);
+        // Rabatt konsumieren, wenn der gesamte Tisch abgerechnet ist
+        const otherOpen = await prisma.order.count({
+          where: {
+            tenant_slug: slug,
+            table: order.table,
+            status: { notIn: ["bezahlt", "storniert"] },
+          },
+        });
+        if (otherOpen === 0) {
+          await prisma.voucher.updateMany({
+            where: { tenant_slug: slug, status: "used", used_table: order.table },
+            data: { status: "consumed" },
+          });
+        }
+      }
+
+      return {
+        remaining_items_count: order.items.length,
+        order_status: order.status,
+        split_amount: split.splitAmount,
+      };
+    });
 
     publishEvent(slug, { type: "refresh_tables" });
 
     return NextResponse.json({
       success: true,
-      remaining_items_count: order.items.length,
-      order_status: order.status,
-      split_amount: result.splitAmount,
+      remaining_items_count: result.remaining_items_count,
+      order_status: result.order_status,
+      split_amount: result.split_amount,
     });
   } catch (err) {
     return errorResponse(err);

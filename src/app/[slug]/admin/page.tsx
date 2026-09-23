@@ -36,6 +36,7 @@ export default async function TenantAdminPage({ params }: Props) {
   if (!session || session.slug !== slug) {
     redirect("/login");
   }
+  const isChef = session.role === "chef";
 
   const tenant = await prisma.tenant.findUnique({ where: { slug } });
   if (!tenant) redirect("/login");
@@ -130,10 +131,10 @@ export default async function TenantAdminPage({ params }: Props) {
     address: tenant.address ?? "",
     plz: tenant.plz ?? "",
     ort: tenant.ort ?? "",
-    owner_name: tenant.owner_name ?? "",
-    owner_street: tenant.owner_street ?? "",
-    owner_email: tenant.owner_email ?? "",
-    owner_phone: tenant.owner_phone ?? "",
+    owner_name: isChef ? (tenant.owner_name ?? "") : "",
+    owner_street: isChef ? (tenant.owner_street ?? "") : "",
+    owner_email: isChef ? (tenant.owner_email ?? "") : "",
+    owner_phone: isChef ? (tenant.owner_phone ?? "") : "",
     instagram: tenant.instagram ?? "",
     facebook: tenant.facebook ?? "",
     tiktok: tenant.tiktok ?? "",
@@ -142,10 +143,10 @@ export default async function TenantAdminPage({ params }: Props) {
     logo_url_2: tenant.logo_url_2 ?? "",
     accepts_card_payment: tenant.accepts_card_payment !== false,
     pos_system: tenant.pos_system ?? "none",
-    pos_api_url: tenant.pos_api_url ?? "",
-    pos_api_key: tenant.pos_api_key ?? "",
-    pos_api_secret: tenant.pos_api_secret ?? "",
-    pos_location_id: tenant.pos_location_id ?? "",
+    pos_api_url: isChef ? (tenant.pos_api_url ?? "") : "",
+    pos_api_key: isChef ? (tenant.pos_api_key ?? "") : "",
+    pos_api_secret: isChef ? (tenant.pos_api_secret ?? "") : "",
+    pos_location_id: isChef ? (tenant.pos_location_id ?? "") : "",
     pos_active: tenant.pos_active ?? null,
     show_revenue: tenant.show_revenue ?? null,
     is_shishabar: tenant.is_shishabar === true,

@@ -73,6 +73,58 @@ function comboNameFromNote(note?: string | null): string | null {
   return name || null;
 }
 
+type ComboDef = {
+  id: number;
+  name: string;
+  combo_price: number;
+  items: {
+    product_id: number | null;
+    category_name: string | null;
+    excluded_product_ids: number[];
+  }[];
+};
+
+/**
+ * Prüft, ob jede physikalische Kombi-Einheit auf genau einen Slot der
+ * Server-Kombi-Definition gematcht werden kann (kein Produkt-Substitution-Exploit).
+ */
+function validateComboUnits(
+  combo: ComboDef,
+  unitProductIds: number[],
+  productsMap: Map<number, { id: number; category: string }>
+): void {
+  if (combo.items.length === 0) {
+    throw new OrderRejectedError(`Kombi ungültig: ${combo.name}`, 400);
+  }
+  const remaining = [...unitProductIds];
+  for (const slot of combo.items) {
+    let idx = -1;
+    if (slot.product_id !== null) {
+      idx = remaining.indexOf(slot.product_id);
+    } else if (slot.category_name) {
+      idx = remaining.findIndex((pid) => {
+        const prod = productsMap.get(pid);
+        if (!prod) return false;
+        if (slot.excluded_product_ids.includes(pid)) return false;
+        return prod.category === slot.category_name;
+      });
+    }
+    if (idx === -1) {
+      throw new OrderRejectedError(
+        `Produkt passt nicht in Kombi: ${combo.name}`,
+        400
+      );
+    }
+    remaining.splice(idx, 1);
+  }
+  if (remaining.length > 0) {
+    throw new OrderRejectedError(
+      `Unvollständige oder ungültige Kombi: ${combo.name}`,
+      400
+    );
+  }
+}
+
 export async function createOrder(
   rawSlug: string,
   input: CreateOrderInput
@@ -174,11 +226,20 @@ export async function createOrder(
     }
 
     // ── Validate active combo definitions server-side ──
-    const activeCombos = new Map<number, { id: number; name: string; combo_price: number }>();
-    const activeCombosByName = new Map<string, { id: number; name: string; combo_price: number }>();
+    const activeCombos = new Map<number, { id: number; name: string; combo_price: number; items: { product_id: number | null; category_name: string | null; excluded_product_ids: number[] }[] }>();
+    const activeCombosByName = new Map<string, { id: number; name: string; combo_price: number; items: { product_id: number | null; category_name: string | null; excluded_product_ids: number[] }[] }>();
     for (const event of menu.todayComboEvents) {
       for (const combo of event.combos) {
-        const record = { id: combo.id, name: combo.name, combo_price: combo.combo_price };
+        const record = {
+          id: combo.id,
+          name: combo.name,
+          combo_price: combo.combo_price,
+          items: combo.items.map((ci) => ({
+            product_id: ci.product_id ?? null,
+            category_name: ci.category_name ?? null,
+            excluded_product_ids: ci.excluded_product_ids ?? [],
+          })),
+        };
         activeCombos.set(combo.id, record);
         activeCombosByName.set(combo.name.trim().toLowerCase(), record);
       }
@@ -188,10 +249,11 @@ export async function createOrder(
     // The client only sends the human-readable "Kombi: <name>" note, so the
     // server resolves the actual combo and price from its own active menu.
     const comboGroups = new Map<string, {
-      combo: { id: number; name: string; combo_price: number };
+      combo: (typeof activeCombosByName extends Map<string, infer V> ? V : never);
       totalUnits: number;
       assignedUnits: number;
       instanceId: string;
+      unitProductIds: number[];
     }>();
     for (const item of input.items) {
       const comboName = comboNameFromNote(item.note);
@@ -201,15 +263,18 @@ export async function createOrder(
         throw new OrderRejectedError(`Kombi nicht mehr verfügbar: ${comboName}`, 400);
       }
       const key = combo.name.trim().toLowerCase();
+      const qty = Math.max(0, item.quantity || 0);
       const existing = comboGroups.get(key);
       if (existing) {
-        existing.totalUnits += Math.max(0, item.quantity || 0);
+        existing.totalUnits += qty;
+        for (let i = 0; i < qty; i++) existing.unitProductIds.push(item.product_id);
       } else {
         comboGroups.set(key, {
           combo,
-          totalUnits: Math.max(0, item.quantity || 0),
+          totalUnits: qty,
           assignedUnits: 0,
           instanceId: `combo-${combo.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          unitProductIds: Array.from({ length: qty }, () => item.product_id),
         });
       }
     }
@@ -217,6 +282,20 @@ export async function createOrder(
     // ── Server-side price recomputation ──
     const priceMode = menu.tenant.price_mode;
     const productsMap = new Map(menu.products.map((p) => [p.id, p]));
+
+    // Jede Kombi-Einheit muss auf einen Slot der Server-Definition passen
+    // (verhindert beliebige Produkte zum Kombipreis zu bestellen).
+    for (const group of comboGroups.values()) {
+      validateComboUnits(group.combo, group.unitProductIds, productsMap);
+      const slots = Math.max(1, group.combo.items.length);
+      if (group.totalUnits === 0 || group.totalUnits % slots !== 0) {
+        throw new OrderRejectedError(
+          `Unvollständige Kombi: ${group.combo.name}`,
+          400
+        );
+      }
+    }
+
     let total = 0;
     let mwstRate = 7;
     let physicalUnitIdentity = 0;
@@ -253,6 +332,13 @@ export async function createOrder(
       const eventPrice = activeEventProducts.get(prod.id);
       if (eventPrice !== undefined) {
         netPrice = eventPrice;
+      } else if (
+        prod.happy_hour_price != null &&
+        prod.happy_hour_active
+      ) {
+        // Produkt-level Happy Hour muss auch im Preis ankommen (nicht nur Anzeige);
+        // happy_hour_price (net) ist nur gesetzt, wenn dieser Fall greift.
+        netPrice = prod.happy_hour_price;
       } else if (activeDiscount > 0) {
         netPrice = Math.round(netPrice * (1 - activeDiscount / 100) * 100) / 100;
       }
@@ -284,10 +370,14 @@ export async function createOrder(
           comboInstanceId = comboGroup.instanceId;
           comboGroup.assignedUnits += 1;
           const assigned = comboGroup.assignedUnits;
+          // Preis = Anzahl Sets × Kombipreis, gleichmäßig auf alle Einheiten
+          const slots = Math.max(1, comboGroup.combo.items.length);
+          const numSets = Math.max(1, Math.floor(comboGroup.totalUnits / slots));
+          const totalComboCharge = Math.round(comboGroup.combo.combo_price * numSets * 100) / 100;
           const units = Math.max(1, comboGroup.totalUnits);
-          const baseShare = Math.round((comboGroup.combo.combo_price / units) * 100) / 100;
+          const baseShare = Math.round((totalComboCharge / units) * 100) / 100;
           unitPrice = assigned === units
-            ? Math.round((comboGroup.combo.combo_price - baseShare * (units - 1)) * 100) / 100
+            ? Math.round((totalComboCharge - baseShare * (units - 1)) * 100) / 100
             : baseShare;
         } else {
           // A negative combo_id is used only as an internal line identity for
@@ -321,18 +411,20 @@ export async function createOrder(
     total = Math.round(total * 100) / 100;
     const tip = Math.max(0, input.tip_amount ?? 0);
 
-    // ── Daily Bon number (reset per tenant per day) ──
     const bonDate = berlinDateStr(berlinNow);
-    const lastBon = await prisma.order.findFirst({
-      where: { tenant_slug: slug, bon_date: bonDate },
-      orderBy: { daily_bon_number: "desc" },
-      select: { daily_bon_number: true },
-    });
-    const dailyBonNumber = (lastBon?.daily_bon_number ?? 0) + 1;
-
     const timestamp = berlinTimestamp(berlinNow);
 
     const order = await prisma.$transaction(async (tx) => {
+      // Bon-Nummer seriell pro Tenant+Tag vergeben (advisory lock verhindert
+      // doppelte daily_bon_number bei gleichzeitigen Bestellungen).
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${slug}:${bonDate}`}))`;
+      const lastBonInTx = await tx.order.findFirst({
+        where: { tenant_slug: slug, bon_date: bonDate },
+        orderBy: { daily_bon_number: "desc" },
+        select: { daily_bon_number: true },
+      });
+      const dailyBonNumber = (lastBonInTx?.daily_bon_number ?? 0) + 1;
+
       const created = await tx.order.create({
         data: {
           tenant_slug: slug,
@@ -351,14 +443,8 @@ export async function createOrder(
         },
       });
 
-      await tx.tenant.update({
-        where: { slug },
-        data: {
-          tagesumsatz: { increment: total },
-          bestellungen_gesamt: { increment: 1 },
-        },
-      });
-
+      // Umsatzzähler NUR bei Zahlung (tablet/bezahlen & Co.) inkrementieren —
+      // nicht schon bei Bestellungslegung (sonst doppelter Tagesumsatz).
       await tx.auditLog.create({
         data: {
           tenant_slug: slug,
@@ -369,21 +455,21 @@ export async function createOrder(
         },
       });
 
-      return created;
+      return { created, dailyBonNumber };
     });
 
     if (idemKey) {
-      await rememberOrderId(slug, idemKey, bodyFp, order.id);
+      await rememberOrderId(slug, idemKey, bodyFp, order.created.id);
     }
 
     publishEvent(slug, {
       type: "new_order",
-      order_id: order.id,
+      order_id: order.created.id,
       table_number: tableRaw,
       status: "eingegangen",
     });
 
-    return { order_id: order.id, daily_bon_number: dailyBonNumber };
+    return { order_id: order.created.id, daily_bon_number: order.dailyBonNumber };
   };
 
   if (!idemKey) return createNewOrder();

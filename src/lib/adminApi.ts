@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import fs from "fs";
 import path from "path";
 import { prisma } from "./prisma";
-import { getPlatformSession, getTenantSession, safeEqual, TenantSession } from "./auth";
+import { getPlatformSession, getTenantSession, TenantSession } from "./auth";
 import { berlinTimestamp } from "./time";
 
 // ──────────────────────────────────────────────────────────────────
@@ -100,7 +99,7 @@ export function platformRedirect(request: Request, query = ""): NextResponse {
   return NextResponse.redirect(url, 303);
 }
 
-// ── Auth guards (legacy require_chef_user_flat / session_global) ──
+// ── Auth guards (legacy require_chef_user_flat) ──
 
 /** require_chef_user_flat → 401 without session, 403 for non-chef */
 export async function requireChef(): Promise<TenantSession> {
@@ -122,15 +121,9 @@ export async function requireChefOrKellner(): Promise<TenantSession> {
   return session;
 }
 
-/**
- * Platform super-admin guard. Accepts the new digi_admin_session cookie
- * AND the legacy hardcoded session_global value for backwards compatibility.
- */
+/** Platform super-admin guard — only the validated digi_admin_session cookie. */
 export async function requirePlatformAdmin(): Promise<void> {
   if (await getPlatformSession()) return;
-  const store = await cookies();
-  const legacy = store.get("session_global")?.value;
-  if (legacy && safeEqual(legacy, "admin@digi-gastro.de")) return;
   throw new ApiError("Kein Zugriff", 403);
 }
 

@@ -52,14 +52,20 @@ export async function GET(
     const ext = path.extname(relPath).toLowerCase();
     const stat = fs.statSync(filePath);
     const stream = fs.createReadStream(filePath);
+    const headers: Record<string, string> = {
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "Content-Length": String(stat.size),
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "public, max-age=3600",
+    };
+    // SVG kann Skripte enthalten — nie im App-Origin inline ausführen lassen
+    if (ext === ".svg") {
+      headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+      headers["X-Content-Type-Options"] = "nosniff";
+    }
     return new NextResponse(stream as unknown as BodyInit, {
       status: 200,
-      headers: {
-        "Content-Type": MIME[ext] || "application/octet-stream",
-        "Content-Length": String(stat.size),
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=3600",
-      },
+      headers,
     });
   } catch {
     return new NextResponse("Not Found", { status: 404 });

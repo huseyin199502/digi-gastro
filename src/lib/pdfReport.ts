@@ -330,6 +330,189 @@ export async function buildOrdersExportPdf(data: OrdersPdfData): Promise<Buffer>
 }
 
 // ════════════════════════════════════════════════════════════════
+// Einzel-Bon als PDF (Beleg zum Drucken/Speichern aus dem Admin)
+// ════════════════════════════════════════════════════════════════
+export interface BonPdfItem {
+  name: string;
+  price: number;
+  quantity: number;
+  note: string | null;
+  extras: string | null;
+  comboName: string | null;
+}
+
+export interface BonPdfData {
+  restaurantName: string;
+  addressLine: string;
+  orderId: number;
+  dailyBonNumber: number | null;
+  table: string;
+  timestamp: string; // "YYYY-MM-DD HH:MM:SS"
+  waiter: string;
+  status: string;
+  tip: number;
+  total: number;
+  items: BonPdfItem[];
+  fmtEur: (v: number) => string;
+}
+
+/** "2026-09-20 01:59:20" → "20.09.2026, 01:59" */
+function formatBonTimestampPdf(ts: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(ts ?? "");
+  if (!m) return ts || "—";
+  return `${m[3]}.${m[2]}.${m[1]}, ${m[4]}:${m[5]}`;
+}
+
+/** Extras-JSON ("Variante: X" + echte Extras) in lesbare Klammer-Info auflösen. */
+function bonItemSuffix(item: BonPdfItem): string {
+  const parts: string[] = [];
+  if (item.comboName) parts.push(item.comboName);
+  try {
+    const parsed = item.extras ? JSON.parse(item.extras) : [];
+    if (Array.isArray(parsed)) {
+      for (const e of parsed) {
+        const name = String((e as { name?: unknown })?.name ?? "").trim();
+        if (name) parts.push(name);
+      }
+    }
+  } catch {
+    // ignore — Extras bleiben dann einfach weg
+  }
+  const noteRest = (item.note ?? "")
+    .split(" | ")
+    .filter(
+      (seg) =>
+        seg.trim() !== "" &&
+        !seg.startsWith("Variante:") &&
+        !seg.startsWith("Extras:")
+    )
+    .join(" | ");
+  if (noteRest) parts.push(`Notiz: ${noteRest}`);
+  return parts.length > 0 ? ` (${parts.join(" · ")})` : "";
+}
+
+export async function buildBonPdf(data: BonPdfData): Promise<Buffer> {
+  const bonLabel = `#${data.dailyBonNumber ?? data.orderId}`;
+  const { doc, buffer, fonts } = createDoc({
+    margin: 15 * MM,
+    title: `Bon ${bonLabel} — ${data.restaurantName}`,
+    author: data.restaurantName,
+  });
+  const left = doc.page.margins?.left ?? 15 * MM;
+  const rightEdge = doc.page.width - (doc.page.margins?.right ?? 15 * MM);
+  let y = doc.page.margins?.top ?? 15 * MM;
+
+  // Kopf: Restaurant + Adresse
+  doc.font(fonts.bold).fontSize(18).fillColor("#064e3b");
+  doc.text(data.restaurantName, left, y, { width: rightEdge - left });
+  y = doc.y + 2;
+  if (data.addressLine) {
+    doc.font(fonts.regular).fontSize(9).fillColor("#666666");
+    doc.text(data.addressLine, left, y, { width: rightEdge - left });
+    y = doc.y + 2;
+  }
+  doc.moveTo(left, y).lineTo(rightEdge, y).lineWidth(0.5).stroke("#9ca3af");
+  y += 8;
+
+  // Bon-Titel + Status
+  doc.font(fonts.bold).fontSize(14).fillColor("#111827");
+  doc.text(`Bon ${bonLabel}`, left, y, { lineBreak: false });
+  y += 18;
+  doc.font(fonts.regular).fontSize(9).fillColor("#374151");
+  const statusLabel = data.status
+    ? data.status.charAt(0).toUpperCase() + data.status.slice(1)
+    : "";
+  doc.text(`Tisch: ${data.table}`, left, y, { width: rightEdge - left });
+  y = doc.y + 1;
+  doc.text(`Datum: ${formatBonTimestampPdf(data.timestamp)}`, left, y, {
+    width: rightEdge - left,
+  });
+  y = doc.y + 1;
+  if (data.waiter) {
+    doc.text(`Kellner: ${data.waiter}`, left, y, { width: rightEdge - left });
+    y = doc.y + 1;
+  }
+  if (statusLabel) {
+    doc.text(`Status: ${statusLabel}`, left, y, { width: rightEdge - left });
+    y = doc.y + 1;
+  }
+  y += 8;
+
+  // Positionen
+  const header: Cell[] = [
+    { text: "Menge", bold: true },
+    { text: "Artikel", bold: true },
+    { text: "Einzel", bold: true, align: "right" },
+    { text: "Gesamt", bold: true, align: "right" },
+  ];
+  const rows: Cell[][] = [header];
+  for (const it of data.items) {
+    const qty = it.quantity || 1;
+    const lineTotal = (it.price || 0) * qty;
+    rows.push([
+      { text: `${qty}×` },
+      { text: `${it.name}${bonItemSuffix(it)}` },
+      { text: data.fmtEur(it.price || 0), align: "right" },
+      { text: data.fmtEur(lineTotal), align: "right" },
+    ]);
+  }
+  if (data.tip > 0) {
+    rows.push([
+      { text: "" },
+      { text: "Trinkgeld" },
+      { text: "" },
+      { text: data.fmtEur(data.tip), align: "right" },
+    ]);
+  }
+  rows.push([
+    { text: "", bg: "#d1fae5", borderTop: { width: 1, color: "#064e3b" } },
+    {
+      text: "GESAMT",
+      bg: "#d1fae5",
+      bold: true,
+      color: "#064e3b",
+    },
+    { text: "", bg: "#d1fae5", bold: true, color: "#064e3b" },
+    {
+      text: data.fmtEur(data.total),
+      bg: "#d1fae5",
+      bold: true,
+      color: "#064e3b",
+      align: "right",
+    },
+  ]);
+
+  y = drawTable(doc, fonts, left, y, {
+    colWidths: [15 * MM, 95 * MM, 30 * MM, 30 * MM],
+    rows,
+    fontSize: 9,
+    padding: 5,
+    headerBg: "#064e3b",
+    headerColor: "#ffffff",
+    stripe: ["#ffffff", "#f9fafb"],
+    gridColor: "#e5e7eb",
+    repeatHeader: true,
+  });
+
+  // Footer
+  y += 14;
+  const pageBottom = doc.page.height - (doc.page.margins?.bottom ?? 15 * MM);
+  if (y + 10 > pageBottom) {
+    doc.addPage();
+    y = doc.page.margins?.top ?? 15 * MM;
+  }
+  doc.font(fonts.regular).fontSize(7).fillColor("#9ca3af");
+  doc.text(
+    `Dieser Beleg wurde maschinell erstellt — ${data.restaurantName} · digi-gastro.de`,
+    left,
+    y,
+    { width: rightEdge - left, align: "center" }
+  );
+
+  return buffer();
+}
+
+// ════════════════════════════════════════════════════════════════
 // Monats-/Umsatzreport (Legacy main.py 12818)
 // ════════════════════════════════════════════════════════════════
 export interface MonatsreportPdfData {

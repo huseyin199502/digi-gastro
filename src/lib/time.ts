@@ -17,16 +17,13 @@ export function getBerlinNow(): Date {
   const utcNow = new Date();
   const year = utcNow.getUTCFullYear();
 
-  // Last Sunday of March at 01:00 UTC → CEST starts
+  // Last Sunday of March at 01:00 UTC → CEST starts.
+  // getUTCDay(): 0=Sonntag … 6=Samstag → Rückwärts bis Sonntag = getUTCDay() Tage.
   const march31 = new Date(Date.UTC(year, 2, 31, 1, 0, 0));
-  const cestStart = new Date(
-    march31.getTime() - ((march31.getUTCDay() + 6) % 7) * 86400000
-  );
+  const cestStart = new Date(march31.getTime() - march31.getUTCDay() * 86400000);
   // Last Sunday of October at 01:00 UTC → CEST ends
   const october31 = new Date(Date.UTC(year, 9, 31, 1, 0, 0));
-  const cestEnd = new Date(
-    october31.getTime() - ((october31.getUTCDay() + 6) % 7) * 86400000
-  );
+  const cestEnd = new Date(october31.getTime() - october31.getUTCDay() * 86400000);
 
   const isCest = utcNow >= cestStart && utcNow < cestEnd;
   const offsetHours = isCest ? 2 : 1;

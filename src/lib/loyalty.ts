@@ -191,10 +191,20 @@ export async function awardStampForOrder(
     where: { id: customer.id },
   });
 
-  // Reward auslösen wenn Limit erreicht → Reset auf 0
+  // Reward auslösen:
+  // - current === Limit → Prämie einmalig zählen, Karte auf 0 zurücksetzen
+  // - current >  Limit → Karte war schon voll (z.B. manueller Stempel hat
+  //   die Prämie bereits gezählt) → neue Runde bei 1 starten, NICHT erneut zählen
   let rewardTriggered = false;
   const stampsRequired = card.stamps_required ?? 10;
-  if ((fresh.current_stamps ?? 0) >= stampsRequired) {
+  const current = fresh.current_stamps ?? 0;
+  if (current > stampsRequired) {
+    await prisma.loyaltyCustomer.update({
+      where: { id: fresh.id },
+      data: { current_stamps: 1, updated_at: now },
+    });
+    fresh.current_stamps = 1;
+  } else if (current === stampsRequired) {
     await prisma.loyaltyCustomer.update({
       where: { id: fresh.id },
       data: {
@@ -215,8 +225,7 @@ export async function awardStampForOrder(
   }
 
   try {
-    // Nach Reward-Reset muss die NEUE Balance (0) gepusht werden — `fresh`
-    // enthält noch den alten Stand vor dem Reset.
+    // Nach Reward-Reset muss die NEUE Balance gepusht werden.
     const pushCustomer = rewardTriggered
       ? { ...fresh, current_stamps: 0 }
       : fresh;
@@ -229,7 +238,11 @@ export async function awardStampForOrder(
     success: true,
     card_id: card.id,
     card_name: card.name,
-    stamps_current: rewardTriggered ? 0 : fresh.current_stamps,
+    stamps_current: rewardTriggered
+      ? 0
+      : (fresh.current_stamps ?? 0) > stampsRequired
+        ? 1
+        : (fresh.current_stamps ?? 0),
     stamps_required: stampsRequired,
     reward_triggered: rewardTriggered,
     reward_name: rewardTriggered ? card.reward_name : null,
@@ -721,13 +734,15 @@ export async function runInactivityCron(
     const cooldownMs = (campaign.min_hours_between_pushs ?? 24) * 3600 * 1000;
 
     for (const customer of customers) {
-      // Cooldown prüfen
+      // Cooldown prüfen — last_push_at ist echtes UTC (nowIso), nicht Berlin-shifted
       if (customer.last_push_at) {
         try {
-          const lastPush = new Date(customer.last_push_at.replace("Z", ""));
-          if (berlinNow.getTime() - lastPush.getTime() < cooldownMs) {
-            stats.pushs_skipped_cooldown++;
-            continue;
+          const lastPush = new Date(customer.last_push_at);
+          if (Number.isFinite(lastPush.getTime())) {
+            if (Date.now() - lastPush.getTime() < cooldownMs) {
+              stats.pushs_skipped_cooldown++;
+              continue;
+            }
           }
         } catch {
           // ungültiges Datum → kein Cooldown

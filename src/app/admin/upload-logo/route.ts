@@ -28,9 +28,17 @@ export async function POST(request: NextRequest) {
       throw new ApiError("Logo ist zu groß (max. 5 MB).", 400);
     }
 
+    const ALLOWED_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif", "ico"]);
     let ext = "png";
     const parts = file.name.split(".");
     if (parts.length > 1) ext = parts[parts.length - 1].toLowerCase();
+    // SVG/HTML u.ä. ablehnen — sonst XSS via inline Auslieferung
+    if (!ALLOWED_EXTS.has(ext)) {
+      throw new ApiError(
+        "Ungültiges Dateiformat. Erlaubt: PNG, JPG, WEBP, GIF, ICO.",
+        400
+      );
+    }
 
     const field = String(form.get("field") ?? "logo");
     const isLogo2 = field === "logo2";

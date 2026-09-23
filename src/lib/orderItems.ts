@@ -228,10 +228,14 @@ export function updateOrderStatusByItems(order: MutableOrder): void {
  * We use max+1 on Berlin date here too for cross-route consistency.
  */
 export async function nextDailyBonNumber(
-  slug: string
+  slug: string,
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 ): Promise<{ bonNumber: number; bonDate: string }> {
   const bonDate = berlinDateStr(getBerlinNow());
-  const last = await prisma.order.findFirst({
+  const client = tx ?? prisma;
+  // Advsory lock hält die max+1-Berechnung atomar pro Tenant+Tag
+  await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${slug}:${bonDate}`}))`;
+  const last = await client.order.findFirst({
     where: { tenant_slug: slug, bon_date: bonDate },
     orderBy: { daily_bon_number: "desc" },
     select: { daily_bon_number: true },

@@ -82,10 +82,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
-      // Fix 6c: original_total auf Ziel-Bestellung übertragen
+      // Fix 6c: nur den NOCH OFFENEN Warenwert übertragen
+      // (original_total kann bereits bezahlte Positionen enthalten)
       ensureOriginalTotal(sourceOrder);
       ensureOriginalTotal(targetOrder);
-      const movedAmount = round2(sourceOrder.original_total ?? 0);
+      const movedAmount = round2(sourceOrder.total ?? 0);
       targetOrder.original_total = round2(
         (targetOrder.original_total ?? 0) + movedAmount
       );
@@ -97,7 +98,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           0
         )
       );
-      targetOrder.total_with_tip = round2(targetOrder.total);
+      targetOrder.total_with_tip = round2(
+        targetOrder.total + (targetOrder.tip_amount || 0)
+      );
 
       // Fix 6c: source storniert — total NICHT auf 0 setzen!
       sourceOrder.status = "storniert";

@@ -96,7 +96,7 @@ export async function POST(
     order.total = round2(
       order.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
     );
-    order.total_with_tip = round2(order.total);
+    order.total_with_tip = round2(order.total + (order.tip_amount || 0));
 
     const emptied = order.items.length === 0;
     if (emptied) {

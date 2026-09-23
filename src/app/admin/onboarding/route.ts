@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
   if (!session) {
     return NextResponse.redirect(new URL("/admin/login", request.url), 303);
   }
+  if (session.role !== "chef") {
+    return NextResponse.redirect(new URL("/admin", request.url), 303);
+  }
   await prisma.tenant.update({
     where: { slug: session.slug },
     data: { is_setup_completed: true, is_onboarded: true },
@@ -28,6 +31,9 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getTenantSession();
     if (!session) throw new ApiError("Nicht eingeloggt.", 401);
+    if (session.role !== "chef") {
+      throw new ApiError("Kein Zugriff. Nur für Administratoren.", 403);
+    }
     const slug = session.slug;
 
     const tenant = await prisma.tenant.findUnique({ where: { slug } });
