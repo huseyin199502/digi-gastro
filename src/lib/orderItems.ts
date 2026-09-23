@@ -233,8 +233,10 @@ export async function nextDailyBonNumber(
 ): Promise<{ bonNumber: number; bonDate: string }> {
   const bonDate = berlinDateStr(getBerlinNow());
   const client = tx ?? prisma;
-  // Advsory lock hält die max+1-Berechnung atomar pro Tenant+Tag
-  await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${slug}:${bonDate}`}))`;
+  // Advisory lock hält die max+1-Berechnung atomar pro Tenant+Tag.
+  // $executeRaw statt $queryRaw: pg_advisory_xact_lock() gibt void zurück
+  // und Prisma kann void-Spalten in $queryRaw nicht deserialisieren (P2010).
+  await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${slug}:${bonDate}`}))`;
   const last = await client.order.findFirst({
     where: { tenant_slug: slug, bon_date: bonDate },
     orderBy: { daily_bon_number: "desc" },

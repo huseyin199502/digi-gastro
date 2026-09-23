@@ -97,25 +97,34 @@ function validateComboUnits(
     throw new OrderRejectedError(`Kombi ungültig: ${combo.name}`, 400);
   }
   const remaining = [...unitProductIds];
-  for (const slot of combo.items) {
-    let idx = -1;
-    if (slot.product_id !== null) {
-      idx = remaining.indexOf(slot.product_id);
-    } else if (slot.category_name) {
-      idx = remaining.findIndex((pid) => {
-        const prod = productsMap.get(pid);
-        if (!prod) return false;
-        if (slot.excluded_product_ids.includes(pid)) return false;
-        return prod.category === slot.category_name;
-      });
+  // Mehrfach-Sets (z. B. 2× Kombi): jeder Satz Slots wird pro Set gematcht.
+  const slots = combo.items;
+  const sets = Math.max(1, Math.floor(remaining.length / slots.length));
+  for (let s = 0; s < sets; s++) {
+    for (const slot of slots) {
+      let idx = -1;
+      if (slot.product_id !== null) {
+        idx = remaining.indexOf(slot.product_id);
+      } else if (slot.category_name) {
+        idx = remaining.findIndex((pid) => {
+          const prod = productsMap.get(pid);
+          if (!prod) return false;
+          if (slot.excluded_product_ids.includes(pid)) return false;
+          return prod.category === slot.category_name;
+        });
+      } else {
+        // Slot ohne Produkt- und Kategorie-Bindung: Wildcard (wie vor der
+        // Slot-Validierung jedes Produkt akzeptieren).
+        idx = remaining.length > 0 ? 0 : -1;
+      }
+      if (idx === -1) {
+        throw new OrderRejectedError(
+          `Produkt passt nicht in Kombi: ${combo.name}`,
+          400
+        );
+      }
+      remaining.splice(idx, 1);
     }
-    if (idx === -1) {
-      throw new OrderRejectedError(
-        `Produkt passt nicht in Kombi: ${combo.name}`,
-        400
-      );
-    }
-    remaining.splice(idx, 1);
   }
   if (remaining.length > 0) {
     throw new OrderRejectedError(
@@ -418,7 +427,9 @@ export async function createOrder(
     const order = await prisma.$transaction(async (tx) => {
       // Bon-Nummer seriell pro Tenant+Tag vergeben (advisory lock verhindert
       // doppelte daily_bon_number bei gleichzeitigen Bestellungen).
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`${slug}:${bonDate}`}))`;
+      // $executeRaw statt $queryRaw: pg_advisory_xact_lock() gibt void zurück
+      // und Prisma kann void-Spalten in $queryRaw nicht deserialisieren (P2010).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${slug}:${bonDate}`}))`;
       const lastBonInTx = await tx.order.findFirst({
         where: { tenant_slug: slug, bon_date: bonDate },
         orderBy: { daily_bon_number: "desc" },
