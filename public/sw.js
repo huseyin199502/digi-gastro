@@ -1,4 +1,4 @@
-const CACHE_NAME = "digi-gastro-v4";
+const CACHE_NAME = "digi-gastro-v5";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",

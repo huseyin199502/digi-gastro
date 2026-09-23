@@ -2548,9 +2548,18 @@ function LandingView({
   const galleryImages = (lp.gallery_images as string[]) || [];
   const galleryVideos = (lp.gallery_videos as string[]) || [];
   const videos = (lp.videos as string[]) || [];
-  const customSections = (lp.custom_sections as
+  const customSections = ((lp.custom_sections as
     | { title?: string; content?: string; image?: string }[]
-    | undefined) || [];
+    | undefined) || []
+  ).filter((sec) => sec.title || sec.content || sec.image);
+  const aboutTitle = lpTitle("title_about") || "Über uns";
+  const aboutBody = lpTitle("what_we_offer");
+  const newsTitle = lpTitle("title_news") || "Aktuelles";
+  const newsBody = lpTitle("aktuelles");
+  const hoursTitle = lpTitle("title_hours") || "Öffnungszeiten";
+  const hoursBody = lpTitle("oeffnungszeiten");
+  const offersTitle = lpTitle("title_happyhour") || "Angebote";
+  const offersBody = lpTitle("angebote");
 
   const firstActiveEvent =
     menu.activeEvents.find((e) => e.mode !== "announcement") ?? null;
@@ -2747,14 +2756,55 @@ function LandingView({
         </section>
       ) : null}
 
-      {/* Info Sections */}
+      {/* About / News / Hours / Offers */}
+      {aboutBody || newsBody || hoursBody || offersBody ? (
+        <section className="relative z-10 grid grid-cols-1 gap-4 px-4 pb-8 sm:px-6 md:grid-cols-2">
+          {aboutBody ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
+              <h3 className="mb-3 text-base font-bold text-white drop-shadow-md">{aboutTitle}</h3>
+              <div
+                className="prose prose-invert prose-sm max-w-none text-white/80"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(aboutBody) }}
+              />
+            </div>
+          ) : null}
+          {newsBody ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
+              <h3 className="mb-3 text-base font-bold text-white drop-shadow-md">{newsTitle}</h3>
+              <div
+                className="prose prose-invert prose-sm max-w-none text-white/80"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(newsBody) }}
+              />
+            </div>
+          ) : null}
+          {hoursBody ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
+              <h3 className="mb-3 text-base font-bold text-white drop-shadow-md">{hoursTitle}</h3>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-white/80">{hoursBody}</p>
+            </div>
+          ) : null}
+          {offersBody ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
+              <h3 className="mb-3 text-base font-bold text-white drop-shadow-md">{offersTitle}</h3>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-white/80">{offersBody}</p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* Custom sections */}
       {customSections.length > 0 ? (
         <section className="relative z-10 space-y-6 px-4 pb-8 sm:px-6">
           {customSections.map((sec, i) => (
             <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
-              {sec.title ? <h3 className="mb-3 text-base font-bold text-white drop-shadow-md">{sec.title}</h3> : null}
+              {sec.title ? (
+                <h3 className="mb-3 text-base font-bold text-white drop-shadow-md">{sec.title}</h3>
+              ) : null}
               {sec.content ? (
-                <div className="prose prose-invert prose-sm max-w-none text-white/80" dangerouslySetInnerHTML={{ __html: renderMarkdown(sec.content) }} />
+                <div
+                  className="prose prose-invert prose-sm max-w-none text-white/80"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(sec.content) }}
+                />
               ) : null}
               {sec.image ? (
                 <div className="mt-3 overflow-hidden rounded-xl">
@@ -2763,24 +2813,6 @@ function LandingView({
               ) : null}
             </div>
           ))}
-        </section>
-      ) : null}
-
-      {/* Hours & Info */}
-      {lpTitle("oeffnungszeiten") || lpTitle("angebote") ? (
-        <section className="relative z-10 grid grid-cols-1 gap-4 px-4 pb-8 sm:px-6 md:grid-cols-2">
-          {lpTitle("oeffnungszeiten") ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
-              {lpTitle("title_hours") ? <h3 className="mb-3 text-base font-bold text-white">{lpTitle("title_hours")}</h3> : null}
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/80">{lpTitle("oeffnungszeiten")}</p>
-            </div>
-          ) : null}
-          {lpTitle("angebote") ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur-xl">
-              {lpTitle("title_happyhour") ? <h3 className="mb-3 text-base font-bold text-white">{lpTitle("title_happyhour")}</h3> : null}
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/80">{lpTitle("angebote")}</p>
-            </div>
-          ) : null}
         </section>
       ) : null}
     </div>
