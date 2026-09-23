@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, useInView } from "framer-motion";
-import { useRef, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 
 interface ScrollRevealProps {
   children: ReactNode;
@@ -18,9 +18,6 @@ export function ScrollReveal({
   duration = 0.7,
   className,
 }: ScrollRevealProps) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
-
   const offsets = {
     up: { y: 50, x: 0 },
     down: { y: -50, x: 0 },
@@ -32,9 +29,9 @@ export function ScrollReveal({
 
   return (
     <motion.div
-      ref={ref}
       initial={{ opacity: 0, x: offset.x, y: offset.y }}
-      animate={isInView ? { opacity: 1, x: 0, y: 0 } : {}}
+      whileInView={{ opacity: 1, x: 0, y: 0 }}
+      viewport={{ once: true, amount: 0.15, margin: "0px 0px -40px 0px" }}
       transition={{ duration, delay, ease: [0.21, 0.47, 0.32, 0.98] }}
       className={className}
     >

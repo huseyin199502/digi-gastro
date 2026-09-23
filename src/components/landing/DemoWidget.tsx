@@ -38,17 +38,16 @@ export default function DemoWidget() {
   const total = (cartCount * 3.5).toFixed(2).replace(".", ",");
 
   return (
-    <section id="demo" className="relative border-y border-white/5 bg-[#0b0c10]/60 py-32 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(201,168,76,0.04)_0%,_transparent_60%)]" />
+    <section id="demo" className="scroll-mt-24 border-y border-white/5 bg-[#0b0c10] py-20 sm:py-24">
       <div className="relative z-10 mx-auto max-w-6xl px-6">
-        <ScrollReveal className="text-center mb-16">
-          <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
+        <ScrollReveal className="mb-12 max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
             Interaktive Simulation
           </p>
-          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">
+          <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">
             So fühlt sich digi-gastro an
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
+          <p className="mt-4 text-lg text-zinc-400">
             Vom Gast-Tap bis zum Küchen-Display — in unter 2 Sekunden. Probiere es aus.
           </p>
         </ScrollReveal>

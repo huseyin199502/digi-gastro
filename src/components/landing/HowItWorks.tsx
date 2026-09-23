@@ -6,46 +6,54 @@ const steps = [
   {
     step: "01",
     title: "QR scannen oder NFC tippen",
-    description: "Deine Gäste scannen den QR-Code am Tisch oder halten das Handy an den NFC-Chip. Keine App nötig, funktioniert auf jedem Smartphone.",
+    description:
+      "Gäste scannen den Code am Tisch oder halten das Handy an den Chip. Die Speisekarte öffnet sich im Browser — keine App.",
   },
   {
     step: "02",
-    title: "Bestellung aufgeben",
-    description: "Gäste wählen ihre Speisen und Getränke aus und senden die Bestellung in Echtzeit direkt an das Küchen-Display.",
+    title: "Bestellung live in die Küche",
+    description:
+      "Warenkorb abschicken: KDS, Sitzplan und Service-Tablets aktualisieren sich in Echtzeit. Preise kommen vom Server.",
   },
   {
     step: "03",
-    title: "Genießen & Stempel sammeln",
-    description: "Das Essen wird serviert. Gleichzeitig sammeln Gäste automatisch digitale Stempel im Apple & Google Wallet.",
+    title: "Servieren, zahlen, Stempel sammeln",
+    description:
+      "Split-Pay am Tablet, Review-Link nach dem Bezahlen, Wallet-Stempel automatisch — der Kreis schließt sich.",
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative border-y border-white/5 bg-[#0b0c10]/60 py-32">
+    <section id="how-it-works" className="scroll-mt-24 border-y border-white/5 bg-[#0b0c10] py-20 sm:py-24">
       <div className="mx-auto max-w-6xl px-6">
-        <ScrollReveal className="text-center mb-20">
-          <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
+        <ScrollReveal className="mb-14 max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
             In 3 Schritten
           </p>
-          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">So einfach funktioniert&apos;s</h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-            In drei Schritten zum modernen Gastronomie-Erlebnis.
+          <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">
+            So einfach funktioniert&apos;s
+          </h2>
+          <p className="mt-4 text-lg text-zinc-400">
+            Kein Techniker, kein Projektwochenende — Setup in unter fünf Minuten.
           </p>
         </ScrollReveal>
 
-        <div className="grid gap-12 md:grid-cols-3">
+        <ol className="grid gap-8 md:grid-cols-3">
           {steps.map((item, index) => (
-            <ScrollReveal key={item.step} delay={index * 0.15} className="relative">
-              <div className="mb-6 text-6xl font-black text-amber-500/20">{item.step}</div>
-              <h3 className="mb-3 text-2xl font-bold text-white">{item.title}</h3>
-              <p className="text-zinc-400 leading-relaxed">{item.description}</p>
-              {index < steps.length - 1 && (
-                <div className="absolute top-8 right-0 hidden h-px w-1/2 bg-gradient-to-r from-amber-500/50 to-transparent md:block -translate-x-1/2" />
-              )}
+            <ScrollReveal key={item.step} delay={index * 0.1}>
+              <li className="relative h-full rounded-2xl border border-white/10 bg-[#11131a] p-6">
+                <div className="mb-4 text-4xl font-black text-amber-500/25">
+                  {item.step}
+                </div>
+                <h3 className="text-xl font-bold text-white">{item.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                  {item.description}
+                </p>
+              </li>
             </ScrollReveal>
           ))}
-        </div>
+        </ol>
       </div>
     </section>
   );

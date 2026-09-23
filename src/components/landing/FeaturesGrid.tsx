@@ -1,224 +1,382 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import ScrollReveal from "./ScrollReveal";
 
-const features = [
+type FeatureIcon =
+  | "nfc"
+  | "bell"
+  | "wallet"
+  | "ticket"
+  | "game"
+  | "map"
+  | "split"
+  | "swap"
+  | "users"
+  | "tablet"
+  | "kds"
+  | "hookah"
+  | "clock"
+  | "hand"
+  | "link"
+  | "box"
+  | "chart"
+  | "shield"
+  | "megaphone"
+  | "ad"
+  | "globe"
+  | "star"
+  | "trend";
+
+type Feature = {
+  title: string;
+  description: string;
+  badge?: string;
+  icon: FeatureIcon;
+};
+
+type Cluster = {
+  id: string;
+  label: string;
+  headline: string;
+  intro: string;
+  features: Feature[];
+};
+
+const iconPaths: Record<FeatureIcon, ReactNode> = {
+  nfc: (
+    <>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.1 16.4a5.5 5.5 0 017.8 0M12 20h.01M4.9 12.9a10 10 0 0114.2 0M1.4 9.4a15 15 0 0121.2 0" />
+    </>
+  ),
+  bell: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
+  ),
+  wallet: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zm14 5h.01" />
+  ),
+  ticket: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8a2 2 0 012-2h12a2 2 0 012 2v1a2 2 0 000 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2v-1a2 2 0 000-4V8z" />
+  ),
+  game: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12h4m-2-2v4m8-3h.01M18 14h.01M7 6h10a4 4 0 014 4v4a4 4 0 01-4 4H7a4 4 0 01-4-4v-4a4 4 0 014-4z" />
+  ),
+  map: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6l6-2zm0 0v14m6-12v14" />
+  ),
+  split: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+  ),
+  swap: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+  ),
+  users: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6-4a4 4 0 11-4-4" />
+  ),
+  tablet: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2zm3 13h6" />
+  ),
+  kds: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v10H4V6zm4 14h8M9 10h2m2 0h2" />
+  ),
+  hookah: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2 2 2 4 0 6-2-2-2-4 0-6zm-5 10c0 4 2.5 7 5 7s5-3 5-7H7zm5 7v3m-4 0h8" />
+  ),
+  clock: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  ),
+  hand: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V6a2 2 0 114 0v5m0-2a2 2 0 114 0v3m0-1a2 2 0 114 0v5a6 6 0 01-6 6h-1a6 6 0 01-6-6v-3a2 2 0 114 0" />
+  ),
+  link: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 5.93M14 11a5 5 0 00-7.07 0L5.5 12.43a5 5 0 007.07 7.07L14 18.07" />
+  ),
+  box: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8l-9-5-9 5v8l9 5 9-5V8zm-18 0l9 5 9-5M12 13v9" />
+  ),
+  chart: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5m0 14h16M8 16V10m4 6V7m4 9v-4" />
+  ),
+  shield: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l8 3v6c0 5-3.5 8.5-8 9.5C7.5 20.5 4 17 4 12V6l8-3zm-3 9l2 2 4-4" />
+  ),
+  megaphone: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 11v2a1 1 0 001 1h2l5 4V6L6 10H4a1 1 0 00-1 1zm12-1c1.5 1 1.5 4 0 5m2-7c3 2 3 7 0 9" />
+  ),
+  ad: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v12H4V6zm4 4h8M8 14h5" />
+  ),
+  globe: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zm-9-9h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9z" />
+  ),
+  star: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11.05 2.93c.3-.92 1.6-.92 1.9 0l1.5 4.67a1 1 0 00.95.7h4.92c.97 0 1.37 1.24.59 1.81l-3.98 2.89a1 1 0 00-.36 1.12l1.52 4.67c.3.92-.76 1.69-1.54 1.12l-3.98-2.89a1 1 0 00-1.17 0l-3.98 2.89c-.78.57-1.84-.2-1.54-1.12l1.52-4.67a1 1 0 00-.36-1.12L2.99 10.1c-.78-.57-.38-1.81.59-1.81h4.91a1 1 0 00.95-.7l1.51-4.67z" />
+  ),
+  trend: (
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+  ),
+};
+
+const clusters: Cluster[] = [
   {
-    title: "NFC Tap-to-Order",
-    description:
-      "Gäste halten ihr Handy an den NFC-Chip am Tisch — die Speisekarte öffnet sich in unter 1 Sekunde. Wer möchte, nutzt weiterhin den QR-Code. Ohne App, ohne Suchen, ohne Warten.",
-    stats: ["<1s bis Speisekarte", "0€ App-Kosten", "100% kontaktlos"],
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-      </svg>
-    ),
-    highlight: true,
+    id: "gaeste",
+    label: "Für Gäste",
+    headline: "Bestellen ohne Warten. Ohne App.",
+    intro:
+      "Der Gast tippt — die Küche und das Team wissen Bescheid. Kontaktlos, in Sekunden, auf jedem Smartphone.",
+    features: [
+      {
+        title: "NFC Tap-to-Order & QR",
+        description:
+          "Handy an den Chip am Tisch halten oder QR scannen — Speisekarte in unter 1 Sekunde. Kein Download, kein Account-Zwang.",
+        badge: "<1s bis Speisekarte",
+        icon: "nfc",
+      },
+      {
+        title: "Service rufen & Bestellstatus",
+        description:
+          "Kellner rufen, Rechnung anfordern, Bestellung live verfolgen — der Gast hat die Kontrolle, das Team den Überblick.",
+        icon: "bell",
+      },
+      {
+        title: "Digitale Stempelkarte",
+        description:
+          "Apple Wallet & Google Wallet statt Papier. Push für Angebote, Stufen von Neu bis VIP, automatisch nach dem Besuch.",
+        badge: "Apple & Google Wallet",
+        icon: "wallet",
+      },
+      {
+        title: "Gutscheine & Tisch-Chat",
+        description:
+          "Rabattcodes am Tisch einlösen, Fragen stellen — moderiert und ohne fremde Messenger-Gruppen.",
+        icon: "ticket",
+      },
+      {
+        title: "Spiele im Betrieb",
+        description:
+          "Quiz, Ludo, Kart & mehr zwischen den Bestellungen — Gäste bleiben länger, bestellen öfter.",
+        badge: "Einzigartig",
+        icon: "game",
+      },
+    ],
   },
   {
-    title: "Shisha-Modus",
-    description:
-      "Kohle per Klick nachlegen. Gäste ordern am Smartphone, die Anfrage landet beim Kohlemeister. Shakes & Snacks gehen automatisch an Bar/Küche.",
-    badge: "Einzigartig am Markt",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-      </svg>
-    ),
+    id: "team",
+    label: "Fürs Team",
+    headline: "Ein Cockpit für Service & Kasse.",
+    intro:
+      "Live-Sitzplan, Teilzahlung, Personal-PINs — weniger Rechenfehler, mehr Zeit für die Gäste.",
+    features: [
+      {
+        title: "Live-Sitzplan",
+        description:
+          "Drag-Drop mit Zonen, farbcodierte Status (frei / belegt / serviert / Service), Tische zusammenführen und verschieben.",
+        badge: "Echtzeit",
+        icon: "map",
+      },
+      {
+        title: "Teilzahlung & Split-Pay",
+        description:
+          "Einzelne Artikel auszahlen, Rechnung teilen — „Wer zahlt was?“ ohne Zettel und ohne Rechenfehler.",
+        icon: "split",
+      },
+      {
+        title: "Manuelle Bestellungen & Transfer",
+        description:
+          "Bestellungen am Tablet erfassen, Positionen übertragen, Tische mergen, Stornos nur mit PIN.",
+        icon: "swap",
+      },
+      {
+        title: "Personal & Schichtplan",
+        description:
+          "Schichten, Urlaubsanträge, Verfügbarkeiten, Statistiken — das ganze Team in einem Tab.",
+        icon: "users",
+      },
+      {
+        title: "Tablet- & Geräte-Status",
+        description:
+          "Heartbeat für Kellner-Devices, Rollen (Chef / Kellner), Session-Schutz für sensible Aktionen.",
+        icon: "tablet",
+      },
+    ],
   },
   {
-    title: "3-Schicht-Upselling",
-    description:
-      "Manuelle Empfehlungen + Auto-Rules + KI-Co-Occurrence. Die Software lernt was zusammengekauft wird und empfiehlt es automatisch im Warenkorb.",
-    badge: "Mehr Umsatz pro Gast",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
-    ),
+    id: "kueche",
+    label: "Küche & Shisha",
+    headline: "KDS, Kohle, alles im Flow.",
+    intro:
+      "Was am Tisch bestellt wird, landet sofort am richtigen Display — inklusive Shisha-Sonderlogik.",
+    features: [
+      {
+        title: "Küchen-Display (KDS)",
+        description:
+          "Echtzeit-Tickets nach Super-Gruppen gefiltert, Status Serviert schließt automatisch — kein Papierbon nötig.",
+        badge: "Echtzeit",
+        icon: "kds",
+      },
+      {
+        title: "Shisha-Modus",
+        description:
+          "Kohle per Klick nachlegen. Anfrage geht an den Kohlemeister, Shakes & Snacks an Bar/Küche.",
+        badge: "Einzigartig am Markt",
+        icon: "hookah",
+      },
+      {
+        title: "Happy Hour & Events",
+        description:
+          "Zeitfenster, Wochentage, Kombi-Sets und Event-Preise — serverseitig berechnet, nicht manipulierbar.",
+        icon: "clock",
+      },
+      {
+        title: "Kellner-Service-Modus",
+        description:
+          "Service-Rufe, Bar/Karte-Wahl, Zahlungsmarken — der Ablauf bleibt auch bei vollen Haus am Stück.",
+        icon: "hand",
+      },
+    ],
   },
   {
-    title: "Universal-POS",
-    description:
-      "Lightspeed, SumUp, Tillhub oder Custom — verbinde dein bestehendes Kassensystem per Webhook. Kein Vendor-Lock-in, kein neues Gerät nötig.",
-    badge: "Kein Vendor-Lock-in",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-      </svg>
-    ),
-  },
-  {
-    title: "Live-Sitzplan",
-    description:
-      "Drag-Drop Editor mit Zonen (Drinnen/Draußen). Farbcodierte Tisch-Status in Echtzeit: Frei, Belegt, Serviert, Ruft Service.",
-    badge: "Echtzeit-Übersicht",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-      </svg>
-    ),
-  },
-  {
-    title: "Teilzahlung & Split-Pay",
-    description:
-      "Einzelne Artikel auszahlbar. »Wer zahlt was?« — kein Stress mehr. Kellner teilen auf dem Tablet auf, blitzschnell und ohne Rechenfehler.",
-    badge: "Kein Rechenfehler",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-  },
-  {
-    title: "Google-Review-Booster",
-    description:
-      "Nach dem Bezahlen leitet das System zufriedene Gäste direkt zur Google-Bewertung weiter. Mehr 5-Sterne-Rezensionen, mehr lokale Sichtbarkeit.",
-    badge: "Mehr Sterne = mehr Gäste",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-      </svg>
-    ),
-  },
-  {
-    title: "GoBD & Krypto-Audit-Log",
-    description:
-      "Jede Stornierung, jede Änderung, jeder Bezahlvorgang wird manipulationssicher kryptografisch verschlüsselt aufgezeichnet. Stornos erfordern Mitarbeiter-PIN. Steuerberater-Export als PDF/Excel mit einem Klick.",
-    badge: "GoBD-konform",
-    icon: (
-      <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-      </svg>
-    ),
+    id: "betrieb",
+    label: "Betrieb & Zahlen",
+    headline: "Vom Lager bis zum Steuerberater.",
+    intro:
+      "Reporting, Bestand, Marketing und Compliance — alles, was nach Ladenschluss passiert.",
+    features: [
+      {
+        title: "Universal-POS-Anbindung",
+        description:
+          "Lightspeed, SumUp, Tillhub, HelloCash oder Custom per Webhook. Kein Vendor-Lock-in, keine neue Kasse.",
+        badge: "Kein Lock-in",
+        icon: "link",
+      },
+      {
+        title: "Lager & Rezepte",
+        description:
+          "Bestände, Lieferanten, Inventur, Rezepturen und Bestellungen — Ausverkauftes wird automatisch sichtbar.",
+        icon: "box",
+      },
+      {
+        title: "Reports, PDF & Excel",
+        description:
+          "Tages-/Monatsreport, Bon-Export, Einzelbon als PDF — für dich und den Steuerberater in einem Klick.",
+        icon: "chart",
+      },
+      {
+        title: "GoBD & Audit-Log",
+        description:
+          "Jede Stornierung und Zahlung manipulationssicher protokolliert, Stornos mit Mitarbeiter-PIN.",
+        badge: "GoBD-konform",
+        icon: "shield",
+      },
+      {
+        title: "Wallet-Push & Geofencing",
+        description:
+          "Kampagnen an Stammgäste senden, Benachrichtigungen am Standort auslösen — mehr Wiederkehrer.",
+        icon: "megaphone",
+      },
+      {
+        title: "Werbung in der Speisekarte",
+        description:
+          "Eigene Werbeflächen in der Digitalen Karte verkaufen — Zusatzumsatz pro Betrieb.",
+        badge: "Ad-Revenue",
+        icon: "ad",
+      },
+      {
+        title: "Restaurant-Website & Landing",
+        description:
+          "Willkommen, Galerie, Events, Öffnungszeiten — Mini-Site und Speisekarte aus einem System.",
+        icon: "globe",
+      },
+      {
+        title: "Google-Review-Booster",
+        description:
+          "Nach dem Bezahlen zufriedene Gäste direkt zur Google-Bewertung leiten — mehr lokale Sichtbarkeit.",
+        icon: "star",
+      },
+      {
+        title: "3-Schicht-Upselling",
+        description:
+          "Manuelle Empfehlungen + Auto-Regeln + Co-Occurrence — das System lernt, was zusammenkauft wird.",
+        icon: "trend",
+      },
+    ],
   },
 ];
 
-export default function FeaturesGrid() {
-  const stackRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const shadeRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  // ── 3D Stapel-Effekt: Jede Karte pinnt per sticky GESTAFFELT im
-  // Viewport (top = base + i*gap → Kanten des Stapels bleiben sichtbar).
-  // Sobald nachfolgende Karten ankommen, rücken frühere per Scale +
-  // Abdunklung nach hinten. Reversibel beim Hochscrollen, identisch auf
-  // Desktop und Mobile. ──
-  useEffect(() => {
-    const stacks = stackRefs.current;
-    const cards = cardRefs.current;
-    const shades = shadeRefs.current;
-    if (stacks.length === 0) return;
-
-    const reduceMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    let rafId = 0;
-
-    const update = () => {
-      let pinnedAfter = 0;
-      for (let i = stacks.length - 1; i >= 0; i--) {
-        const wrap = stacks[i];
-        const card = cards[i];
-        if (!wrap || !card) continue;
-
-        if (!reduceMotion) {
-          // Tiefe: je mehr spätere Karten bereits über dieser liegen,
-          // desto weiter rückt diese Karte nach hinten.
-          const scale = 1 - Math.min(pinnedAfter * 0.05, 0.22);
-          card.style.transform = `scale(${scale.toFixed(4)})`;
-          const shade = shades[i];
-          if (shade) {
-            shade.style.opacity = Math.min((1 - scale) * 2.4, 0.5).toFixed(3);
-          }
-        }
-
-        // Sticky-Top der Karte aus den CSS-Variablen ableiten
-        const style = getComputedStyle(wrap);
-        const base = parseFloat(style.getPropertyValue("--stack-base")) || 92;
-        const gap = parseFloat(style.getPropertyValue("--stack-gap")) || 12;
-        if (wrap.getBoundingClientRect().top <= base + i * gap + 1) {
-          pinnedAfter++;
-        }
-      }
-      rafId = requestAnimationFrame(update);
-    };
-
-    update();
-
-    return () => cancelAnimationFrame(rafId);
-  }, []);
-
+function FeatureBadgeIcon({ name }: { name: FeatureIcon }) {
   return (
-    <section id="features" className="relative py-32">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0b0c10]/70 to-transparent" />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
-        <ScrollReveal className="mb-16 text-center sm:mb-20">
-          <h2 className="font-display text-3xl font-bold text-white sm:text-4xl md:text-5xl">
+    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 ring-1 ring-amber-500/25">
+      <svg
+        className="h-5 w-5 text-amber-400"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={1.75}
+        aria-hidden
+      >
+        {iconPaths[name]}
+      </svg>
+    </span>
+  );
+}
+
+export default function FeaturesGrid() {
+  return (
+    <section id="features" className="scroll-mt-24 py-20 sm:py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <ScrollReveal className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
+            Features
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Alles dabei. Nichts überflüssig.
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-base text-zinc-400 sm:text-lg">
-            8 Features, die deinen Betrieb transformieren — von NFC-Bestellung bis GoBD-Audit-Log.
+          <p className="mt-4 text-lg text-zinc-400">
+            Vier Bereiche, ein Login: Gäste, Team, Küche und Betrieb — ohne
+            Tool-Paradies aus fünf Abos.
           </p>
         </ScrollReveal>
 
-        {/* 3D Karten-Stapel: Karten pinnen nacheinander gestaffelt übereinander */}
-        <div style={{ perspective: "1400px" }}>
-          {features.map((feature, index) => (
-            <div
-              key={feature.title}
-              ref={(el) => {
-                stackRefs.current[index] = el;
-              }}
-              className={`feature-stack-item sticky ${index < features.length - 1 ? "pb-[42vh] sm:pb-[46vh]" : ""}`}
-              style={{
-                top: `calc(var(--stack-base) + ${index} * var(--stack-gap))`,
-                zIndex: index + 1,
-              }}
-            >
-              <div
-                ref={(el) => {
-                  cardRefs.current[index] = el;
-                }}
-                className={`group relative overflow-hidden rounded-2xl border shadow-xl shadow-black/30 will-change-transform ${
-                  feature.highlight
-                    ? "border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-[#11131a]"
-                    : "border-white/10 bg-[#11131a]"
-                }`}
-                style={{ transformOrigin: "center top" }}
-              >
-                {/* Abdunklungs-Overlay für Tiefe */}
-                <div
-                  ref={(el) => {
-                    shadeRefs.current[index] = el;
-                  }}
-                  className="pointer-events-none absolute inset-0 z-20 bg-black"
-                  style={{ opacity: 0 }}
-                />
-                <div className="relative z-10 p-5 sm:p-6">
-                  <div className="mb-4 inline-flex rounded-xl bg-amber-500/10 p-3 ring-1 ring-amber-500/20">
-                    {feature.icon}
-                  </div>
-                  <h3 className="mb-2 text-xl font-bold text-white">{feature.title}</h3>
-                  <p className="mb-4 leading-relaxed text-zinc-400">{feature.description}</p>
-                  {feature.stats ? (
-                    <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
-                      {feature.stats.map((stat) => (
-                        <div key={stat} className="text-center">
-                          <div className="text-xs font-bold text-amber-400 sm:text-sm">{stat}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  {feature.badge ? (
-                    <div className="mt-3 inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
-                      {feature.badge}
-                    </div>
-                  ) : null}
+        <div className="mt-14 space-y-16 sm:space-y-20">
+          {clusters.map((cluster) => (
+            <div key={cluster.id} id={cluster.id} className="scroll-mt-24">
+              <ScrollReveal>
+                <div className="mb-6 border-b border-white/10 pb-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/80">
+                    {cluster.label}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
+                    {cluster.headline}
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm text-zinc-400 sm:text-base">
+                    {cluster.intro}
+                  </p>
                 </div>
+              </ScrollReveal>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {cluster.features.map((f, i) => (
+                  <ScrollReveal key={f.title} delay={Math.min(i * 0.04, 0.16)}>
+                    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#14161e] to-[#11131a] p-5 transition duration-300 hover:-translate-y-0.5 hover:border-amber-500/35 hover:shadow-xl hover:shadow-amber-500/5">
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent opacity-0 transition group-hover:opacity-100"
+                      />
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="text-base font-semibold text-white">{f.title}</h4>
+                        <FeatureBadgeIcon name={f.icon} />
+                      </div>
+                      <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-400">
+                        {f.description}
+                      </p>
+                      {f.badge ? (
+                        <span className="mt-4 inline-flex w-fit rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+                          {f.badge}
+                        </span>
+                      ) : null}
+                    </article>
+                  </ScrollReveal>
+                ))}
               </div>
             </div>
           ))}

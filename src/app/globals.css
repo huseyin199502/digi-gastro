@@ -40,19 +40,6 @@
   }
 }
 
-/* ── Landing: 3D Karten-Stapel (Features) ──
-   Gestaffelte Sticky-Offsets pro Karte — mobil enger, Desktop breiter. */
-.feature-stack-item {
-  --stack-base: 92px;
-  --stack-gap: 12px;
-}
-@media (min-width: 640px) {
-  .feature-stack-item {
-    --stack-base: 112px;
-    --stack-gap: 18px;
-  }
-}
-
 @keyframes pulseAmber {
   from {
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);

@@ -7,52 +7,66 @@ const faqs = [
   {
     question: "Brauche ich spezielle Hardware?",
     answer:
-      "Nein! digi-gastro läuft auf jedem Tablet, Smartphone oder Computer — im Browser. Egal ob iOS, Android oder Windows. Für NFC brauchst du nur NFC-Aufkleber (ab ~1 €/Stück) auf die Tische legen. Kein App-Store, kein App-Download.",
+      "Nein. digi-gastro läuft im Browser auf Tablet, Smartphone oder PC (iOS, Android, Windows). Für NFC reichen Aufkleber ab ca. 1 € pro Tisch. Kein App-Store, kein Techniker.",
   },
   {
     question: "Brauchen meine Gäste eine App?",
     answer:
-      "Nein, überhaupt nicht. Deine Gäste scannen einfach den QR-Code am Tisch oder tippen auf den NFC-Chip und die Speisekarte öffnet sich direkt im Browser ihres Smartphones. Das funktioniert auf iOS und Android gleichermaßen.",
+      "Nein. QR scannen oder NFC tippen — die Speisekarte öffnet sich direkt im Browser. Funktioniert auf iOS und Android gleich.",
   },
   {
-    question: "Wie funktioniert die digitale Stempelkarte?",
+    question: "Was kostet digi-gastro?",
     answer:
-      "Nach der Bestellung erhält der Gast einen Link, um die Stempelkarte zu seinem Apple Wallet oder Google Wallet hinzuzufügen. Bei jedem Besuch wird der Stempel automatisch digital erfasst — inklusive Push-Benachrichtigungen für Angebote.",
+      "Monatlicher Flatrate-Preis, 0 % Provision, kein Setup-Fee. Den passenden Preis für deinen Betrieb schicken wir dir unverbindlich per WhatsApp — meist in Minuten. 14 Tage kannst du gratis testen, ohne Kreditkarte.",
   },
   {
-    question: "Fallen Provisionen pro Bestellung an?",
+    question: "Falls Provisionen pro Bestellung an?",
     answer:
-      "Nein. digi-gastro arbeitet mit einem fairen monatlichen Flatrate-Modell. Es gibt keine versteckten Kosten und keine Provisionen pro Bestellung oder Gast. Du behältst 100 % deines Umsatzes.",
+      "Nein. Du behältst 100 % deines Umsatzes. Es gibt keine versteckten Kosten pro Bestellung oder Gast.",
   },
   {
     question: "Ist digi-gastro GoBD-konform?",
     answer:
-      "Ja. Jede Stornierung, jede Änderung und jeder Bezahlvorgang wird in einem manipulationssicheren, kryptografisch verschlüsselten Audit-Log aufgezeichnet. Stornos erfordern eine Mitarbeiter-PIN. Der GoBD-konforme Steuerberater-Export (PDF/Excel) ist mit einem Klick generierbar.",
+      "Ja. Stornos, Änderungen und Zahlungen laufen über ein manipulationssicheres Audit-Log. Stornos erfordern eine Mitarbeiter-PIN. Steuerberater-Export als PDF/Excel ist ein Klick.",
   },
   {
     question: "Wie lange dauert das Setup?",
     answer:
-      "5 Minuten. Account erstellen, Logo hochladen, Produkte per CSV importieren (oder KI-Bilder generieren lassen), QR-Codes ausdrucken, NFC-Aufkleber auf Tische kleben — fertig. Keine Beratung, kein Techniker, keine Wartezeit.",
+      "Ca. 5 Minuten: Account, Logo, Produkte per CSV oder KI-Bildern, QR ausdrucken, NFC auf die Tische. Keine Beratung, keine Wartezeit.",
+  },
+  {
+    question: "Kann ich meine bestehende Kasse behalten?",
+    answer:
+      "Ja. Lightspeed, SumUp, Tillhub, HelloCash und Custom-Webhooks sind vorgesehen. Kein Vendor-Lock-in, keine Pflicht zur neuen Hardware.",
+  },
+  {
+    question: "Gibt es Küchen-Display, Personal und Lager?",
+    answer:
+      "Ja — alles im selben Dashboard: KDS in Echtzeit, Schichtplan & Urlaub, Inventur & Rezepte, Reports, Loyalty, Chat und Mini-Website für den Betrieb.",
+  },
+  {
+    question: "Wo liegen die Daten?",
+    answer:
+      "Auf Servern in Deutschland, DSGVO-konform. Du kannst Inhalte und Exporte jederzeit mitnehmen — kein Lock-in.",
   },
 ];
 
 export default function FAQ() {
   return (
-    <section id="faq" className="relative border-t border-white/5 py-32">
+    <section id="faq" className="scroll-mt-24 border-t border-white/5 py-20 sm:py-24">
       <div className="mx-auto max-w-3xl px-6">
-        <ScrollReveal className="text-center mb-16">
-          <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80 mb-3">
+        <ScrollReveal className="mb-12 text-center">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
             FAQ
           </p>
-          <h2 className="font-display text-4xl font-bold text-white md:text-5xl">Häufig gestellte Fragen</h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-            Alles Wissenswerte über das Betriebssystem der modernen Gastronomie.
-          </p>
+          <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">
+            Häufig gestellte Fragen
+          </h2>
         </ScrollReveal>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {faqs.map((faq, index) => (
-            <FAQItem key={index} question={faq.question} answer={faq.answer} index={index} />
+            <FAQItem key={faq.question} question={faq.question} answer={faq.answer} index={index} />
           ))}
         </div>
       </div>
@@ -77,18 +91,23 @@ function FAQItem({
     <div className="overflow-hidden rounded-xl border border-white/10 bg-[#11131a]">
       <button
         id={buttonId}
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between p-6 text-left transition-colors hover:bg-white/5"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-white/5 sm:px-6"
       >
-        <span className="pr-4 text-lg font-semibold text-white">{question}</span>
+        <span className="text-base font-semibold text-white sm:text-lg">
+          {question}
+        </span>
         <svg
-          className={`h-5 w-5 shrink-0 text-amber-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+          className={`h-5 w-5 shrink-0 text-amber-400 transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
-          aria-hidden="true"
+          aria-hidden
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -97,10 +116,14 @@ function FAQItem({
         id={panelId}
         role="region"
         aria-labelledby={buttonId}
-        className={`grid transition-all duration-300 ease-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+        className={`grid transition-all duration-300 ease-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
       >
         <div className="overflow-hidden">
-          <div className="px-6 pb-6 text-zinc-400 leading-relaxed">{answer}</div>
+          <div className="px-5 pb-5 text-sm leading-relaxed text-zinc-400 sm:px-6 sm:pb-6">
+            {answer}
+          </div>
         </div>
       </div>
     </div>

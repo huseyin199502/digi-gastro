@@ -7,26 +7,27 @@ import HeroSection from "@/components/landing/HeroSection";
 import FeaturesGrid from "@/components/landing/FeaturesGrid";
 import DemoWidget from "@/components/landing/DemoWidget";
 import HowItWorks from "@/components/landing/HowItWorks";
+import ProductShowcase from "@/components/landing/ProductShowcase";
 import Testimonials from "@/components/landing/Testimonials";
 import FAQ from "@/components/landing/FAQ";
 import Footer from "@/components/landing/Footer";
 import Navbar from "@/components/landing/Navbar";
 import SchemaMarkup from "@/components/landing/SchemaMarkup";
 import ScrollReveal from "@/components/landing/ScrollReveal";
-import ScrollVideo from "@/components/landing/ScrollVideo";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "digi-gastro — Digitales Bestellsystem für Restaurants & Gastronomie",
   alternates: { canonical: "/" },
+  description:
+    "Gastro-OS in 5 Minuten live: NFC/QR-Bestellung, Küchen-Display, Sitzplan, Personal, Lager, Loyalty & GoBD. 0 % Provision, Server in Deutschland, 14 Tage gratis.",
 };
 
-const WHATSAPP_URL = "https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen";
+const WHATSAPP_URL =
+  "https://wa.me/4915228450561?text=Hallo%2C%20ich%20m%C3%B6chte%20digi-gastro%2014%20Tage%20gratis%20testen";
 
 export default async function LandingPage() {
-  // Eingeloggte Tenant-User landen automatisch im Dashboard,
-  // bis sie sich manuell abmelden.
   const session = await getTenantSession();
   if (session) redirect(`/${session.slug}/admin`);
 
@@ -47,26 +48,18 @@ export default async function LandingPage() {
   return (
     <>
       <SchemaMarkup tenants={tenants} />
-      <main className="relative flex-1 text-white antialiased overflow-x-clip">
-        {/* Fester Video-Hintergrund über die gesamte Seite:
-            läuft scroll-synchron Frame-by-Frame mit (Footer = Sekunde 8),
-            beim Hochscrollen läuft er rückwärts. */}
-        <div className="pointer-events-none fixed inset-0 z-0">
-          <ScrollVideo
-            src="https://res.cloudinary.com/bkgwgoqc/video/upload/v1787147124/Creating_logo_animation_202608191540_m6th87.mp4"
-            poster="/hero-poster.png"
-            className="h-full w-full object-cover opacity-40"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#050507]/55 via-[#050507]/35 to-[#050507]/85" />
-        </div>
-
-        <div className="relative z-10">
+      <main className="relative flex-1 text-white antialiased">
+        <div className="bg-[#050507]">
           <Navbar />
           <HeroSection />
-          <SocialProof />
+          <StatsBar />
+          <TrustBar />
+          <PainSection />
+          <ProductShowcase />
           <FeaturesGrid />
           <DemoWidget />
           <HowItWorks />
+          <PricingTeaser />
           <Testimonials />
           <FAQ />
           <FinalCTA />
@@ -77,10 +70,52 @@ export default async function LandingPage() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Social Proof Section
-// ─────────────────────────────────────────────────────────────────────────────
-function SocialProof() {
+function StatsBar() {
+  const stats = [
+    {
+      value: "5 Min",
+      label: "Setup",
+      hint: "Konto → live",
+    },
+    {
+      value: "0 %",
+      label: "Provision",
+      hint: "100 % Umsatz bei dir",
+    },
+    {
+      value: "<1 s",
+      label: "bis Speisekarte",
+      hint: "NFC oder QR",
+    },
+  ];
+
+  return (
+    <section className="border-b border-white/5 bg-[#050507] py-10">
+      <div className="mx-auto max-w-6xl px-6">
+        <ScrollReveal>
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {stats.map((s) => (
+              <div
+                key={s.label}
+                className="rounded-2xl border border-white/10 bg-[#11131a] px-4 py-5 text-center shadow-lg shadow-black/20"
+              >
+                <dt className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                  <span className="bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-transparent">
+                    {s.value}
+                  </span>
+                </dt>
+                <dd className="mt-1 text-sm font-semibold text-zinc-200">{s.label}</dd>
+                <p className="mt-0.5 text-xs text-zinc-500">{s.hint}</p>
+              </div>
+            ))}
+          </dl>
+        </ScrollReveal>
+      </div>
+    </section>
+  );
+}
+
+function TrustBar() {
   const integrations = [
     "Lightspeed",
     "SumUp",
@@ -90,7 +125,6 @@ function SocialProof() {
     "Google Wallet",
     "CSV-Import",
   ];
-
   const values = [
     { title: "0 % Provision", text: "Du behältst jeden Euro Umsatz." },
     { title: "Server in Deutschland", text: "DSGVO-konform gehostet." },
@@ -99,32 +133,31 @@ function SocialProof() {
   ];
 
   return (
-    <section className="relative border-y border-white/5 bg-[#0b0c10]/60 py-20">
+    <section className="border-b border-white/5 bg-[#0b0c10] py-14">
       <div className="mx-auto max-w-6xl px-6">
-        <ScrollReveal className="text-center">
-          <p className="text-sm font-medium uppercase tracking-widest text-amber-400/80">
-            Kompatibel mit
+        <ScrollReveal>
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-amber-400/80">
+            Passt zu deiner Kasse — ohne neue Hardware
           </p>
-          <h2 className="mt-4 font-display text-2xl font-semibold text-white sm:text-3xl">
-            Passt zu deiner Kasse — ohne neue Hardware.
-          </h2>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
             {integrations.map((name) => (
               <span
                 key={name}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-300"
+                className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-sm text-zinc-300 transition hover:border-amber-500/40 hover:text-white"
               >
                 {name}
               </span>
             ))}
           </div>
         </ScrollReveal>
-
-        <ScrollReveal delay={0.1} className="mt-14">
-          <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+        <ScrollReveal delay={0.08}>
+          <dl className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {values.map((v) => (
-              <div key={v.title} className="border-l border-amber-500/30 pl-4">
-                <dt className="font-display text-lg font-semibold text-white">{v.title}</dt>
+              <div
+                key={v.title}
+                className="rounded-xl border border-white/5 bg-white/[0.02] p-4"
+              >
+                <dt className="text-base font-semibold text-white">{v.title}</dt>
                 <dd className="mt-1 text-sm text-zinc-400">{v.text}</dd>
               </div>
             ))}
@@ -135,49 +168,150 @@ function SocialProof() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Final CTA Section
-// ─────────────────────────────────────────────────────────────────────────────
-function FinalCTA() {
+function PainSection() {
+  const pains = [
+    {
+      title: "Chaos am Tisch",
+      text: "Warten auf den Kellner, falsche Bestellungen, Streit beim Bezahlen — Gäste sind unzufrieden und das Team kommt nicht nach.",
+      fix: "Gäste bestellen selbst per NFC/QR. Split-Pay erledigt den Rest.",
+    },
+    {
+      title: "Zettel & Stempelkarten",
+      text: "Papier-Stempel, verlorene Gutscheine, keine Daten über Stammgäste — Marketing passiert im Bauchgefühl.",
+      fix: "Digitale Wallet-Karte, Push-Kampagnen, Gutscheine & Reviews automatisch.",
+    },
+    {
+      title: "Bürokratie frisst Zeit",
+      text: "Schichtpläne, Inventur, Steuerberater-Export, Kassa-Chaos — abends bleibt keine Zeit für den Betrieb.",
+      fix: "Personal, Lager, Reports und GoBD-Audit in einem Cockpit.",
+    },
+  ];
+
   return (
-    <section className="relative overflow-hidden border-t border-white/5 py-32">
-      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5" />
-      <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
-        <ScrollReveal>
-          <h2 className="font-display text-4xl font-bold text-white md:text-6xl">
-            Bereit für das <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gastro-OS der Zukunft</span>?
-          </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-            Starte in 5 Minuten. Keine Kreditkarte nötig. Kein App-Download für Gäste. Keine Verträge.
+    <section className="py-20 sm:py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <ScrollReveal className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
+            Das Problem
           </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Gastro läuft. Deine Tools nicht.
+          </h2>
+          <p className="mt-4 text-lg text-zinc-400">
+            Die meisten Betriebe kleben Software aus fünf Systemen zusammen.
+            digi-gastro ersetzt den Wust — vom ersten Tap bis zum Steuerberater.
+          </p>
+        </ScrollReveal>
+
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
+          {pains.map((p, i) => (
+            <ScrollReveal key={p.title} delay={i * 0.08}>
+              <article className="group flex h-full flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-[#14161e] to-[#11131a] p-6 transition hover:border-red-500/25 hover:shadow-lg hover:shadow-red-500/5">
+                <span className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 text-sm font-bold text-red-400 ring-1 ring-red-500/20">
+                  !
+                </span>
+                <h3 className="text-lg font-semibold text-white">{p.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-400">{p.text}</p>
+                <p className="mt-4 border-t border-white/10 pt-4 text-sm font-medium text-emerald-400">
+                  {p.fix}
+                </p>
+              </article>
+            </ScrollReveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PricingTeaser() {
+  return (
+    <section id="preis" className="border-y border-white/5 bg-[#0b0c10] py-20 sm:py-24">
+      <div className="mx-auto max-w-4xl px-6">
+        <ScrollReveal className="text-center">
+          <p className="text-xs font-semibold uppercase tracking-widest text-amber-400/80">
+            Preis
+          </p>
+          <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">
+            Fairer Flatrate-Preis. Keine Provision.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-zinc-400">
+            Keine versteckten Kosten pro Bestellung oder Gast. Du bekommst den
+            passenden monatlichen Preis unverbindlich und sofort per WhatsApp —
+            ohne Sales-Call und ohne Kreditkarte.
+          </p>
+          <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
+            {[
+              { t: "0 % Provision", d: "100 % deines Umsatzes bleiben bei dir" },
+              { t: "Kein Setup-Fee", d: "In 5 Minuten startklar" },
+              { t: "Jederzeit kündbar", d: "Keine Mindestlaufzeit" },
+            ].map((x) => (
+              <div
+                key={x.t}
+                className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#14161e] to-[#11131a] p-5 text-left shadow-lg shadow-black/20 transition hover:border-amber-500/30"
+              >
+                <div className="font-semibold text-white">{x.t}</div>
+                <div className="mt-1 text-sm text-zinc-400">{x.d}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10">
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-10 py-5 text-lg font-semibold text-white shadow-2xl shadow-emerald-500/25 transition-all duration-300 hover:scale-105 hover:shadow-emerald-500/40"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-8 py-4 text-base font-semibold text-white transition hover:bg-emerald-400"
             >
-              <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
+              Preis erfragen &amp; 14 Tage gratis testen
+            </a>
+            <p className="mt-3 text-sm text-zinc-500">
+              Antwort in der Regel in wenigen Minuten · unverbindlich
+            </p>
+          </div>
+        </ScrollReveal>
+      </div>
+    </section>
+  );
+}
+
+function FinalCTA() {
+  return (
+    <section className="relative overflow-hidden border-t border-white/5 py-20 sm:py-28">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(245,158,11,0.1)_0%,transparent_55%)]"
+      />
+      <div className="relative mx-auto max-w-3xl px-6 text-center">
+        <ScrollReveal>
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">
+            In 5 Minuten live —{" "}
+            <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+              ohne Beratungstermin
+            </span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-xl text-lg text-zinc-400">
+            Konto anlegen, Speisekarte importieren, QR ausdrucken — fertig. Keine
+            App für Gäste, keine Hardware-Pflicht.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Link
+              href="/bestellsystem-neuwied"
+              className="rounded-xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition hover:border-amber-500/50 hover:bg-white/10"
+            >
+              Live in Neuwied ansehen
+            </Link>
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-8 py-3.5 text-sm font-semibold text-black shadow-lg shadow-amber-500/20 transition hover:brightness-110"
+            >
               14 Tage gratis testen
             </a>
-            <Link
-              href="#features"
-              className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 px-10 py-5 text-lg font-semibold text-white backdrop-blur-sm transition hover:scale-105 hover:border-amber-500/50 hover:bg-white/10"
-            >
-              Mehr erfahren
-            </Link>
           </div>
-          <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-zinc-400">
-            <span>Keine App</span>
-            <span>·</span>
-            <span>Kein Setup</span>
-            <span>·</span>
-            <span>Jederzeit kündbar</span>
-            <span>·</span>
-            <span>GoBD-konform</span>
-          </div>
+          <p className="mt-6 text-sm text-zinc-500">
+            Keine App · Kein Setup-Termin · Jederzeit kündbar · GoBD-konform
+          </p>
         </ScrollReveal>
       </div>
     </section>
