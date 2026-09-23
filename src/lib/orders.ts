@@ -334,6 +334,7 @@ export async function createOrder(
         netPrice = eventPrice;
       } else if (
         prod.happy_hour_price != null &&
+        prod.happy_hour_price > 0 &&
         prod.happy_hour_active
       ) {
         // Produkt-level Happy Hour muss auch im Preis ankommen (nicht nur Anzeige);

@@ -98,6 +98,10 @@ export async function POST(req: Request) {
     if (data.happy_hour_price !== null && !Number.isFinite(data.happy_hour_price)) {
       data.happy_hour_price = null;
     }
+    // 0 / negativ = kein Happy Hour (sonst „Angebot“ mit 0,00 €)
+    if (data.happy_hour_price !== null && data.happy_hour_price <= 0) {
+      data.happy_hour_price = null;
+    }
 
     const product = await prisma.product.create({ data });
     return NextResponse.json(product);

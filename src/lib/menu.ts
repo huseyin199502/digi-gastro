@@ -37,7 +37,14 @@ export function isProductHappyHourActive(
   nowTime: string,
   possibleDays: string[]
 ): boolean {
-  if (p.happy_hour_price === null || p.happy_hour_price === undefined) return false;
+  if (
+    p.happy_hour_price === null ||
+    p.happy_hour_price === undefined ||
+    !Number.isFinite(p.happy_hour_price) ||
+    p.happy_hour_price <= 0
+  ) {
+    return false;
+  }
   if (p.start_time && p.end_time) {
     if (!isEventActiveNow(p.start_time, p.end_time, nowTime)) return false;
   }
@@ -361,7 +368,11 @@ export async function getTenantMenu(rawSlug: string): Promise<MenuData> {
       hhPrice =
         Math.round(base * (1 - activeDiscountEvent.discount / 100) * 100) /
         100;
-    } else if (p.happy_hour_price !== null && isProductHappyHourActive(p, nowTime, possibleDays)) {
+    } else if (
+      p.happy_hour_price != null &&
+      p.happy_hour_price > 0 &&
+      isProductHappyHourActive(p, nowTime, possibleDays)
+    ) {
       // Produkt-level Happy Hour: aktives Flag + angezeigter Preis
       hhActive = true;
       hhPrice = displayPrice(p.happy_hour_price, p.category_type, priceMode);

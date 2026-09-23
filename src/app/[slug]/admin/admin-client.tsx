@@ -1628,7 +1628,11 @@ function ProductsTab(props: ProductsTabProps) {
     setEditPrice(String(p.price));
     setEditCategory(p.category);
     setEditDescription(p.description ?? "");
-    setEditHappyHour(p.happy_hour_price != null ? String(p.happy_hour_price) : "");
+    setEditHappyHour(
+      p.happy_hour_price != null && p.happy_hour_price > 0
+        ? String(p.happy_hour_price)
+        : ""
+    );
     setEditImage(p.image ?? "");
     setEditVegan(!!p.is_vegan);
     setEditGlutenfree(!!p.is_glutenfree);
@@ -1668,8 +1672,12 @@ function ProductsTab(props: ProductsTabProps) {
           variants: editVariants
             .filter((v) => v.name.trim() !== "")
             .map((v) => ({ name: v.name.trim(), price: parseFloat(v.price) || 0 })),
-          happy_hour_price:
-            editHappyHour.trim() === "" ? null : parseFloat(editHappyHour),
+          happy_hour_price: (() => {
+            const raw = editHappyHour.trim();
+            if (!raw) return null;
+            const n = parseFloat(raw);
+            return Number.isFinite(n) && n > 0 ? n : null;
+          })(),
           image_url: editImage.trim(),
         }),
       });

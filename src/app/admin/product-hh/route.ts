@@ -45,10 +45,14 @@ export async function POST(request: NextRequest) {
     if (!product) throw new ApiError("Produkt nicht gefunden.", 404);
 
     const hhRaw = fields.happy_hour_price;
+    const parsedHh = hhRaw === undefined || hhRaw === null || hhRaw === ""
+      ? null
+      : Number(hhRaw);
+    // 0 / ungültig = Happy Hour aus
     const hhPrice =
-      hhRaw === undefined || hhRaw === null || hhRaw === ""
-        ? null
-        : Number(hhRaw);
+      parsedHh !== null && Number.isFinite(parsedHh) && parsedHh > 0
+        ? parsedHh
+        : null;
     const startTime = String(fields.start_time ?? "") || null;
     const endTime = String(fields.end_time ?? "") || null;
 

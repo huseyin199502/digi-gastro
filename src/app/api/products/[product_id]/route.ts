@@ -64,11 +64,20 @@ export async function PUT(
     const isGlutenfree =
       fields.is_glutenfree === true || fields.is_glutenfree === "true";
 
-    // Happy hour price: only update when explicitly provided
-    const hhRaw = fields.happy_hour_price;
+    // Happy hour price: explizit im Body = setzen/leeren.
+    // null/""/0/negativ/NaN → Happy Hour aus (null speichern).
     let happyHourPrice: number | null | undefined = undefined;
-    if (hhRaw !== undefined && hhRaw !== null && hhRaw !== "" && hhRaw !== "None") {
-      happyHourPrice = Number(hhRaw);
+    if (Object.prototype.hasOwnProperty.call(fields, "happy_hour_price")) {
+      const hhRaw = fields.happy_hour_price;
+      if (hhRaw === undefined || hhRaw === null || hhRaw === "" || hhRaw === "None") {
+        happyHourPrice = null;
+      } else {
+        const parsed = Number(hhRaw);
+        happyHourPrice =
+          Number.isFinite(parsed) && parsed > 0
+            ? Math.round(parsed * 100) / 100
+            : null;
+      }
     }
 
     const categoryType = inferCategoryType(category);
