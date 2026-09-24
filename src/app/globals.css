@@ -58,3 +58,12 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Mobile-first: 44px Mindest-Touch-Target fuer alle Buttons. Gilt auch
+   gegen kleinere Hoehen- und Breiten-Utilities; nur min-h und min-w gehen vor. */
+@layer base {
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

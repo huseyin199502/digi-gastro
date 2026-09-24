@@ -379,7 +379,7 @@ export default function KdsClient({
 
       <div className="flex-1 px-4 py-5 sm:px-6">
         {!enabled ? (
-          <div className="mx-auto max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">
+          <div className="mx-auto max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-center sm:p-6 lg:p-8">
             <span className="material-symbols-outlined text-4xl text-zinc-500">
               visibility_off
             </span>

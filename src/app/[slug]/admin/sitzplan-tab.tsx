@@ -912,7 +912,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
     <div className="space-y-6">
       {/* Stat cards — komplett ausblenden, wenn Umsatz-Anzeige deaktiviert */}
       {showRevenue ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard label="Umsatz heute" value={formatEur(stats?.brutto)} />
           <StatCard label="Bestellungen heute" value={String(stats?.orders_count ?? 0)} />
           <StatCard label="Trinkgeld" value={formatEur(stats?.tip)} />
@@ -1294,7 +1294,7 @@ export default function SitzplanTab(props: SitzplanTabProps) {
                           </span>
                           <button
                             onClick={() => serveItemsBulk(pendingGroups.flatMap((g) => g.entries), `Serviert: ${pendingTotalQty} Artikel`)}
-                            className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-emerald-500/30 transition-all hover:bg-emerald-600 active:scale-95 sm:text-sm"
+                            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-emerald-500/30 transition-all hover:bg-emerald-600 active:scale-95 sm:w-auto sm:text-sm"
                           >
                             <span className="material-symbols-outlined text-base">done_all</span>
                             Alles servieren ({pendingTotalQty})

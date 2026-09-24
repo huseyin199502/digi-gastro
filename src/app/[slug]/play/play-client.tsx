@@ -632,7 +632,7 @@ export default function PlayClient({
             className="relative w-full overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/90 to-emerald-600/90 p-5 text-left shadow-2xl active:scale-[0.99]"
           >
             <div className="text-5xl">🏎️</div>
-            <div className="mt-2 text-2xl font-black text-black">Kart-Rennen</div>
+            <div className="mt-2 text-lg font-black text-black sm:text-xl lg:text-2xl">Kart-Rennen</div>
             <div className="text-sm font-semibold text-black/70">3D-Rennen · gegen Freunde oder Bots</div>
             <div className="mt-3 flex gap-2">
               <span className="rounded-full bg-black/25 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">Mehrspieler</span>
@@ -645,7 +645,7 @@ export default function PlayClient({
             className="relative mt-3 w-full overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500/90 to-purple-700/90 p-5 text-left shadow-2xl active:scale-[0.99]"
           >
             <div className="text-5xl">🎲</div>
-            <div className="mt-2 text-2xl font-black text-black">Mensch ärgere dich nicht</div>
+            <div className="mt-2 text-lg font-black text-black sm:text-xl lg:text-2xl">Mensch ärgere dich nicht</div>
             <div className="text-sm font-semibold text-black/70">3D-Brettspiel · gegen Bots oder Freunde</div>
             <div className="mt-3 flex gap-2">
               <span className="rounded-full bg-black/25 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">3D</span>
@@ -658,7 +658,7 @@ export default function PlayClient({
             className="relative mt-3 w-full overflow-hidden rounded-3xl bg-gradient-to-br from-fuchsia-500/90 to-sky-600/90 p-5 text-left shadow-2xl active:scale-[0.99]"
           >
             <div className="text-5xl">🎬</div>
-            <div className="mt-2 text-2xl font-black text-black">Quiz Show</div>
+            <div className="mt-2 text-lg font-black text-black sm:text-xl lg:text-2xl">Quiz Show</div>
             <div className="text-sm font-semibold text-black/70">3D-Quizshow · gegen Bots oder Freunde</div>
             <div className="mt-3 flex gap-2">
               <span className="rounded-full bg-black/25 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">3D</span>

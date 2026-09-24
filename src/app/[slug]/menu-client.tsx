@@ -1228,7 +1228,7 @@ export function MenuClient({
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-4xl text-primary">
             <MaterialIcon className="text-4xl">qr_code_scanner</MaterialIcon>
           </div>
-          <h2 className="font-display text-2xl font-extrabold tracking-tight text-on-surface">
+          <h2 className="font-display text-lg font-extrabold tracking-tight text-on-surface sm:text-xl lg:text-2xl">
             {tr.scan_required_header}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">
@@ -1661,7 +1661,7 @@ export function MenuClient({
                         }`}
                         onClick={() => openProductSheet(product)}
                       >
-                        <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
+                        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
                           {product.image ? (
                             <MenuImg
                               alt={product.name}
@@ -1683,9 +1683,9 @@ export function MenuClient({
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-1 flex-col justify-between p-3">
+                        <div className="flex flex-1 flex-col justify-between p-3 sm:p-4">
                           <div>
-                            <h3 className="mb-0.5 text-sm font-bold leading-tight text-gray-900">
+                            <h3 className="mb-0.5 text-base font-bold leading-tight text-gray-900 sm:text-lg">
                               {lang === "en" && product.name_en ? product.name_en : product.name}
                             </h3>
                             {product.description && (
@@ -2928,7 +2928,7 @@ function ProductSheet({
         </div>
 
         <div className="mp-sheet-body space-y-3 overflow-y-auto p-5 sm:p-6">
-          <h3 className="font-display text-2xl font-black leading-tight tracking-tight text-gray-900">
+          <h3 className="font-display text-lg font-black leading-tight tracking-tight text-gray-900 sm:text-xl lg:text-2xl">
             {name}
           </h3>
           {desc ? <p className="text-sm leading-relaxed text-gray-500">{desc}</p> : null}
@@ -2951,7 +2951,7 @@ function ProductSheet({
                 {formatEur(product.display_price)}
               </span>
             ) : null}
-            <span className="text-2xl font-black text-primary">{formatEur(effPrice)}</span>
+            <span className="text-lg font-black text-primary sm:text-xl lg:text-2xl">{formatEur(effPrice)}</span>
           </div>
 
           {/* Varianten — Einfachauswahl (Radio) */}
@@ -3689,7 +3689,7 @@ function LegalModal({
         >
           <MaterialIcon className="text-2xl">close</MaterialIcon>
         </button>
-        <h3 className="font-display mb-5 text-2xl font-extrabold text-on-surface">
+        <h3 className="font-display mb-5 text-lg font-extrabold text-on-surface sm:text-xl lg:text-2xl">
           {title}
         </h3>
         <div className="font-sans scrollbar-none flex-1 overflow-y-auto pr-2 text-sm leading-relaxed whitespace-pre-line text-on-surface-variant">
@@ -3783,11 +3783,11 @@ function ThankYouModal({
         >
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
-        <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-8 pb-2">
+        <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-4 pb-2 sm:p-6 lg:p-8">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
             <span className="material-symbols-outlined text-5xl text-emerald-500">check_circle</span>
           </div>
-          <h2 className="mb-2 text-2xl font-extrabold text-gray-900">{tr.thank_you}</h2>
+          <h2 className="mb-2 text-lg font-extrabold text-gray-900 sm:text-xl lg:text-2xl">{tr.thank_you}</h2>
           <p className="mb-6 text-sm font-medium leading-relaxed text-gray-500">
             {tr.thank_you_desc}
           </p>
@@ -3795,7 +3795,7 @@ function ThankYouModal({
             <AdBanner key={ad.id} ad={ad} className="mb-4" variant="light" />
           ))}
         </div>
-        <div className="shrink-0 p-8 pt-2">
+        <div className="shrink-0 p-4 pt-2 sm:p-6 lg:p-8">
           <button
             onClick={onClose}
             className="w-full rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-all hover:bg-emerald-700 active:scale-[0.98]"

@@ -38,7 +38,7 @@ interface AnnouncementRow {
 const btnCls =
   "rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-200 hover:border-amber-500 hover:text-amber-300 disabled:opacity-50";
 const inputCls =
-  "rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-amber-500";
+  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-amber-500";
 
 /** Play World aktiv? (Bestellsystem nötig; Abschaltung via enabled_features "play_off".) */
 function playWorldEnabled(t: { orders_enabled: boolean | null; enabled_features: string | null }): boolean {
@@ -257,7 +257,7 @@ export default function AdminPanel({
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-amber-400">
           Neues Restaurant anlegen
         </h2>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className={labelCls}>Name</label>
             <input
@@ -279,14 +279,14 @@ export default function AdminPanel({
           <button
             onClick={() => void createTenant()}
             disabled={busy === "create" || !newName.trim() || !newSlug.trim()}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-500 disabled:opacity-50"
+            className="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-500 disabled:opacity-50 sm:col-span-2 sm:w-auto sm:justify-self-start"
           >
             {busy === "create" ? "Erstelle…" : "Anlegen"}
           </button>
         </div>
       </section>
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
+      <div className="hidden overflow-x-auto rounded-xl border border-zinc-800 lg:block">
         <table className="w-full min-w-[1100px] text-sm">
           <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-400">
             <tr>
@@ -483,6 +483,186 @@ export default function AdminPanel({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card-Liste (gleiche Daten/Aktionen wie die Tabelle oben) */}
+      <div className="grid gap-3 lg:hidden">
+        {tenants.map((t) => (
+          <div key={t.slug} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="truncate font-semibold">{t.name}</div>
+                <div className="truncate text-xs text-zinc-500">{t.email}</div>
+                <a href={`/${t.slug}`} className="font-mono text-xs text-zinc-400 hover:text-amber-400">
+                  /{t.slug}
+                </a>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                  t.active ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                }`}
+              >
+                {t.active ? "aktiv" : "deaktiviert"}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-zinc-600">
+              {t.is_setup_completed ? "Setup ✓" : "Setup ✗"} ·{" "}
+              {t.orders_enabled ? "Bestellung ✓" : "Bestellung ✗"} ·{" "}
+              {t.loyalty_enabled ? "Loyalty ✓" : "Loyalty ✗"} ·{" "}
+              {t.chat_enabled ? "Chat ✓" : "Chat ✗"} ·{" "}
+              {playWorldEnabled(t) ? "Play ✓" : "Play ✗"} ·{" "}
+              {t.show_revenue ? "Umsatz ✓" : "Umsatz ✗"}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <span>{t._count.products} Produkte</span>
+              <span>{t._count.orders} Bestellungen</span>
+              <span>{t._count.loyaltyCustomers} Loyalty</span>
+              <span className="font-semibold">{formatEur(t.tagesumsatz ?? 0)}</span>
+              <span className="text-xs text-zinc-400">Tier: {t.tier ?? "—"}</span>
+            </div>
+            <div className="mt-2">
+              <select
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 sm:w-auto"
+                value={t.operating_mode ?? "full"}
+                onChange={(e) => void setMode(t, e.target.value)}
+                disabled={busy === `mode-${t.slug}`}
+              >
+                <option value="full">full</option>
+                <option value="menu_only">menu_only</option>
+                <option value="stempelkarte_only">stempelkarte_only</option>
+              </select>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `toggle-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-toggle/${t.slug}`),
+                    `${t.active ? "Deaktiviert" : "Aktiviert"}: ${t.name}`
+                  )
+                }
+              >
+                {t.active ? "Deaktivieren" : "Aktivieren"}
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `orders-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-orders-toggle/${t.slug}`),
+                    `Bestellungen ${t.orders_enabled ? "aus" : "an"}: ${t.name}`
+                  )
+                }
+              >
+                Bestellung {t.orders_enabled ? "aus" : "an"}
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `loyalty-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-loyalty-toggle/${t.slug}`),
+                    `Loyalty ${t.loyalty_enabled ? "aus" : "an"}: ${t.name}`
+                  )
+                }
+              >
+                Loyalty {t.loyalty_enabled ? "aus" : "an"}
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `chat-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-chat-toggle/${t.slug}`),
+                    `Chat ${t.chat_enabled ? "aus" : "an"}: ${t.name}`
+                  )
+                }
+              >
+                Chat {t.chat_enabled ? "aus" : "an"}
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `play-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-play-toggle/${t.slug}`),
+                    `Play World ${playWorldEnabled(t) ? "aus" : "an"}: ${t.name}`
+                  )
+                }
+              >
+                Play World {playWorldEnabled(t) ? "aus" : "an"}
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `revtoggle-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-revenue-toggle/${t.slug}`),
+                    `Umsatz-Anzeige ${t.show_revenue ? "aus" : "an"}: ${t.name}`
+                  )
+                }
+              >
+                Umsatz-Anzeige {t.show_revenue ? "aus" : "an"}
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `setup-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-complete-setup/${t.slug}`),
+                    `Setup als abgeschlossen markiert: ${t.name}`
+                  )
+                }
+              >
+                Setup abschließen
+              </button>
+              <button className={`${btnCls} w-full`} disabled={busy !== null} onClick={() => void editName(t)}>
+                Name ändern
+              </button>
+              <button
+                className={`${btnCls} w-full`}
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    `pw-${t.slug}`,
+                    () => postJson(`/digi-gastro-admin/tenant-reset-password/${t.slug}`),
+                    `Passwort zurückgesetzt: ${t.name}`
+                  )
+                }
+              >
+                Passwort zurücksetzen
+              </button>
+              <button className={`${btnCls} w-full`} disabled={busy !== null} onClick={() => void adjustRevenue(t)}>
+                Umsatz anpassen
+              </button>
+              <button className={`${btnCls} w-full`} disabled={busy !== null} onClick={() => void cleanupOrders(t)}>
+                Bestellungen bereinigen
+              </button>
+              <button
+                className="w-full rounded-lg border border-sky-700 bg-sky-900 px-2.5 py-1 text-xs font-medium text-sky-200 hover:border-sky-500 hover:text-sky-100 disabled:opacity-50"
+                disabled={busy !== null}
+                onClick={() => void impersonate(t.slug)}
+              >
+                Einloggen
+              </button>
+              <button
+                className="w-full rounded-lg border border-red-800 bg-red-950 px-2.5 py-1 text-xs font-medium text-red-300 hover:border-red-500 hover:text-red-200 disabled:opacity-50"
+                disabled={busy !== null}
+                onClick={() => void deleteTenant(t)}
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Neuigkeiten / Tenant-Onboarding */}

@@ -50,7 +50,7 @@ export default function ProductShowcase() {
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-orange-400/80">
                 Innen
               </p>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {[
                   { n: "1", s: "belegt", c: "border-amber-500/40 bg-amber-500/10 text-amber-300", m: "20,50 €" },
                   { n: "2", s: "offen", c: "border-amber-500/30 bg-amber-500/5 text-amber-400", m: "1 offen" },
@@ -73,7 +73,7 @@ export default function ProductShowcase() {
               <p className="mb-2 mt-4 text-[10px] font-bold uppercase tracking-wider text-sky-400/80">
                 Terrasse
               </p>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {[
                   { n: "7", s: "belegt", c: "border-amber-500/40 bg-amber-500/10 text-amber-300", m: "14,00 €" },
                   { n: "8", s: "frei", c: "border-white/10 bg-white/[0.02] text-zinc-500", m: "—" },

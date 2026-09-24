@@ -187,7 +187,7 @@ export default function VoucherPanel({ tenants }: { tenants: { slug: string; nam
       </div>
 
       {tenantSlug && vouchers.length > 0 ? (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
+        <div className="mt-4 hidden overflow-x-auto rounded-lg border border-zinc-800 lg:block">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-900 text-xs text-zinc-400">
               <tr>
@@ -235,6 +235,47 @@ export default function VoucherPanel({ tenants }: { tenants: { slug: string; nam
               })}
             </tbody>
           </table>
+        </div>
+      ) : null}
+      {/* Mobile Card-Liste (gleiche Daten/Aktionen wie die Tabelle oben) */}
+      {tenantSlug && vouchers.length > 0 ? (
+        <div className="mt-4 grid gap-3 lg:hidden">
+          {vouchers.map((v) => {
+            const isUsed = v.status === "used" || v.status === "consumed";
+            return (
+              <div key={v.id} className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-mono font-semibold">{v.code}</p>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                      isUsed
+                        ? "bg-red-900/50 text-red-300"
+                        : "bg-emerald-900/60 text-emerald-300"
+                    }`}
+                  >
+                    {isUsed ? "verwendet" : "aktiv"}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                  <span>
+                    {v.discount_type === "percent" ? `${v.discount_value}%` : `${v.discount_value} €`}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {v.used_table ? `${v.used_table}` : isUsed ? "(verwendet)" : "—"}
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <button
+                    onClick={() => void del(v.id, v.code)}
+                    disabled={busy}
+                    className="w-full rounded bg-red-900/60 px-2 py-1 text-xs font-bold text-red-300 hover:bg-red-800 disabled:opacity-50 sm:w-auto"
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </section>

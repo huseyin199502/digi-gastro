@@ -1488,16 +1488,16 @@ function OrdersTab(props: OrdersTabProps) {
                       {it.item_status || "pending"}
                     </span>
                     {isPending ? (
-                      <div className="flex gap-1.5">
+                      <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-row">
                         <button
                           onClick={() => serveItemsBulk([{ o, it }], `Serviert: ${it.quantity}x ${it.name}`)}
-                          className="rounded bg-emerald-600 px-2 py-1 text-xs font-bold hover:bg-emerald-700"
+                          className="w-full rounded bg-emerald-600 px-2 py-1 text-xs font-bold hover:bg-emerald-700 sm:w-auto"
                         >
                           Servieren
                         </button>
                         <button
                           onClick={() => cancelItem(o, it)}
-                          className="rounded bg-red-600 px-2 py-1 text-xs font-bold hover:bg-red-700"
+                          className="w-full rounded bg-red-600 px-2 py-1 text-xs font-bold hover:bg-red-700 sm:w-auto"
                         >
                           Storno
                         </button>
@@ -1522,7 +1522,7 @@ function OrdersTab(props: OrdersTabProps) {
                   )
                 }
                 disabled={pendingCount === 0}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold hover:bg-emerald-700 disabled:opacity-40"
+                className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold hover:bg-emerald-700 disabled:opacity-40 sm:w-auto"
               >
                 Alle serviert ({pendingCount})
               </button>
@@ -1543,7 +1543,7 @@ function OrdersTab(props: OrdersTabProps) {
                     await payOrder(ord, { skipConfirm: true });
                   }
                 }}
-                className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-bold hover:bg-sky-700"
+                className="w-full rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-bold hover:bg-sky-700 sm:w-auto"
               >
                 Tisch abrechnen
               </button>
@@ -1554,7 +1554,7 @@ function OrdersTab(props: OrdersTabProps) {
                     await cancelOrder(o);
                   }
                 }}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold hover:bg-red-700"
+                className="w-full rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold hover:bg-red-700 sm:w-auto"
               >
                 Stornieren
               </button>
@@ -2331,7 +2331,7 @@ function ProductsTab(props: ProductsTabProps) {
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-800">
+        <div className="hidden overflow-x-auto rounded-xl border border-zinc-800 lg:block">
           <table className="w-full min-w-0 text-sm">
             <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-400">
               <tr>
@@ -2410,6 +2410,76 @@ function ProductsTab(props: ProductsTabProps) {
           </table>
         </div>
       )}
+      {/* Mobile Card-Liste (gleiche Daten/Aktionen wie die Tabelle oben) */}
+      {view === "table" ? (
+        <div className="grid gap-3 lg:hidden">
+          {sorted.map((p) => {
+            const cat = p.category || "Ohne Kategorie";
+            const catList = groupedByCategory.find(([c]) => c === cat)?.[1] ?? [];
+            const catIdx = catList.findIndex((x) => x.id === p.id);
+            const canUp = catIdx > 0;
+            const canDown = catIdx < catList.length - 1;
+            return (
+              <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{p.name}</p>
+                    <p className="text-xs text-zinc-400">{p.category}</p>
+                  </div>
+                  <span className="shrink-0 font-semibold">{formatEur(p.price)}</span>
+                </div>
+                <div className="mt-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      p.is_available
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-red-500/15 text-red-300"
+                    }`}
+                  >
+                    {p.is_available ? "Aktiv" : "Ausverkauft"}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => moveProduct(cat, catIdx, -1)}
+                    disabled={!canUp}
+                    className="rounded bg-zinc-800 px-1.5 py-1 text-xs font-bold hover:bg-zinc-700 disabled:opacity-30"
+                    title="Nach oben"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    onClick={() => moveProduct(cat, catIdx, 1)}
+                    disabled={!canDown}
+                    className="rounded bg-zinc-800 px-1.5 py-1 text-xs font-bold hover:bg-zinc-700 disabled:opacity-30"
+                    title="Nach unten"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    onClick={() => openEdit(p)}
+                    className="rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                  >
+                    Bearbeiten
+                  </button>
+                  <button
+                    onClick={() => toggleProduct(p)}
+                    className="rounded bg-zinc-800 px-2 py-1 text-xs font-bold hover:bg-zinc-700"
+                  >
+                    {p.is_available ? "Ausverkauft" : "Aktivieren"}
+                  </button>
+                  <button
+                    onClick={() => deleteProduct(p)}
+                    className="rounded bg-red-600 px-2 py-1 text-xs font-bold text-white hover:bg-red-500"
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {showCreate ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
@@ -4305,7 +4375,7 @@ function ReportsTab(props: ReportsTabProps) {
 
       {/* Live summary from tablet-status */}
       {live && showRevenue ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Umsatz heute (brutto)" value={formatEur(live.stats.brutto)} />
           <StatCard label="Umsatz 7%" value={formatEur(live.stats.brutto_7)} />
           <StatCard label="Umsatz 19%" value={formatEur(live.stats.brutto_19)} />

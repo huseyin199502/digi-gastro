@@ -39,7 +39,7 @@ export default function HowItWorks() {
           </p>
         </ScrollReveal>
 
-        <ol className="grid gap-8 md:grid-cols-3">
+        <ol className="grid gap-3 sm:gap-4 md:grid-cols-3 lg:gap-6">
           {steps.map((item, index) => (
             <ScrollReveal key={item.step} delay={index * 0.1}>
               <li className="relative h-full rounded-2xl border border-white/10 bg-[#11131a] p-6">

@@ -417,7 +417,7 @@ function OverviewTab({
   const a = data.analytics;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Kunden gesamt" value={String(a.total_customers)} />
         <StatCard label="Aktiv (30 Tage)" value={String(a.active_customers_30d)} />
         <StatCard label="Stempel vergeben" value={String(a.total_stamps)} />
@@ -648,7 +648,7 @@ function CustomersTab(props: {
             : `${pagination.total} Kunden · Seite ${pagination.page}/${pagination.total_pages}`}
         </div>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-zinc-800">
+      <div className="hidden overflow-x-auto rounded-xl border border-zinc-800 lg:block">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs text-zinc-400">
@@ -732,6 +732,69 @@ function CustomersTab(props: {
             ) : null}
           </tbody>
         </table>
+      </div>
+      {/* Mobile Card-Liste (gleiche Daten/Aktionen wie die Tabelle oben) */}
+      <div className="grid gap-3 lg:hidden">
+        {customers.map((c) => {
+          const pct = Math.min(100, Math.round((c.current_stamps / Math.max(1, c.stamps_required)) * 100));
+          return (
+            <div key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{c.nickname ?? "—"}</p>
+                  <p className="text-xs text-zinc-500">
+                    {c.pass_type === "apple" ? "Apple" : "Google"} · {c.pass_serial}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-semibold">{c.tier}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono">{c.short_code}</span>
+                {c.has_device_registration ? (
+                  <span className="text-emerald-400">Gerät registriert</span>
+                ) : (
+                  <span className="text-zinc-500">nicht heruntergeladen</span>
+                )}
+                <span className="text-zinc-400">{fmtDate(c.last_visit_at)}</span>
+              </div>
+              <div className="mt-2">
+                <div className="mb-1 flex justify-between text-xs">
+                  <span>{c.current_stamps}/{c.stamps_required}</span>
+                  <span className="text-zinc-500">{pct}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  onClick={() => void onSetStamps(c)}
+                  className="w-full rounded-lg border border-zinc-700 px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 sm:w-auto"
+                >
+                  Stempel setzen
+                </button>
+                <button
+                  onClick={() => void onSendMessage(c)}
+                  className="w-full rounded-lg border border-emerald-700 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-950 sm:w-auto"
+                >
+                  Nachricht
+                </button>
+                <button
+                  onClick={() => void onMergeCustomer(c)}
+                  title="Zweite Karte desselben Gastes hierhin zusammenführen"
+                  className="w-full rounded-lg border border-indigo-700 px-2.5 py-1 text-xs font-semibold text-indigo-300 hover:bg-indigo-950 sm:w-auto"
+                >
+                  Zusammenführen
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {customers.length === 0 ? (
+          <p className="px-1 py-2 text-sm text-zinc-500">
+            {search ? `Keine Kunden gefunden für "${search}".` : "Keine Kunden."}
+          </p>
+        ) : null}
       </div>
       <div className="mt-3 flex items-center justify-between">
         <button
@@ -856,7 +919,7 @@ function DiagnoseTab({ pushToast }: { pushToast: (m: string, k?: Toast["kind"]) 
         <p className="text-sm text-zinc-500">Wird geladen…</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Kunden gesamt" value={String(s!.total_customers)} />
             <StatCard label="Device-Registrations" value={String(s!.total_device_registrations)} />
             <StatCard label="Mit Wallet-Pass" value={String(s!.customers_with_pass)} />

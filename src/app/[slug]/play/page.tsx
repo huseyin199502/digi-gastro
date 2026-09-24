@@ -55,7 +55,7 @@ export default async function PlayPage({ params }: Props) {
       return (
         <main className="flex min-h-dvh items-center justify-center px-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold">Vorübergehend nicht verfügbar</h1>
+            <h1 className="text-lg font-bold sm:text-xl lg:text-2xl">Vorübergehend nicht verfügbar</h1>
             <p className="mt-2 text-zinc-400">Dieses Restaurant ist derzeit pausiert.</p>
           </div>
         </main>

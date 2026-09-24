@@ -96,7 +96,7 @@ export default function NewsletterClient({
           </div>
         )}
 
-        <h1 className="text-2xl font-bold">{tenantName}</h1>
+        <h1 className="text-lg font-bold sm:text-xl lg:text-2xl">{tenantName}</h1>
         <p className="mt-1 text-zinc-400">Digitale Stempelkarte — jetzt sichern!</p>
 
         {card ? (

@@ -213,7 +213,8 @@ export default function ChatTab({
         {data && data.participants.length === 0 ? (
           <p className="text-sm text-zinc-500">Noch keine Chat-Aktivität.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="text-left text-xs uppercase text-zinc-500">
                 <tr>
@@ -264,6 +265,50 @@ export default function ChatTab({
               </tbody>
             </table>
           </div>
+          {/* Mobile Card-Liste (gleiche Daten/Aktionen wie die Tabelle oben) */}
+          <div className="grid gap-3 lg:hidden">
+            {data?.participants.map((p) => (
+              <div key={p.device_id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate font-semibold text-zinc-200">
+                    {p.nickname}
+                    {p.banned ? (
+                      <span className="ml-2 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400">
+                        gesperrt
+                      </span>
+                    ) : null}
+                  </p>
+                  <span className="shrink-0 font-mono text-xs text-zinc-500">
+                    {shortDevice(p.device_id)}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
+                  <span>{p.messages} Nachrichten</span>
+                  <span className="text-zinc-500">{fmtTime(p.last_at)}</span>
+                </div>
+                <div className="mt-3">
+                  {p.banned ? (
+                    <button
+                      className="w-full rounded-lg border border-emerald-700 bg-emerald-900/40 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:border-emerald-500 disabled:opacity-50 sm:w-auto"
+                      disabled={busy}
+                      onClick={() => void unbanDevice(p.device_id, p.nickname)}
+                    >
+                      Entsperren
+                    </button>
+                  ) : (
+                    <button
+                      className="w-full rounded-lg border border-red-800 bg-red-950 px-2.5 py-1 text-xs font-medium text-red-300 hover:border-red-500 disabled:opacity-50 sm:w-auto"
+                      disabled={busy}
+                      onClick={() => void banDevice(p.device_id, p.nickname)}
+                    >
+                      Sperren
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </section>
 
