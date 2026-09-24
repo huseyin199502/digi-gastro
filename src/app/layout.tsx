@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit, Inter } from "next/font/google";
 import "./globals.css";
+import CookieBanner from "@/components/CookieBanner";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -128,6 +129,7 @@ export default function RootLayout({
       <head />
       <body className="min-h-full flex flex-col overflow-x-clip bg-zinc-950 text-zinc-100 font-sans">
         {children}
+        <CookieBanner />
         <script
           dangerouslySetInnerHTML={{
             __html: `

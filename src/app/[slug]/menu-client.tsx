@@ -614,13 +614,17 @@ export function MenuClient({
   };
 
   // ── Cookie banner ──
+  // (Nur wenn der lokale Banner auch wirklich gerendert wird — der
+  // Read-only-QR-Gate-Return weiter unten enthält keinen, dort greift
+  // stattdessen der globale Banner aus dem Root-Layout.)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!isReadonly) window.__dgHasLocalCookieBanner = true;
     if (!window.localStorage.getItem("dg-cookie-accepted")) {
       const tId = setTimeout(() => setCookieBanner(true), 1200);
       return () => clearTimeout(tId);
     }
-  }, []);
+  }, [isReadonly]);
 
   function acceptCookies() {
     window.localStorage.setItem("dg-cookie-accepted", "1");
